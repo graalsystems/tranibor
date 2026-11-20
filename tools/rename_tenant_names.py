@@ -77,6 +77,18 @@ class Tenant:
             raise Failure(f"{method} {path}: {response.status_code} {response.text[:300]}")
         return response.json() if response.content else None
 
+    async def pages(self, path: str) -> list[Any]:
+        """Every row of a paged list (ADR 0206): the pages one after the other, by `next_cursor`."""
+        rows: list[Any] = []
+        params: dict[str, Any] = {"limit": 200}
+        while True:
+            page = await self.call("GET", path, params=params)
+            rows.extend(page["items"])
+            meta = page.get("meta") or {}
+            if not meta.get("has_more") or not meta.get("next_cursor"):
+                return rows
+            params = {"limit": 200, "cursor": meta["next_cursor"]}
+
     async def find(self, path: str) -> Any | None:
         response = await self.http.get(f"{API}{path}")
         if response.status_code == 404:
@@ -237,7 +249,7 @@ async def _plan_workflows(
     marker = mapping["french_marker_state"]
     for project in await _projects(tenant):
         slug = project["slug"]
-        for workflow in await tenant.call("GET", f"/projects/{project['id']}/workflows"):
+        for workflow in await tenant.pages(f"/projects/{project['id']}/workflows"):
             name = workflow["name"]
             current = await tenant.call("GET", f"/projects/{project['id']}/workflows/{name}")
             document = current.get("json") or yaml.safe_load(current["yaml"])
