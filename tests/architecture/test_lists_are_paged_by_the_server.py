@@ -25,6 +25,14 @@ BOUNDED: dict[str, str] = {
     "listProcedures": "the shipped procedures",
     "listTemplates": "the shipped project templates",
     "listWorkflowTemplates": "the shipped workflow templates",
+    "searchGlobalMemory": (
+        "the top-k of a search: `k` is at most 100 (`routers/memories.py:303`) "
+        "and the hits are cut to `k` (`routers/memories.py:310`)"
+    ),
+    "searchMemory": (
+        "the top-k of a search: `k` is at most 100 (`routers/memory.py:58`) "
+        "and the hits are cut to `k` (`routers/memory.py:70`)"
+    ),
 }
 
 #: The ceiling: array routes that read without a page. Lowered when one migrates, never raised.
@@ -50,11 +58,9 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listConnectors",
         "listGlobalPendingMemory",
         "listImplicitAgents",
-        "listKnowledgeBases",
         "listMachineAccounts",
         "listMemberLinkedAccounts",
         "listMembers",
-        "listMemories",
         "listMyTokens",
         "listMySessions",
         "listOrgActions",
@@ -65,13 +71,11 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listPendingMemory",
         "listPlatformModels",
         "listProjectAgents",
-        "listProjectMemories",
         "listProjectOperations",
         "listProjectOrgConnectors",
         "listProjectRequirements",
         "listRemoteCredentials",
         "listRuns",
-        "listSkills",
         "listTrackerIdentities",
         "listTriggers",
         "listUsableModels",
@@ -81,8 +85,6 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listWorkflowVersions",
         "listWorkflows",
         "resolveProjectAgents",
-        "searchGlobalMemory",
-        "searchMemory",
     }
 )
 
