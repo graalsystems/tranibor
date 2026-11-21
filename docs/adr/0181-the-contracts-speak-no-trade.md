@@ -592,3 +592,17 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   `scm.*`/`ci.*` inbound events and the `open_pr`/`merge_pr` effects (wire values in every history, like
   `via: release_train`), and the eval matrix's toy repositories, committed through the `scm` slot when one
   is installed (`activities/evals.SOURCE_CONTROL`), skipped saying so otherwise.
+- **S83-05k.** The DSL's train logic, decided part by part. **To the extension**: which train a merged
+  work item boards (`train_after_merge`, `takes_the_train`, `tranibor_software_delivery.train.dsl`), read
+  only by its inbound hook. **Generic, so it stays, renamed where its name said more than it does**:
+  `engine.after_carrier` (formerly `after_train`, kept as an alias): what follows a transition a carrier
+  took, the decision the interpreter replays in every carried history; what the interpreter hands a
+  carrier when it boards (`carriers.boarding_env`, `carriers.boarding_approval`, read from the
+  transition's `train:` section in deterministic workflow code, so a history replays without the
+  extension); and the **production lock**, which reads `via:` instead of the train's name: a production
+  state is reached only through a carrier, and the validator refuses one no installed extension serves.
+  The core no longer infers a `cd` from a train or a production state: a carrier declares what it needs
+  (`declare_carrier(..., needs=("cd",))`) and a production state needs what the carrier that reaches it
+  needs. `dsl/trains.py` is gone. **Left**: the guess of `scm` and `cd` from a role's name for an agent that
+  declares no `needs:` (a reader of workflows stored before C1, `ROLES_IN_A_REPOSITORY`), and the kinds'
+  display order (`requirements.ORDER`), which names them without needing them.

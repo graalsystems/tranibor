@@ -173,7 +173,7 @@ async def run_local(
             decision = engine.after_human(transition, approved, "simulated decision")
             trace.steps.append(Step(state, key, kind, decision.reason, decision.next_state))
         elif kind == "train":
-            decision = engine.after_train(transition, ok=deploy_ok)
+            decision = engine.after_carrier(transition, ok=deploy_ok)
             trace.steps.append(Step(state, key, kind, decision.reason, decision.next_state))
         else:
             outcomes = await _gates(project_id, work_item_id, transition, last_run)

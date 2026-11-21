@@ -483,7 +483,11 @@ def register_extension() -> None:
 ```
 
 Without it, a workflow naming `via: release_train` is refused at publication, naming the plugin
-(`transition.carrier_unavailable`). The DSL's `via` takes one value today: a new carrier is a contract
+(`transition.carrier_unavailable`). `needs=("cd",)` says what a project needs for a work item to take it:
+its workflows' requirements list it, for the carried transition and the production state it reaches.
+Production is locked to carriers: a production state is reached only `via:` one. What the interpreter does
+once the carrier reports is the core's `WorkflowEngine.after_carrier`, and what it hands the carrier when
+it boards is `carriers.boarding_env` and `boarding_approval`. The DSL's `via` takes one value today: a new carrier is a contract
 change. `plugins/software-delivery/tests/test_carrier.py` proves both sides.
 
 ## Extending the open lists
