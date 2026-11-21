@@ -264,6 +264,7 @@ async def test_a_case_whose_facts_hold_succeeds_with_the_ledger_s_tokens(eval_pr
     assert verdict["usage"] == {
         "tokens_in": 30_000,
         "tokens_cached": 10_000,
+        "tokens_cache_write": 0,
         "tokens_out": 2_000,
         "cost_usd": pytest.approx(verdict["usage"]["cost_usd"]),
         "turns": 7,

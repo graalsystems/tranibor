@@ -305,7 +305,11 @@ def _cell(payload: dict[str, Any], context: str, outcomes: list[dict[str, Any]])
         "median_cost_usd": round(statistics.median(costs), 4) if costs else None,
         "median_tokens_in": _median(metered, "tokens_in"),
         "median_tokens_cached": _median(metered, "tokens_cached"),
-        "median_tokens_cache_write": _median(metered, "tokens_cache_write"),
+        # A measure booked before S4-07 has no write counter: it counts as no write (ADR 0188).
+        "median_tokens_cache_write": _median(
+            [{**u, "tokens_cache_write": u.get("tokens_cache_write", 0)} for u in metered],
+            "tokens_cache_write",
+        ),
         "median_tokens_out": _median(metered, "tokens_out"),
         "median_turns": _median([u for u in metered if u["turns"] is not None], "turns"),
         # The round trips (S57-01): over the cases whose model calls the gateway counted.
