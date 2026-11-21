@@ -532,3 +532,7 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   the project failed. It now gets `default-request`, which the core runs by itself
   (`templates.workflow_without_template`); with the extension installed nothing changes. This was the
   first reason a file of the core's suite needed the plugin: the files that still do fell from 435 to 116.
+- **S83-05e.** `getRunDiff` and `getProjectDora` are the extension's routes. The train statistics on a
+  project's page are filled through a new seam, `extensions.declare_project_figure`: an extension fills
+  the fields of `Project` and `ProjectStats` that `openapi.yaml` marks `x-plugin` for it, and the core keeps
+  them at their default without it. The core serves no operation marked `x-plugin` any more.

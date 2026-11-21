@@ -14,7 +14,10 @@ platform's processes, registered through the core's seams when the API and the w
 - the release train, its workflow `ReleaseTrain` and its activities, on the orchestrator's workers through
   the worker seam (round D, `train/`), under the names every recorded history carries;
 - the train's routes (`listReleases`, `getRelease`, `getTrainStatus`, `departTrain`, `freezeTrain`,
-  `unfreezeTrain`, `approveRelease`, `abortRelease`), through `extensions.declare_router` (`train/api.py`).
+  `unfreezeTrain`, `approveRelease`, `abortRelease`), through `extensions.declare_router` (`train/api.py`);
+- a run's diff (`getRunDiff`) and a project's DORA metrics (`getProjectDora`), the same way (`api.py`);
+- the project figures `Project.has_release_train` and `ProjectStats.trains_pending`, through
+  `extensions.declare_project_figure` (`figures.py`).
 
 `register` is idempotent: the API loads the extensions twice (through the worker it imports, then in
 `create_app`).
@@ -64,13 +67,19 @@ def provide_worker_parts() -> WorkerParts:
 
 
 def declare_routes() -> None:
-    """The train's routes, served by the API after the core's (`create_app` includes the declared routers
-    when it starts). Idempotent: `declare_router` keeps one copy of a router."""
-    from tranibor_api.extensions import declare_router
+    """The plugin's routes, served by the API after the core's (`create_app` includes the declared routers
+    when it starts), and the project figures it fills. Idempotent: `declare_router` keeps one copy of a
+    router, `declare_project_figure` one function per field."""
+    from tranibor_api.extensions import declare_project_figure, declare_router
 
+    from . import figures
+    from .api import router as delivery_router
     from .train.api import router
 
     declare_router(router)
+    declare_router(delivery_router)
+    declare_project_figure("Project", "has_release_train", figures.has_release_train, plugin=NAME)
+    declare_project_figure("ProjectStats", "trains_pending", figures.trains_pending, plugin=NAME)
 
 
 def register() -> None:

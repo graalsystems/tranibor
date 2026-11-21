@@ -17,11 +17,10 @@ from ..db.models import (
     CostLedger,
     Organization,
     Project,
-    Release,
     Run,
-    WorkflowDef,
     WorkItem,
 )
+from ..extensions import project_figures
 from ..schemas import (
     ProjectDto,
     ProjectStats,
@@ -53,27 +52,12 @@ async def project_dto(session: AsyncSession, project: Project, org_slug: str | N
         config_revision=config_revision(project.name, project.config),
         workflow_name=workflow.name if workflow else None,
         policy_name=policy.name if policy else None,
-        has_release_train=await declares_a_release_train(session, project.id),
         stats=await project_stats(session, project),
+        # The fields a plugin fills (`x-plugin`, ADR 0181 round D): `has_release_train` is
+        # `software-delivery`'s; without its extension it keeps its default.
+        **await project_figures(session, project, "Project"),
         created_at=project.created_at,
         updated_at=project.updated_at,
-    )
-
-
-async def declares_a_release_train(session: AsyncSession, project_id: str) -> bool:
-    """Whether an active workflow of the project has a `via: release_train` transition: the engine
-    starts a train only for such a transition, so a project without one has no train (S30-07)."""
-    documents = (
-        await session.execute(
-            select(WorkflowDef.json_doc).where(
-                WorkflowDef.project_id == project_id, WorkflowDef.is_active.is_(True)
-            )
-        )
-    ).scalars()
-    return any(
-        transition.get("via") == "release_train"
-        for document in documents
-        for transition in (document or {}).get("transitions") or []
     )
 
 
@@ -93,21 +77,12 @@ async def project_stats(session: AsyncSession, project: Project) -> ProjectStats
             )
         )
     ).scalar_one()
-    trains = (
-        await session.execute(
-            select(func.count())
-            .select_from(Release)
-            .where(
-                Release.project_id == project.id,
-                Release.status.in_(["collecting", "departing", "staging", "awaiting_approval", "promoting"]),
-            )
-        )
-    ).scalar_one()
     return ProjectStats(
         active_work_items=int(active),
         cost_month_eur=round(float(cost), 4),
-        trains_pending=int(trains),
         first_pass_acceptance_rate=await first_pass_merge_rate(session, project.id),
+        # `trains_pending` is the `software-delivery` plugin's (ADR 0181 round D).
+        **await project_figures(session, project, "ProjectStats"),
     )
 
 

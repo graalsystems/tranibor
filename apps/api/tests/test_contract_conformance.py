@@ -13,9 +13,6 @@ PREFIX = "/api/v1"
 CONTRACT_ONLY: dict[str, str] = {}
 CONTRACT_ONLY_PATHS: set[str] = set()
 VERBS = {"get", "post", "put", "patch", "delete"}
-#: Operations marked `x-plugin` that the core still serves for its plugin: they leave with the rest of
-#: round D (ADR 0181), and an entry leaves here when its route moves to the plugin's extension.
-CORE_SERVES_FOR_A_PLUGIN = {"getRunDiff", "getProjectDora"}
 
 
 def _absent_plugins() -> set[str]:
@@ -44,12 +41,7 @@ def _plugin_absent_operations() -> tuple[set[str], set[str]]:
     paths: set[str] = set()
     for path, operations in contracts.load_openapi()["paths"].items():
         verbs = [op for verb, op in operations.items() if verb in VERBS]
-        theirs = [
-            op
-            for op in verbs
-            if (op.get("x-plugin") or operations.get("x-plugin")) in absent
-            and op["operationId"] not in CORE_SERVES_FOR_A_PLUGIN
-        ]
+        theirs = [op for op in verbs if (op.get("x-plugin") or operations.get("x-plugin")) in absent]
         ids |= {op["operationId"] for op in theirs}
         if verbs and len(theirs) == len(verbs):
             paths.add(path)
