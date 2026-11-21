@@ -434,6 +434,8 @@ export type ProjectCreate = {
   slug: string;
   name: string;
   template_ref?: string | null;
+  /** The workflow tickets go to when no routing rule picks one; it must be published and active in the new project once its template is in (422 with the routing endpoint's message otherwise); absent, the template's default */
+  default_workflow?: string | null;
   config: S.Project;
   inputs?: {
     [key: string]: unknown;

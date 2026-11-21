@@ -165,7 +165,7 @@ probe() {
   local name="probe-$1-$2" image phase
   image=$(k get deploy choregos-api -o jsonpath='{.spec.template.spec.containers[0].image}')
   k run "$name" --restart=Never --image="$image" --image-pull-policy=IfNotPresent \
-    --labels=app.kubernetes.io/name=choregos-runner,app.kubernetes.io/component=runner,choregos/run-id=proof \
+    --labels=app.kubernetes.io/name=choregos-runner,app.kubernetes.io/component=runner,choregos/sandbox=true,choregos/run-id=proof \
     --command -- python -c "$PROBE" "$1" "$2" >/dev/null
   for _ in $(seq 60); do
     phase=$(k get pod "$name" -o jsonpath='{.status.phase}')

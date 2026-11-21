@@ -14,6 +14,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: false,
+  // Next 16.4 makes `next dev` write (and keep current) a managed block in `AGENTS.md` when it sees
+  // a coding agent, which dirties a tracked file. Off: `AGENTS.md` is ours, and Next removes the
+  // block if it finds one (`tests/web/test_agents_md_is_ours.py`).
+  agentRules: false,
   experimental: {
     optimizePackageImports: ["@tanstack/react-query"],
     // Turbopack merged every module under 200 kB into the chunk of each route that used it: the

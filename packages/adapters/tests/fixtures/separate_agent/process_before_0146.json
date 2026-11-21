@@ -154,7 +154,8 @@
      "labels": {
       "app.kubernetes.io/component": "runner",
       "app.kubernetes.io/name": "choregos-runner",
-      "choregos/run-id": "r-1"
+      "choregos/run-id": "r-1",
+      "choregos/sandbox": "true"
      }
     },
     "spec": {
@@ -340,7 +341,8 @@
      "labels": {
       "app.kubernetes.io/component": "runner",
       "app.kubernetes.io/name": "choregos-runner",
-      "choregos/run-id": "r-1"
+      "choregos/run-id": "r-1",
+      "choregos/sandbox": "true"
      }
     },
     "spec": {
@@ -597,7 +599,8 @@
      "labels": {
       "app.kubernetes.io/component": "runner",
       "app.kubernetes.io/name": "choregos-runner",
-      "choregos/run-id": "r-1"
+      "choregos/run-id": "r-1",
+      "choregos/sandbox": "true"
      }
     },
     "spec": {
@@ -842,7 +845,8 @@
      "labels": {
       "app.kubernetes.io/component": "runner",
       "app.kubernetes.io/name": "choregos-runner",
-      "choregos/run-id": "r-1"
+      "choregos/run-id": "r-1",
+      "choregos/sandbox": "true"
      }
     },
     "spec": {
