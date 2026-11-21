@@ -20,6 +20,24 @@ A ticket enters, a simulated agent frames it, a human approves, the agent implem
 verify, the PR opens, the train deploys. The output shows the comment written to the ticket,
 costs per stage and the finding turned into a linked ticket.
 
+### The API alone, where a decision advances the item (ADR 0212)
+
+`make demo` is a script: it serves no HTTP. To show the console or the API with a work item that moves
+when a person decides, with no worker, no Temporal server and no database server, opt in to the inline
+worker:
+
+```bash
+TRANIBOR_FAKES=1 TRANIBOR_DEMO_INLINE_WORKER=1 uv run uvicorn tranibor_api.main:app --port 8000
+```
+
+The API then starts Temporal's in-memory test server and the orchestrator's workers in its own process.
+A work item created through the API runs its workflow with the simulated agent up to its human gate;
+`POST /api/v1/work-items/{id}/decisions` (or the console's button) moves it on. Limits, all deliberate:
+nothing survives a restart; timers and SLAs run in real time; the agent always answers "done" with
+placeholders; the first start downloads Temporal's test server (cached afterwards). The mode is refused
+unless `TRANIBOR_FAKES` is on and `TRANIBOR_ENV` is `dev` (the default) or `test`, and it is never on
+unless asked. For a scripted story (a finding, a refused gate) use `make demo`.
+
 ## Local services
 
 For front-end and API work, without Docker:
