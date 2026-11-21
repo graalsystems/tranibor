@@ -29,11 +29,13 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import structlog
+from tranibor_adapters.azure_devops import SHA, ZERO_SHA, segment
+from tranibor_adapters.azure_devops_events import parse_azure_devops_event
+from tranibor_adapters.errors import ConfigurationError, HeadMovedError, UpstreamError
+from tranibor_adapters.http import RestClient
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState, ReviewState
 
-from ..azure_devops import SHA, ZERO_SHA, segment
-from ..azure_devops_events import parse_azure_devops_event
 from ..builds import (
     Conclusion,
     build_name_of,
@@ -42,8 +44,6 @@ from ..builds import (
     source_commit_of,
     web_url_of,
 )
-from ..errors import ConfigurationError, HeadMovedError, UpstreamError
-from ..http import RestClient
 
 log = structlog.get_logger(__name__)
 

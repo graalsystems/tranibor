@@ -292,7 +292,7 @@ async def walked(
     every later run starts from a branch that already holds it."""
     from temporalio import activity
     from tranibor_api.temporal import interpreter_id
-    from tranibor_orchestrator.activities.scm import open_pull_request
+    from tranibor_software_delivery.source_control import open_pull_request
 
     scm = setup.adapters.scm
     walk = Walk(handle=None)

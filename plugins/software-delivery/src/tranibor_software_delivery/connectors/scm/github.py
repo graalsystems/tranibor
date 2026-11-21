@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
-"""ScmAdapter GitHub : branches, PR, checks, reviews, merge queue, check-runs Tranibor."""
+"""The GitHub source control: branches, pull requests, checks, reviews, the merge queue, Tranibor's
+check-runs. It builds on the core's `GitHubChanges` (branch, commit, pull request), which netops uses too."""
 
 from __future__ import annotations
 
-import base64
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
+from tranibor_adapters.errors import HeadMovedError, UpstreamError
+from tranibor_adapters.github.auth import RUNNER_PERMISSIONS
+from tranibor_adapters.github.changes import GitHubChanges
+from tranibor_adapters.github.client import GitHubClient
+from tranibor_adapters.tracker.github_events import parse_github_event
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState, ReviewState
-
-from ..errors import HeadMovedError, UpstreamError
-from ..github.auth import RUNNER_PERMISSIONS
-from ..github.client import GitHubClient
-from ..tracker.github_events import parse_github_event
 
 MARK_READY = """
 mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId } }
@@ -35,8 +35,8 @@ mutation($pullRequestId: ID!, $method: PullRequestMergeMethod!, $expectedHeadOid
 AUTO_MERGE_REFUSED = ("Auto merge is not allowed", "clean status")
 
 
-class GitHubScm:
-    """SCM GitHub via l'App `choregos-bot`."""
+class GitHubScm(GitHubChanges):
+    """The GitHub source control, through the App `choregos-bot`."""
 
     #: A merge names its commit: `expectedHeadOid` on the merge queue, `sha` on a direct merge.
     capabilities: frozenset[str] = frozenset({"merge_at_commit"})
@@ -49,8 +49,7 @@ class GitHubScm:
         merge_method: str = "SQUASH",
         use_merge_queue: bool = True,
     ) -> None:
-        self.client = client
-        self.default_repo = default_repo
+        super().__init__(client, default_repo=default_repo)
         self.merge_method = merge_method
         self.use_merge_queue = use_merge_queue
 
@@ -65,21 +64,6 @@ class GitHubScm:
             self.client._client, repo, permissions=permissions or RUNNER_PERMISSIONS, ttl_s=ttl_s
         )
         return token.token
-
-    async def ensure_branch(self, repo: str, name: str, base: str) -> None:
-        try:
-            await self.client.request("GET", f"/repos/{repo}/git/ref/heads/{name}", repo=repo)
-            return
-        except UpstreamError as exc:
-            if exc.status_code != 404:
-                raise
-        base_ref = await self.client.request("GET", f"/repos/{repo}/git/ref/heads/{base}", repo=repo)
-        await self.client.request(
-            "POST",
-            f"/repos/{repo}/git/refs",
-            repo=repo,
-            json={"ref": f"refs/heads/{name}", "sha": base_ref["object"]["sha"]},
-        )
 
     async def branch_exists(self, repo: str, name: str) -> bool:
         """True when `name` is a branch of `repo`. Only a 404 means absent: any other error (403,
@@ -105,56 +89,6 @@ class GitHubScm:
         if not sha:
             raise UpstreamError("github", f"the ref of `{branch}` names no commit")
         return str(sha)
-
-    async def commit_files(self, repo: str, branch: str, files: dict[str, str], message: str) -> str:
-        """Writes files on a branch through the Contents API, one commit per modified file.
-
-        For the PLATFORM to open a PR with changes (effect `gitops.pull_request`): the token stays
-        here, the agent never holds it. Idempotent: a file already identical on the branch is not
-        rewritten, so a replay creates no commit. Returns the SHA of the last commit written (empty
-        if nothing changed).
-        """
-        last = ""
-        for path, content in sorted(files.items()):
-            url = f"/repos/{repo}/contents/{quote(path)}"
-            current_sha = None
-            try:
-                current = await self.client.request("GET", url, repo=repo, params={"ref": branch})
-            except UpstreamError as exc:
-                if exc.status_code != 404:
-                    raise
-            else:
-                current_sha = current.get("sha")
-                if current.get("encoding") == "base64" and base64.b64decode(current.get("content", "")) == (
-                    content.encode()
-                ):
-                    continue
-            payload: dict[str, Any] = {
-                "message": message,
-                "content": base64.b64encode(content.encode()).decode(),
-                "branch": branch,
-            }
-            if current_sha:
-                payload["sha"] = current_sha
-            written = await self.client.request("PUT", url, repo=repo, json=payload)
-            last = str((written.get("commit") or {}).get("sha") or last)
-        return last
-
-    async def open_pr(self, repo: str, head: str, base: str, title: str, body: str, draft: bool) -> PrRef:
-        owner = repo.split("/", 1)[0]
-        existing = await self.client.request(
-            "GET", f"/repos/{repo}/pulls", repo=repo, params={"head": f"{owner}:{head}", "state": "open"}
-        )
-        if existing:
-            pr = existing[0]
-        else:
-            pr = await self.client.request(
-                "POST",
-                f"/repos/{repo}/pulls",
-                repo=repo,
-                json={"title": title, "head": head, "base": base, "body": body, "draft": draft},
-            )
-        return PrRef(repo=repo, number=int(pr["number"]), url=pr.get("html_url"), head=head, base=base)
 
     async def update_pr(self, ref: PrRef, body: str | None, draft: bool | None) -> None:
         payload: dict[str, Any] = {}

@@ -22,7 +22,6 @@ from .base import (
     GatewayAdapter,
     MemoryAdapter,
     Notifier,
-    ScmAdapter,
     TrackerAdapter,
 )
 from .builtins import (  # noqa: F401 - names the root has always exposed
@@ -75,7 +74,6 @@ __all__ = [
     "MemoryAdapter",
     "Notifier",
     "OperationSpec",
-    "ScmAdapter",
     "TrackerAdapter",
     "account_of",
     "available",

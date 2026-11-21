@@ -14,9 +14,7 @@ from typing import Any
 from tranibor_contracts.outpost import ENDPOINT_ALIAS_PATTERN, OUTPOST_SLUG_PATTERN
 
 from .azure_devops import azure_boards_egress as _azure_boards_egress
-from .azure_devops import azure_egress as _azure_egress
 from .azure_devops import check_azure_boards as _check_azure_boards
-from .azure_devops import check_azure_repos as _check_azure_repos
 from .errors import AdapterError, ConfigurationError
 from .families import FAMILIES as _FAMILIES
 from .forge_accounts import DEFAULT_BASE_URL as _FORGE_DEFAULTS
@@ -521,76 +519,6 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
             ("project",),
         ),
         ("token", "webhook_secret"),
-    ),
-    ("scm", "github"): ConnectorTypeSpec(
-        "GitHub (App choregos-bot)",
-        ("scm",),
-        _object_schema(
-            {
-                "repo": {
-                    "type": "string",
-                    "format": "github-repo",
-                    "description": "owner/repo, picked among the repositories the App can see",
-                },
-                "merge_queue": {"type": "boolean", "default": True},
-                "merge_method": {
-                    "type": "string",
-                    "enum": ["MERGE", "SQUASH", "REBASE"],
-                    "default": "SQUASH",
-                },
-            },
-            ("repo",),
-        ),
-        github_repository="repo",
-    ),
-    ("scm", "gitlab"): ConnectorTypeSpec(
-        "GitLab",
-        ("scm",),
-        _object_schema(
-            {
-                "base_url": {
-                    "type": "string",
-                    "default": "https://gitlab.com",
-                    "description": "self-managed: its URL, with the path prefix if any "
-                    "(https://tools.example.org/gitlab); GitLab 15.0 or later",
-                },
-                "ca_bundle": {
-                    "type": "string",
-                    "description": "self-managed only: the PEM file of the internal CA that signed the "
-                    "instance's certificate (verification is never switched off)",
-                },
-                "project": _TEXT,
-                "default_branch": {"type": "string", "default": "main"},
-            },
-            ("project",),
-        ),
-        ("token",),
-    ),
-    ("scm", "azure-repos"): ConnectorTypeSpec(
-        "Azure DevOps Repos",
-        ("scm",),
-        _object_schema(
-            {
-                **_AZURE_CONNECTION,
-                "repository": {
-                    "type": "string",
-                    "description": "the Azure Repos Git repository (name or id)",
-                },
-                "default_branch": {"type": "string", "default": "main"},
-                "merge_strategy": {
-                    "type": "string",
-                    "enum": ["squash", "noFastForward", "rebase", "rebaseMerge"],
-                    "default": "squash",
-                    "description": "how a pull request is completed; auto-complete is never set and no "
-                    "branch policy is bypassed",
-                },
-                "delete_source_branch": {"type": "boolean", "default": False},
-            },
-            ("base_url", "project", "repository"),
-        ),
-        ("pat", "client_secret", "run_token"),
-        egress=_azure_egress,
-        check_config=_check_azure_repos,
     ),
     ("runtime", "tekton"): ConnectorTypeSpec(
         "Tekton PipelineRun",

@@ -3,12 +3,21 @@
 
 from __future__ import annotations
 
+import importlib.util
 from typing import Any
 
 import pytest
 from tranibor_contracts import artifact_digest
 
 from .conftest import Fixture, stage_result
+
+#: The tests that need the `software-delivery` plugin's source control: a reference ticket's toy repository
+#: is committed through it, and a run's diff read from it (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control is the software-delivery plugin's",
+)
+
 
 HUNK = "@@ -1 +1 @@\n-old\n+new"
 
@@ -30,7 +39,7 @@ async def _diff_rows(item_id: str) -> list[Any]:
 async def _collect(setup: Fixture, run_id: str, files: list[tuple[Any, ...]]) -> dict[str, Any]:
     from tranibor_api.db.models import Run
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.activities.scm import collect_run_artifacts
+    from tranibor_software_delivery.source_control import collect_run_artifacts
 
     setup.adapters.scm.set_diff("northwind/billing-api", "main", "choregos/123", files)
     async with session_scope() as session:
@@ -49,6 +58,7 @@ async def _collect(setup: Fixture, run_id: str, files: list[tuple[Any, ...]]) ->
     )
 
 
+@needs_the_plugin
 async def test_the_patch_becomes_an_artifact_of_the_run_that_left_it(setup: Fixture) -> None:
     await _collect(setup, "run-1", [("a.py", 1, 1, HUNK)])
     [row] = await _diff_rows(setup.work_item_id)
@@ -65,6 +75,7 @@ async def test_the_patch_becomes_an_artifact_of_the_run_that_left_it(setup: Fixt
     }
 
 
+@needs_the_plugin
 async def test_the_patch_stays_out_of_the_run_result(setup: Fixture) -> None:
     from tranibor_api.db.models import Run
     from tranibor_api.db.session import session_scope
@@ -76,6 +87,7 @@ async def test_the_patch_stays_out_of_the_run_result(setup: Fixture) -> None:
         assert "-old" not in run.result["artifacts"]["reports"]["diff_files"]
 
 
+@needs_the_plugin
 async def test_a_branch_that_did_not_change_makes_no_new_revision(setup: Fixture) -> None:
     await _collect(setup, "run-1", [("a.py", 1, 1, HUNK)])
     await _collect(setup, "run-2", [("a.py", 1, 1, HUNK)])
@@ -84,11 +96,13 @@ async def test_a_branch_that_did_not_change_makes_no_new_revision(setup: Fixture
     assert [row.run_id for row in await _diff_rows(setup.work_item_id)] == ["run-1", "run-3"]
 
 
+@needs_the_plugin
 async def test_a_step_that_changed_nothing_records_nothing(setup: Fixture) -> None:
     assert await _collect(setup, "run-1", []) == {"files": 0}
     assert await _diff_rows(setup.work_item_id) == []
 
 
+@needs_the_plugin
 async def test_a_secret_in_the_patch_never_reaches_the_row(setup: Fixture) -> None:
     key = "AKIA" + "ABCDEFGHIJKLMNOP"
     await _collect(setup, "run-1", [("a.py", 1, 0, f"@@ -0,0 +1 @@\n+{key}")])
@@ -98,6 +112,7 @@ async def test_a_secret_in_the_patch_never_reaches_the_row(setup: Fixture) -> No
     assert "a.py" in row.content
 
 
+@needs_the_plugin
 async def test_a_failure_to_record_does_not_cost_the_activity(
     setup: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:

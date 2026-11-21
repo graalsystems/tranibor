@@ -232,7 +232,7 @@ async def test_the_checks_of_another_head_say_nothing_of_the_judged_commit(
 
 async def test_the_merge_names_the_judged_commit(setup: Fixture) -> None:
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import enqueue_merge
+    from tranibor_software_delivery.source_control import enqueue_merge
 
     scm = setup.adapters.scm
     ref = await _open_pull_request(setup)
@@ -251,7 +251,7 @@ async def test_a_commit_that_lands_after_the_gates_is_not_merged(setup: Fixture)
     """The gap this story closes: an extra commit after the verdict. The merge names the judged
     commit, the forge refuses it, and the refusal is typed and final — until the gates judge again."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import HEAD_MOVED, enqueue_merge
+    from tranibor_software_delivery.source_control import HEAD_MOVED, enqueue_merge
 
     scm = setup.adapters.scm
     await _open_pull_request(setup)
@@ -276,7 +276,7 @@ async def test_a_commit_that_lands_after_the_gates_is_not_merged(setup: Fixture)
 
 async def test_a_moved_head_that_is_judged_again_is_merged_at_the_new_commit(setup: Fixture) -> None:
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import enqueue_merge
+    from tranibor_software_delivery.source_control import enqueue_merge
 
     scm = setup.adapters.scm
     ref = await _open_pull_request(setup)
@@ -294,7 +294,7 @@ async def test_a_moved_head_that_is_judged_again_is_merged_at_the_new_commit(set
 async def test_merging_twice_is_not_a_second_merge(setup: Fixture) -> None:
     """ADR 0008: the activity replayed after its merge went through asks for nothing more."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import enqueue_merge
+    from tranibor_software_delivery.source_control import enqueue_merge
 
     scm = setup.adapters.scm
     await _open_pull_request(setup)
@@ -309,7 +309,7 @@ async def test_a_connector_that_cannot_name_a_commit_is_not_asked_to_merge(
 ) -> None:
     """ADR 0101: a merge the platform cannot hold to the judged commit is refused, not made blind."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import MERGE_UNPINNED, enqueue_merge
+    from tranibor_software_delivery.source_control import MERGE_UNPINNED, enqueue_merge
 
     scm = setup.adapters.scm
     await _open_pull_request(setup)
@@ -332,7 +332,7 @@ async def test_a_merge_transition_without_gates_names_the_head_it_reads(setup: F
     """No gate ruled in the state the work item merges from: a verdict given in an earlier state is
     not this merge's. The head is read once, by the merge, and named all the same."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_orchestrator.activities.scm import HEAD_MOVED, enqueue_merge
+    from tranibor_software_delivery.source_control import HEAD_MOVED, enqueue_merge
 
     scm = setup.adapters.scm
     await evaluate_gates(_ids(setup, gates=DIFF_GATES))  # judged in `inbox`, an earlier state
@@ -365,7 +365,7 @@ async def test_an_extra_commit_after_the_gates_stops_the_work_item_and_nothing_i
     started again, its gates judge the new head and the merge names that one."""
     from temporalio import activity
     from temporalio.client import WorkflowFailureError
-    from tranibor_orchestrator.activities.scm import enqueue_merge
+    from tranibor_software_delivery.source_control import enqueue_merge
 
     scm = setup.adapters.scm
     landed: list[str] = []

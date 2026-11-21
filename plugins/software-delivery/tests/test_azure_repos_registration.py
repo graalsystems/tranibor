@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from tranibor_adapters import account_of, connector_types, resolved_configuration
 from tranibor_adapters.azure_devops import AzureDevOpsClient, azure_egress, shared_secret_of
-from tranibor_adapters.builtins import _azure_repos_scm
 from tranibor_adapters.errors import ConfigurationError
-from tranibor_adapters.scm.azure_repos import AzureReposScm
+from tranibor_software_delivery.connectors import _azure_repos_scm
+from tranibor_software_delivery.connectors.scm.azure_repos import AzureReposScm
 
 
 @pytest.fixture(autouse=True)

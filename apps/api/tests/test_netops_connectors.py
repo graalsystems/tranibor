@@ -233,12 +233,12 @@ MANIFEST = (
 async def test_a_cilium_policy_change_is_a_pull_request_that_rides_the_work_item_s_train(
     client: AsyncClient, project: dict[str, Any], estate: dict[str, Any]
 ) -> None:
-    from tranibor_adapters.fakes import FakeScm
+    from tranibor_adapters.fakes.gitops import FakeGitOps
     from tranibor_adapters.tracker.github_events import parse_github_event
     from tranibor_api.effects import EffectRefused
 
-    scm = FakeScm()
-    estate["scm"] = scm
+    scm = FakeGitOps()
+    estate["gitops"] = scm
     await _declare(client)
     configured = await client.post(
         f"{ORG}/connectors",
@@ -280,10 +280,10 @@ async def test_a_cilium_policy_change_is_a_pull_request_that_rides_the_work_item
 async def test_a_proposal_that_is_not_one_cilium_policy_or_leaves_its_root_is_refused(
     client: AsyncClient, project: dict[str, Any], estate: dict[str, Any]
 ) -> None:
-    from tranibor_adapters.fakes import FakeScm
+    from tranibor_adapters.fakes.gitops import FakeGitOps
     from tranibor_api.effects import EffectRefused
 
-    estate["scm"] = FakeScm()
+    estate["gitops"] = FakeGitOps()
     await _declare(client)
     base, headers = await _run(client, project)
     deployment = "apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: api}\n"
@@ -300,16 +300,16 @@ async def test_a_proposal_that_is_not_one_cilium_policy_or_leaves_its_root_is_re
         await _approve(action_id)
         with pytest.raises(EffectRefused, match=refusal):
             await _call_as_effect(action_id)
-    assert estate["scm"].prs == {}
+    assert estate["gitops"].prs == {}
 
 
 async def test_an_nginx_change_is_a_pull_request_too(
     client: AsyncClient, project: dict[str, Any], estate: dict[str, Any]
 ) -> None:
-    from tranibor_adapters.fakes import FakeScm
+    from tranibor_adapters.fakes.gitops import FakeGitOps
 
-    scm = FakeScm()
-    estate["scm"] = scm
+    scm = FakeGitOps()
+    estate["gitops"] = scm
     await _declare(client)
     base, headers = await _run(client, project)
     proposed = await client.post(

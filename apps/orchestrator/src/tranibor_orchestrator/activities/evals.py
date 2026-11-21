@@ -119,6 +119,9 @@ LIVE_TOOLS: dict[str, dict[str, int] | None] = {"mcp": None, "scripts": {"max_co
 #: The journal's events of the tool scripts (S57-07, S57-08).
 CLIENT_EVENT, SCRIPT_EVENT, SCRIPT_CALL_EVENT = "tools.client", "tools.script", "tools.script.call"
 EVAL_BRANCH_PREFIX = "choregos-evals"
+#: The adapter slot a reference ticket's toy repository is committed through: the `software-delivery`
+#: plugin's source control (ADR 0181, round D). A deployment without it skips those cases, saying so.
+SOURCE_CONTROL = "scm"
 _NOT_TOY = {"__pycache__", ".pytest_cache", "node_modules", ".venv"}
 
 
@@ -738,10 +741,15 @@ async def seed_eval_ticket(payload: dict[str, Any]) -> dict[str, Any]:
         digest = sha256(repr(sorted(files.items())).encode()).hexdigest()[:10]
         branch = f"{EVAL_BRANCH_PREFIX}/{spec['repo']}-{digest}"
         repo = _repo_slug(depot.url)
-        await bundle.adapters.scm.ensure_branch(repo, branch, depot.default_branch)
-        await bundle.adapters.scm.commit_files(
-            repo, branch, files, f"chore(evals): toy repository {spec['repo']}"
-        )
+        # The project's source control is an extension's slot (the `software-delivery` plugin's, ADR 0181
+        # round D): a deployment without it has nothing to commit a toy repository to.
+        forge = bundle.adapters.extra.get(SOURCE_CONTROL)
+        if forge is None:
+            return _skip(
+                f"the eval project {bundle.slug} has no source control: no installed extension serves one"
+            )
+        await forge.ensure_branch(repo, branch, depot.default_branch)
+        await forge.commit_files(repo, branch, files, f"chore(evals): toy repository {spec['repo']}")
 
         cell = (
             "|".join(str(payload.get(k, "")) for k in ("matrix_id", "backend", "model"))

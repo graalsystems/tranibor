@@ -29,7 +29,6 @@ from tranibor_api.services.readiness import (
     item_object_store,
     item_people,
     item_provisioned,
-    item_repository,
     item_runtime_class,
     item_stale_tests,
     item_tools,
@@ -191,63 +190,6 @@ def test_a_github_owner_without_a_claimed_installation_is_to_do() -> None:
 
 
 # ── repository, backend, models, budgets ──
-
-
-def test_no_test_command_is_to_check() -> None:
-    required = (("scm", ("an agent works in a repository",)),)
-    bare = ProjectConfig.model_validate(
-        {"slug": "dev", "org": "northwind", "repo": {"url": "https://github.com/a/b"}}
-    )
-    measured = ProjectConfig.model_validate(
-        {
-            "slug": "dev",
-            "org": "northwind",
-            "repo": {"url": "https://github.com/a/b", "test_command": "pytest -q"},
-        }
-    )
-    assert states(item_repository(facts(requirements=required, config=bare))) == {
-        "repository": "done",
-        "repository-checks": "check",
-    }
-    assert (
-        states(item_repository(facts(requirements=required, config=measured)))["repository-checks"] == "done"
-    )
-    assert states(item_repository(facts(requirements=required)))["repository"] == "todo", "no URL"
-    assert item_repository(facts()) == [], "no scm required: nothing to say about a repository"
-
-
-def test_without_a_repository_the_workflow_that_asks_for_one_is_named_and_can_be_changed() -> None:
-    required = (
-        ("scm", ("default-simple: the agent dev (implement) works in a repository",)),
-        ("cd", ("default-simple: the state deployed_prod is production",)),
-    )
-    (repository,) = item_repository(facts(requirements=required))
-    assert repository.state == "todo" and "default-simple: the agent dev" in repository.detail
-    assert "a workflow that does not deliver code" in repository.detail
-    scm, cd = item_connectors(facts(requirements=required))
-    assert scm.state == cd.state == "todo"
-    gesture = "/p/dev/workflows/new?template=default-request&default=1"
-    assert scm.fix.href == cd.fix.href == repository.fix.href == gesture, "the way out is another workflow"
-    published = facts(requirements=required, workflows=("default-simple", "default-request"))
-    assert item_repository(published)[0].fix.href == "/p/dev/workflows", "published: make it the default"
-    with_repo = ProjectConfig.model_validate(
-        {"slug": "dev", "org": "northwind", "repo": {"url": "https://github.com/northwind/dev.git"}}
-    )
-    (scm,) = item_connectors(facts(requirements=required[:1], config=with_repo))
-    assert scm.fix.href == "/p/dev/settings#connections", "a project with a repository connects it"
-
-
-def test_the_dod_facts_count_as_measured_checks() -> None:
-    config = ProjectConfig.model_validate(
-        {
-            "slug": "dev",
-            "org": "northwind",
-            "repo": {"url": "https://github.com/a/b"},
-            "dod": {"facts": {"ok": "true"}},
-        }
-    )
-    got = states(item_repository(facts(requirements=(("scm", ("x",)),), config=config)))
-    assert got["repository-checks"] == "done"
 
 
 def test_a_backend_the_deployment_does_not_enable_is_to_do() -> None:

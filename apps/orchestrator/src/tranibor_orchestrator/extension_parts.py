@@ -108,10 +108,16 @@ def all_workflows() -> list[Any]:
 
 def all_activities() -> list[Any]:
     """The core's activities (those of `activities` and those the workflows call directly), then the
-    extensions'."""
+    extensions', then the core's stand-ins for the names no extension provides
+    (`activities.stand_ins`)."""
+    from .activities.stand_ins import STAND_INS
+
     _, activities = _core()
+    provided: set[str] = set()
     for _, parts in extension_parts():
         activities.extend(parts.activities)
+        provided.update(name for name in map(activity_name, parts.activities) if name is not None)
+    activities.extend(stand_in for stand_in in STAND_INS if activity_name(stand_in) not in provided)
     return activities
 
 

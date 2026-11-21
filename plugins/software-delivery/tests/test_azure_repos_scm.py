@@ -10,9 +10,13 @@ import httpx
 import pytest
 from tranibor_adapters.azure_devops import azure_client
 from tranibor_adapters.errors import ConfigurationError, HeadMovedError, UpstreamError
-from tranibor_adapters.fakes.azure_devops import BUILD_POLICY, REVIEWERS_POLICY, FakeAzureDevOpsServer
-from tranibor_adapters.scm.azure_repos import AzureReposScm
 from tranibor_core.domain import PrRef
+from tranibor_software_delivery.connectors.fakes.azure_devops import (
+    BUILD_POLICY,
+    REVIEWERS_POLICY,
+    FakeAzureDevOpsServer,
+)
+from tranibor_software_delivery.connectors.scm.azure_repos import AzureReposScm
 
 BASE = "https://dev.azure.com/northwind"
 

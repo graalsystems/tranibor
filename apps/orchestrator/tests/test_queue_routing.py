@@ -99,15 +99,11 @@ def test_the_table_only_names_activities_that_exist() -> None:
     runs on the workflow queue, everything works, until the day a network policy counts on the
     declared queue.
     """
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities
     from tranibor_orchestrator.queues import QUEUE_BY_ACTIVITY, activity_name
-    from tranibor_orchestrator.workflows import WORKFLOW_ACTIVITIES
 
-    known = {
-        name
-        for activity in [*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES]
-        if (name := activity_name(activity)) is not None
-    }
+    # The core's, the core's stand-ins and those an installed extension placed (the worker seam).
+    known = {name for activity in all_activities() if (name := activity_name(activity)) is not None}
     ghosts = sorted(set(QUEUE_BY_ACTIVITY) - known)
     assert not ghosts, f"the table routes activities that no longer exist: {ghosts}"
 

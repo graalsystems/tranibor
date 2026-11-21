@@ -23,7 +23,12 @@ from typing import Any
 
 from tranibor_adapters.azure_devops import SHA, segment
 from tranibor_adapters.azure_devops_events import parse_azure_devops_event
-from tranibor_adapters.builds import (
+from tranibor_adapters.errors import ConfigurationError, UpstreamError
+from tranibor_adapters.http import RestClient
+from tranibor_contracts import InboundEvent
+from tranibor_core.domain import CheckRun, CiStatus
+
+from ..builds import (
     Conclusion,
     build_name_of,
     check_of,
@@ -32,10 +37,6 @@ from tranibor_adapters.builds import (
     state_of,
     web_url_of,
 )
-from tranibor_adapters.errors import ConfigurationError, UpstreamError
-from tranibor_adapters.http import RestClient
-from tranibor_contracts import InboundEvent
-from tranibor_core.domain import CheckRun, CiStatus
 
 _BUILDS_READ = 100
 _MAX_LOG_FILES = 100

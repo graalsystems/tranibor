@@ -452,6 +452,21 @@ runs cannot be taken over; a step no installed extension runs is skipped, saying
 `tranibor_adapters.fakes.hr.declare_demo_desk`. `plugins/software-delivery/tests/test_connectors.py` and
 `apps/orchestrator/tests/test_worker_seam.py` prove them.
 
+A slot also says what the console calls it (`title`, `family`) and whether it is the project's
+**workspace** (`workspace=True`: where a step reads and writes files, the `software-delivery` plugin's `scm`;
+a workflow that needs it needs a repository) or only makes sense for a project with one
+(`needs_workspace=True`: its `ci` and `cd`). An activity the interpreter calls by name after every step and
+that an extension owns has a core **stand-in** under the same name, registered only where no extension
+provides it (`tranibor_orchestrator.activities.stand_ins`: `collect_run_artifacts` files no diff where no
+source control is installed).
+
+Two seams of the API complete it. `extensions.declare_readiness_item(name, function, plugin=)` adds an
+item to a project's readiness, `function(facts) -> list[ReadinessItem]`, evaluated after the connectors'
+items (the `software-delivery` plugin's repository and test command). `extensions.declare_inbound_hook(
+event_type, hook, plugin=)` runs `hook(session, project, item, event)` once a webhook delivered an event of
+that type to its work item, and records the outcome it returns (the plugin boards a merged work item on
+its train: `boarded`). `apps/api/tests/test_readiness_and_inbound_seams.py` proves both.
+
 ## Carrying a transition from an extension
 
 `via: release_train` hands a work item to a durable workflow that is not the interpreter: the

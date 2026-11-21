@@ -124,12 +124,15 @@ async def setup(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator
 
     # the fake tracker knows the same work item, so the state mirror works
     adapters.tracker.items[fixture.tracker_key] = _fake_item(fixture.tracker_key, item.title)
-    adapters.scm.set_diff(
-        "northwind/billing-api",
-        "main",
-        "choregos/123",
-        [("src/orders/total.py", 20, 4), ("tests/orders/test_total.py", 30, 0)],
-    )
+    # The work branch's diff, where a source control is installed (the `software-delivery` plugin's `scm`
+    # slot, ADR 0181 round D): the core alone has none.
+    if "scm" in adapters.extra:
+        adapters.scm.set_diff(
+            "northwind/billing-api",
+            "main",
+            "choregos/123",
+            [("src/orders/total.py", 20, 4), ("tests/orders/test_total.py", 30, 0)],
+        )
 
     yield fixture
 

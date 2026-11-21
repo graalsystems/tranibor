@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
-"""SCM activities: branch, PR, review, merge queue, driven by the `system` transitions."""
+"""The source control's activities (ADR 0181, round D): a work item's pull request opened and merged at the
+commit its gates judged, its branch, and a run's diff, driven by the interpreter's `system` transitions
+(`does: open_pr`, `does: merge_pr`) and after every agent step.
+
+They were the orchestrator's (`activities/scm.py`) until round D, and keep their activity names, which
+every recorded history carries: the interpreter calls them by name, the extension registers them on the
+workers through the worker seam, on the `tracker` queue where the core's table placed them. `scm_for`
+picks the adapter that reaches a work item's target repository.
+"""
 
 from __future__ import annotations
 
@@ -7,22 +15,62 @@ import json
 from typing import Any
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
-from tranibor_adapters.base import merge_at_commit_refusal
-from tranibor_adapters.errors import HeadMovedError
+from tranibor_adapters import build, fakes_enabled, resolved_configuration
+from tranibor_adapters.errors import HeadMovedError, UpstreamError
 from tranibor_api.db.models import Run
+from tranibor_api.services.github_app import pin_for_runtime
 from tranibor_contracts import StageResult
+from tranibor_core import matches_any
 from tranibor_core.domain import PrRef
 from tranibor_core.dsl.flow import PULL_REQUEST_SECTIONS
 from tranibor_core.restricted import WITHHELD, is_marked
+from tranibor_orchestrator.activities.base import (
+    ProjectBundle,
+    adapters_override,
+    console_base,
+    db,
+    load_work_item,
+    project_bundle,
+)
+from tranibor_orchestrator.activities.judged import judged_commit
+from tranibor_orchestrator.activities.outcome import record_the_diff
+from tranibor_orchestrator.activities.repositories import fix, repo_slug, target_of, target_or_none
 
-from .base import console_base, db, load_work_item, project_bundle, scm_for
-from .judged import judged_commit
-from .outcome import record_the_diff
-from .repositories import fix, repo_slug, target_of, target_or_none
+from .connectors import scm_of
+from .connectors.base import merge_at_commit_refusal
 
 log = structlog.get_logger(__name__)
+
+
+async def scm_for(session: AsyncSession, bundle: ProjectBundle, repository_url: str) -> Any:
+    """The SCM adapter that talks to a work item's target repository (ADR 0124 §5).
+
+    The project's own adapter is pinned to the installation its organisation claimed on the owner of
+    the connector's repository (ADR 0073); a target under another GitHub owner gets the adapter rebuilt
+    with that owner's claimed installation, refused on a multi-organisation instance without a claim, as
+    the connector itself is. Fakes, another SCM type and the same owner keep the project's adapter."""
+    spec = bundle.stored_connectors.get("scm")
+    if spec is None or spec.get("type") != "github" or fakes_enabled() or adapters_override() is not None:
+        return scm_of(bundle.adapters)
+    trimmed = repository_url.removesuffix(".git").rstrip("/").split("/")
+    target = "/".join(trimmed[-2:])
+    configured = str(spec["config"].get("repo") or "")
+    if configured.split("/", 1)[0].lower() == target.split("/", 1)[0].lower():
+        return scm_of(bundle.adapters)
+    pinned = await pin_for_runtime(
+        session, bundle.project.org_id, "scm", "github", {**spec["config"], "repo": target}
+    )
+    return build(
+        "scm",
+        "github",
+        resolved_configuration(
+            "scm", "github", pinned, spec["secret_refs"], spec["secret_ref"], preresolved=spec["resolved"]
+        ),
+    )
+
 
 #: The error type `open_pull_request` raises when the work item has no branch to open a pull request
 #: from (S22-46): the implementation changed nothing, so nothing was pushed. Non-retryable — a retry
@@ -230,3 +278,45 @@ async def collect_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
         run.result = result.model_dump(mode="json", by_alias=True)
         await record_the_diff(session, item, run, diff)
         return {"files": len(diff.files)}
+
+
+async def _head(scm: Any, repo_config: Any, branch: str) -> tuple[str | None, Exception | None]:
+    """The commit the head of `branch` is at (ADR 0171): `(sha, None)`; `(None, None)` when there is no
+    such branch; `(None, error)` when the SCM cannot say."""
+    head_of = getattr(scm, "head_of", None)
+    if head_of is None:
+        return None, UpstreamError("scm", f"the `{type(scm).__name__}` SCM cannot read the head of a branch")
+    try:
+        return await head_of(repo_slug(repo_config.url), branch), None
+    except Exception as exc:
+        return None, exc
+
+
+@activity.defn(name="check_scope_violations")
+async def check_scope_violations(payload: dict[str, Any]) -> list[str]:
+    async with db() as session:
+        bundle = await project_bundle(session, payload["project_id"])
+        item = await load_work_item(session, payload["work_item_id"])
+        allowed = list(item.allowed_paths or [])
+        denied = bundle.engine.deny_paths()
+        found = target_or_none(bundle, item)
+        repo_config = found.repo if found is not None else None
+        if not (allowed or denied) or repo_config is None:
+            # Without a repository there are no files to compare: no violation to report. That is
+            # an absence of material, not an absence of violation, and the `scope_respected`
+            # guarantee refuses (`diff_available`).
+            return []
+        repo = repo_slug(repo_config.url)
+        branch = bundle.config.branch_for(item.tracker_key, repo=repo_config)
+        scm = await scm_for(session, bundle, repo_config.url)
+        # The commit at the head of the branch, read once (ADR 0171); a branch that is not there is
+        # compared by its name, and the SCM answers as it did.
+        head, unread = await _head(scm, repo_config, branch)
+        if unread is not None:
+            raise unread
+        diff = await scm.compare(repo, repo_config.default_branch, head or branch)
+        return [
+            path
+            for path in diff.paths()
+            if matches_any(path, denied) or (allowed and not matches_any(path, allowed))
+        ]
