@@ -157,17 +157,136 @@ def commits_of(artifacts: Any) -> list[str]:
     return list(section.commits) if section is not None else []
 
 
+class ProjectDelivery(_Section):
+    """A project's `delivery` section: its repositories and its GitOps (the former `repo`, `repositories`
+    and `gitops`). Read into the former fields, which validate them (`read_project`)."""
+
+    repo: dict[str, Any] | None = None
+    repositories: list[dict[str, Any]] = Field(default_factory=list)
+    gitops: dict[str, Any] | None = None
+
+
+class DiffBounds(_Section):
+    """A policy's bounds on a diff (the former `scope.max_diff_files` and `scope.max_diff_lines`)."""
+
+    max_diff_files: int | None = None
+    max_diff_lines: int | None = None
+
+
+class DeliveryApprovals(_Section):
+    """A policy's approval of a merge (the former `approvals.merge`)."""
+
+    merge: dict[str, Any] | None = None
+
+
+class PolicyDelivery(_Section):
+    """A policy's `delivery` section: its diff bounds, its merge approval and its release trains."""
+
+    scope: DiffBounds = Field(default_factory=DiffBounds)
+    approvals: DeliveryApprovals = Field(default_factory=DeliveryApprovals)
+    release_train: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+#: The former fields of a project the section holds.
+PROJECT_FIELDS = ("repo", "repositories", "gitops")
+#: The former fields of a policy's `scope` the section holds.
+DIFF_FIELDS = ("max_diff_files", "max_diff_lines")
+
+
+def _section_of(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    data = dict(data)
+    section = data.pop("delivery") or {}
+    if isinstance(section, BaseModel):
+        section = section.model_dump()
+    return data, dict(section)
+
+
+def read_project(data: Any) -> Any:
+    """A project configuration read under either form: the section's values go to the former fields the
+    document did not write."""
+    if not isinstance(data, dict) or "delivery" not in data:
+        return data
+    data, section = _section_of(data)
+    for name in PROJECT_FIELDS:
+        if name not in data and section.get(name):
+            data[name] = section[name]
+    return data
+
+
+def project_section(config: Any) -> ProjectDelivery | None:
+    """A project's `delivery` section, derived from the former fields: `None` when it has none."""
+    if config.repo is None and not config.repositories and config.gitops is None:
+        return None
+    return ProjectDelivery(
+        repo=config.repo.model_dump(mode="json", exclude_none=True) if config.repo is not None else None,
+        repositories=[r.model_dump(mode="json", exclude_none=True) for r in config.repositories],
+        gitops=config.gitops.model_dump(mode="json", exclude_none=True)
+        if config.gitops is not None
+        else None,
+    )
+
+
+def read_policy(data: Any) -> Any:
+    """A policy read under either form: the section's values go to the former fields the document did
+    not write (`scope.max_diff_*`, `approvals.merge`, `release_train`)."""
+    if not isinstance(data, dict) or "delivery" not in data:
+        return data
+    data, section = _section_of(data)
+    scope = dict(data.get("scope") or {})
+    for name in DIFF_FIELDS:
+        found = (section.get("scope") or {}).get(name)
+        if name not in scope and found is not None:
+            scope[name] = found
+    if scope:
+        data["scope"] = scope
+    merge = (section.get("approvals") or {}).get("merge")
+    approvals = dict(data.get("approvals") or {})
+    if "merge" not in approvals and merge is not None:
+        approvals["merge"] = merge
+        data["approvals"] = approvals
+    if "release_train" not in data and section.get("release_train"):
+        data["release_train"] = section["release_train"]
+    return data
+
+
+def policy_section(policy: Any) -> PolicyDelivery:
+    """A policy's `delivery` section, derived from the former fields."""
+    merge = policy.approvals.merge
+    return PolicyDelivery(
+        scope=DiffBounds(
+            max_diff_files=policy.scope.max_diff_files, max_diff_lines=policy.scope.max_diff_lines
+        ),
+        approvals=DeliveryApprovals(
+            merge=merge.model_dump(mode="json", exclude_none=True) if merge is not None else None
+        ),
+        release_train={
+            env: train.model_dump(mode="json", exclude_none=True)
+            for env, train in policy.release_train.items()
+        },
+    )
+
+
 __all__ = [
     "COMMAND_FIELDS",
+    "DIFF_FIELDS",
     "PLUGIN",
+    "PROJECT_FIELDS",
     "Commands",
+    "DeliveryApprovals",
+    "DiffBounds",
+    "PolicyDelivery",
+    "ProjectDelivery",
     "Repository",
     "ResultDelivery",
     "StageDelivery",
     "branch_of",
     "commands_of",
     "commits_of",
+    "policy_section",
+    "project_section",
     "read_artifacts",
+    "read_policy",
+    "read_project",
     "read_stage_input",
     "repository_of",
     "result_section",
