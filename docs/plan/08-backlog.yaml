@@ -5798,6 +5798,14 @@ stories:
     size: L
     depends_on: []
     notes: "Closes the no-native-Vault gap without a Vault client in the core. plugins/vault-transit, a fake Vault transport, docs for External Secrets Operator and for the wrapper. Fixes POST /platform/secrets/rewrap ignoring a store set through set_secret_store. Not done: a run against a real Vault, a published wheel or image, an async KeyWrapper protocol."
+  - id: S80-20
+    title: "test(live): ServiceNow proven on a real instance, through the plugin's server and the core's tracker/plugin adapter (plan P1)"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: M
+    depends_on: []
+    notes: "Plan workstream P1, its ServiceNow half. tests/live/test_servicenow_live.py: PluginTracker through PluginServerClient to the plugin's MCP server on a Personal Developer Instance (Australia, patch 7). The plugin's own live suite and the six fixes the instance asked for are graalsystems/tranibor-agents#23 (servicenow 0.2.4). Not done: the governed path end to end (a plugin server needs a cluster), a delivery to the webhook route, a nightly run."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
