@@ -59,6 +59,8 @@ def test_the_api_starts() -> None:
     assert "/api/v1/orgs/{org}/projects" in paths and "/api/v1/projects/{id}/actions" in paths
     # The release train's routes are the `software-delivery` plugin's (round D, S83-05c).
     assert not [path for path in paths if "/trains/" in path or path.startswith("/api/v1/releases/")]
+    # A run's diff and the DORA metrics too (S83-05e).
+    assert not {"/api/v1/runs/{id}/diff", "/api/v1/projects/{id}/metrics/dora"} & paths
 
 
 def test_the_worker_builds_its_workflows_and_activities_without_them() -> None:
