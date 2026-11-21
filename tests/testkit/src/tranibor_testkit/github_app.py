@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Shared decor of the GitHub App tests (ADR 0073)."""
 
 from __future__ import annotations
