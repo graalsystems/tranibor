@@ -367,6 +367,7 @@ def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None
         "without_commands",
         "branch_of",
         "commits_of",
+        "_section_of",
     }
 
 
