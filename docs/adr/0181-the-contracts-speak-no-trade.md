@@ -536,3 +536,6 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   project's page are filled through a new seam, `extensions.declare_project_figure`: an extension fills
   the fields of `Project` and `ProjectStats` that `openapi.yaml` marks `x-plugin` for it, and the core keeps
   them at their default without it. The core serves no operation marked `x-plugin` any more.
+- **S83-05f.** The train's three Prometheus series are the extension's, through a new seam,
+  `metrics.declare_series`; the core knows their names (`PLUGIN_SERIES`) so the chart's dashboards stay
+  checked. The API's Temporal client no longer has a `start_train`.

@@ -39,12 +39,12 @@ def _operation_ids(app: Any) -> set[str]:
 
 @pytest.fixture
 def without_the_routes(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """A deployment whose extension declares no route: the plugin's `declare_routes` does nothing."""
+    """A deployment whose extension declares no route: the plugin's `declare_api_parts` does nothing."""
     from tranibor_api.extensions import reset
     from tranibor_software_delivery import extension
 
     reset()
-    monkeypatch.setattr(extension, "declare_routes", lambda: None)
+    monkeypatch.setattr(extension, "declare_api_parts", lambda: None)
     try:
         yield
     finally:

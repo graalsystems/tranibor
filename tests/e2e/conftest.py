@@ -105,9 +105,6 @@ class BridgedTemporal:
     async def start_interpreter(self, workflow_id: str, payload: dict[str, Any]) -> str:
         return await self._start("WorkflowInterpreter", workflow_id, payload)
 
-    async def start_train(self, workflow_id: str, payload: dict[str, Any]) -> str:
-        return await self._start("ReleaseTrain", workflow_id, payload)
-
     async def start_provisioning(self, workflow_id: str, payload: dict[str, Any]) -> str:
         return await self._start("ProjectProvisioning", workflow_id, payload)
 

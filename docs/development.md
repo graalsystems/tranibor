@@ -367,7 +367,7 @@ activity is retried, and `request.key` is stable for one crossing.
 `apps/orchestrator/tests/test_step_effect_extension.py` installs a test plugin's extension and has the
 real interpreter play its effect; its history is `tests/replay/histories/wi-step-effect-S83-02c.json`.
 
-## Filling a project's figures from an extension
+## Filling a project's figures and series from an extension
 
 A field of `Project` or `ProjectStats` that `openapi.yaml` marks `x-plugin: <plugin>` is the plugin's to
 fill (ADR 0181, round D): `software-delivery` fills `has_release_train` and `trains_pending`. The core keeps
@@ -384,6 +384,12 @@ def register_extension() -> None:
 
 A field the contract does not mark for that plugin is refused, and so is a second owner.
 `plugins/software-delivery/tests/test_delivery_reads.py` proves both.
+
+Its Prometheus series go the same way: `tranibor_api.metrics.declare_series(plugin, names, refresh)`, where
+the async `refresh(project_slugs)` returns the metric families of `names`, computed with the snapshot and
+served on `/metrics`. A name the core emits or another plugin declared is refused. The release train's
+three series are declared so (`plugins/software-delivery/tests/test_train_series.py`); the core lists
+them in `PLUGIN_SERIES` so that the chart's dashboards may cite them.
 
 ## Shipping durable code from outside this tree
 
