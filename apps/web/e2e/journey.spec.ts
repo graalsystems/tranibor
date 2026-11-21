@@ -506,7 +506,8 @@ test("agents: an external agent shows its client, and a project its implicit age
   await expect(page.getByTestId("pins")).toContainText("Tightened");
   await expect(page.getByTestId("implicit")).toContainText("refiner");
   await expect(page.getByTestId("implicit")).toContainText("dev");
-  await page.getByTestId("implicit").getByRole("button", { name: "Register" }).first().click();
+  // The list is paged and ordered by workflow then actor: name the row rather than take the first.
+  await page.getByTestId("implicit").locator("li", { hasText: "refiner" }).getByRole("button", { name: "Register" }).click();
   await expect(page.getByTestId("implicit").getByRole("status")).toContainText("actors.refiner.agent: refiner");
 });
 
