@@ -74,6 +74,10 @@ SURFACES: tuple[str, ...] = (
 
 #: Files under `SURFACES` the guard does not read, each with its reason.
 EXCLUDED: dict[str, str] = {
+    "packages/contracts/src/tranibor_contracts/delivery.py": (
+        "the `delivery` sections are the software-delivery plugin's (ADR 0181 C2), each model says so "
+        "(`__plugin__`) and its schema node is marked `x-plugin`: outside the frozen surfaces"
+    ),
     "packages/contracts/src/tranibor_contracts/window.py": (
         "the window list names each former name once, with the release that removes it; "
         "tests/architecture/test_the_window_list.py removes them (ADR 0181 C1)"
@@ -328,6 +332,42 @@ def measure() -> dict[str, dict[str, int]]:
         if counted:
             measured[path.relative_to(ROOT).as_posix()] = dict(sorted(counted.items()))
     return measured
+
+
+def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None:
+    """What `delivery.py` may hold without being read: models that say they are the plugin's, and the
+    functions that read them as one with the former fields."""
+    import inspect
+
+    from pydantic import BaseModel
+    from tranibor_contracts import delivery
+
+    models = [
+        obj
+        for _, obj in inspect.getmembers(delivery, inspect.isclass)
+        if issubclass(obj, BaseModel) and obj.__module__ == delivery.__name__
+    ]
+    assert models and all(getattr(model, "__plugin__", None) == delivery.PLUGIN for model in models)
+    functions = {
+        name
+        for name, fn in inspect.getmembers(delivery, inspect.isfunction)
+        if fn.__module__ == delivery.__name__
+    }
+    assert functions <= {
+        "read_stage_input",
+        "read_artifacts",
+        "stage_section",
+        "result_section",
+        "read_project",
+        "project_section",
+        "read_policy",
+        "policy_section",
+        "repository_of",
+        "commands_of",
+        "without_commands",
+        "branch_of",
+        "commits_of",
+    }
 
 
 def test_every_surface_is_read() -> None:

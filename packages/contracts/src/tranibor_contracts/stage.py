@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, field_validator, model_validator
+from pydantic import AfterValidator, Field, computed_field, field_validator, model_validator
 
+from . import delivery as _delivery
 from .artifact import ARTIFACT_TYPES, ArtifactDisplay
 from .enums import ApiFormat, Severity, StageStatus
 from .open_lists import FINDING_TYPES
@@ -433,8 +434,19 @@ class StageInput(Strict):
     hosted: HostedCall | None = None
     #: Set for a step a prompt agent carries (ADR 0080): `agent.backend` is `prompt`.
     prompt: PromptCall | None = None
-
     model_config = Strict.model_config | {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_either_form(cls, data: Any) -> Any:
+        return _delivery.read_stage_input(data)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def delivery(self) -> _delivery.StageDelivery | None:
+        """The `software-delivery` plugin's section (ADR 0181 C2): the repository and the project's
+        commands, derived from the former fields during their window and written beside them."""
+        return _delivery.stage_section(self)
 
     @model_validator(mode="after")
     def _one_kind_of_step(self) -> StageInput:
@@ -502,6 +514,18 @@ class Artifacts(Strict):
     reports: dict[str, str] = Field(default_factory=dict)
     #: The files of `.choregos/outputs/`, by artifact name; written by the runner, never by the agent.
     files: dict[str, ArtifactFile] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_either_form(cls, data: Any) -> Any:
+        return _delivery.read_artifacts(data)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def delivery(self) -> _delivery.ResultDelivery | None:
+        """The `software-delivery` plugin's section (ADR 0181 C2): the branch and the commits, derived
+        from the former fields during their window and written beside them."""
+        return _delivery.result_section(self)
 
     def link(self, rel: str) -> str | None:
         """The URL of the first link of this relation, if any."""

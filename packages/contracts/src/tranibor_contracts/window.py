@@ -354,6 +354,65 @@ WINDOW: tuple[FormerName, ...] = (
         )
         for name in DELIVERY_EVIDENCE
     ),
+    # The `delivery` sections of the stage contracts (S83-04e2): the former fields beside them.
+    FormerName(
+        "repo",
+        "delivery.repo",
+        "stage-result",
+        "schema:stage-input.schema.json#/properties/repo",
+        C2_DELIVERY,
+    ),
+    FormerName(
+        "StageInput.repo",
+        "StageInput.delivery.repo",
+        "python",
+        "py:tranibor_contracts.stage:StageInput.model_fields[repo]",
+        C2_DELIVERY,
+    ),
+    *(
+        entry
+        for former, name in (
+            ("test_command", "test"),
+            ("lint_command", "lint"),
+            ("typecheck_command", "typecheck"),
+        )
+        for entry in (
+            FormerName(
+                f"project.{former}",
+                f"delivery.commands.{name}",
+                "stage-result",
+                f"schema:stage-input.schema.json#/properties/project/properties/{former}",
+                C2_DELIVERY,
+            ),
+            FormerName(
+                f"ProjectRef.{former}",
+                f"StageDelivery.commands.{name}",
+                "python",
+                f"py:tranibor_contracts.stage:ProjectRef.model_fields[{former}]",
+                C2_DELIVERY,
+            ),
+        )
+    ),
+    *(
+        entry
+        for former in ("branch", "commits")
+        for entry in (
+            FormerName(
+                f"artifacts.{former}",
+                f"artifacts.delivery.{former}",
+                "stage-result",
+                f"schema:stage-result.schema.json#/properties/artifacts/properties/{former}",
+                C2_DELIVERY,
+            ),
+            FormerName(
+                f"Artifacts.{former}",
+                f"Artifacts.delivery.{former}",
+                "python",
+                f"py:tranibor_contracts.stage:Artifacts.model_fields[{former}]",
+                C2_DELIVERY,
+            ),
+        )
+    ),
     # A stage input's link to the change request: `links.pr` becomes `links.change_request`.
     FormerName(
         "work_item.links.pr",

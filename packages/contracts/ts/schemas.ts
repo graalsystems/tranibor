@@ -1456,6 +1456,20 @@ export type StageInput = {
     tool_choice?: "auto" | "required" | "none";
     response_format?: "text" | "json_object";
   } | null;
+  /** The software-delivery plugin's section (ADR 0181 C2): the repository and the project's commands. Read as one with the former `repo` and `project.*_command` until the window list removes them. */
+  delivery?: {
+    repo?: {
+      url: string;
+      base_branch: string;
+      work_branch: string;
+      clone_depth?: number;
+    } | null;
+    commands?: {
+      test?: string | null;
+      lint?: string | null;
+      typecheck?: string | null;
+    };
+  } | null;
 };
 
 /** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .choregos/result.json; the runner completes artifacts/evidence/diagnostics. */
@@ -1502,6 +1516,11 @@ export type StageResult = {
         size: number;
       };
     };
+    /** The software-delivery plugin's section (ADR 0181 C2): the branch and the commits. Read as one with the former `branch` and `commits` until the window list removes them. */
+    delivery?: {
+      branch?: string | null;
+      commits?: Array<string>;
+    } | null;
   };
   evidence?: {
     /** Evidence named by the business (evidence_facts). Simple values: a number, a boolean, a date or a word can be checked. */
