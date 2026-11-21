@@ -8,7 +8,11 @@ contrast; no background is painted. An encoding that cannot draw the glyphs gets
 
 from __future__ import annotations
 
+import codecs
+import contextlib
 import os
+import sys
+import unicodedata
 from dataclasses import dataclass
 from typing import TextIO
 
@@ -103,6 +107,48 @@ def console(*, stderr: bool = False, file: TextIO | None = None) -> Console:
     if wants_colour():
         return Console(stderr=stderr, file=file, highlight=False)
     return Console(stderr=stderr, file=file, highlight=False, color_system=None, no_color=True)
+
+
+_ASCII_OF = {
+    "·": "-", "—": "-", "–": "-", "…": "...", "›": ">", "‹": "<", "→": "->", "←": "<-", "×": "x",
+    "✓": "+", "✔": "+", "✗": "x", "✘": "x", "●": "*", "○": "o", "▲": "^", "▼": "v", "█": "#", "░": "-",
+    "‘": "'", "’": "'", "“": '"', "”": '"', "€": "EUR",
+}  # fmt: skip
+
+
+def _ascii_fallback(error: UnicodeError) -> tuple[str, int]:
+    """Codec error handler: what a stream that cannot encode a character prints instead (#2048).
+
+    The separators `·` and `—` become `-`, the box drawing `+-|`, an accent loses its mark; anything else
+    is `?`. It never raises, so no output path (a table, a tree, a `print`) can crash on the terminal's
+    encoding."""
+    if not isinstance(error, UnicodeEncodeError):
+        raise error
+    out = []
+    for char in error.object[error.start : error.end]:
+        if char in _ASCII_OF:
+            out.append(_ASCII_OF[char])
+        elif "\u2500" <= char <= "\u257f":  # box drawing
+            out.append("|" if char in "│┃║╎╏┆┇┊┋" else "-" if char in "─━═╌╍┄┅┈┉" else "+")
+        else:
+            plain = unicodedata.normalize("NFKD", char).encode("ascii", "ignore").decode()
+            out.append(plain or "?")
+    return "".join(out), error.end
+
+
+codecs.register_error("tranibor-ascii", _ascii_fallback)
+
+
+def degrade_streams(*streams: TextIO | None) -> None:
+    """Make stdout and stderr (or the given streams) degrade to ASCII instead of crashing when their
+    encoding cannot hold a character the CLI prints (#2048). A UTF stream is left as it is."""
+    for stream in streams or (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        encoding = (getattr(stream, "encoding", None) or "utf-8").lower().replace("-", "")
+        if reconfigure is None or encoding.startswith("utf"):
+            continue
+        with contextlib.suppress(ValueError, OSError):
+            reconfigure(errors="tranibor-ascii")
 
 
 def unicode_ok(target: Console) -> bool:
