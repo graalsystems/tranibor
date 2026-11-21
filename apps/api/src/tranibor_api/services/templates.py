@@ -89,13 +89,34 @@ async def template_manifest(
     return dict(yaml.safe_load(path.read_text(encoding="utf-8")) or {}), folder
 
 
+def workflow_without_template(*, has_repository: bool) -> str:
+    """The workflow a project gets when its template names none: `default-simple` for a project with a
+    repository, `default-request` otherwise (ADR 0110).
+
+    `default-simple` delivers code: its gates and its `open_pr`/`merge_pr` are the `software-delivery`
+    plugin's (ADR 0181, round C2). Where that plugin's extension is not installed it cannot be published,
+    so a repository alone does not give it: the project gets `default-request`, which the core runs by
+    itself (ADR 0181, round D). With the extension installed nothing changes.
+    """
+    if has_repository and _runs_in_this_deployment(WORKFLOW_WITHOUT_TEMPLATE):
+        return WORKFLOW_WITHOUT_TEMPLATE
+    return WORKFLOW_WITHOUT_REPOSITORY
+
+
+def _runs_in_this_deployment(ref: str) -> bool:
+    """A core template's workflow validates here: every gate and step effect it names is registered."""
+    from tranibor_core import parse_workflow
+
+    _, report = parse_workflow(template_yaml(ref.removeprefix("template:").partition("@")[0]), strict=False)
+    return report.valid
+
+
 def delivery(manifest: dict[str, Any], folder: Path | None, *, has_repository: bool = True) -> Delivery:
-    """The sources a manifest ships; without a template, `solo` and `default-simple` — or
-    `default-request` for a project that names no repository (ADR 0110). A template's own workflows
-    always win."""
+    """The sources a manifest ships; without a template, `solo` and the workflow
+    `workflow_without_template` gives. A template's own workflows always win."""
     defaults = manifest.get("defaults") or {}
     refs = list(defaults.get("workflows") or ([defaults["workflow"]] if defaults.get("workflow") else []))
-    fallback = WORKFLOW_WITHOUT_TEMPLATE if has_repository else WORKFLOW_WITHOUT_REPOSITORY
+    fallback = workflow_without_template(has_repository=has_repository)
     return Delivery(
         workflows=[_workflow_source(ref, folder) for ref in refs or [fallback]],
         policy=_policy_source(str(defaults.get("policy") or POLICY_WITHOUT_TEMPLATE), folder),

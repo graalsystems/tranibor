@@ -13,9 +13,10 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LIST = pathlib.Path(__file__).with_name("need_the_plugins.txt")
 
-#: The number of files the list held when it was written (S83-05a, 2026-11-21: 435 files, 2,632 tests). It
-#: only falls: lower it with each file that leaves the list.
-CEILING = 435
+#: The number of files the list holds. It only falls: lower it with each file that leaves the list. 435 when
+#: it was written (S83-05a, 2026-11-21: 2,632 tests); 116 since a project without a template gets a workflow
+#: the core runs (S83-05d: 469 tests).
+CEILING = 116
 
 
 def listed() -> list[str]:
