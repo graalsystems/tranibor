@@ -28,6 +28,7 @@ export function EvalMatrixTable({ entries }: { entries: Entry[] }) {
             <th>Context</th>
             <th className="text-right" title="input tokens, cache reads included">Tokens in</th>
             <th className="text-right">Cache read</th>
+            <th className="text-right" title="input tokens written to the cache, dearer than a fresh one">Cache write</th>
             <th className="text-right">Tokens out</th>
             <th className="text-right">Turns</th>
           </tr>
@@ -46,6 +47,7 @@ export function EvalMatrixTable({ entries }: { entries: Entry[] }) {
               <td className="font-mono text-xs">{entry.context ?? "—"}</td>
               <td className="text-right">{measured(entry.median_tokens_in)}</td>
               <td className="text-right">{measured(entry.median_tokens_cached)}</td>
+              <td className="text-right">{measured(entry.median_tokens_cache_write)}</td>
               <td className="text-right">{measured(entry.median_tokens_out)}</td>
               <td className="text-right">{entry.median_turns ?? "—"}</td>
             </tr>

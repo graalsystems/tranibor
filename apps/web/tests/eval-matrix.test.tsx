@@ -13,6 +13,7 @@ const cell = (context: string, tokensIn: number | null) => ({
   metered: tokensIn == null ? 0 : 3,
   median_tokens_in: tokensIn,
   median_tokens_cached: tokensIn == null ? null : 80_000,
+  median_tokens_cache_write: tokensIn == null ? null : 12_000,
   median_tokens_out: tokensIn == null ? null : 4_800,
   median_turns: tokensIn == null ? null : 14,
 });
@@ -31,6 +32,7 @@ describe("the eval matrix with its context dimension (S37-09)", () => {
     expect(both.getByText("94 k")).toBeInTheDocument();
     expect(both.getByText("80 k")).toBeInTheDocument();
     expect(both.getByText("5 k")).toBeInTheDocument();
+    expect(both.getByText("12 k")).toBeInTheDocument();
     expect(both.getByText("14")).toBeInTheDocument();
   });
 
@@ -38,6 +40,6 @@ describe("the eval matrix with its context dimension (S37-09)", () => {
     render(<EvalMatrixTable entries={[cell("headroom", null)]} />);
     const row = screen.getByTestId("eval-matrix").querySelector("tbody tr") as HTMLElement;
     expect(within(row).queryByText("0")).toBeNull();
-    expect(within(row).getAllByText("—")).toHaveLength(4);
+    expect(within(row).getAllByText("—")).toHaveLength(5);
   });
 });

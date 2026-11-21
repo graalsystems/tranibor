@@ -249,6 +249,7 @@ function item(
       tokens_in: 645_000,
       tokens_out: 35_000,
       tokens_cached: 301_000,
+      tokens_cache_write: 52_000,
       cost_usd: (extra.cost ?? 0) / 0.92,
       cost_eur: extra.cost ?? 0,
       duration_s: 4800,
@@ -571,6 +572,7 @@ function run(id: string, role: string, status: string, cost: number, summary: st
       tokens_in: 388_000,
       tokens_out: 22_000,
       tokens_cached: 301_000,
+      tokens_cache_write: 52_000,
       cost_usd: cost,
       cost_eur: cost * 0.92,
       duration_s: 1260,
@@ -1139,6 +1141,7 @@ export const costs: CostReport = {
     tokens_in: 120_000 + index * 8_000,
     tokens_out: 9_000,
     tokens_cached: 60_000,
+    tokens_cache_write: 12_000,
     runs: 2 + (index % 3),
   })),
   total: { cost_usd: 42.6, cost_eur: 39.2, budget_usd: 150 },
@@ -1230,7 +1233,7 @@ export function mockCostReport(path: string): CostReport {
     if ((agent && line.agent !== agent) || (workflowName && line.workflow !== workflowName) || (workItem && line.item !== workItem)) continue;
     if (assistant && line.assistant !== assistant) continue;
     const k = key(line);
-    const row = rows.get(k) ?? { key: k, cost_usd: 0, cost_eur: 0, tokens_in: 0, tokens_out: 0, tokens_cached: 0, runs: 0 };
+    const row = rows.get(k) ?? { key: k, cost_usd: 0, cost_eur: 0, tokens_in: 0, tokens_out: 0, tokens_cached: 0, tokens_cache_write: 0, runs: 0 };
     row.cost_usd = Math.round((row.cost_usd + line.usd) * 1e6) / 1e6;
     row.cost_eur = Math.round(row.cost_usd * FX_EUR * 1e6) / 1e6;
     row.runs = (row.runs ?? 0) + 1;
@@ -1239,6 +1242,7 @@ export function mockCostReport(path: string): CostReport {
     row.tokens_in = (row.tokens_in ?? 0) + read;
     row.tokens_out = (row.tokens_out ?? 0) + Math.round(read / 10);
     row.tokens_cached = (row.tokens_cached ?? 0) + Math.round(read * 0.4);
+    row.tokens_cache_write = (row.tokens_cache_write ?? 0) + Math.round(read * 0.1);
     rows.set(k, row);
   }
   const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key));
@@ -1253,6 +1257,7 @@ export function mockCostReport(path: string): CostReport {
       tokens_in: list.reduce((s, r) => s + (r.tokens_in ?? 0), 0),
       tokens_out: list.reduce((s, r) => s + (r.tokens_out ?? 0), 0),
       tokens_cached: list.reduce((s, r) => s + (r.tokens_cached ?? 0), 0),
+      tokens_cache_write: list.reduce((s, r) => s + (r.tokens_cache_write ?? 0), 0),
     },
   };
 }

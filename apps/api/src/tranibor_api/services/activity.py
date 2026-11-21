@@ -146,6 +146,7 @@ async def spend_so_far(
             tokens_in=spend.tokens_in,
             tokens_out=spend.tokens_out,
             tokens_cached=spend.tokens_cached,
+            tokens_cache_write=spend.tokens_cache_write,
             cost_usd=spend.cost_usd,
             read_at=utcnow(),
         )
@@ -169,6 +170,7 @@ def _booked(run: Run) -> SpendSoFar | None:
         tokens_in=int(tokens.get("tokens_in", 0)),
         tokens_out=int(tokens.get("tokens_out", 0)),
         tokens_cached=int(tokens.get("tokens_cached", 0)),
+        tokens_cache_write=int(tokens.get("tokens_cache_write", 0)),
         cost_usd=float(run.cost_usd or 0.0),
         read_at=aware(run.ended_at or run.updated_at) or utcnow(),
         booked=True,

@@ -302,6 +302,22 @@ def test_elapsed_and_counts_read_as_a_person_reads_them() -> None:
     assert elapsed({}, NOW) == "—"
     assert spend({"tokens_in": 2_500_000, "tokens_out": 999, "cost_usd": 3}) == "2.5M in / 999 out · $3.00"
     assert spend(None) == "—"
+    # The cache's reads and writes are shown side by side once the entry has written to it (S4-13).
+    cached = {
+        "tokens_in": 184_000,
+        "tokens_out": 12_400,
+        "tokens_cached": 90_000,
+        "tokens_cache_write": 31_000,
+    }
+    assert (
+        spend({**cached, "cost_usd": 1.92})
+        == "184.0k in (cache 90.0k read, 31.0k written) / 12.4k out · $1.92"
+    )
+    # An entry with reads only, or from an API older than S4-13, keeps its line.
+    assert (
+        spend({"tokens_in": 1000, "tokens_out": 10, "tokens_cached": 500, "cost_usd": 1})
+        == "1.0k in / 10 out · $1.00"
+    )
 
 
 def test_no_color_gives_no_escape_sequence_and_keeps_the_words(platform: Platform) -> None:

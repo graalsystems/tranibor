@@ -6057,3 +6057,13 @@ stories:
       - "Which eval calls are stateless model calls is established from the code, and written in ADR 0190"
       - "No eval call is batched when none is stateless and non-blocking; the finding names where to reopen"
     notes: "ADR 0190, follow-up"
+  - id: S4-13
+    title: "Every cost surface shows cache writes next to cache reads"
+    stream: S4
+    sprint: 2
+    priority: 7
+    size: M
+    depends_on: [S4-07]
+    acceptance:
+      - "The cost CSV, the activity feed and stream, a run's tokens and a work item's totals, the eval matrix, the web cost panels and the CLI activity line carry `tokens_cache_write` next to `tokens_cached` (contract PR first)"
+    notes: "ADR 0188 'Not done', finding #1894"

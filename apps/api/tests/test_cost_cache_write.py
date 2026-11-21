@@ -49,3 +49,34 @@ async def test_the_report_sums_cache_writes_apart_from_cache_reads(
 async def test_a_line_booked_without_cache_writes_reads_zero(project: dict[str, Any]) -> None:
     line = await _book(project["id"], "m", 0, None)
     assert line.tokens_cache_write == 0
+
+
+async def test_the_csv_carries_cache_writes_last_so_that_columns_keep_their_position(
+    client: AsyncClient, project: dict[str, Any]
+) -> None:
+    await _book(project["id"], "a", 700, 100)
+    await _book(project["id"], "b", 50, 25)
+    response = await client.get(f"/api/v1/projects/{project['id']}/costs.csv", params={"group_by": "model"})
+    lines = [line.split(";") for line in response.text.lstrip("﻿").splitlines() if line]
+    assert lines[0] == [
+        "model",
+        "cout_usd",
+        "cout_eur",
+        "tokens_in",
+        "tokens_out",
+        "tokens_caches",
+        "runs",
+        "tokens_cache_write",
+    ]
+    by_key = {line[0]: line for line in lines[1:] if line[0] in {"a", "b", "total"}}
+    # The first seven cells are the ones a consumer already reads by position; the write is the eighth.
+    assert (by_key["a"][5], by_key["a"][7]) == ("700", "100")
+    assert (by_key["b"][5], by_key["b"][7]) == ("50", "25")
+    assert (by_key["total"][5], by_key["total"][6], by_key["total"][7]) == ("750", "", "125")
+
+
+async def test_the_work_item_totals_carry_cache_writes() -> None:
+    from tranibor_api.services.tickets import totals_from
+
+    assert totals_from({"tokens_cached": 4, "tokens_cache_write": 9}).tokens_cache_write == 9
+    assert totals_from({"tokens_cached": 4}).tokens_cache_write == 0, "a total booked before S4-07 reads 0"
