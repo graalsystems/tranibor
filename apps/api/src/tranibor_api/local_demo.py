@@ -244,12 +244,15 @@ def litellm_config(provider: Provider | None, *, embed: bool = False, decide: bo
 
 def demo_connectors(provider: Provider | None = None) -> dict[str, tuple[str, dict[str, Any]]]:
     """The demo project's connectors, by kind: `(type, config)`. The slots the installed extensions add
-    (the `software-delivery` plugin's `ci` and `cd`, ADR 0181 round D) get their fake too."""
-    from tranibor_adapters.registry import adapter_slots
+    (the `software-delivery` plugin's, ADR 0181 round D) get their fake too. The seed is a process of its
+    own (`python -m tranibor_api.local_demo`) that loaded no extension yet: read before they load, the
+    slots were none, the demo project had no `ci` connector, and its first run failed on the default
+    Tekton CI a laptop does not have."""
+    from tranibor_adapters.registry import declared_adapter_slots
 
     connectors: dict[str, tuple[str, dict[str, Any]]] = {
         "tracker": ("internal", {}),
-        **{kind: ("fake", {}) for kind in adapter_slots()},
+        **{kind: ("fake", {}) for kind in declared_adapter_slots()},
         "runtime": ("fake", {"simulate": True}),
         "gateway": ("fake", {}),
         "memory": ("lexical", {}),

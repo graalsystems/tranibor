@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
+import json
+import os
 import pathlib
+import subprocess
+import sys
 from typing import Any
 
 import pytest
@@ -38,6 +43,33 @@ def test_fakes_mode_simulates_the_agent_and_keeps_the_tracker_inside_choregos() 
     connectors = demo_connectors()
     assert connectors["runtime"] == ("fake", {"simulate": True})
     assert connectors["tracker"] == ("internal", {})
+
+
+def test_in_a_process_of_its_own_every_declared_slot_gets_its_fake() -> None:
+    """The seed runs as `python -m tranibor_api.local_demo`, where nothing loaded the extensions yet: the
+    slots they declare (the `software-delivery` plugin's `ci`, `cd` and `scm`) are given their fake all
+    the same. Without it the demo project had no `ci` connector, and the local install's first run
+    failed on the default Tekton CI (main's `local-install` job, after #2128)."""
+    probe = (
+        "import json; from tranibor_api.local_demo import demo_connectors; "
+        "from tranibor_adapters.registry import declared_adapter_slots; "
+        "kinds = sorted(demo_connectors()); print(json.dumps([kinds, sorted(declared_adapter_slots())]))"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", probe],
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    kinds, slots = json.loads(done.stdout.strip().splitlines()[-1])
+    assert set(slots) <= set(kinds), f"declared slots without a demo connector: {set(slots) - set(kinds)}"
+    if importlib.util.find_spec("tranibor_software_delivery") is not None:
+        assert {"ci", "cd", "scm"} <= set(slots), "the probe no longer sees the plugin's slots"
+    for kind in slots:
+        assert demo_connectors()[kind] == ("fake", {})
 
 
 async def test_the_seed_creates_the_project_once(app: Any) -> None:
