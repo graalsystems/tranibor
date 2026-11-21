@@ -53,10 +53,10 @@ and the test asserts exactly that; the category filter of the agreements answers
 - **Odoo and Postgres** (matrix `image`, service `db`): resolve the digest of the new tag
   (`docker buildx imagetools inspect odoo:19.0 --format '{{json .Manifest.Digest}}'`) and replace the whole
   reference; `tests/ci/test_purchasing_live_job.py` refuses a floating image.
-- **The purchasing image** (`PURCHASING_IMAGE`): until the agents repository has published `0.2.0` the digest is a
-  placeholder of zeros, never pullable, so the job fails at `docker run` on purpose. Once published, write the real
-  one (`oras resolve ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.2.0` gives it). Each patch release of the
-  server is a new tag and a new digest to write here.
+- **The purchasing image** (`PURCHASING_IMAGE`): the image the agents repository published with the plugin, pinned
+  by its registry digest (`oras resolve ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:<version>` gives it).
+  Each patch release of the server is a new tag and a new digest to write here; the guard test refuses a tag alone
+  and a placeholder of zeros.
 
 ## Running it by hand
 
