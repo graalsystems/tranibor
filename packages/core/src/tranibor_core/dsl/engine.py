@@ -368,11 +368,17 @@ class WorkflowEngine:
             return Decision(transition.on_reject, reason=reason or "human decision: sent back")
         return Decision(transition.from_, reason=reason or "human decision: sent back (to the current state)")
 
-    def after_train(self, transition: Transition, ok: bool, rollback_state: str | None = None) -> Decision:
+    def after_carrier(self, transition: Transition, ok: bool, rollback_state: str | None = None) -> Decision:
+        """What follows a transition a carrier took (`via:`, ADR 0181 round D): its target once the carrier
+        says it delivered, else the rollback state it names, `on_question`, or where it started, escalated.
+        The reasons are the ones every history of the release train recorded."""
         if ok:
             return Decision(transition.to, reason="deployment verified")
         target = rollback_state or self._default_state("on_question") or transition.from_
         return Decision(target, escalated=True, reason="deployment failed or aborted")
+
+    #: The former name, for code written before round D (the enterprise edition's, a plugin's).
+    after_train = after_carrier
 
     def after_gates(self, transition: Transition, outcomes: list[GateOutcome], attempts: int) -> Decision:
         """What follows a `system` transition: gates only."""

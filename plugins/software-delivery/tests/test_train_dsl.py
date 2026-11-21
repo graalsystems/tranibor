@@ -1,4 +1,6 @@
-"""What a workflow asks of the train it takes (ADR 0041, S21-21).
+# SPDX-License-Identifier: Apache-2.0
+"""What a workflow asks of the train it takes (ADR 0041, S21-21); the `software-delivery` plugin's since
+round D of ADR 0181 (`train/dsl.py`), the boarding payload the interpreter's (`tranibor_core.carriers`).
 
 `train: {env: prod, approval: captain}` was written and read by nobody; the GitHub webhook
 shipped every merged work item to prod, a study included.
@@ -7,8 +9,10 @@ shipped every merged work item to prod, a study included.
 from __future__ import annotations
 
 from tranibor_core import parse_workflow
+from tranibor_core.carriers import boarding_approval as train_approval
+from tranibor_core.carriers import boarding_env as train_env
 from tranibor_core.dsl import load_template
-from tranibor_core.dsl.trains import train_after_merge, train_approval, train_env
+from tranibor_software_delivery.train.dsl import train_after_merge
 
 STUDY = """apiVersion: choregos/v1
 kind: Workflow

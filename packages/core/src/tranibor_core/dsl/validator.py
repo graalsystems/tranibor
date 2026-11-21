@@ -1032,10 +1032,14 @@ def _check_scope_readings(wf: Workflow, report: ValidationReport, source: Any) -
 
 def _check_prod_states(wf: Workflow, report: ValidationReport, source: Any) -> None:
     for index, t in enumerate(wf.transitions):
-        if is_production_state(t.to, wf.states.get(t.to)) and t.via != "release_train":
+        # Production is locked: only a carrier that verifies a deployment reaches it (the `software-delivery`
+        # plugin's `via: release_train`, ADR 0181 round D); the validator refuses a carrier no installed
+        # extension serves on its own.
+        if is_production_state(t.to, wf.states.get(t.to)) and t.via is None:
             report.error(
                 "prod.requires_train",
-                f"the state {t.to} can only be reached `via: release_train` (production is locked)",
+                f"the state {t.to} can only be reached through a carrier, `via: release_train` (production "
+                "is locked)",
                 ["transitions", index, "to"],
                 source,
             )
@@ -1046,7 +1050,7 @@ def _check_retries(wf: Workflow, report: ValidationReport, source: Any) -> None:
     order = list(wf.states)
     position = {name: i for i, name in enumerate(order)}
     for index, t in enumerate(wf.transitions):
-        if t.from_ == AGENT_WILDCARD or t.via == "release_train":
+        if t.from_ == AGENT_WILDCARD or t.via is not None:
             continue
         backwards = position.get(t.to, 0) < position.get(t.from_, 0)
         if backwards and t.on_fail is None and t.on_changes_requested is None:

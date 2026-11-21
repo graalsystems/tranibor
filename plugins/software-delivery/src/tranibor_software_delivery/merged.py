@@ -14,7 +14,9 @@ from typing import Any
 from tranibor_api.services import work_item_workflow, workflow_model
 from tranibor_api.temporal import get_temporal, train_id
 from tranibor_core import utcnow
-from tranibor_core.dsl.trains import train_after_merge, train_approval, train_env
+from tranibor_core.carriers import boarding_approval, boarding_env
+
+from .train.dsl import train_after_merge
 
 #: What `received_events` records for a merged work item.
 BOARDED = "boarded"
@@ -32,7 +34,7 @@ async def board_merged_item(session: Any, project: Any, item: Any, event: Any) -
     # webhook or the interpreter boards it first (#279).
     merged_labels = [*event.payload.get("labels", []), *(item.documents or {}).get("labels", [])]
     await get_temporal().signal(
-        train_id(project.slug, train_env(train)),
+        train_id(project.slug, boarding_env(train)),
         "merged",
         {
             "work_item_key": item.tracker_key,
@@ -42,7 +44,7 @@ async def board_merged_item(session: Any, project: Any, item: Any, event: Any) -
             "labels": list(dict.fromkeys(merged_labels)),
             "pr_url": event.payload.get("pr_url"),
             "title": item.title,
-            "approval": dict(train_approval(workflow, train)),
+            "approval": dict(boarding_approval(workflow, train)),
         },
     )
     return BOARDED

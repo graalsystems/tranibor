@@ -139,5 +139,6 @@ def register() -> None:
     register_effects()
     declare_values()
     declare_worker_parts(NAME, provide_worker_parts)
-    declare_carrier("release_train", plugin=NAME)
+    # A work item the train carries needs a deployment (`cd`): the requirements of its workflows say so.
+    declare_carrier("release_train", plugin=NAME, needs=("cd",))
     declare_api_parts()

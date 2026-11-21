@@ -29,6 +29,7 @@ from tranibor_contracts import SystemActor, Workflow
 from tranibor_contracts.enums import ActorType
 from tranibor_contracts.workflow import is_production_state, transition_effect
 
+from ..carriers import carrier_needs, carrier_of
 from ..gates import gate_needs
 from ..step_effects import step_effect_of
 
@@ -99,9 +100,13 @@ def _actors(workflow: Workflow, reasons: _Reasons) -> None:
 
 def _states_and_transitions(workflow: Workflow, reasons: _Reasons) -> None:
     name = workflow.metadata.name
+    # A production state is reached only through a carrier (the validator's lock): it needs what that
+    # carrier needs (the `software-delivery` plugin's train: a `cd`, ADR 0181 round D).
     for state, spec in workflow.states.items():
         if is_production_state(state, spec):
-            reasons.require("cd", f"{name}: the state {state} is production")
+            carried = {carrier_of(t) for t in workflow.transitions if t.to == state} - {None}
+            for capability in sorted({need for via in carried if via for need in carrier_needs(via)}):
+                reasons.require(capability, f"{name}: the state {state} is production")
     for transition in workflow.transitions:
         ident = transition.id or f"{transition.from_}->{transition.to}"
         # What the platform DOES when it crosses a system transition (`does`, #175), deduced from the
@@ -111,8 +116,10 @@ def _states_and_transitions(workflow: Workflow, reasons: _Reasons) -> None:
         if found is not None and isinstance(workflow.actors.get(transition.by or ""), SystemActor):
             for capability in sorted(found.needs):
                 reasons.require(capability, f"{name}: {ident} {found.gesture}")
-        if transition.via == "release_train" or transition.train is not None:
-            reasons.require("cd", f"{name}: {ident} goes through a release train")
+        via = carrier_of(transition)
+        if via is not None:
+            for capability in carrier_needs(via):
+                reasons.require(capability, f"{name}: {ident} goes through a release train")
         for guarantee in transition.gates:
             for capability in sorted(gate_needs(guarantee.name)):
                 reasons.require(capability, f"{name}: the guarantee {guarantee.name} on {ident}")
