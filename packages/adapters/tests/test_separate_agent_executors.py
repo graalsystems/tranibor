@@ -80,7 +80,8 @@ async def _render() -> dict[str, Any]:
 
 
 async def test_process_renders_exactly_what_it_did_before() -> None:
-    """The rollback: a deployment that sets `process` gets the Job and the containers of 0.27.15."""
+    """The rollback: a deployment that sets `process` gets the Job and the containers of 0.27.15, but for
+    the pod's `choregos/sandbox` label (finding #2082: the run-pod policy holds a Job's pod in any mode)."""
     assert json.loads(json.dumps(await _render())) == json.loads(BEFORE.read_text(encoding="utf-8"))
 
 
