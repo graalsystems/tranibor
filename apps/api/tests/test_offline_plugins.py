@@ -50,6 +50,7 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
         "investment-research": ["0.1.0"],
         "mcp-clients": ["1.0.0"],
         "netops": ["1.2.0"],
+        "procurement": ["0.2.0"],
         "requests": ["1.1.0"],
         "software-delivery": ["1.1.1"],
     }
