@@ -8,7 +8,6 @@ from ..activities.interpretation import (
     load_context,
     record_migration,
     record_workflow_failure,
-    signal_train,
 )
 from .action import ActionWorkflow
 from .agent_build import HostedImageBuild
@@ -44,7 +43,6 @@ WORKFLOW_ACTIVITIES = [
     load_context,
     record_workflow_failure,
     record_migration,
-    signal_train,
     escalation_context,
 ]
 

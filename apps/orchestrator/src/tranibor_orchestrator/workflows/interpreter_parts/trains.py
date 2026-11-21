@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""A transition a deployment train carries.
+"""A transition a deployment train carries (`via: release_train`).
 
-Methods moved as they were from `workflows/interpreter.py`; the handlers stay on the class."""
+Methods moved as they were from `workflows/interpreter.py`; the handlers stay on the class. The train is
+the `software-delivery` plugin's (ADR 0181, round D): the interpreter boards it by calling the activity
+`signal_train` by name (`carriers.BOARD_ACTIVITY`), which the plugin's extension registers on the workers,
+and waits for the deployment events its train relays. The commands are the ones every recorded history
+carries; the interpreter reads no registry, so a history replays without the extension."""
 
 from __future__ import annotations
 
@@ -14,11 +18,8 @@ from ..scheduling import execute_on_its_queue
 
 with workflow.unsafe.imports_passed_through():
     from tranibor_core import WorkflowEngine
+    from tranibor_core.carriers import BOARD_ACTIVITY
     from tranibor_core.dsl.trains import train_approval, train_env
-
-    from ...activities.interpretation import (
-        signal_train,
-    )
 
 from ..interpreter import TRAIN_PER_ENVIRONMENT
 from .base import InterpreterBase
@@ -42,7 +43,7 @@ class TrainsMixin(InterpreterBase):
         if per_environment:
             boarding["approval"] = dict(train_approval(engine.wf, transition))
         await execute_on_its_queue(
-            signal_train,
+            BOARD_ACTIVITY["release_train"],
             boarding,
             start_to_close_timeout=timedelta(minutes=1),
             retry_policy=DEFAULT_RETRY,

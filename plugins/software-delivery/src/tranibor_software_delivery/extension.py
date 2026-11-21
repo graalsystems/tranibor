@@ -12,7 +12,8 @@ platform's processes, registered through the core's seams when the API and the w
 - the `scm.*`, `ci.*` and `cd.*` inbound event types, four finding types and two memory kinds, in the
   contracts' open lists (`lists.py`);
 - the release train, its workflow `ReleaseTrain` and its activities, on the orchestrator's workers through
-  the worker seam (round D, `train/`), under the names every recorded history carries;
+  the worker seam (round D, `train/`), under the names every recorded history carries, and the carrier
+  `via: release_train` (`carriers.declare_carrier`), whose boarding activity `signal_train` it registers;
 - the train's routes (`listReleases`, `getRelease`, `getTrainStatus`, `departTrain`, `freezeTrain`,
   `unfreezeTrain`, `approveRelease`, `abortRelease`), through `extensions.declare_router` (`train/api.py`);
 - a run's diff (`getRunDiff`) and a project's DORA metrics (`getProjectDora`), the same way (`api.py`);
@@ -27,6 +28,7 @@ platform's processes, registered through the core's seams when the API and the w
 
 from __future__ import annotations
 
+from tranibor_core.carriers import declare_carrier
 from tranibor_core.gates import context_provider
 from tranibor_core.worker_parts import WorkerParts, declare_worker_parts
 
@@ -41,7 +43,7 @@ def provide_worker_parts() -> WorkerParts:
     """What the plugin adds to the orchestrator's workers: called by the worker only, so that loading the
     extension (the API does too) imports no Temporal code. Every train activity runs on the queue of the
     workflow that calls it, `orchestrator`, as it did when the orchestrator carried them."""
-    from .train import activities
+    from .train import activities, boarding
     from .train.workflow import ReleaseTrain
 
     return WorkerParts(
@@ -64,6 +66,8 @@ def provide_worker_parts() -> WorkerParts:
             activities.mark_release,
             activities.apply_terraform,
             activities.train_stats,
+            # The interpreter's boarding of a `via: release_train` transition, called by name.
+            boarding.signal_train,
         ],
     )
 
@@ -95,4 +99,5 @@ def register() -> None:
     register_effects()
     declare_values()
     declare_worker_parts(NAME, provide_worker_parts)
+    declare_carrier("release_train", plugin=NAME)
     declare_api_parts()

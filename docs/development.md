@@ -423,6 +423,25 @@ import), and a workflow module imports the orchestrator's helpers inside
 `apps/orchestrator/tests/test_worker_seam.py` installs a test plugin's extension and runs its workflow on
 the test server, its activity on its queue.
 
+## Carrying a transition from an extension
+
+`via: release_train` hands a work item to a durable workflow that is not the interpreter: the
+`software-delivery` plugin's train (ADR 0181, round D, the carrier seam, `tranibor_core.carriers`). The
+interpreter boards it by calling an activity **by name**, the one recorded histories carry
+(`carriers.BOARD_ACTIVITY`: `signal_train`), then waits for the deployment events the train relays. The
+plugin's extension registers that activity on the workers (the worker seam) and declares the carrier:
+
+```python
+from tranibor_core.carriers import declare_carrier
+
+def register_extension() -> None:
+    declare_carrier("release_train", plugin="software-delivery")
+```
+
+Without it, a workflow naming `via: release_train` is refused at publication, naming the plugin
+(`transition.carrier_unavailable`). The DSL's `via` takes one value today: a new carrier is a contract
+change. `plugins/software-delivery/tests/test_carrier.py` proves both sides.
+
 ## Extending the open lists
 
 Five lists the contracts used to close are open since round C0 of ADR 0181: the inbound event types,
