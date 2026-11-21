@@ -2,9 +2,9 @@
 
 What the core's fakes (`FakePluginTrackerServer`) cannot prove: that `PluginTracker`, through the platform's
 `PluginServerClient`, carries a work item on a real ServiceNow through the plugin's MCP server
-(graalsystems/tranibor-agents, `plugins/servicenow/server`), and that every answer the real system gives
-fits the tracker profile's schema. The server runs on its own, pointed at the instance with the
-integration user of the plugin's procedure:
+(`plugins/servicenow/server` in the plugin repository, `PUBLISHING.plugin_repository`), and that every
+answer the real system gives fits the tracker profile's schema. The server runs on its own, pointed at
+the instance with the integration user of the plugin's procedure:
 
     cd tranibor-agents/plugins/servicenow/server
     SERVICENOW_BASE_URL=https://<instance>.service-now.com SERVICENOW_AUTH=basic \\
