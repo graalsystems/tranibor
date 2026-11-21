@@ -506,8 +506,10 @@ test("agents: an external agent shows its client, and a project its implicit age
   await expect(page.getByTestId("pins")).toContainText("Tightened");
   await expect(page.getByTestId("implicit")).toContainText("refiner");
   await expect(page.getByTestId("implicit")).toContainText("dev");
-  await page.getByTestId("implicit").getByRole("button", { name: "Register" }).first().click();
-  await expect(page.getByTestId("implicit").getByRole("status")).toContainText("actors.refiner.agent: refiner");
+  // The implicit agents' order is the server's (ADR 0206): register the refiner by its row, not by position.
+  const refiner = page.getByTestId("implicit").getByRole("listitem").filter({ hasText: "refiner" });
+  await refiner.getByRole("button", { name: "Register" }).click();
+  await expect(refiner.getByRole("status")).toContainText("actors.refiner.agent: refiner");
 });
 
 test("settings: the connectors the workflows require, and why; a secret by reference", async ({ page }) => {

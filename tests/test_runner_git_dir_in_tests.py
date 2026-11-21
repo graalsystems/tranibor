@@ -15,6 +15,8 @@ from tranibor_runner.workspace import DEFAULT_GIT_DIR_ROOT, GIT_DIR_ROOT_VARIABL
 
 REPO = Path(__file__).resolve().parents[1]
 THIS = Path(__file__).resolve()
+#: A line that only COMPUTES the default root, and never touches it, says so with this marker.
+ALLOWED = "git-root: computed, never touched"
 UNSET = re.compile(
     r"delenv\(\s*[\"']TRANIBOR_RUNNER_GIT_DIR_ROOT|environ\.pop\(\s*[\"']TRANIBOR_RUNNER_GIT_DIR_ROOT"
 )
@@ -38,6 +40,8 @@ def test_no_test_names_the_fixed_root_or_unsets_the_variable() -> None:
         if path.resolve() == THIS or "/live/" in str(path):
             continue
         for number, text in enumerate(path.read_text().splitlines(), 1):
+            if ALLOWED in text:
+                continue
             if "/var/tmp/choregos-git" in text or UNSET.search(text):
                 offenders.append(f"{path.relative_to(REPO)}:{number}")
     assert not offenders, f"a test would touch the fixed git-dir root: {offenders}"
