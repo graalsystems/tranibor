@@ -37,7 +37,7 @@ import httpx
 
 from .executor.tekton import CORE_API, KubernetesClient
 from .mcp.client import McpClient
-from .oci.registry import RegistryError, parse_ref
+from .oci.registry import check_mirrors, parse_ref
 
 APPS_API = "/apis/apps/v1"
 NETWORKING_API = "/apis/networking.k8s.io/v1"
@@ -254,22 +254,6 @@ def mirrored(image: str, mirrors: dict[str, str]) -> str:
             parse_ref(pulled)  # a mirror that does not make a reference is refused, not written
             return pulled
     return image
-
-
-def check_mirrors(mirrors: dict[str, str]) -> None:
-    """`RegistryError` when a mirror is not a registry or repository prefix on both sides (no tag, no
-    digest): `mirrored` could not keep the digest it must keep."""
-    for source, target in mirrors.items():
-        for prefix in (source, target):
-            bare = prefix.strip().rstrip("/")
-            try:
-                named = bool(bare) and parse_ref(f"{bare}/probe").name == f"{bare}/probe"
-            except RegistryError:
-                named = False
-            if not named:
-                raise RegistryError(
-                    f"`{prefix}` is not a registry or repository prefix (a registry host, no tag, no digest)"
-                )
 
 
 def server_manifests(d: ServerDeployment) -> list[dict[str, Any]]:

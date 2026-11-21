@@ -620,8 +620,9 @@ class Settings(BaseSettings):
     def _plugin_server_mirrors_are_prefixes(self) -> Settings:
         """A mirror that is not a prefix would write a reference that loses the digest: refused at
         start-up rather than at the first install."""
-        from tranibor_adapters.oci import RegistryError
-        from tranibor_adapters.plugin_servers import check_mirrors
+        # From the OCI module, not `plugin_servers`: that one loads the MCP client, and the outposts'
+        # door served alone builds these settings without loading connectors (test_outpost_door_alone).
+        from tranibor_adapters.oci.registry import RegistryError, check_mirrors
 
         try:
             check_mirrors(self.plugin_servers_image_mirrors)
