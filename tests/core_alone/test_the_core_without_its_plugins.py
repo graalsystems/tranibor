@@ -88,3 +88,20 @@ def test_a_gate_of_the_plugin_is_refused_naming_it() -> None:
     assert why is not None and "`software-delivery`" in why
     _, report = parse_workflow(WORKFLOW, strict=False)
     assert [e.code for e in report.errors if "software-delivery" in e.message] == ["gate.unknown"]
+
+
+def test_a_project_with_a_repository_and_no_template_gets_a_workflow_the_core_runs() -> None:
+    """`default-simple` is the plugin's to run (its gates, `open_pr`, `merge_pr`): the core gives
+    `default-request` instead (S83-05d)."""
+    from tranibor_api.services.templates import delivery
+
+    [source] = delivery({}, None, has_repository=True).workflows
+    workflow, report = parse_workflow_report(source)
+    assert workflow == "default-request" and report
+
+
+def parse_workflow_report(source: str) -> tuple[str, bool]:
+    from tranibor_core import parse_workflow
+
+    parsed, report = parse_workflow(source, strict=False)
+    return parsed.metadata.name, report.valid
