@@ -57,12 +57,13 @@ def test_every_service_image_is_pinned_by_digest() -> None:
 
 
 def test_the_server_image_is_the_published_one_pinned_by_digest() -> None:
-    """The digest is a placeholder of zeros until the agents repository publishes 0.2.0: never pullable, so
-    the night fails loudly at `docker run` rather than running something else."""
+    """The image the agents repository published, by its registry digest: never a tag alone, never the
+    placeholder of zeros the job carried before procurement 0.2.0 was published."""
     image = str(_job()["env"]["PURCHASING_IMAGE"])
     assert image.startswith("ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:"), image
-    assert DIGEST.search(image), (
-        "the server image must be pinned by digest (a placeholder of zeros is allowed)"
+    assert DIGEST.search(image), "the server image must be pinned by digest"
+    assert "sha256:" + "0" * 64 not in image, (
+        "a placeholder digest is never pullable: write the published one"
     )
     assert "latest" not in image, "a night that runs whatever was last built proves nothing about a release"
 
