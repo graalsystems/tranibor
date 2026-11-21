@@ -57,7 +57,7 @@ async def test_a_rerun_buys_one_attempt_not_a_new_allowance(
     escalates again at once (before: it had two fresh attempts, and the third failure of the
     script would have been played), and every click pays for exactly one run."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     scripted(setup.adapters, FAILURE, FAILURE, FAILURE, FAILURE, FAILURE, refine_result("spec"))
     async with worker_factory():
@@ -78,7 +78,7 @@ async def test_a_rerun_buys_one_attempt_not_a_new_allowance(
         await handle.signal("control", {"action": "stop"})
         await handle.result()
         history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-rerun-one-attempt-S27-13.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -91,7 +91,7 @@ async def test_an_answer_buys_one_attempt_not_a_new_allowance(
     ONE more attempt: it fails and the work item escalates after three runs (before: the answer
     reset the attempts, and a fourth run was played)."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     question = StageResult(
         status=StageStatus.NEEDS_HUMAN,
@@ -123,7 +123,7 @@ async def test_an_answer_buys_one_attempt_not_a_new_allowance(
         await handle.signal("control", {"action": "stop"})
         await handle.result()
         history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-answer-one-attempt-S27-04.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

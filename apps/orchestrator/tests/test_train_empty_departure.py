@@ -21,6 +21,9 @@ import pytest
 from .conftest import recording_history
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
 #: 10 minutes at one look per minute: ~11 looks. The empty spin made hundreds.
@@ -99,9 +102,9 @@ async def test_a_departure_on_an_empty_train_does_not_make_it_spin(
 
     # The history replays against the current code, and is archived for the next ones.
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "train-empty-departure-S22-29.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -143,9 +146,9 @@ async def test_a_departure_on_a_frozen_train_does_not_make_it_spin(
         history = await train.fetch_history()
 
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "train-frozen-departure-S22-29.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

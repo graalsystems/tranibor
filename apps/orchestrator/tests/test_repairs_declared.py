@@ -128,7 +128,7 @@ async def test_the_interpreter_takes_the_declared_repair_and_the_history_replays
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.workflows.interpreter import REPAIRS_DECLARED
 
     played: list[str] = []
@@ -171,7 +171,7 @@ async def test_the_interpreter_takes_the_declared_repair_and_the_history_replays
     assert any(REPAIRS_DECLARED in patch for patch in _patches(json.loads(history.to_json()))), (
         "the history records the `repairs-declared` marker"
     )
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-repairs-declared-S83-03c.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

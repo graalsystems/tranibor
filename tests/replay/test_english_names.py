@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ ROOT = Path(__file__).resolve().parents[2]
 ORCHESTRATOR = ROOT / "apps" / "orchestrator" / "src"
 WORKFLOWS = ORCHESTRATOR / "tranibor_orchestrator" / "workflows"
 HISTORIES = Path(__file__).parent / "histories"
+#: The release train, the `software-delivery` plugin's since round D of ADR 0181 (read from its source).
+TRAIN = ROOT / "plugins/software-delivery/src/tranibor_software_delivery/train"
+TRAIN_RENAMED = {"confirm_auto_sync"}
+CORE_ALONE = os.environ.get("TRANIBOR_TEST_CORE_ALONE") == "1"
 
 #: English → French, the eight activities renamed by S34-02.
 RENAMED = {
@@ -44,7 +49,8 @@ FROZEN_PATCH_IDS = (
 
 
 def _source() -> str:
-    return "\n".join(path.read_text(encoding="utf-8") for path in sorted(WORKFLOWS.rglob("*.py")))
+    paths = [*sorted(WORKFLOWS.rglob("*.py")), *sorted(TRAIN.rglob("*.py"))]
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
 
 @pytest.mark.parametrize("patch_id", FROZEN_PATCH_IDS)
@@ -56,11 +62,13 @@ def test_a_french_patch_id_is_never_renamed(patch_id: str) -> None:
 
 
 def test_the_worker_answers_to_both_names() -> None:
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities
     from tranibor_orchestrator.queues import activity_name
 
-    names = {activity_name(activity) for activity in ALL_ACTIVITIES}
-    missing = sorted(n for pair in RENAMED.items() for n in pair if n not in names)
+    names = {activity_name(activity) for activity in all_activities()}
+    # The train's pair is the `software-delivery` plugin's (round D): registered where its extension is.
+    pairs = {k: v for k, v in RENAMED.items() if not (CORE_ALONE and k in TRAIN_RENAMED)}
+    missing = sorted(n for pair in pairs.items() for n in pair if n not in names)
     assert not missing, f"not registered on the worker: {missing}"
 
 
@@ -190,8 +198,8 @@ def test_the_english_payload_patch_is_declared_and_used() -> None:
     assert declared, "the patch id is not declared in the workflows"
     assert f"workflow.patched({declared.group(1)})" in source, "the patch is never checked"
     # Used by every workflow that sends a key: the action, the train and the interpreter's migration.
-    for module in ("action.py", "train.py", "interpreter_parts/external.py"):
-        assert "english_payload_keys()" in (WORKFLOWS / module).read_text(encoding="utf-8"), module
+    for path in (WORKFLOWS / "action.py", TRAIN / "workflow.py", WORKFLOWS / "interpreter_parts/external.py"):
+        assert "english_payload_keys()" in path.read_text(encoding="utf-8"), path
 
 
 @pytest.mark.parametrize("name", sorted(ENGLISH_KEY_HISTORIES))

@@ -180,7 +180,7 @@ async def test_an_effect_in_doubt_closes_the_action_in_doubt_and_compensates_not
     setup: Fixture, temporal_env: Any, worker_factory: Any, world: World
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     action_id = await _action(setup, [CREATE, DOUBT, CREATE])
     result, history = await _run(temporal_env, worker_factory, action_id)
@@ -213,7 +213,7 @@ async def test_an_effect_in_doubt_closes_the_action_in_doubt_and_compensates_not
     ]
     assert started == [1, 1, 1, 1], "load, two effects and the close, each attempted once"
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "action-in-doubt-S65-14.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -410,7 +410,7 @@ async def test_a_workflow_that_predates_the_status_undoes_nothing_and_its_histor
     the action in doubt. Replayed by today's code, that history holds no marker of the branch, so
     the failure branch is taken again: the same commands, no divergence."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.workflows import action as workflow
 
     action_id = await _action(setup, [CREATE, DOUBT])
@@ -426,7 +426,7 @@ async def test_a_workflow_that_predates_the_status_undoes_nothing_and_its_histor
     assert action.status == "in_doubt", "what the activities recorded of it"
     assert [row.status for row in effects] == ["done", "in_doubt"]
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "action-in-doubt-before-the-patch-S65-14.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

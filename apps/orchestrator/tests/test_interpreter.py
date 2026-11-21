@@ -709,9 +709,9 @@ async def test_the_same_failure_twice_escalates_instead_of_retrying(
     from pathlib import Path
 
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if os.environ.get("TRANIBOR_RECORD_REPLAY") == "1":
         archive = (
             Path(__file__).resolve().parents[3] / "tests/replay/histories/wi-identical-failure-S27-07.json"

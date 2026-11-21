@@ -68,6 +68,9 @@ def _install(root: pathlib.Path, name: str, source: str) -> None:
 
 
 def _extension(tmp_path: pathlib.Path, name: str, source: str) -> Iterator[None]:
+    # The module builds its own application when it is first imported: imported here, before the extension
+    # is installed, so that run alone a test meets the extension in its own `create_app()` call.
+    import tranibor_api.main  # noqa: F401
     from tranibor_api.extensions import reset
 
     root = tmp_path / name

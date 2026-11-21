@@ -83,7 +83,7 @@ async def test_a_workflow_that_asks_for_a_draft_opens_one(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _publish(setup, _draft_workflow())
     scripted(
@@ -107,7 +107,7 @@ async def test_a_workflow_that_asks_for_a_draft_opens_one(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-open-pr-draft-S51-11.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

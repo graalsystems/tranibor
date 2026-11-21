@@ -44,7 +44,7 @@ async def test_an_interpreter_on_a_trial_item_ends(
     from temporalio.worker import Replayer
     from tranibor_api.db.models import WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _make_trial(setup)
     async with worker_factory():
@@ -58,7 +58,7 @@ async def test_an_interpreter_on_a_trial_item_ends(
         item = await session.get(WorkItem, setup.work_item_id)
         assert item is not None
         assert item.state == "trial", "the trial's work item is left as it was"
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-trial-item-ends-S67-16.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -96,7 +96,7 @@ async def test_an_interpreter_left_over_on_a_trial_item_replays_to_its_end() -> 
     nondeterminism error and reaches the end: the workflows left open in production close."""
     from temporalio.client import WorkflowHistory
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     payload = json.loads(LEFT_OVER.read_text(encoding="utf-8"))
     kinds = [event["eventType"] for event in payload["events"]]
@@ -105,7 +105,7 @@ async def test_an_interpreter_left_over_on_a_trial_item_replays_to_its_end() -> 
     history = WorkflowHistory.from_json(LEFT_OVER.stem, payload)
 
     witness = _EndWitness()
-    result = await Replayer(workflows=ALL_WORKFLOWS, interceptors=[witness]).replay_workflow(history)
+    result = await Replayer(workflows=all_workflows(), interceptors=[witness]).replay_workflow(history)
 
     assert result.replay_failure is None
     assert len(witness.returned) == 1, "the replay did not reach the end"

@@ -10,7 +10,8 @@ ORCHESTRATOR_SRC = ROOT / "apps" / "orchestrator" / "src"
 
 # Measured at 87ea1831d. Lower it in the PR that removes imports; raise it only for a mechanical
 # rename that splits an existing statement, saying so in the PR body, or by amending ADR 0099.
-CEILING = 156  # S47-33: +3, the stage helpers moved to stage_*.py repeat three imports of the stage module
+# S47-33: +3 (the stage helpers repeat three imports); S83-05b: -4 (the release train left for its plugin).
+CEILING = 152
 
 HTTP_LAYER = (
     "tranibor_api.routers",
