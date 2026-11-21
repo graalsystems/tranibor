@@ -24,6 +24,11 @@ BOUNDED: dict[str, str] = {
     "listExecutors": "the five executor kinds",
     "listProcedures": "the shipped procedures",
     "listTemplates": "the shipped project templates",
+    "listTrackerIdentities": (
+        "at most one row: the member's GitHub link at github.com, one per member by "
+        "`uq_linked_accounts_member` (db/models/identity.py:259), returned as `[dto] if row else []` "
+        "(routers/linked_accounts.py:300); deprecated by ADR 0161"
+    ),
     "listWorkflowTemplates": "the shipped workflow templates",
 }
 
@@ -52,8 +57,6 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listImplicitAgents",
         "listKnowledgeBases",
         "listMachineAccounts",
-        "listMemberLinkedAccounts",
-        "listMembers",
         "listMemories",
         "listMyTokens",
         "listMySessions",
@@ -69,10 +72,8 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listProjectOperations",
         "listProjectOrgConnectors",
         "listProjectRequirements",
-        "listRemoteCredentials",
         "listRuns",
         "listSkills",
-        "listTrackerIdentities",
         "listTriggers",
         "listUsableModels",
         "listWorkItemArtifacts",
