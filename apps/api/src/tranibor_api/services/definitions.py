@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from sqlalchemy import func, select
@@ -325,6 +326,26 @@ async def publish_workflow(  # noqa: PLR0913 - the only write path: its options 
         version=row.version,
     )
     return row
+
+
+async def require_active_workflows(session: AsyncSession, project_id: str, names: Iterable[str]) -> None:
+    """Refuse (422) a workflow name the project has no active definition of.
+
+    The one rule of `PUT /workflow-routing` and of a project created with its `default_workflow`: a
+    default or a rule may only name a workflow that is published and active in the project.
+    """
+    active = set(
+        (
+            await session.execute(
+                select(WorkflowDef.name).where(
+                    WorkflowDef.project_id == project_id, WorkflowDef.is_active.is_(True)
+                )
+            )
+        ).scalars()
+    )
+    unknown = sorted(set(names) - active)
+    if unknown:
+        raise unprocessable(f"unknown or inactive workflow(s): {', '.join(unknown)}")
 
 
 async def active_policy(session: AsyncSession, project_id: str) -> PolicyDef | None:

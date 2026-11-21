@@ -7,8 +7,10 @@ from dataclasses import asdict
 from functools import partial
 
 from fastapi import status
+from sqlalchemy import func, select
 
 from ...audit import record
+from ...db.models import KnowledgeDocument
 from ...deps import Db, Me
 from ...errors import conflict, unprocessable
 from ...knowledge.access import (
@@ -94,7 +96,24 @@ async def run_knowledge_eval(org: str, slug: Slug, session: Db, principal: Me) -
         raise conflict(f"knowledge base `{slug}` is served as files: it has no index to evaluate")
     if not base.eval_set:
         raise unprocessable("the eval set is empty: give questions and their expected documents first")
-    base.eval_result = await evaluate(session, base, k=5)
+    result = await evaluate(session, base, k=5)
+    # Indexing is asynchronous (conversion, then chunking): a document still `pending` or `converting` is
+    # not in the index yet, so a score taken now undercounts. Say so, instead of a bare 0.
+    counted = await session.execute(
+        select(KnowledgeDocument.status, func.count())
+        .where(
+            KnowledgeDocument.knowledge_base_id == base.id,
+            KnowledgeDocument.status.in_(("pending", "converting")),
+        )
+        .group_by(KnowledgeDocument.status)
+    )
+    waiting = dict(counted.tuples().all())
+    result["indexing"] = {
+        "in_progress": bool(waiting),
+        "pending": waiting.get("pending", 0),
+        "converting": waiting.get("converting", 0),
+    }
+    base.eval_result = result
     await session.flush()
     await record(
         session,

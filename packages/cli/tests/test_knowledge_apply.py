@@ -267,3 +267,26 @@ def test_the_shipped_example_is_a_valid_manifest() -> None:
     example = Path(__file__).parents[3] / "trials" / "knowledge" / "example-kb.yaml"
     manifest = load_manifest(example)
     assert {u.filename for u in collect_uploads(manifest, example.parent)} == {"offers.md", "about.md"}
+
+
+def test_eval_says_indexing_is_in_progress_instead_of_a_bare_score() -> None:
+    def answer(indexing: dict[str, Any]) -> Response:
+        return Response(
+            200,
+            json={
+                "eval_result": {"k": 5, "recall": 0.0, "mode": "hybrid", "cases": [], "indexing": indexing}
+            },
+        )
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post(KB + "/acme/eval/run").mock(
+            side_effect=[
+                answer({"in_progress": True, "pending": 1, "converting": 2}),
+                answer({"in_progress": False, "pending": 0, "converting": 0}),
+            ]
+        )
+        waiting = _run("knowledge", "eval", "acme")
+        settled = _run("knowledge", "eval", "acme")
+    assert waiting.exit_code == 0
+    assert "indexing in progress: 3 document(s)" in waiting.output and "recall@5 = 0.0" in waiting.output
+    assert settled.exit_code == 0 and "indexing in progress" not in settled.output

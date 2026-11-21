@@ -1,9 +1,9 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Console (apps/web) — notes for coding agents
 
-# This is NOT the Next.js you know
+This is Next.js 16: APIs, conventions and file structure differ from older versions. Read the
+relevant guide in `node_modules/next/dist/docs/` (this directory's `next` package) before writing
+code, and heed deprecation notices.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+This file is maintained by hand. `next.config.mjs` sets `agentRules: false`, so `next dev` does
+not write its own block here and a development run leaves the tree clean. Keep Next's
+managed-block markers out of this file: with the option off, Next deletes a block it finds.
