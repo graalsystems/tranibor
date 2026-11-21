@@ -168,7 +168,12 @@ def _compare(trail: str, node: dict[str, Any], model: type, gaps: list[str]) -> 
     }
     model_fields.update({name: _Annotated(annotation) for name, annotation in computed.items()})
     missing_from_schema = set(model_fields) - set(schema_fields)
-    missing_from_model = set(schema_fields) - set(model_fields)
+    # A plugin's section a model reads but does not write (`x-plugin`, ADR 0181 C2): a property of it.
+    missing_from_model = {
+        name
+        for name in set(schema_fields) - set(model_fields)
+        if not (schema_fields[name].get("x-plugin") and isinstance(getattr(model, name, None), property))
+    }
     for name in sorted(missing_from_schema):
         gaps.append(f"{trail}.{name} : in the model {model.__name__}, absent from the schema")
     for name in sorted(missing_from_model):

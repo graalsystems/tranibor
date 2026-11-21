@@ -65,3 +65,6 @@ website/.docusaurus/
 
 # pytest-textual-snapshot writes its report here on a failure or an update
 snapshot_report.html
+
+# Written by Next on every dev run, build and typegen; `pnpm typecheck` generates it first.
+apps/web/next-env.d.ts
