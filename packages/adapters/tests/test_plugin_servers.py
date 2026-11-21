@@ -7,12 +7,15 @@ import json
 import httpx
 import pytest
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
+from tranibor_adapters.oci import RegistryError
 from tranibor_adapters.plugin_servers import (
     CONFIG_DIGEST,
     PRIVATE_RANGES,
     PluginServerClient,
     PluginServerRuntime,
     ServerDeployment,
+    check_mirrors,
+    mirrored,
     server_manifests,
 )
 
@@ -102,3 +105,41 @@ async def test_the_server_client_presents_its_token_and_needs_no_egress_policy(
     )
     assert await client.list_tools() == []
     assert seen and all(r.headers["authorization"] == "Bearer secret" for r in seen)
+
+
+MIRRORS = {
+    "registry.example/choregos-agents": "harbor.example/proxy/choregos-agents",
+    "registry.example": "harbor.example/everything",
+}
+
+
+def test_a_mirror_moves_the_pull_and_keeps_the_digest() -> None:
+    """S80-20: the longest matching prefix, matched by path segment, the rest of the reference kept."""
+    assert mirrored(IMAGE, MIRRORS) == "harbor.example/proxy/choregos-agents/hello-mcp@sha256:" + "a" * 64
+    other = "registry.example/other/x@sha256:" + "b" * 64
+    assert mirrored(other, MIRRORS) == "harbor.example/everything/other/x@sha256:" + "b" * 64
+    evil = "registry.example-evil/choregos-agents/x@sha256:" + "c" * 64
+    assert mirrored(evil, MIRRORS) == evil, "a prefix is matched by path segment"
+    assert mirrored(IMAGE, {}) == IMAGE
+    assert mirrored(IMAGE, {"registry.example/choregos-agents/": "harbor.example/p/"}).startswith(
+        "harbor.example/p/hello-mcp@sha256:"
+    )
+
+
+@pytest.mark.parametrize(
+    "mirrors",
+    [{"acme": "harbor.example/acme"}, {"ghcr.io/acme": "harbor.example/acme:1"}, {"ghcr.io/acme": ""}],
+    ids=["no-registry", "a-tag", "empty"],
+)
+def test_a_mirror_that_is_not_a_prefix_is_refused(mirrors: dict[str, str]) -> None:
+    with pytest.raises(RegistryError):
+        check_mirrors(mirrors)
+    check_mirrors(MIRRORS)
+
+
+def test_the_pull_secrets_reach_the_pod() -> None:
+    pod = _kind(server_manifests(_server(image_pull_secrets=("mirror-pull",))), "Deployment")
+    spec = pod["spec"]["template"]["spec"]  # type: ignore[index]
+    assert spec["imagePullSecrets"] == [{"name": "mirror-pull"}]
+    plain = _kind(server_manifests(_server()), "Deployment")["spec"]["template"]["spec"]  # type: ignore[index]
+    assert "imagePullSecrets" not in plain
