@@ -3,8 +3,9 @@
 
 The templates, agents, skills and evals are published from the platform's plugin repository; the core
 runs its tests against the very bytes it ships offline, so a template that no longer works with this
-commit's engine, job commands or schemas turns this suite red before a release carries it. Version
-0.2.0 is the first archive published (there is no 0.1.0 one), so both stories lock it.
+commit's engine, job commands or schemas turns this suite red before a release carries it. Both stories
+lock 0.2.1: 0.2.0, the first archive published (there is no 0.1.0 one), was refused at install and could
+not compare, which these tests found (fixed by pull request 26 of the plugin repository).
 """
 
 from __future__ import annotations

@@ -33,11 +33,11 @@ plugins:
     file: netops-1.2.0.tar.gz
     signature: keyless, https://github.com/VargaFoundation/choregos-agents/.github/workflows/publish.yml@refs/heads/main
   procurement:
-    version: 0.2.0
-    digest: sha256:8f8204732b168b28729b5139773f4505eae513b3fe0b3acce12996ca781a09d1
-    source: ghcr.io/graalsystems/tranibor-agents/procurement:0.2.0
-    artifact: sha256:f554e6f3bb26ec0cb00314776dc58e35bfc9b661626140ccaf33b66bce0ad50b
-    file: procurement-0.2.0.tar.gz
+    version: 0.2.1
+    digest: sha256:eaf4a5b90eba84fbc9f3218944ec5c98966cd648cce229a23a945b16aca6a5b6
+    source: ghcr.io/graalsystems/tranibor-agents/procurement:0.2.1
+    artifact: sha256:3f9382eeebebf0c6c11c1465ed64d6c84594dc64abb645d6c5801d40f6ede256
+    file: procurement-0.2.1.tar.gz
     signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
   requests:
     version: 1.1.0

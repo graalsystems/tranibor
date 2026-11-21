@@ -59,7 +59,7 @@ def test_every_service_image_is_pinned_by_digest() -> None:
 
 def test_the_server_image_is_the_published_one_pinned_by_digest() -> None:
     """The image the agents repository published, by its registry digest: never a tag alone, never the
-    placeholder of zeros the job carried before procurement 0.2.0 was published."""
+    placeholder of zeros the job carried before procurement was published."""
     image = str(_job()["env"]["PURCHASING_IMAGE"])
     assert image.startswith(f"{PUBLISHING.registry}/tranibor-agents/purchasing-mcp:"), image
     assert DIGEST.search(image), "the server image must be pinned by digest"
