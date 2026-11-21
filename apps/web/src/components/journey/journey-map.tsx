@@ -6,6 +6,7 @@ import { buttonClasses, Disclosure } from "@/components/ui";
 import { KIND_COLOURS } from "@/components/workflows/map/layout";
 import { cn } from "@/lib/cn";
 import { toSentenceCase, relative, shortDate, usd } from "@/lib/format";
+import { evidenceValue } from "@/lib/neutral-names";
 import type { WorkItemJourney } from "@/lib/types";
 import { place, RADIUS, truncate, type Placement, type Point } from "./layout";
 import { useReader, type Speed } from "./reader";
@@ -734,9 +735,10 @@ function detailOf(step: Step, state: StepState, structural = false): string | nu
   const last = state.attempts.at(-1);
   if (state.verdict) return state.verdict === "approve" ? "✓ approved" : state.verdict.replace(/_/g, " ");
   const evidence = (last?.evidence ?? {}) as Record<string, unknown>;
-  if (typeof evidence.tests_run === "number") {
-    const failures = Number(evidence.tests_failed ?? 0);
-    return failures > 0 ? `✗ ${failures} of ${evidence.tests_run} tests fail` : `✓ ${evidence.tests_run} tests pass`;
+  const testsRun = evidenceValue(evidence, "tests_run");
+  if (typeof testsRun === "number") {
+    const failures = Number(evidenceValue(evidence, "tests_failed") ?? 0);
+    return failures > 0 ? `✗ ${failures} of ${testsRun} tests fail` : `✓ ${testsRun} tests pass`;
   }
   if (step.kind === "human") {
     if (state.status === "waiting" && last?.due_at) return `due ${relative(last.due_at)}`;
