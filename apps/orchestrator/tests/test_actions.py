@@ -132,7 +132,7 @@ async def test_a_transient_failure_does_not_redo_the_effect_already_done(
     setup: Fixture, temporal_env: Any, worker_factory: Any, journal: Journal
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     journal.outages["add"] = 1
     action_id = await _action(setup, [CREATE, ADD])
@@ -148,7 +148,7 @@ async def test_a_transient_failure_does_not_redo_the_effect_already_done(
         "two attempts for the second, one for the first"
     )
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "action-S20-01.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

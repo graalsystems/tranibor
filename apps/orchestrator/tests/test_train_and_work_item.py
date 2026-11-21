@@ -26,6 +26,9 @@ from .kits.train_and_work_item import (
 )
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 CAPTAINS = {"required": True, "group": "release-captains"}
 HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
@@ -164,10 +167,10 @@ async def test_the_ticket_advances_when_its_train_has_delivered_without_a_hand_c
 
     # The two histories replay against the current code, and are archived for those to come.
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     for name, history in histories.items():
-        await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+        await Replayer(workflows=all_workflows()).replay_workflow(history)
         if recording_history():
             target = HISTORIES / f"{name}.json"
             target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -350,9 +353,9 @@ async def test_an_express_departure_takes_the_approval_of_the_express_lane(
             history = await train.fetch_history()
     # The history replays against the current code; the one of the lane that requires is archived.
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     name = EXPRESS_ARCHIVES.get(request.node.callspec.id)
     if name and recording_history():
         target = HISTORIES / f"{name}.json"
@@ -412,9 +415,9 @@ async def _express_label(setup: Fixture, label: str) -> None:
 
 async def _replay_and_archive(name: str | None, history: Any) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if name and recording_history():
         target = HISTORIES / f"{name}.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

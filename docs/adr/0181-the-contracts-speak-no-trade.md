@@ -491,3 +491,34 @@ Started on 2026-11-21 (planned 2027-02-08) and split into sub-stories of stream 
   release and its day, and a window closes in the first release cut on or after its `removed_on`, two
   weeks at least after the release that opened it, patch or minor. C1 opened in 0.27.17 and closes on or
   after 2026-12-07; C2 opens in the first release after 2026-11-21 and closes on or after 2026-12-14.
+
+## Round D, as built (2026-11-21)
+
+Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83, each with its row in
+`docs/plan/status/S83.md`:
+
+- **S83-05a.** The worker seam: an extension declares Temporal workflows and activities with
+  `tranibor_core.worker_parts.declare_worker_parts(plugin, provide)`, and the orchestrator's workers, its
+  replayer and its test workers carry them beside the core's (`tranibor_orchestrator.extension_parts`:
+  `all_workflows()`, `all_activities()`). Only the worker calls `provide`, so the API, which loads the same
+  extensions, imports none of their Temporal code. An activity may name its specialised queue
+  (`queues.declare_queue`). A workflow or activity name the core or another extension registers stops the
+  worker, naming both owners, because the names are the history's. The seam belongs to the fifth surface
+  (point 3 of the decision). The proof that the core does not need the plugins' extensions is two jobs that
+  build the environment without `tranibor-software-delivery` and `tranibor-investment-research`: one on
+  every Python PR (`core-without-plugins` in `ci.yml`: the boundary, meaning `tests/core_alone`, the
+  architecture guards, the replay of every archived history and the seams), and one at night (the core's
+  whole suite, less the files `tests/core_alone/need_the_plugins.txt` lists). That list is a ceiling that
+  only falls: 435 files when it was written, most of them because a project without a template gets
+  `default-simple`, whose gates are the plugin's. The suite's environment still installs both extensions
+  and runs everything.
+- **S83-05b.** The release train's durable code is the extension's: `ReleaseTrain` and its sixteen
+  activities left `tranibor_orchestrator` for `tranibor_software_delivery.train` and are registered on
+  the workers through the worker seam, under the workflow name, signals, queries, activity names and
+  `workflow.patched` ids every recorded history and every running train carry. Nothing needed a patch:
+  every archived history replays with the extension installed, `train-*.json` included, and in the core
+  alone the train's histories are skipped, naming the plugin, while every other one replays. The cron
+  matcher the train shared with the schedules stayed in the core (`activities.schedules.cron_due`). What
+  the interpreter does for `via: release_train` (`signal_train`, `TrainsMixin`, behind
+  `train-par-environnement`) is still the core's: it is part of `WorkflowInterpreter`, and it only names
+  the train by its workflow type and signals.

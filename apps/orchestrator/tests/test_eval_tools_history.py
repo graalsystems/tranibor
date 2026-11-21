@@ -86,9 +86,9 @@ async def _replays(history: Any, name: str | None) -> None:
     """The fresh history replays; recorded under `name` when histories are recorded (`None`: never, the
     archived one is the shape of an older code)."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history() and name is not None:
         target = HISTORIES / f"{name}.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

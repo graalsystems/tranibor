@@ -11,13 +11,12 @@ def worker_with(temporal_env: Any, replacements: dict[str, Any]) -> Any:
     The keys are **Temporal names**: the name declared by `@activity.defn(name=...)` decides the
     queue, so a double of `await_run` registers on `executor`, where the workflow schedules it.
     """
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
     return workers_by_queue(
         temporal_env.client,
-        activities=[*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES],
-        workflows=ALL_WORKFLOWS,
+        activities=all_activities(),
+        workflows=all_workflows(),
         replacements=replacements,
     )

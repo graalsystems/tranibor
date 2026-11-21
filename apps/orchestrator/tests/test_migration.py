@@ -127,7 +127,7 @@ async def test_a_parked_ticket_migrates_and_ends_on_its_new_definition(
     from temporalio.worker import Replayer
     from tranibor_api.db.models import WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _park(setup)
     arrival, signal = await _define(setup, ARRIVAL)
@@ -159,7 +159,7 @@ async def test_a_parked_ticket_migrates_and_ends_on_its_new_definition(
     assert (migration.payload["from_state"], migration.payload["to_state"]) == ("parked", "request")
 
     # The new history replays against the current code, and is archived for those to come.
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         # S45-39: `english-keys` archives the history that sends English keys, and only that one.
         english_keys = recording_history() == "english-keys"
@@ -244,7 +244,7 @@ async def test_a_reroute_does_not_wait_for_the_person_who_was_asked(
     from temporalio.worker import Replayer
     from tranibor_api.db.models import HumanRequest, WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     review, _ = await _define(setup, REVIEW)
     async with session_scope() as session:
@@ -280,7 +280,7 @@ async def test_a_reroute_does_not_wait_for_the_person_who_was_asked(
         assert item is not None and item.workflow_def_id == arrival
         assert "human_feedback" not in (item.documents or {}), "a superseded request leaves no feedback"
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-reroute-while-a-person-is-asked-S52-11.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

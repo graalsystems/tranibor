@@ -65,10 +65,10 @@ async def _replayed(handle: Any, archive: str) -> None:
     (`TRANIBOR_RECORD_HISTORY=1`): a change to the interpreter that would decide differently
     on a job step fails `tests/replay`."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if os.environ.get("TRANIBOR_RECORD_HISTORY"):
         target = HISTORIES / archive
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

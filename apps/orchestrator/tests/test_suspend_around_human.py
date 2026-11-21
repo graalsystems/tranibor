@@ -117,7 +117,7 @@ async def test_an_answered_question_costs_one_run_not_two(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     executor = _can_suspend(setup)
     scripted(setup.adapters, QUESTION, refine_result("spec"))
@@ -143,7 +143,7 @@ async def test_an_answered_question_costs_one_run_not_two(
     assert run.tokens["runs"] == 1 and run.tokens["resumed"] == 1
     item_runs = (await _work_item_totals(setup)).get("runs")
     assert item_runs == 1, "the work item counts one run"
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-suspend-around-human-S35-03.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -153,7 +153,7 @@ async def test_past_the_bound_the_sandbox_is_gone_and_the_stage_replays(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     executor = _can_suspend(setup)
     scripted(setup.adapters, QUESTION, refine_result("spec"))
@@ -185,7 +185,7 @@ async def test_past_the_bound_the_sandbox_is_gone_and_the_stage_replays(
     assert await _runs(setup) == 2, "past the bound, the answer replays the stage: a second run"
     # The test server once logged "invalid history builder state for action" during this test on
     # CI (#492): a replay of the full history says the workflow itself is deterministic here.
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
 
 
 async def test_without_the_capability_nothing_is_suspended(

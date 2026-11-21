@@ -78,7 +78,7 @@ async def _play(
 
 async def test_a_live_matrix_plays_each_agent_case_per_repetition_and_judges_it_as_a_case() -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     asked, result, history = await _play(LIVE, "evals-live-agent-cases-replay")
     seeds = [(s["tools"], s.get("repetition", 0), s.get("agent_case")) for s in asked["seed_eval_ticket"]]
@@ -89,7 +89,7 @@ async def test_a_live_matrix_plays_each_agent_case_per_repetition_and_judges_it_
     prepared = [p["project_id"] for p in asked["prepare_stage"]]
     assert prepared.count("case-project") == 8, "an agent case runs in the project its seeding named"
     assert [len(cell["outcomes"]) for cell in result["results"]] == [6, 6]
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / f"{NEW}.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

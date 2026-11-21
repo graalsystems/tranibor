@@ -71,7 +71,7 @@ START_SECONDS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0)
 DELIVERY_SECONDS = (3600.0, 4 * 3600.0, 8 * 3600.0, 24 * 3600.0, 3 * 86400.0, 7 * 86400.0, 30 * 86400.0)
 ENVIRONMENTS = ("dev", "staging", "prod")
 #: The dashboards show the state of a train as a number.
-#: The query the `ReleaseTrain` workflow answers (`workflows/train.py`, `status_query`), as the
+#: The query the `ReleaseTrain` workflow answers (the plugin's `train/workflow.py`, `status_query`), as the
 #: trains route asks it.
 TRAIN_STATUS_QUERY = "status_query"
 #: Keyed by the `status` the train's `status_query` returns (`ReleaseStatus`). "staged" was never a

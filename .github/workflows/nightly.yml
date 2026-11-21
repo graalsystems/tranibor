@@ -109,6 +109,24 @@ jobs:
       - name: replay of the archived Temporal histories
         run: uv run pytest tests/replay -q
 
+  core-without-plugins:
+    # ADR 0181 round D: the core's whole suite with the first-party plugins' extensions uninstalled, less
+    # the files that still need them (`tests/core_alone/need_the_plugins.txt`, a ceiling that only falls:
+    # `tests/core_alone/test_need_the_plugins_list.py`). The `ci` workflow's job of the same name runs the
+    # boundary on every Python PR.
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TRANIBOR_TEST_CORE_ALONE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - run: uv sync --frozen --no-install-package tranibor-software-delivery --no-install-package tranibor-investment-research
+      - name: the core's suite, without the plugins' extensions
+        run: |
+          mapfile -t ignored < <(grep -v '^#' tests/core_alone/need_the_plugins.txt | grep . | sed 's/^/--ignore=/')
+          uv run --no-sync pytest -n 4 -q -m "not slow" packages apps tests "${ignored[@]}"
+
   live:
     # The adapters against the REAL services (LiteLLM, GitLab, Jira, Ecphoria, ACA, Rovo, ServiceNow). A
     # service named in TRANIBOR_LIVE_REQUIRED FAILS the job when one of its secrets is missing
@@ -311,7 +329,7 @@ jobs:
           exit-code: "1"
 
   alerte:
-    needs: [e2e, cluster, conformance, evals, replay, dependencies, live, purchasing-live]
+    needs: [e2e, cluster, conformance, evals, replay, core-without-plugins, dependencies, live, purchasing-live]
     if: failure()
     runs-on: ubuntu-latest
     steps:

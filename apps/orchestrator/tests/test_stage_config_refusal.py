@@ -48,7 +48,7 @@ async def test_a_refused_model_escalates_and_the_stage_replays_once_fixed(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     catalogue = _without_tool_calling(setup.adapters.gateway)
     scripted(setup.adapters, refine_result("spec"))
@@ -71,7 +71,7 @@ async def test_a_refused_model_escalates_and_the_stage_replays_once_fixed(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-stage-config-refusal-S22-43.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

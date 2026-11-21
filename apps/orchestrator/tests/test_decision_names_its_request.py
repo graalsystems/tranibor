@@ -43,7 +43,7 @@ async def test_a_decision_for_another_request_is_ignored_in_the_escalation(
     """The stale approval does not abandon the escalated work item: it is journaled, and the person's
     decision on the abandon request still does."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     async with worker_factory():
         handle, abandon_id = await _escalated(setup, temporal_env)
@@ -62,7 +62,7 @@ async def test_a_decision_for_another_request_is_ignored_in_the_escalation(
         await _wait_state(handle, "abandoned")
         await handle.result()
         history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-decision-names-its-request-S67-15.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

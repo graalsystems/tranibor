@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Release train activities: windows, GitOps promotion, soak, canary, rollback, notes."""
+"""Release train activities: windows, GitOps promotion, soak, canary, rollback, notes.
+
+The `software-delivery` plugin's since round D of ADR 0181, registered on the orchestrator's workers through
+the worker seam under the names every recorded history carries (`load_train_config`, `check_window` ...).
+"""
 
 from __future__ import annotations
 
@@ -15,10 +19,16 @@ from tranibor_api.logging import get_logger
 from tranibor_api.services import persist_event
 from tranibor_contracts import EventType
 from tranibor_core import Change, Message, PrRef, utcnow
-
-from ..config import get_settings
-from ..wire_names import read_key
-from .base import console_base, db, notification_target, project_bundle, send_courtesy
+from tranibor_orchestrator.activities.base import (
+    console_base,
+    db,
+    notification_target,
+    project_bundle,
+    send_courtesy,
+)
+from tranibor_orchestrator.activities.schedules import cron_due
+from tranibor_orchestrator.config import get_settings
+from tranibor_orchestrator.wire_names import read_key
 
 logger = get_logger("choregos.train")
 
@@ -95,44 +105,6 @@ def _minutes(value: str) -> int:
     return int(hours) * 60 + int(minutes or 0)
 
 
-def _cron_due(schedule: str, now: datetime) -> bool:
-    """5-field cron, minute resolution: enough for a train cadence."""
-    try:
-        minute, hour, dom, month, dow = schedule.split()
-    except ValueError:
-        return False
-
-    def matches(field: str, value: int, *, names: dict[str, int] | None = None) -> bool:
-        if field == "*":
-            return True
-        for part in field.split(","):
-            if part.startswith("*/"):
-                if value % int(part[2:]) == 0:
-                    return True
-            elif "-" in part:
-                start, end = part.split("-", 1)
-                lo = names[start.lower()[:3]] if names and not start.isdigit() else int(start)
-                hi = names[end.lower()[:3]] if names and not end.isdigit() else int(end)
-                if lo <= value <= hi:
-                    return True
-            else:
-                target = names[part.lower()[:3]] if names and not part.isdigit() else int(part)
-                if value == target:
-                    return True
-        return False
-
-    dow_value = (now.weekday() + 1) % 7  # cron : 0 = dimanche
-    return (
-        matches(minute, now.minute)
-        and matches(hour, now.hour)
-        and matches(dom, now.day)
-        and matches(month, now.month)
-        and matches(
-            dow, dow_value, names={"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
-        )
-    )
-
-
 @activity.defn(name="check_window")
 async def check_window(payload: dict[str, Any]) -> dict[str, Any]:
     """Is the window open, and is the cron due?"""
@@ -145,7 +117,7 @@ async def check_window(payload: dict[str, Any]) -> dict[str, Any]:
         open_now = any(
             now.weekday() in days and start <= minute_of_day <= end for days, start, end in windows
         )
-    due = bool(config.get("schedule")) and _cron_due(str(config["schedule"]), now)
+    due = bool(config.get("schedule")) and cron_due(str(config["schedule"]), now)
     next_departure = (now + timedelta(minutes=30)).isoformat()
     return {"open": open_now, "due": due, "wait_seconds": 60, "next_departure": next_departure}
 

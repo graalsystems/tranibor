@@ -19,6 +19,9 @@ import pytest
 from .conftest import Fixture, recording_history
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
 
@@ -50,7 +53,7 @@ class HeldSteps:
 
 @pytest.fixture
 def holds(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
-    from tranibor_orchestrator.activities import train as train_activities
+    from tranibor_software_delivery.train import activities as train_activities
 
     created: list[HeldSteps] = []
 
@@ -140,9 +143,9 @@ async def test_a_degradation_announced_during_the_soak_rolls_back_without_waitin
 
     # The history replays against the current code, and is archived for those to come.
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "train-listens-to-cd-S22-18.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
