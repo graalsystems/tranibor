@@ -44,6 +44,7 @@ spec:
         # NOT `part-of: choregos`: `choregos-allow-ingress` admits every pod of the namespace to the
         # pods that carry it, and NetworkPolicies add up. The builder takes the orchestrator only.
     spec:
+      enableServiceLinks: false
       automountServiceAccountToken: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       securityContext:

@@ -47,6 +47,7 @@ spec:
         app.kubernetes.io/part-of: choregos
         app.kubernetes.io/component: object-store
     spec:
+      enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       {{- with .Values.podSecurityContext }}
       securityContext: {{- toYaml . | nindent 8 }}
@@ -121,6 +122,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/part-of: choregos
     spec:
+      enableServiceLinks: false
       restartPolicy: OnFailure
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       securityContext:
