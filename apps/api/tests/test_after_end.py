@@ -77,6 +77,8 @@ async def test_wrote_in_transaction_follows_the_writes_of_the_current_transactio
         assert wrote_in_transaction(session), "an executed UPDATE is"
         await session.commit()
         assert not wrote_in_transaction(session), "a commit ends it"
+    # A scope of its own: on PostgreSQL the organisations' scope lives for one transaction.
+    async with session_scope(orgs="*") as session:
         row = (await session.execute(select(Organization).where(Organization.slug == org))).scalar_one()
         row.name = "Again"
         assert not wrote_in_transaction(session), "a pending change takes no lock until it is flushed"
