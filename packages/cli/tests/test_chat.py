@@ -333,6 +333,7 @@ class Platform:
             _project("p-2", "docs-site", "Docs site", active=0, month=0.0),
         ]
         self.projects_status = 200
+        self.items: list[dict[str, Any]] = []  # a test's own work items for `p-1`; empty: the default two
         router.get(f"{V1}/orgs/acme/projects").mock(side_effect=self._projects)
         router.get(f"{V1}/projects/p-1/work-items").mock(side_effect=self._items)
         router.get(f"{V1}/projects/p-2/work-items").mock(side_effect=self._items)
@@ -413,7 +414,7 @@ class Platform:
             return Response(
                 200, json=self.contract("WorkItemPage", {"items": [], "meta": {"has_more": False}})
             )
-        items = [
+        items = self.items or [
             _work_item("wi-12", "FIN-12", "Fix the totals rounding", "in_progress", 12.5),
             _work_item("wi-9", "FIN-9", "Add the VAT column", "done", 3.0),
         ]
@@ -1995,6 +1996,28 @@ async def test_a_project_is_opened_by_name_then_an_item_by_its_key(platform: Pla
         await pilot.press("enter")
         await until(pilot, lambda: app.depth == 2 and "backend" in screen_text(app), "the item's runs")
         assert app.item is not None and app.item["tracker_key"] == "FIN-9"
+
+
+async def test_the_items_columns_never_touch_even_with_a_long_key(platform: Platform) -> None:
+    """#2049: a key longer than the column ran into the state, the state into the spend."""
+    long_key = "TMP-S67-PROOF-9"
+    title = "Which RFC defines the Retry-After header and what are its two value forms? " * 3
+    platform.items = [_work_item("wi-long", long_key, title, "brief_to_approve", 0.12)]
+    app = make_app()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await ready(pilot)
+        await until(pilot, lambda: app.projects is not None, "the projects")
+        await _palette(pilot, "billing")
+        await pilot.press("enter")
+        await until(pilot, lambda: long_key in screen_text(app), "the project's items")
+        # The list is the left pane: the context pane to its right repeats the key.
+        pane = [line.split("│")[0] for line in screen_text(app).splitlines()]
+        lines = [line for line in pane if long_key in line]
+        assert len(lines) == 1, lines
+        assert "forms?" not in " ".join(pane), "the title is cut to one line, not wrapped under the header"
+        assert re.search(rf"{long_key} {{2,}}brief to approve {{2,}}\S+ {{2,}}Which RFC", lines[0]), lines[0]
+        header = next(line for line in pane if "state" in line and "spend" in line)
+        assert re.search(r"item {2,}state {2,}spend {2,}title", header), header
 
 
 async def test_an_item_on_the_board_is_reached_from_another_tab(platform: Platform) -> None:
