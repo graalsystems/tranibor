@@ -43,6 +43,7 @@ spec:
       annotations:
         checksum/config: {{ toJson $e | sha256sum }}
     spec:
+      enableServiceLinks: false
       # No service account token: the proxy talks to the API with the run's own token, and reports with
       # its key on top of it (ADR 0145).
       automountServiceAccountToken: false

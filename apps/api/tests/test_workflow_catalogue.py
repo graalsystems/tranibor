@@ -11,6 +11,7 @@ from tranibor_core.dsl import template_yaml
 from .conftest import login
 
 BASE = "/api/v1/orgs/northwind/workflow-catalogue"
+ALL = f"{BASE}?limit=200"
 
 GHOST = """apiVersion: choregos/v1
 kind: Workflow
@@ -33,9 +34,9 @@ def _entry(entries: list[dict[str, Any]], source: str, name: str) -> dict[str, A
 async def test_the_catalogue_lists_core_and_template_workflows_with_what_they_need(
     client: AsyncClient, admin: str
 ) -> None:
-    listed = await client.get(BASE)
+    listed = await client.get(ALL)
     assert listed.status_code == 200, listed.text
-    entries = listed.json()
+    entries = listed.json()["items"]
     request = _entry(entries, "core", "default-request")
     assert request["needs_repository"] is False
     assert [r["capability"] for r in request["requires"]] == ["tracker", "runtime", "gateway"]
@@ -55,7 +56,7 @@ async def test_the_catalogue_lists_core_and_template_workflows_with_what_they_ne
 
 async def test_the_list_leaves_every_entry_s_yaml_out(client: AsyncClient, admin: str) -> None:
     """S55-04b: each entry's whole text made the library slow to load, and no page reads it."""
-    entries = (await client.get(BASE)).json()
+    entries = (await client.get(ALL)).json()["items"]
     assert entries, "the catalogue lists nothing: the test checks nothing"
     assert all(entry["yaml"] is None for entry in entries)
 
@@ -98,7 +99,9 @@ async def test_adopting_publishes_the_entry_installs_its_agents_and_records_its_
         json={"source": "template:github-software-delivery", "name": "dev-simple"},
     )
     assert delivery.status_code == 201, delivery.text
-    adopted_entry = _entry((await client.get(BASE)).json(), "template:github-software-delivery", "dev-simple")
+    adopted_entry = _entry(
+        (await client.get(ALL)).json()["items"], "template:github-software-delivery", "dev-simple"
+    )
     assert {a["resolution"] for a in adopted_entry["agents"]} == {"plugin"}, (
         "installed by the adoption, from their plugin"
     )
@@ -144,7 +147,7 @@ async def test_sharing_copies_a_version_and_an_unresolved_agent_refuses_the_adop
         await client.put(f"/api/v1/projects/{pid}/workflows/ghostly", json={"yaml": edited})
     ).status_code == 200
     assert "display: Done" in entry["yaml"], "the share's answer carries the copy it made"
-    listed = _entry((await client.get(BASE)).json(), "org", "ghostly")
+    listed = _entry((await client.get(ALL)).json()["items"], "org", "ghostly")
     assert listed["version"] == 1, "a share is a copy: later edits do not reach it"
     assert listed["yaml"] is None, "the list carries no YAML (S55-04b)"
     second = await client.post(BASE, json={"project": "billing-api", "name": "ghostly"})
@@ -158,7 +161,7 @@ async def test_sharing_copies_a_version_and_an_unresolved_agent_refuses_the_adop
 
 
 async def test_only_an_administrator_shares(client: AsyncClient, project: dict[str, Any]) -> None:
-    listed = (await client.get(f"/api/v1/projects/{project['id']}/workflows")).json()
+    listed = (await client.get(f"/api/v1/projects/{project['id']}/workflows")).json()["items"]
     assert all(w["can_share"] for w in listed), "the server says an org_admin may share"
     await client.post(
         "/api/v1/orgs/northwind/members", json={"email": "po@northwind.dev", "role": "project_owner"}
@@ -166,7 +169,7 @@ async def test_only_an_administrator_shares(client: AsyncClient, project: dict[s
     await login(client, "po@northwind.dev")
     refused = await client.post(BASE, json={"project": "billing-api", "name": "default-simple"})
     assert refused.status_code == 403
-    listed = (await client.get(f"/api/v1/projects/{project['id']}/workflows")).json()
+    listed = (await client.get(f"/api/v1/projects/{project['id']}/workflows")).json()["items"]
     assert not any(w["can_share"] for w in listed), "and a project owner sees no share gesture"
 
 
@@ -181,7 +184,7 @@ async def test_the_core_catalogue_offers_development_and_audit_workflows_with_th
 ) -> None:
     """S59-02: the core ships a catalogue (development, audit, decision, documentation, operations), each
     entry presented and its agents resolved; adopting an audit installs the agents it names."""
-    entries = (await client.get(BASE)).json()
+    entries = (await client.get(ALL)).json()["items"]
     core = {e["name"]: e for e in entries if e["source"] == "core"}
     assert {"dev-feature", "dev-fix", "hotfix", "code-audit", "security-audit", "incident-postmortem"} <= set(
         core
@@ -197,6 +200,6 @@ async def test_the_core_catalogue_offers_development_and_audit_workflows_with_th
     )
     assert adopted.status_code == 201, adopted.text
     assert adopted.json()["origin"] == "core/security-audit@1"
-    agents = (await client.get("/api/v1/orgs/northwind/agents")).json()
+    agents = (await client.get("/api/v1/orgs/northwind/agents")).json()["items"]
     listed = {a["slug"] for a in (agents["items"] if isinstance(agents, dict) else agents)}
     assert {"secops", "security-reviewer", "compliance"} <= listed, "the adoption installed its agents"

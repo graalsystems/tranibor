@@ -66,6 +66,7 @@ spec:
         # carry it, and NetworkPolicies add up — it would reopen the assignment port to all.
         choregos/sandbox: "true"
     spec:
+      enableServiceLinks: false
       restartPolicy: Never
       serviceAccountName: choregos-runner
       automountServiceAccountToken: false

@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
-from .base import Dto
+from .base import Dto, PageMeta
 
 
 class WorkflowDefDto(Dto):
@@ -104,6 +104,27 @@ class WorkflowSummaryDto(Dto):
     updated_at: datetime | None = None
     #: The caller may share it to the organisation's catalogue (ADR 0111 §4): the server decides.
     can_share: bool = False
+
+
+class WorkflowSummaryPage(Dto):
+    """One page of a project's workflows, by name (ADR 0206)."""
+
+    items: list[WorkflowSummaryDto]
+    meta: PageMeta
+
+
+class WorkflowCatalogueEntryPage(Dto):
+    """One page of the workflows an organisation can adopt, in the order of the sources (ADR 0206)."""
+
+    items: list[WorkflowCatalogueEntryDto]
+    meta: PageMeta
+
+
+class WorkflowDefPage(Dto):
+    """One page of a workflow's versions, newest first (ADR 0206)."""
+
+    items: list[WorkflowDefDto]
+    meta: PageMeta
 
 
 class RoutingCondition(Dto):
@@ -439,6 +460,20 @@ class UsableModel(Dto):
     output_cost_per_1k: float | None = None
     priced_by: Literal["gateway", "override", "none"] = "none"
     tiers: list[str] = Field(default_factory=list)
+
+
+class GatewayModelPage(Dto):
+    """One page of the gateway's models, in the order it lists them (ADR 0206)."""
+
+    items: list[GatewayModelDto]
+    meta: PageMeta
+
+
+class UsableModelPage(Dto):
+    """One page of the models an agent may be given, by name (ADR 0206)."""
+
+    items: list[UsableModel]
+    meta: PageMeta
 
 
 class StateActivity(Dto):

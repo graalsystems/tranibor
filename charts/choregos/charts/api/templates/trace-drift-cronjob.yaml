@@ -26,6 +26,7 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: trace-drift
         spec:
+          enableServiceLinks: false
           restartPolicy: Never
           serviceAccountName: choregos-api
           # It talks to the database and to Tempo, never to the Kubernetes API.
