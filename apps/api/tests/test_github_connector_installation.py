@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from httpx import AsyncClient
 
 PUT = "/api/v1/projects/{id}/connectors/{kind}"
@@ -101,88 +100,6 @@ async def test_the_claimed_installation_is_injected_when_the_connector_is_built(
             row.secret_ref,
         )
     assert config["installation_id"] == 41
-
-
-async def test_the_github_actions_ci_is_pinned_like_the_other_github_connectors(
-    client: AsyncClient, project: dict[str, Any], github: Any
-) -> None:
-    """`ci/github-actions` is served by the App: on a multi-organisation instance organisation B cannot
-    save it on, nor run it through, the installation organisation A claimed (ADR 0073)."""
-    # The `ci` and `cd` types are the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
-    pytest.importorskip("tranibor_software_delivery", reason="the ci and cd types are a plugin's")
-    from sqlalchemy import select
-    from tranibor_adapters.errors import ConfigurationError
-    from tranibor_api.db.models import Project
-    from tranibor_api.db.session import session_scope
-    from tranibor_api.services import github_app
-
-    from .github_app_kit import add_organisation, claim_for
-
-    async with session_scope(orgs="*") as session:
-        mine = (await session.execute(select(Project.org_id).where(Project.id == project["id"]))).scalar_one()
-    globex = await add_organisation("globex")
-    github.add_installation(1, "globex-inc")
-    await claim_for(1, "globex-inc", globex)
-    github.add_installation(2, "northwind")
-    await claim_for(2, "northwind", str(mine))
-
-    refused = await _put(client, project, "ci", "github-actions", {"repo": "globex-inc/private-repo"})
-    assert refused.status_code == 422, refused.text
-    accepted = await _put(client, project, "ci", "github-actions", {"repo": "northwind/billing"})
-    assert accepted.status_code == 200, accepted.text
-    assert "installation_id" not in accepted.json()["config"]
-
-    async with session_scope(orgs="*") as session:
-        pinned = await github_app.pin_installation(
-            session, str(mine), "ci", "github-actions", {"repo": "northwind/billing"}
-        )
-        assert pinned["installation_id"] == 2
-        with pytest.raises(ConfigurationError, match="not installed on `globex-inc`"):
-            await github_app.pin_for_runtime(
-                session, str(mine), "ci", "github-actions", {"repo": "globex-inc/private-repo"}
-            )
-
-
-async def test_the_argocd_gitops_repository_is_pinned_like_the_other_github_connectors(
-    client: AsyncClient, project: dict[str, Any], github: Any
-) -> None:
-    """`cd/argocd` writes its promotions to `gitops_repo` through the App: on a multi-organisation
-    instance organisation B cannot save it on, nor promote through, the installation organisation A
-    claimed (ADR 0073, finding #2033)."""
-    # The `ci` and `cd` types are the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
-    pytest.importorskip("tranibor_software_delivery", reason="the ci and cd types are a plugin's")
-    from sqlalchemy import select
-    from tranibor_adapters.errors import ConfigurationError
-    from tranibor_api.db.models import Project
-    from tranibor_api.db.session import session_scope
-    from tranibor_api.services import github_app
-
-    from .github_app_kit import add_organisation, claim_for
-
-    async with session_scope(orgs="*") as session:
-        mine = (await session.execute(select(Project.org_id).where(Project.id == project["id"]))).scalar_one()
-    globex = await add_organisation("globex")
-    github.add_installation(1, "globex-inc")
-    await claim_for(1, "globex-inc", globex)
-    github.add_installation(2, "northwind")
-    await claim_for(2, "northwind", str(mine))
-
-    refused = await _put(client, project, "cd", "argocd", {"gitops_repo": "globex-inc/gitops"})
-    assert refused.status_code == 422, refused.text
-    assert "not installed on `globex-inc`" in refused.text
-    accepted = await _put(client, project, "cd", "argocd", {"gitops_repo": "northwind/gitops"})
-    assert accepted.status_code == 200, accepted.text
-    assert "installation_id" not in accepted.json()["config"]
-
-    async with session_scope(orgs="*") as session:
-        pinned = await github_app.pin_installation(
-            session, str(mine), "cd", "argocd", {"gitops_repo": "northwind/gitops"}
-        )
-        assert pinned["installation_id"] == 2
-        with pytest.raises(ConfigurationError, match="not installed on `globex-inc`"):
-            await github_app.pin_for_runtime(
-                session, str(mine), "cd", "argocd", {"gitops_repo": "globex-inc/gitops"}
-            )
 
 
 def test_only_github_served_types_name_a_repository() -> None:

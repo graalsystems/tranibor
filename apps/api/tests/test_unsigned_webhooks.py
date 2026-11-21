@@ -1,4 +1,5 @@
-"""Unsigned GitHub and Tekton webhooks are accepted only on an instance that is not deployed (ADR 0102).
+"""Unsigned GitHub webhooks are accepted only on an instance that is not deployed (ADR 0102); the
+`software-delivery` plugin's Tekton webhook is held to the same rule in its own tests.
 
 `Settings.deployed` is staging/prod, or any instance served over https (the default `env` is dev).
 """
@@ -35,14 +36,3 @@ async def test_an_unsigned_github_webhook_is_refused_on_an_https_dev_instance(
     ping = {"X-GitHub-Event": "ping"}
     assert await _post(monkeypatch, "/api/v1/webhooks/github", "https://choregos.example.com", ping) == 401
     assert await _post(monkeypatch, "/api/v1/webhooks/github", "http://localhost:3000", ping) == 202
-
-
-async def test_an_unsigned_tekton_webhook_is_refused_on_an_https_dev_instance(
-    app: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The Tekton webhook is the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
-    pytest.importorskip(
-        "tranibor_software_delivery", reason="the Tekton webhook is the software-delivery plugin's"
-    )
-    event = {"Ce-Type": "dev.tekton.event.other", "Ce-Id": "x"}
-    assert await _post(monkeypatch, "/api/v1/webhooks/tekton", "https://choregos.example.com", event) == 401

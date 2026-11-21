@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+"""An unsigned Tekton webhook is refused on a deployed instance, as the core's GitHub one is (ADR 0102).
+It was `apps/api/tests/test_unsigned_webhooks.py`'s; the webhook is the `software-delivery` plugin's since
+round D of ADR 0181."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+
+async def _post(monkeypatch: pytest.MonkeyPatch, path: str, public_url: str, headers: dict[str, str]) -> int:
+    from tranibor_api.config import reset_settings_cache
+    from tranibor_api.main import create_app
+
+    monkeypatch.setenv("TRANIBOR_ENV", "dev")
+    monkeypatch.setenv("TRANIBOR_PUBLIC_URL", public_url)
+    monkeypatch.setenv("TRANIBOR_GITHUB_WEBHOOK_SECRET", "")
+    monkeypatch.setenv("TRANIBOR_GENERIC_WEBHOOK_SECRET", "")
+    reset_settings_cache()
+    try:
+        app = create_app()
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            return (await c.post(path, content=b"{}", headers=headers)).status_code
+    finally:
+        reset_settings_cache()
+
+
+async def test_an_unsigned_tekton_webhook_is_refused_on_an_https_dev_instance(
+    app: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The Tekton webhook is the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
+    pytest.importorskip(
+        "tranibor_software_delivery", reason="the Tekton webhook is the software-delivery plugin's"
+    )
+    event = {"Ce-Type": "dev.tekton.event.other", "Ce-Id": "x"}
+    assert await _post(monkeypatch, "/api/v1/webhooks/tekton", "https://choregos.example.com", event) == 401

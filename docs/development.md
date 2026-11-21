@@ -467,6 +467,25 @@ event_type, hook, plugin=)` runs `hook(session, project, item, event)` once a we
 that type to its work item, and records the outcome it returns (the plugin boards a merged work item on
 its train: `boarded`). `apps/api/tests/test_readiness_and_inbound_seams.py` proves both.
 
+## Testing an extension on the core's scene
+
+A plugin's tests run on the same scene as the core's: an application on a fresh database, a project and a
+work item, a Temporal test server and one worker per queue. That scene is the **test kit**,
+`packages/testkit` (`tranibor_testkit`, ADR 0181 round D), a development dependency of the workspace that
+no image installs:
+
+- `tranibor_testkit.api`: the API suite's fixtures (`app`, `client`, `org`, `admin`, `project`, `pg_app`,
+  `github`) and `login`;
+- `tranibor_testkit.orchestrator`: the orchestrator suite's (`setup`, `temporal_env`, `worker_factory`,
+  `stage_result`, `refine_result`), and `tranibor_testkit.interpreter` its helpers (`scripted`, `start`,
+  `wait_state`, `wait_until`, `runs`);
+- `tranibor_testkit.workers`, `.escalation`, `.github_app`, `.delivery.*`: the suites' kits.
+
+A directory of tests takes the fixtures with one line in its `conftest.py`
+(`from tranibor_testkit.orchestrator import *`), as `apps/api/tests`, `apps/orchestrator/tests` and the
+`software-delivery` plugin's `tests/api` and `tests/orchestrator` do. A core test that needs a plugin moves
+to the plugin's suite and leaves `tests/core_alone/need_the_plugins.txt`, whose ceiling only falls.
+
 ## Carrying a transition from an extension
 
 `via: release_train` hands a work item to a durable workflow that is not the interpreter: the
