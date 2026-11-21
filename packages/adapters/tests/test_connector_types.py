@@ -18,7 +18,7 @@ from tranibor_adapters import (
     resolved_configuration,
     spec_of,
 )
-from tranibor_adapters.registry import _REGISTRY, _SPECS
+from tranibor_adapters.registry import _REGISTRY, _SPECS, _declared_slots
 from tranibor_core.secrets import SecretNotFound
 
 
@@ -66,14 +66,15 @@ def test_a_preresolved_field_is_not_resolved_again(monkeypatch: pytest.MonkeyPat
 
 def test_an_unresolvable_reference_stops_the_construction(monkeypatch: pytest.MonkeyPatch) -> None:
     """Better than an adapter that silently falls back to its default value."""
-    monkeypatch.delenv("CONNECTOR_ARGO_TOKEN", raising=False)
-    with pytest.raises(SecretNotFound, match="CONNECTOR_ARGO_TOKEN"):
-        resolved_configuration("cd", "argocd", {}, {"token": "env:CONNECTOR_ARGO_TOKEN"})
+    monkeypatch.delenv("CONNECTOR_JIRA_TOKEN", raising=False)
+    with pytest.raises(SecretNotFound, match="CONNECTOR_JIRA_TOKEN"):
+        resolved_configuration("tracker", "jira", {}, {"api_token": "env:CONNECTOR_JIRA_TOKEN"})
 
 
 def test_a_projects_adapters_receive_their_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Through the orchestrator's path: `from_connectors` resolves before building."""
-    kind_names = ("tracker", "scm", "ci", "cd", "runtime", "memory", "gateway", "notify")
+    # The core's kinds and the slots the installed extensions declare (ADR 0181, round D).
+    kind_names = ("tracker", "runtime", "memory", "gateway", "notify", *_declared_slots())
     received: dict[str, dict[str, Any]] = {}
     try:
         for kind_name in kind_names:
@@ -92,13 +93,13 @@ def test_a_projects_adapters_receive_their_secrets(monkeypatch: pytest.MonkeyPat
             _REGISTRY.pop((kind_name, "probe"), None)
             _SPECS.pop((kind_name, "probe"), None)
     assert received["notify"] == {"channel": "#rh", "bot_token": "t0k"}
-    assert received["scm"] == {}
+    assert received["memory"] == {}
 
 
 def test_the_default_type_is_the_one_a_project_takes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TRANIBOR_EXECUTOR_KIND", "k8s_job")
     assert default_type("runtime") == "k8s_job"
-    assert default_type("scm") == "github"
+    assert default_type("tracker") == "internal"
     assert default_type("identity") is None
 
 
@@ -106,7 +107,7 @@ def test_github_types_never_ask_an_installation_id() -> None:
     """The installation is discovered and claimed by the platform (ADR 0073): a form that asks for
     its id asks for something nobody knows and that another company cannot fill in."""
     types = {(k, t): spec for k, t, spec in connector_types()}
-    for key in (("tracker", "github-issues"), ("scm", "github")):
+    for key in (("tracker", "github-issues"),):
         properties = types[key].config_schema["properties"]
         assert "installation_id" not in properties, f"{key} still asks for an installation id"
         assert properties["repo"]["format"] == "github-repo", f"{key}: the repository is a picker"
@@ -121,7 +122,7 @@ def test_a_project_without_a_tracker_connector_gets_the_internal_tracker(
     """
     from tranibor_adapters.tracker.internal import InternalTracker
 
-    kinds = ("scm", "ci", "cd", "runtime", "memory", "gateway", "notify")
+    kinds = ("runtime", "memory", "gateway", "notify", *_declared_slots())
     try:
         for kind in kinds:
             register(kind, "probe")(lambda cfg: object())

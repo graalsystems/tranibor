@@ -10,7 +10,7 @@ import httpx
 import pytest
 from tranibor_adapters import azure_devops
 from tranibor_adapters.azure_devops import AzureDevOpsClient, EntraClientCredentials, azure_boards_egress
-from tranibor_adapters.builtins import _azure_boards_tracker, _azure_repos_scm
+from tranibor_adapters.builtins import _azure_boards_tracker
 from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.specs import _check_azure_boards
 from tranibor_adapters.tracker import azure_boards
@@ -34,11 +34,12 @@ def _no_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_builders_return_adapters_on_the_same_client_class() -> None:
-    """The core's two; the `software-delivery` plugin's `azure-pipelines` is checked by its own tests."""
+    """The core's Azure Boards; the `software-delivery` plugin's Azure Repos and Azure Pipelines are checked
+    on the same client by its own tests."""
     for cfg in (CFG, ENTRA):
-        clients = [_azure_boards_tracker(cfg).client, _azure_repos_scm(cfg).client]
+        clients = [_azure_boards_tracker(cfg).client]
         assert {type(client) for client in clients} == {AzureDevOpsClient}
-        assert [client.service for client in clients] == ["azure-boards", "azure-repos"]
+        assert [client.service for client in clients] == ["azure-boards"]
         if cfg is ENTRA:
             assert {type(client.entra) for client in clients} == {EntraClientCredentials}
 

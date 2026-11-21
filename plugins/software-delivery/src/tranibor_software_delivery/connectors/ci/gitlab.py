@@ -8,13 +8,14 @@ from collections.abc import Mapping
 from typing import Any, Literal
 from urllib.parse import quote
 
-from tranibor_adapters.builds import GITLAB_JOB_RUN as _JOB_RUN
 from tranibor_adapters.errors import ConfigurationError
 from tranibor_adapters.http import RestClient
 from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
 from tranibor_adapters.tracker.gitlab_instance import check_instance
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
+
+from ..builds import GITLAB_JOB_RUN as _JOB_RUN
 
 State = Literal["pending", "running", "success", "failure", "error", "unknown"]
 Progress = Literal["queued", "in_progress", "completed"]

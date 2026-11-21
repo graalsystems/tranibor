@@ -249,7 +249,6 @@ def demo_connectors(provider: Provider | None = None) -> dict[str, tuple[str, di
 
     connectors: dict[str, tuple[str, dict[str, Any]]] = {
         "tracker": ("internal", {}),
-        "scm": ("fake", {}),
         **{kind: ("fake", {}) for kind in adapter_slots()},
         "runtime": ("fake", {"simulate": True}),
         "gateway": ("fake", {}),

@@ -91,14 +91,18 @@ async def skill_sources(session: AsyncSession, organisation: Organization) -> tu
     written = (organisation.settings or {}).get("skill_sources")
     if isinstance(written, list):
         return [str(source) for source in written], False
+    from .github_app import repo_of
+
     sources = list(DEFAULT_SOURCES)
-    configs = await session.execute(
-        select(Connector.config)
+    connectors = await session.execute(
+        select(Connector.kind, Connector.type, Connector.config)
         .join(Project, Project.id == Connector.project_id)
-        .where(Project.org_id == organisation.id, Connector.type.in_(("github", "github-issues")))
+        .where(Project.org_id == organisation.id)
     )
-    for (config,) in configs.tuples():
-        repository = str((config or {}).get("repo") or "")
+    # Every connector the GitHub App serves names its repository (`ConnectorTypeSpec.github_repository`):
+    # the core's `github-issues`, an extension's source control.
+    for kind, type_, config in connectors.tuples():
+        repository = repo_of(str(kind), str(type_), dict(config or {}))
         owner = f"github.com/{repository.split('/', 1)[0]}" if "/" in repository else ""
         if owner and SOURCE.match(owner) and owner not in sources:
             sources.append(owner)

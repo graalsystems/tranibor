@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import pytest
 from tranibor_adapters.errors import HeadMovedError, UpstreamError
+from tranibor_adapters.fakes.wire import Wire
 from tranibor_adapters.github.client import GitHubClient
-from tranibor_adapters.scm.github import GitHubScm
-
-from ._transport import Wire
+from tranibor_software_delivery.connectors.scm.github import GitHubScm
 
 API = "https://api.github.test"
 REPO = "northwind/billing"
@@ -472,7 +471,7 @@ async def test_a_pull_request_already_merged_at_the_commit_is_not_merged_again()
 
 
 def test_the_adapter_says_it_merges_at_a_commit() -> None:
-    from tranibor_adapters.base import SCM_CAPABILITIES, merge_at_commit_refusal
+    from tranibor_software_delivery.connectors.base import SCM_CAPABILITIES, merge_at_commit_refusal
 
     assert GitHubScm.capabilities <= SCM_CAPABILITIES
     assert merge_at_commit_refusal(scm(Wire({}))) is None

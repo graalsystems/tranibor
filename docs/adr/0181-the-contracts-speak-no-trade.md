@@ -567,3 +567,28 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   extension's (`tranibor_software_delivery.demo`). The fakes' process serves the demonstration `cd` an
   extension declares (`fakes.hr.declare_demo_desk`), and the scripted HTTP transport the adapters' tests
   drive is shipped with the fakes (`tranibor_adapters.fakes.wire`), so the plugin's tests use the same one.
+- **S83-05j.** The source control is the extension's: GitHub, GitLab and Azure Repos (`connectors/scm/`),
+  `FakeScm`, the `ScmAdapter` protocol, the `scm` slot (default `github`, the project's **workspace**), the
+  orchestrator's source control activities (`open_pull_request`, `enqueue_merge`, `ensure_branch`,
+  `collect_run_artifacts`, `check_scope_violations`, `source_control.py`) and `scm_for`. The activity names
+  are unchanged and registered through the worker seam; the interpreter calls them by name
+  (`step_effects.EFFECT_ACTIVITY`, `stand_ins.RUN_ARTIFACTS`), placed on the `tracker` queue by the core's
+  table under the names histories carry, so every archived history replays without a patch. A core
+  **stand-in** answers `collect_run_artifacts`, called after every agent step, where no extension provides
+  it. The gate activity reads no source control any more (the `delivery` provider does). Two API seams:
+  `extensions.declare_readiness_item` (the repository item) and `extensions.declare_inbound_hook` (a merged
+  work item boards its train). The readiness's GitHub owners and the GitHub App's pinning read every type
+  whose spec names its GitHub repository.
+
+  **What stays the core's, and why.** The task's inventory put the GitHub App routes and the
+  `githubWebhook`/`gitlabWebhook` in class (b). They are not software delivery's alone: the App is the
+  credential of every GitHub connector, the core's `github-issues` tracker included, and of a run's git
+  token (`postRunGitToken`, git as a transport, class (a) like the skills' import); the two webhooks carry
+  the core trackers' issue events. They stay in the core, outside the frozen REST set as connector routes,
+  and only their pull request handling moved (the inbound hook). A netops change is still a pull request on
+  the GitOps repository: the three writes it needs (branch, commit, pull request, never a merge) are the
+  core's `github.changes.GitHubChanges`, which the extension's `GitHubScm` extends, and the netops fake is
+  `fakes.gitops.FakeGitOps`. **Left**, each named where it is: the interpreter's reading of the
+  `scm.*`/`ci.*` inbound events and the `open_pr`/`merge_pr` effects (wire values in every history, like
+  `via: release_train`), and the eval matrix's toy repositories, committed through the `scm` slot when one
+  is installed (`activities/evals.SOURCE_CONTROL`), skipped saying so otherwise.

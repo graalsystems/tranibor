@@ -2,8 +2,7 @@
 """How a build reads as a check (`CheckRun`): the Azure DevOps builds and the GitLab jobs, read by both a
 pipeline's connector and the source control's pull request checks.
 
-The `ci` connectors are the `software-delivery` plugin's since round D of ADR 0181; the source control
-connectors that read the same builds (`scm/azure_repos.py`, `scm/gitlab.py`) follow them in the next step.
+Both are the `software-delivery` plugin's since round D of ADR 0181 (`ci/`, `scm/`).
 """
 
 from __future__ import annotations

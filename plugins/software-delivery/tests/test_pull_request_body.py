@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 from tranibor_core.dsl.flow import PULL_REQUEST_SECTIONS
-from tranibor_orchestrator.activities.scm import _pr_body
+from tranibor_software_delivery.source_control import _pr_body
 
 ITEM = SimpleNamespace(tracker_key="northwind/billing-api#7", body_snapshot="The total ignores credits.")
 

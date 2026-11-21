@@ -29,7 +29,7 @@ from tranibor_orchestrator.activities.schedules import cron_due
 from tranibor_orchestrator.config import get_settings
 from tranibor_orchestrator.wire_names import read_key
 
-from ..connectors import cd_of
+from ..connectors import cd_of, scm_of
 from ..names import ReleaseEvent
 
 logger = get_logger("choregos.train")
@@ -568,7 +568,7 @@ async def apply_terraform(payload: dict[str, Any]) -> dict[str, Any]:
             for item in release.items
             if item.get("infra_pr_url")
         ]
-        scm = bundle.adapters.scm
+        scm = scm_of(bundle.adapters)
         slug = bundle.slug
         channel = notification_target(bundle)
         notify = bundle.adapters.notify

@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # the fakes expose staging methods (seed, set_diff...)
-    from tranibor_adapters.fakes import FakeExecutor, FakeGateway, FakeScm, FakeTracker
+    from tranibor_adapters.fakes import FakeExecutor, FakeGateway, FakeTracker
 
-    from .connectors.fakes import FakeCd
+    from .connectors.fakes import FakeCd, FakeScm
 
 BANNER = """
   ┌─────────────────────────────────────────────────────────────────────┐
@@ -39,12 +39,12 @@ async def seed() -> tuple[str, str, Any]:
     from tranibor_core.domain import WorkItemData
     from tranibor_orchestrator.activities.base import set_adapters_override
 
-    from .connectors import cd_of
+    from .connectors import cd_of, scm_of
 
     await create_all()
     adapters = AdapterSet.fakes()
     tracker: FakeTracker = adapters.tracker  # type: ignore[assignment]
-    scm: FakeScm = adapters.scm  # type: ignore[assignment]
+    scm: FakeScm = scm_of(adapters)  # type: ignore[assignment]
     executor: FakeExecutor = adapters.executor  # type: ignore[assignment]
     gateway: FakeGateway = adapters.gateway  # type: ignore[assignment]
     cd: FakeCd = cd_of(adapters)  # type: ignore[assignment]
@@ -160,10 +160,11 @@ async def main_async() -> int:
 
     async def world(state: str) -> None:
         """The outside world reacts: CI runs, a maintainer reviews, Argo deploys."""
-        if state == "pr_open" and adapters.scm.prs and "pr" not in seen:
-            ref = next(iter(adapters.scm.prs.values())).ref
-            adapters.scm.set_checks(ref, "success")
-            adapters.scm.submit_review(ref, "marie", "approved")
+        scm = adapters.slot("scm")
+        if state == "pr_open" and scm.prs and "pr" not in seen:
+            ref = next(iter(scm.prs.values())).ref
+            scm.set_checks(ref, "success")
+            scm.submit_review(ref, "marie", "approved")
             seen["pr"] = ref
             print(f"· CI green and review approved on {ref.url}")
         if state == "merged" and "merged" not in seen:

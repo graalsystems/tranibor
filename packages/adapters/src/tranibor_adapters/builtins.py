@@ -109,25 +109,6 @@ def _azure_boards_tracker(cfg: dict[str, Any]) -> Any:
     )
 
 
-def _azure_repos_scm(cfg: dict[str, Any]) -> Any:
-    """Azure DevOps Repos: a PAT or an Entra service principal, secrets from the vault. The run token is a
-    separate, narrower PAT: a run never receives the connector's own credential."""
-    from .azure_devops import azure_client, check_azure_repos
-    from .scm.azure_repos import AzureReposScm
-
-    check_azure_repos(cfg)
-    return AzureReposScm(
-        azure_client(cfg, service="azure-repos"),
-        cfg["project"],
-        cfg["repository"],
-        default_branch=cfg.get("default_branch", "main"),
-        merge_strategy=cfg.get("merge_strategy", "squash"),
-        delete_source_branch=bool(cfg.get("delete_source_branch", False)),
-        run_token=str(cfg.get("run_token") or ""),
-        partially_succeeded=cfg.get("partially_succeeded", "failure"),
-    )
-
-
 def _github_client(config: dict[str, Any]) -> Any:
     """Builds the GitHub client from the connector's configuration or the deployment's App.
 
@@ -434,35 +415,35 @@ def _fake_nginx(cfg: dict[str, Any]) -> Any:
 def _fake_gitops(repo: str, base: str, root: str) -> Any:
     from .netops.gitops import GitOpsTarget
 
-    if "scm" not in _package.FAKE_NETOPS:
-        from .fakes import FakeScm
+    if "gitops" not in _package.FAKE_NETOPS:
+        from .fakes.gitops import FakeGitOps
 
-        _package.FAKE_NETOPS["scm"] = FakeScm()
-    return GitOpsTarget(_package.FAKE_NETOPS["scm"], repo, base, root)
+        _package.FAKE_NETOPS["gitops"] = FakeGitOps()
+    return GitOpsTarget(_package.FAKE_NETOPS["gitops"], repo, base, root)
 
 
 def _nginx(cfg: dict[str, Any]) -> Any:
+    from .github.changes import GitHubChanges
     from .netops import GitHubRepoReader, NginxConfig
     from .netops.gitops import GitOpsTarget
-    from .scm.github import GitHubScm
 
     client = _github_client(cfg)
     repo, ref, root = str(cfg["repo"]), str(cfg.get("ref") or "main"), str(cfg.get("root") or "nginx")
-    gitops = GitOpsTarget(GitHubScm(client, default_repo=repo), repo, ref, root)
+    gitops = GitOpsTarget(GitHubChanges(client, default_repo=repo), repo, ref, root)
     return NginxConfig(GitHubRepoReader(client, repo, ref), root=root, gitops=gitops)
 
 
 def _cilium(cfg: dict[str, Any]) -> Any:
     """The policies' pull requests go through the forge with `gitops_token` (or the GitHub App of
     the deployment) — `token` is the cluster reader's, and never reaches the forge."""
+    from .github.changes import GitHubChanges
     from .netops import CiliumNetwork
-    from .scm.github import GitHubScm
 
-    scm = None
+    forge = None
     if cfg.get("gitops_repo"):
         client = _github_client({**cfg, "token": cfg.get("gitops_token", "")})
-        scm = GitHubScm(client, default_repo=str(cfg["gitops_repo"]))
-    return CiliumNetwork.from_config(cfg, scm=scm)
+        forge = GitHubChanges(client, default_repo=str(cfg["gitops_repo"]))
+    return CiliumNetwork.from_config(cfg, forge=forge)
 
 
 def _fake_web_search(cfg: dict[str, Any]) -> Any:
@@ -521,13 +502,11 @@ def _register_fakes() -> None:
         FakeGateway,
         FakeMemory,
         FakeNotifier,
-        FakeScm,
         FakeTracker,
     )
     from .fakes.executor import simulated_executor
 
     register("tracker", "fake")(lambda cfg: FakeTracker(cfg.get("project_slug", "demo")))
-    register("scm", "fake")(lambda cfg: FakeScm())
     # `{"simulate": true}`: the process-wide simulated agent of the local install (`compose.yaml`).
     register("runtime", "fake")(lambda cfg: simulated_executor() if cfg.get("simulate") else FakeExecutor())
     register("memory", "fake")(lambda cfg: FakeMemory())
@@ -546,9 +525,7 @@ def _register_fakes() -> None:
 
 
 def _register_forges() -> None:
-    """Trackers and source control."""
-    from .scm.github import GitHubScm
-    from .scm.gitlab import GitLabScm
+    """The trackers."""
     from .tracker.github import GitHubTracker
     from .tracker.gitlab import GitLabTracker
     from .tracker.gitlab_instance import build_client as build_gitlab_client
@@ -574,22 +551,6 @@ def _register_forges() -> None:
             webhook_secret=cfg.get("webhook_secret", ""),
         )
     )
-    register("scm", "github", _SHIPPED_SPECS[("scm", "github")])(
-        lambda cfg: GitHubScm(
-            _github_client(cfg),
-            default_repo=cfg.get("repo", ""),
-            merge_method=cfg.get("merge_method", "SQUASH"),
-            use_merge_queue=cfg.get("merge_queue", True),
-        )
-    )
-    register("scm", "gitlab", _SHIPPED_SPECS[("scm", "gitlab")])(
-        lambda cfg: GitLabScm(
-            build_gitlab_client(cfg),
-            cfg["project"],
-            default_branch=cfg.get("default_branch", "main"),
-        )
-    )
-    register("scm", "azure-repos", _SHIPPED_SPECS[("scm", "azure-repos")])(_azure_repos_scm)
 
 
 def _own_resources(raw: str, key: str) -> dict[str, str] | None:
