@@ -140,6 +140,11 @@ def test_after_human_approval_and_rejection(simple: WorkflowEngine) -> None:
     assert simple.after_human(t, approved=False).next_state == "refining"
 
 
+def test_after_carrier_is_after_train(simple: WorkflowEngine) -> None:
+    """Generic since round D of ADR 0181: a transition a carrier took (`via:`); the former name stays."""
+    assert WorkflowEngine.after_train is WorkflowEngine.after_carrier
+
+
 def test_after_train(simple: WorkflowEngine) -> None:
     t = simple.select_transition("merged")
     assert simple.after_train(t, ok=True).next_state == "deployed_prod"

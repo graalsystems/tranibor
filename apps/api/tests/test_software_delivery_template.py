@@ -92,7 +92,9 @@ def test_each_workflow_takes_the_train_it_announces_after_the_merge() -> None:
     from pathlib import Path
 
     from tranibor_core import parse_workflow
-    from tranibor_core.dsl.trains import train_after_merge, train_approval, train_env
+    from tranibor_core.carriers import boarding_approval as train_approval
+    from tranibor_core.carriers import boarding_env as train_env
+    from tranibor_software_delivery.train.dsl import train_after_merge
 
     folder = Path(__file__).resolve().parents[3] / "templates" / "github-software-delivery" / "workflows"
     expected = {

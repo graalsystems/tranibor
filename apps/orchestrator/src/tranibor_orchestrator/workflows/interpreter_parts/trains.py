@@ -18,8 +18,7 @@ from ..scheduling import execute_on_its_queue
 
 with workflow.unsafe.imports_passed_through():
     from tranibor_core import WorkflowEngine
-    from tranibor_core.carriers import BOARD_ACTIVITY
-    from tranibor_core.dsl.trains import train_approval, train_env
+    from tranibor_core.carriers import BOARD_ACTIVITY, boarding_approval, boarding_env
 
 from ..interpreter import TRAIN_PER_ENVIRONMENT
 from .base import InterpreterBase
@@ -32,7 +31,7 @@ class TrainsMixin(InterpreterBase):
     async def _run_train(self, params: InterpreterInput, engine: WorkflowEngine, transition: Any) -> Any:
         """Board the ticket, then wait for ITS train to have delivered: `finish_release` and `rollback`
         warn it (ADR 0041). The approval the workflow requires travels with it up to the departure."""
-        env = train_env(transition)
+        env = boarding_env(transition)
         per_environment = workflow.patched(TRAIN_PER_ENVIRONMENT)
         boarding: dict[str, Any] = {
             "project_id": params.project_id,
@@ -41,7 +40,7 @@ class TrainsMixin(InterpreterBase):
             "env": env,
         }
         if per_environment:
-            boarding["approval"] = dict(train_approval(engine.wf, transition))
+            boarding["approval"] = dict(boarding_approval(engine.wf, transition))
         await execute_on_its_queue(
             BOARD_ACTIVITY["release_train"],
             boarding,
@@ -61,9 +60,9 @@ class TrainsMixin(InterpreterBase):
                     self._absorb(event)
                     continue
                 if event.get("type") in {"cd.rollout.completed", "cd.app.synced"}:
-                    return engine.after_train(transition, ok=True)
+                    return engine.after_carrier(transition, ok=True)
                 if event.get("type") in {"cd.rollout.aborted", "cd.app.degraded"}:
-                    return engine.after_train(transition, ok=False)
+                    return engine.after_carrier(transition, ok=False)
                 self._absorb(event)
             waited += step
-        return engine.after_train(transition, ok=False)
+        return engine.after_carrier(transition, ok=False)
