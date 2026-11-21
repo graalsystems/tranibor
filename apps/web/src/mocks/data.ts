@@ -8,6 +8,7 @@
  */
 import devComplex from "./dev-complex.json";
 import { agentSocialApi } from "./agent-social";
+import { pageOf } from "./paging";
 import { agentReleasesApi, applyPolicy, decorateAgent, savedRevision, touchAgent } from "./agent-releases";
 import type {
   Action,
@@ -4417,9 +4418,28 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
   // would be seen by the query cache as unchanged.
   if (/^\/orgs\/[^/]+\/connectors$/.test(route ?? "")) return structuredClone(orgConnectors) as T;
   if (/^\/orgs\/[^/]+\/agents$/.test(route ?? "")) {
-    // Every tag given (AND), as the API filters (S40-10).
-    const wanted = new URLSearchParams(path.split("?")[1] ?? "").getAll("tag");
-    return structuredClone(agents.filter((a) => wanted.every((t) => (a.tags ?? []).includes(t))).map(decorateAgent)) as T;
+    // Filtered, sorted and paged like the API (ADR 0206): `tag` repeated is an AND (S40-10).
+    const search = new URLSearchParams(path.split("?")[1] ?? "");
+    const wanted = search.getAll("tag");
+    const needle = (search.get("q") ?? "").trim().toLowerCase();
+    const scope = search.get("scope");
+    const decorated = agents.map(decorateAgent);
+    const kept = decorated
+      .filter(
+        (a) =>
+          wanted.every((t) => (a.tags ?? []).includes(t)) &&
+          (!scope || (a.scope ?? "org") === scope) &&
+          (search.get("starred") !== "true" || a.social?.starred_by_me === true) &&
+          (search.get("retired") !== "false" || a.lifecycle !== "retired") &&
+          (search.get("awaiting_approval") !== "true" || a.pending_release != null) &&
+          (!needle || a.slug.toLowerCase().includes(needle) || a.display_name.toLowerCase().includes(needle)),
+      )
+      .sort((x, y) =>
+        search.get("sort") === "stars" && (y.social?.stars ?? 0) !== (x.social?.stars ?? 0)
+          ? (y.social?.stars ?? 0) - (x.social?.stars ?? 0)
+          : x.slug.localeCompare(y.slug),
+      );
+    return pageOf(kept, search) as T;
   }
   const projectOrg = /^\/projects\/([^/]+)\/org-connectors$/.exec(route ?? "");
   if (projectOrg) {
@@ -4442,16 +4462,17 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
   const ticket = /^\/work-items\/([^/]+)$/.exec(route ?? "");
   if (ticket) return ticketDetaille(ticket[1]!) as T;
   if (/^\/orgs\/[^/]+\/agent-credentials$/.test(route ?? "")) {
-    return agentCredentials.map((c) => ({ ...c, agent: "leas-claude-code" })) as T;
+    return pageOf(agentCredentials.map((c) => ({ ...c, agent: "leas-claude-code" })), path.split("?")[1] ?? "") as T;
   }
-  if (/^\/orgs\/[^/]+\/agent-metrics$/.test(route ?? "")) return agentMetricsList() as T;
-  if (/^\/orgs\/[^/]+\/agents\/rovo\/runs$/.test(route ?? "")) return [remoteRunDrifted, remoteRun] as T;
+  if (/^\/orgs\/[^/]+\/agent-metrics$/.test(route ?? ""))
+    return pageOf([...agentMetricsList()].sort((x, y) => x.agent.localeCompare(y.agent)), path.split("?")[1] ?? "") as T;
+  if (/^\/orgs\/[^/]+\/agents\/rovo\/runs$/.test(route ?? "")) return pageOf([remoteRunDrifted, remoteRun], path.split("?")[1] ?? "") as T;
   if (/^\/orgs\/[^/]+\/remote-credentials$/.test(route ?? "")) return remoteCredentials as T;
   if (/^\/runs\/r-remote\/events$/.test(route ?? "")) return remoteEvents(false) as T;
   if (/^\/runs\/r-remote-drift\/events$/.test(route ?? "")) return remoteEvents(true) as T;
   if (/^\/runs\/r-remote(-drift)?$/.test(route ?? "")) return (route?.endsWith("drift") ? remoteRunDrifted : remoteRun) as T;
   // The runs of an agent, newest first (S30-05).
-  if (/^\/orgs\/[^/]+\/agents\/[^/]+\/runs$/.test(route ?? "")) return [...runs].reverse() as T;
+  if (/^\/orgs\/[^/]+\/agents\/[^/]+\/runs$/.test(route ?? "")) return pageOf([...runs].reverse(), path.split("?")[1] ?? "") as T;
   if (/^\/projects\/[^/]+\/implicit-agents$/.test(route ?? "")) return implicitAgents() as T;
   if (/^\/projects\/[^/]+\/workflow-agents$/.test(route ?? ""))
     return implicitAgents().map((a) => ({ ...a, agent: null, registered: false })) as T;
@@ -4478,7 +4499,7 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
   if (calibrationMatch)
     return stepCalibrationDemo(decodeURIComponent(calibrationMatch[1]!), decodeURIComponent(calibrationMatch[2]!)) as T;
   const credentials = /^\/orgs\/[^/]+\/agents\/([^/]+)\/credentials$/.exec(route ?? "");
-  if (credentials) return (credentials[1] === "leas-claude-code" ? agentCredentials : []) as T;
+  if (credentials) return pageOf(credentials[1] === "leas-claude-code" ? agentCredentials : [], path.split("?")[1] ?? "") as T;
   if (method === "GET" && /^\/(orgs|projects)\/[^/]+\/costs$/.test(chemin ?? "") && path.includes("group_by=")) {
     // The project overview's own two reads (`day`, `kind`, no period) keep their fixed fixture.
     const onPage = /^\/projects\//.test(chemin ?? "") && !/since=|group_by=(?!day&|day$|kind)/.test(path);
