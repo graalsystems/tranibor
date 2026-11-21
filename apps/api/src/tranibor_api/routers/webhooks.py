@@ -17,13 +17,13 @@ from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core import utcnow
-from tranibor_core.dsl.trains import train_after_merge, train_approval, train_env
 
 from ..audit import record
 from ..config import get_settings
 from ..db.models import Connector, OrgConnector, Project, User, WebhookDelivery, WorkItem
 from ..deps import PlatformDb, principal_for_user, resolve_project
 from ..errors import ApiError, not_found, unauthorized
+from ..extensions import run_inbound_hooks
 from ..logging import get_logger
 from ..schemas import WebhookAck
 from ..security import body_digest, verify_github_signature, verify_shared_secret
@@ -34,8 +34,6 @@ from ..services import (
     received_events,
     record_labels,
     tickets,
-    work_item_workflow,
-    workflow_model,
 )
 from ..services.decision_ledger import ended_issue_reopened, observe_reopening
 from ..services.initiator import initiator
@@ -50,7 +48,6 @@ from ..temporal import (
     get_temporal,
     interpreter_id,
     signal_memory_loop,
-    train_id,
 )
 from ..tenant_host import org_base_url_of_id
 
@@ -386,10 +383,11 @@ async def dispatch(
                 work_item=item.id,
                 event_type=str(event.type),
             )
-        if event.type == InboundEventType.PR_MERGED:
-            await _board_train(session, project, item, event)
+        # What an extension does with the event once its work item has it (`extensions.declare_inbound_hook`:
+        # the `software-delivery` plugin boards a merged work item on its train, ADR 0181 round D).
+        hooked = await run_inbound_hooks(session, project, item, event)
         received_events.record(
-            session, project, event, _outcome(event, created, should_start, label_list), item
+            session, project, event, hooked or _outcome(event, created, should_start, label_list), item
         )
         delivered += 1
     return delivered
@@ -482,38 +480,9 @@ def _outcome(event: InboundEvent, created: bool, started: bool, labels: Any) -> 
         return "created_work_item"
     if started:
         return "started"
-    if event.type == InboundEventType.PR_MERGED:
-        return "boarded"
     if event.type in LABEL_STATE_EVENTS and isinstance(labels, list):
         return "labels_updated"
     return "signalled"
-
-
-async def _board_train(session: Any, project: Project, item: WorkItem, event: InboundEvent) -> None:
-    """The merged ticket boards the train that ITS workflow takes after the merge, with the approval
-    it requires there (ADR 0041). Every merged ticket used to board the PROD train: a study that
-    merges an ADR went to production, a careful delivery skipped its staging."""
-    workflow = workflow_model(await work_item_workflow(session, item))
-    train = train_after_merge(workflow)
-    if train is None:
-        return
-    # The PR's labels AND the ticket's: a `hotfix` ticket takes the express lane, whether this
-    # webhook or the interpreter boards it first (#279).
-    merged_labels = [*event.payload.get("labels", []), *(item.documents or {}).get("labels", [])]
-    await get_temporal().signal(
-        train_id(project.slug, train_env(train)),
-        "merged",
-        {
-            "work_item_key": item.tracker_key,
-            "sha": event.payload.get("sha", ""),
-            "merged_at": utcnow().isoformat(),  # start bound of the delivery delay
-            "risk": item.risk,
-            "labels": list(dict.fromkeys(merged_labels)),
-            "pr_url": event.payload.get("pr_url"),
-            "title": item.title,
-            "approval": dict(train_approval(workflow, train)),
-        },
-    )
 
 
 # ───────────────────────────── GitHub ─────────────────────────────

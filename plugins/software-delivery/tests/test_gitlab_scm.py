@@ -10,8 +10,8 @@ import httpx
 import respx
 from tranibor_adapters import connector_types
 from tranibor_adapters.http import RestClient
-from tranibor_adapters.scm.gitlab import GitLabScm
 from tranibor_core.domain import PrRef
+from tranibor_software_delivery.connectors.scm.gitlab import GitLabScm
 
 BASE = "https://gitlab.com/api/v4/projects/northwind%2Fbilling-api"
 #: The commit the gates judged, and the one a later push put at the head.
@@ -323,7 +323,7 @@ async def test_a_merge_request_already_merged_at_the_commit_is_not_merged_again(
 
 
 def test_the_adapter_says_it_merges_at_a_commit() -> None:
-    from tranibor_adapters.base import SCM_CAPABILITIES, merge_at_commit_refusal
+    from tranibor_software_delivery.connectors.base import SCM_CAPABILITIES, merge_at_commit_refusal
 
     assert GitLabScm.capabilities <= SCM_CAPABILITIES
     assert merge_at_commit_refusal(adapter()) is None

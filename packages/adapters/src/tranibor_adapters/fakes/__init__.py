@@ -20,7 +20,6 @@ from .model_server import FakeModelServer
 from .notify import FakeNotifier
 from .oci import FakeImageVerifier, FakeRegistryClient
 from .realtime import FakeRealtimeUpstream
-from .scm import FakeScm
 from .storage import FakeObjectStore
 from .tracker import FakeTracker
 
@@ -42,6 +41,5 @@ __all__ = [
     "FakeRealtimeUpstream",
     "FakeRegistryClient",
     "FakeSandboxCluster",
-    "FakeScm",
     "FakeTracker",
 ]

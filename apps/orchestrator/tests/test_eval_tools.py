@@ -10,6 +10,7 @@ input, and a run that did not get the cell's door is skipped.
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 from collections.abc import Iterator
 from typing import Any
@@ -24,6 +25,14 @@ from tranibor_orchestrator.config import reset_settings_cache
 from .conftest import Fixture
 
 E1, E4 = "netops-ssh-exposure", "identity-offboarding"
+
+
+#: The tests that need the `software-delivery` plugin's source control: a reference ticket's toy repository
+#: is committed through it, and a run's diff read from it (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control is the software-delivery plugin's",
+)
 
 
 def _cell(tools: str, **extra: Any) -> dict[str, Any]:
@@ -319,6 +328,7 @@ def _live(tools: str, **extra: Any) -> dict[str, Any]:
     return {**_cell(tools), "matrix_id": "evals-nightly", "fixture": "py-rounding-bug", **extra}
 
 
+@needs_the_plugin
 async def test_a_scripts_cell_forces_the_bridge_on_and_an_mcp_cell_off(
     eval_project: Fixture, scripts_on: None
 ) -> None:
@@ -337,6 +347,7 @@ async def test_a_scripts_cell_forces_the_bridge_on_and_an_mcp_cell_off(
     assert again["plan"]["work_item_id"] != scripts["plan"]["work_item_id"], "a ticket per repetition"
 
 
+@needs_the_plugin
 async def test_the_kill_switch_skips_the_scripts_cell_and_still_wins_at_prepare_time(
     eval_project: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -410,6 +421,7 @@ DIGEST = "a" * 64
 CLIENT = ("tools.client", {"written": True, "tools": 3, "modules": ["pfsense"]})
 
 
+@needs_the_plugin
 async def test_a_scripts_run_whose_agent_got_its_client_is_judged(
     eval_project: Fixture, scripts_on: None
 ) -> None:
@@ -427,6 +439,7 @@ async def test_a_scripts_run_whose_agent_got_its_client_is_judged(
         ("mcp", [("tools.script", {"sha256": DIGEST, "bytes": 3})], "journaled tool scripts in an mcp cell"),
     ],
 )
+@needs_the_plugin
 async def test_a_run_that_did_not_get_the_cell_s_door_is_skipped(
     eval_project: Fixture, scripts_on: None, tools: str, events: list[tuple[str, dict[str, Any]]], why: str
 ) -> None:
@@ -434,6 +447,7 @@ async def test_a_run_that_did_not_get_the_cell_s_door_is_skipped(
     assert verdict["skipped"] and why in verdict["reason"]
 
 
+@needs_the_plugin
 async def test_a_run_offered_scripts_in_an_mcp_cell_is_skipped(
     eval_project: Fixture, scripts_on: None
 ) -> None:
@@ -453,6 +467,7 @@ async def test_a_run_offered_scripts_in_an_mcp_cell_is_skipped(
     assert again["skipped"] and "offered tool scripts, the cell is mcp" in again["reason"]
 
 
+@needs_the_plugin
 async def test_a_live_run_s_tool_use_is_read_from_its_events_actions_and_journal(
     eval_project: Fixture, scripts_on: None
 ) -> None:

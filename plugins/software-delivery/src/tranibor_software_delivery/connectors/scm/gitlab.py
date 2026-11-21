@@ -18,14 +18,14 @@ from typing import Any
 from urllib.parse import quote
 
 import structlog
+from tranibor_adapters.errors import ConfigurationError, HeadMovedError, UpstreamError
+from tranibor_adapters.http import RestClient
+from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
+from tranibor_adapters.tracker.gitlab_instance import check_instance
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState
 
 from ..builds import GITLAB_JOB_RUN as _JOB_RUN
-from ..errors import ConfigurationError, HeadMovedError, UpstreamError
-from ..http import RestClient
-from ..tracker.gitlab_events import parse_gitlab_event
-from ..tracker.gitlab_instance import check_instance
 
 log = structlog.get_logger(__name__)
 

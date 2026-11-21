@@ -25,6 +25,14 @@ HISTORIES = ROOT / "tests" / "replay" / "histories"
 ORCHESTRATOR = ROOT / "apps" / "orchestrator" / "src" / "tranibor_orchestrator"
 
 #: The names the orchestrator registered them under, recorded in the `train-*.json` histories.
+#: The source control's (S83-05j), under the names recorded histories carry.
+SOURCE_CONTROL_ACTIVITIES = {
+    "open_pull_request",
+    "enqueue_merge",
+    "ensure_branch",
+    "collect_run_artifacts",
+    "check_scope_violations",
+}
 TRAIN_ACTIVITIES = {
     "load_train_config",
     "check_window",
@@ -49,6 +57,10 @@ TRAIN_ACTIVITIES = {
 
 @pytest.fixture
 def without_the_extension() -> Iterator[None]:
+    # The orchestrator's activities load the extensions when they are first imported: imported after the
+    # extension is forgotten, they would declare it again (a test run alone, or first on its worker).
+    import tranibor_orchestrator.activities  # noqa: F401
+
     worker_parts.forget(NAME)
     try:
         yield
@@ -68,8 +80,11 @@ def test_the_extension_declares_the_train_under_its_recorded_names() -> None:
     assert NAME in worker_parts.declared_worker_parts()
     parts = provide_worker_parts()
     assert _names(list(parts.workflows)) == {"ReleaseTrain"}
-    assert {activity_name(a) for a in parts.activities} == TRAIN_ACTIVITIES
-    assert dict(parts.queues) == {}  # every train activity runs on `orchestrator`, as it did
+    assert {activity_name(a) for a in parts.activities} == TRAIN_ACTIVITIES | SOURCE_CONTROL_ACTIVITIES
+    # Every train activity runs on `orchestrator`, as it did; the source control's on `tracker`.
+    assert dict(parts.queues) == dict.fromkeys(
+        SOURCE_CONTROL_ACTIVITIES - {"collect_run_artifacts"}, "tracker"
+    )
 
 
 def test_the_worker_carries_the_train_and_the_core_registers_none_of_it() -> None:

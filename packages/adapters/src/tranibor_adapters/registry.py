@@ -21,7 +21,6 @@ from .base import (
     GatewayAdapter,
     MemoryAdapter,
     Notifier,
-    ScmAdapter,
     TrackerAdapter,
 )
 from .errors import ConfigurationError
@@ -137,7 +136,6 @@ DEFAULT_TYPES: dict[str, str] = {
     # A project without a tracker connector files its requests in Tranibor, as
     # `tracker_is_internal` says (#704): `github-issues` with no `repo` could only crash.
     "tracker": "internal",
-    "scm": "github",
     "memory": "ecphoria",
     "gateway": "litellm",
     "notify": "slack",
@@ -180,26 +178,39 @@ class AdapterSlot:
 
     - `default_type`: the type a project that declares no connector of this kind gets;
     - `fake`: builds the slot's fake, for `AdapterSet.fakes()` and `TRANIBOR_FAKES=1`;
-    - `deployment_fields`: the configuration fields only the deployment sets (`DEPLOYMENT_FIELDS`)."""
+    - `deployment_fields`: the configuration fields only the deployment sets (`DEPLOYMENT_FIELDS`);
+    - `title`, `family`: what the console calls the kind (the readiness item, the catalogue's family);
+    - `workspace`: the kind is the project's workspace, where a step reads and writes files (a workflow
+      that needs it needs a repository: the catalogue's `needs_workspace`);
+    - `needs_workspace`: the kind only makes sense for a project with a workspace (readiness offers a
+      workflow without one as the way out)."""
 
     kind: str
     plugin: str
     default_type: str
     fake: Callable[[], Any]
     deployment_fields: frozenset[str] = frozenset()
+    title: str = ""
+    family: str = ""
+    workspace: bool = False
+    needs_workspace: bool = False
 
 
 #: kind -> the slot an extension declared for it.
 _SLOTS: dict[str, AdapterSlot] = {}
 
 
-def declare_adapter_slot(
+def declare_adapter_slot(  # noqa: PLR0913 - one keyword per fact a slot declares
     kind: str,
     *,
     plugin: str,
     default_type: str,
     fake: Callable[[], Any],
     deployment_fields: frozenset[str] = frozenset(),
+    title: str = "",
+    family: str = "",
+    workspace: bool = False,
+    needs_workspace: bool = False,
 ) -> None:
     """Called by an extension when it loads: every `AdapterSet` gets an adapter of `kind`, built from the
     project's connector of that kind (`default_type` when it has none), and read as `adapters.<kind>` or
@@ -215,12 +226,27 @@ def declare_adapter_slot(
         raise ValueError(f"the adapter slot `{kind}` is already declared by the plugin `{owner.plugin}`")
     if kind not in CONNECTOR_KINDS.known():
         CONNECTOR_KINDS.declare(kind, plugin=plugin)
-    _SLOTS[kind] = AdapterSlot(kind, plugin, default_type, fake, frozenset(deployment_fields))
+    _SLOTS[kind] = AdapterSlot(
+        kind,
+        plugin,
+        default_type,
+        fake,
+        frozenset(deployment_fields),
+        title=title,
+        family=family,
+        workspace=workspace,
+        needs_workspace=needs_workspace or workspace,
+    )
 
 
 def adapter_slots() -> dict[str, AdapterSlot]:
     """kind -> the slot an extension declared, in the order they were declared."""
     return dict(_SLOTS)
+
+
+def workspace_kinds() -> frozenset[str]:
+    """The slots that are a project's workspace (the `software-delivery` plugin's `scm`)."""
+    return frozenset(kind for kind, slot in _SLOTS.items() if slot.workspace)
 
 
 def forget_adapter_slots(plugin: str) -> None:
@@ -272,7 +298,8 @@ def account_of(kind: str, type_name: str, config: dict[str, Any] | None) -> str 
     cfg = config or {}
     if type_name in {"jira", "confluence"}:
         return str(cfg.get("email") or "") or None
-    if type_name in {"azure-boards", "azure-repos", "azure-pipelines"} and cfg.get("auth") == "entra":
+    # A Microsoft Entra service principal (the Azure DevOps types, the core's and an extension's alike).
+    if cfg.get("auth") == "entra":
         return str(cfg.get("client_id") or "") or None
     if kind == "mcp" and cfg.get("auth_scheme") == "basic":
         return str(cfg.get("username") or "") or None
@@ -476,7 +503,7 @@ def default_decision_client() -> DecisionClient:
 
 
 #: The slots of the core's `AdapterSet`: an extension adds others (`declare_adapter_slot`), never these.
-CORE_SLOTS = frozenset({"tracker", "scm", "runtime", "memory", "gateway", "notify"})
+CORE_SLOTS = frozenset({"tracker", "runtime", "memory", "gateway", "notify"})
 
 
 @dataclass(slots=True)
@@ -484,10 +511,10 @@ class AdapterSet:
     """A project's set of adapters, resolved once and then passed to the activities.
 
     `extra` holds the adapters of the slots extensions declare (`declare_adapter_slot`, ADR 0181 round
-    D), read as attributes (`adapters.cd`) or with `slot`: the `software-delivery` plugin's `ci` and `cd`."""
+    D), read as attributes (`adapters.scm`) or with `slot`: the `software-delivery` plugin's `scm`, `ci` and
+    `cd`."""
 
     tracker: TrackerAdapter
-    scm: ScmAdapter
     executor: Executor
     memory: MemoryAdapter
     gateway: GatewayAdapter
@@ -525,7 +552,6 @@ class AdapterSet:
             FakeGateway,
             FakeMemory,
             FakeNotifier,
-            FakeScm,
             FakeTracker,
         )
         from .fakes.decisions import FakeDecisionClient
@@ -533,7 +559,6 @@ class AdapterSet:
         gateway = FakeGateway()
         return cls(
             tracker=FakeTracker(),
-            scm=FakeScm(),
             executor=FakeExecutor(),
             memory=FakeMemory(),
             gateway=gateway,
@@ -569,7 +594,6 @@ class AdapterSet:
 
         return cls(
             tracker=get("tracker", DEFAULT_TYPES["tracker"]),
-            scm=get("scm", DEFAULT_TYPES["scm"]),
             executor=with_custom_image_executor(get("runtime", default_executor_kind())),
             memory=get("memory", DEFAULT_TYPES["memory"]),
             gateway=get("gateway", default_gateway_type()),

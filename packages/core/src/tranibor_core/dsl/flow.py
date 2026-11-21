@@ -19,8 +19,8 @@ from tranibor_contracts.workflow import HumanActor
 CONTEXT_DOCUMENTS: tuple[str, ...] = ("spec_markdown", "plan_markdown", "allowed_paths")
 
 #: What the pull request body carries, in order: `(document name, section title)`. A `None` title is
-#: the bare text that heads the body. `activities/scm.py` iterates this tuple, so the map's "in the
-#: pull request" flag and the real body cannot drift apart.
+#: the bare text that heads the body. The `software-delivery` plugin's `source_control.py` iterates this
+#: tuple, so the map's "in the pull request" flag and the real body cannot drift apart.
 PULL_REQUEST_SECTIONS: tuple[tuple[str, str | None], ...] = (
     ("spec_markdown", None),
     ("plan_markdown", "Plan"),

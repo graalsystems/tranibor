@@ -8,10 +8,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from tranibor_adapters.errors import HeadMovedError
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState, ReviewState
-
-from ..errors import HeadMovedError
 
 
 class FakeScm:

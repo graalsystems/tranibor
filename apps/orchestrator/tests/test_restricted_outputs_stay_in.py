@@ -8,11 +8,19 @@ request's body, nor a memory; the same test without the mark proves the content 
 
 from __future__ import annotations
 
+import importlib.util
 from typing import Any
 
 import pytest
 
 from .conftest import Fixture
+
+#: The tests that need the `software-delivery` plugin's source control or pipelines (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control and the pipelines are the software-delivery plugin's",
+)
+
 
 pytestmark = pytest.mark.asyncio
 
@@ -171,13 +179,14 @@ async def test_a_marked_work_item_writes_no_shared_memory(setup: Fixture, marked
 
 
 @pytest.mark.parametrize("marked", [True, False])
+@needs_the_plugin
 async def test_the_pull_request_body_is_the_link_and_the_code_still_ships(
     setup: Fixture, marked: bool
 ) -> None:
     from tranibor_api.db.models import WorkItem
     from tranibor_api.db.session import session_scope
     from tranibor_api.knowledge.marked import WITHHELD
-    from tranibor_orchestrator.activities.scm import open_pull_request
+    from tranibor_software_delivery.source_control import open_pull_request
 
     await _mark(setup, marked)
     async with session_scope() as session:

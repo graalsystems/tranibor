@@ -20,6 +20,7 @@ import structlog
 import yaml
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tranibor_adapters.registry import workspace_kinds
 from tranibor_contracts import AgentActor, HumanActor, Workflow
 from tranibor_core import ValidationError as WorkflowInvalid
 from tranibor_core import parse_workflow
@@ -320,8 +321,8 @@ def entry_dto(
             WorkflowCatalogueRequirementDto(capability=e.capability, reasons=list(e.reasons))
             for e in requires
         ],
-        needs_workspace=any(e.capability == "scm" for e in requires),
-        needs_repository=any(e.capability == "scm" for e in requires),
+        needs_workspace=any(e.capability in workspace_kinds() for e in requires),
+        needs_repository=any(e.capability in workspace_kinds() for e in requires),
         groups=groups,
         agents=agents,
         yaml=o.yaml if with_yaml else None,
@@ -341,7 +342,7 @@ def _text_of(o: Offered) -> tuple[str, ...]:
 
 
 def _needs_workspace(o: Offered) -> bool:
-    return any(e.capability == "scm" for e in _requirements(o.yaml))
+    return any(e.capability in workspace_kinds() for e in _requirements(o.yaml))
 
 
 async def entries(

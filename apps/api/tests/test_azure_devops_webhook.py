@@ -8,10 +8,18 @@ exchange, not that a live organisation sends exactly this.
 from __future__ import annotations
 
 import base64
+import importlib.util
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+
+#: The tests that need the `software-delivery` plugin's source control or pipelines (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control and the pipelines are the software-delivery plugin's",
+)
+
 
 SECRET = "s3cret"
 
@@ -114,6 +122,7 @@ async def test_a_delivery_needs_the_shared_secret_in_basic_auth_or_a_header(
     )["accepted"] is True
 
 
+@needs_the_plugin
 async def test_a_pull_request_event_reaches_the_project_whose_scm_connector_holds_the_team_project(
     client: AsyncClient, admin: str
 ) -> None:
@@ -126,6 +135,7 @@ async def test_a_pull_request_event_reaches_the_project_whose_scm_connector_hold
     assert await _received(client, project) == [("scm.pr.opened", "7", "ignored_not_agent_ready")]
 
 
+@needs_the_plugin
 async def test_a_build_event_reaches_the_project_whose_pipelines_connector_holds_the_team_project(
     client: AsyncClient, admin: str
 ) -> None:
@@ -137,6 +147,7 @@ async def test_a_build_event_reaches_the_project_whose_pipelines_connector_holds
     assert await _received(client, project) == [("ci.run.succeeded", "7", "ignored_not_agent_ready")]
 
 
+@needs_the_plugin
 async def test_a_redelivery_is_not_dispatched_twice(client: AsyncClient, admin: str) -> None:
     project = await _project(client, "yyy")
     await _connector(client, project, "scm", "Billing", repository="billing-api")
@@ -148,6 +159,7 @@ async def test_a_redelivery_is_not_dispatched_twice(client: AsyncClient, admin: 
     assert len(await _received(client, project)) == 1
 
 
+@needs_the_plugin
 async def test_the_repository_tells_two_projects_with_the_same_team_project_apart(
     client: AsyncClient, admin: str
 ) -> None:
@@ -162,6 +174,7 @@ async def test_the_repository_tells_two_projects_with_the_same_team_project_apar
     assert await _received(client, api) == []
 
 
+@needs_the_plugin
 async def test_a_project_with_both_connectors_is_one_project_not_an_ambiguity(
     client: AsyncClient, admin: str
 ) -> None:
@@ -174,6 +187,7 @@ async def test_a_project_with_both_connectors_is_one_project_not_an_ambiguity(
     assert len(await _received(client, project)) == 1
 
 
+@needs_the_plugin
 async def test_a_team_project_held_twice_with_nothing_to_tell_them_apart_routes_nothing(
     client: AsyncClient, admin: str
 ) -> None:
@@ -205,6 +219,7 @@ async def test_an_event_the_platform_does_not_read_is_accepted_and_ignored(
     assert ack == {"accepted": True, "duplicate": False, "events": 0}
 
 
+@needs_the_plugin
 async def test_two_subscriptions_reusing_one_notification_id_are_both_delivered(
     client: AsyncClient, admin: str
 ) -> None:

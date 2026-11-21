@@ -60,15 +60,11 @@ STAND_INS = {"demo", "fake"}
 PROVIDED_BY_THE_DEPLOYMENT = frozenset({"runtime", "gateway", "memory", "tracker"})
 #: Secret fields that never block a connector: a webhook secret only matters once GitHub can reach us.
 OPTIONAL_SECRETS = {"webhook_secret"}
-GITHUB_KINDS = {"tracker": "github-issues", "scm": "github"}
-#: Capabilities that only make sense for a project that delivers code from a repository.
-NEED_A_REPOSITORY = frozenset({"scm", "ci", "cd"})
 
+#: The core's kinds; an extension's slot names its own (`AdapterSlot.title`: the `software-delivery`
+#: plugin's source control, CI and CD).
 CAPABILITY_TITLES = {
     "tracker": "Tracker",
-    "scm": "Repository (SCM)",
-    "ci": "Continuous integration",
-    "cd": "Continuous delivery",
     "runtime": "Agent runtime",
     "gateway": "Model gateway",
     "memory": "Memory",
@@ -261,8 +257,23 @@ def item_workflow(f: Facts) -> list[ReadinessItem]:
     ]
 
 
+def need_a_repository() -> frozenset[str]:
+    """Capabilities that only make sense for a project with a repository: the slots extensions declare so
+    (`AdapterSlot.needs_workspace`: the `software-delivery` plugin's `scm`, `ci` and `cd`)."""
+    from tranibor_adapters.registry import adapter_slots
+
+    return frozenset(kind for kind, slot in adapter_slots().items() if slot.needs_workspace)
+
+
+def capability_title(capability: str) -> str:
+    from tranibor_adapters.registry import adapter_slots
+
+    slot = adapter_slots().get(capability)
+    return CAPABILITY_TITLES.get(capability) or (slot.title if slot and slot.title else capability.title())
+
+
 def _connector_item(f: Facts, capability: str, reasons: tuple[str, ...]) -> ReadinessItem:
-    title = f"{CAPABILITY_TITLES.get(capability, capability.title())} connected"
+    title = f"{capability_title(capability)} connected"
     why = reasons[0] if reasons else "a workflow needs it"
     id_ = f"connector-{capability}"
     connector = f.connectors.get(capability)
@@ -271,7 +282,7 @@ def _connector_item(f: Facts, capability: str, reasons: tuple[str, ...]) -> Read
     if connector is None:
         if platform:
             return _item(id_, "connections", title, "done", "provided by the platform.", fix)
-        if capability in NEED_A_REPOSITORY and not _has_repository(f):
+        if capability in need_a_repository() and not _has_repository(f):
             # The project has no repository: connecting one is a choice, not the only way out.
             return _item(
                 id_,
@@ -392,6 +403,25 @@ def item_stale_tests(f: Facts) -> list[ReadinessItem]:
     return items
 
 
+#: What an extension's readiness item builds with (`extensions.declare_readiness_item`).
+def readiness_item(
+    id_: str, section: str, title: str, state: str, detail: str, fix: ReadinessFix
+) -> ReadinessItem:
+    return _item(id_, section, title, state, detail, fix)
+
+
+def settings_fix(slug: str, anchor: str, by: str = "project_owner") -> ReadinessFix:
+    return _fix(slug, anchor, by)
+
+
+def has_repository(f: Facts) -> bool:
+    return _has_repository(f)
+
+
+def workflow_without_repository(f: Facts) -> ReadinessFix:
+    return _workflow_without_repository(f)
+
+
 def _has_repository(f: Facts) -> bool:
     return bool(f.config.repo and f.config.repo.url)
 
@@ -404,50 +434,6 @@ def _workflow_without_repository(f: Facts) -> ReadinessFix:
     return ReadinessFix(
         href=f"/p/{f.slug}/workflows/new?template=default-request&default=1", by="project_owner"
     )
-
-
-def item_repository(f: Facts) -> list[ReadinessItem]:
-    reasons = dict(f.requirements).get("scm")
-    if reasons is None:
-        return []
-    fix = _fix(f.slug, "general")
-    repo = f.config.repo
-    if not _has_repository(f):
-        # Asked by a workflow, not by the project: one without a repository changes its workflow.
-        return [
-            _item(
-                "repository",
-                "general",
-                "Repository set",
-                "todo",
-                f"the project names no repository URL ({reasons[0] if reasons else 'a workflow needs one'}): "
-                "set one, or make default a workflow that does not deliver code, such as `default-request`.",
-                _workflow_without_repository(f),
-            )
-        ]
-    assert repo is not None
-    items = [_item("repository", "general", "Repository set", "done", f"`{repo.url}`.", fix)]
-    measured = bool(repo.test_command) or bool(f.config.dod.facts)
-    items.append(
-        _item(
-            "repository-checks",
-            "general",
-            "Tests measured by the runner",
-            "done",
-            "a test command is set.",
-            fix,
-        )
-        if measured
-        else _item(
-            "repository-checks",
-            "general",
-            "Tests measured by the runner",
-            "check",
-            "no test command: the runner measures no tests, lint or types, only what the agent says.",
-            fix,
-        )
-    )
-    return items
 
 
 def item_backend(f: Facts) -> list[ReadinessItem]:
@@ -814,7 +800,8 @@ ITEMS: tuple[Callable[[Facts], list[ReadinessItem]], ...] = (
     item_mcp_gateway,
     item_github_app,
     item_stale_tests,
-    item_repository,
+    # The items extensions declare go here (`extensions.declare_readiness_item`): the
+    # `software-delivery` plugin's repository.
     item_backend,
     item_models,
     item_budgets,
@@ -831,7 +818,11 @@ ITEMS: tuple[Callable[[Facts], list[ReadinessItem]], ...] = (
 
 
 def evaluate(facts: Facts) -> ProjectReadiness:
-    items = [item for function in ITEMS for item in function(facts)]
+    from ..extensions import readiness_items
+
+    at = ITEMS.index(item_stale_tests) + 1
+    functions = (*ITEMS[:at], *readiness_items(), *ITEMS[at:])
+    items = [item for function in functions for item in function(facts)]
     summary = ReadinessSummary(
         done=sum(i.state == "done" for i in items),
         check=sum(i.state == "check" for i in items),
@@ -889,12 +880,13 @@ async def _connector_facts(session: AsyncSession, project: Project) -> dict[str,
 async def _github_owners(
     session: AsyncSession, project: Project, connectors: dict[str, ConnectorFact]
 ) -> tuple[tuple[str, str, bool], ...]:
+    """(kind, owner, claimed) of each connector the GitHub App serves: every type whose spec names its
+    repository key (`ConnectorTypeSpec.github_repository`), the core's and an extension's alike."""
     owners: list[tuple[str, str, bool]] = []
-    for kind, type_ in GITHUB_KINDS.items():
-        connector = connectors.get(kind)
-        if connector is None or connector.type != type_ or connector.config.get("api_url"):
+    for kind, connector in connectors.items():
+        if not github_app.served_by_the_app(kind, connector.type) or connector.config.get("api_url"):
             continue
-        owner = github_app.owner_of(str(connector.config.get("repo") or ""))
+        owner = github_app.owner_of(github_app.repo_of(kind, connector.type, connector.config))
         if owner is None:
             continue
         claimed = await github_app.claimed_installation_for(session, project.org_id, owner) is not None

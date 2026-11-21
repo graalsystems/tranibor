@@ -54,7 +54,7 @@ def _draft_workflow() -> str:
 
 
 async def _open(setup: Fixture, **extra: Any) -> Any:
-    from tranibor_orchestrator.activities.scm import open_pull_request
+    from tranibor_software_delivery.source_control import open_pull_request
 
     await open_pull_request({"project_id": setup.project_id, "work_item_id": setup.work_item_id, **extra})
     (pr,) = setup.adapters.scm.prs.values()

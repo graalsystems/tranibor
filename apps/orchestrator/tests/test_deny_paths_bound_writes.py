@@ -56,7 +56,8 @@ async def test_the_run_carries_the_policys_denied_paths(setup: Fixture) -> None:
 
 
 async def test_scope_respected_fails_on_a_denied_path_inside_the_work_items_scope(setup: Fixture) -> None:
-    from tranibor_orchestrator.activities.gates import check_scope_violations, evaluate_gates
+    from tranibor_orchestrator.activities.gates import evaluate_gates
+    from tranibor_software_delivery.source_control import check_scope_violations
 
     setup.adapters.scm.set_diff(
         REPOSITORY, "main", "choregos/123", [("src/orders/total.py", 20, 4), (GENERATED, 400, 0)]

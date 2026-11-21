@@ -44,8 +44,11 @@ async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
     """The `delivery` facts of one evaluation, for the declarations in `request.gates`."""
     from tranibor_adapters.errors import UpstreamError
     from tranibor_api.db.models import Run
-    from tranibor_orchestrator.activities.base import load_work_item, scm_for
+    from tranibor_orchestrator.activities.base import load_work_item
     from tranibor_orchestrator.activities.repositories import repo_slug, target_or_none
+
+    from .connectors import scm_of
+    from .source_control import scm_for
 
     session, bundle, result = request.session, request.project, request.result
     item = await load_work_item(session, request.work_item_id)
@@ -64,7 +67,11 @@ async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
     # target (ADR 0124); one the project does not serve has no diff either.
     found = target_or_none(bundle, item)
     repo_config = found.repo if found is not None else None
-    scm = await scm_for(session, bundle, repo_config.url) if repo_config is not None else bundle.adapters.scm
+    scm = (
+        await scm_for(session, bundle, repo_config.url)
+        if repo_config is not None
+        else scm_of(bundle.adapters)
+    )
     branch = (branch_of(result.artifacts) if result else None) or (
         bundle.config.branch_for(item.tracker_key, repo=repo_config) if repo_config is not None else ""
     )
@@ -151,9 +158,11 @@ async def judged(judgment: JudgedRequest) -> Mapping[str, Any] | None:
 
     The commit is the one the provider read when a gate of the plugin was declared, else the head read
     here, once: a merge transition whose gates are all the core's still names what was judged."""
-    from tranibor_orchestrator.activities.base import load_work_item, scm_for
+    from tranibor_orchestrator.activities.base import load_work_item
     from tranibor_orchestrator.activities.judged import record_judged
     from tranibor_orchestrator.activities.repositories import repo_slug, target_or_none
+
+    from .source_control import scm_for
 
     request = judgment.request
     session, bundle = request.session, request.project
