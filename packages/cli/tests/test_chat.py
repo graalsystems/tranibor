@@ -1622,6 +1622,30 @@ async def test_many_open_runs_are_read_a_few_at_a_time_and_all_of_them_are_read(
     assert peak == workspace.RUN_READERS, f"{peak} rounds at once"
 
 
+async def test_a_rebuilt_tree_keeps_the_cursor_on_its_run_and_enter_opens_it(platform: Platform) -> None:
+    """A read that lands rebuilds the tree, and the lines above the selected run change: the cursor stays
+    on that run at once, so an Enter pressed before the next refresh opens it and closes no other run."""
+    from tranibor_cli.workspace import FlightTree
+
+    ids = _several_runs(platform, 3)
+    app = make_app()
+    async with app.run_test(size=(160, 80)) as pilot:
+        await ready(pilot)
+        await expand_run(pilot, "stage01")
+        await until(pilot, lambda: bool(app._details.get(ids[0]) and app._details[ids[0]].loaded), "read")
+        await until(pilot, lambda: "Edit file01.py" in screen_text(app), "the first journal")
+        await put_cursor_on(pilot, "stage02")
+        tree = app.query_one(FlightTree)
+        # The first run's journal leaves the tree (its lines above the second run go), all in one step.
+        app._details.pop(ids[0])
+        app.draw_tree()
+        assert tree.cursor_node is node_with(app, "stage02")
+        tree.action_select_cursor()
+        await pilot.pause()
+        assert node_with(app, "stage02").is_expanded
+        assert ids[1] in app._open_runs and ids[2] not in app._open_runs, app._open_runs
+
+
 async def test_a_very_long_journal_shows_the_latest_calls_and_is_read_in_full_once(
     platform: Platform,
 ) -> None:
