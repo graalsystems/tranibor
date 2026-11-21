@@ -22,6 +22,12 @@ with the demo administrator (`admin@choregos.local`): click *enter* and you land
 **demo project**, with one work item, `DEMO-1`, already waiting for your approval. Approve
 it, or send it back, from its page. A work item you create in the demo project runs the same way.
 
+A second project, **`sourcing-demo`** (open it from the project list), shows a trade's journey: a purchasing
+consultation with **three supplier offers** (a PDF, a Word file, a spreadsheet) already handed to a work
+item that waits for you to start it. See [a trade end to end](site/build/a-trade-end-to-end.md) for what
+each step does and which guarantee acts there. In fakes mode, the simulated first step measures nothing and
+the first gate stops the work item at a person: that is the guarantee at work, not a broken install.
+
 | Measured on 2026-10-12 (WSL2, 16 cores, images already built) | |
 | :-- | :-- |
 | `docker compose up` to every service healthy, empty volumes | 147 to 216 seconds |
@@ -33,8 +39,9 @@ several more minutes, depending on your machine and your connection (not measure
 cache).
 
 What runs: PostgreSQL (the platform connects through a non-superuser role, so row-level
-security applies), Temporal, the migrations, the API, the workers, the console, LiteLLM, and a
-one-shot seed of the demo organisation and project. Everything listens on `127.0.0.1` only.
+security applies), Temporal, the migrations, the API, the workers, the console, LiteLLM, an object
+store (RustFS, for the files handed to a work item), and a one-shot seed of the demo organisation and its
+two projects. Everything listens on `127.0.0.1` only.
 
 ### Fakes mode, and a real model
 
