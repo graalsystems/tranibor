@@ -19,7 +19,9 @@ What runs:
 - a **NetworkPolicy**: ingress from the API pods only, on the server's port; egress to DNS and, by
   default, to public addresses on the ports of the hosts its configuration names. Kubernetes cannot
   name a host: with `egress="cilium"` a `CiliumNetworkPolicy` narrows egress to those exact names
-  (`toFQDNs`) and the NetworkPolicy keeps DNS only.
+  (`toFQDNs`) and DNS to the lookups of those names (an L7 `dns` rule), and the NetworkPolicy opens no
+  egress at all: Cilium unions policies, and a plain port-53 allow beside the L7 rule would let the
+  server resolve any name (a channel out, ADR 0096 §8 as amended by S80-20b).
 """
 
 from __future__ import annotations
@@ -187,15 +189,14 @@ def _network_policy(d: ServerDeployment) -> dict[str, Any]:
         {"matchLabels": {"kubernetes.io/metadata.name": d.api_namespace}} if d.api_namespace else {}
     )
     egress: list[dict[str, Any]] = []
-    if d.egress:
+    if d.egress and d.egress_mode == "networkpolicy":
         egress.append(_DNS)
-        if d.egress_mode == "networkpolicy":
-            egress.append(
-                {
-                    "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
-                    "ports": _ports(d.egress),
-                }
-            )
+        egress.append(
+            {
+                "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
+                "ports": _ports(d.egress),
+            }
+        )
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",

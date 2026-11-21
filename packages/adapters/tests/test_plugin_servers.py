@@ -50,12 +50,15 @@ def test_default_egress_is_public_addresses_on_the_configured_ports() -> None:
     assert internet["ports"] == [{"protocol": "TCP", "port": 443}]
 
 
-def test_cilium_names_the_exact_hosts_and_the_network_policy_keeps_dns_only() -> None:
+def test_cilium_names_the_exact_hosts_and_the_network_policy_opens_no_egress() -> None:
+    """S80-20b: Cilium unions policies, so a plain port-53 allow in the NetworkPolicy would wildcard
+    the CiliumNetworkPolicy's L7 `dns` rule and the server would resolve any name. With `cilium` the
+    DNS rule is the CNP's alone, narrowed to the configured hosts."""
     objects = server_manifests(_server(egress_mode="cilium"))
-    egress = _kind(objects, "NetworkPolicy")["spec"]["egress"]  # type: ignore[index]
-    assert len(egress) == 1 and egress[0]["ports"][0]["port"] == 53
-    cilium = _kind(objects, "CiliumNetworkPolicy")["spec"]["egress"]  # type: ignore[index]
-    assert cilium[1]["toFQDNs"] == [{"matchName": "greet.example.com"}]
+    assert _kind(objects, "NetworkPolicy")["spec"]["egress"] == []  # type: ignore[index]
+    dns, fqdns = _kind(objects, "CiliumNetworkPolicy")["spec"]["egress"]  # type: ignore[index]
+    assert dns["toPorts"][0]["rules"]["dns"] == [{"matchName": "greet.example.com"}]
+    assert fqdns["toFQDNs"] == [{"matchName": "greet.example.com"}]
 
 
 def test_no_host_no_egress_at_all() -> None:
