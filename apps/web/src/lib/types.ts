@@ -267,6 +267,7 @@ export type {
   ProjectAgent,
   ProjectAgentPut,
   Skill,
+  SkillPage,
   SkillCandidate,
   SkillFinding,
   SkillGitImport,
@@ -296,6 +297,7 @@ export type { Artifact } from "@choregos/contracts/schemas";
 /** Knowledge bases (ADR 0051). */
 export type {
   KnowledgeBase,
+  KnowledgeBasePage,
   KnowledgeBaseCreate,
   KnowledgeBaseUser,
   KnowledgeDistillEstimate,
@@ -322,6 +324,7 @@ export type {
   AgentMemoryBinding,
   MemoryStore,
   MemoryStoreCreate,
+  MemoryStorePage,
   MemoryStorePatch,
   MemoryStoreUser,
   ProjectMemoryCreate,

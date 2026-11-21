@@ -24,7 +24,7 @@ from tranibor_core.network import validate_pattern
 from tranibor_core.workspace import AgentWorkspace
 
 from .agent_social import AgentSocial
-from .base import Dto
+from .base import Dto, PageMeta
 from .identity import ApiTokenCreated
 
 SLUG = r"^[a-z][a-z0-9-]{1,62}$"
@@ -1315,6 +1315,13 @@ class SkillDto(Dto):
     #: The gate of the latest version.
     risk: Literal["low", "medium", "high"] | None = None
     review_status: Literal["approved", "pending_review"] = "approved"
+
+
+class SkillPage(Dto):
+    """One page of the skill library, by slug (ADR 0206)."""
+
+    items: list[SkillDto]
+    meta: PageMeta
 
 
 class AgentProjectMetrics(Dto):
