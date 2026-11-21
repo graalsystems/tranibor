@@ -55,7 +55,7 @@ def templates(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     return write
 
 
-async def _project(client: AsyncClient, template_ref: str, slug: str = "hr") -> Any:
+async def _project(client: AsyncClient, template_ref: str, slug: str = "hr", **extra: Any) -> Any:
     return await client.post(
         "/api/v1/orgs/northwind/projects",
         json={
@@ -63,6 +63,7 @@ async def _project(client: AsyncClient, template_ref: str, slug: str = "hr") -> 
             "name": slug,
             "template_ref": template_ref,
             "config": {"slug": slug, "org": "northwind"},
+            **extra,
         },
     )
 
@@ -188,3 +189,49 @@ async def test_a_template_delivers_its_own_policy(
     assert created.status_code == 201, created.text
     policy = (await client.get(f"/api/v1/projects/{created.json()['id']}/policy")).json()
     assert policy["name"] == "hr-delivery"
+
+
+# ───────────────────────── a project created with its default workflow (S80-21) ─────────────────────────
+
+
+async def test_a_project_is_created_with_the_default_workflow_asked_for(
+    client: AsyncClient, admin: str, templates: Any
+) -> None:
+    templates(ARRIVAL_AND_DEPARTURE)
+    created = await _project(client, "hr@1.0.0", default_workflow="offboarding")
+    assert created.status_code == 201, created.text
+    pid = created.json()["id"]
+    # One call: no `PUT /workflow-routing` between the creation and a ticket that goes to it.
+    assert (await client.get(f"/api/v1/projects/{pid}/workflow-routing")).json()["default"] == "offboarding"
+    tracker = await client.put(
+        f"/api/v1/projects/{pid}/connectors/tracker", json={"type": "internal", "config": {}}
+    )
+    assert tracker.status_code == 200, tracker.text
+    item = await client.post(
+        f"/api/v1/projects/{pid}/work-items", json={"title": "Camille", "labels": [], "start": False}
+    )
+    assert item.status_code == 201, item.text
+    assert item.json()["state"] == "departure"
+
+
+async def test_an_unknown_default_workflow_refuses_the_creation_with_the_routing_message(
+    client: AsyncClient, admin: str, templates: Any
+) -> None:
+    templates(ARRIVAL_AND_DEPARTURE)
+    refused = await _project(client, "hr@1.0.0", default_workflow="phantom")
+    assert refused.status_code == 422, refused.text
+    assert "unknown or inactive workflow(s): phantom" in refused.text
+    # Nothing was created: the slug is free for a correct second attempt.
+    assert (await _project(client, "hr@1.0.0")).status_code == 201
+
+
+async def test_a_project_created_without_a_default_workflow_keeps_default_request(
+    client: AsyncClient, admin: str
+) -> None:
+    created = await client.post(
+        "/api/v1/orgs/northwind/projects",
+        json={"slug": "plain", "name": "plain", "config": {"slug": "plain", "org": "northwind"}},
+    )
+    assert created.status_code == 201, created.text
+    routing = (await client.get(f"/api/v1/projects/{created.json()['id']}/workflow-routing")).json()
+    assert routing["default"] == "default-request"
