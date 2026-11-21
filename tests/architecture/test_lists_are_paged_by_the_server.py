@@ -25,6 +25,10 @@ BOUNDED: dict[str, str] = {
     "listProcedures": "the shipped procedures",
     "listTemplates": "the shipped project templates",
     "listWorkflowTemplates": "the shipped workflow templates",
+    "resolveProjectAgents": (
+        "one answer per reference asked, and at most 64 are accepted "
+        "(apps/api/src/tranibor_api/routers/agents/pins.py:384, `Query(max_length=64)`)"
+    ),
 }
 
 #: The ceiling: array routes that read without a page. Lowered when one migrates, never raised.
@@ -49,9 +53,7 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listBudgetAlerts",
         "listConnectors",
         "listGlobalPendingMemory",
-        "listImplicitAgents",
         "listKnowledgeBases",
-        "listMachineAccounts",
         "listMemberLinkedAccounts",
         "listMembers",
         "listMemories",
@@ -64,7 +66,6 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listOrgs",
         "listPendingMemory",
         "listPlatformModels",
-        "listProjectAgents",
         "listProjectMemories",
         "listProjectOperations",
         "listProjectOrgConnectors",
@@ -76,11 +77,7 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listTriggers",
         "listUsableModels",
         "listWorkItemArtifacts",
-        "listWorkflowAgents",
         "listWorkflowCatalogue",
-        "listWorkflowVersions",
-        "listWorkflows",
-        "resolveProjectAgents",
         "searchGlobalMemory",
         "searchMemory",
     }

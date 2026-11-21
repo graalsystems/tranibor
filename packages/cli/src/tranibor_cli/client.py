@@ -132,6 +132,18 @@ class Client:
     def get(self, path: str, **kwargs: Any) -> Any:
         return self.request("GET", path, **kwargs)
 
+    def get_all(self, path: str, **kwargs: Any) -> list[Any]:
+        """Every row of a paged list (ADR 0206): its pages in turn, by `next_cursor`, 200 rows each."""
+        params: dict[str, Any] = {**(kwargs.pop("params", None) or {}), "limit": 200}
+        rows: list[Any] = []
+        while True:
+            page = self.get(path, params=params, **kwargs)
+            rows.extend(page["items"])
+            meta = page.get("meta") or {}
+            if not meta.get("has_more") or not meta.get("next_cursor"):
+                return rows
+            params = {**params, "cursor": meta["next_cursor"]}
+
     def get_raw(self, path: str, **kwargs: Any) -> httpx.Response:
         """A GET whose answer is bytes, not JSON (an artefact's content): the response as served."""
         response = self._client.get(path, **kwargs)
@@ -213,6 +225,18 @@ class AsyncClient:
 
     async def get(self, path: str, **kwargs: Any) -> Any:
         return await self.request("GET", path, **kwargs)
+
+    async def get_all(self, path: str, **kwargs: Any) -> list[Any]:
+        """`Client.get_all`, awaited: every row of a paged list, page after page."""
+        params: dict[str, Any] = {**(kwargs.pop("params", None) or {}), "limit": 200}
+        rows: list[Any] = []
+        while True:
+            page = await self.get(path, params=params, **kwargs)
+            rows.extend(page["items"])
+            meta = page.get("meta") or {}
+            if not meta.get("has_more") or not meta.get("next_cursor"):
+                return rows
+            params = {**params, "cursor": meta["next_cursor"]}
 
     async def post(self, path: str, **kwargs: Any) -> Any:
         return await self.request("POST", path, **kwargs)

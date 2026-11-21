@@ -11,7 +11,7 @@ from tranibor_contracts import Role
 from tranibor_core.agent_completeness import OrgCompleteAgents
 from tranibor_core.tool_scripts_switch import OrgToolScripts
 
-from .base import Dto
+from .base import Dto, PageMeta
 
 
 class MembershipDto(Dto):
@@ -87,6 +87,13 @@ class MachineAccountDto(Dto):
     created_by: str | None = None
     created_at: datetime
     tokens: list[ApiTokenDto] = Field(default_factory=list)
+
+
+class MachineAccountPage(Dto):
+    """One page of a project's machine accounts, by slug (ADR 0206)."""
+
+    items: list[MachineAccountDto]
+    meta: PageMeta
 
 
 class BrowserSessionDto(Dto):
