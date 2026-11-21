@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The activities proper to the interpreter: load a work item's context, record the death of an
-interpreter or a migration, announce a work item to the train, and read a Temporal error.
+interpreter or a migration, and read a Temporal error. Boarding a train (`signal_train`) is the
+`software-delivery` plugin's since round D of ADR 0181.
 
 They used to live in the workflow module, under an `import activity` at the end of the file;
 a workflow has no business carrying its activities.
@@ -20,7 +21,6 @@ from tranibor_contracts import EventType
 from tranibor_core import utcnow
 from tranibor_core.domain import TRIAL_STATE
 
-from ..train_client import signal_release_train
 from ..wire_names import read_key, require_key
 from .base import db, load_work_item, project_bundle
 from .execution import abandon_queued_runs
@@ -396,33 +396,3 @@ def message_of(exc: BaseException) -> str:
 
 def activity_of(exc: BaseException) -> str | None:
     return exc.activity_type if isinstance(exc, ActivityError) else None
-
-
-@activity.defn(name="signal_train")
-async def signal_train(payload: dict[str, Any]) -> dict[str, Any]:
-    """Announce to the environment's train that a work item is ready to board, with its labels and
-    the approval its workflow requires of the departure (ADR 0041), absent from earlier boardings."""
-    async with db() as session:
-        bundle = await project_bundle(session, payload["project_id"])
-        item = await load_work_item(session, payload["work_item_id"])
-        await signal_release_train(
-            bundle.slug,
-            payload["env"],
-            "merged",
-            {
-                "work_item_key": item.tracker_key,
-                "title": item.title,
-                "merged_at": utcnow().isoformat(),
-                "sha": (item.documents or {}).get("merge_sha", ""),
-                # Declared by the agent in `artifacts.reports["infra_pr"]`: the train will apply it
-                # through Atlantis during the departure, after approval.
-                "infra_pr_url": (item.documents or {}).get("infra_pr_url"),
-                "risk": item.risk,
-                # The work item's labels, kept since its birth: `hotfix` opens the express lane
-                # (#279). A work item born before this change kept none.
-                "labels": list((item.documents or {}).get("labels") or []),
-                "pr_url": item.pr_url,
-                **({"approval": payload["approval"]} if payload.get("approval") else {}),
-            },
-        )
-        return {"signalled": True}

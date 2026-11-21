@@ -42,6 +42,8 @@ TRAIN_ACTIVITIES = {
     "mark_release",
     "apply_terraform",
     "train_stats",
+    # The interpreter's boarding of a `via: release_train` transition (S83-05h).
+    "signal_train",
 }
 
 
