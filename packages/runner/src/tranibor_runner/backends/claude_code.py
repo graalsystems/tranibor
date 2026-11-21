@@ -18,6 +18,18 @@ from .base import Backend, LaunchPlan
 RTK_HOOK = "rtk hook claude"
 #: Where rtk reads its configuration, relative to `$HOME` (`dirs::config_dir()` on Linux).
 RTK_CONFIG = ".config/rtk/config.toml"
+#: Claude Code's own traffic, turned off (#1987). With `DISABLE_TELEMETRY` alone, claude-agent-acp
+#: 0.85.1 opened 3 tunnels to `api.anthropic.com:443` per run: not model calls (its model is on the
+#: loopback), but the CLI's non-essential requests, which the CONNECT listener refused and journaled.
+#: Measured in the runner image 0.27.15 over ACP against a fake Messages API, one prompt: 3 tunnels
+#: without `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, none with it. The other three are what that
+#: switch covers, named one by one so a release that splits it keeps them off.
+CLAUDE_CODE_QUIET_ENV: dict[str, str] = {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_AUTOUPDATER": "1",
+}
 
 
 class ClaudeCodeBackend(Backend):
@@ -107,7 +119,7 @@ class ClaudeCodeBackend(Backend):
             **pinned,
             **self.anthropic_env(model, key),
             "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "16000",
-            "DISABLE_TELEMETRY": "1",
+            **CLAUDE_CODE_QUIET_ENV,
         }
 
 

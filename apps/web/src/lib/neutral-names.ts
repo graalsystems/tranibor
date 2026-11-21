@@ -45,3 +45,30 @@ export function acceptanceRate(
 ): number | null | undefined {
   return stats?.first_pass_acceptance_rate ?? stats?.first_pass_merge_rate;
 }
+
+/**
+ * A step's proof by name (ADR 0181 C2): the named fact first (`evidence.facts`, what the runner writes
+ * beside each field during the window), the field of the same name as a fallback.
+ */
+export function evidenceValue(
+  evidence: Record<string, unknown> | null | undefined,
+  name: string,
+): string | number | boolean | null {
+  if (!evidence) return null;
+  const facts = (evidence.facts ?? {}) as Record<string, unknown>;
+  const found = name in facts ? facts[name] : evidence[name];
+  return typeof found === "string" || typeof found === "number" || typeof found === "boolean" ? found : null;
+}
+
+type Delivered = { branch?: string | null; commits?: string[] | null; delivery?: { branch?: string | null; commits?: string[] | null } | null };
+
+/** A step's branch: its `delivery` section first, the former field as a fallback (ADR 0181 C2). */
+export function branchOf(artifacts: Delivered | null | undefined): string | null {
+  return artifacts?.delivery?.branch ?? artifacts?.branch ?? null;
+}
+
+/** A step's commits: its `delivery` section first, the former field as a fallback. */
+export function commitsOf(artifacts: Delivered | null | undefined): string[] {
+  const section = artifacts?.delivery?.commits;
+  return section && section.length > 0 ? section : (artifacts?.commits ?? []);
+}

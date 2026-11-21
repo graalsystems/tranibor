@@ -64,5 +64,6 @@ class Loopback:
             self._tunnels.close()
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(self._tunnels.wait_closed(), 5)
+        await self.connect.flush()
         await self.model.aclose()
         await self.mcp.aclose()

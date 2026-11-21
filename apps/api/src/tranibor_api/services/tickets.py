@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
+from pydantic import ValidationError
 from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
@@ -105,6 +106,16 @@ def run_dto(run: Run, project_slug: str, tool_connectors: list[ToolConnector] | 
     (`tool_connectors_of`), which a list of runs does not do for each one."""
     from tranibor_contracts import StageResult
 
+    result = None
+    if run.result:
+        try:
+            result = StageResult.model_validate(run.result)
+        except ValidationError as error:
+            # One run whose stored result no longer matches its schema must not make the whole page of
+            # runs unreadable: it is served without its result, and the row says why in the log.
+            structlog.get_logger().warning(
+                "run_result_unreadable", run_id=run.id, work_item=run.work_item_id, error=str(error)
+            )
     return RunDto(
         id=run.id,
         status=run.status,
@@ -123,7 +134,7 @@ def run_dto(run: Run, project_slug: str, tool_connectors: list[ToolConnector] | 
         ended_at=run.ended_at,
         tokens=totals_from(run.tokens),
         gateway_key_id=run.gateway_key_id,
-        result=StageResult.model_validate(run.result) if run.result else None,
+        result=result,
         transcript_url=run.transcript_url,
         context_pack_url=run.context_pack_url,
         playbook_checksum=run.playbook_checksum,

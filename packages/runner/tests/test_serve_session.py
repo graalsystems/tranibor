@@ -167,6 +167,27 @@ async def test_max_turns_counts_per_turn_not_per_session(
         assert [e["payload"]["reason"] for e in refused] == ["max_turns"]
 
 
+async def test_a_turns_repeated_refusals_come_back_with_the_turn_once_with_their_count(
+    stage_input: StageInput, runner_settings: Any
+) -> None:
+    """#1987: a harness that calls home on each turn journals its refusals once per turn, with a count."""
+    agent = FakeHostedAgent(script=[("tunnel", "play.googleapis.com", 443)] * 3, answer="Done.")
+    session = _session_input(stage_input)
+    session = session.model_copy(
+        update={"permissions": session.permissions.model_copy(update={"allow_domains": ["api.example"]})}
+    )
+    api = FakeSessionApi(session, turns=[_turn("t1", "one"), _turn("t2", "two")])
+    await _serve(api, agent, runner_settings)
+
+    refused = {"host": "play.googleapis.com", "port": 443, "reason": "not_allowed"}
+    for turn in ("t1", "t2"):
+        events = api.posted[turn]["events"]
+        assert [e["payload"] for e in events if e["type"] == "hosted.egress_refused"] == [refused]
+        assert [e["payload"] for e in events if e["type"] == "hosted.egress_refused_repeated"] == [
+            {**refused, "count": 3}
+        ]
+
+
 async def test_the_container_reaches_the_session_tools_through_the_guard_rails_and_the_api(
     stage_input: StageInput, runner_settings: Any
 ) -> None:
