@@ -30,12 +30,6 @@ BOUNDED: dict[str, str] = {
 #: The ceiling: array routes that read without a page. Lowered when one migrates, never raised.
 NOT_YET_PAGED: frozenset[str] = frozenset(
     {
-        "getRunEvents",
-        "getRunInputs",
-        "getRunKnowledge",
-        "getRunSkills",
-        "getWorkItemHandOffs",
-        "getWorkItemTimeline",
         "listActions",
         "listAgentCatalogue",
         "listAgentCredentials",
@@ -70,12 +64,10 @@ NOT_YET_PAGED: frozenset[str] = frozenset(
         "listProjectOrgConnectors",
         "listProjectRequirements",
         "listRemoteCredentials",
-        "listRuns",
         "listSkills",
         "listTrackerIdentities",
         "listTriggers",
         "listUsableModels",
-        "listWorkItemArtifacts",
         "listWorkflowAgents",
         "listWorkflowCatalogue",
         "listWorkflowVersions",

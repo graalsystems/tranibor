@@ -12,6 +12,8 @@ from typing import Any
 
 import httpx
 
+#: The page size a whole-list read asks for: the API's ceiling (ADR 0206).
+PAGE_LIMIT = 200
 CONFIG_PATH = Path(os.environ.get("TRANIBOR_CONFIG", Path.home() / ".config" / "choregos" / "config.json"))
 
 
@@ -132,6 +134,23 @@ class Client:
     def get(self, path: str, **kwargs: Any) -> Any:
         return self.request("GET", path, **kwargs)
 
+    def get_all(self, path: str, **kwargs: Any) -> list[Any]:
+        """Every item of a paged list (ADR 0206): `meta.next_cursor` is followed to the end, a page at a time
+        (`params` are kept, `limit` defaults to the API's ceiling). A bare array is returned as it is."""
+        params = dict(kwargs.pop("params", None) or {})
+        params.setdefault("limit", PAGE_LIMIT)
+        items: list[Any] = []
+        while True:
+            body = self.get(path, params=params, **kwargs)
+            if isinstance(body, list):
+                return body
+            items.extend((body or {}).get("items") or [])
+            meta = (body or {}).get("meta") or {}
+            if not (meta.get("has_more") and meta.get("next_cursor")):
+                break
+            params["cursor"] = meta["next_cursor"]
+        return items
+
     def get_raw(self, path: str, **kwargs: Any) -> httpx.Response:
         """A GET whose answer is bytes, not JSON (an artefact's content): the response as served."""
         response = self._client.get(path, **kwargs)
@@ -213,6 +232,22 @@ class AsyncClient:
 
     async def get(self, path: str, **kwargs: Any) -> Any:
         return await self.request("GET", path, **kwargs)
+
+    async def get_all(self, path: str, **kwargs: Any) -> list[Any]:
+        """`Client.get_all`, awaited: every item of a paged list, the cursor followed to the end."""
+        params = dict(kwargs.pop("params", None) or {})
+        params.setdefault("limit", PAGE_LIMIT)
+        items: list[Any] = []
+        while True:
+            body = await self.get(path, params=params, **kwargs)
+            if isinstance(body, list):
+                return body
+            items.extend((body or {}).get("items") or [])
+            meta = (body or {}).get("meta") or {}
+            if not (meta.get("has_more") and meta.get("next_cursor")):
+                break
+            params["cursor"] = meta["next_cursor"]
+        return items
 
     async def post(self, path: str, **kwargs: Any) -> Any:
         return await self.request("POST", path, **kwargs)

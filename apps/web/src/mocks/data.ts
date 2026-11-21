@@ -4447,8 +4447,8 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
   if (/^\/orgs\/[^/]+\/agent-metrics$/.test(route ?? "")) return agentMetricsList() as T;
   if (/^\/orgs\/[^/]+\/agents\/rovo\/runs$/.test(route ?? "")) return [remoteRunDrifted, remoteRun] as T;
   if (/^\/orgs\/[^/]+\/remote-credentials$/.test(route ?? "")) return remoteCredentials as T;
-  if (/^\/runs\/r-remote\/events$/.test(route ?? "")) return remoteEvents(false) as T;
-  if (/^\/runs\/r-remote-drift\/events$/.test(route ?? "")) return remoteEvents(true) as T;
+  if (/^\/runs\/r-remote\/events$/.test(route ?? "")) return onePage(remoteEvents(false)) as T;
+  if (/^\/runs\/r-remote-drift\/events$/.test(route ?? "")) return onePage(remoteEvents(true)) as T;
   if (/^\/runs\/r-remote(-drift)?$/.test(route ?? "")) return (route?.endsWith("drift") ? remoteRunDrifted : remoteRun) as T;
   // The runs of an agent, newest first (S30-05).
   if (/^\/orgs\/[^/]+\/agents\/[^/]+\/runs$/.test(route ?? "")) return [...runs].reverse() as T;
@@ -4607,12 +4607,11 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     [/^\/orgs\/[^/]+\/workflow-catalogue$/, workflowCatalogue],
     [/^\/projects\/[^/]+\/memory\/search$/, memories],
     [/^\/projects\/[^/]+\/memory\/pending$/, pendingMemories],
-    [/^\/work-items\/[^/]+\/timeline$/, timeline],
-    [/^\/work-items\/[^/]+\/hand-offs$/, handOffs],
-    [/^\/work-items\/[^/]+\/artifacts$/, artifacts],
-    [/^\/work-items\/[^/]+\/artifacts$/, artifacts],
-    [/^\/work-items\/[^/]+\/runs$/, runs],
-    [/^\/runs\/[^/]+\/events$/, runEvents],
+    [/^\/work-items\/[^/]+\/timeline$/, onePage(timeline)],
+    [/^\/work-items\/[^/]+\/hand-offs$/, onePage(handOffs)],
+    [/^\/work-items\/[^/]+\/artifacts$/, onePage(artifacts)],
+    [/^\/work-items\/[^/]+\/runs$/, onePage(runs)],
+    [/^\/runs\/[^/]+\/events$/, onePage(runEvents)],
     [/^\/runs\/r-oom\/logs$/, runLogsOom],
     [/^\/runs\/[^/]+\/logs$/, runLogsLive],
     [/^\/runs\/[^/]+\/access$/, runAccess],
@@ -4626,6 +4625,11 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
     if (pattern.test(route ?? "")) return value as T;
   }
   return {} as T;
+}
+
+/** A list the server pages (ADR 0206): the demo data fits one page, so the whole of it and no cursor. */
+function onePage<T>(items: readonly T[]) {
+  return { items: [...items], meta: { has_more: false, next_cursor: null } };
 }
 
 const mockGatewayKeys: GatewayKeyInfo[] = [
