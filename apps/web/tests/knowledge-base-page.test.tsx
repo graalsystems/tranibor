@@ -78,7 +78,7 @@ async function show(value: KnowledgeBase) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.orgConnectors).mockResolvedValue([]);
-  vi.mocked(api.members).mockResolvedValue([]);
+  vi.mocked(api.members).mockResolvedValue({ items: [], meta: { has_more: false, next_cursor: null } });
   vi.mocked(api.projects).mockResolvedValue({ items: [] } as never);
 });
 
