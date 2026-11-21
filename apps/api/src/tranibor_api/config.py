@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
     fakes: bool = Field(default=False, validation_alias="TRANIBOR_FAKES")
+    #: Opt-in presentation aid (ADR 0212): the API runs the orchestrator's workers in its own process, on an
+    #: in-memory Temporal test server, so that a decision posted to the API alone advances the work item.
+    #: Refused unless the fakes are on and `TRANIBOR_ENV` is `dev` or `test`.
+    demo_inline_worker: bool = Field(default=False, validation_alias="TRANIBOR_DEMO_INLINE_WORKER")
     #: The edition that the DEPLOYMENT announces (ADR 0024). It is not the same thing as the edition
     #: that runs: that one is declared by the enterprise extension when it loads. The two are
     #: compared at startup, because a gap is silent otherwise: the chart would announce
