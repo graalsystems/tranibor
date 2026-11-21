@@ -20,6 +20,7 @@ from sqlalchemy import select, update
 from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import (
     ARTIFACT_TYPES,
+    ATTACHMENTS_INPUT,
     ActionStatus,
     Artifact,
     ContextPack,
@@ -38,6 +39,7 @@ from ..catalogue import call as call_catalogue_tool
 from ..config import get_settings
 from ..db.models import (
     AgentSessionRecord,
+    ArtifactRecord,
     CostLedger,
     Organization,
     Project,
@@ -47,8 +49,9 @@ from ..db.models import (
 )
 from ..db.models import Finding as FindingRow
 from ..db.session import allow_release_during_calls, outside_the_transaction
-from ..deps import Db, GatewayAuth, OpenNetworkAuth, OpenRunAuth, ReportAuth, RunAuth
+from ..deps import Db, GatewayAuth, OpenNetworkAuth, OpenRunAuth, Pagination, ReportAuth, RunAuth
 from ..errors import ApiError, conflict, not_found, unprocessable
+from ..keyset import position_page
 from ..logging import get_logger
 from ..object_store import object_store
 from ..schemas import (
@@ -58,6 +61,9 @@ from ..schemas import (
     QuestionIn,
     RunEventsBatch,
     RunInputFile,
+    RunInputFilePage,
+    RunKnowledgePage,
+    RunSkillPage,
     RunTicket,
     RunTicketComment,
     ScopeChangeDecision,
@@ -84,6 +90,7 @@ from ..services.agent_reach import spec_of_run, tool_reach
 from ..services.artifacts import (
     ArtifactCorruptedError,
     filename_of,
+    handed_artifacts,
     read_content,
     record_inline_outputs,
     store_file,
@@ -517,9 +524,12 @@ async def get_context(id: str, session: Db, claims: OpenRunAuth) -> ContextPack:
     return ContextPack.empty("")
 
 
-@router.get("/runs/{id}/skills", response_model=list[dict[str, Any]], operation_id="getRunSkills")
-async def get_skills(id: str, session: Db, claims: OpenRunAuth) -> list[dict[str, Any]]:
-    """The files of the skills that the run's `StageInput` names (ADR 0033).
+@router.get("/runs/{id}/skills", response_model=RunSkillPage, operation_id="getRunSkills")
+async def get_skills(id: str, session: Db, claims: OpenRunAuth, page: Pagination) -> RunSkillPage:
+    """The files of the skills that the run's `StageInput` names (ADR 0033), one page at a time (ADR 0206).
+
+    The list is the run's, fixed when it was prepared: the cursor is a position in it, and the runner
+    follows `meta.next_cursor` to the end, because it needs them all.
 
     The runner reads them here, with its run token, then recomputes their fingerprint: the one in
     the `StageInput`, set when the run was prepared, is authoritative. A skill of the project's
@@ -529,7 +539,8 @@ async def get_skills(id: str, session: Db, claims: OpenRunAuth) -> list[dict[str
 
     run, _, project = await _run_and_item(session, id)
     rendered: list[dict[str, Any]] = []
-    for ref in (run.stage_input or {}).get("skills", []):
+    refs, meta = position_page((run.stage_input or {}).get("skills", []), page)
+    for ref in refs:
         version_row = (
             await session.execute(
                 select(SkillVersion)
@@ -554,26 +565,38 @@ async def get_skills(id: str, session: Db, claims: OpenRunAuth) -> list[dict[str
                 "files": version_row.files,
             }
         )
-    return rendered
+    return RunSkillPage(items=rendered, meta=meta)
 
 
 def _declared_inputs(run: Run) -> list[str]:
     return [str(name) for name in ((run.stage_input or {}).get("transition") or {}).get("inputs") or []]
 
 
-@router.get("/runs/{id}/inputs", response_model=list[RunInputFile], operation_id="getRunInputs")
-async def get_inputs(id: str, session: Db, claims: OpenRunAuth) -> list[RunInputFile]:
-    """The declared inputs of the run that an earlier step produced, latest revision of each (ADR 0049).
+@router.get("/runs/{id}/inputs", response_model=RunInputFilePage, operation_id="getRunInputs")
+async def get_inputs(id: str, session: Db, claims: OpenRunAuth, page: Pagination) -> RunInputFilePage:
+    """The declared inputs of the run that an earlier step produced, latest revision of each (ADR 0049),
+    one page at a time (ADR 0206). The cursor is a position in the list, which the runner follows to the
+    end.
 
     The runner mounts them as files in `.choregos/inputs/`, so a large report no longer has to fit
-    in the prompt. An input nothing has produced yet is simply absent."""
+    in the prompt. An input nothing has produced yet is simply absent. When the transition declares
+    `attachments`, every file handed to the work item is listed too (ADR 0201 §8); a handed name that
+    is also a declared input is listed once, the declared input's revision winning."""
     run, item, _ = await _run_and_item(session, id)
-    files: list[RunInputFile] = []
-    for name in _declared_inputs(run):
-        row = await latest_artifact(session, item.id, name)
-        if row is None:
+    declared = _declared_inputs(run)
+    rows: list[ArtifactRecord] = []
+    for name in declared:
+        if name == ATTACHMENTS_INPUT:
             continue
-        files.append(
+        row = await latest_artifact(session, item.id, name)
+        if row is not None:
+            rows.append(row)
+    if ATTACHMENTS_INPUT in declared:
+        listed = {row.name for row in rows}
+        rows.extend(row for row in await handed_artifacts(session, item.id) if row.name not in listed)
+    window, meta = position_page(rows, page)
+    return RunInputFilePage(
+        items=[
             RunInputFile(
                 name=row.name,
                 version=row.version,
@@ -583,18 +606,26 @@ async def get_inputs(id: str, session: Db, claims: OpenRunAuth) -> list[RunInput
                 digest=row.digest,
                 size=row.size,
             )
-        )
-    return files
+            for row in window
+        ],
+        meta=meta,
+    )
 
 
 @router.get("/runs/{id}/inputs/{name}", operation_id="getRunInputContent")
 async def get_input_content(id: str, name: str, session: Db, claims: OpenRunAuth) -> Response:
     """The bytes of a declared input, digest checked; reading it leaves a *read* receipt (S25-04)
-    under the digest of what was read. Only the inputs the run's transition declares are served."""
+    under the digest of what was read. Only the inputs the run's transition declares are served, and
+    a handed file only when it declares `attachments` (ADR 0201 §8)."""
     run, item, project = await _run_and_item(session, id)
-    if name not in _declared_inputs(run):
+    declared = _declared_inputs(run)
+    row: ArtifactRecord | None
+    if name in declared and name != ATTACHMENTS_INPUT:
+        row = await latest_artifact(session, item.id, name)
+    elif ATTACHMENTS_INPUT in declared:
+        row = next((one for one in await handed_artifacts(session, item.id) if one.name == name), None)
+    else:
         raise not_found("Declared input of the run", name)
-    row = await latest_artifact(session, item.id, name)
     if row is None:
         raise not_found("Artifact", name)
     try:
@@ -682,9 +713,11 @@ async def put_output(
     return to_contract(row)
 
 
-@router.get("/runs/{id}/knowledge", response_model=list[dict[str, Any]], operation_id="getRunKnowledge")
-async def get_knowledge(id: str, session: Db, claims: OpenRunAuth) -> list[dict[str, Any]]:
-    """The pinned documents of the `files` knowledge bases the run's `StageInput` names (ADR 0051).
+@router.get("/runs/{id}/knowledge", response_model=RunKnowledgePage, operation_id="getRunKnowledge")
+async def get_knowledge(id: str, session: Db, claims: OpenRunAuth, page: Pagination) -> RunKnowledgePage:
+    """The pinned documents of the `files` knowledge bases the run's `StageInput` names (ADR 0051), one
+    base per item and one page at a time (ADR 0206): the cursor is a position in the run's list, which
+    the runner follows to the end.
 
     Exactly the documents pinned when the run was prepared, and only while the base is still served
     to the run's project and, when restricted, readable by the person the run acts for (ADR 0097);
@@ -696,14 +729,16 @@ async def get_knowledge(id: str, session: Db, claims: OpenRunAuth) -> list[dict[
     run, item, project = await _run_and_item(session, id)
     on_behalf = OnBehalf(session, project.org_id, project.id, item.initiated_by)
     delivered: list[dict[str, Any]] = []
-    for ref in (run.stage_input or {}).get("knowledge", []):
-        if ref.get("mode", "files") != "files":
-            continue
+    served = [
+        ref for ref in (run.stage_input or {}).get("knowledge", []) if ref.get("mode", "files") == "files"
+    ]
+    refs, meta = position_page(served, page)
+    for ref in refs:
         try:
             delivered.append(await deliver(session, project.org_id, project.slug, ref, on_behalf))
         except KnowledgeRefusedError as refusal:
             raise not_found("Knowledge base of the run", str(ref.get("slug"))) from refusal
-    return delivered
+    return RunKnowledgePage(items=delivered, meta=meta)
 
 
 @router.post(

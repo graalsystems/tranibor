@@ -50,9 +50,10 @@ A project needs, at minimum: a **tracker** (where humans look), a **workflow** a
 
 | Kind | Implementations |
 | :-- | :-- |
-| `tracker` | `github-issues`, `jira`, `gitlab-issues`, `internal`, `fake` |
-| `scm` | `github`, `fake` |
-| `ci` / `cd` | `tekton` / `argocd`, `demo`, `fake` |
+| `tracker` | `github-issues`, `jira`, `gitlab-issues`, `azure-boards`, `internal`, `fake` |
+| `scm` | `github`, `gitlab`, `azure-repos`, `fake` |
+| `ci` | `tekton`, `gitlab`, `azure-pipelines`, `jenkins`, `github-actions`, `fake` |
+| `cd` | `argocd`, `demo`, `fake` |
 | `runtime` | `tekton`, `k8s_job`, `aca`, `local_docker`, `agent_sandbox`, `fake` |
 | `gateway` | `litellm`, `direct`, `fake` |
 | `memory` | `ecphoria`, `lexical`, `fake` |
@@ -60,8 +61,10 @@ A project needs, at minimum: a **tracker** (where humans look), a **workflow** a
 
 A project only needs what its workflows read ([ADR 0034](adr/0034-connectors-by-capability.md)).
 `GET /projects/{id}/requirements` derives it — a guarantee says what it reads (`scope_respected` a
-diff; `ci_green` and `scans_ok` the pull request's checks, read through the `scm`, so GitHub Actions
-needs no `ci` connector), an agent whose role works in a repository needs an `scm`, a release
+diff; `ci_green` and `scans_ok` the pull request's checks, read through the `scm`, so a CI that reports
+its results to the pull request (GitHub Actions, Jenkins with a GitHub plugin) needs no `ci`
+connector for the gate; the `ci` connectors `jenkins` and `github-actions` add what the `scm` cannot
+do: dispatch a run, follow it to its result and console, rerun failed jobs and receive its events), an agent whose role works in a repository needs an `scm`, a release
 train or a production state (`production: true`) needs a `cd`, a transition that opens or merges a
 pull request (`does`) needs an `scm` — and says why for each. An HR project shows
 neither `scm`, nor `ci`, nor `cd`; the settings page lists what is required, what is configured,
@@ -229,7 +232,7 @@ named, and shared by its projects. It is born with the operations its type decla
 `allowed`, a write `approval` (a governed action, [ADR 0035](adr/0035-governed-actions-in-the-core.md)) —
 and each operation carries its **policy** (`allowed`, `approval`, `forbidden`), the **project
 groups** it opens to (none: every project) and a price. Only the administrator decides them
-(`tools:grant`). A project sees the operations its groups open (`GET /projects/{id}/operations`)
+(`tools:grant`). A project sees the operations its groups open (`GET /projects/{id}/operations`, paged by the server and filterable by `q` and `connector`, ADR 0206)
 and may only **tighten** one: `PUT /projects/{id}/operations/{connector}/{operation}` refuses an
 `approval` turned into `allowed` (`422`); `DELETE` returns to the organisation's policy, which a
 later hardening by the organisation always overrides.
@@ -757,7 +760,7 @@ curl -X PUT  $API/projects/acme:hr/workflows/onboarding  -d '{"yaml": "..."}'   
 curl -X PUT  $API/projects/acme:hr/workflows/leaver -d '{"yaml": "...", "create_only": true}'  # creates; a taken name → 409
 curl -X PUT  $API/projects/acme:hr/workflow-routing -d '{"default": "onboarding",
   "rules": [{"when": {"labels_any": ["leaver"]}, "workflow": "offboarding"}]}'
-curl         $API/projects/acme:hr/workflows                                    # one active version per name
+curl         $API/projects/acme:hr/workflows                                    # one active version per name; {items, meta}, 50 a page: ?limit=, ?cursor= (ADR 0206)
 ```
 
 - One version is active per name; every publication adds a version, none is overwritten, and
@@ -904,7 +907,7 @@ as they were. A group may name the project (`{project}-maintainers`, S59-01): an
 shares one of these with its own groups serves every project with its own people.
 
 ```bash
-curl $API/orgs/acme/workflow-catalogue                    # any member
+curl "$API/orgs/acme/workflow-catalogue?q=hr&needs_workspace=false"   # any member; one page, `meta.next_cursor` for the next
 curl -X POST $API/projects/acme:hr/workflow-adoptions \
   -d '{"source": "template:joiners-leavers", "name": "onboarding", "as": "joiners", "make_default": true}'
 curl -X POST $API/orgs/acme/workflow-catalogue \
@@ -1182,8 +1185,9 @@ patch holds a secret shape keeps only its name and counters, and the revision sa
 A diff larger than `TRANIBOR_ARTIFACT_DIFF_MAX_BYTES` (1 MiB by default) is cut file by file, and says so.
 
 Every output is kept as an **artifact** of the ticket, revision by revision:
-`GET /work-items/{id}/artifacts` lists them (type, media type, size, sha256, the run and agent that
-produced each), `GET /work-items/{id}/artifacts/{name}` (or `{name}@{version}`) describes one, and
+`GET /work-items/{id}/artifacts` lists them, a page at a time by name then version (`cursor`, `limit`; the
+answer is `{items, meta}`, ADR 0206): type, media type, size, sha256, the run and agent that
+produced each, `GET /work-items/{id}/artifacts/{name}` (or `{name}@{version}`) describes one, and
 `…/content` serves its bytes after checking the digest again — altered content is refused (409).
 On a work item's page, the **artifacts** card has one tab per output: its revisions, the run and
 agent that produced each one and the runs that read it (the hand-off receipts), a viewer — markdown
@@ -1974,6 +1978,11 @@ releases, and frees its slug; anything else is refused (`409`) with its reasons:
 which keeps its name in the history. It needs the right to manage the agent and is audited
 (`agent.delete`). In the console, **Delete…** sits on the agent's overview and under *Agent status*;
 the registry hides retired agents behind **Show retired**.
+The registry is paged by the server (ADR 0206), like the agents' runs, clients, release history, the
+approvers' inbox and the feedback candidates: `GET /orgs/{org}/agents` answers `{items, meta}` by name
+(or `sort=stars`), filtered in the query by `q` (a part of the slug or name), `tag`, `scope`, `starred`,
+`retired=false` and `awaiting_approval=true`; **More** reads the next 50 with `meta.next_cursor`. The
+scope and tag chips show no counts, since only the rows read so far are known.
 An agent with no run for 60 days says so (`unused`, `last_run_at`), and
 `POST …/agents/{slug}/owner {"email": …}` hands it to another member, credentials included.
 Agents are under the same
@@ -2037,7 +2046,7 @@ How people sign in to the instance is on **Administration → Identity** (below)
   deployment's own answer (`TRANIBOR_EXECUTOR_KIND`, `TRANIBOR_EXECUTORS_ALLOWED`); change it in the
   chart (`global.runner.allowedExecutors`). There is no write route: `PUT /platform/executors`
   was removed (S42-07b), only the `GET` remains.
-- **Gateway keys.** A table of the keys the model gateway minted for runs (key id, run, project, spent over budget, expiry, state, creation date), for platform administrators; a key's secret is never shown (`GET /platform/gateway/keys`).
+- **Gateway keys.** A table of the keys the model gateway minted for runs (key id, run, project, spent over budget, expiry, state, creation date), newest first, for platform administrators; a key's secret is never shown (`GET /platform/gateway/keys`). The server filters and pages it (ADR 0206): the text box matches a part of the key id, the run id or the project slug, the state keeps the active or the revoked keys, and **More** reads the next 50.
 
 ### Identity
 
@@ -2087,13 +2096,17 @@ a spend back leaves the line `unmeasured`).
   refuse a model that lost the `embed` / `distill` usage, and say to change it in `/admin/models`.
   `allow_unvalidated` never bypasses the catalogue.
 - **Reading**: every member sees the page read-only and the agent builder offers only the usable
-  models (`GET /orgs/{org}/models/usable`); changes need the `org_admin` role.
+  models (`GET /orgs/{org}/models/usable`, a page at a time: `q`, `limit`, `cursor`); changes need the `org_admin` role.
 - **Voice spend rate**: `max_usd_per_minute` (API only, `PATCH /orgs/{org}/models/{id}`;
   `clear_max_usd_per_minute: true` removes it) caps a voice session of that model at that much per
   minute begun, on top of its reservation. A voice session needs the model's audio prices, from the
   gateway or from the override above ([hosted agents](hosted-agents.md), S41-15).
 
 ### Registering a remote agent (A2A)
+
+The organisation's credentials are listed by `GET /orgs/{org}/remote-credentials`, paged by the server (ADR 0206):
+`{items, meta}` in name order, `?limit=` (1 to 200, 50 by default) and `?cursor=` from `meta.next_cursor`; the console's
+**Remote agent credentials** table reads 50 and shows **More**.
 
 An agent that runs elsewhere — Atlassian's Rovo, or any A2A agent — is registered as kind `remote`
 ([ADR 0062](adr/0062-remote-agents-over-a2a.md), set-up in [integrations](integrations.md)). Read its
@@ -2149,12 +2162,15 @@ An agent version binds them in its spec; earlier bindings win, at most one bindi
 `GET /orgs/{org}/agents/{slug}/versions/{n}` answers `effective_memories`, the list a run binds, derived
 from the legacy `memory` field when `memories` is absent. Publishing refuses (422) a global memory the
 publisher does not see, or is archived; a **project** reference is relative, so it is checked when a run
-resolves it. `GET /orgs/{org}/memories` lists what you see (`?scope=global|project`, `?project=`) with
-`used_by`, the agents whose latest version binds each; `PATCH` renames, changes the reach or archives
+resolves it. `GET /orgs/{org}/memories` lists what you see (`?scope=global|project`, `?project=`, `?q=` on the slug, the name or the description) with
+`used_by`, the agents whose latest version binds each, by slug and one page at a time (ADR 0206: `?limit=` and `?cursor=`, and
+`GET /projects/{id}/memories` pages the same way, its two implicit memories opening the first page); the search routes return at most `k` hits (1 to 100); `PATCH` renames, changes the reach or archives
 (`status: archived`). To review: `GET /orgs/{org}/memories/{slug}/search?q=…` and
 `GET|POST /orgs/{org}/memories/{slug}/pending` for a global memory (proposals wait for an administrator);
 for a project, `GET /projects/{id}/memory/search?q=…&memory=decisions` and `…/memory/pending?memory=own&agent=architect`
-(`memory` defaults to `shared`). Global memories are stored by the organisation's `memory` connector when
+(`memory` defaults to `shared`). The two `GET …/pending` are review queues read oldest first, one page at a time
+(ADR 0206: `?limit=` and `?cursor=`); the memory backend pages its own queue (the lexical memory in SQL, Ecphoria by
+its cursor), and an Ecphoria too old to page its `/api/v1/pending` gives one page only. Global memories are stored by the organisation's `memory` connector when
 it declares one (`/orgs/{org}/connectors`), else by the deployment default.
 
 **The project's policy decides first.** A project whose policy says `memory: {enabled: false}` binds
@@ -2371,6 +2387,10 @@ curl -X POST $API/orgs/acme/knowledge -H 'Content-Type: application/json' \
   -d '{"slug": "architecture", "name": "Architecture framework", "scope": "org", "serving_mode": "files"}'
 curl -X POST $API/orgs/acme/knowledge/architecture/documents -F file=@zoning-principles.pptx
 ```
+
+`GET /orgs/{org}/knowledge` lists the bases you may read by slug, one page at a time (ADR 0206): `?limit=` (1 to 200,
+50 by default), `?cursor=` (the `meta.next_cursor` of the page before), `?q=` (a part of the slug or the name) and
+`?scope=org|projects|groups`. `GET /orgs/{org}/skills` pages the same way (`?q=` on the slug or the description).
 
 An upload (Word, PowerPoint, Excel, PDF, HTML, markdown, text, and structured text: YAML (`.yaml`,
 `.yml`), JSON, TOML; 20 MiB by default,
@@ -2683,10 +2703,12 @@ distillation that shows `running` with no progress for 30 minutes no longer bloc
 
 Batch mode (S4-09, ADR 0190, off by default): with `CHOREGOS_KNOWLEDGE_DISTILL_BATCH=true` the map step goes
 through the gateway's OpenAI-compatible batch API (same gateway URL, key and alias as the synchronous call) as one
-batch at half the price, and the run ends within a day (polled every `..._BATCH_POLL_SECONDS`, 120). It needs an
-upstream that serves batches for `platform/standard` (OpenAI-backed aliases do) and a gateway whose managed-files
-hook is on. The estimate is halved, each part is booked at half its price, and a part the batch cannot answer, or a
-gateway or upstream that refuses it, falls back to the synchronous call.
+batch at half the price, and the run ends within a day (polled every `..._BATCH_POLL_SECONDS`, 120). No LiteLLM
+enterprise licence is needed: the adapter uses the open `model=` path (ADR 0190, S4-11 amendment). The alias must
+be a single OpenAI deployment (`platform/standard` is) that the key can list in `/v1/model/info`, and the gateway
+must not set `litellm_settings.require_managed_files`. The estimate is halved and each part is booked at half its
+price; that `kind=distill` ledger line is the cost of record (the gateway's own spend for the key is not read). A
+part the batch cannot answer, or a gateway or upstream that refuses it, falls back to the synchronous call.
 
 A distillation is a job (S42-10d, ADR 0092). **Stop** (`POST …/distill/stop`) marks the run `stopped`
 at once, names who stopped it and cancels its workflow: the call in flight finishes and is booked,
@@ -2963,7 +2985,7 @@ and creates one from a slug and a name. An outpost's page shows:
   instance is revoked) and **Delete**, which the API refuses while the outpost is not revoked or while
   connectors still route to it: the refusal is shown as the API wrote it, with the connectors it names;
 - **Recent calls**, newest first, with their state and the code of a refusal. Digests only: the platform
-  keeps no arguments and no result of a call. The list reads the newest 1000 calls, and says so where it ends.
+  keeps no arguments and no result of a call. **More** reads older calls until the oldest one (ADR 0206).
 
 A deployment where outposts are off, or whose door has no signing key, says which before anyone tries: the
 list page says it at the top and does not offer a creation while outposts are off, and an outpost's page
@@ -3340,6 +3362,16 @@ curl -X POST $API/projects/acme:hr/actions/<id>/decision -d '{"decision": "appro
   A human group (a workflow actor's `group`, an approver rule's `group`, a knowledge base's group
   scope or grant) may arrive from the identity provider bare (`architects`) or as
   `choregos:<org>:<group>`; the second counts only in `<org>` (S40-27).
+- **Approvers from the work item** ([ADR 0196](adr/0196-an-actions-approvers-come-from-its-work-item.md)):
+  in a workflow's action, an approver rule's `group` may read ONE declared field,
+  `{"role": "approver", "group": "owners-{{ fields.tool }}"}`, and `excluded` lists who may not
+  decide, whatever their rank — an address, or one field each:
+  `"excluded": ["{{ fields.upn }}", "{{ fields.requester }}"]`. Both are rendered when the action is
+  proposed and stored rendered. A group whose field is absent or empty refuses the proposal (the
+  transition's `on_fail`); an exclusion that renders empty excludes nobody; an excluded person —
+  an organisation administrator included — gets `403`. The validator refuses any other template, and
+  a field `metadata.inputs` does not declare. Keep a literal prefix (`owners-`): the field then only
+  chooses among the groups the organisation named that way, and the rank is still asked.
 - **Running**: the approval starts `ActionWorkflow` (`action-<id>`) once it is committed, and
   answers at once. If Temporal was unreachable at that moment, the action stays `approved` and every
   API replica starts it again within about a minute; a workflow started for an action that is not
@@ -3404,9 +3436,11 @@ curl -X POST $API/projects/acme:hr/actions/<id>/decision -d '{"decision": "appro
   it out of everyone's inbox, so it needs the **project owner** role or above: on that project for a
   project's alert, in the organisation for an agent's. Every member still sees it; the
   **Acknowledge** button appears only to those who may (`can_acknowledge` on each alert), the
-  others read who can.
+  others read who can. The budget alerts come fifty at a time, newest first: **More** under the
+  card asks the next fifty, and a project's inbox asks the server for that project's alerts only
+  (ADR 0206).
 
-The core ships two effects. `connector.call` is an operation of a connector of the organisation,
+The core ships three effects. `connector.call` is an operation of a connector of the organisation,
 its key resolved by the platform, its arguments checked against the operation's schema; what an MCP
 tool returns **structured** (`structuredContent`) is its result, so a later effect cites
 `effects[0].serial` as it would for a typed connector. An `approval` operation runs here — the
@@ -3417,6 +3451,15 @@ outside: a condition, rendered with the earlier effects' results, that must be t
 action fails, named by its `reason` (`condition: "{{ effects[1].active }}"`); it is `allowed`.
 `verifier` (with `motif`) is the name it had before S39-11: it stays registered as an alias, so a
 workflow or an action written with it keeps running; write `check` and `reason` from now on.
+`work_item.file` ([ADR 0197](adr/0197-a-workflow-files-a-work-item-in-another-project.md)) files
+a work item in **another project** of the organisation, through that project's tracker — internal,
+Jira, GitHub, GitLab or a plugin's — as a person's request is filed there: `{project: <slug>, title,
+body, labels}`; it answers `{project, key, url, work_item_id}`, so a later effect cites
+`effects[0].key`. The target project must list the source in its config's `accepts_items_from`; the
+work item is filed, not started (the target's people or start rules start it), its body saying which
+work item filed it; its labels, with `from:<source>`, choose its workflow in the target's routing and
+reach an external tracker (an internal one keeps none). Played again under the same key, it files
+nothing twice. It is `approval`: a person decides.
 
 **An action at a date, from a workflow.** A system transition can propose the action itself. Its
 title, justification and parameters are rendered (sandboxed Jinja) with the item's `fields` and the
@@ -3517,11 +3560,11 @@ so a webhook delivered twice starts nothing twice. If a webhook is lost, a recon
 pass every 60 seconds catches up.
 
 You can also file a work item yourself. On a project's board, **New work item** opens a drawer: the workflow, the inputs that workflow declares, a title, a description, a size and an optional budget (which only tightens the workflow's). MCP does the same with `create_work_item`. With
-an internal tracker (or none) the platform mints the key. With GitHub, Jira or GitLab it creates
-the issue there first, labelled `source:choregos` and never `agent-ready`, and records the work
+an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards or GitLab it creates
+the issue there first (Azure Boards: a work item, tagged), labelled `source:choregos` and never `agent-ready`, and records the work
 item under the issue's key, with its creation inputs, workflow and budget (ADR 0059). The tracker's
 credentials need the right to create issues (GitHub App: *Issues: read and write*; Jira: create
-issue on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
+issue on the project; Azure Boards: *Create work items* on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
 
 A `/choregos approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
 workflow: a decision stays in the console, after a fresh sign-in. Tranibor replies on the ticket with a
@@ -3532,7 +3575,7 @@ verified by its HMAC (`TRANIBOR_GITHUB_WEBHOOK_SECRET` is set), by a github.com 
 of the project's organisation. The command runs with that member's own rights (a developer or
 above), is audited as `workitem.pause`, `workitem.resume` or `workitem.stop` on the channel `tracker`,
 and Tranibor confirms on the ticket. A login is never matched, so a renamed account inherits nothing.
-Jira and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
+Jira, Azure Boards and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
 display name or a username is not a stable identity. Anyone else gets the console link, with a note on
 how to link their account. A reply that cannot be posted never fails the webhook.
 
@@ -3556,6 +3599,11 @@ self-managed instance, `forgejo-oauth`): its address, the OAuth application's cl
 and its hosts in the egress allowlist; the setup procedures say what to register at each forge, with the
 callback address `<api_url>/api/v1/auth/linked-accounts/callback`.
 
+The lists are paged by the server (ADR 0206): `GET /orgs/{org}/members/{user_id}/linked-accounts` answers `{items,
+meta}`, ordered by forge then instance, and the member's page shows **More** when there are further accounts.
+`GET /orgs/{org}/members/{user_id}/tracker-identities` stays an array, one row at most (a member has one GitHub
+link).
+
 An administrator still declares a member's account by its numeric id on **Administration**, **Members**
 (`POST /orgs/{org}/members/{user_id}/linked-accounts`): it is shown as **Declared**, not verified, until the
 member links it themself. One forge account belongs to one member of an organisation, whichever way it was
@@ -3563,6 +3611,14 @@ linked. Today a declared github.com link is honoured for the signed comments abo
 always was); requiring `verified` is a later switch. The routes of S47-14
 (`/orgs/{org}/members/{user_id}/tracker-identities/github`) still answer, deprecated: they read and write the
 member's github.com link.
+
+### The members list
+
+`GET /orgs/{org}/members` answers `{items, meta}` (ADR 0206): one row per membership, ordered by e-mail so one
+person's rows are neighbours, `?project=<slug>` for that project's, `?q=` for a part of the e-mail, `?limit=` (1 to 200, 50
+by default) and `?cursor=`. What a project reader may see is filtered in the query, so a page is full. **Members** reads 50
+at a time and shows **More**; the person pickers (group, knowledge access, reassigning a request) search on the server and
+show its first 200 matches.
 
 ### A member's profile
 
@@ -3640,7 +3696,7 @@ The work item starts in `workflow`, or in the workflow the project's routing pic
 body) answers `duplicate`; with `key`, a second call for the same value answers `already_open` and
 starts nothing while that work item runs. Once it has ended, the same value answers `reopened`: the
 work item starts a new pass (see *A ticket that comes back*, below). A payload without the key, or fields the workflow refuses, answers 422 with the
-reason. `POST /projects/{id}/triggers/{name}/fire` runs the same trigger with a payload you type, to
+reason. `GET /projects/{id}/triggers` lists them a page at a time, in the order the configuration declares them (`q` reads the name, title and workflow). `POST /projects/{id}/triggers/{name}/fire` runs the same trigger with a payload you type, to
 try it before handing the URL out. With an external tracker, a trigger answers 409: use the
 tracker's own webhook.
 
@@ -3655,6 +3711,59 @@ With `auth: signature` the bearer token is refused; the HMAC key is the signing 
 token, and it changes when the token is minted again. The project's settings list its triggers beside
 the received events: their URL, their workflow, whether a token exists, a button to mint it (shown
 once) and a box to fire it with a payload.
+
+### Handing files to a work item
+
+A workflow that works from documents a person received says so in its metadata
+([ADR 0201](adr/0201-a-person-hands-files-to-a-work-item.md)):
+
+```yaml
+metadata:
+  name: compare-documents
+  version: 1
+  attachments:
+    accept: [pdf, xlsx]   # artifact types
+    min: 2                # a start waits for this many files (default 0)
+    max: 20               # distinct names at most (default 20, 50 at most)
+```
+
+A work item of a workflow that requires files (`min` of 1 or more) is filed in two steps: created
+with `start: false`, given its files, then started. Creating it with `start: true` answers `422`.
+
+```shell
+# 1. file it without starting it
+curl -s "$TRANIBOR_API_URL/api/v1/projects/acme:billing-api/work-items" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title": "Compare the quotes", "workflow": "compare-documents", "start": false}'
+
+# 2. hand it the files (the repeated multipart part `files`), for whoever holds `item:control`
+curl -s "$TRANIBOR_API_URL/api/v1/work-items/BIL-12/files" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" \
+  -F files=@quote-a.pdf -F files=@quote-b.pdf
+
+# 3. start it; `409` while fewer than `min` files were handed
+curl -s "$TRANIBOR_API_URL/api/v1/work-items/BIL-12/actions" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"action": "mark_agent_ready"}'
+```
+
+Each file becomes an input artifact of the work item (`201`, the artifacts, each with
+`handed_by: "person"`; the artifact list shows them with `handed_by: "a2a"` when an application sent
+them through the A2A door, and files sent that way count toward `min`). What is checked, before
+anything is stored:
+
+- the file's type (from its extension) is in `accept`, and its bytes are what the type says (`422`);
+- its size is within the project's limit for handed files, `a2a.max_file_bytes`: 10 MiB by default,
+  50 MiB at most (`413`);
+- the number of distinct names after the request is within `max` (`422`);
+- the work item is not finished (`409`).
+
+The artifact's name is a slug of the file name: ASCII letters, digits, `_`, `.` and `-`, the extension
+kept, 128 characters at most (`Quote A.pdf` becomes `Quote-A.pdf`). Two files of one request that reach
+the same name are refused together. Handing the same name again makes revision 2; the same bytes again
+make none. A name taken by a step's output is refused. Files are stored before any row is written, so a
+store that fails leaves nothing behind (`502`). Each file leaves one audit entry,
+`work_item.file.attached`, with the name, the digest and the size, never the content.
 
 ### Tracker items that start without `agent-ready`
 
@@ -3724,7 +3833,11 @@ finds them and opens none twice. Each child signals its parent as it closes, and
 re-reads its children every 30 minutes in case a signal is lost; its status says how many are still
 open. The join writes `documents.children` on the parent: the count per state, and each child's key,
 title, final state and fields. A list that cannot be read, too long, or a child its workflow refuses,
-follows `on_fail`. Children need the internal tracker; the local mode stops at a fan-out.
+follows `on_fail`. Children are held in the platform whatever the project's tracker
+([ADR 0199](adr/0199-a-fan-outs-children-are-the-platforms.md)): on a project whose tracker keeps its
+items elsewhere (Jira, GitHub, GitLab, a plugin's server), nothing is filed there for a child, and its
+state, status and comments are not written there; the parent's item is. The local mode stops at a
+fan-out.
 
 ## 6. Read what came out
 
@@ -3931,7 +4044,7 @@ disabled: none of the project's runs is offered them, whatever its policy says.
 `choregos:<org>:<group>`). Projects, members, tokens and everything below follow — they hold the
 organisation by its id. A platform administrator granted by an edition extension can rename an
 organisation they do not belong to (the response then carries no `role`). The old slug is kept as an
-**alias** of the organisation (`aliases` in `GET /orgs` and in the `PATCH` response, ADR 0090), so what
+**alias** of the organisation (`aliases` in the `items` of `GET /orgs` and in the `PATCH` response, ADR 0090), so what
 was copied elsewhere keeps working: `/api/v1/orgs/<old>/…` and `/a2a/orgs/<old>` (the response carries
 `Link: <current URL>; rel="canonical"`), MCP addresses and qualified ids `<old>:<project>`, the IdP groups
 `choregos:<old>:<group>`, `oidc.defaultOrg` and `bootstrap.org` when they still name it, and the

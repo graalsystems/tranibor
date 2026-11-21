@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Tranibor API
-  version: 0.27.17
+  version: 0.28.0
   description: |
     The Tranibor platform API. The console and the CLI use this API and nothing else.
     Auth: an OIDC session (cookie) or `Authorization: Bearer <api_token>`.
@@ -23,7 +23,7 @@ tags:
   - { name: models }
   - { name: work-items }
   - { name: runs }
-  - { name: trains }
+  - { name: trains, x-plugin: software-delivery }
   - { name: findings }
   - { name: memory }
   - { name: costs }
@@ -49,10 +49,20 @@ paths:
     get:
       tags: [session]
       operationId: listMyTokens
-      summary: The caller's API tokens (never their value)
+      summary: The caller's API tokens, newest first, one page at a time (never their value)
+      description: >-
+        Paged by the server (ADR 0206). `q` matches a substring of the token's name; `kind` keeps the MCP clients (a
+        token carrying `mcp:read` or `mcp:write`) or the others; `id` keeps one token.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: string, enum: [mcp, api] } }
+        - { name: id, in: query, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ApiToken" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ApiTokenPage" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [session]
       operationId: createMyToken
@@ -81,10 +91,18 @@ paths:
       tags: [session]
       operationId: listMySessions
       summary: The caller's sessions that still hold (browser, terminal, editor), the most recently active first (ADR 0130, ADR 0154 §6)
-      description: "A developer-surface session (`kind` `cli` or `editor`) is listed with the browser sessions; the person sees it on My account and ends it there."
+      description: >-
+        A developer-surface session (`kind` `cli` or `editor`) is listed with the browser sessions; the person sees it on
+        My account and ends it there. Paged by the server (ADR 0206); `current` keeps the session the request came with
+        (`true`) or all the others (`false`).
+      parameters:
+        - { name: current, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/BrowserSession" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BrowserSessionPage" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /me/sessions/{id}:
     delete:
       tags: [session]
@@ -229,10 +247,19 @@ paths:
     get:
       tags: [projects]
       operationId: listOrgs
-      summary: The caller's organisations, with their role
+      summary: The caller's organisations, by slug, one page at a time, with their role
+      description: >-
+        Paged by the server (ADR 0206). `q` matches a substring of the slug, the name or a former slug (what the
+        console's switcher types); `slug` keeps the organisation that has that slug, current or former.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: slug, in: query, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Org" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/OrgPage" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [projects]
       operationId: createOrg
@@ -612,9 +639,20 @@ paths:
     get:
       tags: [connectors]
       operationId: listOrgConnectors
-      description: The organisation's connectors and their operations (ADR 0034); its members can read them.
+      description: >-
+        The organisation's connectors and their operations (ADR 0034), by name, one page at a time (ADR 0206); its
+        members can read them. `q` matches a part of the name; `kind` keeps one capability (`gateway`, `mcp`…) and
+        `type` one type.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: string, maxLength: 32 } }
+        - { name: type, in: query, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/OrgConnector" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/OrgConnectorPage" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [connectors]
       operationId: createOrgConnector
@@ -772,9 +810,18 @@ paths:
     get:
       tags: [connectors]
       operationId: listProjectOrgConnectors
-      description: The organisation's connectors and whether each is on for this project, with what the caller may switch (ADR 0074). The project's members can read it.
+      description: >-
+        The organisation's connectors by name, one page at a time (ADR 0206), and whether each is on for this project,
+        with what the caller may switch (ADR 0074). The project's members can read it. `q` matches a part of the name;
+        `kind` keeps one capability.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: string, maxLength: 32 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ProjectOrgConnector" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ProjectOrgConnectorPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/org-connectors/{connector}/enablement:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -834,9 +881,18 @@ paths:
     get:
       tags: [connectors]
       operationId: listProjectOperations
-      description: The operations open to the project (their groups intersect its own), with the organisation's policy, the project's and the effective one.
+      description: >-
+        The operations open to the project (their groups intersect its own), by connector then operation, one page at a
+        time (ADR 0206), with the organisation's policy, the project's and the effective one. `q` matches a part of the
+        connector or the operation name; `connector` keeps one connector.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: connector, in: query, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ProjectOperation" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ProjectOperationPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/operations/{connector}/{operation}:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -864,10 +920,14 @@ paths:
     get:
       tags: [actions]
       operationId: listActions
+      description: The project's actions, newest first, one page at a time (ADR 0206); `status` keeps one state.
       parameters:
-        - { name: status, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, maxLength: 24 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The project's actions and the log of their effects, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Action" } } } } }
+        "200": { description: The project's actions and the log of their effects, content: { application/json: { schema: { $ref: "#/components/schemas/ActionPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [actions]
       operationId: proposeAction
@@ -884,11 +944,17 @@ paths:
     get:
       tags: [actions]
       operationId: listOrgActions
-      description: The decision inbox — the actions of the organisation's projects that the caller can see; `status=pending_approval` for what is waiting for someone.
+      description: >-
+        The decision inbox — the actions of the organisation's projects that the caller can see, newest first, one page
+        at a time (ADR 0206); `status=pending_approval` for what is waiting for someone, `project` for one project's slug.
       parameters:
-        - { name: status, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, maxLength: 24 } }
+        - { name: project, in: query, required: false, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Action" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ActionPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/actions/{action_id}:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -972,8 +1038,13 @@ paths:
       tags: [workflows]
       operationId: listWorkflows
       summary: The project's workflows — one active per name, the default one marked (ADR 0031)
+      description: By name, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WorkflowSummary" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowSummaryPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/workflow-catalogue:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -982,10 +1053,18 @@ paths:
       description: >-
         The workflows this organisation can adopt (ADR 0111): the core's, the deployment's templates', its installed
         plugins' and the ones it shared from its projects. For each, the capabilities it requires (computed by the
-        engine, never declared), the human groups it declares and where each agent it names resolves. Any member.
+        engine, never declared), the human groups it declares and where each agent it names resolves. Any member. In the
+        order of the sources, one page at a time (ADR 0206): `q` reads the name, title, summary, source and tags;
+        `needs_workspace` keeps the workflows that need (or do not need) a workspace.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: needs_workspace, in: query, schema: { type: boolean } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WorkflowCatalogueEntry" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowCatalogueEntryPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [workflows]
       operationId: shareWorkflow
@@ -1092,8 +1171,13 @@ paths:
     get:
       tags: [workflows]
       operationId: listWorkflowVersions
+      description: The published versions of the workflow, newest first, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WorkflowDef" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowDefPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/workflows/{name}/versions/{version}/restore:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -1240,9 +1324,17 @@ paths:
       tags: [models]
       operationId: listPlatformModels
       deprecated: true
-      description: The deployment gateway's models, unfiltered. Use `GET /orgs/{org}/models/usable`.
+      description: >-
+        The deployment gateway's models, in the order it lists them, one page at a time (ADR 0206): the gateway has no
+        paging, so the list is read whole, filtered on `q` (name, upstream model or provider) and cut by position.
+        Use `GET /orgs/{org}/models/usable`.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/GatewayModel" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/GatewayModelPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/models:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -1304,13 +1396,20 @@ paths:
     get:
       tags: [models]
       operationId: listUsableModels
-      description: The models an agent may be given for a stage role and a usage; every member may read it.
+      description: >-
+        The models an agent may be given for a stage role and a usage; every member may read it. By name, one page at a
+        time (ADR 0206): the catalogue's rows are merged with the gateway's live list and cut by the organisation's
+        policy, then filtered on `q` (name, display name or provider) and cut by position.
       parameters:
         - { name: role, in: query, required: false, schema: { type: string } }
         - { name: usage, in: query, required: false, schema: { type: string, enum: [agent, embed, distill, eval, route, decide], default: agent } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/UsableModel" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UsableModelPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/models/{entry_id}:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -1414,10 +1513,15 @@ paths:
       tags: [projects]
       operationId: listMachineAccounts
       summary: The project's machine accounts and their tokens (never a token's value)
+      description: By slug, one page at a time (ADR 0206); the tokens are those of the page's accounts.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MachineAccount" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MachineAccountPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [projects]
       operationId: createMachineAccount
@@ -1480,11 +1584,17 @@ paths:
       summary: The project's HTTP triggers, their URL, and whether each has a token
       description: >-
         The triggers declared under `triggers:` in the project's configuration (S56-01, ADR 0113). Any member reads
-        them; a token is never listed, only whether one exists and when it was minted.
+        them; a token is never listed, only whether one exists and when it was minted. In the order the configuration
+        declares them, one page at a time (ADR 0206); `q` reads the name, title and workflow.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Trigger" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TriggerPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/triggers/{name}/token:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -1573,8 +1683,14 @@ paths:
     get:
       tags: [work-items]
       operationId: getWorkItemTimeline
+      description: >-
+        States, runs, decisions and findings of a work item, oldest first, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TimelineEntry" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TimelinePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /work-items/{id}/hand-offs:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1584,9 +1700,14 @@ paths:
         The hand-off receipts of a work item (S25-04), output by output: every run that produced it
         and every run that read it, under the SHA-256 digest of the revision it produced or read, and
         the digest of what the output is worth today — an output modified after it was produced no
-        longer has the digest of its last receipt.
+        longer has the digest of its last receipt. A page is a number of outputs (ADR 0206), in the order
+        their first receipt was written; each carries all its receipts.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/HandOff" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/HandOffPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
   /work-items/{id}/artifacts:
@@ -1595,10 +1716,14 @@ paths:
       tags: [work-items]
       operationId: listWorkItemArtifacts
       description: >-
-        Every revision of every artifact of the work item (ADR 0049), by name then version: its type,
-        media type, size, sha256 digest and the run that produced it.
+        The revisions of the work item's artifacts (ADR 0049), by name then version, one page at a time
+        (ADR 0206): its type, media type, size, sha256 digest and the run that produced it.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Artifact" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ArtifactPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
   /work-items/{id}/artifacts/{ref}:
@@ -1633,6 +1758,43 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /work-items/{id}/files:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [work-items]
+      operationId: attachWorkItemFiles
+      description: >-
+        A person hands one or several files to the work item (ADR 0201), for whoever holds `item:control` on its
+        project. Each file becomes an input artifact of the work item, produced by `person:<user id>`, stored before
+        its row is written. The files of one request are the repeated multipart part `files`. A file is checked before
+        it is stored: its type must be in the workflow's `metadata.attachments.accept`, its bytes must be what its type
+        says, and its size must be within the project's limit for handed files (`a2a.max_file_bytes`). Its name is a
+        slug of its file name; the same name again is a new revision, the same bytes again make none. Allowed in any
+        state that is not terminal. There is no `GET`: the artifact list (`listWorkItemArtifacts`) returns the handed
+        files, with `handed_by`. 409 for a terminal work item, 413 for a file over the limit, 422 for a type not
+        accepted, bytes that are not their type, a name that is empty or that two files of the request share, or more
+        distinct names than `max`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: binary }
+            encoding:
+              files: { style: form, explode: true }
+      responses:
+        "201": { description: Stored, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Artifact" } } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { description: A file is larger than the project's limit, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /work-items/{id}/journey:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1721,8 +1883,14 @@ paths:
     get:
       tags: [runs]
       operationId: listRuns
+      description: >-
+        The runs of a work item, oldest first, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Run" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RunPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /runs/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1767,16 +1935,23 @@ paths:
     get:
       tags: [runs]
       operationId: getRunEvents
-      summary: The run's ACP log (SSE when Accept is text/event-stream)
+      summary: The run's ACP log, oldest first, one page at a time (SSE when Accept is text/event-stream)
+      description: >-
+        Events in the order of `seq` (ADR 0206): a client that follows the log passes `after_seq` for what it has not
+        read and `cursor` for the rest of that read. Over SSE the stored events are sent first, then the live ones;
+        `cursor` and `limit` do not apply.
       parameters:
         - { name: after_seq, in: query, schema: { type: integer } }
         - { name: Last-Event-ID, in: header, schema: { type: string } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":
           description: OK
           content:
-            application/json: { schema: { type: array, items: { $ref: "#/components/schemas/RunEvent" } } }
+            application/json: { schema: { $ref: "#/components/schemas/RunEventPage" } }
             text/event-stream: { schema: { type: string } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /runs/{id}/access:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1856,6 +2031,7 @@ paths:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RunLogs" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
   /runs/{id}/diff:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
       tags: [runs]
@@ -1863,6 +2039,7 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DiffSummary" } } } }
   /projects/{id}/releases:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
       tags: [trains]
@@ -1874,6 +2051,7 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ReleasePage" } } } }
   /releases/{id}:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
       tags: [trains]
@@ -1882,6 +2060,7 @@ paths:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Release" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
   /projects/{id}/trains/{env}:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Env" }]
     get:
       tags: [trains]
@@ -1889,12 +2068,14 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TrainStatus" } } } }
   /projects/{id}/trains/{env}/depart:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Env" }]
     post:
       tags: [trains]
       operationId: departTrain
       responses: { "202": { description: Departure requested }, "409": { $ref: "#/components/responses/Conflict" } }
   /projects/{id}/trains/{env}/freeze:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Env" }]
     post:
       tags: [trains]
@@ -1904,12 +2085,14 @@ paths:
         content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3 } } } } }
       responses: { "202": { description: Freeze requested } }
   /projects/{id}/trains/{env}/unfreeze:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Env" }]
     post:
       tags: [trains]
       operationId: unfreezeTrain
       responses: { "202": { description: Unfreeze requested } }
   /releases/{id}/approve:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post:
       tags: [trains]
@@ -1918,6 +2101,7 @@ paths:
         content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } }
       responses: { "202": { description: Approval passed on }, "403": { $ref: "#/components/responses/Forbidden" } }
   /releases/{id}/abort:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post:
       tags: [trains]
@@ -1954,7 +2138,7 @@ paths:
       operationId: searchMemory
       parameters:
         - { name: q, in: query, required: true, schema: { type: string } }
-        - { name: k, in: query, schema: { type: integer, default: 10, maximum: 100 } }
+        - { name: k, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 100 } }
         - { name: kinds, in: query, schema: { type: array, items: { type: string } }, style: form, explode: false }
         - { name: memory, in: query, schema: { type: string }, description: "which memory of the project (S40-11): `shared` (the default), `own` with `agent`, or a named memory of the project" }
         - { name: agent, in: query, schema: { type: string }, description: "with `memory=own`: whose own memory" }
@@ -1965,11 +2149,18 @@ paths:
     get:
       tags: [memory]
       operationId: listPendingMemory
+      description: >-
+        Facts proposed by agents, waiting for a person's decision, oldest first, one page at a time (ADR 0206).
+        The memory backend pages its own queue (the lexical memory in SQL, Ecphoria by its cursor); the cursor
+        is passed on as the backend wrote it.
       parameters:
         - { name: memory, in: query, schema: { type: string }, description: "which memory of the project (S40-11): `shared` (the default), `own` with `agent`, or a named memory of the project" }
         - { name: agent, in: query, schema: { type: string }, description: "with `memory=own`: whose own memory" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Memory" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MemoryPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [memory]
       operationId: decidePendingMemory
@@ -2027,13 +2218,17 @@ paths:
     get:
       tags: [memory]
       operationId: listMemories
-      description: "The named memories the caller sees (S40-11, ADR 0075): global ones with their reach, project ones of their projects. `used_by` lists the agents whose latest version binds each."
+      description: "The named memories the caller sees (S40-11, ADR 0075): global ones with their reach, project ones of their projects, by slug, one page at a time (ADR 0206). `used_by` lists the agents whose latest version binds each."
       parameters:
         - { name: scope, in: query, schema: { type: string, enum: [global, project] } }
         - { name: project, in: query, schema: { type: string }, description: only the memories of this project (a project memory) or reaching it }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: "a substring of the slug, the name or the description" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MemoryStore" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MemoryStorePage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [memory]
       operationId: createGlobalMemory
@@ -2078,7 +2273,7 @@ paths:
       operationId: searchGlobalMemory
       parameters:
         - { name: q, in: query, required: true, schema: { type: string } }
-        - { name: k, in: query, schema: { type: integer, default: 10, maximum: 100 } }
+        - { name: k, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 100 } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Memory" } } } } }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2108,9 +2303,15 @@ paths:
     get:
       tags: [memory]
       operationId: listGlobalPendingMemory
-      description: What agents proposed to this global memory, waiting for an administrator (`agent:manage`). A global memory only ever receives proposals.
+      description: >-
+        What agents proposed to this global memory, waiting for an administrator (`agent:manage`), oldest first,
+        one page at a time (ADR 0206). A global memory only ever receives proposals.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Memory" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MemoryPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
@@ -2128,10 +2329,15 @@ paths:
     get:
       tags: [memory]
       operationId: listProjectMemories
-      description: "What a run of this project may bind (S40-11): the implicit `shared` and `own` (`implicit: true`), the project's named memories, and the global ones that reach it."
+      description: "What a run of this project may bind (S40-11): the implicit `shared` and `own` (`implicit: true`), the project's named memories, and the global ones that reach it. The named ones are paged by slug (ADR 0206); the two implicit ones are not rows and open the first page, outside its `limit`."
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: "a substring of the slug, the name or the description" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MemoryStore" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MemoryStorePage" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [memory]
       operationId: createProjectMemory
@@ -2204,6 +2410,7 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/CrossBackendReport" } } } }
   /projects/{id}/metrics/dora:
+    x-plugin: software-delivery
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
       tags: [costs]
@@ -2384,12 +2591,20 @@ paths:
     get:
       tags: [costs]
       operationId: listBudgetAlerts
-      description: The budgets that crossed a threshold — a project's or an agent's daily budget at 80 % (the policy's `alert_at_ratio`) or 100 % — newest first. One alert per budget, day and threshold; the open ones are the inbox's.
+      description: >-
+        The budgets that crossed a threshold — a project's or an agent's daily budget at 80 % (the policy's
+        `alert_at_ratio`) or 100 % — newest first, one page at a time (ADR 0206). One alert per budget, day and
+        threshold; the open ones are the inbox's. `project` keeps the alerts of that one project (an agent's alert is
+        not one of them). The caller reads the alerts they may see, so a page is never short of what they can read.
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [open, acknowledged, all], default: open } }
+        - { name: project, in: query, schema: { type: string, maxLength: 64 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/BudgetAlert" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/BudgetAlertPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/budget-alerts/{alert_id}/acknowledge:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -2530,8 +2745,11 @@ paths:
       tags: [admin]
       operationId: listAgentImages
       summary: The images an operator named for agents written in code (names only, ADR 0063)
+      description: >-
+        Bare array by design (ADR 0206 section 5): the deployment's `TRANIBOR_AGENT_IMAGES` holds at most 200 names, a
+        cap the API enforces at start-up.
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentImageInfo" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { type: array, maxItems: 200, items: { $ref: "#/components/schemas/AgentImageInfo" } } } } }
   /platform/executors:
     get:
       tags: [admin]
@@ -2568,8 +2786,18 @@ paths:
     get:
       tags: [admin]
       operationId: listGatewayKeys
+      description: >-
+        The keys the gateway minted, newest first, one page at a time (ADR 0206). `q` matches a substring of the key
+        id, the run id or the project slug; `state` keeps the active or the revoked keys. Platform administrators only.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: state, in: query, schema: { type: string, enum: [active, revoked] } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/GatewayKeyInfo" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/GatewayKeyPage" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/policy-ceiling:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -3083,9 +3311,9 @@ paths:
       description: >-
         The recent calls routed to this outpost, newest first, with how each ended: its state, the outcome its
         instance reported or the code of its refusal. Digests only: no arguments and no result, which the
-        platform deletes when a call completes (ADR 0148 §11). The list reads the newest 1000 calls of the
-        outpost (of the given `state`, when one is given) and pages within them: a cursor that ends says that
-        no older call is in that window, not that none exists. `outpost:manage`.
+        platform deletes when a call completes (ADR 0148 §11). Paged in SQL (ADR 0206): every call the platform
+        holds for the outpost (of the given `state`, when one is given) is reached by following `next_cursor`,
+        and the last page is the oldest call. `outpost:manage`.
       parameters:
         - { $ref: "#/components/parameters/Cursor" }
         - { $ref: "#/components/parameters/Limit" }
@@ -3116,11 +3344,20 @@ paths:
     get:
       tags: [admin]
       operationId: listMembers
-      description: The organisation's memberships — to its members only; with `project`, that project's memberships, to the project's members (S30-06).
+      description: >-
+        The organisation's memberships — to its members only; with `project`, that project's memberships, to the
+        project's members (S30-06). One page at a time, ordered by e-mail then id, so one person's memberships are
+        neighbours (ADR 0206); `q` matches a substring of the e-mail.
       parameters:
         - { name: project, in: query, required: false, schema: { type: string } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Membership" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MembershipPage" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [admin]
       operationId: addMember
@@ -3200,11 +3437,15 @@ paths:
     get:
       tags: [admin]
       operationId: listMemberLinkedAccounts
-      description: "The member's accounts on code forges (ADR 0161): verified (the member signed in to the forge) or declared by an administrator. An `org_admin`, or the member themself."
+      description: "The member's accounts on code forges (ADR 0161): verified (the member signed in to the forge) or declared by an administrator. An `org_admin`, or the member themself. One page at a time, by provider then instance (ADR 0206)."
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/LinkedAccount" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/LinkedAccountPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [admin]
       operationId: declareMemberLinkedAccount
@@ -3261,15 +3502,21 @@ paths:
     get:
       tags: [agents]
       operationId: listAgents
-      description: The agents the caller may see (ADR 0033, ADR 0061) — a personal agent only to its owner and an org_admin, a project's agent to the members of that project.
+      description: The agents the caller may see (ADR 0033, ADR 0061) — a personal agent only to its owner and an org_admin, a project's agent to the members of that project — by name (or most starred first), one page at a time (ADR 0206).
       parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 200 }, description: "a substring of the slug or of the name" }
         - { name: scope, in: query, required: false, schema: { type: string, enum: [platform, org, project, personal] } }
         - { name: project, in: query, required: false, schema: { type: string }, description: "a project's slug: only the agents that project owns" }
         - { name: tag, in: query, required: false, style: form, explode: true, schema: { type: array, items: { type: string } }, description: "repeatable: only the agents carrying every tag given (AND, S40-10); applied after visibility, so a tag never reveals an agent the caller cannot see" }
         - { name: starred, in: query, required: false, schema: { type: boolean, default: false }, description: "only the agents the caller starred (ADR 0152)" }
         - { name: sort, in: query, required: false, schema: { type: string, enum: [name, stars], default: name }, description: "`stars`: the most starred first (ADR 0152)" }
+        - { name: retired, in: query, required: false, schema: { type: boolean, default: true }, description: "false leaves the retired agents out" }
+        - { name: awaiting_approval, in: query, required: false, schema: { type: boolean, default: false }, description: "only the agents with a release waiting for approval" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Agent" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AgentPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [agents]
       operationId: createAgent
@@ -3412,10 +3659,14 @@ paths:
     get:
       tags: [agents]
       operationId: listRemoteCredentials
-      description: The organisation's credentials for remote agents (ADR 0062). `agent:manage`.
+      description: The organisation's credentials for remote agents (ADR 0062), by name, one page at a time (ADR 0206). `agent:manage`.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/RemoteCredential" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RemoteCredentialPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [agents]
       operationId: createRemoteCredential
@@ -4199,9 +4450,11 @@ paths:
       operationId: listAgentFeedbackCandidates
       description: "The candidate eval cases thumbs down proposed for the agent, newest first, for those who manage it (ADR 0140). Pseudonymised; no author, no raw comment."
       parameters:
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The proposed candidates, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ConversationCandidate" } } } } }
+        "200": { description: The proposed candidates, content: { application/json: { schema: { $ref: "#/components/schemas/ConversationCandidatePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
   /orgs/{org}/agents/{slug}/feedback-candidates/{candidate_id}/accept:
@@ -4353,19 +4606,26 @@ paths:
     get:
       tags: [agents]
       operationId: listOrgAgentCredentials
-      description: Every client attached to an external agent of the organisation, with the agent's slug — one request for the AI clients' page, not one per agent (S30-04).
+      description: The clients attached to the agents of the organisation, with the agent's slug, by agent name, one page at a time (ADR 0206) — one request for the AI clients' page, not one per agent (S30-04).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The organisation's agent clients, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentCredential" } } } } }
+        "200": { description: The organisation's agent clients, content: { application/json: { schema: { $ref: "#/components/schemas/AgentCredentialPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/agent-metrics:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
       tags: [agents]
       operationId: listAgentMetrics
-      description: For each agent of the registry, its runs over the period, its success rate and its cost — the registry's columns in one request (S30-04).
+      description: For each agent of one page of the registry (by name, ADR 0206), its runs over the period, its success rate and its cost — the registry's columns in one request (S30-04).
       parameters:
         - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: One line per agent, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentMetricsSummary" } } } } }
+        "200": { description: One line per agent, content: { application/json: { schema: { $ref: "#/components/schemas/AgentMetricsSummaryPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/agents/{slug}/runs:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -4373,11 +4633,13 @@ paths:
     get:
       tags: [agents]
       operationId: listAgentRuns
-      description: The agent's latest runs across the projects the caller may read, newest first (S30-05).
+      description: The agent's runs across the projects the caller may read, newest first, one page at a time (S30-05, ADR 0206).
       parameters:
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The runs, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Run" } } } } }
+        "200": { description: The runs, content: { application/json: { schema: { $ref: "#/components/schemas/AgentRunPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "404": { $ref: "#/components/responses/NotFound" }
   /orgs/{org}/agents/{slug}/credentials:
     parameters:
@@ -4386,8 +4648,13 @@ paths:
     get:
       tags: [agents]
       operationId: listAgentCredentials
+      description: The clients attached to the external agent, newest first, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The external agent's clients, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentCredential" } } } } }
+        "200": { description: The external agent's clients, content: { application/json: { schema: { $ref: "#/components/schemas/AgentCredentialPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [agents]
       operationId: attachAgentCredential
@@ -4548,11 +4815,13 @@ paths:
     get:
       tags: [agents]
       operationId: listAgentReleases
-      description: Every move of the agent's channels, newest first — the release history (ADR 0071).
+      description: The moves of the agent's channels, newest first, one page at a time (ADR 0206) — the release history (ADR 0071).
       parameters:
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The history, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentRelease" } } } } }
+        "200": { description: The history, content: { application/json: { schema: { $ref: "#/components/schemas/AgentReleasePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [agents]
@@ -4608,12 +4877,14 @@ paths:
     get:
       tags: [agents]
       operationId: listOrgAgentReleases
-      description: Releases of the agents the caller may see, newest first; `status=pending_approval` is the approver's inbox.
+      description: Releases of the agents the caller may see, newest first, one page at a time (ADR 0206); `status=pending_approval` is the approver's inbox.
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [done, pending_approval, rejected, cancelled, superseded] } }
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The releases, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentRelease" } } } } }
+        "200": { description: The releases, content: { application/json: { schema: { $ref: "#/components/schemas/AgentReleasePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/agents/{slug}/versions/{version}/readiness:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -4654,9 +4925,13 @@ paths:
     get:
       tags: [agents]
       operationId: listAgentEvaluations
-      description: The live evaluations of the revision, newest first, each judged from its runs as they stand.
+      description: The live evaluations of the revision, newest first, one page at a time (ADR 0206), each judged from its runs as they stand.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The evaluations, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentEvaluation" } } } } }
+        "200": { description: The evaluations, content: { application/json: { schema: { $ref: "#/components/schemas/AgentEvaluationPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "404": { $ref: "#/components/responses/NotFound" }
   /orgs/{org}/agents/{slug}/release-policy:
     parameters:
@@ -4691,10 +4966,16 @@ paths:
     get:
       tags: [agents]
       operationId: listAgentCatalogue
-      description: The agents the platform ships (ADR 0040), and their state in the organisation — installed, in which version, an update available, or an agent of the organisation with the same name.
+      description: The agents the platform ships (ADR 0040), and their state in the organisation — installed, in which version, an update available, or an agent of the organisation with the same name. In the catalogue's order, one page at a time (ADR 0206); `q` reads the slug, name, role, summary and tags, `kind` keeps internal agents or external clients.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: string, enum: [internal, external, remote] } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AgentCatalogueEntry" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AgentCatalogueEntryPage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /orgs/{org}/agent-catalogue/{slug}/install:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -4733,9 +5014,14 @@ paths:
     get:
       tags: [agents]
       operationId: listSkills
-      description: The organisation's skill library (ADR 0033).
+      description: The organisation's skill library (ADR 0033), by slug, one page at a time (ADR 0206).
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: "a substring of the slug or the description" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Skill" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SkillPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [agents]
       operationId: createSkill
@@ -5351,10 +5637,16 @@ paths:
     get:
       tags: [knowledge]
       operationId: listKnowledgeBases
-      description: The organisation's knowledge bases the caller may read (ADR 0051), without their documents.
+      description: The organisation's knowledge bases the caller may read (ADR 0051), without their documents, by slug, one page at a time (ADR 0206).
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: "a substring of the slug or the name" }
+        - { name: scope, in: query, schema: { type: string, enum: [org, projects, groups] }, description: only the bases of this reach }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/KnowledgeBase" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/KnowledgeBasePage" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [knowledge]
       operationId: createKnowledgeBase
@@ -5747,16 +6039,28 @@ paths:
     get:
       tags: [agents]
       operationId: listProjectAgents
+      description: The project's pins by agent slug, one page at a time (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The pinned versions, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ProjectAgent" } } } } }
+        "200": { description: A page of the pinned versions, content: { application/json: { schema: { $ref: "#/components/schemas/ProjectAgentPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/implicit-agents:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
       tags: [agents]
       operationId: listImplicitAgents
-      description: The `agent` actors of the project's active workflows that name no agent of the registry — computed by the API, not by one read per workflow (S30-04).
+      description: >-
+        The `agent` actors of the project's active workflows that name no agent of the registry — computed by the API,
+        not by one read per workflow (S30-04). Paged by workflow name then actor name (ADR 0206): the cursor is the
+        last item's pair.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The implicit agents, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ImplicitAgent" } } } } }
+        "200": { description: A page of the implicit agents, content: { application/json: { schema: { $ref: "#/components/schemas/ImplicitAgentPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/builtin-agent:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -5799,9 +6103,15 @@ paths:
     get:
       tags: [agents]
       operationId: listWorkflowAgents
-      description: Every `agent` actor of the project's active workflows, the registry agent it names or none, so the console lists the agents a project runs in one table (S47-39).
+      description: >-
+        Every `agent` actor of the project's active workflows, the registry agent it names or none, so the console
+        lists the agents a project runs in one table (S47-39). Paged by workflow name then actor name (ADR 0206).
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: The workflows' agents, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WorkflowAgent" } } } } }
+        "200": { description: A page of the workflows' agents, content: { application/json: { schema: { $ref: "#/components/schemas/WorkflowAgentPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/agent-resolution:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -5897,6 +6207,16 @@ paths:
       parameters: [{ name: X-Choregos-Secret, in: header, required: true, schema: { type: string } }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
+  /webhooks/azure-boards:
+    post:
+      tags: [webhooks]
+      security: []
+      operationId: azureBoardsWebhook
+      parameters:
+        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+      responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/gitlab:
     post:
       tags: [webhooks]
@@ -5907,6 +6227,19 @@ paths:
         - { name: X-Gitlab-Event, in: header, required: true, schema: { type: string } }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
+  /webhooks/azure-devops:
+    post:
+      tags: [webhooks]
+      security: []
+      operationId: azureDevopsWebhook
+      description: The service hooks of Azure Repos pull requests (`git.pullrequest.*`) and of Azure Pipelines builds and runs (`build.complete`, `ms.vss-pipelines.run-state-changed-event`).
+      parameters:
+        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+      responses:
+        "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /webhooks/tekton:
     post:
       tags: [webhooks]
@@ -5917,6 +6250,16 @@ paths:
         - { name: ce-id, in: header, required: true, schema: { type: string } }
         - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
         - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a sink that is set by a URL and adds no header" }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+      responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
+  /webhooks/jenkins:
+    post:
+      tags: [webhooks]
+      security: []
+      operationId: jenkinsWebhook
+      parameters:
+        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
+        - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a Notification plugin endpoint that is set by a URL and adds no header" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/argocd:
@@ -6178,31 +6521,13 @@ paths:
       tags: [internal]
       security: [{ runToken: [] }]
       operationId: getRunKnowledge
-      description: The converted documents of the `files` knowledge bases the run's StageInput pins (ADR 0051); the runner recomputes their digest before laying them read-only.
+      description: The converted documents of the `files` knowledge bases the run's StageInput pins (ADR 0051); the runner recomputes their digest before laying them read-only. One base per item, one page at a time (ADR 0206); the runner follows `meta.next_cursor` to the end.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200":
-          description: One entry per knowledge base
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  required: [slug, digest, documents]
-                  properties:
-                    slug: { type: string }
-                    name: { type: string }
-                    digest: { type: string }
-                    documents:
-                      type: array
-                      items:
-                        type: object
-                        required: [path, title, markdown]
-                        properties:
-                          path: { type: string, description: "relative to `.choregos/knowledge/<slug>/`" }
-                          title: { type: string }
-                          filename: { type: string }
-                          markdown: { type: string }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RunKnowledgePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "404": { $ref: "#/components/responses/NotFound" }
   /internal/runs/{id}/knowledge/search:
     parameters: [{ $ref: "#/components/parameters/Id" }]
@@ -6256,22 +6581,13 @@ paths:
       tags: [internal]
       security: [{ runToken: [] }]
       operationId: getRunSkills
-      description: The files of the skills the run's StageInput names (ADR 0033); the runner recomputes their digest before writing them.
+      description: The files of the skills the run's StageInput names (ADR 0033); the runner recomputes their digest before writing them. One page at a time (ADR 0206); the runner follows `meta.next_cursor` to the end.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200":
-          description: One entry per skill
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  required: [slug, version, digest, files]
-                  properties:
-                    slug: { type: string }
-                    version: { type: integer }
-                    digest: { type: string }
-                    files: { type: object, additionalProperties: { type: string }, description: "path → content. UTF-8 text, except for the extensions png, jpg, jpeg, gif, webp, ico, ttf, otf, woff, woff2 (inert binaries, 512 KiB decoded at most, magic bytes checked), whose value is ALWAYS standard base64 of the bytes; SVG is text" }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RunSkillPage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /internal/agent-sessions/{id}/input:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -6472,9 +6788,15 @@ paths:
       operationId: getRunInputs
       description: >-
         The declared inputs of the run that an earlier step produced, latest revision of each (ADR 0049).
-        The runner mounts them as files in `.choregos/inputs/`.
+        The runner mounts them as files in `.choregos/inputs/`. One page at a time (ADR 0206): a page is a number of
+        DECLARED inputs, so one nothing has produced yet leaves it shorter; the runner follows `meta.next_cursor`
+        to the end.
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/RunInputFile" } } } } }
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RunInputFilePage" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /internal/runs/{id}/inputs/{name}:
     parameters:
       - { $ref: "#/components/parameters/Id" }
@@ -6874,6 +7196,7 @@ components:
           properties:
             control: { type: integer, minimum: 0, maximum: 8, description: "px; absent = the console default" }
             surface: { type: integer, minimum: 0, maximum: 12, description: "px; absent = the console default" }
+            pill: { type: integer, minimum: 0, maximum: 999, description: "px, on badges, chips, counters and bars (dots and avatars stay round); absent = round" }
         fonts:
           type: object
           description: The mono font stays Geist Mono
@@ -7149,7 +7472,7 @@ components:
         config_revision: { type: string, description: "An opaque digest of the name and configuration, to send back as `base_revision`" }
         workflow_name: { type: [string, "null"] }
         policy_name: { type: [string, "null"] }
-        has_release_train: { type: boolean, default: false, description: "An active workflow of the project has a `via: release_train` transition: only then does the project have trains." }
+        has_release_train: { type: boolean, default: false, x-plugin: software-delivery, description: "An active workflow of the project has a `via: release_train` transition: only then does the project have trains." }
         stats: { $ref: "#/components/schemas/ProjectStats" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -7159,7 +7482,7 @@ components:
         active_work_items: { type: integer }
         cost_month_eur: { type: number }
         budget_month_eur: { type: [number, "null"] }
-        trains_pending: { type: integer }
+        trains_pending: { type: integer, x-plugin: software-delivery }
         first_pass_merge_rate: { type: [number, "null"], description: "The former name of `first_pass_acceptance_rate`, until the release the window list names (ADR 0181 C1)." }
         first_pass_acceptance_rate: { type: [number, "null"], description: "The share of the work items accepted without a rework loop (ADR 0181 C1)." }
         cycle_time_p50_hours: { type: [number, "null"] }
@@ -7697,10 +8020,15 @@ components:
                 type: string
                 enum: [contributor, approver, project_owner, org_admin, developer, release_captain]
                 description: "The least rank an approver holds; `developer` and `release_captain` are the former names of `contributor` and `approver` (ADR 0181 C1)."
-              group: { type: [string, "null"], description: "an identity-provider group the approver must also belong to (ADR 0052)" }
+              group: { type: [string, "null"], description: "an identity-provider group the approver must also belong to (ADR 0052); a workflow's action may name it from a field of its work item, rendered when proposed (ADR 0196)" }
               min: { type: integer, minimum: 1, maximum: 5 }
         step_up_minutes: { type: integer, minimum: 1, maximum: 120, default: 10 }
         separation_of_duties: { type: boolean, default: true }
+        excluded:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 300 }
+          description: "who may not decide the action, whatever their rank: e-mail addresses, compared without case (ADR 0196)"
     ActionCreate:
       type: object
       required: [kind, title, effects]
@@ -8723,6 +9051,19 @@ components:
       properties:
         agent: { type: string }
         version: { type: integer }
+    MemoryPage:
+      type: object
+      description: One page of a memory's review queue, oldest first (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Memory" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    MemoryStorePage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/MemoryStore" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     MemoryStore:
       type: object
       required: [slug, display_name, scope]
@@ -9749,6 +10090,12 @@ components:
         removed: { type: array, items: { type: string } }
         modified: { type: array, items: { type: string } }
         problem: { type: [string, "null"] }
+    SkillPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Skill" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     Skill:
       type: object
       required: [slug, status, latest_version]
@@ -9926,6 +10273,12 @@ components:
         agent: { type: string }
         display_name: { type: string }
         version: { type: integer, description: "the revision that names the base: production, else the latest" }
+    KnowledgeBasePage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/KnowledgeBase" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     KnowledgeBase:
       type: object
       required: [slug, name, scope, serving_mode, status]
@@ -10955,6 +11308,22 @@ components:
       properties:
         input_per_1k: { type: number, minimum: 0 }
         output_per_1k: { type: number, minimum: 0 }
+    CacheMultipliers:
+      type: object
+      description: "What a cached input token costs, as a multiple of the model's input price (S4-12, ADR 0200). A null or absent field keeps the default for the model's provider family."
+      properties:
+        read: { type: [number, "null"], minimum: 0, description: "a token read from the cache (0.1 on Anthropic, 0.05 on Opus 5.5 / Sonnet 5.5)" }
+        write_5m: { type: [number, "null"], minimum: 0, description: "a token written with the 5-minute TTL (1.25 on Anthropic)" }
+        write_1h: { type: [number, "null"], minimum: 0, description: "a token written with the 1-hour TTL (2 on Anthropic)" }
+    EffectiveCacheMultipliers:
+      type: object
+      required: [read, write_5m, write_1h, source]
+      description: "The multipliers a cache-heavy line is priced with when the organisation's price override applies: the entry's own, else the gateway's cached-input price, else the provider family's default."
+      properties:
+        read: { type: number, minimum: 0 }
+        write_5m: { type: number, minimum: 0 }
+        write_1h: { type: number, minimum: 0 }
+        source: { type: string, enum: [override, gateway, family_default], description: "where the read multiplier comes from; the writes come from the override or the family default" }
     ModelGatewayFacts:
       type: object
       properties:
@@ -10982,6 +11351,8 @@ components:
         allowed_roles: { type: array, items: { type: string } }
         usages: { type: array, items: { type: string, enum: [agent, embed, distill, eval, route, decide] } }
         price_override: { oneOf: [{ $ref: "#/components/schemas/PriceOverride" }, { type: "null" }] }
+        cache_multipliers: { oneOf: [{ $ref: "#/components/schemas/CacheMultipliers" }, { type: "null" }] }
+        effective_cache_multipliers: { $ref: "#/components/schemas/EffectiveCacheMultipliers" }
         max_usd_per_minute: { type: [number, "null"], exclusiveMinimum: 0 }
         gateway: { oneOf: [{ $ref: "#/components/schemas/ModelGatewayFacts" }, { type: "null" }] }
         last_seen_at: { type: [string, "null"], format: date-time }
@@ -10999,6 +11370,7 @@ components:
         allowed_roles: { type: array, items: { type: string } }
         usages: { type: array, items: { type: string, enum: [agent, embed, distill, eval, route, decide] }, default: [agent] }
         price_override: { oneOf: [{ $ref: "#/components/schemas/PriceOverride" }, { type: "null" }] }
+        cache_multipliers: { oneOf: [{ $ref: "#/components/schemas/CacheMultipliers" }, { type: "null" }] }
         max_usd_per_minute: { type: [number, "null"], exclusiveMinimum: 0 }
         notes: { type: string, default: "" }
     ModelCataloguePatch:
@@ -11009,7 +11381,9 @@ components:
         allowed_roles: { type: [array, "null"], items: { type: string } }
         usages: { type: [array, "null"], items: { type: string, enum: [agent, embed, distill, eval, route, decide] } }
         price_override: { oneOf: [{ $ref: "#/components/schemas/PriceOverride" }, { type: "null" }] }
+        cache_multipliers: { oneOf: [{ $ref: "#/components/schemas/CacheMultipliers" }, { type: "null" }] }
         clear_price_override: { type: boolean, default: false }
+        clear_cache_multipliers: { type: boolean, default: false }
         max_usd_per_minute: { type: [number, "null"], exclusiveMinimum: 0 }
         clear_max_usd_per_minute: { type: boolean, default: false }
         notes: { type: [string, "null"] }
@@ -12115,6 +12489,72 @@ components:
         work_item_id: { type: [string, "null"] }
         work_item_key: { type: [string, "null"] }
         workflow: { type: [string, "null"] }
+    ProjectAgentPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ProjectAgent" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ImplicitAgentPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ImplicitAgent" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    WorkflowAgentPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/WorkflowAgent" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    WorkflowSummaryPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/WorkflowSummary" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    WorkflowCatalogueEntryPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/WorkflowCatalogueEntry" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    TriggerPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Trigger" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentCatalogueEntryPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AgentCatalogueEntry" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    GatewayModelPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/GatewayModel" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    UsableModelPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/UsableModel" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    WorkflowDefPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/WorkflowDef" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    MachineAccountPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/MachineAccount" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     ReceivedEventPage:
       type: object
       required: [items, meta]
@@ -12450,6 +12890,7 @@ components:
         error: { type: [string, "null"], description: Why the logs could not be read }
         captured_at: { type: [string, "null"], format: date-time }
     DiffSummary:
+      x-plugin: software-delivery
       type: object
       required: [files, additions, deletions]
       properties:
@@ -12470,6 +12911,7 @@ components:
         additions: { type: integer }
         deletions: { type: integer }
     Release:
+      x-plugin: software-delivery
       type: object
       required: [id, project_slug, env, batch_no, status, items]
       properties:
@@ -12499,12 +12941,14 @@ components:
         notes: { type: [string, "null"] }
         promotion_url: { type: [string, "null"] }
     ReleasePage:
+      x-plugin: software-delivery
       type: object
       required: [items, meta]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Release" } }
         meta: { $ref: "#/components/schemas/PageMeta" }
     TrainStatus:
+      x-plugin: software-delivery
       type: object
       required: [env, status, batch_size, frozen]
       properties:
@@ -12747,6 +13191,12 @@ components:
           type: boolean
           default: false
           description: "whether the person reading may acknowledge it: a project owner or above, on the alert's project for a project alert, on the organisation for an agent alert"
+    BudgetAlertPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BudgetAlert" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     StopRequest:
       type: object
       required: [reason]
@@ -12964,6 +13414,7 @@ components:
               tokens_out: { type: integer, default: 0 }
               tokens_cached: { type: integer, default: 0 }
               tokens_cache_write: { type: integer, default: 0, description: "the input tokens the provider wrote to its cache (Anthropic cache creation), part of tokens_in; absent from a line booked before S4-07" }
+              tokens_cache_write_1h: { type: integer, default: 0, description: "the part of tokens_cache_write written with the 1-hour TTL (priced at its own, higher multiplier); the rest is the 5-minute write. 0 when the provider did not say or on a line booked before S4-12 (ADR 0200)" }
               runs: { type: integer, default: 0 }
         total:
           type: object
@@ -12975,6 +13426,7 @@ components:
             tokens_out: { type: integer, default: 0 }
             tokens_cached: { type: integer, default: 0, description: "the input tokens the model read from its cache, part of tokens_in" }
             tokens_cache_write: { type: integer, default: 0, description: "the input tokens the provider wrote to its cache, part of tokens_in (S4-07)" }
+            tokens_cache_write_1h: { type: integer, default: 0, description: "the part of tokens_cache_write written with the 1-hour TTL (S4-12, ADR 0200)" }
     MemoryAbGroup:
       type: object
       properties:
@@ -13012,6 +13464,7 @@ components:
         verdict: { type: string }
         detail: { type: string, default: "" }
     DoraMetric:
+      x-plugin: software-delivery
       type: object
       required: [unit]
       properties:
@@ -13020,6 +13473,7 @@ components:
         level: { type: string, enum: [elite, high, medium, low, unknown], default: unknown }
         sample: { type: integer, default: 0 }
     DoraReport:
+      x-plugin: software-delivery
       type: object
       required: [since, until, deployment_frequency, lead_time, change_failure_rate, time_to_restore]
       properties:
@@ -13195,6 +13649,197 @@ components:
         expires_at: { type: [string, "null"], format: date-time }
         revoked: { type: boolean, default: false }
         created_at: { type: string, format: date-time }
+    MembershipPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Membership" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    LinkedAccountPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/LinkedAccount" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RemoteCredentialPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/RemoteCredential" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    OrgPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Org" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ApiTokenPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ApiToken" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    BrowserSessionPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/BrowserSession" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    GatewayKeyPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/GatewayKeyInfo" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ActionPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Action" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    OrgConnectorPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/OrgConnector" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ProjectOrgConnectorPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ProjectOrgConnector" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ProjectOperationPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ProjectOperation" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Agent" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentMetricsSummaryPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AgentMetricsSummary" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentRunPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Run" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RunPage:
+      type: object
+      description: One page of a work item's runs, oldest first (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Run" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentCredentialPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AgentCredential" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentReleasePage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AgentRelease" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    AgentEvaluationPage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AgentEvaluation" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ConversationCandidatePage:
+      type: object
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ConversationCandidate" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RunEventPage:
+      type: object
+      description: One page of a run's ACP log, in the order of `seq` (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/RunEvent" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    ArtifactPage:
+      type: object
+      description: One page of a work item's artifact revisions, by name then version (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Artifact" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    TimelinePage:
+      type: object
+      description: One page of a work item's timeline, oldest first (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TimelineEntry" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    HandOffPage:
+      type: object
+      description: One page of a work item's hand-offs, one per output (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/HandOff" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RunInputFilePage:
+      type: object
+      description: One page of a run's declared inputs (ADR 0206).
+      required: [items, meta]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/RunInputFile" } }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RunSkillPage:
+      type: object
+      description: One page of the skills a run's StageInput names (ADR 0206).
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [slug, version, digest, files]
+            properties:
+              slug: { type: string }
+              version: { type: integer }
+              digest: { type: string }
+              files: { type: object, additionalProperties: { type: string }, description: "path → content. UTF-8 text, except for the extensions png, jpg, jpeg, gif, webp, ico, ttf, otf, woff, woff2 (inert binaries, 512 KiB decoded at most, magic bytes checked), whose value is ALWAYS standard base64 of the bytes; SVG is text" }
+        meta: { $ref: "#/components/schemas/PageMeta" }
+    RunKnowledgePage:
+      type: object
+      description: One page of the `files` knowledge bases a run's StageInput pins, one base per item (ADR 0206).
+      required: [items, meta]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [slug, digest, documents]
+            properties:
+              slug: { type: string }
+              name: { type: string }
+              digest: { type: string }
+              documents:
+                type: array
+                items:
+                  type: object
+                  required: [path, title, markdown]
+                  properties:
+                    path: { type: string, description: "relative to `.choregos/knowledge/<slug>/`" }
+                    title: { type: string }
+                    filename: { type: string }
+                    markdown: { type: string }
+        meta: { $ref: "#/components/schemas/PageMeta" }
     AuditEntry:
       type: object
       required: [id, actor_kind, action, ts]

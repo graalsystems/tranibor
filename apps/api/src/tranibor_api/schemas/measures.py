@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
-from .base import Dto
+from .base import Dto, PageMeta
 
 
 class MemoryDto(Dto):
@@ -22,6 +22,13 @@ class MemoryDto(Dto):
     valid_to: datetime | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)
     proposed_by: str | None = None
+
+
+class MemoryPage(Dto):
+    """One page of a memory's review queue, oldest first (ADR 0206)."""
+
+    items: list[MemoryDto]
+    meta: PageMeta
 
 
 class MemoryDecision(Dto):
@@ -93,6 +100,8 @@ class CostRow(Dto):
     tokens_out: int = 0
     tokens_cached: int = 0
     tokens_cache_write: int = 0
+    #: The part of `tokens_cache_write` written with the 1-hour TTL (S4-12, ADR 0200).
+    tokens_cache_write_1h: int = 0
     runs: int = 0
 
 
@@ -105,6 +114,8 @@ class CostTotal(Dto):
     tokens_out: int = 0
     tokens_cached: int = 0
     tokens_cache_write: int = 0
+    #: The part of `tokens_cache_write` written with the 1-hour TTL (S4-12, ADR 0200).
+    tokens_cache_write_1h: int = 0
 
 
 class CostReport(Dto):
@@ -155,3 +166,10 @@ class DoraReport(Dto):
     lead_time: DoraMetric
     change_failure_rate: DoraMetric
     time_to_restore: DoraMetric
+
+
+class BudgetAlertPage(Dto):
+    """One page of budget alerts, newest first (ADR 0206)."""
+
+    items: list[BudgetAlertDto]
+    meta: PageMeta

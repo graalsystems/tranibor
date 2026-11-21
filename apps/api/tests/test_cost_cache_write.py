@@ -7,11 +7,13 @@ from typing import Any
 from httpx import AsyncClient
 
 
-async def _book(project_id: str, model: str, cached: int, written: int | None) -> Any:
+async def _book(project_id: str, model: str, cached: int, written: int | None, long_writes: int = 0) -> Any:
     from tranibor_api.db.session import session_scope
     from tranibor_api.services.costs import record_cost
 
-    extra: dict[str, Any] = {} if written is None else {"tokens_cache_write": written}
+    extra: dict[str, Any] = (
+        {} if written is None else {"tokens_cache_write": written, "tokens_cache_write_1h": long_writes}
+    )
     async with session_scope() as session:
         return await record_cost(
             session,
@@ -80,3 +82,17 @@ async def test_the_work_item_totals_carry_cache_writes() -> None:
 
     assert totals_from({"tokens_cached": 4, "tokens_cache_write": 9}).tokens_cache_write == 9
     assert totals_from({"tokens_cached": 4}).tokens_cache_write == 0, "a total booked before S4-07 reads 0"
+
+
+async def test_the_report_sums_the_one_hour_writes_apart(
+    client: AsyncClient, project: dict[str, Any]
+) -> None:
+    """S4-12: the 1-hour part of the writes is its own count, per row and in the total."""
+    await _book(project["id"], "a", 0, 100, long_writes=60)
+    await _book(project["id"], "a", 0, 50, long_writes=0)
+    await _book(project["id"], "b", 0, 10, long_writes=10)
+    response = await client.get(f"/api/v1/projects/{project['id']}/costs", params={"group_by": "model"})
+    report = response.json()
+    rows = {r["key"]: (r["tokens_cache_write"], r["tokens_cache_write_1h"]) for r in report["rows"]}
+    assert rows == {"a": (150, 60), "b": (10, 10)}
+    assert report["total"]["tokens_cache_write_1h"] == 70

@@ -18,10 +18,13 @@ from tranibor_core.models import PLATFORM_PROFILES, TIERS
 
 from ..audit import record
 from ..db.models import ModelCatalogueRow, Organization
-from ..deps import Db, Me, require_platform_admin
+from ..deps import Db, Me, Pagination, require_platform_admin
 from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
+from ..keyset import matches, position_page
 from ..rbac import Permission
 from ..schemas.definitions import (
+    CacheMultipliers,
+    EffectiveCacheMultipliers,
     ModelCatalogue,
     ModelCatalogueEntry,
     ModelCatalogueEntryCreate,
@@ -35,6 +38,7 @@ from ..schemas.definitions import (
     ModelTiers,
     PriceOverride,
     UsableModel,
+    UsableModelPage,
 )
 from ..services import model_catalogue as service
 from ..services.gateway import org_brings_its_gateway, org_gateway, org_gateway_and_type
@@ -55,6 +59,29 @@ def _manage(principal: Me, org: str) -> None:
         raise forbidden(f"the model catalogue of {org} is decided by its administrator")
 
 
+def _own_multipliers(row: ModelCatalogueRow) -> CacheMultipliers | None:
+    own = (row.cache_read_multiplier, row.cache_write_5m_multiplier, row.cache_write_1h_multiplier)
+    if all(value is None for value in own):
+        return None
+    return CacheMultipliers(read=own[0], write_5m=own[1], write_1h=own[2])
+
+
+def _effective_multipliers(row: ModelCatalogueRow) -> EffectiveCacheMultipliers:
+    resolved = service.cache_multipliers_of(row)
+    return EffectiveCacheMultipliers(
+        read=resolved.multipliers.read,
+        write_5m=resolved.multipliers.write_5m,
+        write_1h=resolved.multipliers.write_1h,
+        source=resolved.source,
+    )
+
+
+def _set_multipliers(row: ModelCatalogueRow, own: CacheMultipliers | None) -> None:
+    row.cache_read_multiplier = own.read if own else None
+    row.cache_write_5m_multiplier = own.write_5m if own else None
+    row.cache_write_1h_multiplier = own.write_1h if own else None
+
+
 def _dto(row: ModelCatalogueRow) -> ModelCatalogueEntry:
     facts = row.gateway_facts or {}
     override = (
@@ -71,6 +98,8 @@ def _dto(row: ModelCatalogueRow) -> ModelCatalogueEntry:
         allowed_roles=list(row.allowed_roles or []),
         usages=list(row.usages or []),
         price_override=override,
+        cache_multipliers=_own_multipliers(row),
+        effective_cache_multipliers=_effective_multipliers(row),
         max_usd_per_minute=row.max_usd_per_minute,
         gateway=ModelGatewayFacts.model_validate(facts) if facts else None,
         last_seen_at=row.last_seen_at,
@@ -227,6 +256,9 @@ async def add_entry(
         usages=list(body.usages),
         input_per_1k_override=body.price_override.input_per_1k if body.price_override else None,
         output_per_1k_override=body.price_override.output_per_1k if body.price_override else None,
+        cache_read_multiplier=body.cache_multipliers.read if body.cache_multipliers else None,
+        cache_write_5m_multiplier=body.cache_multipliers.write_5m if body.cache_multipliers else None,
+        cache_write_1h_multiplier=body.cache_multipliers.write_1h if body.cache_multipliers else None,
         max_usd_per_minute=body.max_usd_per_minute,
         gateway_facts={},
         notes=body.notes,
@@ -253,7 +285,8 @@ async def update_entry(
     organisation = await organisation_by_slug(session, org)
     row = await _row(session, organisation, entry_id)
     changes = body.model_dump(
-        exclude_unset=True, exclude={"clear_price_override", "clear_max_usd_per_minute"}
+        exclude_unset=True,
+        exclude={"clear_price_override", "clear_max_usd_per_minute", "clear_cache_multipliers"},
     )
     if body.display_name is not None:
         row.display_name = body.display_name
@@ -270,6 +303,10 @@ async def update_entry(
     elif body.price_override is not None:
         row.input_per_1k_override = body.price_override.input_per_1k
         row.output_per_1k_override = body.price_override.output_per_1k
+    if body.clear_cache_multipliers:
+        _set_multipliers(row, None)
+    elif body.cache_multipliers is not None:
+        _set_multipliers(row, body.cache_multipliers)
     if body.clear_max_usd_per_minute:
         row.max_usd_per_minute = None
     elif body.max_usd_per_minute is not None:
@@ -316,16 +353,22 @@ async def curate_preview(org: str, session: Db, principal: Me) -> ModelCuratePre
     return ModelCuratePreview(refused=[ModelCurationRefusal.model_validate(r) for r in refused])
 
 
-@router.get("/orgs/{org}/models/usable", response_model=list[UsableModel], operation_id="listUsableModels")
+@router.get("/orgs/{org}/models/usable", response_model=UsableModelPage, operation_id="listUsableModels")
 async def usable_models(
     org: str,
     session: Db,
     principal: Me,
+    page: Pagination,
+    q: Annotated[str | None, Query(max_length=200)] = None,
     role: Annotated[str | None, Query()] = None,
     usage: Annotated[str, Query(pattern="^(agent|embed|distill|eval)$")] = "agent",
-) -> list[UsableModel]:
+) -> UsableModelPage:
     """The models an agent may be given: what the catalogue enables for this role and usage, plus,
-    in `open` mode, what the gateway lists that the catalogue does not mention."""
+    in `open` mode, what the gateway lists that the catalogue does not mention.
+
+    By name, one page at a time (ADR 0206). The list merges catalogue rows with the gateway's live list
+    and is cut by the organisation's policy: none of that is one SQL table, so it is built whole, then
+    filtered on `q` (name, display name or provider) and cut by position."""
     _read(principal, org)
     organisation = await organisation_by_slug(session, org)
     settings = service.org_settings(organisation)
@@ -388,4 +431,6 @@ async def usable_models(
                 ],
             )
         )
-    return out
+    kept = [m for m in out if matches(q, m.model_name, m.display_name, m.provider)]
+    items, meta = position_page(kept, page)
+    return UsableModelPage(items=items, meta=meta)

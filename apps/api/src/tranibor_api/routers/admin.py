@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import contains_eager
 from tranibor_adapters.registry import allowed_executor_kinds
 from tranibor_contracts import Role
 from tranibor_core import backend_enabled, utcnow
@@ -29,6 +30,7 @@ from ..db.models import (
 from ..db.session import in_platform_scope
 from ..deps import Config, Db, Me, Pagination, require_platform_admin
 from ..errors import conflict, forbidden, not_found, unprocessable
+from ..keyset import keyset_page
 from ..schemas import (
     AgentBackendInfo,
     AgentBackendUpdate,
@@ -38,9 +40,10 @@ from ..schemas import (
     ConformanceReport,
     ExecutorInfo,
     GatewayKeyInfo,
+    GatewayKeyPage,
     MembershipDto,
+    MembershipPage,
     MembershipUpsert,
-    PageMeta,
     SecretsRewrap,
 )
 from ..schemas.network import NetworkActivity, NetworkActivityRow
@@ -55,11 +58,14 @@ async def rewrap_secrets(session: Db, principal: Me) -> SecretsRewrap:
     """After a KEK rotation (the new key first in `TRANIBOR_SECRETS_KEKS`): re-wrap every sealed
     secret's data key under the active key. The values are never read out nor changed (ADR 0058).
     The GitHub App registered from a manifest is sealed under the same key and moves with them (ADR 0167)."""
-    from ..secret_store import SealedDbSecretStore, SecretStoreUnavailable
+    from ..secret_store import SealedDbSecretStore, SecretStoreUnavailable, get_secret_store
     from ..services import github_app_credentials
 
     await require_platform_admin(session, principal)
-    store = SealedDbSecretStore()
+    # The store an extension set (a KMS or Vault wrapper, ADR 0103), else the environment keyring: a
+    # rotation must run under the wrapper that seals, not under a keyring the deployment may not hold.
+    configured = get_secret_store()
+    store = configured if isinstance(configured, SealedDbSecretStore) else SealedDbSecretStore()
     try:
         async with in_platform_scope(session):
             rewrapped = await store.rewrap(session)
@@ -161,42 +167,83 @@ async def list_executors(principal: Me) -> list[ExecutorInfo]:
     ]
 
 
-@router.get("/platform/gateway/keys", response_model=list[GatewayKeyInfo], operation_id="listGatewayKeys")
-async def list_gateway_keys(session: Db, principal: Me) -> list[GatewayKeyInfo]:
+@router.get("/platform/gateway/keys", response_model=GatewayKeyPage, operation_id="listGatewayKeys")
+async def list_gateway_keys(
+    session: Db,
+    principal: Me,
+    page: Pagination,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    state: Annotated[Literal["active", "revoked"] | None, Query()] = None,
+) -> GatewayKeyPage:
+    """The keys the gateway minted, newest first, one page at a time (ADR 0206).
+
+    `q` matches a substring of the key id, the run id or the project slug; `state` keeps the active or
+    the revoked keys. Until 2026-11-19 the route returned the 200 newest keys and nothing else: the
+    201st was unreachable, and the console filtered what it had been given.
+    """
     await require_platform_admin(session, principal)
-    rows = (
-        (await session.execute(select(GatewayKeyRow).order_by(GatewayKeyRow.created_at.desc()).limit(200)))
-        .scalars()
-        .all()
-    )
-    slug_rows = (await session.execute(select(Project.id, Project.slug))).all()
-    slugs: dict[str, str] = {str(row[0]): str(row[1]) for row in slug_rows}
-    return [
-        GatewayKeyInfo(
-            key_id=row.key_id,
-            run_id=row.run_id,
-            project_slug=slugs.get(row.project_id or ""),
-            budget_usd=row.budget_usd,
-            spend_usd=row.spend_usd,
-            expires_at=row.expires_at,
-            revoked=row.revoked,
-            created_at=row.created_at,
+    query = select(GatewayKeyRow)
+    if state is not None:
+        query = query.where(GatewayKeyRow.revoked.is_(state == "revoked"))
+    if q and q.strip():
+        needle = q.strip()
+        matching_projects = select(Project.id).where(Project.slug.icontains(needle, autoescape=True))
+        query = query.where(
+            or_(
+                GatewayKeyRow.key_id.icontains(needle, autoescape=True),
+                GatewayKeyRow.run_id.icontains(needle, autoescape=True),
+                GatewayKeyRow.project_id.in_(matching_projects),
+            )
         )
-        for row in rows
-    ]
+    # The whole instance: the caller administers every organisation (`require_platform_admin`), and
+    # under the RLS of `gateway_keys` a key minted without a project belongs to no organisation, so
+    # the request's own scope hid it — on PostgreSQL only (found 2026-11-20, ADR 0206).
+    async with in_platform_scope(session):
+        rows, meta = await keyset_page(
+            session, query, sort=GatewayKeyRow.created_at, tiebreak=GatewayKeyRow.id, page=page
+        )
+        # The slugs of this page's projects only, not of every project on the instance.
+        project_ids = {row.project_id for row in rows if row.project_id}
+        slugs: dict[str, str] = {}
+        if project_ids:
+            page_projects = select(Project.id, Project.slug).where(Project.id.in_(project_ids))
+            slug_rows = (await session.execute(page_projects)).all()
+            slugs = {str(row[0]): str(row[1]) for row in slug_rows}
+    return GatewayKeyPage(
+        items=[
+            GatewayKeyInfo(
+                key_id=row.key_id,
+                run_id=row.run_id,
+                project_slug=slugs.get(row.project_id or ""),
+                budget_usd=row.budget_usd,
+                spend_usd=row.spend_usd,
+                expires_at=row.expires_at,
+                revoked=row.revoked,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ],
+        meta=meta,
+    )
 
 
-@router.get("/orgs/{org}/members", response_model=list[MembershipDto], operation_id="listMembers")
+@router.get("/orgs/{org}/members", response_model=MembershipPage, operation_id="listMembers")
 async def list_members(
-    org: str, session: Db, principal: Me, project: Annotated[str | None, Query()] = None
-) -> list[MembershipDto]:
-    """Who belongs to the organisation, or to one of its projects with `?project=`.
+    org: str,
+    session: Db,
+    principal: Me,
+    page: Pagination,
+    project: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+) -> MembershipPage:
+    """Who belongs to the organisation, or to one of its projects with `?project=`, one page at a time.
 
     S26-04: any signed-in user could list any organisation. A role in the organisation reads every
     membership; a role on some of its projects only reads the memberships of those projects; anyone
     else gets 403 — before the lookup, so an organisation's existence is not told to a stranger (as
     `/orgs/{org}/agents` does). S30-06: `?project=` narrows to that project and asks the same right
-    on it.
+    on it. `q` matches a substring of the e-mail (ADR 0206). The rows come by e-mail, then id, so one
+    person's memberships are neighbours.
     """
     from ..rbac import Permission
 
@@ -216,26 +263,44 @@ async def list_members(
     if organization is None:
         raise not_found("Organisation", org)
     query = (
-        select(Membership, User, Project)
+        select(Membership)
         .join(User, Membership.user_id == User.id)
+        .options(contains_eager(Membership.user))
         .outerjoin(Project, Membership.project_id == Project.id)
         # A machine account is not a member one invites or removes (ADR 0131): its own page lists it.
         .where(Membership.org_id == organization.id, User.is_service.is_(False))
     )
     if project:
         query = query.where(Project.slug == project)
-    rows = (await session.execute(query)).all()
-    return [
-        MembershipDto(
-            user_id=user.id,
-            email=user.email,
-            org=org,
-            project_slug=row_project.slug if row_project else None,
-            role=Role(membership.role),
-        )
-        for membership, user, row_project in rows
-        if org_wide or (row_project is not None and row_project.slug in readable_projects)
-    ]
+    if not org_wide:
+        # A role on some projects only reads those projects' memberships: decided in SQL, so the page is full.
+        query = query.where(Project.slug.in_(readable_projects))
+    if q and q.strip():
+        query = query.where(User.email.icontains(q.strip(), autoescape=True))
+    rows, meta = await keyset_page(
+        session, query, sort=User.email, tiebreak=Membership.id, page=page, descending=False
+    )
+    # The slugs of this page's projects only.
+    project_ids = {row.project_id for row in rows if row.project_id}
+    slugs: dict[str, str] = {}
+    if project_ids:
+        slug_rows = (
+            await session.execute(select(Project.id, Project.slug).where(Project.id.in_(project_ids)))
+        ).all()
+        slugs = {str(row[0]): str(row[1]) for row in slug_rows}
+    return MembershipPage(
+        items=[
+            MembershipDto(
+                user_id=row.user.id,
+                email=row.user.email,
+                org=org,
+                project_slug=slugs.get(row.project_id or ""),
+                role=Role(row.role),
+            )
+            for row in rows
+        ],
+        meta=meta,
+    )
 
 
 @router.post(
@@ -413,7 +478,7 @@ async def list_audit(
     total = (await session.execute(select(func.count()).select_from(Organization))).scalar_one()
     whole_instance = len(readable) >= int(total)
 
-    query = select(AuditLog).order_by(AuditLog.ts.desc())
+    query = select(AuditLog)
     ids = select(Organization.id).where(Organization.slug.in_(readable))
     scope = AuditLog.org_id.in_(ids)
     query = query.where(or_(scope, AuditLog.org_id.is_(None)) if whole_instance else scope)
@@ -421,12 +486,8 @@ async def list_audit(
         query = query.where(AuditLog.actor_id == actor)
     if target_type:
         query = query.where(AuditLog.target_type == target_type)
-    rows = (await session.execute(query.limit(1000))).scalars().all()
-    window, cursor, has_more = page.slice(list(rows))
-    return AuditPage(
-        items=[AuditEntry.model_validate(row) for row in window],
-        meta=PageMeta(next_cursor=cursor, has_more=has_more),
-    )
+    window, meta = await keyset_page(session, query, sort=AuditLog.ts, tiebreak=AuditLog.id, page=page)
+    return AuditPage(items=[AuditEntry.model_validate(row) for row in window], meta=meta)
 
 
 @router.get("/orgs/{org}/network-activity", response_model=NetworkActivity, operation_id="getNetworkActivity")

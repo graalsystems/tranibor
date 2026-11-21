@@ -135,6 +135,8 @@ export type Theme = {
     control?: number;
     /** px; absent = the console default */
     surface?: number;
+    /** px, on badges, chips, counters and bars (dots and avatars stay round); absent = round */
+    pill?: number;
   };
   /** The mono font stays Geist Mono */
   fonts?: {
@@ -1060,12 +1062,14 @@ export type ActionApproval = {
   approvers?: Array<{
     /** The least rank an approver holds; `developer` and `release_captain` are the former names of `contributor` and `approver` (ADR 0181 C1). */
     role?: "contributor" | "approver" | "project_owner" | "org_admin" | "developer" | "release_captain";
-    /** an identity-provider group the approver must also belong to (ADR 0052) */
+    /** an identity-provider group the approver must also belong to (ADR 0052); a workflow's action may name it from a field of its work item, rendered when proposed (ADR 0196) */
     group?: string | null;
     min?: number;
   }>;
   step_up_minutes?: number;
   separation_of_duties?: boolean;
+  /** who may not decide the action, whatever their rank: e-mail addresses, compared without case (ADR 0196) */
+  excluded?: Array<string>;
 };
 
 export type ActionCreate = {
@@ -2066,6 +2070,17 @@ export type RunMemoryHit = {
 export type MemoryStoreUser = {
   agent: string;
   version: number;
+};
+
+/** One page of a memory's review queue, oldest first (ADR 0206). */
+export type MemoryPage = {
+  items: Array<Memory>;
+  meta: PageMeta;
+};
+
+export type MemoryStorePage = {
+  items: Array<MemoryStore>;
+  meta: PageMeta;
 };
 
 export type MemoryStore = {
@@ -3168,6 +3183,11 @@ export type SkillUpdate = {
   problem?: string | null;
 };
 
+export type SkillPage = {
+  items: Array<Skill>;
+  meta: PageMeta;
+};
+
 export type Skill = {
   slug: string;
   description?: string | null;
@@ -3352,6 +3372,11 @@ export type KnowledgeBaseUser = {
   display_name: string;
   /** the revision that names the base: production, else the latest */
   version: number;
+};
+
+export type KnowledgeBasePage = {
+  items: Array<KnowledgeBase>;
+  meta: PageMeta;
 };
 
 export type KnowledgeBase = {
@@ -4325,6 +4350,25 @@ export type PriceOverride = {
   output_per_1k: number;
 };
 
+/** What a cached input token costs, as a multiple of the model's input price (S4-12, ADR 0200). A null or absent field keeps the default for the model's provider family. */
+export type CacheMultipliers = {
+  /** a token read from the cache (0.1 on Anthropic, 0.05 on Opus 5.5 / Sonnet 5.5) */
+  read?: number | null;
+  /** a token written with the 5-minute TTL (1.25 on Anthropic) */
+  write_5m?: number | null;
+  /** a token written with the 1-hour TTL (2 on Anthropic) */
+  write_1h?: number | null;
+};
+
+/** The multipliers a cache-heavy line is priced with when the organisation's price override applies: the entry's own, else the gateway's cached-input price, else the provider family's default. */
+export type EffectiveCacheMultipliers = {
+  read: number;
+  write_5m: number;
+  write_1h: number;
+  /** where the read multiplier comes from; the writes come from the override or the family default */
+  source: "override" | "gateway" | "family_default";
+};
+
 export type ModelGatewayFacts = {
   provider?: string;
   upstream_model?: string;
@@ -4350,6 +4394,8 @@ export type ModelCatalogueEntry = {
   allowed_roles: Array<string>;
   usages: Array<"agent" | "embed" | "distill" | "eval" | "route" | "decide">;
   price_override?: PriceOverride | null;
+  cache_multipliers?: CacheMultipliers | null;
+  effective_cache_multipliers?: EffectiveCacheMultipliers;
   max_usd_per_minute?: number | null;
   gateway?: ModelGatewayFacts | null;
   last_seen_at?: string | null;
@@ -4366,6 +4412,7 @@ export type ModelCatalogueEntryCreate = {
   allowed_roles?: Array<string>;
   usages?: Array<"agent" | "embed" | "distill" | "eval" | "route" | "decide">;
   price_override?: PriceOverride | null;
+  cache_multipliers?: CacheMultipliers | null;
   max_usd_per_minute?: number | null;
   notes?: string;
 };
@@ -4376,7 +4423,9 @@ export type ModelCataloguePatch = {
   allowed_roles?: Array<string> | null;
   usages?: Array<"agent" | "embed" | "distill" | "eval" | "route" | "decide"> | null;
   price_override?: PriceOverride | null;
+  cache_multipliers?: CacheMultipliers | null;
   clear_price_override?: boolean;
+  clear_cache_multipliers?: boolean;
   max_usd_per_minute?: number | null;
   clear_max_usd_per_minute?: boolean;
   notes?: string | null;
@@ -5430,6 +5479,61 @@ export type TriggerAck = {
   workflow?: string | null;
 };
 
+export type ProjectAgentPage = {
+  items: Array<ProjectAgent>;
+  meta: PageMeta;
+};
+
+export type ImplicitAgentPage = {
+  items: Array<ImplicitAgent>;
+  meta: PageMeta;
+};
+
+export type WorkflowAgentPage = {
+  items: Array<WorkflowAgent>;
+  meta: PageMeta;
+};
+
+export type WorkflowSummaryPage = {
+  items: Array<WorkflowSummary>;
+  meta: PageMeta;
+};
+
+export type WorkflowCatalogueEntryPage = {
+  items: Array<WorkflowCatalogueEntry>;
+  meta: PageMeta;
+};
+
+export type TriggerPage = {
+  items: Array<Trigger>;
+  meta: PageMeta;
+};
+
+export type AgentCatalogueEntryPage = {
+  items: Array<AgentCatalogueEntry>;
+  meta: PageMeta;
+};
+
+export type GatewayModelPage = {
+  items: Array<GatewayModel>;
+  meta: PageMeta;
+};
+
+export type UsableModelPage = {
+  items: Array<UsableModel>;
+  meta: PageMeta;
+};
+
+export type WorkflowDefPage = {
+  items: Array<WorkflowDef>;
+  meta: PageMeta;
+};
+
+export type MachineAccountPage = {
+  items: Array<MachineAccount>;
+  meta: PageMeta;
+};
+
 export type ReceivedEventPage = {
   items: Array<ReceivedEvent>;
   meta: PageMeta;
@@ -6005,6 +6109,11 @@ export type BudgetAlert = {
   can_acknowledge?: boolean;
 };
 
+export type BudgetAlertPage = {
+  items: Array<BudgetAlert>;
+  meta: PageMeta;
+};
+
 export type StopRequest = {
   /** why it is stopped; audited and shown on the work item */
   reason: string;
@@ -6202,6 +6311,8 @@ export type CostReport = {
     tokens_cached?: number;
     /** the input tokens the provider wrote to its cache (Anthropic cache creation), part of tokens_in; absent from a line booked before S4-07 */
     tokens_cache_write?: number;
+    /** the part of tokens_cache_write written with the 1-hour TTL (priced at its own, higher multiplier); the rest is the 5-minute write. 0 when the provider did not say or on a line booked before S4-12 (ADR 0200) */
+    tokens_cache_write_1h?: number;
     runs?: number;
   }>;
   total: {
@@ -6215,6 +6326,8 @@ export type CostReport = {
     tokens_cached?: number;
     /** the input tokens the provider wrote to its cache, part of tokens_in (S4-07) */
     tokens_cache_write?: number;
+    /** the part of tokens_cache_write written with the 1-hour TTL (S4-12, ADR 0200) */
+    tokens_cache_write_1h?: number;
   };
 };
 
@@ -6428,6 +6541,163 @@ export type GatewayKeyInfo = {
   created_at: string;
 };
 
+export type MembershipPage = {
+  items: Array<Membership>;
+  meta: PageMeta;
+};
+
+export type LinkedAccountPage = {
+  items: Array<LinkedAccount>;
+  meta: PageMeta;
+};
+
+export type RemoteCredentialPage = {
+  items: Array<RemoteCredential>;
+  meta: PageMeta;
+};
+
+export type OrgPage = {
+  items: Array<Org>;
+  meta: PageMeta;
+};
+
+export type ApiTokenPage = {
+  items: Array<ApiToken>;
+  meta: PageMeta;
+};
+
+export type BrowserSessionPage = {
+  items: Array<BrowserSession>;
+  meta: PageMeta;
+};
+
+export type GatewayKeyPage = {
+  items: Array<GatewayKeyInfo>;
+  meta: PageMeta;
+};
+
+export type ActionPage = {
+  items: Array<Action>;
+  meta: PageMeta;
+};
+
+export type OrgConnectorPage = {
+  items: Array<OrgConnector>;
+  meta: PageMeta;
+};
+
+export type ProjectOrgConnectorPage = {
+  items: Array<ProjectOrgConnector>;
+  meta: PageMeta;
+};
+
+export type ProjectOperationPage = {
+  items: Array<ProjectOperation>;
+  meta: PageMeta;
+};
+
+export type AgentPage = {
+  items: Array<Agent>;
+  meta: PageMeta;
+};
+
+export type AgentMetricsSummaryPage = {
+  items: Array<AgentMetricsSummary>;
+  meta: PageMeta;
+};
+
+export type AgentRunPage = {
+  items: Array<Run>;
+  meta: PageMeta;
+};
+
+/** One page of a work item's runs, oldest first (ADR 0206). */
+export type RunPage = {
+  items: Array<Run>;
+  meta: PageMeta;
+};
+
+export type AgentCredentialPage = {
+  items: Array<AgentCredential>;
+  meta: PageMeta;
+};
+
+export type AgentReleasePage = {
+  items: Array<AgentRelease>;
+  meta: PageMeta;
+};
+
+export type AgentEvaluationPage = {
+  items: Array<AgentEvaluation>;
+  meta: PageMeta;
+};
+
+export type ConversationCandidatePage = {
+  items: Array<ConversationCandidate>;
+  meta: PageMeta;
+};
+
+/** One page of a run's ACP log, in the order of `seq` (ADR 0206). */
+export type RunEventPage = {
+  items: Array<RunEvent>;
+  meta: PageMeta;
+};
+
+/** One page of a work item's artifact revisions, by name then version (ADR 0206). */
+export type ArtifactPage = {
+  items: Array<Artifact>;
+  meta: PageMeta;
+};
+
+/** One page of a work item's timeline, oldest first (ADR 0206). */
+export type TimelinePage = {
+  items: Array<TimelineEntry>;
+  meta: PageMeta;
+};
+
+/** One page of a work item's hand-offs, one per output (ADR 0206). */
+export type HandOffPage = {
+  items: Array<HandOff>;
+  meta: PageMeta;
+};
+
+/** One page of a run's declared inputs (ADR 0206). */
+export type RunInputFilePage = {
+  items: Array<RunInputFile>;
+  meta: PageMeta;
+};
+
+/** One page of the skills a run's StageInput names (ADR 0206). */
+export type RunSkillPage = {
+  items: Array<{
+    slug: string;
+    version: number;
+    digest: string;
+    /** path → content. UTF-8 text, except for the extensions png, jpg, jpeg, gif, webp, ico, ttf, otf, woff, woff2 (inert binaries, 512 KiB decoded at most, magic bytes checked), whose value is ALWAYS standard base64 of the bytes; SVG is text */
+    files: {
+      [key: string]: string;
+    };
+  }>;
+  meta: PageMeta;
+};
+
+/** One page of the `files` knowledge bases a run's StageInput pins, one base per item (ADR 0206). */
+export type RunKnowledgePage = {
+  items: Array<{
+    slug: string;
+    name?: string;
+    digest: string;
+    documents: Array<{
+      /** relative to `.choregos/knowledge/<slug>/` */
+      path: string;
+      title: string;
+      filename?: string;
+      markdown: string;
+    }>;
+  }>;
+  meta: PageMeta;
+};
+
 export type AuditEntry = {
   id: string;
   actor_id?: string | null;
@@ -6523,10 +6793,17 @@ export interface Operations {
   [key: string]: unknown;
 }; response: WebhookAck };
   attachAgentCredential: { method: "POST"; path: "/orgs/{org}/agents/{slug}/credentials"; body: AgentCredentialCreate; response: AgentCredential };
+  attachWorkItemFiles: { method: "POST"; path: "/work-items/{id}/files"; body: void; response: Array<Artifact> };
   authCallback: { method: "GET"; path: "/auth/callback"; body: never; response: void };
   authLogin: { method: "GET"; path: "/auth/login"; body: never; response: void };
   authLogout: { method: "POST"; path: "/auth/logout"; body: never; response: void };
   authorizeRemoteCredential: { method: "POST"; path: "/orgs/{org}/remote-credentials/{name}/authorize"; body: never; response: RemoteCredentialAuthorization };
+  azureBoardsWebhook: { method: "POST"; path: "/webhooks/azure-boards"; body: {
+  [key: string]: unknown;
+}; response: WebhookAck };
+  azureDevopsWebhook: { method: "POST"; path: "/webhooks/azure-devops"; body: {
+  [key: string]: unknown;
+}; response: WebhookAck };
   bindAssistantKnowledge: { method: "PUT"; path: "/orgs/{org}/assistants/{slug}/knowledge-bindings/{name}"; body: AssistantKnowledgeBind; response: Assistant };
   bindAssistantLaunch: { method: "PUT"; path: "/orgs/{org}/assistants/{slug}/launches/{launch}"; body: AssistantLaunchBind; response: Assistant };
   bindAssistantNeed: { method: "PUT"; path: "/orgs/{org}/assistants/{slug}/bindings/{need}"; body: AssistantBind; response: Assistant };
@@ -6776,33 +7053,14 @@ export interface Operations {
   getRunContext: { method: "GET"; path: "/internal/runs/{id}/context"; body: never; response: ContextPack };
   getRunContextBreakdown: { method: "GET"; path: "/runs/{id}/context-breakdown"; body: never; response: RunContext };
   getRunDiff: { method: "GET"; path: "/runs/{id}/diff"; body: never; response: DiffSummary };
-  getRunEvents: { method: "GET"; path: "/runs/{id}/events"; body: never; response: Array<RunEvent> };
+  getRunEvents: { method: "GET"; path: "/runs/{id}/events"; body: never; response: RunEventPage };
   getRunInput: { method: "GET"; path: "/internal/runs/{id}/input"; body: never; response: StageInput };
   getRunInputContent: { method: "GET"; path: "/internal/runs/{id}/inputs/{name}"; body: never; response: void };
-  getRunInputs: { method: "GET"; path: "/internal/runs/{id}/inputs"; body: never; response: Array<RunInputFile> };
-  getRunKnowledge: { method: "GET"; path: "/internal/runs/{id}/knowledge"; body: never; response: Array<{
-  slug: string;
-  name?: string;
-  digest: string;
-  documents: Array<{
-    /** relative to `.choregos/knowledge/<slug>/` */
-    path: string;
-    title: string;
-    filename?: string;
-    markdown: string;
-  }>;
-}> };
+  getRunInputs: { method: "GET"; path: "/internal/runs/{id}/inputs"; body: never; response: RunInputFilePage };
+  getRunKnowledge: { method: "GET"; path: "/internal/runs/{id}/knowledge"; body: never; response: RunKnowledgePage };
   getRunLogs: { method: "GET"; path: "/runs/{id}/logs"; body: never; response: RunLogs };
   getRunNetwork: { method: "GET"; path: "/internal/runs/{id}/network"; body: never; response: RunNetwork };
-  getRunSkills: { method: "GET"; path: "/internal/runs/{id}/skills"; body: never; response: Array<{
-  slug: string;
-  version: number;
-  digest: string;
-  /** path → content. UTF-8 text, except for the extensions png, jpg, jpeg, gif, webp, ico, ttf, otf, woff, woff2 (inert binaries, 512 KiB decoded at most, magic bytes checked), whose value is ALWAYS standard base64 of the bytes; SVG is text */
-  files: {
-    [key: string]: string;
-  };
-}> };
+  getRunSkills: { method: "GET"; path: "/internal/runs/{id}/skills"; body: never; response: RunSkillPage };
   getRunTicket: { method: "GET"; path: "/internal/runs/{id}/ticket"; body: never; response: RunTicket };
   getRunTools: { method: "GET"; path: "/internal/runs/{id}/tools"; body: never; response: {
   tools?: Array<RunTool>;
@@ -6819,9 +7077,9 @@ export interface Operations {
   getWorkItem: { method: "GET"; path: "/work-items/{id}"; body: never; response: WorkItem };
   getWorkItemArtifact: { method: "GET"; path: "/work-items/{id}/artifacts/{ref}"; body: never; response: Artifact };
   getWorkItemArtifactContent: { method: "GET"; path: "/work-items/{id}/artifacts/{ref}/content"; body: never; response: void };
-  getWorkItemHandOffs: { method: "GET"; path: "/work-items/{id}/hand-offs"; body: never; response: Array<HandOff> };
+  getWorkItemHandOffs: { method: "GET"; path: "/work-items/{id}/hand-offs"; body: never; response: HandOffPage };
   getWorkItemJourney: { method: "GET"; path: "/work-items/{id}/journey"; body: never; response: WorkItemJourney };
-  getWorkItemTimeline: { method: "GET"; path: "/work-items/{id}/timeline"; body: never; response: Array<TimelineEntry> };
+  getWorkItemTimeline: { method: "GET"; path: "/work-items/{id}/timeline"; body: never; response: TimelinePage };
   getWorkflow: { method: "GET"; path: "/projects/{id}/workflow"; body: never; response: WorkflowDef };
   getWorkflowActivity: { method: "GET"; path: "/projects/{id}/workflows/{name}/activity"; body: never; response: WorkflowActivity };
   getWorkflowRouting: { method: "GET"; path: "/projects/{id}/workflow-routing"; body: never; response: WorkflowRouting };
@@ -6842,46 +7100,49 @@ export interface Operations {
   installMcpCatalogueEntry: { method: "POST"; path: "/orgs/{org}/mcp-catalogue/{entry_id}/install"; body: McpCatalogueInstall; response: OrgConnector };
   installPlugin: { method: "POST"; path: "/orgs/{org}/plugins/install"; body: PluginInstall; response: InstalledPlugin };
   installSkillCatalogueEntry: { method: "POST"; path: "/orgs/{org}/skill-catalogue/{entry_id}/install"; body: SkillCatalogueInstall; response: Skill };
+  jenkinsWebhook: { method: "POST"; path: "/webhooks/jenkins"; body: {
+  [key: string]: unknown;
+}; response: WebhookAck };
   jiraWebhook: { method: "POST"; path: "/webhooks/jira"; body: {
   [key: string]: unknown;
 }; response: WebhookAck };
-  listActions: { method: "GET"; path: "/projects/{id}/actions"; body: never; response: Array<Action> };
+  listActions: { method: "GET"; path: "/projects/{id}/actions"; body: never; response: ActionPage };
   listAdminSections: { method: "GET"; path: "/ui/admin-sections"; body: never; response: Array<S.UiManifest> };
-  listAgentCatalogue: { method: "GET"; path: "/orgs/{org}/agent-catalogue"; body: never; response: Array<AgentCatalogueEntry> };
-  listAgentCredentials: { method: "GET"; path: "/orgs/{org}/agents/{slug}/credentials"; body: never; response: Array<AgentCredential> };
-  listAgentEvaluations: { method: "GET"; path: "/orgs/{org}/agents/{slug}/versions/{version}/evaluations"; body: never; response: Array<AgentEvaluation> };
-  listAgentFeedbackCandidates: { method: "GET"; path: "/orgs/{org}/agents/{slug}/feedback-candidates"; body: never; response: Array<ConversationCandidate> };
+  listAgentCatalogue: { method: "GET"; path: "/orgs/{org}/agent-catalogue"; body: never; response: AgentCatalogueEntryPage };
+  listAgentCredentials: { method: "GET"; path: "/orgs/{org}/agents/{slug}/credentials"; body: never; response: AgentCredentialPage };
+  listAgentEvaluations: { method: "GET"; path: "/orgs/{org}/agents/{slug}/versions/{version}/evaluations"; body: never; response: AgentEvaluationPage };
+  listAgentFeedbackCandidates: { method: "GET"; path: "/orgs/{org}/agents/{slug}/feedback-candidates"; body: never; response: ConversationCandidatePage };
   listAgentForks: { method: "GET"; path: "/orgs/{org}/agents/{slug}/forks"; body: never; response: AgentForkList };
   listAgentImages: { method: "GET"; path: "/platform/agent-images"; body: never; response: Array<AgentImageInfo> };
-  listAgentMetrics: { method: "GET"; path: "/orgs/{org}/agent-metrics"; body: never; response: Array<AgentMetricsSummary> };
+  listAgentMetrics: { method: "GET"; path: "/orgs/{org}/agent-metrics"; body: never; response: AgentMetricsSummaryPage };
   listAgentNotifications: { method: "GET"; path: "/orgs/{org}/agent-notifications"; body: never; response: AgentNotificationList };
-  listAgentReleases: { method: "GET"; path: "/orgs/{org}/agents/{slug}/releases"; body: never; response: Array<AgentRelease> };
-  listAgentRuns: { method: "GET"; path: "/orgs/{org}/agents/{slug}/runs"; body: never; response: Array<Run> };
+  listAgentReleases: { method: "GET"; path: "/orgs/{org}/agents/{slug}/releases"; body: never; response: AgentReleasePage };
+  listAgentRuns: { method: "GET"; path: "/orgs/{org}/agents/{slug}/runs"; body: never; response: AgentRunPage };
   listAgentSessionTools: { method: "GET"; path: "/internal/agent-sessions/{id}/tools"; body: never; response: AgentSessionTools };
-  listAgents: { method: "GET"; path: "/orgs/{org}/agents"; body: never; response: Array<Agent> };
+  listAgents: { method: "GET"; path: "/orgs/{org}/agents"; body: never; response: AgentPage };
   listAssistantKnowledgeUpdates: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/knowledge/updates"; body: never; response: KnowledgeUpdateList };
   listAssistantReads: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/reads"; body: never; response: AssistantReadPage };
   listAssistants: { method: "GET"; path: "/orgs/{org}/assistants"; body: never; response: AssistantList };
   listAudit: { method: "GET"; path: "/audit"; body: never; response: AuditPage };
   listBackends: { method: "GET"; path: "/platform/backends"; body: never; response: Array<AgentBackendInfo> };
-  listBudgetAlerts: { method: "GET"; path: "/orgs/{org}/budget-alerts"; body: never; response: Array<BudgetAlert> };
+  listBudgetAlerts: { method: "GET"; path: "/orgs/{org}/budget-alerts"; body: never; response: BudgetAlertPage };
   listConnectorCatalogue: { method: "GET"; path: "/orgs/{org}/connector-catalogue"; body: never; response: ConnectorCatalogue };
   listConnectorTypes: { method: "GET"; path: "/connectors/types"; body: never; response: Array<ConnectorType> };
   listConnectors: { method: "GET"; path: "/projects/{id}/connectors"; body: never; response: Array<Connector> };
   listExecutors: { method: "GET"; path: "/platform/executors"; body: never; response: Array<ExecutorInfo> };
   listFindings: { method: "GET"; path: "/projects/{id}/findings"; body: never; response: FindingPage };
-  listGatewayKeys: { method: "GET"; path: "/platform/gateway/keys"; body: never; response: Array<GatewayKeyInfo> };
+  listGatewayKeys: { method: "GET"; path: "/platform/gateway/keys"; body: never; response: GatewayKeyPage };
   listGitHubRepositories: { method: "GET"; path: "/orgs/{org}/github/repositories"; body: never; response: GitHubRepositoryPage };
-  listGlobalPendingMemory: { method: "GET"; path: "/orgs/{org}/memories/{slug}/pending"; body: never; response: Array<Memory> };
+  listGlobalPendingMemory: { method: "GET"; path: "/orgs/{org}/memories/{slug}/pending"; body: never; response: MemoryPage };
   listGroupMembers: { method: "GET"; path: "/projects/{id}/groups/{group}/members"; body: never; response: GroupMembers };
-  listImplicitAgents: { method: "GET"; path: "/projects/{id}/implicit-agents"; body: never; response: Array<ImplicitAgent> };
-  listKnowledgeBases: { method: "GET"; path: "/orgs/{org}/knowledge"; body: never; response: Array<KnowledgeBase> };
+  listImplicitAgents: { method: "GET"; path: "/projects/{id}/implicit-agents"; body: never; response: ImplicitAgentPage };
+  listKnowledgeBases: { method: "GET"; path: "/orgs/{org}/knowledge"; body: never; response: KnowledgeBasePage };
   listKnowledgeGrants: { method: "GET"; path: "/orgs/{org}/knowledge/{slug}/grants"; body: never; response: KnowledgeGrants };
-  listMachineAccounts: { method: "GET"; path: "/projects/{id}/machine-accounts"; body: never; response: Array<MachineAccount> };
+  listMachineAccounts: { method: "GET"; path: "/projects/{id}/machine-accounts"; body: never; response: MachineAccountPage };
   listMcpCatalogue: { method: "GET"; path: "/orgs/{org}/mcp-catalogue"; body: never; response: McpCatalogue };
-  listMemberLinkedAccounts: { method: "GET"; path: "/orgs/{org}/members/{user_id}/linked-accounts"; body: never; response: Array<LinkedAccount> };
-  listMembers: { method: "GET"; path: "/orgs/{org}/members"; body: never; response: Array<Membership> };
-  listMemories: { method: "GET"; path: "/orgs/{org}/memories"; body: never; response: Array<MemoryStore> };
+  listMemberLinkedAccounts: { method: "GET"; path: "/orgs/{org}/members/{user_id}/linked-accounts"; body: never; response: LinkedAccountPage };
+  listMembers: { method: "GET"; path: "/orgs/{org}/members"; body: never; response: MembershipPage };
+  listMemories: { method: "GET"; path: "/orgs/{org}/memories"; body: never; response: MemoryStorePage };
   listMyAssistants: { method: "GET"; path: "/me/assistants"; body: never; response: MyAssistantList };
   listMyConnectedAccounts: { method: "GET"; path: "/me/connected-accounts"; body: never; response: ConnectedAccountList };
   listMyConversationActions: { method: "GET"; path: "/me/conversations/{conversation_id}/actions"; body: never; response: ConversationActionList };
@@ -6890,52 +7151,52 @@ export interface Operations {
   listMyInbox: { method: "GET"; path: "/me/inbox"; body: never; response: InboxList };
   listMyLinkedAccounts: { method: "GET"; path: "/me/linked-accounts"; body: never; response: MyLinkedAccounts };
   listMyPending: { method: "GET"; path: "/me/pending"; body: never; response: PendingList };
-  listMySessions: { method: "GET"; path: "/me/sessions"; body: never; response: Array<BrowserSession> };
-  listMyTokens: { method: "GET"; path: "/me/tokens"; body: never; response: Array<ApiToken> };
-  listOrgActions: { method: "GET"; path: "/orgs/{org}/actions"; body: never; response: Array<Action> };
+  listMySessions: { method: "GET"; path: "/me/sessions"; body: never; response: BrowserSessionPage };
+  listMyTokens: { method: "GET"; path: "/me/tokens"; body: never; response: ApiTokenPage };
+  listOrgActions: { method: "GET"; path: "/orgs/{org}/actions"; body: never; response: ActionPage };
   listOrgActivity: { method: "GET"; path: "/orgs/{org}/activity"; body: never; response: ActivityList };
-  listOrgAgentCredentials: { method: "GET"; path: "/orgs/{org}/agent-credentials"; body: never; response: Array<AgentCredential> };
-  listOrgAgentReleases: { method: "GET"; path: "/orgs/{org}/agent-releases"; body: never; response: Array<AgentRelease> };
-  listOrgConnectors: { method: "GET"; path: "/orgs/{org}/connectors"; body: never; response: Array<OrgConnector> };
+  listOrgAgentCredentials: { method: "GET"; path: "/orgs/{org}/agent-credentials"; body: never; response: AgentCredentialPage };
+  listOrgAgentReleases: { method: "GET"; path: "/orgs/{org}/agent-releases"; body: never; response: AgentReleasePage };
+  listOrgConnectors: { method: "GET"; path: "/orgs/{org}/connectors"; body: never; response: OrgConnectorPage };
   listOrgGroupMembers: { method: "GET"; path: "/orgs/{org}/groups/{slug}/members"; body: never; response: OrgGroupMemberList };
   listOrgGroups: { method: "GET"; path: "/orgs/{org}/groups"; body: never; response: OrgGroupList };
-  listOrgs: { method: "GET"; path: "/orgs"; body: never; response: Array<Org> };
+  listOrgs: { method: "GET"; path: "/orgs"; body: never; response: OrgPage };
   listOutpostCalls: { method: "GET"; path: "/orgs/{org}/outposts/{slug}/calls"; body: never; response: OutpostCallPage };
   listOutpostEnrolments: { method: "GET"; path: "/orgs/{org}/outposts/{slug}/enrolments"; body: never; response: OutpostEnrolmentList };
   listOutpostInstances: { method: "GET"; path: "/orgs/{org}/outposts/{slug}/instances"; body: never; response: OutpostInstanceList };
   listOutposts: { method: "GET"; path: "/orgs/{org}/outposts"; body: never; response: OutpostList };
-  listPendingMemory: { method: "GET"; path: "/projects/{id}/memory/pending"; body: never; response: Array<Memory> };
-  listPlatformModels: { method: "GET"; path: "/platform/models"; body: never; response: Array<GatewayModel> };
+  listPendingMemory: { method: "GET"; path: "/projects/{id}/memory/pending"; body: never; response: MemoryPage };
+  listPlatformModels: { method: "GET"; path: "/platform/models"; body: never; response: GatewayModelPage };
   listPluginApprovals: { method: "GET"; path: "/orgs/{org}/plugin-approvals"; body: never; response: PluginApprovalList };
   listPluginAssistants: { method: "GET"; path: "/orgs/{org}/plugins/{name}/assistants"; body: never; response: PluginAssistantList };
   listPluginSources: { method: "GET"; path: "/orgs/{org}/plugin-sources"; body: never; response: PluginSources };
   listPlugins: { method: "GET"; path: "/orgs/{org}/plugins"; body: never; response: PluginList };
   listProcedures: { method: "GET"; path: "/procedures"; body: never; response: Array<ProcedureSummary> };
-  listProjectAgents: { method: "GET"; path: "/projects/{id}/agents"; body: never; response: Array<ProjectAgent> };
-  listProjectMemories: { method: "GET"; path: "/projects/{id}/memories"; body: never; response: Array<MemoryStore> };
-  listProjectOperations: { method: "GET"; path: "/projects/{id}/operations"; body: never; response: Array<ProjectOperation> };
-  listProjectOrgConnectors: { method: "GET"; path: "/projects/{id}/org-connectors"; body: never; response: Array<ProjectOrgConnector> };
+  listProjectAgents: { method: "GET"; path: "/projects/{id}/agents"; body: never; response: ProjectAgentPage };
+  listProjectMemories: { method: "GET"; path: "/projects/{id}/memories"; body: never; response: MemoryStorePage };
+  listProjectOperations: { method: "GET"; path: "/projects/{id}/operations"; body: never; response: ProjectOperationPage };
+  listProjectOrgConnectors: { method: "GET"; path: "/projects/{id}/org-connectors"; body: never; response: ProjectOrgConnectorPage };
   listProjectRequirements: { method: "GET"; path: "/projects/{id}/requirements"; body: never; response: Array<ProjectRequirement> };
   listProjects: { method: "GET"; path: "/orgs/{org}/projects"; body: never; response: ProjectPage };
   listReceivedEvents: { method: "GET"; path: "/projects/{id}/received-events"; body: never; response: ReceivedEventPage };
   listReleases: { method: "GET"; path: "/projects/{id}/releases"; body: never; response: ReleasePage };
-  listRemoteCredentials: { method: "GET"; path: "/orgs/{org}/remote-credentials"; body: never; response: Array<RemoteCredential> };
+  listRemoteCredentials: { method: "GET"; path: "/orgs/{org}/remote-credentials"; body: never; response: RemoteCredentialPage };
   listRunAgents: { method: "GET"; path: "/runs/{id}/agents"; body: never; response: RunAgentList };
-  listRuns: { method: "GET"; path: "/work-items/{id}/runs"; body: never; response: Array<Run> };
+  listRuns: { method: "GET"; path: "/work-items/{id}/runs"; body: never; response: RunPage };
   listSkillCatalogue: { method: "GET"; path: "/orgs/{org}/skill-catalogue"; body: never; response: SkillCatalogue };
-  listSkills: { method: "GET"; path: "/orgs/{org}/skills"; body: never; response: Array<Skill> };
+  listSkills: { method: "GET"; path: "/orgs/{org}/skills"; body: never; response: SkillPage };
   listTaskEvents: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/task-events"; body: never; response: TaskEventList };
   listTemplates: { method: "GET"; path: "/templates"; body: never; response: Array<TemplateSummary> };
   listTrackerIdentities: { method: "GET"; path: "/orgs/{org}/members/{user_id}/tracker-identities"; body: never; response: Array<TrackerIdentity> };
-  listTriggers: { method: "GET"; path: "/projects/{id}/triggers"; body: never; response: Array<Trigger> };
-  listUsableModels: { method: "GET"; path: "/orgs/{org}/models/usable"; body: never; response: Array<UsableModel> };
-  listWorkItemArtifacts: { method: "GET"; path: "/work-items/{id}/artifacts"; body: never; response: Array<Artifact> };
+  listTriggers: { method: "GET"; path: "/projects/{id}/triggers"; body: never; response: TriggerPage };
+  listUsableModels: { method: "GET"; path: "/orgs/{org}/models/usable"; body: never; response: UsableModelPage };
+  listWorkItemArtifacts: { method: "GET"; path: "/work-items/{id}/artifacts"; body: never; response: ArtifactPage };
   listWorkItems: { method: "GET"; path: "/projects/{id}/work-items"; body: never; response: WorkItemPage };
-  listWorkflowAgents: { method: "GET"; path: "/projects/{id}/workflow-agents"; body: never; response: Array<WorkflowAgent> };
-  listWorkflowCatalogue: { method: "GET"; path: "/orgs/{org}/workflow-catalogue"; body: never; response: Array<WorkflowCatalogueEntry> };
+  listWorkflowAgents: { method: "GET"; path: "/projects/{id}/workflow-agents"; body: never; response: WorkflowAgentPage };
+  listWorkflowCatalogue: { method: "GET"; path: "/orgs/{org}/workflow-catalogue"; body: never; response: WorkflowCatalogueEntryPage };
   listWorkflowTemplates: { method: "GET"; path: "/workflows/templates"; body: never; response: Array<WorkflowTemplate> };
-  listWorkflowVersions: { method: "GET"; path: "/projects/{id}/workflows/{name}/versions"; body: never; response: Array<WorkflowDef> };
-  listWorkflows: { method: "GET"; path: "/projects/{id}/workflows"; body: never; response: Array<WorkflowSummary> };
+  listWorkflowVersions: { method: "GET"; path: "/projects/{id}/workflows/{name}/versions"; body: never; response: WorkflowDefPage };
+  listWorkflows: { method: "GET"; path: "/projects/{id}/workflows"; body: never; response: WorkflowSummaryPage };
   mintMyEmbedToken: { method: "POST"; path: "/me/assistants/{org}/{slug}/embed-token"; body: never; response: EmbedToken };
   nextAgentSessionSocketFrames: { method: "GET"; path: "/internal/agent-sessions/{id}/socket/next"; body: never; response: AgentSessionSocketNext };
   nextAgentSessionTurn: { method: "GET"; path: "/internal/agent-sessions/{id}/turns/next"; body: never; response: AgentSessionTurn };

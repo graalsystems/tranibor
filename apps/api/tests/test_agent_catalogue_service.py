@@ -42,14 +42,16 @@ def test_every_catalogue_entry_is_an_installable_agent() -> None:
 async def test_the_catalogue_lists_the_agents_and_says_whether_they_are_installed(
     client: AsyncClient, admin: str
 ) -> None:
-    listed = (await client.get(f"{ORG}/agent-catalogue")).json()
+    listed = (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
     by_slug = {e["slug"]: e for e in listed}
     assert {"developer", "tester", "architect", "claude-code"} <= set(by_slug)
     assert by_slug["developer"]["role"] == "implement" and by_slug["developer"]["installed"] is False
     assert by_slug["chatgpt"]["reach"] == "cloud" and by_slug["claude-code"]["kind"] == "external"
     assert (await client.post(f"{ORG}/agent-catalogue/developer/install")).status_code == 201
     developer = next(
-        e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "developer"
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "developer"
     )
     assert (developer["installed"], developer["installed_version"], developer["update_available"]) == (
         True,
@@ -64,7 +66,7 @@ async def test_installing_an_agent_installs_its_skills_first(client: AsyncClient
     agent = installed.json()
     assert agent["versions"][0]["created_by"] == "plugin:software-delivery/architect@3"
     assert agent["versions"][0]["spec"]["skills"] == [{"slug": "madr-4", "version": None}]
-    skills = {s["slug"]: s for s in (await client.get(f"{ORG}/skills")).json()}
+    skills = {s["slug"]: s for s in (await client.get(f"{ORG}/skills")).json()["items"]}
     assert skills["madr-4"]["latest_version"] == 1
 
 
@@ -89,7 +91,9 @@ async def test_an_upgrade_publishes_the_next_version_only_if_it_changes(
     new = dataclasses.replace(old, version=2, document=document)
     _replace_entry(monkeypatch, new)
     listed_entry = next(
-        e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "triager"
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "triager"
     )
     assert listed_entry["update_available"] is True
     published = await client.post(f"{ORG}/agent-catalogue/triager/install", json={"upgrade": True})
@@ -108,7 +112,9 @@ async def test_an_organisations_own_agent_of_the_same_name_is_never_touched(
         await client.post(f"{ORG}/agent-catalogue/developer/install", json={"upgrade": True})
     ).status_code == 409
     listed_entry = next(
-        e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "developer"
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "developer"
     )
     assert (listed_entry["own_agent"], listed_entry["update_available"]) == (True, False)
     agent = (await client.get(f"{ORG}/agents/developer")).json()
@@ -185,7 +191,7 @@ async def test_a_template_can_name_a_catalogue_agent(
     assert created.status_code == 201, created.text
     reviewer = (await client.get(f"{ORG}/agents/reviewer")).json()
     assert reviewer["versions"][0]["spec"]["skills"] == [{"slug": "madr-4", "version": None}]
-    assert "madr-4" in {s["slug"] for s in (await client.get(f"{ORG}/skills")).json()}
+    assert "madr-4" in {s["slug"] for s in (await client.get(f"{ORG}/skills")).json()["items"]}
 
 
 # ───────────────────────── external clients in one click (S21-18) ─────────────────────────
@@ -200,9 +206,9 @@ async def test_connecting_claude_code_creates_the_agent_mints_an_mcp_token_and_a
     assert (body["agent"]["slug"], body["agent"]["kind"]) == ("claude-code", "external")
     assert body["token"]["scopes"] == ["mcp:write"] and body["token"]["token"], "the token, returned once"
     assert body["oauth_client_id"] is None
-    attachments = (await client.get(f"{ORG}/agents/claude-code/credentials")).json()
+    attachments = (await client.get(f"{ORG}/agents/claude-code/credentials")).json()["items"]
     assert [r["token_name"] for r in attachments] == ["Claude Code"]
-    tokens = (await client.get("/api/v1/me/tokens")).json()
+    tokens = (await client.get("/api/v1/me/tokens")).json()["items"]
     assert "token" not in tokens[0], "read back, the token is not shown any more"
 
 
@@ -222,7 +228,9 @@ async def test_a_member_joins_a_clients_agent_but_does_not_create_it(client: Asy
     assert joined.status_code == 201, joined.text
     assert joined.json()["token"]["scopes"] == ["mcp:read"]
     await login(client, "admin@northwind.dev")
-    assert len((await client.get(f"{ORG}/agents/cursor/credentials")).json()) == 2, "one token per person"
+    assert len((await client.get(f"{ORG}/agents/cursor/credentials")).json()["items"]) == 2, (
+        "one token per person"
+    )
 
 
 async def test_an_internal_agent_does_not_connect(client: AsyncClient, admin: str) -> None:
@@ -236,7 +244,11 @@ async def test_a_client_that_calls_from_the_cloud_is_not_offered_without_oauth_o
 
     from tranibor_api.config import reset_settings_cache
 
-    chatgpt = next(e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "chatgpt")
+    chatgpt = next(
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "chatgpt"
+    )
     assert chatgpt["offered"] is False and "OAuth" in chatgpt["unavailable_reason"]
     refused = await client.post(f"{ORG}/agent-catalogue/chatgpt/connect")
     assert refused.status_code == 409 and "not offered" in refused.text
@@ -247,13 +259,19 @@ async def test_a_client_that_calls_from_the_cloud_is_not_offered_without_oauth_o
         "TRANIBOR_MCP_OAUTH_CLIENTS", json.dumps({"chatgpt": {"client_id": "choregos-chatgpt"}})
     )
     reset_settings_cache()
-    still = next(e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "chatgpt")
+    still = next(
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "chatgpt"
+    )
     assert still["offered"] is False and "https" in still["unavailable_reason"], "OAuth, but over http"
 
     monkeypatch.setenv("TRANIBOR_PUBLIC_URL", "https://choregos.example")
     reset_settings_cache()
     claude_ai = next(
-        e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "claude-ai"
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "claude-ai"
     )
     assert claude_ai["offered"] is False and "claude-ai" in claude_ai["unavailable_reason"], (
         "no client for it"
@@ -261,7 +279,7 @@ async def test_a_client_that_calls_from_the_cloud_is_not_offered_without_oauth_o
     connected = await client.post(f"{ORG}/agent-catalogue/chatgpt/connect")
     assert connected.status_code == 201, connected.text
     assert (connected.json()["token"], connected.json()["oauth_client_id"]) == (None, "choregos-chatgpt")
-    attached = (await client.get(f"{ORG}/agents/chatgpt/credentials")).json()
+    attached = (await client.get(f"{ORG}/agents/chatgpt/credentials")).json()["items"]
     assert [(r["kind"], r["client_id"]) for r in attached] == [("oauth_client", "choregos-chatgpt")]
 
 
@@ -297,7 +315,9 @@ async def test_a_catalogue_agent_installed_by_a_template_carries_the_same_proven
     assert agent["versions"][0]["created_by"] == "plugin:software-delivery/reviewer@2"
     assert agent["scope"] == "platform"
     listed_entry = next(
-        e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "reviewer"
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "reviewer"
     )
     assert listed_entry["own_agent"] is False
 
@@ -401,7 +421,11 @@ async def test_an_upgrade_keeps_the_knowledge_the_organisation_added(
     assert (await client.post(f"{ORG}/agent-catalogue/reviewer/install")).status_code == 201
     await _hand_version("reviewer", knowledge=[{"slug": "our-engineering"}])
     _catalogue_moves(monkeypatch, "reviewer")
-    listed = next(e for e in (await client.get(f"{ORG}/agent-catalogue")).json() if e["slug"] == "reviewer")
+    listed = next(
+        e
+        for e in (await client.get(f"{ORG}/agent-catalogue?limit=200")).json()["items"]
+        if e["slug"] == "reviewer"
+    )
     assert listed["update_available"] is True
     published = await client.post(f"{ORG}/agent-catalogue/reviewer/install", json={"upgrade": True})
     assert published.status_code == 200, published.text

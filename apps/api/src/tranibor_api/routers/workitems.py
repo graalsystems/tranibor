@@ -5,30 +5,32 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Query, Request, Response, status
+from sqlalchemy import or_, select
+from starlette.datastructures import UploadFile
 from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import Artifact, Control, EventType, HumanDecision, HumanRequestKind, Role
 from tranibor_core import WorkflowEngine, utcnow
 from tranibor_core.dsl.groups import group_for
 
 from ..audit import record
-from ..db.models import HumanRequest, Project, Run, WorkflowDef, WorkItem
+from ..db.models import ArtifactRecord, HumanRequest, Project, Run, WorkflowDef, WorkItem
 from ..decision_session import POST_DECISION, require_person_session
 from ..deps import Config, Db, Me, Pagination, ProjectCtx, resolve_project
 from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
 from ..extensions import GestureRequest, check_gesture
+from ..keyset import keyset_page
 from ..knowledge.marked import listed_only, readable, require_readable
 from ..logging import get_logger
 from ..object_store import object_store
 from ..rbac import Permission
 from ..schemas import (
+    ArtifactPage,
     AssigneeChange,
     DecisionRequest,
-    HandOff,
+    HandOffPage,
     HumanRequestDto,
-    PageMeta,
-    TimelineEntry,
+    TimelinePage,
     WorkItemAction,
     WorkItemCreate,
     WorkItemDto,
@@ -52,17 +54,24 @@ from ..services import (
     journey as journey_of,
 )
 from ..services import (
-    timeline as timeline_of,
+    timeline_page as timeline_of,
 )
 from ..services.artifacts import (
     ArtifactCorruptedError,
-    artifacts_of,
     filename_of,
     read_content,
     revision,
     to_contract,
 )
 from ..services.decision_drafts import compared, may_answer
+from ..services.handed_files import (
+    ENVELOPE,
+    HandedFile,
+    attachments_of,
+    file_limit,
+    hand_files,
+    refuse_start_below_min,
+)
 from ..services.human_assignee import (
     StepAssignee,
     assignee_of_the_request,
@@ -136,18 +145,23 @@ async def list_work_items(
         query = query.where(WorkItem.state == state)
     if size:
         query = query.where(WorkItem.size == size)
-    rows = (await session.execute(query.order_by(WorkItem.created_at.desc()))).scalars().all()
     if q:
-        needle = q.lower()
-        rows = [r for r in rows if needle in r.title.lower() or needle in r.tracker_key.lower()]
-    window, cursor, has_more = page.slice(list(rows))
+        query = query.where(
+            or_(
+                WorkItem.title.icontains(q, autoescape=True),
+                WorkItem.tracker_key.icontains(q, autoescape=True),
+            )
+        )
+    window, meta = await keyset_page(
+        session, query, sort=WorkItem.created_at, tiebreak=WorkItem.id, page=page
+    )
     return WorkItemPage(
         items=[
             dto if await readable(session, ctx.principal, item, ctx.project.org_id) else listed_only(dto)
             for item in window
             for dto in [await work_item_dto(session, item, ctx.project)]
         ],
-        meta=PageMeta(next_cursor=cursor, has_more=has_more),
+        meta=meta,
     )
 
 
@@ -213,28 +227,26 @@ async def update_work_item(id: str, body: WorkItemUpdate, session: Db, principal
     return await work_item_dto(session, item, project, with_temporal=True)
 
 
-@router.get(
-    "/work-items/{id}/timeline", response_model=list[TimelineEntry], operation_id="getWorkItemTimeline"
-)
-async def timeline(id: str, session: Db, principal: Me) -> list[TimelineEntry]:
-    """States, runs, decisions, findings: the complete history of a ticket, in order."""
+@router.get("/work-items/{id}/timeline", response_model=TimelinePage, operation_id="getWorkItemTimeline")
+async def timeline(id: str, session: Db, principal: Me, page: Pagination) -> TimelinePage:
+    """States, runs, decisions, findings: the history of a ticket, oldest first, paged (ADR 0206)."""
     item, project = await _load(session, id, principal)
     _, org_slug = await resolve_project(session, project.id)
     if not principal.can(Permission.PROJECT_READ, org_slug, project.slug):
         raise forbidden()
 
-    return await timeline_of(session, item)
+    return await timeline_of(session, item, page)
 
 
-@router.get("/work-items/{id}/hand-offs", response_model=list[HandOff], operation_id="getWorkItemHandOffs")
-async def hand_offs(id: str, session: Db, principal: Me) -> list[HandOff]:
+@router.get("/work-items/{id}/hand-offs", response_model=HandOffPage, operation_id="getWorkItemHandOffs")
+async def hand_offs(id: str, session: Db, principal: Me, page: Pagination) -> HandOffPage:
     """The ticket's hand-off receipts, output by output (S25-04): who produced it, who read it, under
-    which digest, and what it is worth today."""
+    which digest, and what it is worth today. A page is a number of outputs (ADR 0206)."""
     item, project = await _load(session, id, principal)
     _, org_slug = await resolve_project(session, project.id)
     if not principal.can(Permission.PROJECT_READ, org_slug, project.slug):
         raise forbidden()
-    return await work_item_handoffs(session, item)
+    return await work_item_handoffs(session, item, page)
 
 
 async def _readable(session: Any, principal: Any, id: str) -> WorkItem:
@@ -245,11 +257,54 @@ async def _readable(session: Any, principal: Any, id: str) -> WorkItem:
     return item
 
 
-@router.get("/work-items/{id}/artifacts", response_model=list[Artifact], operation_id="listWorkItemArtifacts")
-async def list_artifacts(id: str, session: Db, principal: Me) -> list[Artifact]:
-    """Every revision of every artifact of the work item, by name then version (ADR 0049)."""
+@router.get("/work-items/{id}/artifacts", response_model=ArtifactPage, operation_id="listWorkItemArtifacts")
+async def list_artifacts(id: str, session: Db, principal: Me, page: Pagination) -> ArtifactPage:
+    """The revisions of the work item's artifacts, by name then version (ADR 0049), one page at a time
+    (ADR 0206): the cursor is the `(name, version)` of the last one, so a revision written meanwhile
+    shifts nothing."""
     item = await _readable(session, principal, id)
-    return [to_contract(row) for row in await artifacts_of(session, item.id)]
+    rows, meta = await keyset_page(
+        session,
+        select(ArtifactRecord).where(ArtifactRecord.work_item_id == item.id),
+        sort=ArtifactRecord.name,
+        then=(ArtifactRecord.version,),
+        tiebreak=ArtifactRecord.id,
+        page=page,
+        descending=False,
+    )
+    return ArtifactPage(items=[to_contract(row) for row in rows], meta=meta)
+
+
+@router.post(
+    "/work-items/{id}/files",
+    response_model=list[Artifact],
+    status_code=status.HTTP_201_CREATED,
+    operation_id="attachWorkItemFiles",
+)
+async def attach_files(id: str, request: Request, session: Db, principal: Me) -> list[Artifact]:
+    """A person hands files to the work item, multipart (`files`, repeated): each becomes an input
+    artifact the workflow's steps may read as `attachments` (ADR 0201)."""
+    item, project = await _load(session, id, principal)
+    _, org_slug = await resolve_project(session, project.id)
+    if not principal.can(Permission.PROJECT_READ, org_slug, project.slug):
+        raise not_found("Work item", id)  # a work item of an organisation the caller is not in does not exist
+    if not principal.can(Permission.ITEM_CONTROL, org_slug, project.slug):
+        raise forbidden("handing files to a work item needs at least the contributor role")
+    workflow = workflow_model(await work_item_workflow(session, item))
+    declared = attachments_of(workflow)
+    limit = file_limit(project)
+    length = request.headers.get("content-length")
+    if declared is not None and length and length.isdigit() and int(length) > declared.max * limit + ENVELOPE:
+        raise ApiError(413, "Payload too large", f"at most {declared.max} files of {limit} bytes each")
+    sent: list[HandedFile] = []
+    async with request.form(max_files=50, max_fields=2) as form:
+        for upload in form.getlist("files"):
+            if not isinstance(upload, UploadFile):
+                raise unprocessable("`files` holds files, not text fields")
+            # One byte past the limit is enough to refuse it, without reading a whole oversized body.
+            sent.append(HandedFile(upload.filename or "", await upload.read(limit + 1)))
+    rows = await hand_files(session, object_store(), principal, project, item, workflow, sent)
+    return [to_contract(row) for row in rows]
 
 
 @router.get("/work-items/{id}/artifacts/{ref}", response_model=Artifact, operation_id="getWorkItemArtifact")
@@ -748,6 +803,8 @@ async def post_action(id: str, body: WorkItemAction, session: Db, principal: Me)
         await _reroute(session, principal, project, item, body)
         return {"status": "accepted", "action": body.action}
     if body.action == "mark_agent_ready":
+        # A start waits for the files its workflow requires (ADR 0201 §7).
+        await refuse_start_below_min(session, workflow_model(await work_item_workflow(session, item)), item)
         payload = {
             "project_id": project.id,
             "project_slug": project.slug,
