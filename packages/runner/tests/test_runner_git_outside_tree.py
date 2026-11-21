@@ -245,8 +245,9 @@ def test_the_default_root_is_the_user_s_own(monkeypatch: pytest.MonkeyPatch) -> 
     directory. The default carries the user id."""
     import os
 
-    monkeypatch.delenv(workspace_module.GIT_DIR_ROOT_VARIABLE, raising=False)
-    assert Path(f"/var/tmp/choregos-git-{os.getuid()}") == workspace_module.DEFAULT_GIT_DIR_ROOT
+    monkeypatch.delenv(workspace_module.GIT_DIR_ROOT_VARIABLE, raising=False)  # git-dir-root: default-only
+    expected = Path(f"/var/tmp/choregos-git-{os.getuid()}")  # git-dir-root: default-only
+    assert expected == workspace_module.DEFAULT_GIT_DIR_ROOT
     assert git_dir_for(Path("/w")).parent == workspace_module.DEFAULT_GIT_DIR_ROOT
 
 
