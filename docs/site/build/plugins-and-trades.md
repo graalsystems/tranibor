@@ -63,7 +63,7 @@ names it.
   CI (`ci_green`, `diff_size_max`, `scope_respected` …) and the context provider that reads the diff and
   the checks for them, the step effects `open_pr` and `merge_pr`, the `scm.*`, `ci.*` and `cd.*` event
   types, the finding types `bug`, `perf`, `tech-debt` and `flaky-test`, and the release train's
-  workflow and activities, which the workers carry through the worker seam. By 1.0 it also holds the
+  workflow and activities, which the workers carry through the worker seam, and its routes. By 1.0 it also holds the
   repository templates, the roles `fix_ci`, `address_review`, `release_notes` and
   `verify_prod`, and the rest of the release train.
 - **IT service management**: `servicenow`. Content only: an ITSM triage agent, its skill, and an MCP

@@ -522,3 +522,8 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   the interpreter does for `via: release_train` (`signal_train`, `TrainsMixin`, behind
   `train-par-environnement`) is still the core's: it is part of `WorkflowInterpreter`, and it only names
   the train by its workflow type and signals.
+- **S83-05c.** The train's eight routes (the `trains` tag) are the extension's, served through
+  `extensions.declare_router` under the paths and operation ids `openapi.yaml` marks `x-plugin`. The API's
+  contract conformance reads the marks: where a plugin's extension is absent, none of its operations is
+  served and none is missing. `getRunDiff` and `getProjectDora` are still served by the core for the
+  plugin.

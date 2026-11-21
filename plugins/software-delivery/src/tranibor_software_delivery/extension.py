@@ -12,7 +12,9 @@ platform's processes, registered through the core's seams when the API and the w
 - the `scm.*`, `ci.*` and `cd.*` inbound event types, four finding types and two memory kinds, in the
   contracts' open lists (`lists.py`);
 - the release train, its workflow `ReleaseTrain` and its activities, on the orchestrator's workers through
-  the worker seam (round D, `train/`), under the names every recorded history carries.
+  the worker seam (round D, `train/`), under the names every recorded history carries;
+- the train's routes (`listReleases`, `getRelease`, `getTrainStatus`, `departTrain`, `freezeTrain`,
+  `unfreezeTrain`, `approveRelease`, `abortRelease`), through `extensions.declare_router` (`train/api.py`).
 
 `register` is idempotent: the API loads the extensions twice (through the worker it imports, then in
 `create_app`).
@@ -61,6 +63,16 @@ def provide_worker_parts() -> WorkerParts:
     )
 
 
+def declare_routes() -> None:
+    """The train's routes, served by the API after the core's (`create_app` includes the declared routers
+    when it starts). Idempotent: `declare_router` keeps one copy of a router."""
+    from tranibor_api.extensions import declare_router
+
+    from .train.api import router
+
+    declare_router(router)
+
+
 def register() -> None:
     """The `choregos.plugins` entry point of `tranibor-software-delivery`."""
     context_provider(PROVIDER, plugin=NAME, judged=judged)(read_delivery_facts)
@@ -68,3 +80,4 @@ def register() -> None:
     register_effects()
     declare_values()
     declare_worker_parts(NAME, provide_worker_parts)
+    declare_routes()
