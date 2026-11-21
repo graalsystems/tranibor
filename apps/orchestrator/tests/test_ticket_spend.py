@@ -41,7 +41,7 @@ async def test_a_restarted_interpreter_keeps_the_spent_amount(
     """An earlier interpreter of this ticket spent 3 $ — 2 in models, 1 in tools. The new one starts
     from 3 $, and adds what its own stage costs."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await spend(setup, 2.0)
     await spend(setup, 1.0, kind="tool")
@@ -59,7 +59,7 @@ async def test_a_restarted_interpreter_keeps_the_spent_amount(
     assert stage_cost > 0
     assert status["cost_usd"] == pytest.approx(3.0 + stage_cost), status
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-ticket-spend-S27-03.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

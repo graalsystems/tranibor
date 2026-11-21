@@ -33,12 +33,12 @@ def recorded_workflow_types() -> set[str]:
 
 def registered_workflow_types() -> set[str]:
     """The name Temporal knows each registered workflow class by (`@workflow.defn(name=...)`)."""
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     names: set[str] = set()
-    for workflow_class in ALL_WORKFLOWS:
+    for workflow_class in all_workflows():
         definition = getattr(workflow_class, "__temporal_workflow_definition", None)
-        assert definition is not None, f"{workflow_class!r} is in ALL_WORKFLOWS but is no workflow"
+        assert definition is not None, f"{workflow_class!r} is in all_workflows() but is no workflow"
         names.add(definition.name)
     return names
 
@@ -69,11 +69,11 @@ def test_a_workflow_without_a_history_is_reported() -> None:
 async def test_replay_history(path: Path) -> None:
     from temporalio.client import WorkflowHistory
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     history = WorkflowHistory.from_json(payload.get("workflowId", path.stem), payload)
-    replayer = Replayer(workflows=ALL_WORKFLOWS)
+    replayer = Replayer(workflows=all_workflows())
     await replayer.replay_workflow(history)
 
 
@@ -82,8 +82,8 @@ async def test_record_and_replay_roundtrip(tmp_path: Path) -> None:
     from temporalio.client import WorkflowHistory
     from temporalio.testing import WorkflowEnvironment
     from temporalio.worker import Replayer
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
     from tranibor_orchestrator.workflows.train import ReleaseTrain
 
     environment = await WorkflowEnvironment.start_time_skipping()
@@ -112,7 +112,7 @@ async def test_record_and_replay_roundtrip(tmp_path: Path) -> None:
     archived = tmp_path / "train.json"
     archived.write_text(history.to_json(), encoding="utf-8")
 
-    replayer = Replayer(workflows=ALL_WORKFLOWS)
+    replayer = Replayer(workflows=all_workflows())
     await replayer.replay_workflow(
         WorkflowHistory.from_json("train-replay-dev", json.loads(archived.read_text()))
     )

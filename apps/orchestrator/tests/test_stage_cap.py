@@ -80,7 +80,7 @@ async def test_a_capped_ticket_goes_to_a_person_instead_of_retrying(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _attempts(setup, max_stages_per_ticket=1)
     scripted(setup.adapters, FAILURE, FAILURE)
@@ -92,7 +92,7 @@ async def test_a_capped_ticket_goes_to_a_person_instead_of_retrying(
         await handle.signal("control", {"action": "stop"})
         await handle.result()
         history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-stage-cap-S27-08.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

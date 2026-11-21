@@ -367,6 +367,38 @@ activity is retried, and `request.key` is stable for one crossing.
 `apps/orchestrator/tests/test_step_effect_extension.py` installs a test plugin's extension and has the
 real interpreter play its effect; its history is `tests/replay/histories/wi-step-effect-S83-02c.json`.
 
+## Shipping durable code from outside this tree
+
+A trade whose work outlives a request (a release train that waits for its window, a deployment that soaks)
+needs Temporal workflows and activities of its own. An extension declares them through the **worker seam**
+(ADR 0181, round D), and the orchestrator's workers carry them beside the core's:
+
+```python
+from tranibor_core.worker_parts import WorkerParts, declare_worker_parts
+
+def provide() -> WorkerParts:
+    from my_itsm.durable import IncidentClock, page_on_call   # only the worker imports it
+
+    return WorkerParts(workflows=[IncidentClock], activities=[page_on_call],
+                       queues={"page_on_call": "tracker"})
+
+def register_extension() -> None:
+    declare_worker_parts("itsm", provide)
+```
+
+Only the worker calls `provide` (and the test and replay tools that stand for it:
+`tranibor_orchestrator.extension_parts.all_workflows()` and `all_activities()`), so the API, which loads
+the same extensions, never imports the extension's Temporal code. Workflows run on `orchestrator`; an
+activity runs there too, and on the specialised queue `queues` names for it (`executor`, `tracker`,
+`memory`), where `execute_on_its_queue` schedules it. The names are the history's
+(`@workflow.defn(name=...)`, `@activity.defn(name=...)`): a name the core or another extension already
+registers stops the worker, naming both owners. Two rules: the entry point imports no Temporal code
+(the worker's modules load the extensions when they are imported, so importing them back is a circular
+import), and a workflow module imports the orchestrator's helpers inside
+`workflow.unsafe.imports_passed_through()`, as the core's workflows do.
+`apps/orchestrator/tests/test_worker_seam.py` installs a test plugin's extension and runs its workflow on
+the test server, its activity on its queue.
+
 ## Extending the open lists
 
 Five lists the contracts used to close are open since round C0 of ADR 0181: the inbound event types,

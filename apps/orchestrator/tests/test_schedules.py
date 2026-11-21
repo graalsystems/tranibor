@@ -170,7 +170,7 @@ async def test_each_pass_fires_the_schedules_before_it_reconciles(temporal_env: 
 
     from temporalio import activity
     from temporalio.worker import Replayer, Worker
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.workflows.reconciliation import TrackerReconciliation
 
     calls: list[str] = []
@@ -208,7 +208,7 @@ async def test_each_pass_fires_the_schedules_before_it_reconciles(temporal_env: 
 
     # Archived for `tests/replay` (`TRANIBOR_RECORD_HISTORY=1`): a loop recorded with the
     # schedules must keep replaying, like the ones recorded before them (`workflow.patched`).
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         histories = Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
         target = histories / "reconcile-schedules-S38-11.json"

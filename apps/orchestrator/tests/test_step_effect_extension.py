@@ -127,7 +127,7 @@ async def test_the_interpreter_plays_the_extension_s_effect_and_the_history_repl
 ) -> None:
     from temporalio.worker import Replayer
     from tranibor_core import step_effects
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     setup.adapters.executor.handler = lambda stage_input: stage_result(
         "triaged", outputs={"summary": "a disk"}
@@ -147,7 +147,7 @@ async def test_the_interpreter_plays_the_extension_s_effect_and_the_history_repl
 
     history = await handle.fetch_history()
     step_effects.forget("itsm")  # the history must not need the extension to replay
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-step-effect-S83-02c.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

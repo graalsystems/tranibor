@@ -99,9 +99,9 @@ async def test_a_healthy_auto_sync_environment_delivers_the_work_item(
 
     # The train's history replays against the current code — and is archived for the next ones.
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         english = recording_history() == "english"  # S34-02
         # S45-39: `english-keys` archives the history that sends English keys, and only that one.

@@ -64,7 +64,7 @@ async def test_a_no_change_work_item_escalates_without_asking_for_a_pull_request
     setup: Fixture, temporal_env: Any, worker_factory: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     calls = _pr_calls(setup, monkeypatch)
     _no_change(setup)
@@ -90,7 +90,7 @@ async def test_a_no_change_work_item_escalates_without_asking_for_a_pull_request
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-open-pr-without-branch-S22-46.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

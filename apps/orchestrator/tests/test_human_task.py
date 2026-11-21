@@ -152,7 +152,7 @@ async def test_the_uid_entered_in_the_task_reaches_the_activate_badge_parameters
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Action, HumanRequest, WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _set_up(setup)
     async with worker_factory():
@@ -207,7 +207,7 @@ async def test_the_uid_entered_in_the_task_reaches_the_activate_badge_parameters
         (action,) = (await session.execute(select(Action))).scalars()
         assert action.params == {"uid": "04A1B2C3", "bearer": "lea@acme.test"}
         assert action.title == "Activate the badge 04A1B2C3" and action.status == "succeeded"
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-human-task-badge-S20-06.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

@@ -166,15 +166,14 @@ def worker_factory(temporal_env: Any) -> Any:
     dev tenant, `start_run` ran on `orchestrator` while the network policy opened the Kubernetes API
     to `executor` only: the Job was never created.
     """
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
     def factory(task_queue: str = "test", **kwargs: Any) -> Any:
         return workers_by_queue(
             temporal_env.client,
-            activities=[*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES],
-            workflows=ALL_WORKFLOWS,
+            activities=all_activities(),
+            workflows=all_workflows(),
             workflow_queue=task_queue,
             **kwargs,
         )
