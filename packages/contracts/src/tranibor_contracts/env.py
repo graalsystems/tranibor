@@ -14,6 +14,12 @@ one place that knows both, so no other module does:
 * `is_platform_variable` is for the places that refuse or hide the platform's own variables (a plugin's
   `env`, an agent's): both prefixes count.
 
+A Kubernetes service link is not an old setting (#2057, #2084): a Service named `choregos-pg` gives every
+pod of its namespace that does not set `enableServiceLinks: false` `CHOREGOS_PG_SERVICE_HOST`,
+`CHOREGOS_PG_PORT=tcp://...` and the like. The chart's pods turn them off; `adopt_legacy_environment`
+also leaves alone whatever has their shape (`is_service_link`), so another installer's Services neither
+warn nor give a future `TRANIBOR_<SERVICE>_PORT` setting a `tcp://` value.
+
 The fallback is removed in the minor that follows the removal of the import shims (ADR 0176 point 5).
 """
 
@@ -21,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -32,6 +39,7 @@ __all__ = [
     "adopt_legacy_environment",
     "adopted",
     "is_platform_variable",
+    "is_service_link",
     "with_legacy",
     "with_legacy_entries",
 ]
@@ -43,6 +51,22 @@ PREFIXES = (PREFIX, LEGACY_PREFIX)
 _log = logging.getLogger("tranibor.env")
 #: The variables already reported in this process: one warning each, however many packages import.
 _reported: set[str] = set()
+
+
+#: The names Kubernetes gives a Service's link variables, whatever their value.
+_SERVICE_LINK_NAME = re.compile(
+    r"_SERVICE_HOST$|_SERVICE_PORT(_[A-Z0-9_]+)?$|_PORT_[0-9]+_(TCP|UDP|SCTP)(_PROTO|_PORT|_ADDR)?$"
+)
+#: `<SERVICE>_PORT` is a link by its value only: in the egress proxy's pod, `CHOREGOS_EGRESS_PORT=3128`
+#: is the chart's setting, and in every other pod `CHOREGOS_EGRESS_PORT=tcp://10.43.0.9:3128` its link.
+_SERVICE_LINK_URL = re.compile(r"^(tcp|udp|sctp)://")
+
+
+def is_service_link(name: str, value: str) -> bool:
+    """Whether `name=value` has the shape of a variable Kubernetes derives from a Service."""
+    if _SERVICE_LINK_NAME.search(name):
+        return True
+    return name.endswith("_PORT") and bool(_SERVICE_LINK_URL.match(value))
 
 
 def is_platform_variable(name: str) -> bool:
@@ -72,7 +96,7 @@ def adopt_legacy_environment(
     seen = {**file_values, **target}  # an environment variable beats the file, as the settings classes do
     touched: list[str] = []
     for name, value in seen.items():
-        if not name.startswith(LEGACY_PREFIX):
+        if not name.startswith(LEGACY_PREFIX) or is_service_link(name, value):
             continue
         new = PREFIX + name[len(LEGACY_PREFIX) :]
         if new in seen:
@@ -94,7 +118,7 @@ def adopted(env: Mapping[str, str]) -> dict[str, str]:
     `adopt_legacy_environment` does to a process, for a mapping a caller builds itself."""
     both = dict(env)
     for name, value in env.items():
-        if name.startswith(LEGACY_PREFIX):
+        if name.startswith(LEGACY_PREFIX) and not is_service_link(name, value):
             both.setdefault(PREFIX + name[len(LEGACY_PREFIX) :], value)
     return both
 
