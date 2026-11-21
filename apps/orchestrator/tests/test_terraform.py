@@ -5,11 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from tranibor_orchestrator.activities import train as train_activities
 
 from .conftest import Fixture
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+train_activities = pytest.importorskip(
+    "tranibor_software_delivery.train.activities",
+    reason="the release train is the software-delivery plugin's",
+)
 
 INFRA_PR = "https://github.com/northwind/billing-api-infra/pull/7"
 

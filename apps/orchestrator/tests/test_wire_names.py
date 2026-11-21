@@ -255,7 +255,9 @@ def test_train_input_decodes_with_and_without_relay_threshold() -> None:
     """A continue-as-new input recorded before S45-03 names the threshold `seuil_de_relais`; one
     written after S45-39 names it `relay_threshold`. Both decode, to the same threshold."""
     from temporalio.converter import DataConverter
-    from tranibor_orchestrator.workflows.train import RELAY_THRESHOLD, TrainInput
+
+    pytest.importorskip("tranibor_software_delivery", reason="the release train is the plugin's")
+    from tranibor_software_delivery.train.workflow import RELAY_THRESHOLD, TrainInput
 
     converter = DataConverter.default.payload_converter
     base = {"project_slug": "billing-api", "env": "prod"}

@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """`ReleaseTrain`: one singleton per project x environment (docs/plan/05 §5.2).
 
+The `software-delivery` plugin's since round D of ADR 0181, carried by the orchestrator's workers through
+the worker seam (`extension.provide_worker_parts`). Its name, its signals, its queries, its activities'
+names and every `workflow.patched` id below are the ones the orchestrator registered: the recorded
+histories (`tests/replay/histories/train-*.json`) and the trains running in a deployment replay against
+this module unchanged.
+
 The train is the second of the three locks: the merge queue keeps `main` green, the train keeps
 the environment, and the declarative guard rails (Argo windows, GitHub Environments) hold even if
 Tranibor goes down.
@@ -18,13 +24,12 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError
 
-from .activity_names import english_payload_keys, named
-from .scheduling import execute_on_its_queue, start_on_its_queue
-
 with workflow.unsafe.imports_passed_through():
     from tranibor_contracts import InboundEventType, ReleaseStatus
+    from tranibor_orchestrator.workflows.activity_names import english_payload_keys, named
+    from tranibor_orchestrator.workflows.scheduling import execute_on_its_queue, start_on_its_queue
 
-    from ..activities import train as train_activities
+    from . import activities as train_activities
 
 DEFAULT_RETRY = RetryPolicy(maximum_attempts=5, initial_interval=timedelta(seconds=2))
 NO_RETRY = RetryPolicy(maximum_attempts=1)

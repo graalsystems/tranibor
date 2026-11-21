@@ -512,3 +512,13 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   only falls: 435 files when it was written, most of them because a project without a template gets
   `default-simple`, whose gates are the plugin's. The suite's environment still installs both extensions
   and runs everything.
+- **S83-05b.** The release train's durable code is the extension's: `ReleaseTrain` and its sixteen
+  activities left `tranibor_orchestrator` for `tranibor_software_delivery.train` and are registered on
+  the workers through the worker seam, under the workflow name, signals, queries, activity names and
+  `workflow.patched` ids every recorded history and every running train carry. Nothing needed a patch:
+  every archived history replays with the extension installed, `train-*.json` included, and in the core
+  alone the train's histories are skipped, naming the plugin, while every other one replays. The cron
+  matcher the train shared with the schedules stayed in the core (`activities.schedules.cron_due`). What
+  the interpreter does for `via: release_train` (`signal_train`, `TrainsMixin`, behind
+  `train-par-environnement`) is still the core's: it is part of `WorkflowInterpreter`, and it only names
+  the train by its workflow type and signals.

@@ -26,7 +26,6 @@ from . import (
     step_effects,
     suspension,
     tracker,
-    train,
 )
 
 ALL_ACTIVITIES = [
@@ -91,22 +90,6 @@ ALL_ACTIVITIES = [
     scm.collect_run_artifacts,
     # An extension's `does:` (ADR 0181): the core's own effects keep their activities above.
     step_effects.run_step_effect,
-    train.load_train_config,
-    train.check_window,
-    train.create_release,
-    train.promote,
-    train.run_smoke,
-    train.soak,
-    train.request_approval,
-    train.promote_canary_step,
-    train.verify_prod,
-    train.finish_release,
-    train.confirm_auto_sync,
-    train.confirmer_auto_sync,  # lang: fr-ok
-    train.rollback,
-    train.mark_release,
-    train.apply_terraform,
-    train.train_stats,
     findings.triage_finding,
     findings.finding_quality_ratio,
     provisioning.load_template_steps,
@@ -139,5 +122,4 @@ __all__ = [
     "scm",
     "stage",
     "tracker",
-    "train",
 ]
