@@ -7,3 +7,7 @@ procedures) is published from the publishing identity's agents repository (`tran
 Since round C2 it holds the twelve gates that read a diff, a pipeline or a pull request, and the context
 provider `delivery` whose facts they judge. The published API and worker images install it; the
 `choregos.plugins` entry point `software-delivery` registers it at start-up.
+
+Since round D it also holds the release train: its workflow `ReleaseTrain` and its activities
+(`train/`), which the orchestrator's workers carry through the worker seam
+(`tranibor_core.worker_parts`) under the names every recorded history carries.

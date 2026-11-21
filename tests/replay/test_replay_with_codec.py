@@ -39,7 +39,10 @@ async def _record(converter: Any) -> Any:
     signal. Returns its history."""
     from temporalio.testing import WorkflowEnvironment
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows.train import ReleaseTrain
+
+    ReleaseTrain = pytest.importorskip(  # noqa: N806 - the class, by its name
+        "tranibor_software_delivery.train.workflow", reason="the release train is the plugin's"
+    ).ReleaseTrain
 
     environment = await WorkflowEnvironment.start_time_skipping(data_converter=converter)
     try:
