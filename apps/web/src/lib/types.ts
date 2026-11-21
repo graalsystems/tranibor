@@ -315,6 +315,7 @@ export type {
 } from "@choregos/contracts/api";
 
 /** The organisation's memory A/B report and the platform's gateway keys (S47-18). */
+export type { ApiTokenPage, BrowserSessionPage, OrgPage } from "@choregos/contracts/api";
 export type { GatewayKeyInfo, GatewayKeyPage, MemoryAbGroup, MemoryAbReport } from "@choregos/contracts/api";
 
 /** Named memories, global and project, and an agent's bindings to them (S40-11, ADR 0075). */
