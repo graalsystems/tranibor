@@ -1,7 +1,7 @@
 """Finding #2082: every pod an agent runs in carries the labels its network policies select.
 
 The warm pool's pods (`agent_sandbox`, the chart's `SandboxTemplate`) carry `choregos/sandbox: "true"`,
-the label diametral's run-pod policy selects (tenant-base's `choregos-sandbox-egress`: a Cilium refusal
+the label an operator's run-pod policy selects (for example a `choregos-sandbox-egress`: a Cilium refusal
 of everything but the API, the model gateway, the egress proxy and the memory). The `k8s_job`
 executor's pods did not, so nothing but the namespace's baseline applied to them: from their agent's
 container the dev Temporal server, its Redis and the web search answered without credentials.
@@ -32,7 +32,7 @@ from .conftest import OPERATOR_API
 from .test_single_node_agent_network import _selects
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
-#: What a platform that holds agent pods by a policy of its own selects (diametral's tenant-base:
+#: What a platform that holds agent pods by a policy of its own selects (for example an operator's
 #: `choregos-sandbox-egress` and `choregos-sandbox-assignment`).
 PLATFORM_RUN_POD_SELECTOR = {"matchLabels": {"choregos/sandbox": "true"}}
 #: The labels a Job's pod carries that belong to ONE run, not to the family.

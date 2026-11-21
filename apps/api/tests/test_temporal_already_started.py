@@ -24,7 +24,7 @@ class _Client:
 
 @pytest.mark.parametrize(
     "start",
-    ["start_knowledge_sync", "start_interpreter", "start_train", "start_action"],
+    ["start_knowledge_sync", "start_interpreter", "start_action"],
 )
 async def test_an_already_started_workflow_returns_its_id(start: str) -> None:
     from temporalio.exceptions import WorkflowAlreadyStartedError

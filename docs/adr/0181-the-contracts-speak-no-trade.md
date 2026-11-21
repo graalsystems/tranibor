@@ -522,3 +522,20 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   the interpreter does for `via: release_train` (`signal_train`, `TrainsMixin`, behind
   `train-par-environnement`) is still the core's: it is part of `WorkflowInterpreter`, and it only names
   the train by its workflow type and signals.
+- **S83-05c.** The train's eight routes (the `trains` tag) are the extension's, served through
+  `extensions.declare_router` under the paths and operation ids `openapi.yaml` marks `x-plugin`. The API's
+  contract conformance reads the marks: where a plugin's extension is absent, none of its operations is
+  served and none is missing. `getRunDiff` and `getProjectDora` are still served by the core for the
+  plugin.
+- **S83-05d.** A project with a repository and no template got `default-simple`, whose gates and step
+  effects are the plugin's: where the extension is absent that workflow cannot be published, and creating
+  the project failed. It now gets `default-request`, which the core runs by itself
+  (`templates.workflow_without_template`); with the extension installed nothing changes. This was the
+  first reason a file of the core's suite needed the plugin: the files that still do fell from 435 to 116.
+- **S83-05e.** `getRunDiff` and `getProjectDora` are the extension's routes. The train statistics on a
+  project's page are filled through a new seam, `extensions.declare_project_figure`: an extension fills
+  the fields of `Project` and `ProjectStats` that `openapi.yaml` marks `x-plugin` for it, and the core keeps
+  them at their default without it. The core serves no operation marked `x-plugin` any more.
+- **S83-05f.** The train's three Prometheus series are the extension's, through a new seam,
+  `metrics.declare_series`; the core knows their names (`PLUGIN_SERIES`) so the chart's dashboards stay
+  checked. The API's Temporal client no longer has a `start_train`.

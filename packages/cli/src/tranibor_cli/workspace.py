@@ -1066,8 +1066,13 @@ class Workspace(App[None]):
         if not rows:
             tree.root.add_leaf(Text("nothing is running", style="dim"), data={"kind": "empty"})
         elif selected in self._by_key:
-            # A node knows its line only once the tree has laid its nodes out again.
             node = self._by_key[selected]
+            # The cursor goes onto the selected node at once: until then its line still counts the former
+            # nodes, and an Enter pressed before the next refresh toggled whichever node now sat there (a
+            # read landing above an open run closed another run). `last_line` gives the new nodes their
+            # lines; scrolling to the node waits for the tree to be laid out again.
+            if tree.last_line >= 0:
+                tree.move_cursor(node, False)
             tree.call_after_refresh(tree.move_cursor, node, False)
         else:  # nothing was selected: the first line, so the context pane has something to follow
             tree.call_after_refresh(tree.move_cursor_to_line, 0)

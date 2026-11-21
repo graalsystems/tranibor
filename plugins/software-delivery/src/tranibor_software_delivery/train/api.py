@@ -3,6 +3,11 @@
 
 The API decides nothing: it signals the `ReleaseTrain` workflow, which alone
 knows whether the window is open and whether the batch may leave.
+
+The `software-delivery` plugin's routes since round D of ADR 0181, served through `extensions.declare_router`
+under the paths and operation ids `openapi.yaml` marks `x-plugin: software-delivery` (round C2, S83-04d).
+The core's dependencies (authentication, the project context, the permissions) guard them as they guard
+the core's own routes.
 """
 
 from __future__ import annotations
@@ -11,17 +16,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Path, Query, status
 from sqlalchemy import select
-from tranibor_contracts import EventType
-
-from ..audit import record
-from ..db.models import Project, Release
-from ..decision_session import require_person_session
-from ..deps import Db, Me, Pagination, ProjectCtx, resolve_project
-from ..errors import forbidden, not_found
-from ..extensions import GestureRequest, check_gesture
-from ..keyset import keyset_page
-from ..rbac import Permission
-from ..schemas import (
+from tranibor_api.audit import record
+from tranibor_api.db.models import Project, Release
+from tranibor_api.decision_session import require_person_session
+from tranibor_api.deps import Db, Me, Pagination, ProjectCtx, resolve_project
+from tranibor_api.errors import forbidden, not_found
+from tranibor_api.extensions import GestureRequest, check_gesture
+from tranibor_api.keyset import keyset_page
+from tranibor_api.rbac import Permission
+from tranibor_api.schemas import (
     AbortRequest,
     ApproveRequest,
     FreezeRequest,
@@ -29,8 +32,9 @@ from ..schemas import (
     ReleasePage,
     TrainStatusDto,
 )
-from ..services import effective_policy, persist_event, release_dto
-from ..temporal import get_temporal, train_id
+from tranibor_api.services import effective_policy, persist_event, release_dto
+from tranibor_api.temporal import get_temporal, train_id
+from tranibor_contracts import EventType
 
 router = APIRouter(tags=["trains"])
 

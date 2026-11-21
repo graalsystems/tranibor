@@ -62,7 +62,7 @@ spec:
         app.kubernetes.io/name: choregos-runner
         app.kubernetes.io/component: runner
         # The label `choregos-runner-assignment` below selects, and the one a platform's run-pod
-        # policy selects (diametral's tenant-base: `choregos-sandbox-egress`). NOT
+        # policy selects (for example an operator's tenant policy `choregos-sandbox-egress`). NOT
         # `app.kubernetes.io/part-of: choregos`: `choregos-allow-ingress` admits every pod of the
         # namespace to the pods that carry it, and NetworkPolicies add up — it would reopen the
         # assignment port to all.

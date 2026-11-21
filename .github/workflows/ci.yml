@@ -337,7 +337,7 @@ jobs:
         run: >-
           uv run --no-sync pytest -n 4 -q -m "not slow" tests/core_alone tests/architecture tests/replay
           packages/adapters/tests apps/orchestrator/tests/test_worker_seam.py
-          apps/api/tests/test_extension_routes.py
+          apps/api/tests/test_extension_routes.py apps/api/tests/test_contract_conformance.py
 
   contracts:
     needs: changes

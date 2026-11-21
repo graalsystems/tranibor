@@ -116,7 +116,6 @@ FROZEN_PATHS = {
     for stem in ("wi-panier-DEMO-1e", "wi-panier-DEMO-2d", "wi-staffing-RH-1d", "wi-staffing-RH-1f")
 } | {
     # A `.d.ts` is a TypeScript declaration file: the `d` is English.
-    "apps/web/next-env.d.ts": "`.d.ts` is TypeScript's declaration suffix",
     "apps/web/next.config.d.mts": "`.d.mts` is TypeScript's declaration suffix",
     "apps/web/src/types/assets.d.ts": "`.d.ts` is TypeScript's declaration suffix",
     # `a_d` is the letter range of the file names it covers, not French words.
