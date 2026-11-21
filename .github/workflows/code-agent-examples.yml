@@ -11,7 +11,7 @@ on:
     inputs:
       runner-image:
         description: "The runner image the examples are built FROM"
-        default: ghcr.io/vargafoundation/choregos-runner:0.17.15
+        default: ghcr.io/graalsystems/tranibor-runner:0.27.17
         required: true
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
       - name: build the example image
         run: |
           docker build -f examples/agents/${{ matrix.example }}/Dockerfile \
-            --build-arg RUNNER_IMAGE="${{ inputs.runner-image || 'ghcr.io/vargafoundation/choregos-runner:0.17.15' }}" \
+            --build-arg RUNNER_IMAGE="${{ inputs.runner-image || 'ghcr.io/graalsystems/tranibor-runner:0.27.17' }}" \
             -t "${{ matrix.example }}-triager" .
       - name: conformance of the image
         run: |
