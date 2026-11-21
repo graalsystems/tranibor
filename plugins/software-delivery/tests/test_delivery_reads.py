@@ -38,7 +38,7 @@ def without_the_extension(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     from tranibor_software_delivery import extension
 
     reset()
-    monkeypatch.setattr(extension, "declare_routes", lambda: None)
+    monkeypatch.setattr(extension, "declare_api_parts", lambda: None)
     try:
         yield
     finally:

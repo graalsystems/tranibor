@@ -107,3 +107,10 @@ def parse_workflow_report(source: str) -> tuple[str, bool]:
 
     parsed, report = parse_workflow(source, strict=False)
     return parsed.metadata.name, report.valid
+
+
+def test_the_api_emits_none_of_the_plugins_series() -> None:
+    """The release train's series are the plugin's (S83-05f): the core knows them by name only."""
+    from tranibor_api.metrics import PLUGIN_SERIES, emitted_names
+
+    assert PLUGIN_SERIES and not set(PLUGIN_SERIES) & emitted_names()

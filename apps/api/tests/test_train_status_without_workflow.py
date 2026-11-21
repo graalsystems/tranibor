@@ -36,7 +36,7 @@ async def test_a_project_with_no_merge_has_a_collecting_train(
 
 async def test_the_fake_answers_a_started_workflow_without_a_scripted_answer() -> None:
     fake = FakeTemporal()
-    await fake.start_train("train-billing-prod", {})
+    fake.started["train-billing-prod"] = {}  # the train is started by the plugin's worker side
     assert await fake.query("train-billing-prod", "status_query") is None
 
 
