@@ -391,6 +391,48 @@ async def test_a_signed_image_passes_enforce(
         set_image_services(None)
 
 
+async def test_the_pod_pulls_through_the_mirror_and_the_signature_is_the_declared_images(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, settings_env: pytest.MonkeyPatch
+) -> None:
+    """S80-20: the cluster admits only its mirror. The signature is checked on the image the plugin
+    declares (only that one is signed here), the pod pulls the mirror's reference with the same
+    digest and the pull secrets, and the connector keeps the declared image."""
+    import yaml
+    from tranibor_adapters.fakes import FakeImageVerifier, FakeRegistryClient
+    from tranibor_api.services.hosted_images import set_image_services
+
+    declared = yaml.safe_load((HELLO / "servers" / "hello.yaml").read_text())["image"]
+    prefix = PUBLISHING.image("tranibor-agents")
+    mirror = "harbor.example/ghcr-proxy/tranibor-agents"
+    verifier = FakeImageVerifier()
+    verifier.sign(declared)
+    set_image_services(FakeRegistryClient(), verifier)
+    try:
+        _set(
+            settings_env,
+            TRANIBOR_HOSTED_COSIGN="enforce",
+            TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS=json.dumps({prefix: mirror}),
+            TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS='["mirror-pull"]',
+        )
+        await _install(client)
+    finally:
+        set_image_services(None)
+    pod = _only(kube, "deployments")["spec"]["template"]["spec"]
+    assert pod["containers"][0]["image"] == mirror + declared[len(prefix) :]
+    assert declared.split("@")[1] in pod["containers"][0]["image"], "the digest is kept"
+    assert pod["imagePullSecrets"] == [{"name": "mirror-pull"}]
+    assert (await _connector()).plugin_server["image"] == declared
+
+
+def test_a_mirror_that_is_not_a_prefix_stops_the_api(settings_env: pytest.MonkeyPatch) -> None:
+    from pydantic import ValidationError
+    from tranibor_api.config import Settings
+
+    settings_env.setenv("TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS", '{"ghcr.io/acme": "harbor.example/acme:1"}')
+    with pytest.raises(ValidationError, match="IMAGE_MIRRORS"):
+        Settings()
+
+
 async def test_a_deployment_without_plugin_servers_refuses_one(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, monkeypatch: pytest.MonkeyPatch
 ) -> None:

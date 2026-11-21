@@ -322,6 +322,12 @@ class Settings(BaseSettings):
     plugin_servers_api_namespace: str = ""
     plugin_servers_cpu: str = "500m"
     plugin_servers_memory: str = "512Mi"
+    #: Where the pods pull a server's image from (S80-20): a registry or repository prefix mapped to
+    #: its mirror's, `{"ghcr.io/acme": "harbor.internal/ghcr-proxy/acme"}`. The digest is kept and the
+    #: checks (allowlist, signature) are made on the declared reference; only the pull is mirrored.
+    plugin_servers_image_mirrors: dict[str, str] = Field(default_factory=dict)
+    #: The Secrets of the plugins namespace the servers' pods pull with (a private mirror).
+    plugin_servers_image_pull_secrets: list[str] = Field(default_factory=list)
     #: The base image of each zip runtime, `ref@sha256:…`, over the shipped ones (ADR 0080 §9):
     #: `{"python_3_13": "registry.internal/python:3.13-slim@sha256:…"}`.
     hosted_base_images: dict[str, str] = Field(default_factory=dict)
@@ -609,6 +615,19 @@ class Settings(BaseSettings):
 
     def legacy_decision_route_set(self) -> frozenset[str]:
         return frozenset(part.strip() for part in self.legacy_decision_routes.split(",") if part.strip())
+
+    @model_validator(mode="after")
+    def _plugin_server_mirrors_are_prefixes(self) -> Settings:
+        """A mirror that is not a prefix would write a reference that loses the digest: refused at
+        start-up rather than at the first install."""
+        from tranibor_adapters.oci import RegistryError
+        from tranibor_adapters.plugin_servers import check_mirrors
+
+        try:
+            check_mirrors(self.plugin_servers_image_mirrors)
+        except RegistryError as exc:
+            raise ValueError(f"TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS: {exc}") from exc
+        return self
 
     @model_validator(mode="after")
     def _no_back_door_in_production(self) -> Settings:

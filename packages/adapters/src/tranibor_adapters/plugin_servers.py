@@ -12,13 +12,16 @@ What runs:
   token (`TRANIBOR_SERVER_TOKEN`), the server refusing any call without it;
 - a **Deployment** of one replica (none while the configuration is incomplete), the image pinned by
   digest, non-root, read-only root filesystem, no ServiceAccount token, capabilities dropped,
-  resource limits, the RuntimeClass the deployment names (gVisor). The digest of the Secret's data
-  is an annotation of the pod template: changing the configuration rolls the pods;
+  resource limits, the RuntimeClass the deployment names (gVisor), the pull secrets the deployment
+  names. The digest of the Secret's data is an annotation of the pod template: changing the
+  configuration rolls the pods;
 - a **Service** in front of it, which only the API calls;
 - a **NetworkPolicy**: ingress from the API pods only, on the server's port; egress to DNS and, by
   default, to public addresses on the ports of the hosts its configuration names. Kubernetes cannot
   name a host: with `egress="cilium"` a `CiliumNetworkPolicy` narrows egress to those exact names
-  (`toFQDNs`) and the NetworkPolicy keeps DNS only.
+  (`toFQDNs`) and DNS to the lookups of those names (an L7 `dns` rule), and the NetworkPolicy opens no
+  egress at all: Cilium unions policies, and a plain port-53 allow beside the L7 rule would let the
+  server resolve any name (a channel out, ADR 0096 §8 as amended by S80-20b).
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ import httpx
 
 from .executor.tekton import CORE_API, KubernetesClient
 from .mcp.client import McpClient
+from .oci.registry import RegistryError, parse_ref
 
 APPS_API = "/apis/apps/v1"
 NETWORKING_API = "/apis/networking.k8s.io/v1"
@@ -71,6 +75,8 @@ class ServerDeployment:
     #: (host, port) the server may reach, derived from its configuration
     egress: tuple[tuple[str, int], ...] = ()
     egress_mode: EgressMode = "networkpolicy"
+    #: Secrets of the namespace the kubelet pulls the image with (a private mirror)
+    image_pull_secrets: tuple[str, ...] = ()
 
     @property
     def config_digest(self) -> str:
@@ -135,6 +141,8 @@ def _deployment(d: ServerDeployment) -> dict[str, Any]:
     }
     if d.runtime_class:
         pod["runtimeClassName"] = d.runtime_class
+    if d.image_pull_secrets:
+        pod["imagePullSecrets"] = [{"name": name} for name in d.image_pull_secrets]
     return {
         "apiVersion": "apps/v1",
         "kind": "Deployment",
@@ -181,15 +189,14 @@ def _network_policy(d: ServerDeployment) -> dict[str, Any]:
         {"matchLabels": {"kubernetes.io/metadata.name": d.api_namespace}} if d.api_namespace else {}
     )
     egress: list[dict[str, Any]] = []
-    if d.egress:
+    if d.egress and d.egress_mode == "networkpolicy":
         egress.append(_DNS)
-        if d.egress_mode == "networkpolicy":
-            egress.append(
-                {
-                    "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
-                    "ports": _ports(d.egress),
-                }
-            )
+        egress.append(
+            {
+                "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
+                "ports": _ports(d.egress),
+            }
+        )
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",
@@ -228,6 +235,41 @@ def _cilium_policy(d: ServerDeployment) -> dict[str, Any]:
             "egress": [dns, fqdns] if d.egress else [],
         },
     }
+
+
+def mirrored(image: str, mirrors: dict[str, str]) -> str:
+    """The reference the pod pulls for the declared `image`: the longest prefix of `mirrors` it sits
+    under (matched by path segment, as `under_prefix` does) replaced by its mirror, the rest of the
+    reference (repository, digest) unchanged; without a matching prefix, `image` itself.
+
+    Only the pull goes through the mirror. The checks (allowlist, digest, signature) are made on the
+    declared reference, and the digest pins the content the mirror serves to the one that was signed:
+    a mirror that served anything else would fail the pull, not run another image. A reference that
+    does not name its registry (`python@sha256:…`) is never mirrored."""
+    name = parse_ref(image).name
+    bare = {k.strip().rstrip("/"): v.strip().rstrip("/") for k, v in mirrors.items()}
+    for prefix in sorted(bare, key=len, reverse=True):
+        if prefix and (name == prefix or name.startswith(prefix + "/")) and image.startswith(name):
+            pulled = bare[prefix] + name[len(prefix) :] + image[len(name) :]
+            parse_ref(pulled)  # a mirror that does not make a reference is refused, not written
+            return pulled
+    return image
+
+
+def check_mirrors(mirrors: dict[str, str]) -> None:
+    """`RegistryError` when a mirror is not a registry or repository prefix on both sides (no tag, no
+    digest): `mirrored` could not keep the digest it must keep."""
+    for source, target in mirrors.items():
+        for prefix in (source, target):
+            bare = prefix.strip().rstrip("/")
+            try:
+                named = bool(bare) and parse_ref(f"{bare}/probe").name == f"{bare}/probe"
+            except RegistryError:
+                named = False
+            if not named:
+                raise RegistryError(
+                    f"`{prefix}` is not a registry or repository prefix (a registry host, no tag, no digest)"
+                )
 
 
 def server_manifests(d: ServerDeployment) -> list[dict[str, Any]]:
@@ -326,5 +368,7 @@ __all__ = [
     "PluginServerClient",
     "PluginServerRuntime",
     "ServerDeployment",
+    "check_mirrors",
+    "mirrored",
     "server_manifests",
 ]
