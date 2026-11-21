@@ -643,6 +643,13 @@ other pod of the namespace itself. Otherwise any pod there can push first and ho
 until the real run gets a 409: it cannot read a run's token (the assignment is sealed to the
 pod's key), but it can deny the run its sandbox.
 
+Every pod an agent runs in carries the same three labels, whichever executor started it (the warm pool's
+template and `k8s_job`'s Jobs): `app.kubernetes.io/name: choregos-runner`, `app.kubernetes.io/component:
+runner` and `choregos/sandbox: "true"`. A platform that holds agent pods with a policy of its own (a Cilium
+refusal of everything but the API, the model gateway, the egress proxy and the memory, say) selects
+`choregos/sandbox: "true"` and holds both. Up to 0.27.17 a `k8s_job` pod lacked that label and was outside
+such a policy (finding #2082); `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+
 How a run goes ([ADR 0053](adr/0053-agent-sandbox-as-built.md)): the executor writes the run's
 token into a Secret owned by the run's `SandboxClaim`; the controller binds a warm sandbox to
 the claim (or cold-starts one from the template when the pool is empty); once it is Ready, the
