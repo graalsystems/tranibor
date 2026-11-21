@@ -6,6 +6,7 @@ This test is what prevents drift between `schemas/*.json`, `openapi.yaml` and `t
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -213,8 +214,9 @@ def test_event_schema_knows_every_emitted_type() -> None:
     """
     from tranibor_contracts.enums import EventType
 
-    declares = set(contracts.load_schema("event.schema.json")["properties"]["type"]["enum"])
-    assert {t.value for t in EventType} == declares
+    # An open list since round D of ADR 0181: the schema holds the pattern and names the core's types.
+    node = contracts.load_schema("event.schema.json")["properties"]["type"]
+    assert all(re.fullmatch(node["pattern"], t.value) and t.value in node["description"] for t in EventType)
 
 
 def test_openapi_is_coherent() -> None:
@@ -594,7 +596,7 @@ def test_a_missed_status_comment_is_an_event_of_the_work_item() -> None:
 
     missed = "choregos.workitem.status_comment_missed"
     assert EventType.WORKITEM_STATUS_COMMENT_MISSED.value == missed
-    assert missed in contracts.load_schema("event.schema.json")["properties"]["type"]["enum"]
+    assert missed in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
 
 
 def test_the_network_denied_event_is_declared_and_the_openapi_names_the_four_operations() -> None:
@@ -602,7 +604,8 @@ def test_the_network_denied_event_is_declared_and_the_openapi_names_the_four_ope
 
     assert EventType.NETWORK_DENIED.value == "choregos.network.denied"
     assert (
-        "choregos.network.denied" in contracts.load_schema("event.schema.json")["properties"]["type"]["enum"]
+        "choregos.network.denied"
+        in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
     )
     spec = contracts.load_openapi()
     operations = {

@@ -539,3 +539,8 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
 - **S83-05f.** The train's three Prometheus series are the extension's, through a new seam,
   `metrics.declare_series`; the core knows their names (`PLUGIN_SERIES`) so the chart's dashboards stay
   checked. The API's Temporal client no longer has a `start_train`.
+- **S83-05g.** The internal event types are an open list (`EVENT_TYPES`; the schema holds a pattern). The
+  extension declares the release train's eight `choregos.release.*` types, under the same strings, and
+  holds its own `ReleaseStatus`. The core keeps the types, `EventType.RELEASE_*`, `ReleaseStatus` and two
+  unused domain models for a window `D-train` keyed on the release ledger: removed in the first release
+  cut on or after 2026-12-14.

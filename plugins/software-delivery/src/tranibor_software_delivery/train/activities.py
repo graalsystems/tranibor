@@ -17,7 +17,6 @@ from temporalio import activity
 from tranibor_api.db.models import Deployment, Finding, Project, Release, WorkItem
 from tranibor_api.logging import get_logger
 from tranibor_api.services import persist_event
-from tranibor_contracts import EventType
 from tranibor_core import Change, Message, PrRef, utcnow
 from tranibor_orchestrator.activities.base import (
     console_base,
@@ -29,6 +28,8 @@ from tranibor_orchestrator.activities.base import (
 from tranibor_orchestrator.activities.schedules import cron_due
 from tranibor_orchestrator.config import get_settings
 from tranibor_orchestrator.wire_names import read_key
+
+from ..names import ReleaseEvent
 
 logger = get_logger("choregos.train")
 
@@ -150,7 +151,7 @@ async def create_release(payload: dict[str, Any]) -> dict[str, Any]:
         await session.flush()
         await persist_event(
             session,
-            EventType.RELEASE_DEPARTED,
+            ReleaseEvent.DEPARTED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=row.id,
@@ -187,7 +188,7 @@ async def promote(payload: dict[str, Any]) -> dict[str, Any]:
         )
         await persist_event(
             session,
-            EventType.RELEASE_STAGED,
+            ReleaseEvent.STAGED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -273,7 +274,7 @@ async def request_approval(payload: dict[str, Any]) -> dict[str, Any]:
         )
         await persist_event(
             session,
-            EventType.RELEASE_APPROVAL_REQUESTED,
+            ReleaseEvent.APPROVAL_REQUESTED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -341,7 +342,7 @@ async def finish_release(payload: dict[str, Any]) -> dict[str, Any]:
                 row.documents = documents
         await persist_event(
             session,
-            EventType.RELEASE_VERIFIED,
+            ReleaseEvent.VERIFIED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -479,7 +480,7 @@ async def rollback(payload: dict[str, Any]) -> dict[str, Any]:
             )
             await persist_event(
                 session,
-                EventType.RELEASE_ROLLED_BACK,
+                ReleaseEvent.ROLLED_BACK,
                 project_id=bundle.project.id,
                 project_slug=bundle.slug,
                 subject=release.id,

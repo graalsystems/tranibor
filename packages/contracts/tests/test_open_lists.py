@@ -17,12 +17,14 @@ import tranibor_contracts as contracts
 from pydantic import ValidationError
 from tranibor_contracts import (
     CONNECTOR_KINDS,
+    EVENT_TYPES,
     FINDING_TYPES,
     INBOUND_EVENT_TYPES,
     MEMORY_KINDS,
     STAGE_ROLES,
     STEP_EFFECTS,
     ConnectorKind,
+    EventType,
     Finding,
     FindingType,
     InboundEvent,
@@ -35,6 +37,7 @@ from tranibor_contracts import (
 
 LISTS: dict[str, tuple[OpenList, type[StrEnum] | None]] = {
     "inbound event types": (INBOUND_EVENT_TYPES, InboundEventType),
+    "event types": (EVENT_TYPES, EventType),
     "finding types": (FINDING_TYPES, FindingType),
     "memory kinds": (MEMORY_KINDS, MemoryKind),
     "connector kinds": (CONNECTOR_KINDS, ConnectorKind),
@@ -45,6 +48,7 @@ LISTS: dict[str, tuple[OpenList, type[StrEnum] | None]] = {
 #: schema file -> (the JSON pointer of the open field, its list).
 SCHEMA_FIELDS = {
     "inbound-event.schema.json": (("properties", "type"), INBOUND_EVENT_TYPES),
+    "event.schema.json": (("properties", "type"), EVENT_TYPES),
     "finding.schema.json": (("properties", "type"), FINDING_TYPES),
     "context-pack.schema.json": (("$defs", "memory", "properties", "kind"), MEMORY_KINDS),
     "workflow.schema.json": (("$defs", "transition", "properties", "does"), STEP_EFFECTS),

@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Literal
 
-from .enums import ConnectorKind, FindingType, InboundEventType, MemoryKind, Role
+from .enums import ConnectorKind, EventType, FindingType, InboundEventType, MemoryKind, Role
 
 __all__ = [
     "C1",
@@ -36,6 +36,8 @@ __all__ = [
     "DELIVERY_EVENT_TYPES",
     "DELIVERY_FINDING_TYPES",
     "DELIVERY_MEMORY_KINDS",
+    "D_TRAIN",
+    "RELEASE_EVENT_TYPES",
     "ROLE_STORED_AS",
     "ROLE_SUCCESSORS",
     "SOFTWARE_DELIVERY",
@@ -169,6 +171,23 @@ D = Window(
     removed_on=date(2027, 5, 28),
 )
 
+#: Round D of ADR 0181, its release train part: the train's event types (`choregos.release.*`) and its
+#: `ReleaseStatus` are the `software-delivery` plugin's, whose extension declares the types (the strings do
+#: not change: subscribers and the `events` rows key on them) and holds its own statuses. The core keeps
+#: them for one window keyed on the release ledger, as round C2 did: served from the first release cut
+#: after 2026-11-21, removed in the first release cut on or after 2026-12-14 and two weeks after it.
+D_TRAIN = Window(
+    round="D-train",
+    opened_on=date(2026, 11, 21),
+    writers_switch_on=date(2026, 12, 7),
+    removed_on=date(2026, 12, 14),
+)
+
+#: The release train's event types: the plugin's since round D, under the same strings.
+RELEASE_EVENT_TYPES: frozenset[str] = frozenset(
+    member.value for member in EventType if member.value.startswith("choregos.release.")
+)
+
 #: Round C2 of ADR 0181, its `delivery` part: the software fields of the stage, project and policy
 #: contracts become the plugin's (named measured facts, `delivery` sections), read under both forms. The
 #: readers move first (the console, the gates, the train), so its window is the round's own: closed
@@ -233,7 +252,7 @@ def _rest(schema: str, name: str, successor: str) -> FormerName:
 
 
 def _kept(
-    enum: type[InboundEventType | FindingType | MemoryKind | ConnectorKind],
+    enum: type[InboundEventType | FindingType | MemoryKind | ConnectorKind | EventType],
     values: frozenset[str],
     window: Window | None = None,
 ) -> tuple[FormerName, ...]:
@@ -333,6 +352,29 @@ WINDOW: tuple[FormerName, ...] = (
     *_kept(MemoryKind, DELIVERY_MEMORY_KINDS),
     # Round D: the connector kinds leave with the connector types the core still registers under them.
     *_kept(ConnectorKind, DELIVERY_CONNECTOR_KINDS, D),
+    # The release train's (round D, S83-05g): its event types, its statuses and the core's unused models.
+    *_kept(EventType, RELEASE_EVENT_TYPES, D_TRAIN),
+    FormerName(
+        "ReleaseStatus",
+        "the software-delivery plugin's `tranibor_software_delivery.names.ReleaseStatus`",
+        "python",
+        "py:tranibor_contracts.enums:ReleaseStatus",
+        D_TRAIN,
+    ),
+    FormerName(
+        "ReleaseRecord",
+        "the release rows the software-delivery plugin reads (`releases`)",
+        "python",
+        "py:tranibor_core.domain:ReleaseRecord",
+        D_TRAIN,
+    ),
+    FormerName(
+        "ReleaseItem",
+        "the release rows the software-delivery plugin reads (`releases.items`)",
+        "python",
+        "py:tranibor_core.domain:ReleaseItem",
+        D_TRAIN,
+    ),
     # Round C2, the `delivery` part: a stage result's software evidence becomes named measured facts.
     *(
         FormerName(
