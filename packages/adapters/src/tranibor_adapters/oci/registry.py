@@ -226,3 +226,19 @@ async def _token(client: httpx.AsyncClient, challenge: str) -> str:
     if not isinstance(token, str) or not token:
         raise RegistryError("the registry's token endpoint answered no token")
     return token
+
+
+def check_mirrors(mirrors: dict[str, str]) -> None:
+    """`RegistryError` when a mirror is not a registry or repository prefix on both sides (no tag, no
+    digest): `mirrored` could not keep the digest it must keep."""
+    for source, target in mirrors.items():
+        for prefix in (source, target):
+            bare = prefix.strip().rstrip("/")
+            try:
+                named = bool(bare) and parse_ref(f"{bare}/probe").name == f"{bare}/probe"
+            except RegistryError:
+                named = False
+            if not named:
+                raise RegistryError(
+                    f"`{prefix}` is not a registry or repository prefix (a registry host, no tag, no digest)"
+                )
