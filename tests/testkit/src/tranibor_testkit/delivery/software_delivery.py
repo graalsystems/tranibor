@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Helpers for the `github-software-delivery` template tests: a dev project, work items, scripted agents."""
 
 from __future__ import annotations

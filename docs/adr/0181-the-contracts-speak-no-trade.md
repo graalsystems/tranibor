@@ -606,7 +606,7 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   needs. `dsl/trains.py` is gone. **Left**: the guess of `scm` and `cd` from a role's name for an agent that
   declares no `needs:` (a reader of workflows stored before C1, `ROLES_IN_A_REPOSITORY`), and the kinds'
   display order (`requirements.ORDER`), which names them without needing them.
-- **S83-05l.** The core's test fixtures are a shared **test kit**, `packages/testkit` (`tranibor_testkit`):
+- **S83-05l.** The core's test fixtures are a shared **test kit**, `tests/testkit` (`tranibor_testkit`):
   the API's and the orchestrator's conftests, the interpreter's helpers and the suites' kits became its
   modules, and the core's conftests and the plugin's re-export them. A development dependency of the
   workspace, never an image's. The software delivery tests moved to `plugins/software-delivery/tests`
@@ -616,3 +616,13 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   mechanisms (the interpreter's budgets, escalations, resumptions, the catalogues, the readiness, the
   site's pages) that a test drives on `default-simple` or a delivery template, to be driven on a workflow
   of the core's instead; each such rewrite takes a file off the list.
+- **Round D is complete** (2026-11-22). The core runs without the `software-delivery` plugin's extension:
+  the API starts and serves no route of the plugin's, the worker carries none of its workflows or
+  activities (a stand-in answers the one the interpreter calls after every step), every archived history
+  replays with and without it, and the core's whole suite runs without it, less the 91 files
+  `tests/core_alone/need_the_plugins.txt` lists (435 when round D began), whose ceiling only falls. The
+  seams the round added belong to the fifth surface and are frozen with it: the worker seam (with its
+  provisioning steps), the carrier seam (with its needs), the project-figure, series, readiness-item and
+  inbound-hook seams, and the adapter slot. What remains of software delivery in the core is named above,
+  each with why: wire values every history carries, GitHub as a system the core's trackers use, and the
+  windows' former names, each removed by its own PR in the release its window names.

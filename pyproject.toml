@@ -66,7 +66,7 @@ dev = [
 default-groups = ["dev"]
 
 [tool.uv.workspace]
-members = ["packages/*", "apps/api", "apps/orchestrator", "compat/*", "plugins/investment-research", "plugins/software-delivery", "plugins/procurement", "plugins/vault-transit"]
+members = ["packages/*", "apps/api", "apps/orchestrator", "compat/*", "plugins/investment-research", "plugins/software-delivery", "plugins/procurement", "plugins/vault-transit", "tests/testkit"]
 exclude = ["packages/contracts/ts", "apps/web"]
 
 [tool.uv.sources]
@@ -131,8 +131,6 @@ max-statements = 80
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S", "PLR", "ASYNC"]
 "tests/**" = ["S", "PLR", "ASYNC"]
-# The test kit is test code the core's suites and the plugins' share (ADR 0181, round D).
-"packages/testkit/**" = ["S", "PLR", "ASYNC"]
 "**/fakes/**" = ["S"]
 # A plugin extension's fake (ADR 0005), named after its family rather than kept under `fakes/`.
 "plugins/*/src/**/fake.py" = ["S"]

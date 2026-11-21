@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The workflows the repository ships that merge a pull request, and a way to walk any of them.
 
 Every one is played the same way: the fake executor answers each agent step with what its transition

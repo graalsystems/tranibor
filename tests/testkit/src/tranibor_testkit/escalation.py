@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Escalation helpers: the human requests a work item raised."""
 
 from __future__ import annotations

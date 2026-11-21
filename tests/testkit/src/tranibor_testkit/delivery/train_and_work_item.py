@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Helpers for the tests that drive a work item and its release train together."""
 
 from __future__ import annotations
