@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hmac
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -58,6 +59,12 @@ async def get_db() -> AsyncIterator[AsyncSession]:
             await session.rollback()
             await run_after_end(session)
             raise
+        except BaseException:
+            # A cancellation: what waits for the transaction's end is still due (ADR 0211).
+            with suppress(Exception):
+                await session.rollback()
+            await run_after_end(session)
+            raise
         await run_after_commit(session)
 
 
@@ -86,6 +93,12 @@ async def get_platform_db() -> AsyncIterator[AsyncSession]:
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
+            raise
+        except BaseException:
+            # A cancellation: what waits for the transaction's end is still due (ADR 0211).
+            with suppress(Exception):
+                await session.rollback()
             await run_after_end(session)
             raise
         await run_after_commit(session)

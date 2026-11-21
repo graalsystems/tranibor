@@ -84,3 +84,67 @@ async def test_wrote_in_transaction_follows_the_writes_of_the_current_transactio
         assert wrote_in_transaction(session), "a flush is a write"
         await session.rollback()
         assert not wrote_in_transaction(session), "a rollback ends it"
+
+
+async def test_a_released_savepoint_is_not_a_commit(app: Any, org: str) -> None:
+    """What waits for a commit, registered in a SAVEPOINT that was released, dies when the outer
+    transaction rolls back (ADR 0085), and runs once when it commits."""
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import after_commit, session_scope
+
+    ran, mark = _marker()
+    for fail in (True, False):
+        with contextlib.suppress(RuntimeError):
+            async with session_scope(orgs="*") as session:
+                await session.execute(update(Organization).where(Organization.slug == org).values(name="x"))
+                async with session.begin_nested():
+                    after_commit(session, mark(f"fail={fail}"))
+                if fail:
+                    raise RuntimeError("the outer transaction fails")
+    assert ran == ["fail=False"]
+
+
+async def test_what_waits_for_the_end_waits_for_the_outer_transaction(app: Any, org: str) -> None:
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import after_end, session_scope, wrote_in_transaction
+
+    ran, mark = _marker()
+    async with session_scope(orgs="*") as session:
+        await session.execute(update(Organization).where(Organization.slug == org).values(name="x"))
+        async with session.begin_nested():
+            after_end(session, mark("ended"))
+        assert wrote_in_transaction(session), "a released savepoint leaves the outer write lock"
+        with contextlib.suppress(RuntimeError):
+            async with session.begin_nested():
+                raise RuntimeError("the savepoint fails")
+        assert wrote_in_transaction(session), "a rolled-back savepoint leaves it too"
+        assert ran == [], "not before the outer transaction ends"
+    assert ran == ["ended"]
+
+
+async def test_a_write_only_in_a_rolled_back_savepoint_still_counts(app: Any, org: str) -> None:
+    """SQLite keeps the write lock until the outer transaction ends, whatever the savepoint did."""
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import session_scope, wrote_in_transaction
+
+    async with session_scope(orgs="*") as session:
+        with contextlib.suppress(RuntimeError):
+            async with session.begin_nested():
+                await session.execute(update(Organization).where(Organization.slug == org).values(name="y"))
+                raise RuntimeError("the savepoint fails")
+        assert wrote_in_transaction(session)
+
+
+async def test_a_cancelled_scope_still_runs_what_waits_for_its_end(app: Any) -> None:
+    import asyncio
+
+    from tranibor_api.db.session import after_commit, after_end, session_scope
+
+    ran, mark = _marker()
+    with contextlib.suppress(asyncio.CancelledError):
+        async with session_scope(orgs="*") as session:
+            await session.execute(text("SELECT 1"))
+            after_end(session, mark("ended"))
+            after_commit(session, mark("never: nothing was committed"))
+            raise asyncio.CancelledError
+    assert ran == ["ended"]

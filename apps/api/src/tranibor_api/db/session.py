@@ -37,18 +37,17 @@ def after_commit(session: AsyncSession, callback: Callable[[], Awaitable[Any]]) 
 
 
 async def run_after_commit(session: AsyncSession) -> None:
-    """The callbacks the last commits released, once each. A failure is logged, not raised: the
-    transaction is already committed, and the relay starts what the callback could not."""
-    ready: list[Callable[[], Awaitable[Any]]] = session.info.pop(_READY, [])
-    for callback in ready:
-        try:
-            await callback()
-        except Exception as error:
-            logger.warning("after_commit.failed", error=f"{type(error).__name__}: {error}"[:300])
+    """The callbacks the last commits released, once each, then what waited for the transaction's
+    end (`after_end`). A failure is logged, not raised: the transaction is already committed, and the
+    relay starts what the callback could not."""
+    await _run(session, _READY)
+    await _run(session, _ENDED)
 
 
 #: What waits for the transaction to END, whether it commits or rolls back (#2031).
 _ENDING = "choregos.after_end.pending"
+#: What the root transaction's end released, for `run_after_end` or `run_after_commit` to run.
+_ENDED = "choregos.after_end.ready"
 #: Set once the current transaction executed a write: a second writer would wait for its end.
 _WROTE = "choregos.wrote"
 
@@ -71,26 +70,43 @@ def wrote_in_transaction(session: AsyncSession) -> bool:
 
 
 async def run_after_end(session: AsyncSession) -> None:
-    """After a rollback: the callbacks waiting for the transaction's end, once each (#2031). A
+    """After a rollback or a cancellation: the callbacks waiting for the transaction's end, once
+    each (#2031) — and only those: what waits for a commit dies with the rollback (ADR 0085). A
     failure is logged, not raised: the caller re-raises its own error."""
-    await run_after_commit(session)
+    await _run(session, _ENDED)
+
+
+async def _run(session: AsyncSession, key: str) -> None:
+    ready: list[Callable[[], Awaitable[Any]]] = session.info.pop(key, [])
+    for callback in ready:
+        try:
+            await callback()
+        except Exception as error:
+            logger.warning("after_commit.failed", error=f"{type(error).__name__}: {error}"[:300])
 
 
 @event.listens_for(Session, "after_commit")
 def _released(session: Session) -> None:
-    session.info.pop(_WROTE, None)
-    pending = [*session.info.pop(_PENDING, []), *session.info.pop(_ENDING, [])]
+    pending = session.info.pop(_PENDING, None)
     if pending:
         session.info.setdefault(_READY, []).extend(pending)
 
 
 @event.listens_for(Session, "after_rollback")
 def _dropped(session: Session) -> None:
-    session.info.pop(_WROTE, None)
     session.info.pop(_PENDING, None)
+
+
+@event.listens_for(Session, "after_transaction_end")
+def _ended(session: Session, transaction: Any) -> None:
+    # The ROOT transaction only: a SAVEPOINT released or rolled back leaves the outer transaction,
+    # its write lock and what waits for its end in place (#2031).
+    if transaction.parent is not None:
+        return
+    session.info.pop(_WROTE, None)
     ending = session.info.pop(_ENDING, None)
     if ending:
-        session.info.setdefault(_READY, []).extend(ending)
+        session.info.setdefault(_ENDED, []).extend(ending)
 
 
 @event.listens_for(Session, "after_flush")
@@ -368,6 +384,12 @@ async def session_scope(
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
+            raise
+        except BaseException:
+            # A cancellation: what waits for the transaction's end is still due (ADR 0211).
+            with suppress(Exception):
+                await session.rollback()
             await run_after_end(session)
             raise
         await run_after_commit(session)

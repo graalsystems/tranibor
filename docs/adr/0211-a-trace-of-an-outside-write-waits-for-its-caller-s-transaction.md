@@ -20,13 +20,17 @@ lost, but every such write held a second pooled connection while the first waite
 ## Decision
 
 1. **A session knows whether its transaction wrote.** `wrote_in_transaction(session)`: an executed
-   INSERT, UPDATE or DELETE, or a flush, since the transaction began; a commit or a rollback clears it.
-   A pending change that was not flushed takes no lock and does not count.
-2. **`after_end(session, callback)`** runs `callback` once the transaction has ended, committed OR
-   rolled back — the counterpart of `after_commit` (ADR 0085), which runs only after a commit. Every
-   owner of a session drains it: `run_after_commit` after a commit, `run_after_end` after a rollback,
-   before the error is raised again. Best effort, like `after_commit`: a crash between the end and the
-   callback loses it.
+   INSERT, UPDATE or DELETE, or a flush, since the ROOT transaction began; only the end of the root
+   transaction clears it. A SAVEPOINT released or rolled back leaves it set: the outer transaction
+   still holds its lock (SQLite keeps it even for a write made only in a rolled-back savepoint). A
+   pending change that was not flushed takes no lock and does not count.
+2. **`after_end(session, callback)`** runs `callback` once the ROOT transaction has ended, committed
+   OR rolled back — the counterpart of `after_commit` (ADR 0085), which runs only after a commit; a
+   savepoint's end releases nothing. Every owner of a session drains it: `run_after_commit` after a
+   commit, `run_after_end` after a rollback or a cancellation (`BaseException`), before the error is
+   raised again. `run_after_end` runs only what waited for the end: an `after_commit` callback that a
+   released savepoint queued still dies with the outer rollback. Best effort, like `after_commit`: a
+   crash between the end and the callback, or a second cancellation during it, loses it.
 3. **The audit hook defers only when it must.** When the caller's transaction has written, the entry
    is written once that transaction ends, still in a transaction of its own, so it survives the
    caller's rollback. Otherwise it is written at once, as before.

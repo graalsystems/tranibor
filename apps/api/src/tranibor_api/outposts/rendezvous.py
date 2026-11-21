@@ -256,6 +256,12 @@ async def in_scope(outpost_id: str) -> AsyncIterator[Scope | None]:
             await session.rollback()
             await run_after_end(session)
             raise
+        except BaseException:
+            # A cancellation: what waits for the transaction's end is still due (ADR 0211).
+            with contextlib.suppress(Exception):
+                await session.rollback()
+            await run_after_end(session)
+            raise
         await run_after_commit(session)
 
 
