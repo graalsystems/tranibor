@@ -5,7 +5,8 @@ import { expect, test } from "@playwright/test";
 test("a tag chip filters the registry and writes the address", async ({ page }) => {
   await page.goto("/agents");
   await expect(page.getByTestId("agent-developer")).toBeVisible();
-  await page.getByTestId("tag-filter").getByRole("button", { name: /^madr \(1\)/ }).click();
+  // The registry is paged by the server (ADR 0206): a chip no longer counts the agents it would keep.
+  await page.getByTestId("tag-filter").getByRole("button", { name: "madr", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\?tag=madr$/);
   await expect(page.getByTestId("agent-architect")).toBeVisible();
   await expect(page.getByTestId("agent-developer")).toHaveCount(0);
