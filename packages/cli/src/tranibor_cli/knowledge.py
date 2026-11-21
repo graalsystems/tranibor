@@ -421,6 +421,13 @@ def eval_(
     finally:
         api.close()
     result = base.get("eval_result") or {}
+    indexing = result.get("indexing") or {}
+    if indexing.get("in_progress"):
+        waiting = int(indexing.get("pending") or 0) + int(indexing.get("converting") or 0)
+        console.print(
+            f"indexing in progress: {waiting} document(s) are still being converted and are not in the "
+            "index yet, so this score is not final. Run `knowledge eval` again once they are ready."
+        )
     console.print(f"recall@{result.get('k', 5)} = {result.get('recall')} (mode: {result.get('mode')})")
     if result.get("hit_at_1") is not None:
         console.print(f"hit@1 = {result['hit_at_1']}")
