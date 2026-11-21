@@ -74,7 +74,7 @@ async def test_an_adr_number_taken_during_the_ci_is_refused_when_the_ci_turns_gr
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     project_id = await create_dev_project(setup)
     item_id, tracker_key = await create_ticket(setup, project_id, 14, "study")
@@ -113,7 +113,7 @@ async def test_an_adr_number_taken_during_the_ci_is_refused_when_the_ci_turns_gr
     refused = [v for v in await _gate_journal(item_id) if v["name"] == "adr_number_free" and not v["passed"]]
     assert refused and "already taken on the default branch" in refused[0]["detail"]
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-gates-reread-after-wait-S22-32.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

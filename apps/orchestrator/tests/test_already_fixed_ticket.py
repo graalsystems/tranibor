@@ -101,7 +101,7 @@ async def test_a_no_change_ticket_green_on_main_closes_as_already_fixed_without_
     setup: Fixture, temporal_env: Any, worker_factory: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     project_id = await create_dev_project(setup)
     item_id, key = await create_ticket(setup, project_id, 18, "dev-simple")
@@ -129,7 +129,7 @@ async def test_a_no_change_ticket_green_on_main_closes_as_already_fixed_without_
     assert "0 files, 0 lines, no commit, no branch pushed" in comment, comment
     assert "412 run, 0 failed" in comment and "Already fixed" in comment, comment
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-already-fixed-S22-47.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

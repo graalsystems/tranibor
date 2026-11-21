@@ -11,10 +11,9 @@ from typing import Any, TypedDict
 from tranibor_api.logging import configure_logging, get_logger
 from tranibor_core import telemetry
 
-from .activities import ALL_ACTIVITIES
 from .config import ALL_QUEUES, OrchestratorSettings, get_settings
+from .extension_parts import all_activities, all_workflows
 from .queues import ACTIVITIES_BY_QUEUE
-from .workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
 logger = get_logger("choregos.worker")
 
@@ -25,9 +24,10 @@ def activities_for(queue: str) -> list[Any]:
     The net is deliberate: the workflows now schedule each activity on its own queue
     (`workflows.scheduling`), but a task already waiting on `orchestrator` at the time of a version
     upgrade must not be left orphaned. The split is guaranteed by a test, not by an absence of
-    registration.
+    registration. The extensions' activities (the worker seam, ADR 0181 round D) are in it, placed on
+    their queues once `all_activities` resolved them.
     """
-    everything = [*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES]
+    everything = all_activities()
     if queue == "orchestrator":
         return everything
     names = ACTIVITIES_BY_QUEUE.get(queue, ())
@@ -136,11 +136,13 @@ def build_workers(client: Any, queues: list[str], settings: OrchestratorSettings
     worker of ADR 0212, so that a demo never registers anything the product does not)."""
     from temporalio.worker import Worker
 
+    # The core's workflows and the extensions' (the worker seam): a clash of names stops the start here.
+    workflows = all_workflows()
     return [
         Worker(
             client,
             task_queue=queue,
-            workflows=ALL_WORKFLOWS if queue == "orchestrator" else [],
+            workflows=workflows if queue == "orchestrator" else [],
             activities=activities_for(queue),
             **concurrency_options(settings),
         )

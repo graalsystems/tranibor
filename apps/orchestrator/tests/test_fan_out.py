@@ -186,7 +186,7 @@ async def test_the_parent_waits_for_every_child_then_reads_what_they_concluded(
 ) -> None:
     from temporalio.api.enums.v1 import EventType
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _install(setup, _research(), {"symbols": SYMBOLS})
     with temporal_env.auto_time_skipping_disabled():
@@ -235,7 +235,7 @@ async def test_the_parent_waits_for_every_child_then_reads_what_they_concluded(
         if e.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED
     ]
     assert signals.count("child_settled") == 2, "each child tells its parent: no wait for the re-read"
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-fan-out-S38-12.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

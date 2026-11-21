@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: Apache-2.0
+"""The core runs with the first-party plugins' extensions uninstalled (ADR 0181, round D).
+
+The `core-without-plugins` CI job builds the environment without `tranibor-software-delivery` and
+`tranibor-investment-research` (`uv sync --no-install-package ...`) and sets `TRANIBOR_TEST_CORE_ALONE=1`.
+These tests then check that the environment really lacks them (a job that installed them by mistake would
+prove nothing), that the API and the worker start, and that what the plugins serve is refused naming the
+plugin instead of failing at random. Anywhere else they are skipped: the suite's own environment installs
+both extensions.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import os
+from importlib import metadata
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    os.environ.get("TRANIBOR_TEST_CORE_ALONE") != "1",
+    reason="the core alone: the `core-without-plugins` CI job (TRANIBOR_TEST_CORE_ALONE=1)",
+)
+
+#: The first-party plugins whose extensions the job leaves out: entry point -> import package.
+LEFT_OUT = {
+    "software-delivery": "tranibor_software_delivery",
+    "investment-research": "tranibor_investment_research",
+}
+
+WORKFLOW = """apiVersion: choregos/v1
+kind: Workflow
+metadata: {name: delivery, version: 1}
+actors:
+  dev: {type: agent, role: implement}
+states:
+  todo: {display: To do, kind: wait}
+  done: {display: Done, terminal: true}
+transitions:
+  - {id: t-do, from: todo, to: done, by: dev, gates: [{name: ci_green}]}
+"""
+
+
+def test_the_environment_really_lacks_the_plugins_extensions() -> None:
+    points = {point.name for point in metadata.entry_points(group="choregos.plugins")}
+    for name, package in LEFT_OUT.items():
+        assert name not in points, f"the extension `{name}` is installed: this job proves nothing"
+        assert importlib.util.find_spec(package) is None, package
+    from tranibor_adapters import load_extensions
+
+    assert not set(load_extensions()) & set(LEFT_OUT)
+
+
+def test_the_api_starts() -> None:
+    from tranibor_api.main import create_app
+
+    app = create_app()
+    paths = set(app.openapi()["paths"])
+    assert "/api/v1/orgs/{org}/projects" in paths and "/api/v1/projects/{id}/actions" in paths
+
+
+def test_the_worker_builds_its_workflows_and_activities_without_them() -> None:
+    from tranibor_core.worker_parts import declared_worker_parts
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows, extension_parts
+    from tranibor_orchestrator.worker import activities_for
+
+    assert not set(declared_worker_parts()) & set(LEFT_OUT)
+    assert extension_parts() == []
+    assert all_workflows() and all_activities()
+    assert activities_for("orchestrator") and activities_for("tracker")
+
+
+def test_a_gate_of_the_plugin_is_refused_naming_it() -> None:
+    from tranibor_core import parse_workflow
+    from tranibor_core.gates import known_gates, unavailable
+
+    assert "ci_green" not in known_gates()
+    why = unavailable("ci_green")
+    assert why is not None and "`software-delivery`" in why
+    _, report = parse_workflow(WORKFLOW, strict=False)
+    assert [e.code for e in report.errors if "software-delivery" in e.message] == ["gate.unknown"]

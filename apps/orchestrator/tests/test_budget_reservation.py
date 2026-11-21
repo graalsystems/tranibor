@@ -153,7 +153,7 @@ async def test_a_ticket_with_nothing_left_goes_to_a_person_without_a_run(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await leave_on_ticket(setup, 0.0)
     async with worker_factory():
@@ -166,7 +166,7 @@ async def test_a_ticket_with_nothing_left_goes_to_a_person_without_a_run(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-budget-reservation-S27-02.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

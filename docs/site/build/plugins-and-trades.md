@@ -49,7 +49,7 @@ the platform's own processes.
 | Gates and the facts they read | | `gates.gate` and `gates.context_provider`, with its `judged` hook ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md), rounds C0 and C2) |
 | Step effects for `does:` | | `step_effects.step_effect` (ADR 0181, round C0) |
 | Inbound event types, finding types, memory kinds, stage roles | | `INBOUND_EVENT_TYPES`, `FINDING_TYPES`, `MEMORY_KINDS` of `tranibor_contracts`, `stage_roles.declare_stage_roles` (ADR 0181, round C0) |
-| Durable code of its own (a release train) | | a worker seam (ADR 0181, round D) |
+| Durable code of its own (a release train) | | Temporal workflows and activities, through `worker_parts.declare_worker_parts` (ADR 0181, round D) |
 
 A deterministic job step runs an image the operator allows (`TRANIBOR_JOB_IMAGES`); a plugin's template
 names it.

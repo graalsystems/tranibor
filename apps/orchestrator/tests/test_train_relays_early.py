@@ -166,7 +166,7 @@ async def test_a_train_relays_right_after_its_departure(temporal_env: Any, worke
     """A departure adds dozens of events: past the threshold, the train relays at once, without
     waiting to go back through the collection (where the relay at rest would have done it before S22-27)."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.workflows.train import TRAIN_CONTINUES_AS_NEW_EARLY
 
     async with worker_factory(replacements=_departing()):
@@ -193,7 +193,7 @@ async def test_a_train_relays_right_after_its_departure(temporal_env: Any, worke
     assert continued_input["carried_items"] == [] and continued_input["batch_no"] == 2
 
     # The history of the relay replays against the current code, and is archived for those to come.
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "train-relays-early-S22-27.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -240,7 +240,7 @@ async def test_a_run_from_before_replays_against_the_lowered_threshold(
     15,000. Then we show that this same history would NOT replay if the threshold had merely been lowered,
     without a new marker: this is what made `TRAIN_CONTINUES_AS_NEW_EARLY` necessary."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
     from tranibor_orchestrator.workflows import train as module
 
     monkeypatch.setattr(module, "RELAY_THRESHOLD", 10**9)
@@ -267,10 +267,10 @@ async def test_a_run_from_before_replays_against_the_lowered_threshold(
     # Today's code, at scale: the new marker is asked from 100, returns `False`, and
     # the run keeps its former relay.
     monkeypatch.setattr(module, "RELAY_THRESHOLD", 100)
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
 
     # The threshold merely lowered (the old marker asked from 100): determinism gap.
     monkeypatch.setattr(module, "FORMER_RELAY_THRESHOLD", 100)
-    replay = await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history, raise_on_replay_failure=False)
+    replay = await Replayer(workflows=all_workflows()).replay_workflow(history, raise_on_replay_failure=False)
     assert replay.replay_failure is not None
     assert "TMPRL1100" in str(replay.replay_failure)
