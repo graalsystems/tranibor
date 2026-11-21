@@ -9,8 +9,10 @@ only a block (Next would then delete the file, and `apps/web/CLAUDE.md` imports 
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
+import subprocess
 
 WEB = pathlib.Path(__file__).resolve().parents[2] / "apps" / "web"
 
@@ -27,3 +29,23 @@ def test_agents_md_holds_no_managed_block_and_says_something() -> None:
     assert "nextjs-agent-rules" not in text, "a Next-managed block would be removed or rewritten"
     assert "nextjs-agent-feedback" not in text
     assert len(text.strip()) > 200
+
+
+def test_next_env_is_generated_not_tracked() -> None:
+    """`next dev` rewrites `next-env.d.ts` (Next 16 points it at `.next/dev/types`), so a tracked copy
+    is dirtied by every development run. It is ignored, and `pnpm typecheck` generates it first."""
+    root = WEB.parents[1]
+    tracked = subprocess.run(
+        ["git", "ls-files", "apps/web/next-env.d.ts"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert tracked == "", "apps/web/next-env.d.ts is tracked again: `next dev` will dirty it"
+    ignored = (root / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert "apps/web/next-env.d.ts" in ignored
+    scripts = json.loads((WEB / "package.json").read_text(encoding="utf-8"))["scripts"]
+    assert scripts["typecheck"].startswith("next typegen && tsc"), (
+        "typecheck must run `next typegen` first, or a clean checkout has no next-env.d.ts"
+    )
