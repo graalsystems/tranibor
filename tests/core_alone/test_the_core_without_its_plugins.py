@@ -57,16 +57,25 @@ def test_the_api_starts() -> None:
     app = create_app()
     paths = set(app.openapi()["paths"])
     assert "/api/v1/orgs/{org}/projects" in paths and "/api/v1/projects/{id}/actions" in paths
+    # The release train's routes are the `software-delivery` plugin's (round D, S83-05c).
+    assert not [path for path in paths if "/trains/" in path or path.startswith("/api/v1/releases/")]
 
 
 def test_the_worker_builds_its_workflows_and_activities_without_them() -> None:
     from tranibor_core.worker_parts import declared_worker_parts
-    from tranibor_orchestrator.extension_parts import all_activities, all_workflows, extension_parts
+    from tranibor_orchestrator.extension_parts import (
+        all_activities,
+        all_workflows,
+        extension_parts,
+        workflow_name,
+    )
     from tranibor_orchestrator.worker import activities_for
 
     assert not set(declared_worker_parts()) & set(LEFT_OUT)
     assert extension_parts() == []
     assert all_workflows() and all_activities()
+    # The release train is the `software-delivery` plugin's (round D, S83-05b).
+    assert "ReleaseTrain" not in {workflow_name(cls) for cls in all_workflows()}
     assert activities_for("orchestrator") and activities_for("tracker")
 
 

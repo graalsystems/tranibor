@@ -90,8 +90,9 @@ def test_loading_the_extension_imports_none_of_the_train() -> None:
         "import sys\n"
         "from tranibor_software_delivery.extension import register\n"
         "register()\n"
-        "assert not [m for m in sys.modules if m.startswith('tranibor_software_delivery.train.')], "
-        "sorted(sys.modules)\n"
+        "train = 'tranibor_software_delivery.train.'\n"
+        "loaded = [m for m in sys.modules if m in {train + 'workflow', train + 'activities'}]\n"
+        "assert not loaded, loaded\n"
     )
     subprocess.run([sys.executable, "-c", probe], check=True, cwd=ROOT)
 

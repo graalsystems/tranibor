@@ -10,4 +10,5 @@ provider `delivery` whose facts they judge. The published API and worker images 
 
 Since round D it also holds the release train: its workflow `ReleaseTrain` and its activities
 (`train/`), which the orchestrator's workers carry through the worker seam
-(`tranibor_core.worker_parts`) under the names every recorded history carries.
+(`tranibor_core.worker_parts`) under the names every recorded history carries, and the train's routes
+(`train/api.py`), which the API serves through `extensions.declare_router`.
