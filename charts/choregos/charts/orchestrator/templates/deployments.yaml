@@ -22,6 +22,7 @@ spec:
         app.kubernetes.io/instance: {{ $root.Release.Name }}
         choregos/queue: {{ .name }}
     spec:
+      enableServiceLinks: false
       serviceAccountName: choregos-orchestrator
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       {{- include "choregos.antiAffinity" (dict "global" $root.Values.global "labels" (dict "app.kubernetes.io/name" "choregos-orchestrator" "choregos/queue" .name)) | nindent 6 }}

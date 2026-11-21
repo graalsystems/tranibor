@@ -70,6 +70,7 @@ spec:
         {{- end }}
         checksum/config: {{ toJson $hashed | sha256sum }}
     spec:
+      enableServiceLinks: false
       serviceAccountName: choregos-api
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       {{- include "choregos.antiAffinity" (dict "global" .Values.global "labels" (dict "app.kubernetes.io/name" "choregos-api" "app.kubernetes.io/instance" .Release.Name)) | nindent 6 }}

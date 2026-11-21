@@ -31,6 +31,7 @@ spec:
         app.kubernetes.io/part-of: choregos
         app.kubernetes.io/component: demo-fakes
     spec:
+      enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       automountServiceAccountToken: false
       securityContext: {{- toYaml .Values.global.podSecurityContext | nindent 8 }}

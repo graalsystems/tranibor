@@ -288,6 +288,9 @@ class KubernetesJobExecutor:
             "restartPolicy": "Never",
             "serviceAccountName": self.service_account,
             "automountServiceAccountToken": False,
+            # The cluster's services are not announced as `<SERVICE>_PORT` variables (finding #2057):
+            # the runner finds what it calls by name, and the agent has no map of the namespace.
+            "enableServiceLinks": False,
             # The POD's context, not only the container's: the strict Kyverno rule
             # (`infra/policies/pod-security.yaml`) requires the seccomp profile at this level.
             "securityContext": {
@@ -445,8 +448,6 @@ class KubernetesJobExecutor:
                 },
             }
         )
-        # The cluster's services are not announced to the container as variables.
-        pod_spec["enableServiceLinks"] = False
         pod_spec["terminationGracePeriodSeconds"] = agent.termination_grace_s
 
     async def renew(self, ref: ExecRef, run_token: str) -> None:

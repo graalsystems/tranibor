@@ -44,6 +44,7 @@ spec:
         checksum/relay: {{ include (print $.Template.BasePath "/relay-config.yaml") . | sha256sum }}
       {{- end }}
     spec:
+      enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       securityContext:
         runAsNonRoot: true

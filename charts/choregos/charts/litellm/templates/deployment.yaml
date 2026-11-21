@@ -112,6 +112,7 @@ spec:
       annotations:
         checksum/config: {{ print (toJson $models) (toJson .Values.upstream) (toJson .Values.guardrail) (toJson .Values.spans) $guard $spans $otlp | sha256sum }}
     spec:
+      enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       # The Kyverno `non-root` rule has been strict since 2026-09-25: the pod context is
       # required. The image runs as uid 1000 (verified: `python -c "import litellm"` under

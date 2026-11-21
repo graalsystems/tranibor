@@ -53,6 +53,15 @@ async def test_the_runner_pod_mounts_no_kubernetes_token() -> None:
     assert pod["serviceAccountName"] == "choregos-runner"
 
 
+async def test_the_runner_pod_is_not_handed_the_namespace_s_services_as_variables() -> None:
+    """Finding #2057: without it, every `choregos-*` Service becomes `CHOREGOS_*_PORT=tcp://...` in
+    the pod, which the R4 fallback (ADR 0176) took for an old setting of the platform."""
+    client = _RecordingClient()
+    await KubernetesJobExecutor(client=client).start(_spec())  # type: ignore[arg-type]
+    job = next(body for method, path, body in client.calls if method == "POST" and path.endswith("/jobs"))
+    assert job["spec"]["template"]["spec"]["enableServiceLinks"] is False
+
+
 async def test_the_runner_pods_limits_follow_the_configuration() -> None:
     """Under a LimitRange of 4 Gi per container, a 6 Gi ceiling makes the pod refused."""
     client = _RecordingClient()

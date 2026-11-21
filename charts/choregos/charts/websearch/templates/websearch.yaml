@@ -87,6 +87,7 @@ spec:
         # SearXNG reads its settings at start only (the init container copies them): the digest restarts the pod.
         checksum/settings: {{ print (toJson .Values.searxng) $relay.enabled | sha256sum }}
     spec:
+      enableServiceLinks: false
       automountServiceAccountToken: false
       {{- include "choregos.imagePullSecrets" . | nindent 6 }}
       # The image starts as root then hands over to `searxng` (977); started as 977 the entrypoint tries
@@ -171,6 +172,7 @@ spec:
     metadata:
       labels: { app.kubernetes.io/name: choregos-firecrawl-redis, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
     spec:
+      enableServiceLinks: false
       automountServiceAccountToken: false
       {{- include "choregos.imagePullSecrets" . | nindent 6 }}
       # The image starts as root then hands over to `redis` (999): started as 999 directly.
@@ -210,6 +212,7 @@ spec:
     metadata:
       labels: { app.kubernetes.io/name: choregos-firecrawl, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
     spec:
+      enableServiceLinks: false
       automountServiceAccountToken: false
       {{- include "choregos.imagePullSecrets" . | nindent 6 }}
       # The image runs as root by default but writes nowhere in /app: uid 1000 is enough.
@@ -265,6 +268,7 @@ spec:
     metadata:
       labels: { app.kubernetes.io/name: choregos-relay, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
     spec:
+      enableServiceLinks: false
       automountServiceAccountToken: false
       {{- include "choregos.imagePullSecrets" . | nindent 6 }}
       securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
