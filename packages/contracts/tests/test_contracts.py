@@ -146,14 +146,27 @@ def _schema_fields(node: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {}
 
 
+class _Annotated:
+    """A computed field's return type, read as a field's annotation."""
+
+    def __init__(self, annotation: Any) -> None:
+        self.annotation = annotation
+
+
 def _compare(trail: str, node: dict[str, Any], model: type, gaps: list[str]) -> None:
     schema_fields = _schema_fields(node)
     if not schema_fields:
         return
-    model_fields = {
+    model_fields: dict[str, Any] = {
         (info.alias or name): info
         for name, info in model.model_fields.items()  # type: ignore[attr-defined]
     }
+    # A field the model derives and writes (a `delivery` section, ADR 0181 C2) is declared by the schema too.
+    computed = {
+        name: info.return_type
+        for name, info in model.model_computed_fields.items()  # type: ignore[attr-defined]
+    }
+    model_fields.update({name: _Annotated(annotation) for name, annotation in computed.items()})
     missing_from_schema = set(model_fields) - set(schema_fields)
     missing_from_model = set(schema_fields) - set(model_fields)
     for name in sorted(missing_from_schema):

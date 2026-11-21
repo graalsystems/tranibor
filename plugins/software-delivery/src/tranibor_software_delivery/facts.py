@@ -24,6 +24,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from tranibor_contracts.delivery import branch_of
 from tranibor_core.gates import (
     ALREADY_FIXED_GATE,
     JudgedRequest,
@@ -64,7 +65,7 @@ async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
     found = target_or_none(bundle, item)
     repo_config = found.repo if found is not None else None
     scm = await scm_for(session, bundle, repo_config.url) if repo_config is not None else bundle.adapters.scm
-    branch = (result.artifacts.branch if result else None) or (
+    branch = (branch_of(result.artifacts) if result else None) or (
         bundle.config.branch_for(item.tracker_key, repo=repo_config) if repo_config is not None else ""
     )
     # The commit this evaluation judges (ADR 0171): the head of the branch, read once. Every read of
@@ -167,7 +168,7 @@ async def judged(judgment: JudgedRequest) -> Mapping[str, Any] | None:
         head, branch = facts.head_sha, facts.branch or ""
     else:
         result = request.result
-        branch = (result.artifacts.branch if result else None) or bundle.config.branch_for(
+        branch = (branch_of(result.artifacts) if result else None) or bundle.config.branch_for(
             item.tracker_key, repo=repo_config
         )
         head, _ = await head_of(scm, repo_config, branch)
@@ -209,7 +210,11 @@ async def _pull_request_state(
 def _run_cloned(run: Any) -> bool:
     """Whether the run cloned the repository: `False` only for a recorded `repo: null` (ADR 0119)."""
     stage_input = (run.stage_input if run is not None else None) or {}
-    return "repo" not in stage_input or stage_input["repo"] is not None
+    if "repo" in stage_input:
+        return stage_input["repo"] is not None
+    # A stage input written with its `delivery` section alone (ADR 0181 C2).
+    section = stage_input.get("delivery")
+    return not isinstance(section, dict) or section.get("repo") is not None
 
 
 def empty_diff_of_unchanged_run(

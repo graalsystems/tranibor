@@ -178,6 +178,30 @@
             }
           },
           "default": {}
+        },
+        "delivery": {
+          "x-plugin": "software-delivery",
+          "description": "The software-delivery plugin's section (ADR 0181 C2): the branch and the commits. Read as one with the former `branch` and `commits` until the window list removes them.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "branch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "commits": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
         }
       }
     },

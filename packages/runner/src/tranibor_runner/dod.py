@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from tranibor_contracts import Evidence, StageInput
+from tranibor_contracts.delivery import commands_of
 
 from .launcher import Launcher
 from .workspace import CommandResult, run_command
@@ -102,12 +103,13 @@ class DodReport:
 
 def commands_for(stage_input: StageInput, workspace: Path) -> dict[str, str]:
     """Repository commands: the project's first, otherwise the language's conventions."""
-    project = stage_input.project
+    # The `delivery` section's commands first, the former fields as a fallback (ADR 0181 C2).
+    commands = commands_of(stage_input)
     defaults = LANGUAGE_DEFAULTS.get(_detect_language(workspace), {})
     return {
-        "tests": _command(project.test_command, defaults.get("test", "")),
-        "lint": _command(project.lint_command, defaults.get("lint", "")),
-        "typecheck": _command(project.typecheck_command, defaults.get("typecheck", "")),
+        "tests": _command(commands.test, defaults.get("test", "")),
+        "lint": _command(commands.lint, defaults.get("lint", "")),
+        "typecheck": _command(commands.typecheck, defaults.get("typecheck", "")),
     }
 
 
