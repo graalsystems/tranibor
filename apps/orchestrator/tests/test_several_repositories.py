@@ -440,7 +440,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Run, WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _scene(setup, fields={"repository": "diamclt"})  # a label typed in the tracker
     scripted(setup.adapters, refine_result("spec"))
@@ -467,7 +467,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-repository-refused-S58-02.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

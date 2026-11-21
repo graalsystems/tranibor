@@ -120,7 +120,7 @@ async def test_a_stopped_run_ends_its_stage_and_the_work_item_waits_for_a_person
     setup: Fixture, temporal_env: Any, worker_factory: Any, one_second_polls: None
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     keep_the_first_run_running(setup)
     async with worker_factory():
@@ -155,7 +155,7 @@ async def test_a_stopped_run_ends_its_stage_and_the_work_item_waits_for_a_person
         history = await handle.fetch_history()
         cancelled_history = await cancellation.fetch_history()
 
-    replayer = Replayer(workflows=ALL_WORKFLOWS)
+    replayer = Replayer(workflows=all_workflows())
     await replayer.replay_workflow(history)
     await replayer.replay_workflow(cancelled_history)
     if recording_history():

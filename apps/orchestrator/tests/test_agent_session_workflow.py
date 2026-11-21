@@ -146,10 +146,10 @@ async def _closed(handle: Any, _: Any) -> None:
 async def test_the_archived_history_replays() -> None:
     from temporalio.client import WorkflowHistory
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     _, _, history = await play(script=_closed)
-    replayer = Replayer(workflows=ALL_WORKFLOWS)
+    replayer = Replayer(workflows=all_workflows())
     await replayer.replay_workflow(history)
     archived = json.loads(HISTORY.read_text(encoding="utf-8"))
     await replayer.replay_workflow(WorkflowHistory.from_json(WORKFLOW_ID, archived))

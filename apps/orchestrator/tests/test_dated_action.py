@@ -146,7 +146,7 @@ async def test_the_action_waits_for_d_minus_10_then_goes_and_the_work_item_learn
 ) -> None:
     from temporalio.api.enums.v1 import EventType
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     start = await temporal_env.get_current_time()
     arrival = start + timedelta(days=20)
@@ -179,7 +179,7 @@ async def test_the_action_waits_for_d_minus_10_then_goes_and_the_work_item_learn
     assert "action_settled" in signals, (
         "the ActionWorkflow warns the work item: it does not wait for a re-read"
     )
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         english = recording_history() == "english"  # S34-02
         target = HISTORIES / ("wi-action-english-S34-02.json" if english else "wi-dated-action-S20-05.json")

@@ -84,7 +84,7 @@ async def test_a_restart_after_a_failed_attempt_plays_the_next_one(
     """`t-verify-prod-1` failed; the interpreter died with the work item in `live` and was started
     again. It plays `t-verify-prod-2` — the old code got run 1 back and escalated at once."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     project_id, item_id, key = await _live_ticket(setup)
     played: list[str] = []
@@ -116,7 +116,7 @@ async def test_a_restart_after_a_failed_attempt_plays_the_next_one(
     runs = await _runs(item_id)
     assert [run_id.rsplit("-", 1)[1] for run_id, _ in runs] == ["1", "2"], runs
     assert len(played) == 2 and played[1].endswith("-t-verify-prod-2"), played
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-restarted-new-attempt-S22-45.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

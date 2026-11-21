@@ -112,9 +112,9 @@ async def test_a_refusing_gateway_parks_the_ticket_after_one_run(
     assert any(r.startswith("budget") for r in reasons), reasons
     assert len(setup.adapters.gateway.keys) + len(setup.adapters.gateway.revoked) == 1, "one key minted"
 
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-budget-refusal-S27-01.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

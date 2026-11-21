@@ -101,7 +101,7 @@ async def test_a_new_pass_numbers_its_runs_past_the_first_and_gets_a_fresh_attem
     from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
     from temporalio.worker import Replayer
     from tranibor_api.temporal import interpreter_id
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _pin(setup)
     answers = [
@@ -154,7 +154,7 @@ async def test_a_new_pass_numbers_its_runs_past_the_first_and_gets_a_fresh_attem
     assert first.result_run_id != second.result_run_id, "a second run of the same id"
     assert await _runs(setup) == [("1", "failed"), ("2", "succeeded"), ("3", "failed"), ("4", "succeeded")]
     assert [run_id.rsplit("-", 1)[1] for run_id in played] == ["1", "2", "3", "4"]
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-recurrence-fresh-attempts-C1.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
