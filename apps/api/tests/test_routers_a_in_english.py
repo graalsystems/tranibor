@@ -18,7 +18,9 @@ RECORDED = pathlib.Path(__file__).parent / "fixtures" / "routes_before_s45_15.js
 
 #: The routers S45-15 owns. Not listed: the nine of S45-16 (internal, org_connectors, connectors,
 #: connector_catalogue, mcp_catalogue, outbound_proxy, webhooks, runs, actions) and the routers
-#: that were written in English (plugins, plugin_sources, mcp_gateway, tracker_identities).
+#: that were written in English (plugins, plugin_sources, mcp_gateway, tracker_identities). `trains` left the
+#: core for the software-delivery plugin (#2117, ADR 0181): its routes are still served (see
+#: `test_routes_unchanged`), but its file is no longer a router of the core.
 OWNED = (
     "__init__",
     "admin",
@@ -49,7 +51,6 @@ OWNED = (
     "skills",
     "templates",
     "theme",
-    "trains",
     "triggers",
     "ui",
     "workflow_catalogue",
