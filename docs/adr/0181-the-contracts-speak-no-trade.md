@@ -544,3 +544,8 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   holds its own `ReleaseStatus`. The core keeps the types, `EventType.RELEASE_*`, `ReleaseStatus` and two
   unused domain models for a window `D-train` keyed on the release ledger: removed in the first release
   cut on or after 2026-12-14.
+- **S83-05h.** A carrier seam, `tranibor_core.carriers`: the extension declares `via: release_train`, and
+  the validator refuses at publication a `via:` no installed extension carries. The interpreter boards the
+  train by calling the activity `signal_train` by name; the activity moved to the extension. The command
+  scheduled is unchanged, so no history needed a patch. It belongs to the fifth surface, like the gate and
+  worker seams.
