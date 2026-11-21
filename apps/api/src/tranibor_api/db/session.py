@@ -47,16 +47,61 @@ async def run_after_commit(session: AsyncSession) -> None:
             logger.warning("after_commit.failed", error=f"{type(error).__name__}: {error}"[:300])
 
 
+#: What waits for the transaction to END, whether it commits or rolls back (#2031).
+_ENDING = "choregos.after_end.pending"
+#: Set once the current transaction executed a write: a second writer would wait for its end.
+_WROTE = "choregos.wrote"
+
+
+def after_end(session: AsyncSession, callback: Callable[[], Awaitable[Any]]) -> None:
+    """Run `callback` once this session's transaction has ENDED, committed or rolled back (#2031).
+
+    For a trace of something that already happened outside the database (a write in another
+    system): it must not roll back with the transaction, and it must not be written from another
+    connection while this transaction holds a write lock — on SQLite that second writer waits for a
+    lock its own caller holds. Every owner of a session drains it (`run_after_end` after a rollback,
+    `run_after_commit` after a commit); best effort, like `after_commit`. Register it once the
+    transaction has begun: a session with no transaction neither commits nor rolls back."""
+    session.info.setdefault(_ENDING, []).append(callback)
+
+
+def wrote_in_transaction(session: AsyncSession) -> bool:
+    """Whether the session's current transaction has executed a write (a flush or a DML statement)."""
+    return bool(session.info.get(_WROTE)) and session.in_transaction()
+
+
+async def run_after_end(session: AsyncSession) -> None:
+    """After a rollback: the callbacks waiting for the transaction's end, once each (#2031). A
+    failure is logged, not raised: the caller re-raises its own error."""
+    await run_after_commit(session)
+
+
 @event.listens_for(Session, "after_commit")
 def _released(session: Session) -> None:
-    pending = session.info.pop(_PENDING, None)
+    session.info.pop(_WROTE, None)
+    pending = [*session.info.pop(_PENDING, []), *session.info.pop(_ENDING, [])]
     if pending:
         session.info.setdefault(_READY, []).extend(pending)
 
 
 @event.listens_for(Session, "after_rollback")
 def _dropped(session: Session) -> None:
+    session.info.pop(_WROTE, None)
     session.info.pop(_PENDING, None)
+    ending = session.info.pop(_ENDING, None)
+    if ending:
+        session.info.setdefault(_READY, []).extend(ending)
+
+
+@event.listens_for(Session, "after_flush")
+def _flushed(session: Session, _context: Any) -> None:
+    session.info[_WROTE] = True
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _executed(state: Any) -> None:
+    if state.is_insert or state.is_update or state.is_delete:
+        state.session.info[_WROTE] = True
 
 
 # ─────────────────── a session that holds no connection during an external call (#1354) ───────────────────
@@ -323,6 +368,7 @@ async def session_scope(
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
             raise
         await run_after_commit(session)
 

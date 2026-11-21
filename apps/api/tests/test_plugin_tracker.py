@@ -10,6 +10,7 @@ recognises, ignores a replayed delivery, and acts on the item as re-read, never 
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import shutil
 from collections.abc import Iterator
@@ -19,7 +20,7 @@ from typing import Any
 import httpx
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_adapters.fakes.plugin_tracker import FakePluginTrackerServer
 from tranibor_adapters.plugin_servers import TOKEN_ENV, PluginServerRuntime
@@ -180,6 +181,56 @@ async def test_tracker_calls_carry_the_token_and_writes_are_audited(
     assert actions.count("tracker.plugin.tracker_comment") == 2
     assert {"tracker.plugin.tracker_set_state", "tracker.plugin.tracker_close"} <= set(actions)
     assert "tracker.plugin.tracker_fetch_item" not in actions, "reads are not audit entries"
+
+
+async def _set_state_after_a_write(*, then_fail: bool) -> float:
+    """`set_state` called in a transaction that already wrote, as `mirror_state` does (#2031); the
+    transaction then commits, or raises and rolls back. Returns how long the call took."""
+    import time
+
+    from tranibor_api.db.models import Project
+    from tranibor_api.db.session import session_scope
+    from tranibor_api.services.tickets import project_tracker
+    from tranibor_core.domain import TrackerStateMapping
+
+    elapsed = 0.0
+    with contextlib.suppress(RuntimeError):
+        async with session_scope(orgs="*") as session:
+            project = (await session.execute(select(Project).where(Project.slug == "desked"))).scalar_one()
+            _, tracker = await project_tracker(session, project)
+            await session.execute(update(Project).where(Project.id == project.id).values(name="renamed"))
+            started = time.monotonic()
+            await tracker.set_state("INC0000001", TrackerStateMapping(status="In Progress"))
+            elapsed = time.monotonic() - started
+            if then_fail:
+                raise RuntimeError("the caller fails after the tracker write")
+    return elapsed
+
+
+async def _audited(action: str) -> int:
+    from tranibor_api.db.models import AuditLog
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope() as session:
+        return len((await session.execute(select(AuditLog).where(AuditLog.action == action))).scalars().all())
+
+
+@pytest.mark.parametrize("then_fail", [False, True], ids=["caller-commits", "caller-rolls-back"])
+async def test_a_write_after_the_caller_wrote_is_audited_once_its_transaction_ends(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, then_fail: bool
+) -> None:
+    from tranibor_api.db.models import Project
+    from tranibor_api.db.session import session_scope
+
+    fake = await _ready(client, kube)
+    fake.add("INC0000001", "VPN drops")
+    elapsed = await _set_state_after_a_write(then_fail=then_fail)
+    assert fake.items["INC0000001"].state == "In Progress", "the write happened in the server's system"
+    assert elapsed < 1, "the trace does not wait for the lock its own caller holds"
+    assert await _audited("tracker.plugin.tracker_set_state") == 1, "traced once, whatever the caller did"
+    async with session_scope() as session:
+        name = (await session.execute(select(Project.name).where(Project.slug == "desked"))).scalar_one()
+    assert (name == "renamed") is not then_fail, "the caller's own write follows its transaction"
 
 
 # -- the webhook -------------------------------------------------------------------------------------------

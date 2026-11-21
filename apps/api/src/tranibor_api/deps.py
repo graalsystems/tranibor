@@ -30,6 +30,7 @@ from .db.session import (
     limit_to_organisations,
     name_the_user,
     run_after_commit,
+    run_after_end,
 )
 from .errors import ApiError, forbidden, not_found, run_closed, unauthorized
 from .logging import bind, get_logger
@@ -55,6 +56,7 @@ async def get_db() -> AsyncIterator[AsyncSession]:
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
             raise
         await run_after_commit(session)
 
@@ -84,6 +86,7 @@ async def get_platform_db() -> AsyncIterator[AsyncSession]:
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
             raise
         await run_after_commit(session)
 
