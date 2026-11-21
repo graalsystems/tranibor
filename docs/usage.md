@@ -39,6 +39,12 @@ choregos projects create billing-api --name "Billing API" --org acme
 choregos projects list
 ```
 
+`--default-workflow <name>` on `create` makes that workflow the project's default in the same call (API:
+`default_workflow` on `POST /orgs/{org}/projects`), instead of a `PUT /projects/{id}/workflow-routing`
+afterwards. It must be one the project has once its template is in (`default-request` without a
+template); an unknown or inactive name is refused with 422 `unknown or inactive workflow(s): …`, the
+routing endpoint's own message, and nothing is created.
+
 `--template <name>@<version>` on `create` also provisions the project: repository, board,
 GitOps manifests and scaffolding. Without it, the project is created empty and you attach
 its connectors yourself, from the UI (*Settings → connectors*: type and configuration; a secret is typed once and sealed, or given by reference) or the API (`PUT /projects/{id}/connectors/{kind}`).

@@ -138,7 +138,9 @@ class PolicyEngine:
         return list(self.policy.sandbox.network.allow_domains)
 
     def max_diff(self) -> tuple[int, int]:
-        return self.policy.scope.max_diff_files, self.policy.scope.max_diff_lines
+        """The bounds on a diff, read through the `delivery` section (ADR 0181 C2)."""
+        bounds = self.policy.delivery.scope
+        return int(bounds.max_diff_files or 60), int(bounds.max_diff_lines or 3000)
 
     # ───────────────────────── findings & memory ─────────────────────────
 

@@ -40,7 +40,7 @@ from ..schemas import (
     ProvisionStatus,
     ProvisionStep,
 )
-from ..services import ensure_defaults, persist_event, project_dto
+from ..services import ensure_defaults, persist_event, project_dto, require_active_workflows
 from ..services.organisations import organisation_by_slug
 from ..services.personal_spaces import is_reserved_slug, listed
 from ..services.plugin_tracker import wire_template_tracker
@@ -375,6 +375,10 @@ async def create_project(org: str, body: ProjectCreate, session: Db, principal: 
     session.add(project)
     await session.flush()
     await ensure_defaults(session, project, refuse_unenforced=True)
+    if body.default_workflow is not None:
+        # The routing endpoint's own rule, once the template's workflows exist (S80-21).
+        await require_active_workflows(session, project.id, [body.default_workflow])
+        project.default_workflow = body.default_workflow
     # A template whose tracker is a plugin's server wires it, or refuses the project (S43-07).
     await wire_template_tracker(session, project)
     session.add(
