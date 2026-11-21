@@ -34,7 +34,7 @@ async def _declared(
 async def _listed(client: AsyncClient, item: dict[str, Any]) -> dict[str, Any]:
     response = await client.get(f"/api/v1/work-items/{item['id']}/artifacts")
     assert response.status_code == 200, response.text
-    return {a["name"]: a for a in response.json()}
+    return {a["name"]: a for a in response.json()["items"]}
 
 
 async def test_a_declared_level_is_recorded_as_a_level_and_snapshotted(
