@@ -146,3 +146,49 @@ def test_the_worker_local_target_has_the_docker_cli_and_is_not_the_default_build
     assert "worker-local" in stages
     assert stages[-1] == "worker", "a build without --target must still produce the published worker"
     assert "/usr/local/bin/docker" in dockerfile.split("AS worker-local", 1)[1].split("FROM ", 1)[0]
+
+
+# ───────────────────────── S85-11: the procurement project and its three offers ─────────────────────────
+
+
+def test_the_files_a_person_hands_have_an_object_store_the_api_and_the_workers_share() -> None:
+    """Without one the API would write to `s3://choregos` on AWS: a handed file could not be stored."""
+    services = _services()
+    assert {"objectstore", "objectstore-bucket"} <= set(services)
+    for name in ("api", "worker", "seed"):
+        env = _env(services[name])
+        assert env["TRANIBOR_OBJECT_STORE_URL"] == "s3://choregos", name
+        assert env["TRANIBOR_OBJECT_STORE_ENDPOINT"] == "http://objectstore:9000", name
+    api_waits = services["api"]["depends_on"]["objectstore-bucket"]["condition"]
+    assert api_waits == "service_completed_successfully", "the API must not start before its bucket exists"
+    assert "objectstore" in _services()["objectstore-bucket"]["depends_on"]
+
+
+def test_the_procurement_job_image_is_named_and_follows_the_runners_version() -> None:
+    import json
+
+    env = _env(_services()["worker"])
+    images = json.loads(env["TRANIBOR_JOB_IMAGES"].replace("${TRANIBOR_RUNNER_VERSION:-0.17.12}", "X"))
+    assert list(images) == ["procurement"]
+    assert images["procurement"] == f"{PUBLISHING.image('tranibor-procurement')}:X"
+    assert "${TRANIBOR_RUNNER_VERSION:-" in env["TRANIBOR_JOB_IMAGES"], (
+        "a job image carries its runner's release"
+    )
+
+
+def test_the_image_carries_exactly_the_offers_the_seed_hands() -> None:
+    """One copy of the bytes: the plugin's fixtures. The image copies three of them where the seed reads."""
+    from tranibor_api.local_demo import PROCUREMENT_SAMPLES
+
+    copies = [
+        line.split()
+        for line in (ROOT / "docker/api.Dockerfile").read_text(encoding="utf-8").splitlines()
+        if line.startswith("COPY plugins/procurement/tests/fixtures/")
+    ]
+    assert len(copies) == 1
+    *sources, target = copies[0][1:]
+    assert target == "/opt/choregos/samples/procurement/"
+    fixtures = "plugins/procurement/tests/fixtures/"
+    assert sorted(s.removeprefix(fixtures) for s in sources) == sorted(PROCUREMENT_SAMPLES)
+    for name in PROCUREMENT_SAMPLES:
+        assert (ROOT / fixtures / name).is_file(), name
