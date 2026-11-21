@@ -423,6 +423,35 @@ import), and a workflow module imports the orchestrator's helpers inside
 `apps/orchestrator/tests/test_worker_seam.py` installs a test plugin's extension and runs its workflow on
 the test server, its activity on its queue.
 
+## Adding a connector kind to every project from an extension
+
+A connector type an extension registers (`tranibor_adapters.register(kind, type, spec, plugin=)`) is built
+on demand. A kind the platform builds once per project and hands to every activity, beside the tracker,
+the runtime, the memory, the gateway and the notifier, is an **adapter slot** (ADR 0181, round D): the
+`software-delivery` plugin declares `ci` and `cd` so.
+
+```python
+from tranibor_adapters import declare_adapter_slot
+
+def register_extension() -> None:
+    declare_adapter_slot("cmdb", plugin="itsm", default_type="servicenow", fake=FakeCmdb)
+```
+
+Every `AdapterSet` then holds a `cmdb` adapter, built from the project's connector of that kind
+(`default_type` when it declares none, `fake` under `TRANIBOR_FAKES=1` and in `AdapterSet.fakes()`), read
+as `adapters.slot("cmdb")` or `adapters.cmdb`. A slot of the core's set, or another plugin's, is refused;
+`deployment_fields` names the configuration fields only the deployment sets (refused on a connector, as
+the runtime's `kubernetes` is). Where no installed extension declares the slot, reading it is an
+`AttributeError` that names the plugin, when the core knows which one (`CONNECTOR_KINDS.plugin_of`).
+
+A template's provisioning may name steps the extension runs: `WorkerParts(provisioning_steps={name:
+ProvisioningStep(run, remediation)})`, dispatched by the core's `run_provision_step` (the
+`software-delivery` plugin's `gitops.write_project_manifests` and `argocd.wait_synced`). A step the core
+runs cannot be taken over; a step no installed extension runs is skipped, saying so. The fakes' process
+(`python -m tranibor_adapters.fakes.server`) serves the demonstration desks extensions declare with
+`tranibor_adapters.fakes.hr.declare_demo_desk`. `plugins/software-delivery/tests/test_connectors.py` and
+`apps/orchestrator/tests/test_worker_seam.py` prove them.
+
 ## Carrying a transition from an extension
 
 `via: release_train` hands a work item to a durable workflow that is not the interpreter: the

@@ -11,9 +11,9 @@ import json
 import httpx
 import pytest
 from tranibor_adapters.azure_devops import azure_client
-from tranibor_adapters.ci.azure_pipelines import AzurePipelinesCi
 from tranibor_adapters.errors import ConfigurationError, UpstreamError
 from tranibor_adapters.fakes.azure_devops import FakeAzureDevOpsServer
+from tranibor_software_delivery.connectors.ci.azure_pipelines import AzurePipelinesCi
 
 BASE = "https://dev.azure.com/northwind"
 SHA = "a" * 40

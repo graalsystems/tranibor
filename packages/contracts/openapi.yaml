@@ -6241,6 +6241,7 @@ paths:
         "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /webhooks/tekton:
+    x-plugin: software-delivery
     post:
       tags: [webhooks]
       security: []
@@ -6253,6 +6254,7 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/jenkins:
+    x-plugin: software-delivery
     post:
       tags: [webhooks]
       security: []
@@ -6263,6 +6265,7 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/argocd:
+    x-plugin: software-delivery
     post:
       tags: [webhooks]
       security: []

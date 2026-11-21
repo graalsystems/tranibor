@@ -13,29 +13,23 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from tranibor_contracts import ContextPack, InboundEvent, ProjectConfig
 from tranibor_core.domain import (
-    Change,
-    CiStatus,
     DiffSummary,
     ExecRef,
     ExecStatus,
     Fact,
     GatewayModel,
-    Health,
     LaunchContext,
     LaunchSpec,
     Memory,
     Message,
     NewItem,
-    PromotionRef,
     Provenance,
     PrRef,
     PrState,
-    RolloutState,
     Spend,
     StageJobSpec,
     TrackerStateMapping,
     VirtualKey,
-    Window,
     WorkItemData,
 )
 
@@ -125,24 +119,6 @@ class ScmAdapter(Protocol):
     async def enqueue_merge(self, ref: PrRef, sha: str) -> None: ...
     async def compare(self, repo: str, base: str, head: str) -> DiffSummary: ...
     def parse_webhook(self, headers: Mapping[str, str], body: bytes) -> list[InboundEvent]: ...
-
-
-@runtime_checkable
-class CiAdapter(Protocol):
-    async def status_for(self, repo: str, sha: str) -> CiStatus: ...
-    async def logs(self, run_ref: str, tail: int = 500) -> str: ...
-    async def trigger(self, repo: str, ref: str, pipeline: str) -> str: ...
-    def parse_event(self, headers: Mapping[str, str], body: bytes) -> list[InboundEvent]: ...
-
-
-@runtime_checkable
-class CdAdapter(Protocol):
-    async def current_revision(self, app: str) -> str: ...
-    async def promote(self, env: str, changes: list[Change], release: str) -> PromotionRef: ...
-    async def health(self, app: str) -> Health: ...
-    async def rollout_status(self, app: str) -> RolloutState: ...
-    async def abort_rollout(self, app: str) -> None: ...
-    async def set_sync_window(self, app: str, windows: list[Window]) -> None: ...
 
 
 #: What an executor may be able to do besides starting, observing and stopping.
@@ -366,8 +342,6 @@ __all__ = [
     "GATEWAY_CAPABILITIES",
     "SCM_CAPABILITIES",
     "AgentBackend",
-    "CdAdapter",
-    "CiAdapter",
     "DecisionClient",
     "Executor",
     "GatewayAdapter",

@@ -36,13 +36,6 @@ def test_a_declared_runtime_that_sets_what_the_deployment_sets_is_refused(
     assert f"`{next(iter(config))}`" in str(refused.value)
 
 
-def test_a_ci_connector_does_not_name_the_api_server_either() -> None:
-    with pytest.raises(ConfigurationError, match="the deployment's to set"):
-        validate_config("ci", "tekton", ELSEWHERE)
-    # Where a project's pipelines run is the project's to say.
-    validate_config("ci", "tekton", {"namespace": "proj-billing-ci", "pipeline": "billing-ci"})
-
-
 def test_every_field_named_is_said_at_once() -> None:
     config = {"env_from_secrets": ["x"], "service_account": "y", "max_active": 2}
     with pytest.raises(ConfigurationError) as refused:

@@ -20,12 +20,11 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
 
+from tranibor_adapters.errors import ConfigurationError, UpstreamError
+from tranibor_adapters.http import RestClient
+from tranibor_adapters.tracker.github_events import BRANCH_KEY_RE
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core.domain import CheckRun, CiStatus
-
-from ..errors import ConfigurationError, UpstreamError
-from ..http import RestClient
-from ..tracker.github_events import BRANCH_KEY_RE
 
 State = Literal["pending", "running", "success", "failure", "error", "unknown"]
 Progress = Literal["queued", "in_progress", "completed"]

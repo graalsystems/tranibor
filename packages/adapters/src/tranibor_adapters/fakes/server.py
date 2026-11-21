@@ -7,9 +7,10 @@ An in-memory fake keeps its state in the process that built it: the activity tha
 here, they see only one. The application is a bare ASGI callable — the adapters package depends on
 no framework — that `uvicorn` serves: `python -m tranibor_adapters.fakes.server`.
 
-- `/{mdm,shipping,access_control,supplier,fournisseur,cd}/mcp`: each fake as an MCP server
-  (`mcp_server`), which a `demo` connector that carries a `url` reaches, or an `mcp` connector —
-  `cd` is the environment that the train of a demo project promotes (S21-24);
+- `/{mdm,shipping,access_control,supplier,fournisseur}/mcp`: each fake as an MCP server
+  (`mcp_server`), which a `demo` connector that carries a `url` reaches, or an `mcp` connector, and the
+  desks the installed extensions declare (`hr.declare_demo_desk`): the `software-delivery` plugin's `cd`
+  is the environment that the train of a demo project promotes (S21-24);
 - `/graph/v1.0/…` and `/login/{tenant}/oauth2/v2.0/token`: the fake Microsoft Graph, which an
   `entra` connector whose `graph_url` and `login_url` point at this service reaches;
 - `/healthz`.
@@ -27,9 +28,8 @@ from typing import Any
 
 import httpx
 
-from .demo_cd import FakeDemoCd
 from .entra import FakeEntra
-from .hr import FAKES_BY_FAMILY, BusinessFake, FakeSupplier, mcp_server
+from .hr import FAKES_BY_FAMILY, BusinessFake, FakeSupplier, extension_desks, mcp_server
 from .mcp import FakeMcpServer
 
 Receive = Callable[[], Awaitable[dict[str, Any]]]
@@ -42,8 +42,8 @@ class DemoApplication:
         self.fakes: dict[str, BusinessFake] = {family: cls() for family, cls in FAKES_BY_FAMILY.items()}
         # `fournisseur` is the path a tenant configured before S39-11: a tenant name, kept.
         self.fakes["fournisseur"] = FakeSupplier()  # lang: fr-ok
-        # The environment that the train of a demo project promotes (S21-24).
-        self.fakes["cd"] = FakeDemoCd()
+        # What the installed extensions serve: the environment a demo project's train promotes (S21-24).
+        self.fakes.update({path: cls() for path, cls in extension_desks().items()})
         self.servers: dict[str, FakeMcpServer] = {
             name: mcp_server(fake, token=token) for name, fake in self.fakes.items()
         }
@@ -107,7 +107,10 @@ def demo_token() -> str:
 
 
 def application() -> DemoApplication:
-    """The factory that `uvicorn --factory` calls."""
+    """The factory that `uvicorn --factory` calls: with the desks of the extensions installed beside."""
+    from .. import load_extensions
+
+    load_extensions()
     return DemoApplication(token=demo_token())
 
 

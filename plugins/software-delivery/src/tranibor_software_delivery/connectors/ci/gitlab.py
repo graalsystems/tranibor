@@ -8,13 +8,13 @@ from collections.abc import Mapping
 from typing import Any, Literal
 from urllib.parse import quote
 
+from tranibor_adapters.builds import GITLAB_JOB_RUN as _JOB_RUN
+from tranibor_adapters.errors import ConfigurationError
+from tranibor_adapters.http import RestClient
+from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
+from tranibor_adapters.tracker.gitlab_instance import check_instance
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
-
-from ..errors import ConfigurationError
-from ..http import RestClient
-from ..tracker.gitlab_events import parse_gitlab_event
-from ..tracker.gitlab_instance import check_instance
 
 State = Literal["pending", "running", "success", "failure", "error", "unknown"]
 Progress = Literal["queued", "in_progress", "completed"]
@@ -28,20 +28,6 @@ _PIPELINE_STATE: dict[str, State] = {
     "created": "pending",
     "canceled": "error",
     "skipped": "error",
-}
-
-_JOB_RUN: dict[str, tuple[Progress, Conclusion | None]] = {
-    "success": ("completed", "success"),
-    "failed": ("completed", "failure"),
-    "running": ("in_progress", None),
-    "pending": ("queued", None),
-    "created": ("queued", None),
-    "waiting_for_resource": ("queued", None),
-    "preparing": ("queued", None),
-    "scheduled": ("queued", None),
-    "canceled": ("completed", "cancelled"),
-    "skipped": ("completed", "skipped"),
-    "manual": ("completed", "neutral"),
 }
 
 

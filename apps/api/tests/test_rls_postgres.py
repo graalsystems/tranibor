@@ -426,6 +426,10 @@ async def test_a_webhook_routes_its_event_under_rls(pg_app: Any, two_organisatio
     Its session must therefore see the projects: the fail-closed RLS hid them all, and every CI, CD
     or tracker event was dropped as "no known project" on PostgreSQL, without the tests (SQLite)
     seeing it."""
+    # The Tekton webhook is the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
+    pytest.importorskip(
+        "tranibor_software_delivery", reason="the Tekton webhook is the software-delivery plugin's"
+    )
     from tranibor_api.db.models import WorkItem
     from tranibor_api.db.session import session_scope
 

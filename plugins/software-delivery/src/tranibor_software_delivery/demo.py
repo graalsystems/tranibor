@@ -2,7 +2,9 @@
 """`make demo`: the full chain on a workstation, with no cluster and no server.
 
 A ticket comes in, a simulated agent works, the gates check, a human approves, the train
-deploys: this is the plan's M1 scenario, played in memory with the fakes.
+deploys: this is the plan's M1 scenario, played in memory with the fakes. It is software delivery's
+scenario end to end (`default-simple`, a pull request, the release train), so it is the `software-delivery`
+plugin's since round D of ADR 0181 (it was `tranibor_orchestrator.demo`).
 """
 
 from __future__ import annotations
@@ -14,7 +16,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # the fakes expose staging methods (seed, set_diff...)
-    from tranibor_adapters.fakes import FakeCd, FakeExecutor, FakeGateway, FakeScm, FakeTracker
+    from tranibor_adapters.fakes import FakeExecutor, FakeGateway, FakeScm, FakeTracker
+
+    from .connectors.fakes import FakeCd
 
 BANNER = """
   ┌─────────────────────────────────────────────────────────────────────┐
@@ -33,8 +37,9 @@ async def seed() -> tuple[str, str, Any]:
     from tranibor_api.services.initiator import initiator
     from tranibor_contracts import Evidence, StageResult, StageStatus
     from tranibor_core.domain import WorkItemData
+    from tranibor_orchestrator.activities.base import set_adapters_override
 
-    from .activities.base import set_adapters_override
+    from .connectors import cd_of
 
     await create_all()
     adapters = AdapterSet.fakes()
@@ -42,7 +47,7 @@ async def seed() -> tuple[str, str, Any]:
     scm: FakeScm = adapters.scm  # type: ignore[assignment]
     executor: FakeExecutor = adapters.executor  # type: ignore[assignment]
     gateway: FakeGateway = adapters.gateway  # type: ignore[assignment]
-    cd: FakeCd = adapters.cd  # type: ignore[assignment]
+    cd: FakeCd = cd_of(adapters)  # type: ignore[assignment]
     tracker.project_slug = "northwind/billing-api"
     gateway.auto_usage = True  # the demo shows believable costs
     set_adapters_override(adapters)
@@ -145,7 +150,7 @@ async def seed() -> tuple[str, str, Any]:
 
 
 async def main_async() -> int:
-    from .local import run_local
+    from tranibor_orchestrator.local import run_local
 
     print(BANNER)
     project_id, work_item_id, adapters = await seed()

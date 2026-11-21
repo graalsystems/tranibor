@@ -153,7 +153,7 @@ async def test_the_webhook_ignores_the_issue_until_labelled(
 ) -> None:
     from tranibor_api.db.models import WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_api.routers.webhooks import _dispatch
+    from tranibor_api.routers.webhooks import dispatch
     from tranibor_api.temporal import get_temporal
 
     pid = await _github(client, project)
@@ -173,7 +173,7 @@ async def test_the_webhook_ignores_the_issue_until_labelled(
         payload={"labels": tracker.items[key].labels, "title": "Add SSO"},
     )
     async with session_scope() as session:
-        await _dispatch(session, [event])
+        await dispatch(session, [event])
         rows = (await session.execute(select(WorkItem))).scalars().all()
     assert [row.tracker_key for row in rows] == [key]
     assert get_temporal().started == started  # type: ignore[attr-defined]

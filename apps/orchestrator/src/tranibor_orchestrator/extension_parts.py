@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tranibor_core.worker_parts import WorkerParts, declared_worker_parts
+from tranibor_core.worker_parts import ProvisioningStep, WorkerParts, declared_worker_parts
 
 from .queues import ACTIVITIES_BY_QUEUE, activity_name, declare_queue
 
@@ -51,6 +51,9 @@ def extension_parts() -> list[tuple[str, WorkerParts]]:
         name = activity_name(function)
         if name is not None:
             activity_owner[name] = "the core"
+    from .activities.provisioning import CORE_STEPS
+
+    step_owner = dict.fromkeys(CORE_STEPS, "the core")
     resolved: list[tuple[str, WorkerParts]] = []
     for plugin, provide in declared_worker_parts().items():
         parts = provide()
@@ -85,6 +88,12 @@ def extension_parts() -> list[tuple[str, WorkerParts]]:
                     f"{owner} places `{name}` on `{queue}`, which is no queue ({sorted(ACTIVITIES_BY_QUEUE)})"
                 )
             declare_queue(name, queue)
+        for step in parts.provisioning_steps:
+            if step in step_owner:
+                raise WorkerPartsError(
+                    f"the provisioning step `{step}` of {owner} is already run by {step_owner[step]}"
+                )
+            step_owner[step] = owner
         resolved.append((plugin, parts))
     return resolved
 
@@ -104,6 +113,11 @@ def all_activities() -> list[Any]:
     for _, parts in extension_parts():
         activities.extend(parts.activities)
     return activities
+
+
+def extension_provisioning_steps() -> dict[str, ProvisioningStep]:
+    """step name -> the step an extension runs for a template's provisioning."""
+    return {name: step for _, parts in extension_parts() for name, step in parts.provisioning_steps.items()}
 
 
 def extension_workflow_names() -> dict[str, str]:

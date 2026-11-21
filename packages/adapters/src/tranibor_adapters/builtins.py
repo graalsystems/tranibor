@@ -128,20 +128,6 @@ def _azure_repos_scm(cfg: dict[str, Any]) -> Any:
     )
 
 
-def _azure_pipelines_ci(cfg: dict[str, Any]) -> Any:
-    from .azure_devops import azure_client, check_azure_pipelines
-    from .ci.azure_pipelines import AzurePipelinesCi
-
-    check_azure_pipelines(cfg)
-    return AzurePipelinesCi(
-        azure_client(cfg, service="azure-pipelines"),
-        cfg["project"],
-        repository=str(cfg.get("repository") or ""),
-        pipeline=str(cfg.get("pipeline") or ""),
-        partially_succeeded=cfg.get("partially_succeeded", "failure"),
-    )
-
-
 def _github_client(config: dict[str, Any]) -> Any:
     """Builds the GitHub client from the connector's configuration or the deployment's App.
 
@@ -488,27 +474,6 @@ def _fake_web_search(cfg: dict[str, Any]) -> Any:
     return _package.FAKE_WEB_SEARCH
 
 
-def _demo_cd(cfg: dict[str, Any]) -> Any:
-    """The factory of `cd: demo`: refused in staging and prod; served when it carries a `url`."""
-    from .fakes.demo_cd import DemoCd, FakeDemoCd
-    from .fakes.hr import Desk, RemoteDesk
-
-    environment = _env("TRANIBOR_ENV", "dev")
-    if environment in {"staging", "prod"}:
-        raise ConfigurationError(
-            f"connector `cd: demo` refused in {environment}: a simulated environment, a "
-            "demonstration, not a deployment."
-        )
-    if cfg.get("url"):
-        from .mcp import McpClient
-
-        return DemoCd(RemoteDesk(McpClient(str(cfg["url"]), token=str(cfg.get("api_key", "")))))
-    desks = _package.FAUX_METIER  # lang: fr-ok (the business fakes keep their name)
-    if "cd" not in desks:
-        desks["cd"] = FakeDemoCd()
-    return DemoCd(Desk(desks["cd"], str(cfg.get("api_key", ""))))
-
-
 def _register_web_search() -> None:
     """The `web_search` family (S40-01g): its backends and its fake."""
     from .web_search import BACKENDS, SearchBackend
@@ -552,8 +517,6 @@ def _plugin_tracker(cfg: dict[str, Any]) -> Any:
 def _register_fakes() -> None:
     """The fake of every kind (`TRANIBOR_FAKES=1`)."""
     from .fakes import (
-        FakeCd,
-        FakeCi,
         FakeExecutor,
         FakeGateway,
         FakeMemory,
@@ -565,8 +528,6 @@ def _register_fakes() -> None:
 
     register("tracker", "fake")(lambda cfg: FakeTracker(cfg.get("project_slug", "demo")))
     register("scm", "fake")(lambda cfg: FakeScm())
-    register("ci", "fake")(lambda cfg: FakeCi())
-    register("cd", "fake")(lambda cfg: FakeCd())
     # `{"simulate": true}`: the process-wide simulated agent of the local install (`compose.yaml`).
     register("runtime", "fake")(lambda cfg: simulated_executor() if cfg.get("simulate") else FakeExecutor())
     register("memory", "fake")(lambda cfg: FakeMemory())
@@ -585,14 +546,7 @@ def _register_fakes() -> None:
 
 
 def _register_forges() -> None:
-    """Trackers, source control, CI and CD."""
-    from .cd.argocd import ArgoCdAdapter
-    from .ci.github_actions import GitHubActionsCi
-    from .ci.gitlab import GitLabCi
-    from .ci.jenkins import JenkinsCi
-    from .ci.tekton import TektonCi
-    from .executor.tekton import KubernetesClient
-    from .http import RestClient
+    """Trackers and source control."""
     from .scm.github import GitHubScm
     from .scm.gitlab import GitLabScm
     from .tracker.github import GitHubTracker
@@ -636,52 +590,6 @@ def _register_forges() -> None:
         )
     )
     register("scm", "azure-repos", _SHIPPED_SPECS[("scm", "azure-repos")])(_azure_repos_scm)
-    register("ci", "azure-pipelines", _SHIPPED_SPECS[("ci", "azure-pipelines")])(_azure_pipelines_ci)
-    register("ci", "tekton", _SHIPPED_SPECS[("ci", "tekton")])(
-        lambda cfg: TektonCi(
-            KubernetesClient(**cfg.get("kubernetes", {})),
-            namespace=cfg.get("namespace", "default"),
-            pipeline=cfg.get("pipeline", "choregos-ci"),
-        )
-    )
-    register("ci", "gitlab", _SHIPPED_SPECS[("ci", "gitlab")])(
-        lambda cfg: GitLabCi(
-            build_gitlab_client(cfg),
-            cfg["project"],
-        )
-    )
-    register("ci", "jenkins", _SHIPPED_SPECS[("ci", "jenkins")])(
-        lambda cfg: JenkinsCi(
-            RestClient(
-                cfg["base_url"],
-                auth=(cfg["user"], cfg["token"]),
-                service="jenkins",
-            ),
-            cfg["job"],
-            multibranch=bool(cfg.get("multibranch", False)),
-            parameters=cfg.get("parameters"),
-            ref_parameter=cfg.get("ref_parameter", "BRANCH"),
-            crumb=bool(cfg.get("crumb", True)),
-        )
-    )
-    register("ci", "github-actions", _SHIPPED_SPECS[("ci", "github-actions")])(
-        lambda cfg: GitHubActionsCi(
-            _github_client(cfg),
-            cfg["repo"],
-            workflow=cfg.get("workflow", ""),
-            inputs=cfg.get("inputs"),
-        )
-    )
-    register("cd", "argocd", _SHIPPED_SPECS[("cd", "argocd")])(
-        lambda cfg: ArgoCdAdapter(
-            base_url=cfg.get("base_url", "http://argocd-server.argocd"),
-            token=cfg.get("token", ""),
-            gitops_repo=cfg.get("gitops_repo", ""),
-            github=_github_client(cfg),
-            app_pattern=cfg.get("app_pattern", "{app}-{env}"),
-            path_prefix=cfg.get("path_prefix", "apps"),
-        )
-    )
 
 
 def _own_resources(raw: str, key: str) -> dict[str, str] | None:
@@ -856,7 +764,6 @@ def _register_documents_and_identity() -> None:
         register(family, "demo", _SHIPPED_SPECS[(family, "demo")])(
             _demo_desk(family, refuse_in_production=True)
         )
-    register("cd", "demo", _SHIPPED_SPECS[("cd", "demo")])(_demo_cd)
     register("firewall", "pfsense", _SHIPPED_SPECS[("firewall", "pfsense")])(PfSenseFirewall.from_config)
     register("network_policy", "cilium", _SHIPPED_SPECS[("network_policy", "cilium")])(_cilium)
     register("web_server", "nginx", _SHIPPED_SPECS[("web_server", "nginx")])(_nginx)
