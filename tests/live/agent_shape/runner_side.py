@@ -429,6 +429,7 @@ def summarise(events: list[dict[str, Any]]) -> dict[str, Any]:
         "agent.confinement",
         "hosted.egress",
         "hosted.egress_refused",
+        "hosted.egress_refused_repeated",
         "hosted.egress_failed",
         "hosted.mcp_call",
         "hosted.mcp_refused",
