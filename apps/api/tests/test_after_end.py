@@ -148,3 +148,31 @@ async def test_a_cancelled_scope_still_runs_what_waits_for_its_end(app: Any) -> 
             after_commit(session, mark("never: nothing was committed"))
             raise asyncio.CancelledError
     assert ran == ["ended"]
+
+
+async def test_a_cancellation_while_a_commit_s_callback_awaits_keeps_the_end_s(app: Any) -> None:
+    """Committed, then cancelled while an `after_commit` callback (a workflow start) awaits: what
+    waited for the end has already run."""
+    import asyncio
+
+    from tranibor_api.db.session import after_commit, after_end, session_scope
+
+    ran, mark = _marker()
+    started = asyncio.Event()
+
+    async def slow() -> None:
+        started.set()
+        await asyncio.sleep(10)
+
+    async def scope() -> None:
+        async with session_scope(orgs="*") as session:
+            await session.execute(text("SELECT 1"))
+            after_commit(session, slow)
+            after_end(session, mark("ended"))
+
+    task = asyncio.create_task(scope())
+    await asyncio.wait_for(started.wait(), 5)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    assert ran == ["ended"]

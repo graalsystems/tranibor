@@ -37,11 +37,13 @@ def after_commit(session: AsyncSession, callback: Callable[[], Awaitable[Any]]) 
 
 
 async def run_after_commit(session: AsyncSession) -> None:
-    """The callbacks the last commits released, once each, then what waited for the transaction's
-    end (`after_end`). A failure is logged, not raised: the transaction is already committed, and the
-    relay starts what the callback could not."""
-    await _run(session, _READY)
+    """What waited for the transaction's end (`after_end`), then the callbacks the last commits
+    released, once each. The end's first: a cancellation while a commit's callback awaits (a workflow
+    start) must not drop a trace that is due whatever happens next (ADR 0211). A failure is logged,
+    not raised: the transaction is already committed, and the relay starts what the callback could
+    not."""
     await _run(session, _ENDED)
+    await _run(session, _READY)
 
 
 #: What waits for the transaction to END, whether it commits or rolls back (#2031).
