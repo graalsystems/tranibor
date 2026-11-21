@@ -8,8 +8,7 @@ from typing import Any
 from httpx import AsyncClient
 from tranibor_core.domain import utcnow
 
-from .test_budget_alert_acknowledgement import _drop_organisation_role
-from .test_knowledge_project_owned import _as, _member
+from .kits.budget_alert_members import _as, _drop_organisation_role, _member
 
 URL = "/api/v1/orgs/northwind/budget-alerts"
 
