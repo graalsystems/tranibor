@@ -291,3 +291,31 @@ def test_the_keyset_cursor_round_trips_every_kind_and_refuses_a_foreign_one() ->
     assert seen == rows
     with pytest.raises(ApiError):
         position_page(rows, Page(cursor=encode_cursor(-1), limit=3))
+
+
+async def test_a_run_with_an_unreadable_result_does_not_break_the_list(
+    client: AsyncClient, project: dict[str, Any]
+) -> None:
+    from tranibor_api.db.models import Run
+    from tranibor_api.db.session import session_scope
+
+    item = await _item(client, project)
+    start = utcnow()
+    async with session_scope() as session:
+        for index, result in enumerate([None, {"not": "a stage result"}, None]):
+            session.add(
+                Run(
+                    id=f"run-bad-{index}",
+                    work_item_id=item["id"],
+                    project_id=project["id"],
+                    stage_role="write",
+                    status="done",
+                    result=result,
+                    created_at=start + timedelta(seconds=index),
+                )
+            )
+    response = await client.get(f"/api/v1/work-items/{item['id']}/runs")
+    assert response.status_code == 200, response.text
+    runs = response.json()["items"]
+    assert [run["id"] for run in runs] == ["run-bad-0", "run-bad-1", "run-bad-2"]
+    assert runs[1]["result"] is None, "the bad row is listed, without its result"

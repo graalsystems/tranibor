@@ -110,7 +110,7 @@ jobs:
         run: uv run pytest tests/replay -q
 
   live:
-    # The adapters against the REAL services (LiteLLM, GitLab, Jira, Ecphoria, ACA, Rovo). A
+    # The adapters against the REAL services (LiteLLM, GitLab, Jira, Ecphoria, ACA, Rovo, ServiceNow). A
     # service named in TRANIBOR_LIVE_REQUIRED FAILS the job when one of its secrets is missing
     # (tests/live/conftest.py): a vanished secret must not leave the night green. The other
     # services, and the optional companions of a required one (the realtime model), are
@@ -142,6 +142,11 @@ jobs:
       TRANIBOR_LIVE_ECPHORIA_TENANT: ${{ secrets.TRANIBOR_LIVE_ECPHORIA_TENANT }}
       TRANIBOR_LIVE_ROVO_ACCESS_TOKEN: ${{ secrets.TRANIBOR_LIVE_ROVO_ACCESS_TOKEN }}
       TRANIBOR_LIVE_REALTIME_MODEL: ${{ secrets.TRANIBOR_LIVE_REALTIME_MODEL }}
+      # The ServiceNow plugin's MCP server, run against a real instance (S80-20,
+      # tests/live/test_servicenow_live.py).
+      TRANIBOR_LIVE_SERVICENOW_MCP_URL: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_MCP_URL }}
+      TRANIBOR_LIVE_SERVICENOW_MCP_TOKEN: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_MCP_TOKEN }}
+      TRANIBOR_LIVE_SERVICENOW_WEBHOOK_SECRET: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_WEBHOOK_SECRET }}
       # An organisation's MCP gateway (ADR 0105). Not in TRANIBOR_LIVE_REQUIRED: an unset URL skips,
       # but a URL that is set and unreachable (or without its server or token) fails.
       TRANIBOR_LIVE_MCP_GATEWAY_URL: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_URL }}
