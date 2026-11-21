@@ -40,7 +40,7 @@ async def test_a_frozen_train_is_exported(client: AsyncClient, project: dict[str
 
 
 def test_the_metrics_ask_a_query_the_train_defines() -> None:
-    from tranibor_contracts import ReleaseStatus
+    from tranibor_software_delivery.names import ReleaseStatus
     from tranibor_software_delivery.train.metrics import TRAIN_STATES, TRAIN_STATUS_QUERY
     from tranibor_software_delivery.train.workflow import ReleaseTrain
 
