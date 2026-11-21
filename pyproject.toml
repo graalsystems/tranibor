@@ -58,6 +58,8 @@ dev = [
   "mcp>=1.20",
   "python-docx>=1.1",
   "pytest-textual-snapshot>=1.0.0",
+  # The test kit of the core's suites, shared with the first-party plugins' tests (ADR 0181, round D).
+  "tranibor-testkit",
 ]
 
 [tool.uv]
@@ -78,6 +80,7 @@ tranibor-cli = { workspace = true }
 tranibor-api = { workspace = true }
 tranibor-orchestrator = { workspace = true }
 tranibor-agent-sdk = { workspace = true }
+tranibor-testkit = { workspace = true }
 tranibor-outpost = { workspace = true }
 tranibor-investment-research = { workspace = true }
 tranibor-software-delivery = { workspace = true }
@@ -128,6 +131,8 @@ max-statements = 80
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S", "PLR", "ASYNC"]
 "tests/**" = ["S", "PLR", "ASYNC"]
+# The test kit is test code the core's suites and the plugins' share (ADR 0181, round D).
+"packages/testkit/**" = ["S", "PLR", "ASYNC"]
 "**/fakes/**" = ["S"]
 # A plugin extension's fake (ADR 0005), named after its family rather than kept under `fakes/`.
 "plugins/*/src/**/fake.py" = ["S"]

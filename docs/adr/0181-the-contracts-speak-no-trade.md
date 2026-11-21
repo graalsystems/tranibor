@@ -606,3 +606,13 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   needs. `dsl/trains.py` is gone. **Left**: the guess of `scm` and `cd` from a role's name for an agent that
   declares no `needs:` (a reader of workflows stored before C1, `ROLES_IN_A_REPOSITORY`), and the kinds'
   display order (`requirements.ORDER`), which names them without needing them.
+- **S83-05l.** The core's test fixtures are a shared **test kit**, `packages/testkit` (`tranibor_testkit`):
+  the API's and the orchestrator's conftests, the interpreter's helpers and the suites' kits became its
+  modules, and the core's conftests and the plugin's re-export them. A development dependency of the
+  workspace, never an image's. The software delivery tests moved to `plugins/software-delivery/tests`
+  (`api/`, `orchestrator/`, `core/`), on the fixtures they ran on: the release train's, the pull request's
+  and the merge's, the delivery templates', the diff's, the DORA metrics', the webhooks of the pipelines.
+  `tests/core_alone/need_the_plugins.txt` fell from 115 to 91 files. **Left**: the 91 files, mostly core
+  mechanisms (the interpreter's budgets, escalations, resumptions, the catalogues, the readiness, the
+  site's pages) that a test drives on `default-simple` or a delivery template, to be driven on a workflow
+  of the core's instead; each such rewrite takes a file off the list.
