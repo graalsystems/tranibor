@@ -135,11 +135,68 @@ journals `agent.isolation: container` and `egress.gate` closed, reaches `pypi.or
 (`hosted.egress`, HTTP 200 with `HTTPS_PROXY=http://127.0.0.1:4003`) and not directly (timeout), and writes and
 reads the project's Ecphoria memory through the runner's loopback (`memory_add_memory`, `memory_search_memory`,
 tenant the project's slug), which `process` withholds (S65-04j memory story). `/readiness` says
-`agent-isolation: done` for both executors. **Not proved**: the agent-sandbox operator's suspension and
-resumption with the sidecar; a code agent's own image on a cluster (no `CHOREGOS_AGENT_IMAGES` there);
-`tekton` and `aca`, which refuse; Claude Code and gemini-cli as the agent on a cluster (S65-04a measures them on
-Docker); what an agent can reach inside the namespace, since a pod's network is shared by its containers (it
-holds no credential for what it reaches).
+`agent-isolation: done` for both executors.
+
+**Proved on dev, 2026-11-21 (0.27.17, `global.runner.agentIsolation: container`)**, in two throw-away
+projects archived after (`s65-0146-claude-pool`, `s65-0146-claude-job`, the second with a `k8s_job` runtime
+connector):
+
+- **Claude Code as the agent**: agent trials with `backend: claude-code`, `platform/claude-haiku`, each
+  `succeeded` with `done`: warm pool `01a1ff72-…`, `k8s_job` `01a1ff73-…`. Each journals `agent.isolation`
+  (`mode: container`, launcher `127.0.0.1:8766`) and `egress.gate` closed. The model listener's calls,
+  forwarded under `/v1` to a gateway the platform names by its root (`http://litellm:4000`, the #1964 fix),
+  all answer 200: 20 `messages/count_tokens` and 9 `messages` on the pool, 20 and 10 on the Job. The agent
+  reaches `pypi.org` through 4003 (`hosted.egress`) and writes and searches the project's memory over MCP
+  (`mcp__memory__add_memory`, `mcp__memory__search_memory`). claude-agent-acp also opens 3 tunnels to
+  `api.anthropic.com` per run, which are refused (`hosted.egress_refused`, finding #1987). Probed while the
+  agent slept: in the agent's container (uid 1001) are `launcher`, `claude-agent-acp` and its shell (7
+  processes), no runner process, and no credential among `/proc/*/environ`. Its only key is
+  `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` = the public `LOOPBACK_KEY` (`choregos-loopback`, same sha256),
+  with `ANTHROPIC_BASE_URL=http://127.0.0.1:4001` and the proxy variables on `127.0.0.1:4003`, without
+  credentials. In the `k8s_job` pod the runner's container (the control) holds the run token
+  (`CHOREGOS_RUN_TOKEN`, `TRANIBOR_RUN_TOKEN`) and credentialed proxy variables. The warm pool's runner
+  holds none in its environment: its credentials arrive sealed over the assignment port.
+- **A code agent's own image (§10)**: `global.images.agents.plain` on dev (choregos-deploy#324) is
+  `examples/agents/plain`, built FROM `tranibor-runner:0.27.17` and pinned by digest, and
+  `GET /platform/agent-images` lists `plain` (`digest_pinned: true`). A trial with
+  `runtime: {kind: code, image: plain}` went to `k8s_job` and `succeeded`: "Triaged as P1 with a model
+  reading", one `chat/completions` through 4001, answering 200, and `outputs.stored`. In its pod the `agent`
+  container (native sidecar, uid 1001, `launcher --port 8766`, no `secretKeyRef`) runs
+  `code-agent-plain@sha256:4fcb57cb…`. `egress-gate` and `runner` run the platform's `tranibor-runner:0.27.17`.
+  The agent's container holds 0 credential variables and no runner process. The three containers ended 0.
+- **The operator's suspension with the sidecar**: a work item whose agent asks a person a question ran on the
+  warm pod `choregos-runner-lhx5b`. The runner posted `needs_human` and the workflow's `suspend_run` set the
+  claimed sandbox to `operatingMode: Suspended`: the pod went (`SandboxSuspended`, `PodTerminated`), the
+  sandbox stayed, and the pool started a replacement. Then, at the operator's level, a warm sandbox
+  (`choregos-runner-mcz6k`) was suspended (its pod gone within 6 s, the pool counting it and starting none)
+  and resumed. A new pod (new uid) was `Ready` in 16 s: `egress-gate` exited 0 first, `agent` was running and
+  ready, `runner` was ready, and none restarted. The next run claimed that resumed sandbox (Claude Code
+  trial `01a1ff7d-…`), journaled `agent.isolation: container`, reached the model, pypi.org and the memory,
+  and `succeeded`.
+- **What the agent's container reaches in the namespace** (unauthenticated requests, no write attempted).
+  The pod's network is the agent's:
+
+  | Target | warm pool | `k8s_job` |
+  | --- | --- | --- |
+  | `choregos-api:8000` (public and `/api/v1/internal/*`) | 401 without a token | 401 without a token |
+  | `litellm:4000` | 401 without a key | 401 without a key |
+  | `ecphoria:8432` MCP | 401 without a key | 401 without a key |
+  | `choregos-egress:3128` | 407 | 407 |
+  | `choregos-relay:3128` | timeout | 407 |
+  | `choregos-pg:5432` | timeout | open, `pg_hba` refuses a non-TLS connection |
+  | `temporal-frontend:7233` / `:8233` | timeout | **answers without credentials** (#2082) |
+  | `firecrawl-redis`, `searxng`, `firecrawl`, `choregos-web`, `choregos-demo-fakes` | timeout | **open; Redis and searxng answer without credentials** (#2082) |
+  | `kubernetes.default.svc:443` | timeout | timeout |
+
+  The warm pool's pods are held by the namespace's run-pod policy (tenant-base's `choregos-sandbox-egress`,
+  selector `choregos/sandbox: "true"`). `k8s_job`'s pods do not carry that label, so on diametral only the
+  namespace baseline applies to them (finding #2082). The agent holds no credential for anything it reaches.
+
+**Not proved**: the resumption of the suspended question's run itself. Answering needs a person's session
+(`POST /work-items/{id}/decisions` answers 403 `decision_requires_session` to an API token), so the
+operator-level resumption above stands in for it. `tekton` and `aca`, which refuse. gemini-cli as the agent on
+a cluster (it is held to Gemini models, #1990, and the dev gateway serves none). Production for this paragraph:
+it was not touched.
 
 ## Context
 
