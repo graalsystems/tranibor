@@ -1,22 +1,6 @@
-"""Workers for the interpreter tests: one per queue, with a few activities replaced."""
+# SPDX-License-Identifier: Apache-2.0
+"""The suite's name for the test kit's `tranibor_testkit.workers` (ADR 0181, round D)."""
 
 from __future__ import annotations
 
-from typing import Any
-
-
-def worker_with(temporal_env: Any, replacements: dict[str, Any]) -> Any:
-    """Workers spread by queue, where a few activities are replaced by their double.
-
-    The keys are **Temporal names**: the name declared by `@activity.defn(name=...)` decides the
-    queue, so a double of `await_run` registers on `executor`, where the workflow schedules it.
-    """
-    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
-    from tranibor_orchestrator.testing import workers_by_queue
-
-    return workers_by_queue(
-        temporal_env.client,
-        activities=all_activities(),
-        workflows=all_workflows(),
-        replacements=replacements,
-    )
+from tranibor_testkit.workers import *  # noqa: F403
