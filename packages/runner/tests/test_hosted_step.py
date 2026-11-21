@@ -316,6 +316,25 @@ async def test_a_listed_network_refuses_a_host_outside_its_list(
     assert _events(client, "hosted.egress_refused")[0]["reason"] == "not_allowed"
 
 
+async def test_a_host_refused_again_and_again_is_journaled_once_with_its_count(
+    stage_input: StageInput, runner_settings: Any
+) -> None:
+    """#1987: gemini-cli asked for `play.googleapis.com` 13 to 36 times a run, each one journaled."""
+    script = [("tunnel", "play.googleapis.com", 443)] * 13 + [("tunnel", "api.anthropic.com", 443)]
+    agent = FakeHostedAgent(script=script, answer="Done.")
+    permissions = stage_input.permissions.model_copy(update={"allow_domains": ["api.example"]})
+    _, client = await _run(_hosted(stage_input, permissions=permissions), agent, runner_settings)
+
+    assert agent.seen == ["HTTP/1.1 403 Forbidden"] * 14, "every tunnel is still refused"
+    assert _events(client, "hosted.egress_refused") == [
+        {"host": "play.googleapis.com", "port": 443, "reason": "not_allowed"},
+        {"host": "api.anthropic.com", "port": 443, "reason": "not_allowed"},
+    ]
+    assert _events(client, "hosted.egress_refused_repeated") == [
+        {"host": "play.googleapis.com", "port": 443, "reason": "not_allowed", "count": 13}
+    ]
+
+
 async def test_a_tunnel_carries_the_runs_credentials_to_the_egress_proxy(
     stage_input: StageInput, runner_settings: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -381,3 +400,56 @@ async def test_plain_http_through_the_proxy_is_refused(stage_input: StageInput) 
 
     assert line == "HTTP/1.1 405 Method Not Allowed"
     assert recorded == [("hosted.egress_refused", {"target": "http://api.example/", "reason": "not_connect"})]
+
+
+async def test_the_refusals_are_counted_per_host_and_reason_until_flushed(stage_input: StageInput) -> None:
+    recorded: list[tuple[str, dict[str, Any]]] = []
+
+    async def record(type_: str, payload: dict[str, Any]) -> None:
+        recorded.append((type_, payload))
+
+    permissions = stage_input.permissions.model_copy(
+        update={"allow_domains": ["api.example"], "deny_domains": ["evil.example"]}
+    )
+    proxy = ConnectProxy(_hosted(stage_input, permissions=permissions), record)
+    server = await asyncio.start_server(proxy.handle, "127.0.0.1", 0)
+
+    async def tunnel(host: str, port: int = 443) -> str:
+        reader, writer = await asyncio.open_connection(*server.sockets[0].getsockname()[:2])
+        writer.write(f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode())
+        await writer.drain()
+        line = (await reader.readline()).decode().strip()
+        writer.close()
+        return line
+
+    async with server:
+        answers = [await tunnel(host) for host in ["a.example"] * 3 + ["evil.example"] * 2 + ["b.example"]]
+        answers.append(await tunnel("a.example", 8443))
+        first = list(recorded)
+        await proxy.flush()
+        flushed = recorded[len(first) :]
+        await proxy.flush()
+        assert len(recorded) == len(first) + len(flushed), "a second flush journals nothing more"
+        answers.append(await tunnel("a.example"))
+
+    assert set(answers) == {"HTTP/1.1 403 Forbidden"} and proxy.refused == 8
+    assert first == [
+        ("hosted.egress_refused", {"host": "a.example", "port": 443, "reason": "not_allowed"}),
+        ("hosted.egress_refused", {"host": "evil.example", "port": 443, "reason": "denied"}),
+        ("hosted.egress_refused", {"host": "b.example", "port": 443, "reason": "not_allowed"}),
+        ("hosted.egress_refused", {"host": "a.example", "port": 8443, "reason": "not_allowed"}),
+    ]
+    assert flushed == [
+        (
+            "hosted.egress_refused_repeated",
+            {"host": "a.example", "port": 443, "reason": "not_allowed", "count": 3},
+        ),
+        (
+            "hosted.egress_refused_repeated",
+            {"host": "evil.example", "port": 443, "reason": "denied", "count": 2},
+        ),
+    ]
+    assert recorded[-1] == (
+        "hosted.egress_refused",
+        {"host": "a.example", "port": 443, "reason": "not_allowed"},
+    ), "after a flush, the next refusal is journaled as it happens"

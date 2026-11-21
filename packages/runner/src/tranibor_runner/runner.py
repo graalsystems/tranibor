@@ -262,6 +262,9 @@ class Runner:
         self.agent_proxy_env: dict[str, str] = {}
         #: The loopback listeners of an agent in a container, closed when the run ends.
         self.agent_listeners = contextlib.AsyncExitStack()
+        #: Their CONNECT listener: its repeated refusals are journaled before the result (#1987), since
+        #: `agent_listeners` closes after the journal's last flush.
+        self.agent_connect: ConnectProxy | None = None
         #: What `agent.isolation` journals: where this run's agent runs (ADR 0146 §9).
         self.isolation: dict[str, str] = {"mode": "process"}
         #: The run's git token (S22-07): in memory only, for the clone and the push.
@@ -882,6 +885,7 @@ class Runner:
             await journal.record("run.failed", {"phase": "loopback", "error": str(exc)[:500]})
             await journal.flush()
             return RunOutcome(Exit.AGENT_UNREACHABLE, detail=str(exc))
+        self.agent_connect = connect
         probe.known = lambda: model.budget_refusal
         return None
 
@@ -1533,6 +1537,8 @@ class Runner:
     ) -> StageResult:
         """Commit, push, transcript, then deposit of the result (steps 11 and 12)."""
         await self._record_savings(journal)
+        if self.agent_connect is not None:
+            await self.agent_connect.flush()
         await self._deliver(client, journal, workspace, stage_input, result)
         commit_message = _commit_message(stage_input, result)
         sha = await workspace.commit(commit_message)

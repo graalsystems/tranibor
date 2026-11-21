@@ -84,7 +84,9 @@ waits for the container (`GET /readiness`, up to `readiness_timeout_s`), sends i
 - **the internet, on `:4003`** (`HTTPS_PROXY`): an HTTP CONNECT proxy. A host of `deny_domains` is
   refused, so is a host outside `allow_domains` when the list applies; plain HTTP is refused (405).
   An accepted tunnel goes through the pod's egress proxy with the run's credentials
-  (`hosted.egress`, `hosted.egress_refused`).
+  (`hosted.egress`, `hosted.egress_refused`). A refusal is journaled once per host, port and reason:
+  the repeats are counted, and one `hosted.egress_refused_repeated` (`count`, the total) follows when
+  the listeners stop, or at the end of a session's turn.
 
 The container's environment (`tranibor_core.hosted.sidecar_env`) holds the version's own variables,
 then the platform's, which win: `PORT`, `TRANIBOR_RUN_ID`, `TRANIBOR_AGENT_SLUG`,
