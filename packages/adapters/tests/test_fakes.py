@@ -7,8 +7,6 @@ import json
 import pytest
 from tranibor_adapters import (
     AdapterSet,
-    CdAdapter,
-    CiAdapter,
     Executor,
     GatewayAdapter,
     MemoryAdapter,
@@ -18,15 +16,13 @@ from tranibor_adapters import (
 )
 from tranibor_adapters.fakes import BudgetExceeded
 from tranibor_contracts import Size, StageResult, StageStatus
-from tranibor_core.domain import Change, Fact, Message, NewItem, Provenance, StageJobSpec, TrackerStateMapping
+from tranibor_core.domain import Fact, Message, NewItem, Provenance, StageJobSpec, TrackerStateMapping
 
 
 def test_adapter_set_satisfies_protocols() -> None:
     adapters = AdapterSet.fakes()
     assert isinstance(adapters.tracker, TrackerAdapter)
     assert isinstance(adapters.scm, ScmAdapter)
-    assert isinstance(adapters.ci, CiAdapter)
-    assert isinstance(adapters.cd, CdAdapter)
     assert isinstance(adapters.executor, Executor)
     assert isinstance(adapters.memory, MemoryAdapter)
     assert isinstance(adapters.gateway, GatewayAdapter)
@@ -229,28 +225,6 @@ async def test_memory_failure_returns_empty_pack() -> None:
     memory.fail = True  # type: ignore[attr-defined]
     pack = await memory.context_pack("demo", "whatever", [], 1000)
     assert pack.is_empty(), "a memory outage must never block a stage"
-
-
-async def test_cd_promotion_and_rollback() -> None:
-    cd = AdapterSet.fakes().cd
-    ref = await cd.promote("prod", [Change(app="billing-api", tag="v1.2.3")], "R-2026.09.18-1")
-    assert ref.url and ref.merged
-    assert (await cd.current_revision("billing-api")) == "v1.2.3"
-    assert (await cd.health("billing-api")).status == "Healthy"
-    cd.fail_next_analysis()  # type: ignore[attr-defined]
-    assert (await cd.rollout_status("billing-api")).phase == "Degraded"
-    await cd.abort_rollout("billing-api")
-    assert "billing-api" in cd.aborted  # type: ignore[attr-defined]
-
-
-async def test_ci_status_and_events() -> None:
-    ci = AdapterSet.fakes().ci
-    ci.set_status("acme/billing", "sha1", "failure", logs="line1\nline2\nERROR")  # type: ignore[attr-defined]
-    status = await ci.status_for("acme/billing", "sha1")
-    assert status.state == "failure"
-    assert "ERROR" in await ci.logs("acme/billing@sha1", tail=1)
-    events = ci.parse_event({"ce-id": "x"}, json.dumps({"state": "failed"}).encode())
-    assert events[0].type == "ci.run.failed"
 
 
 async def test_notifier() -> None:

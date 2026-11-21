@@ -1,4 +1,5 @@
-"""The `azure-repos` and `azure-pipelines` types declare themselves, and their hooks are read (S13-08)."""
+"""The `azure-repos` type declares itself, and its hooks are read (S13-08). `azure-pipelines` is the
+`software-delivery` plugin's since round D of ADR 0181 (`plugins/software-delivery/tests`)."""
 
 from __future__ import annotations
 
@@ -8,8 +9,7 @@ from typing import Any
 import pytest
 from tranibor_adapters import account_of, connector_types, resolved_configuration
 from tranibor_adapters.azure_devops import AzureDevOpsClient, azure_egress, shared_secret_of
-from tranibor_adapters.builtins import _azure_pipelines_ci, _azure_repos_scm
-from tranibor_adapters.ci.azure_pipelines import AzurePipelinesCi
+from tranibor_adapters.builtins import _azure_repos_scm
 from tranibor_adapters.errors import ConfigurationError
 from tranibor_adapters.scm.azure_repos import AzureReposScm
 
@@ -41,14 +41,11 @@ def types() -> dict[tuple[str, str], Any]:
 
 
 def test_the_types_are_registered_with_their_secrets_declared() -> None:
-    scm, ci = types()[("scm", "azure-repos")], types()[("ci", "azure-pipelines")]
-    assert scm.capabilities == ("scm",) and ci.capabilities == ("ci",)
+    scm = types()[("scm", "azure-repos")]
+    assert scm.capabilities == ("scm",)
     assert set(scm.secret_fields) == {"pat", "client_secret", "run_token"}
-    assert set(ci.secret_fields) == {"pat", "client_secret"}
-    for spec in (scm, ci):
-        assert not set(spec.secret_fields) & set(spec.config_schema["properties"])
+    assert not set(scm.secret_fields) & set(scm.config_schema["properties"])
     assert scm.config_schema["required"] == ["base_url", "project", "repository"]
-    assert ci.config_schema["required"] == ["base_url", "project"]
 
 
 def test_a_secret_is_a_reference_resolved_when_the_adapter_is_built(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -65,12 +62,6 @@ def test_the_factories_build_a_pat_adapter_and_an_entra_one() -> None:
         "rt",
         "dev",
         None,
-    )
-    ci = _azure_pipelines_ci({**GOOD, "pipeline": "ci", "partially_succeeded": "neutral"})
-    assert isinstance(ci, AzurePipelinesCi) and (ci.pipeline, ci.repository, ci.partial) == (
-        "ci",
-        "billing-api",
-        "neutral",
     )
     entra = _azure_repos_scm(ENTRA)
     assert entra.client.entra is not None and entra.client.entra.client_id == "c"
@@ -128,14 +119,10 @@ def test_the_egress_hosts_are_what_the_connector_calls() -> None:
     assert azure_egress(GOOD) == [("dev.azure.com", 443), ("vssps.dev.azure.com", 443)]
     assert ("login.microsoftonline.com", 443) in azure_egress(ENTRA)
     assert azure_egress({**GOOD, "base_url": "https://tfs.corp/tfs/Default"}) == [("tfs.corp", 443)]
-    assert types()[("ci", "azure-pipelines")].egress is azure_egress or callable(
-        types()[("ci", "azure-pipelines")].egress
-    )
 
 
 def test_the_account_of_a_service_principal_is_its_client_id() -> None:
     assert account_of("scm", "azure-repos", ENTRA) == "c"
-    assert account_of("ci", "azure-pipelines", ENTRA) == "c"
     assert account_of("scm", "azure-repos", GOOD) is None
 
 

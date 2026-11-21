@@ -6,10 +6,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from tranibor_adapters.executor.tekton import CORE_API, TEKTON_API, KubernetesClient
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core.domain import CheckRun, CiStatus
-
-from ..executor.tekton import CORE_API, TEKTON_API, KubernetesClient
 
 CLOUD_EVENT_MAP = {
     "dev.tekton.event.pipelinerun.started.v1": InboundEventType.CI_STARTED,

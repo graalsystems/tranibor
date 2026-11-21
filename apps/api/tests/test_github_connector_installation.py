@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 
 PUT = "/api/v1/projects/{id}/connectors/{kind}"
@@ -95,7 +96,8 @@ async def test_the_github_actions_ci_is_pinned_like_the_other_github_connectors(
 ) -> None:
     """`ci/github-actions` is served by the App: on a multi-organisation instance organisation B cannot
     save it on, nor run it through, the installation organisation A claimed (ADR 0073)."""
-    import pytest
+    # The `ci` and `cd` types are the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
+    pytest.importorskip("tranibor_software_delivery", reason="the ci and cd types are a plugin's")
     from sqlalchemy import select
     from tranibor_adapters.errors import ConfigurationError
     from tranibor_api.db.models import Project
@@ -135,7 +137,8 @@ async def test_the_argocd_gitops_repository_is_pinned_like_the_other_github_conn
     """`cd/argocd` writes its promotions to `gitops_repo` through the App: on a multi-organisation
     instance organisation B cannot save it on, nor promote through, the installation organisation A
     claimed (ADR 0073, finding #2033)."""
-    import pytest
+    # The `ci` and `cd` types are the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
+    pytest.importorskip("tranibor_software_delivery", reason="the ci and cd types are a plugin's")
     from sqlalchemy import select
     from tranibor_adapters.errors import ConfigurationError
     from tranibor_api.db.models import Project
@@ -173,6 +176,8 @@ async def test_the_argocd_gitops_repository_is_pinned_like_the_other_github_conn
 def test_only_github_served_types_name_a_repository() -> None:
     from tranibor_api.services.github_app import repo_of
 
-    assert repo_of("cd", "argocd", {"gitops_repo": "o/g", "repo": "x/y"}) == "o/g"
+    # An extension's type names its repository key the same way (`ConnectorTypeSpec.github_repository`):
+    # the `software-delivery` plugin's Argo CD, in its own tests.
+    assert repo_of("tracker", "github-issues", {"repo": "o/i"}) == "o/i"
     assert repo_of("scm", "github", {"repo": "o/r"}) == "o/r"
     assert repo_of("scm", "gitlab", {"repo": "o/r"}) == ""

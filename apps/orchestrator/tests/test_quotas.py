@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Does the quota of a project's namespaces come from the extension (per organisation), else the default?
 
-The extension is really installed (`.dist-info`); `load_extensions()` finds it,
-and the quota is read by `_write_manifests`, the provisioning step that writes into the GitOps repository.
+The extension is really installed (`.dist-info`); `load_extensions()` finds it, and the quota is read
+by `quota_for` and rendered into the project's manifests (`gitops.render_project_manifests`), what the
+`software-delivery` plugin's provisioning step writes into the GitOps repository
+(`plugins/software-delivery/tests/test_provisioning_steps.py`).
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ from __future__ import annotations
 import pathlib
 import sys
 from collections.abc import Iterator
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -56,13 +57,9 @@ def extension(tmp_path: pathlib.Path) -> Iterator[None]:
 
 
 async def _written_quotas(org: str) -> list[dict[str, Any]]:
-    """Plays the provisioning step that writes the manifests, and returns the `ResourceQuota` written."""
-    from tranibor_orchestrator.activities.provisioning import _write_manifests
-
-    written: dict[str, str] = {}
-
-    async def write_files(path: str, files: dict[str, str]) -> None:
-        written.update(files)
+    """Renders the project's manifests with its quota, and returns the `ResourceQuota` rendered."""
+    from tranibor_core.quotas import quota_for
+    from tranibor_orchestrator.gitops import render_project_manifests
 
     config = ProjectConfig.model_validate(
         {
@@ -71,11 +68,9 @@ async def _written_quotas(org: str) -> list[dict[str, Any]]:
             "repo": {"url": "https://github.com/x/billing.git", "default_branch": "main"},
         }
     )
-    bundle = SimpleNamespace(
-        slug="billing", org_slug=org, config=config, policy=load_preset("team"),
-        adapters=SimpleNamespace(cd=SimpleNamespace(write_files=write_files)),
-    )  # fmt: skip
-    await _write_manifests(bundle, {}, SimpleNamespace(egress_image=""))
+    written = render_project_manifests(
+        "billing", config, load_preset("team"), quota=await quota_for(org, "billing")
+    )
     documents = [d for text in written.values() for d in yaml.safe_load_all(text) if d]
     return [d for d in documents if d["kind"] == "ResourceQuota"]
 

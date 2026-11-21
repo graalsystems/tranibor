@@ -1,4 +1,6 @@
-"""The offline demo: the M1 scenario must pass in full, without a cluster."""
+# SPDX-License-Identifier: Apache-2.0
+"""The offline demo: the M1 scenario must pass in full, without a cluster (`make demo`, the plugin's since
+round D of ADR 0181)."""
 
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ async def test_demo_runs_end_to_end(tmp_path: Path, monkeypatch: Any, capsys: An
     from tranibor_api.config import reset_settings_cache
     from tranibor_api.db import session as db_session
     from tranibor_orchestrator.activities.base import set_adapters_override
-    from tranibor_orchestrator.demo import main_async
+    from tranibor_software_delivery.demo import main_async
 
     reset_settings_cache()
     await db_session.dispose_engine()

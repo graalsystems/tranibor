@@ -34,7 +34,7 @@ from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState
 
 from ..azure_devops import SHA, ZERO_SHA, segment
 from ..azure_devops_events import parse_azure_devops_event
-from ..ci.azure_pipelines import (
+from ..builds import (
     Conclusion,
     build_name_of,
     check_of,

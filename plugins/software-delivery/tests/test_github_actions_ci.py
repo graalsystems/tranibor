@@ -8,12 +8,11 @@ from typing import Any
 import httpx
 import pytest
 from tranibor_adapters import connector_types
-from tranibor_adapters.ci.github_actions import GitHubActionsCi
 from tranibor_adapters.errors import ConfigurationError, UpstreamError
+from tranibor_adapters.fakes.wire import Wire
 from tranibor_adapters.github import APP_EVENTS, APP_PERMISSIONS
 from tranibor_adapters.github.client import GitHubClient
-
-from ._transport import Wire
+from tranibor_software_delivery.connectors.ci.github_actions import GitHubActionsCi
 
 API = "https://api.github.test"
 REPO = "northwind/billing"

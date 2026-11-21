@@ -32,10 +32,9 @@ def test_every_shipped_type_declares_itself_and_no_fake_is_shown() -> None:
 
 
 def test_the_known_secrets_are_declared_as_such() -> None:
-    """What the factories read as a secret (Jira's API token, Argo CD's,
-    LiteLLM's master key) must be a secret field, never a key of `config`."""
+    """What the factories read as a secret (Jira's API token, LiteLLM's master key; Argo CD's, in the
+    `software-delivery` plugin's tests) must be a secret field, never a key of `config`."""
     assert "api_token" in spec_of("tracker", "jira").secret_fields  # type: ignore[union-attr]
-    assert "token" in spec_of("cd", "argocd").secret_fields  # type: ignore[union-attr]
     assert "master_key" in spec_of("gateway", "litellm").secret_fields  # type: ignore[union-attr]
     for _, _, spec in connector_types():
         assert not set(spec.secret_fields) & set(spec.config_schema.get("properties", {})), spec.display

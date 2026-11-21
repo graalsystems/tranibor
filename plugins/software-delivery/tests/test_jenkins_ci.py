@@ -10,9 +10,9 @@ import httpx
 import pytest
 import respx
 from tranibor_adapters import connector_types
-from tranibor_adapters.ci.jenkins import JenkinsCi, job_path, parse_jenkins_event
 from tranibor_adapters.errors import ConfigurationError, UpstreamError
 from tranibor_adapters.http import RestClient
+from tranibor_software_delivery.connectors.ci.jenkins import JenkinsCi, job_path, parse_jenkins_event
 
 BASE = "https://jenkins.example.com"
 SHA = "a" * 40

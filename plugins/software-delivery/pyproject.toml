@@ -1,14 +1,22 @@
 [project]
 name = "tranibor-software-delivery"
 version = "0.28.1"
-description = "The code of the software-delivery plugin: the gates that read a diff, a pipeline or a pull request, the facts they read, and the release train (ADR 0181)"
+description = "The code of the software-delivery plugin: the gates that read a diff, a pipeline or a pull request, the facts they read, the release train, and the ci and cd connector types (ADR 0181)"
 requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
 # The gates register through the core's seam; the context provider runs in the worker, whose modules
 # it imports when it is called (`facts.py`), so a process that only validates workflows needs the core.
 # The release train (round D) is durable code the worker carries through the worker seam: it reads and
 # writes the core's tables (ADR 0026) through the API's models, and schedules with the orchestrator's helpers.
-dependencies = ["tranibor-core", "tranibor-contracts", "tranibor-api", "tranibor-orchestrator", "temporalio>=1.8"]
+# The `ci` and `cd` connector types (round D) register through the adapters' registry, on their HTTP clients.
+dependencies = [
+  "tranibor-core",
+  "tranibor-contracts",
+  "tranibor-adapters",
+  "tranibor-api",
+  "tranibor-orchestrator",
+  "temporalio>=1.8",
+]
 
 # The plugin's code half (ADR 0181 point 4): the API and the worker load it at start-up.
 [project.entry-points."choregos.plugins"]

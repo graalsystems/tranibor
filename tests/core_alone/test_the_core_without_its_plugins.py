@@ -114,3 +114,37 @@ def test_the_api_emits_none_of_the_plugins_series() -> None:
     from tranibor_api.metrics import PLUGIN_SERIES, emitted_names
 
     assert PLUGIN_SERIES and not set(PLUGIN_SERIES) & emitted_names()
+
+
+def test_the_core_has_no_ci_or_cd_connector_and_says_whose_they_are() -> None:
+    """The `ci` and `cd` connector types and slots are the plugin's (S83-05i): the core registers none,
+    its adapter set has neither, and reading one names the plugin."""
+    from tranibor_adapters import AdapterSet, available, connector_types
+    from tranibor_adapters.registry import adapter_slots, default_type
+
+    assert not [pair for pair in connector_types() if pair[0] in {"ci", "cd"}]
+    assert available("ci") == [] and available("cd") == []
+    assert adapter_slots() == {} and default_type("ci") is None
+    adapters = AdapterSet.fakes()
+    assert adapters.extra == {}
+    with pytest.raises(AttributeError, match="the plugin `software-delivery`'s"):
+        adapters.slot("cd")
+    with pytest.raises(AttributeError, match="the plugin `software-delivery`'s"):
+        _ = adapters.ci
+
+
+def test_the_api_serves_none_of_the_pipelines_and_deployments_webhooks() -> None:
+    from tranibor_api.main import create_app
+
+    paths = set(create_app().openapi()["paths"])
+    assert "/api/v1/webhooks/github" in paths
+    assert not {"/api/v1/webhooks/tekton", "/api/v1/webhooks/jenkins", "/api/v1/webhooks/argocd"} & paths
+
+
+async def test_a_provisioning_step_of_the_plugin_is_skipped_saying_so() -> None:
+    from tranibor_orchestrator.activities.provisioning import _execute
+    from tranibor_orchestrator.extension_parts import extension_provisioning_steps
+
+    assert extension_provisioning_steps() == {}
+    said = await _execute("argocd.wait_synced", {}, None, None, {})
+    assert said == "step `argocd.wait_synced` skipped (not implemented for this template)"

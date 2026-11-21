@@ -58,7 +58,6 @@ apps/orchestrator/tests/test_already_fixed_ticket.py
 apps/orchestrator/tests/test_backend_toggle_enforced.py
 apps/orchestrator/tests/test_core_templates.py
 apps/orchestrator/tests/test_delivered_item_closes.py
-apps/orchestrator/tests/test_demo.py
 apps/orchestrator/tests/test_deny_paths_bound_writes.py
 apps/orchestrator/tests/test_docs_updated.py
 apps/orchestrator/tests/test_eval_doors_parity.py

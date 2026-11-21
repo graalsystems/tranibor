@@ -243,12 +243,14 @@ def litellm_config(provider: Provider | None, *, embed: bool = False, decide: bo
 
 
 def demo_connectors(provider: Provider | None = None) -> dict[str, tuple[str, dict[str, Any]]]:
-    """The demo project's connectors, by kind: `(type, config)`."""
+    """The demo project's connectors, by kind: `(type, config)`. The slots the installed extensions add
+    (the `software-delivery` plugin's `ci` and `cd`, ADR 0181 round D) get their fake too."""
+    from tranibor_adapters.registry import adapter_slots
+
     connectors: dict[str, tuple[str, dict[str, Any]]] = {
         "tracker": ("internal", {}),
         "scm": ("fake", {}),
-        "ci": ("fake", {}),
-        "cd": ("fake", {}),
+        **{kind: ("fake", {}) for kind in adapter_slots()},
         "runtime": ("fake", {"simulate": True}),
         "gateway": ("fake", {}),
         "memory": ("lexical", {}),

@@ -2547,6 +2547,7 @@ version = "0.28.1"
 source = { editable = "plugins/software-delivery" }
 dependencies = [
     { name = "temporalio" },
+    { name = "tranibor-adapters" },
     { name = "tranibor-api" },
     { name = "tranibor-contracts" },
     { name = "tranibor-core" },
@@ -2556,6 +2557,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "temporalio", specifier = ">=1.8" },
+    { name = "tranibor-adapters", editable = "packages/adapters" },
     { name = "tranibor-api", editable = "apps/api" },
     { name = "tranibor-contracts", editable = "packages/contracts" },
     { name = "tranibor-core", editable = "packages/core" },
