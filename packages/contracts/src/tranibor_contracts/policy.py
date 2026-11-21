@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, Field, model_validator
 
+from . import delivery as _delivery
 from .enums import Risk, Severity, Size
 from .stage import (
     MAX_CONCURRENT_TOOL_CALLS,
@@ -291,3 +292,15 @@ class Policy(Strict):
     review: ReviewPolicy = Field(default_factory=ReviewPolicy)
     release_train: dict[str, TrainEnvPolicy] = Field(default_factory=dict)
     web_search: WebSearchPolicy = Field(default_factory=WebSearchPolicy)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_either_form(cls, data: Any) -> Any:
+        return _delivery.read_policy(data)
+
+    @property
+    def delivery(self) -> _delivery.PolicyDelivery:
+        """The `software-delivery` plugin's section (ADR 0181 C2): the diff bounds, the merge approval
+        and the release trains, derived from the former fields during their window and written beside
+        them."""
+        return _delivery.policy_section(self)
