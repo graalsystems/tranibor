@@ -1,6 +1,6 @@
 """M8 — procurement end to end (S85-10, S85-13), on fakes, with the real runner.
 
-The plugin is the archive the core ships offline (`plugins/offline/procurement-0.2.0.tar.gz`, the one
+The plugin is the archive the core ships offline (`plugins/offline/procurement-0.2.1.tar.gz`, the one
 `plugins/procurement/tests` read), installed through the API like an organisation installs it.
 
 **The comparison of offers** (`procurement-sourcing`, workflow `offer-comparison`). A person files a
@@ -184,7 +184,7 @@ async def api_url(platform: Platform, monkeypatch: pytest.MonkeyPatch) -> AsyncI
 async def _install(client: AsyncClient) -> None:
     """The plugin brings a server: two administrators install it (ADR 0050)."""
     asked = await client.post(
-        f"{ORG}/plugins/install", json={"source": "offline", "name": "procurement", "version": "0.2.0"}
+        f"{ORG}/plugins/install", json={"source": "offline", "name": "procurement", "version": "0.2.1"}
     )
     assert asked.status_code == 202, asked.text
     added = await client.post(f"{ORG}/members", json={"email": SECOND, "role": "org_admin"})
