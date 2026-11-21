@@ -34,7 +34,8 @@ from tranibor_api.schemas import (
 )
 from tranibor_api.services import effective_policy, persist_event, release_dto
 from tranibor_api.temporal import get_temporal, train_id
-from tranibor_contracts import EventType
+
+from ..names import ReleaseEvent
 
 router = APIRouter(tags=["trains"])
 
@@ -140,7 +141,7 @@ async def freeze(
     )
     await persist_event(
         session,
-        EventType.RELEASE_FROZEN,
+        ReleaseEvent.FROZEN,
         project_id=ctx.id,
         project_slug=ctx.slug,
         subject=f"{ctx.slug}/{env}",
