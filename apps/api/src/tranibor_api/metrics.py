@@ -51,10 +51,7 @@ NAMES = frozenset(
         "choregos_project_daily_cost_usd",
         "choregos_project_daily_budget_usd",
         "choregos_first_pass_merge_rate",
-        "choregos_releases_total",
         "choregos_lead_time_seconds",
-        "choregos_train_frozen",
-        "choregos_train_status",
         "choregos_permission_denials_total",
         "choregos_memory_pending",
         "choregos_context_pack_empty_total",
@@ -69,21 +66,45 @@ NAMES = frozenset(
 
 START_SECONDS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0)
 DELIVERY_SECONDS = (3600.0, 4 * 3600.0, 8 * 3600.0, 24 * 3600.0, 3 * 86400.0, 7 * 86400.0, 30 * 86400.0)
-ENVIRONMENTS = ("dev", "staging", "prod")
-#: The dashboards show the state of a train as a number.
-#: The query the `ReleaseTrain` workflow answers (`workflows/train.py`, `status_query`), as the
-#: trains route asks it.
-TRAIN_STATUS_QUERY = "status_query"
-#: Keyed by the `status` the train's `status_query` returns (`ReleaseStatus`). "staged" was never a
-#: status: a train at staging fell to -1 (S26-03).
-TRAIN_STATES = {
-    "collecting": 0,
-    "departing": 1,
-    "staging": 2,
-    "awaiting_approval": 3,
-    "promoting": 4,
-    "verifying": 5,
+#: The series a plugin's extension emits, by name, and the plugin (ADR 0181, round D): what the core can
+#: say of a series a dashboard cites when the extension is not installed, as `gates.PLUGIN_GATES` does for
+#: gates. The release train's three are the `software-delivery` plugin's.
+PLUGIN_SERIES = {
+    "choregos_releases_total": "software-delivery",
+    "choregos_train_frozen": "software-delivery",
+    "choregos_train_status": "software-delivery",
 }
+
+#: (plugin, names, refresh): what extensions declared through `declare_series`.
+_SERIES: list[tuple[str, frozenset[str], Any]] = []
+
+
+def declare_series(plugin: str, names: Iterable[str], refresh: Any) -> None:
+    """Called by an extension when it loads: `refresh(project_slugs)` (async) returns the metric families
+    of `names`, computed at each refresh of the snapshot and served on `/metrics` beside the core's. A name
+    the core emits, or another extension declared, stops the start. Idempotent for the same plugin."""
+    declared = frozenset(names)
+    if not declared or not callable(refresh):
+        raise TypeError("a plugin's series are names and an async refresh(project_slugs) -> families")
+    if declared & NAMES:
+        raise ValueError(f"the core already emits {sorted(declared & NAMES)}")
+    for other, known, _ in list(_SERIES):
+        if other == plugin:
+            _SERIES.remove((other, known, _))
+        elif declared & known:
+            raise ValueError(f"{sorted(declared & known)} already emitted by the plugin `{other}`")
+    _SERIES.append((plugin, declared, refresh))
+
+
+def forget_series(plugin: str) -> None:
+    """Drop what `plugin` declared (a test that installed an extension does it after)."""
+    _SERIES[:] = [entry for entry in _SERIES if entry[0] != plugin]
+
+
+def emitted_names() -> frozenset[str]:
+    """What `/metrics` produces in this deployment: the core's series and the installed extensions'."""
+    return NAMES.union(*(names for _, names, _ in _SERIES))
+
 
 registry = CollectorRegistry()
 http_requests = PromCounter(
@@ -113,10 +134,9 @@ class Snapshot:
         self.daily_cost: dict[str, float] = {}
         self.daily_budget: dict[str, float] = {}
         self.first_pass: dict[str, float] = {}
-        self.releases: dict[str, float] = {}
         self.lead_time: tuple[list[tuple[str, float]], float] = ([], 0.0)
-        self.train_frozen: dict[tuple[str, str], float] = {}
-        self.train_status: dict[tuple[str, str], float] = {}
+        #: The families the extensions' series rendered at this refresh.
+        self.extension_families: list[Any] = []
         self.denials: dict[str, float] = {}
         self.memory_pending = 0.0
         self.context_pack_empty: dict[str, float] = {}
@@ -183,28 +203,12 @@ class PlatformCollector(Collector):
         for project, v in s.first_pass.items():
             g.add_metric([project], v)
         yield g
-        g = GaugeMetricFamily("choregos_releases_total", "Releases by state", labels=["status"])
-        for status, n in s.releases.items():
-            g.add_metric([status], n)
-        yield g
         yield HistogramMetricFamily(
             "choregos_lead_time_seconds",
             "From the creation of a ticket to its closing (last 90 days)",
             buckets=s.lead_time[0],
             sum_value=s.lead_time[1],
         )
-        g = GaugeMetricFamily("choregos_train_frozen", "1 if the train is frozen", labels=["project", "env"])
-        for (project, env), v in s.train_frozen.items():
-            g.add_metric([project, env], v)
-        yield g
-        g = GaugeMetricFamily(
-            "choregos_train_status",
-            "State of the train (0 collecting ... 5 verifying)",
-            labels=["project", "env"],
-        )
-        for (project, env), v in s.train_status.items():
-            g.add_metric([project, env], v)
-        yield g
         g = GaugeMetricFamily(
             "choregos_permission_denials_total", "Permission requests refused", labels=["project"]
         )
@@ -244,6 +248,8 @@ class PlatformCollector(Collector):
         for sink, v in s.audit_export_progress.items():
             g.add_metric([sink], v)
         yield g
+        # The series the installed extensions declared (`declare_series`), as rendered at the last refresh.
+        yield from s.extension_families
 
 
 registry.register(PlatformCollector())
@@ -263,7 +269,6 @@ async def refresh() -> Snapshot:
         MemoryFact,
         Organization,
         Project,
-        Release,
         Run,
         RunEvent,
         WorkItem,
@@ -321,9 +326,6 @@ async def refresh() -> Snapshot:
             rate = await first_pass_merge_rate(session, pid)
             if rate is not None:
                 fresh.first_pass[project.slug] = float(rate)
-
-        releases = await session.execute(select(Release.status, func.count()).group_by(Release.status))
-        fresh.releases = {str(st): float(n) for st, n in releases.all()}
 
         closed = await session.execute(
             select(WorkItem.created_at, WorkItem.closed_at).where(
@@ -386,37 +388,22 @@ async def refresh() -> Snapshot:
             if moved is not None:
                 fresh.audit_export_progress[str(sink)] = _aware(moved).timestamp()
 
-    fresh.train_frozen, fresh.train_status = await _trains(list(slug.values()))
+    fresh.extension_families = await _extension_series(list(slug.values()))
     fresh.refreshed_at = now.timestamp()
     _Current.snapshot = fresh
     return fresh
 
 
-async def _trains(slugs: list[str]) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], float]]:
-    """The state of the trains lives in Temporal: one `status_query` per (project, environment), bounded.
-
-    S26-03: it asked for `status`, a query the train does not define, and read `state`, a field it
-    does not return; the failure was swallowed below, so the train series were always empty.
-    """
-    from .temporal import get_temporal, train_id
-
-    frozen: dict[tuple[str, str], float] = {}
-    states: dict[tuple[str, str], float] = {}
-    temporal = get_temporal()
-    for project in slugs:
-        for env in ENVIRONMENTS:
-            try:
-                live = await asyncio.wait_for(
-                    temporal.query(train_id(project, env), TRAIN_STATUS_QUERY), timeout=2.0
-                )
-            except Exception as exc:  # no train, or Temporal is slow: the series is missing, the API lives
-                logger.debug("train without state", project=project, env=env, error=str(exc)[:80])
-                continue
-            if not isinstance(live, dict):
-                continue
-            frozen[(project, env)] = 1.0 if live.get("frozen") else 0.0
-            states[(project, env)] = float(TRAIN_STATES.get(str(live.get("status", "")), -1))
-    return frozen, states
+async def _extension_series(slugs: list[str]) -> list[Any]:
+    """The families of the extensions' series. A refresh that fails leaves its series missing; the API
+    lives."""
+    families: list[Any] = []
+    for plugin, _names, refresh_series in list(_SERIES):
+        try:
+            families.extend(await refresh_series(slugs))
+        except Exception as exc:
+            logger.warning("extension series not refreshed", plugin=plugin, error=str(exc)[:200])
+    return families
 
 
 def _aware(moment: Any) -> Any:

@@ -40,6 +40,7 @@ from ..db.models import (
     WorkItem,
 )
 from ..errors import ApiError
+from ..extensions import project_figures
 from ..object_store import object_store
 from ..schemas.readiness import ProjectReadiness, ReadinessFix, ReadinessItem, ReadinessSummary
 from . import github_app
@@ -47,7 +48,6 @@ from .catalogue_rights import SELECTED_PROJECTS, enabled_ids
 from .definitions import active_policy, policy_model, workflow_model
 from .human_groups import groups_known_in, unknown_group_warnings
 from .mcp_gateway import stored as stored_gateway
-from .projects import declares_a_release_train
 from .templates import shipped_workflows, template_manifest
 from .workflow_catalogue import parse_origin
 
@@ -1163,7 +1163,10 @@ async def load_facts(session: AsyncSession, project: Project, org_slug: str) -> 
         # Either spelling of the role (ADR 0181 C1).
         has_release_captain=bool({"approver", "release_captain"} & set(memberships)),
         unknown_groups=tuple(unknown_groups),
-        has_release_train=await declares_a_release_train(session, project.id),
+        # The `software-delivery` plugin's figure (ADR 0181 round D): `False` without its extension.
+        has_release_train=bool(
+            (await project_figures(session, project, "Project")).get("has_release_train", False)
+        ),
         announces=bool(policy.findings.notify_severities) or policy.memory.enabled,
         work_items=(
             await session.execute(

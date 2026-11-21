@@ -6,9 +6,9 @@ does not run proves nothing, and saying so is half the work.
 
 A job that is meant to test a service cannot let a vanished secret turn into a skip. The
 `TRANIBOR_LIVE_REQUIRED` variable lists those services (comma-separated, case-insensitive: `gitlab`,
-`jira`, `litellm`, or `all`): when a variable of a listed service is missing, `require()` **fails**
-instead of skipping. Only the *missing* variables decide: an optional companion of a required service
-(the realtime model next to LiteLLM) still skips its own test.
+`jira`, `litellm`, `servicenow`, or `all`): when a variable of a listed service is missing, `require()`
+**fails** instead of skipping. Only the *missing* variables decide: an optional companion of a required
+service (the realtime model next to LiteLLM) still skips its own test.
 
     TRANIBOR_LIVE_GITLAB_TOKEN=… TRANIBOR_LIVE_GITLAB_PROJECT=group/project \\
     uv run pytest tests/live -m live

@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
+
+# The series are the `software-delivery` plugin's since round D of ADR 0181.
+pytest.importorskip("tranibor_software_delivery", reason="the train's series are the plugin's")
 
 
 async def test_a_frozen_train_is_exported(client: AsyncClient, project: dict[str, Any]) -> None:
@@ -18,7 +22,7 @@ async def test_a_frozen_train_is_exported(client: AsyncClient, project: dict[str
 
     fake = get_temporal()
     assert isinstance(fake, FakeTemporal)
-    # The answer the workflow's `status_query` gives (workflows/train.py), nothing more.
+    # The answer the workflow's `status_query` gives (the plugin's `train/workflow.py`), nothing more.
     fake.queries[f"{train_id('billing-api', 'prod')}:status_query"] = {
         "status": "staging",
         "batch_size": 1,
@@ -36,9 +40,9 @@ async def test_a_frozen_train_is_exported(client: AsyncClient, project: dict[str
 
 
 def test_the_metrics_ask_a_query_the_train_defines() -> None:
-    from tranibor_api.metrics import TRAIN_STATES, TRAIN_STATUS_QUERY
-    from tranibor_contracts import ReleaseStatus
-    from tranibor_orchestrator.workflows.train import ReleaseTrain
+    from tranibor_software_delivery.names import ReleaseStatus
+    from tranibor_software_delivery.train.metrics import TRAIN_STATES, TRAIN_STATUS_QUERY
+    from tranibor_software_delivery.train.workflow import ReleaseTrain
 
     assert callable(getattr(ReleaseTrain, TRAIN_STATUS_QUERY, None))
     assert set(TRAIN_STATES) <= {str(s) for s in ReleaseStatus}, "every mapped state is a real status"

@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """`ReleaseTrain`: one singleton per project x environment (docs/plan/05 §5.2).
 
+The `software-delivery` plugin's since round D of ADR 0181, carried by the orchestrator's workers through
+the worker seam (`extension.provide_worker_parts`). Its name, its signals, its queries, its activities'
+names and every `workflow.patched` id below are the ones the orchestrator registered: the recorded
+histories (`tests/replay/histories/train-*.json`) and the trains running in a deployment replay against
+this module unchanged.
+
 The train is the second of the three locks: the merge queue keeps `main` green, the train keeps
 the environment, and the declarative guard rails (Argo windows, GitHub Environments) hold even if
 Tranibor goes down.
@@ -18,13 +24,12 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError
 
-from .activity_names import english_payload_keys, named
-from .scheduling import execute_on_its_queue, start_on_its_queue
-
 with workflow.unsafe.imports_passed_through():
-    from tranibor_contracts import InboundEventType, ReleaseStatus
+    from tranibor_orchestrator.workflows.activity_names import english_payload_keys, named
+    from tranibor_orchestrator.workflows.scheduling import execute_on_its_queue, start_on_its_queue
 
-    from ..activities import train as train_activities
+    from ..names import CD_DEGRADED, CD_ROLLOUT_ABORTED, ReleaseStatus
+    from . import activities as train_activities
 
 DEFAULT_RETRY = RetryPolicy(maximum_attempts=5, initial_interval=timedelta(seconds=2))
 NO_RETRY = RetryPolicy(maximum_attempts=1)
@@ -131,7 +136,7 @@ AUTO_SYNC_PAUSE = timedelta(minutes=2)
 #: departure's steps saw a degradation, at its next pass.
 TRAIN_LISTENS_TO_CD = "train-listens-to-cd"
 #: What, announced for the departure's environment, makes it roll back without waiting for polling.
-CD_ALERTS = frozenset({str(InboundEventType.CD_DEGRADED), str(InboundEventType.ROLLOUT_ABORTED)})
+CD_ALERTS = frozenset({CD_DEGRADED, CD_ROLLOUT_ABORTED})
 
 
 @dataclass
@@ -753,7 +758,7 @@ def _alert(event: dict[str, Any], env: str, apps: list[str]) -> str | None:
     if app and apps and app not in apps:
         return None
     subject = app or env
-    if str(event.get("type")) == str(InboundEventType.ROLLOUT_ABORTED):
+    if str(event.get("type")) == CD_ROLLOUT_ABORTED:
         return f"Argo CD reported the {subject} rollout aborted"
     return f"Argo CD reported {subject} degraded"
 

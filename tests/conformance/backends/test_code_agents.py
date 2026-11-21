@@ -22,6 +22,7 @@ without it, the plain example runs. `make conformance-agent IMAGE=<ref>` sets it
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import os
@@ -61,17 +62,35 @@ def configured_agents() -> dict[str, Any]:
     return json.loads(raw) if raw else DEFAULT_AGENTS
 
 
+#: How an agent in a container reaches the suite's fake gateway, which listens on this host. Not
+#: `--network=host`: under Docker Desktop (WSL, macOS) the container's host is Docker's VM, and the
+#: gateway was never reached (#1967). `host-gateway` is the host's address on Linux and Docker Desktop alike.
+DOCKER_HOST_NAME = "host.docker.internal"
+DOCKER_HOST_FLAG = f"--add-host={DOCKER_HOST_NAME}:host-gateway"
+
+
 def container_command(image: str, command: list[str], workspace: Path, env: dict[str, str]) -> list[str]:
     """`docker run -i` for an agent that lives in an image: the workspace is mounted at the same path
     (the agent writes `.choregos/` there), the environment is passed variable by variable, and the
-    container shares the host's network (the fake gateway listens on the host)."""
+    container reaches the fake gateway on the host as `host.docker.internal`.
+
+    The command replaces the image's ENTRYPOINT, as a pod's `command` does: an agent image is built FROM
+    the runner image (ADR 0063), whose ENTRYPOINT is `tini -- choregos-runner`, and the agent's command
+    given as arguments became the runner CLI's, which answered its usage box and never `initialize`
+    (#1967). `--init` keeps an init as PID 1 for the agent's signals, as tini did."""
     flags: list[str] = []
     for name in sorted(env):
         flags += ["-e", name]
     return [
-        "docker", "run", "-i", "--rm", "--network=host",
-        "-v", f"{workspace}:{workspace}", "-w", str(workspace), *flags, image, *command,
+        "docker", "run", "-i", "--rm", "--init", DOCKER_HOST_FLAG,
+        "-v", f"{workspace}:{workspace}", "-w", str(workspace), *flags,
+        "--entrypoint", command[0], image, *command[1:],
     ]  # fmt: skip
+
+
+def reachable_from_a_container(url: str) -> str:
+    """The fake gateway's URL as an agent in a container reaches it."""
+    return url.replace("://127.0.0.1:", f"://{DOCKER_HOST_NAME}:", 1)
 
 
 @dataclass
@@ -113,7 +132,9 @@ def gateway() -> Iterator[FakeGateway]:
         def log_message(self, *args: Any) -> None:
             return
 
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    # An agent in an image reaches it through the docker bridge (`host-gateway`), not the loopback.
+    images = any(isinstance(spec, dict) for spec in configured_agents().values())
+    server = HTTPServer(("0.0.0.0" if images else "127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield FakeGateway(url=f"http://127.0.0.1:{server.server_address[1]}/v1", seen=seen)
     server.shutdown()
@@ -159,7 +180,9 @@ async def run_code_suite(
     started through it (ADR 0146 §10): the launcher runs where the agent lives, its image or here."""
     result = ConformanceResult(backend=f"code:{name}")
     argv, image = (spec["command"], spec["image"]) if isinstance(spec, dict) else (list(spec), None)
-    stage_input = code_stage_input(argv, gateway.url, workspace)
+    stage_input = code_stage_input(
+        argv, reachable_from_a_container(gateway.url) if image else gateway.url, workspace
+    )
     backend = get_backend("code")
     plan = backend.launch_plan(stage_input, workspace)
     env = {**plan.env, **backend.model_env(stage_input.model, stage_input.gateway_key)}
@@ -270,11 +293,15 @@ async def launcher_for(spec: Any, workspace: Path) -> AsyncIterator[Launcher]:
     if isinstance(spec, dict):
         workspace.chmod(0o777)  # uid 1001 writes `.choregos/` there, as the pod's group lets it
         name = f"choregos-conformance-launcher-{port}"
+        # The launcher is the runner image's own entrypoint (`choregos-runner launcher`). It listens on the
+        # container's interfaces, published on this host's loopback only (#1967: not `--network=host`).
         started = subprocess.run(
             [
-                "docker", "run", "-d", "--rm", "--name", name, "--network=host",
+                "docker", "run", "-d", "--rm", "--name", name, DOCKER_HOST_FLAG,
+                "-p", f"127.0.0.1:{port}:{port}",
                 "--user", "1001:1000", "--read-only", "--tmpfs", "/tmp", "-e", "HOME=/tmp",
-                "-v", f"{workspace}:{workspace}", spec["image"], "launcher", "--port", str(port),
+                "-v", f"{workspace}:{workspace}", spec["image"],
+                "launcher", "--host", "0.0.0.0", "--port", str(port),
             ],
             capture_output=True, text=True, check=False,
         )  # fmt: skip
@@ -285,6 +312,12 @@ async def launcher_for(spec: Any, workspace: Path) -> AsyncIterator[Launcher]:
         stop = []
     launcher = Launcher("127.0.0.1", port)
     try:
+        if stop:
+            # A published port accepts a connection before the container listens (Docker's proxy takes it,
+            # then drops it): the launcher's own line says when it does.
+            assert await _container_says(name, "choregos-launcher: listening on", 60), (
+                "the launcher never listened"
+            )
         assert await launcher.wait_ready(60), "the launcher never listened"
         yield launcher
     finally:
@@ -293,6 +326,17 @@ async def launcher_for(spec: Any, workspace: Path) -> AsyncIterator[Launcher]:
         else:
             process.terminate()
             process.wait(10)
+
+
+async def _container_says(name: str, line: str, timeout: float) -> bool:
+    """Whether the container's log shows `line` within `timeout` seconds."""
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True, check=False)
+        if line in logs.stdout + logs.stderr:
+            return True
+        await asyncio.sleep(0.2)
+    return False
 
 
 def _free_port() -> int:
@@ -356,7 +400,22 @@ def test_an_image_agent_runs_through_docker_with_the_workspace_and_the_environme
     command = container_command(
         "registry.example/agent@sha256:" + "0" * 64, ["python", "-m", "agent"], tmp_path, {"B": "1", "A": "2"}
     )
-    assert command[:5] == ["docker", "run", "-i", "--rm", "--network=host"]
-    assert ["-v", f"{tmp_path}:{tmp_path}", "-w", str(tmp_path)] == command[5:9]
-    assert command[9:13] == ["-e", "A", "-e", "B"], "variables are passed by name, never by value"
-    assert command[-3:] == ["python", "-m", "agent"]
+    assert command[:6] == [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "--init",
+        "--add-host=host.docker.internal:host-gateway",
+    ]
+    assert ["-v", f"{tmp_path}:{tmp_path}", "-w", str(tmp_path)] == command[6:10]
+    assert command[10:14] == ["-e", "A", "-e", "B"], "variables are passed by name, never by value"
+    # #1967: the agent's command replaces the image's ENTRYPOINT (the runner CLI of an image built FROM the
+    # runner image); given after the image alone, it became the runner's arguments.
+    image_at = command.index("registry.example/agent@sha256:" + "0" * 64)
+    assert command[image_at - 2 : image_at] == ["--entrypoint", "python"]
+    assert command[image_at + 1 :] == ["-m", "agent"]
+
+
+def test_an_agent_in_a_container_is_given_the_gateway_by_the_hosts_name() -> None:
+    assert reachable_from_a_container("http://127.0.0.1:4123/v1") == "http://host.docker.internal:4123/v1"

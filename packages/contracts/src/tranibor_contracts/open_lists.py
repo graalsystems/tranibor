@@ -23,12 +23,13 @@ from typing import Any
 
 from pydantic import ValidationInfo
 
-from .enums import ConnectorKind, FindingType, InboundEventType, MemoryKind, StageRole
+from .enums import ConnectorKind, EventType, FindingType, InboundEventType, MemoryKind, StageRole
 from .window import (
     DELIVERY_CONNECTOR_KINDS,
     DELIVERY_EVENT_TYPES,
     DELIVERY_FINDING_TYPES,
     DELIVERY_MEMORY_KINDS,
+    RELEASE_EVENT_TYPES,
     SOFTWARE_DELIVERY,
 )
 
@@ -127,6 +128,9 @@ INBOUND_EVENT_TYPE_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 FINDING_TYPE_PATTERN = r"^[a-z][a-z0-9-]{0,31}$"
 MEMORY_KIND_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
 CONNECTOR_KIND_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
+#: `choregos.<object>.<event>`: an internal event's type (CloudEvents `type`). Open since round D, when the
+#: release train's types became the `software-delivery` plugin's.
+EVENT_TYPE_PATTERN = r"^choregos(\.[a-z][a-z0-9_]*)+$"
 #: The pattern of an agent's `role` in the workflow schema.
 STAGE_ROLE_PATTERN = r"^[a-z][a-z0-9_]{1,31}$"
 
@@ -157,5 +161,12 @@ CONNECTOR_KINDS = OpenList(
     (v.value for v in ConnectorKind),
     ConnectorKind,
     kept=dict.fromkeys(DELIVERY_CONNECTOR_KINDS, SOFTWARE_DELIVERY),
+)
+EVENT_TYPES = OpenList(
+    "event type",
+    EVENT_TYPE_PATTERN,
+    (v.value for v in EventType),
+    EventType,
+    kept=dict.fromkeys(RELEASE_EVENT_TYPES, SOFTWARE_DELIVERY),
 )
 STAGE_ROLES = OpenList("stage role", STAGE_ROLE_PATTERN, (v.value for v in StageRole), StageRole)

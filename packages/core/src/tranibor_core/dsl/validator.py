@@ -92,6 +92,8 @@ class ValidationReport:
 DEPLOYMENT_CODES = frozenset({"gate.unknown", "gate.provider_missing"})
 #: A step effect a known plugin serves, whose extension this process lacks (`PLUGIN_EFFECTS`).
 EFFECT_UNAVAILABLE = "transition.effect_unavailable"
+#: A `via:` a known plugin carries, whose extension this process lacks (`carriers.PLUGIN_CARRIERS`).
+CARRIER_UNAVAILABLE = "transition.carrier_unavailable"
 
 
 def _gate_at(wf: Workflow, path: str | None) -> str | None:
@@ -113,12 +115,18 @@ def deployment_issues(wf: Workflow, report: ValidationReport) -> tuple[list[Issu
     publication when it lacks the extension; a reader that is not the deployment reports them."""
     elsewhere: list[Issue] = []
     others: list[Issue] = []
+    from ..carriers import PLUGIN_CARRIERS
     from ..step_effects import PLUGIN_EFFECTS
 
     for issue in report.errors:
         name = _gate_at(wf, issue.path)
-        if (issue.code in DEPLOYMENT_CODES and name is not None and gate_plugin(name) is not None) or (
-            issue.code == EFFECT_UNAVAILABLE and any(f"`{e}`" in issue.message for e in PLUGIN_EFFECTS)
+        if (
+            (issue.code in DEPLOYMENT_CODES and name is not None and gate_plugin(name) is not None)
+            or (issue.code == EFFECT_UNAVAILABLE and any(f"`{e}`" in issue.message for e in PLUGIN_EFFECTS))
+            or (
+                issue.code == CARRIER_UNAVAILABLE
+                and any(f"`via: {c}`" in issue.message for c in PLUGIN_CARRIERS)
+            )
         ):
             elsewhere.append(issue)
         else:
@@ -919,9 +927,15 @@ def _check_effects(wf: Workflow, report: ValidationReport, source: Any) -> None:
     """What the platform does is WRITTEN (#175): `does` on a system transition, `production`
     on a state. An effect still deduced from a name is read (a published workflow does not change
     behaviour), but it announces itself: a rename would lose it."""
+    from ..carriers import unavailable_carrier
     from ..step_effects import step_effect_of, unavailable_effect
 
     for index, t in enumerate(wf.transitions):
+        carried = unavailable_carrier(t.via) if t.via is not None else None
+        if carried is not None:
+            # A carrier this deployment lacks (the release train, ADR 0181 round D): refused now, naming the
+            # plugin, rather than when a work item boards a train nothing runs.
+            report.error(CARRIER_UNAVAILABLE, carried, ["transitions", index, "via"], source)
         is_system = isinstance(wf.actors.get(t.by or ""), SystemActor)
         effect = transition_effect(t) if is_system else None
         missing = unavailable_effect(str(effect)) if effect is not None else None

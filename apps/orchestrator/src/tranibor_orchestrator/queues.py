@@ -87,6 +87,25 @@ for _queue, _names in ACTIVITIES_BY_QUEUE.items():
 del _queue, _names, _name
 
 
+def declare_queue(name: str, queue: str) -> None:
+    """Place an extension's activity on a specialised queue (the worker seam, ADR 0181 round D).
+
+    Called when the worker resolves the extensions' parts (`extension_parts`), before any workflow runs:
+    the workflows read this table through `scheduling`, which passes the module through the sandbox, so
+    they see the placement. Idempotent; an activity already on another queue is refused, as the core's
+    own table refuses it at import.
+    """
+    if queue not in ACTIVITIES_BY_QUEUE:
+        raise ValueError(f"`{queue}` is no queue: {sorted(ACTIVITIES_BY_QUEUE)}")
+    known = QUEUE_BY_ACTIVITY.get(name)
+    if known == queue:
+        return
+    if known is not None:
+        raise ValueError(f"the activity {name!r} is already on {known!r}, it cannot also be on {queue!r}")
+    QUEUE_BY_ACTIVITY[name] = queue
+    ACTIVITIES_BY_QUEUE[queue] = (*ACTIVITIES_BY_QUEUE[queue], name)
+
+
 def activity_name(activity: Any) -> str | None:
     """The name UNDER WHICH Temporal knows an activity, or `None` if it is not one.
 

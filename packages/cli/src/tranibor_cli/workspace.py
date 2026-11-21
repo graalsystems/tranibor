@@ -503,7 +503,10 @@ class Workspace(App[None]):
     #decisions > .option-list--option-disabled { color: ansi_default; text-style: bold; }
     #projects { height: 100%; }
     #crumbs { height: 3; padding: 1 2 0 2; color: ansi_bright_black; }
-    #projects-list { height: 1fr; padding: 1 1 0 1; border: none; background: ansi_default; }
+    #projects-list {
+        height: 1fr; padding: 1 1 0 1; border: none; background: ansi_default;
+        text-wrap: nowrap; text-overflow: ellipsis;
+    }
     #projects-list > .option-list--option-highlighted,
     #projects-list:focus > .option-list--option-highlighted {
         text-style: reverse bold; background: ansi_default; color: ansi_default;
@@ -1063,8 +1066,13 @@ class Workspace(App[None]):
         if not rows:
             tree.root.add_leaf(Text("nothing is running", style="dim"), data={"kind": "empty"})
         elif selected in self._by_key:
-            # A node knows its line only once the tree has laid its nodes out again.
             node = self._by_key[selected]
+            # The cursor goes onto the selected node at once: until then its line still counts the former
+            # nodes, and an Enter pressed before the next refresh toggled whichever node now sat there (a
+            # read landing above an open run closed another run). `last_line` gives the new nodes their
+            # lines; scrolling to the node waits for the tree to be laid out again.
+            if tree.last_line >= 0:
+                tree.move_cursor(node, False)
             tree.call_after_refresh(tree.move_cursor, node, False)
         else:  # nothing was selected: the first line, so the context pane has something to follow
             tree.call_after_refresh(tree.move_cursor_to_line, 0)
@@ -1310,14 +1318,23 @@ class Workspace(App[None]):
             ]
         if not self.items:
             return [Option(Text("this project has no work item yet", style="dim"), disabled=True)]
+        # Each column is as wide as its longest cell plus a gap of two spaces: a long key never touches the
+        # state, nor the state the spend (#2049).
+        key_width = max(12, *(len(str(i["tracker_key"])) + 2 for i in self.items))
+        state_width = max(16, *(len(str(i.get("state_display") or i["state"])) + 2 for i in self.items))
         head = Text()
-        head.append(self._cell("item", 12) + self._cell("state", 16) + self._cell("spend", 10) + "title")
+        head.append(
+            self._cell("item", key_width)
+            + self._cell("state", state_width)
+            + self._cell("spend", 10)
+            + "title"
+        )
         options = [Option(Text(head.plain, style="dim"), disabled=True)]
         for item in self.items:
             cost = (item.get("totals") or {}).get("cost_eur")
             line = Text()
-            line.append(self._cell(str(item["tracker_key"]), 12, style="bold"))
-            line.append(self._cell(str(item.get("state_display") or item["state"]), 16))
+            line.append(self._cell(str(item["tracker_key"]), key_width, style="bold"))
+            line.append(self._cell(str(item.get("state_display") or item["state"]), state_width))
             line.append(self._cell(self.price(money.Amount(eur=cost)), 10, style="dim"))
             line.append(decide.clean(str(item["title"])).splitlines()[0] if item["title"] else DASH)
             options.append(Option(one_line(line), id=str(item["id"])))

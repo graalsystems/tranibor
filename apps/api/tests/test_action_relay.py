@@ -165,14 +165,13 @@ async def test_the_relay_starts_one_run_on_a_real_temporal(
 @pytest.fixture
 def workers(temporal_server: Any) -> Any:
     """The orchestrator's workers on the test queue, one per queue as the chart deploys them."""
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
     return workers_by_queue(
         temporal_server.client,
-        activities=[*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES],
-        workflows=ALL_WORKFLOWS,
+        activities=all_activities(),
+        workflows=all_workflows(),
         workflow_queue=TASK_QUEUE,
     )
 

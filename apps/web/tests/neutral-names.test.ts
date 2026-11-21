@@ -48,3 +48,23 @@ describe("C1's neutral names (ADR 0181), read first, the former ones until 0.30.
     expect(acceptanceRate({ first_pass_acceptance_rate: 0.25, first_pass_merge_rate: 0.5 })).toBe(0.25);
   });
 });
+
+describe("C2's delivery sections and named facts (ADR 0181), read first, the former fields as a fallback", () => {
+  it("reads a proof as its named fact first", async () => {
+    const { evidenceValue } = await import("@/lib/neutral-names");
+    expect(evidenceValue({ facts: { tests_run: 7 }, tests_run: 3 }, "tests_run")).toBe(7);
+    expect(evidenceValue({ tests_run: 3 }, "tests_run")).toBe(3);
+    expect(evidenceValue({ facts: { lint: "ok" } }, "lint")).toBe("ok");
+    expect(evidenceValue(undefined, "tests_run")).toBeNull();
+    expect(evidenceValue({ facts: { nested: { a: 1 } } }, "nested")).toBeNull();
+  });
+
+  it("reads a step's branch and commits from its delivery section first", async () => {
+    const { branchOf, commitsOf } = await import("@/lib/neutral-names");
+    expect(branchOf({ branch: "old", delivery: { branch: "new" } })).toBe("new");
+    expect(branchOf({ branch: "old" })).toBe("old");
+    expect(commitsOf({ commits: ["a"], delivery: { commits: ["b"] } })).toEqual(["b"]);
+    expect(commitsOf({ commits: ["a"], delivery: { commits: [] } })).toEqual(["a"]);
+    expect(commitsOf(null)).toEqual([]);
+  });
+});

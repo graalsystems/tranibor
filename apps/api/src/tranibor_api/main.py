@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from tranibor_adapters import load_extensions
 from tranibor_core import telemetry
-from tranibor_core.production import refuse_fakes_in_production
+from tranibor_core.production import refuse_demo_inline_worker, refuse_fakes_in_production
 
 from . import __version__
 from .a2a.push import push_loop
@@ -102,7 +102,6 @@ from .routers import (
     skills,
     templates,
     theme,
-    trains,
     triggers,
     ui,
     webhooks,
@@ -141,6 +140,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API starting", env=settings.env, fakes=settings.fakes)
     # The fakes are a bench's switch: in staging and prod, the API does not start on them (S80-03).
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="API")
+    # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
+    if settings.demo_inline_worker:
+        refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)
     if not settings.is_sqlite:
         await _refuse_the_superuser()
     _warn_without_secrets_key(settings.fakes)
@@ -167,6 +169,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await bootstrap_installation(settings)
     # Conversions a stopped replica left behind (ADR 0051): pending ones, and stale `converting`.
     await conversions.recover()
+    # The orchestrator's workers in this process, once the schema exists (ADR 0212): opt-in, fakes, dev.
+    inline_worker = None
+    if settings.demo_inline_worker:
+        from .demo_inline import start_inline_worker
+
+        inline_worker = await start_inline_worker(settings)
     # Approved actions whose start after the commit was lost (ADR 0085), once the schema exists.
     action_relay = asyncio.create_task(relay_loop())
     # A2A push notifications (ADR 0078 §5): read from the persisted events, at least once.
@@ -190,6 +198,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Calls through an outpost that ran out of time where nobody polls or calls any more (ADR 0149 §5).
     background = [asyncio.create_task(outpost_rendezvous.sweep_loop())] if settings.outposts else []
     yield
+    if inline_worker is not None:
+        from .demo_inline import stop_inline_worker
+
+        await stop_inline_worker(inline_worker)
     # A conversion cut here stays `converting`; the next start-up takes it back once stale.
     await conversions.stop()
     if relay is not None:
@@ -484,7 +496,6 @@ def create_app() -> FastAPI:
         workitems.router,
         runs.router,
         activity.router,
-        trains.router,
         findings.router,
         memory.router,
         memories.router,

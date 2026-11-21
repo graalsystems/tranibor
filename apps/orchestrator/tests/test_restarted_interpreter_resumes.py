@@ -110,7 +110,7 @@ async def test_the_escalation_records_where_the_work_item_resumes(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     scripted(setup.adapters, FAILURE, FAILURE)
     async with worker_factory():
@@ -122,7 +122,7 @@ async def test_the_escalation_records_where_the_work_item_resumes(
 
     arrival = [e.payload for e in await _state_changes(setup) if e.payload.get("to") == "needs_human"][-1]
     assert arrival["parked"] == ["needs_human", arrival["from"], "t-refine"], arrival
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-escalation-stored-S22-41.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -135,7 +135,7 @@ async def test_a_restarted_interpreter_replays_the_escalated_stage(
     1 again would name the failed run, and `prepare_stage` would hand it back — and reaches its
     target."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     scripted(setup.adapters, FAILURE, FAILURE, refine_result("spec"))
     async with worker_factory():
@@ -149,7 +149,7 @@ async def test_a_restarted_interpreter_replays_the_escalated_stage(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-restarted-rerun-S22-41.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

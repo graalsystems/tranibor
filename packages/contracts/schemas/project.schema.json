@@ -326,6 +326,154 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "delivery": {
+      "x-plugin": "software-delivery",
+      "description": "The software-delivery plugin's section (ADR 0181 C2): the repositories and the GitOps. Read as one with the former `repo`, `repositories` and `gitops` until the window list removes them.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "url",
+            "default_branch"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "description": "The repository's name in its project, what a work item's `fields.repository` names (ADR 0124); the primary is named after its URL's last segment when absent.",
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "default_branch": {
+              "type": "string",
+              "default": "main"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "python",
+                "node",
+                "go",
+                "java",
+                "dotnet",
+                "rust",
+                "other"
+              ]
+            },
+            "clone_depth": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50
+            },
+            "branch_prefix": {
+              "type": "string",
+              "default": "choregos/"
+            },
+            "test_command": {
+              "type": "string"
+            },
+            "lint_command": {
+              "type": "string"
+            },
+            "typecheck_command": {
+              "type": "string"
+            }
+          }
+        },
+        "repositories": {
+          "description": "The project's other repositories (ADR 0124): `repo` stays the primary, the one a work item that names none works on. Refused without `repo`, with two equal names and with two names for one URL.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "url"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "description": "The repository's name in its project, what a work item's `fields.repository` names (ADR 0124).",
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "default_branch": {
+                "type": "string",
+                "default": "main"
+              },
+              "language": {
+                "type": "string",
+                "enum": [
+                  "python",
+                  "node",
+                  "go",
+                  "java",
+                  "dotnet",
+                  "rust",
+                  "other"
+                ]
+              },
+              "clone_depth": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 50
+              },
+              "branch_prefix": {
+                "type": "string",
+                "default": "choregos/"
+              },
+              "test_command": {
+                "type": "string"
+              },
+              "lint_command": {
+                "type": "string"
+              },
+              "typecheck_command": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "gitops": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "repo_url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "path_prefix": {
+              "type": "string",
+              "default": "apps"
+            },
+            "apps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

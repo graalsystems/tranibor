@@ -47,7 +47,7 @@ global:
   # `choregos-api.runDoor.hostnames`, and write that URL here (ADR 0144).
   internalApiUrl: ""
   imageRegistry: ghcr.io/graalsystems
-  imageTag: "0.28.0"
+  imageTag: "0.28.1"
   imagePullPolicy: IfNotPresent
   # Images are referenced by digest in staging and prod (Kyverno policy).
   imageDigest: ""
@@ -638,6 +638,18 @@ global:
       egress: networkpolicy
       resources:
         limits: { cpu: 500m, memory: 512Mi }
+      # Where the pods pull a server's image from (S80-20), for a cluster that admits only its mirror:
+      # a registry or repository prefix mapped to the mirror's. The digest is kept, and the checks
+      # (`registries`, the signature) are made on the image the plugin declares; only the pull moves.
+      #   imageMirrors:
+      #     ghcr.io/graalsystems/tranibor-agents: harbor.example/ghcr-proxy/graalsystems/tranibor-agents
+      imageMirrors: {}
+      # The Secrets the servers' pods pull with, in the servers' namespace; unset: `global.imagePullSecrets`
+      # (which must then exist there too). `[]`: none.
+      # imagePullSecrets: []
+      # The Role and RoleBinding that let the API run the servers in their namespace. `false` when the
+      # platform lays them down itself (as `rbac.jobRunner`): docs/deployment.md lists their rules.
+      rbac: true
   # All in one (ADR 0208): a cluster with nothing but Kubernetes and a default StorageClass gets a working
   # platform in one `helm install -f values/all-in-one.yaml`. This switch does NOT embed anything by
   # itself (a Helm condition reads values, not templates): the profile sets the `embedded` switches, and

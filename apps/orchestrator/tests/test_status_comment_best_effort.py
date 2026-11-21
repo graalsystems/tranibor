@@ -87,7 +87,7 @@ async def test_a_refused_status_comment_does_not_stop_the_work_item(
     setup: Fixture, temporal_env: Any, worker_factory: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     calls = _comment_refused(setup, monkeypatch)
     scripted(setup.adapters, refine_result("spec"))
@@ -106,7 +106,7 @@ async def test_a_refused_status_comment_does_not_stop_the_work_item(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-status-comment-miss-published-S62-20.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

@@ -474,11 +474,78 @@ Started on 2026-11-21 (planned 2027-02-08) and split into sub-stories of stream 
   components and the fields `has_release_train` and `trains_pending` carry `x-plugin:
   software-delivery` in `openapi.yaml`: they are outside the frozen REST set (point 5), and the
   vocabulary guard does not read them.
-- **Left (S83-04e).** The `delivery` sections of the project, policy, stage-input and stage-result
-  contracts, with dual read; the connector kinds `scm`, `ci`, `cd`; the train's event types and
-  `ReleaseStatus` (with round D).
+- **S83-04e1, e2, e3 (#2061, #2087, #2097).** The `delivery` sections. A stage result's software evidence
+  is also written as named measured facts, read fact first. The stage input's repository and commands,
+  the result's branch and commits, the project's repositories and GitOps and the policy's diff bounds,
+  merge approval and release trains are sections of `tranibor_contracts.delivery`, marked `x-plugin`,
+  read under either form with the former fields as the one source of truth for the window. The stage
+  contracts write both forms; the project and the policy, which people edit, write the former until
+  the writers switch, so that a removed field is not read back from a section the client did not send.
+- **S83-04f, g, h (#2059, #2060, #2091).** The connector kinds `scm`, `ci`, `cd` are declared by the
+  plugin and kept until round D; a plugin's manifest names the extensions it needs
+  (`requires.extensions`), and a deployment without one refuses it; the console reads the new forms.
+- **C2 is complete** (2026-11-21). What remains is each window's removal PR, the content manifests
+  naming their extension once a release carries the field (S83-04m), and round D.
 - **S83-04w.** The windows are keyed on the releases actually cut, not on version numbers guessed
   ahead: the release ledger `tools/releases.json`, which `tools/bump_version.py` writes, records each
   release and its day, and a window closes in the first release cut on or after its `removed_on`, two
   weeks at least after the release that opened it, patch or minor. C1 opened in 0.27.17 and closes on or
   after 2026-12-07; C2 opens in the first release after 2026-11-21 and closes on or after 2026-12-14.
+
+## Round D, as built (2026-11-21)
+
+Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83, each with its row in
+`docs/plan/status/S83.md`:
+
+- **S83-05a.** The worker seam: an extension declares Temporal workflows and activities with
+  `tranibor_core.worker_parts.declare_worker_parts(plugin, provide)`, and the orchestrator's workers, its
+  replayer and its test workers carry them beside the core's (`tranibor_orchestrator.extension_parts`:
+  `all_workflows()`, `all_activities()`). Only the worker calls `provide`, so the API, which loads the same
+  extensions, imports none of their Temporal code. An activity may name its specialised queue
+  (`queues.declare_queue`). A workflow or activity name the core or another extension registers stops the
+  worker, naming both owners, because the names are the history's. The seam belongs to the fifth surface
+  (point 3 of the decision). The proof that the core does not need the plugins' extensions is two jobs that
+  build the environment without `tranibor-software-delivery` and `tranibor-investment-research`: one on
+  every Python PR (`core-without-plugins` in `ci.yml`: the boundary, meaning `tests/core_alone`, the
+  architecture guards, the replay of every archived history and the seams), and one at night (the core's
+  whole suite, less the files `tests/core_alone/need_the_plugins.txt` lists). That list is a ceiling that
+  only falls: 435 files when it was written, most of them because a project without a template gets
+  `default-simple`, whose gates are the plugin's. The suite's environment still installs both extensions
+  and runs everything.
+- **S83-05b.** The release train's durable code is the extension's: `ReleaseTrain` and its sixteen
+  activities left `tranibor_orchestrator` for `tranibor_software_delivery.train` and are registered on
+  the workers through the worker seam, under the workflow name, signals, queries, activity names and
+  `workflow.patched` ids every recorded history and every running train carry. Nothing needed a patch:
+  every archived history replays with the extension installed, `train-*.json` included, and in the core
+  alone the train's histories are skipped, naming the plugin, while every other one replays. The cron
+  matcher the train shared with the schedules stayed in the core (`activities.schedules.cron_due`). What
+  the interpreter does for `via: release_train` (`signal_train`, `TrainsMixin`, behind
+  `train-par-environnement`) is still the core's: it is part of `WorkflowInterpreter`, and it only names
+  the train by its workflow type and signals.
+- **S83-05c.** The train's eight routes (the `trains` tag) are the extension's, served through
+  `extensions.declare_router` under the paths and operation ids `openapi.yaml` marks `x-plugin`. The API's
+  contract conformance reads the marks: where a plugin's extension is absent, none of its operations is
+  served and none is missing. `getRunDiff` and `getProjectDora` are still served by the core for the
+  plugin.
+- **S83-05d.** A project with a repository and no template got `default-simple`, whose gates and step
+  effects are the plugin's: where the extension is absent that workflow cannot be published, and creating
+  the project failed. It now gets `default-request`, which the core runs by itself
+  (`templates.workflow_without_template`); with the extension installed nothing changes. This was the
+  first reason a file of the core's suite needed the plugin: the files that still do fell from 435 to 116.
+- **S83-05e.** `getRunDiff` and `getProjectDora` are the extension's routes. The train statistics on a
+  project's page are filled through a new seam, `extensions.declare_project_figure`: an extension fills
+  the fields of `Project` and `ProjectStats` that `openapi.yaml` marks `x-plugin` for it, and the core keeps
+  them at their default without it. The core serves no operation marked `x-plugin` any more.
+- **S83-05f.** The train's three Prometheus series are the extension's, through a new seam,
+  `metrics.declare_series`; the core knows their names (`PLUGIN_SERIES`) so the chart's dashboards stay
+  checked. The API's Temporal client no longer has a `start_train`.
+- **S83-05g.** The internal event types are an open list (`EVENT_TYPES`; the schema holds a pattern). The
+  extension declares the release train's eight `choregos.release.*` types, under the same strings, and
+  holds its own `ReleaseStatus`. The core keeps the types, `EventType.RELEASE_*`, `ReleaseStatus` and two
+  unused domain models for a window `D-train` keyed on the release ledger: removed in the first release
+  cut on or after 2026-12-14.
+- **S83-05h.** A carrier seam, `tranibor_core.carriers`: the extension declares `via: release_train`, and
+  the validator refuses at publication a `via:` no installed extension carries. The interpreter boards the
+  train by calling the activity `signal_train` by name; the activity moved to the extension. The command
+  scheduled is unchanged, so no history needed a patch. It belongs to the fifth surface, like the gate and
+  worker seams.

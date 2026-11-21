@@ -1239,16 +1239,20 @@ Arguments:
   slug  [required]
 
 Options:
-  --repo <str>      URL of the application repository (optional: work without
-                    code has none)
+  --repo <str>              URL of the application repository (optional: work
+                            without code has none)
   --name <str>
   --template <str>
   --org <str>
-  --language <str>  [default: python]
-  --tracker <str>   `internal`: requests are filed in Tranibor. Without
-                    `--repo` the default is `internal`; with `--repo` it is
-                    written only when given
-  --help            Show this message and exit.
+  --language <str>          [default: python]
+  --default-workflow <str>  The workflow tickets go to when no routing rule
+                            picks one; it must be one the project has once its
+                            template is in (refused otherwise). Absent, the
+                            template's default
+  --tracker <str>           `internal`: requests are filed in Tranibor.
+                            Without `--repo` the default is `internal`; with
+                            `--repo` it is written only when given
+  --help                    Show this message and exit.
 ```
 
 ### `choregos projects list`

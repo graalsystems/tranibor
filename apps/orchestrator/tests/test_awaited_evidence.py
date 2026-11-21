@@ -99,7 +99,7 @@ async def test_an_action_awaits_its_evidence_and_succeeds_when_it_comes(
     setup: Fixture, temporal_env: Any, worker_factory: Any, done: list[Any]
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     until = (await temporal_env.get_current_time() + timedelta(hours=1)).isoformat()
     action_id = await _action(setup, until)
@@ -117,7 +117,7 @@ async def test_an_action_awaits_its_evidence_and_succeeds_when_it_comes(
     assert row.status == "succeeded" and "waiting" not in row.result
     assert row.result["evidence_received"][0]["detail"] == "the key is absent from the next report"
     assert [name for name, _ in done] == ["create", "wait"], "nothing is undone"
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history() and recording_history() != "english-keys":  # S45-39: that one archives another
         target = HISTORIES / "action-evidence-S20-08.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -158,7 +158,7 @@ async def test_the_evidence_signal_and_english_activity_names(
     its history replays. Archived as the English counterpart of `action-evidence-S20-08`."""
     from temporalio.api.enums.v1 import EventType
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     until = (await temporal_env.get_current_time() + timedelta(hours=1)).isoformat()
     action_id = await _action(setup, until)
@@ -182,7 +182,7 @@ async def test_the_evidence_signal_and_english_activity_names(
         "mark_awaiting_evidence",
         "close_action",
     ], activities
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         # S45-39: `english-keys` archives the history that sends English keys, and only that one.
         english_keys = recording_history() == "english-keys"

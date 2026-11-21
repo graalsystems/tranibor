@@ -105,9 +105,6 @@ class BridgedTemporal:
     async def start_interpreter(self, workflow_id: str, payload: dict[str, Any]) -> str:
         return await self._start("WorkflowInterpreter", workflow_id, payload)
 
-    async def start_train(self, workflow_id: str, payload: dict[str, Any]) -> str:
-        return await self._start("ReleaseTrain", workflow_id, payload)
-
     async def start_provisioning(self, workflow_id: str, payload: dict[str, Any]) -> str:
         return await self._start("ProjectProvisioning", workflow_id, payload)
 
@@ -252,15 +249,14 @@ async def platform(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
 
 @pytest.fixture
 def worker(platform: Platform) -> Any:
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
     def factory(task_queue: str = "e2e") -> Any:
         return workers_by_queue(
             platform.env.client,
-            activities=[*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES],
-            workflows=ALL_WORKFLOWS,
+            activities=all_activities(),
+            workflows=all_workflows(),
             workflow_queue=task_queue,
         )
 

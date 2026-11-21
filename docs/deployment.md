@@ -27,7 +27,7 @@ Optional but recommended in production: a model gateway (LiteLLM), a memory serv
 
 ```bash
 helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
-  --version 0.28.0 --namespace choregos --create-namespace \
+  --version 0.28.1 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
 
@@ -642,6 +642,13 @@ namespace's NetworkPolicies and refuses a tenant's (an Argo CD AppProject that b
 other pod of the namespace itself. Otherwise any pod there can push first and hold a warm sandbox
 until the real run gets a 409: it cannot read a run's token (the assignment is sealed to the
 pod's key), but it can deny the run its sandbox.
+
+Every pod an agent runs in carries the same three labels, whichever executor started it (the warm pool's
+template and `k8s_job`'s Jobs): `app.kubernetes.io/name: choregos-runner`, `app.kubernetes.io/component:
+runner` and `choregos/sandbox: "true"`. A platform that holds agent pods with a policy of its own (a Cilium
+refusal of everything but the API, the model gateway, the egress proxy and the memory, say) selects
+`choregos/sandbox: "true"` and holds both. Up to 0.27.17 a `k8s_job` pod lacked that label and was outside
+such a policy (finding #2082); `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
 
 How a run goes ([ADR 0053](adr/0053-agent-sandbox-as-built.md)): the executor writes the run's
 token into a Secret owned by the run's `SandboxClaim`; the controller binds a warm sandbox to
@@ -1554,6 +1561,9 @@ global:
       runtimeClass: ""          # empty: global.runner.runtimeClass, else the cluster's runtime
       egress: networkpolicy     # or cilium: a CiliumNetworkPolicy names the exact hosts
       resources: { limits: { cpu: 500m, memory: 512Mi } }
+      imageMirrors: {}          # registry prefix -> mirror prefix, for the pull only (below)
+      # imagePullSecrets: []    # unset: global.imagePullSecrets; the Secrets live in the servers' namespace
+      rbac: true                # false: the platform lays the Role and RoleBinding down itself
 ```
 
 With `enabled`, the chart renders a Role in that namespace (Deployments, Services, NetworkPolicies,
@@ -1568,6 +1578,36 @@ What stays with the operator: the namespace (unless `create`), the registry allo
 (`infra/policies/plugin-servers.yaml`, the namespace name too if it is not `choregos-plugins`) — and,
 for `cilium`, a cluster that runs Cilium with its DNS proxy. Signatures follow `images.hostedCosign`
 and its signer.
+
+**A cluster that admits only its mirror** (S80-20). `imageMirrors` maps a registry or repository
+prefix to the mirror's, matched by path segment, the longest first:
+
+```yaml
+imageMirrors:
+  ghcr.io/graalsystems/tranibor-agents: harbor.example/ghcr-proxy/graalsystems/tranibor-agents
+```
+
+The API checks the image the plugin declares (`registries`, digest, signature: the publisher signed
+that reference) and writes the mirror's reference, **same digest**, into the Deployment: the content
+the mirror serves is the content that was signed, or the pull fails. `registries` keeps naming the
+declared prefix, not the mirror's. A mirror that is not a prefix (no registry host, a tag, a digest)
+stops the API at start-up. A private mirror needs `imagePullSecrets`, Secrets of the servers'
+namespace (unset: `global.imagePullSecrets`, which must then exist there too). A Kyverno policy that
+judges the servers' pods (`choregos-plugin-server-images`, or the platform's own) must admit the
+mirror's prefix.
+
+**A platform that lays the Role down** (`rbac: false`, as `rbac.jobRunner: false`). The chart then
+renders neither the Role nor the RoleBinding; the platform grants, in the servers' namespace, to the
+ServiceAccount `choregos-api` of the release's namespace:
+
+| API group | Resources | Verbs |
+|:--|:--|:--|
+| `""` | `secrets`, `services` | get, list, create, update, patch, delete |
+| `apps` | `deployments` | get, list, create, update, patch, delete |
+| `networking.k8s.io` | `networkpolicies` | get, list, create, update, patch, delete |
+| `cilium.io` (with `egress: cilium`) | `ciliumnetworkpolicies` | get, list, create, update, patch, delete |
+
+`tests/charts/test_plugin_servers_chart.py` holds this table to the template's rules.
 
 ## Multi-tenant installations
 
@@ -1793,7 +1833,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.28.0 \
+helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.28.1 \
   -n choregos --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
 ```
@@ -2291,7 +2331,7 @@ scenario against it.
 
 ```bash
 curl -s https://<api-host>/edition
-{"edition":"community","features":[],"version":"0.28.0","publisher":null,"edition_version":null}
+{"edition":"community","features":[],"version":"0.28.1","publisher":null,"edition_version":null}
 ```
 
 `version` is the core's. `publisher` and `edition_version` are announced by the edition's plugin:

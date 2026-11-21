@@ -49,7 +49,7 @@ the platform's own processes.
 | Gates and the facts they read | | `gates.gate` and `gates.context_provider`, with its `judged` hook ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md), rounds C0 and C2) |
 | Step effects for `does:` | | `step_effects.step_effect` (ADR 0181, round C0) |
 | Inbound event types, finding types, memory kinds, stage roles | | `INBOUND_EVENT_TYPES`, `FINDING_TYPES`, `MEMORY_KINDS` of `tranibor_contracts`, `stage_roles.declare_stage_roles` (ADR 0181, round C0) |
-| Durable code of its own (a release train) | | a worker seam (ADR 0181, round D) |
+| Durable code of its own (a release train) | | Temporal workflows and activities, through `worker_parts.declare_worker_parts`, and the transitions it carries (`via:`), through `carriers.declare_carrier` (ADR 0181, round D) |
 
 A deterministic job step runs an image the operator allows (`TRANIBOR_JOB_IMAGES`); a plugin's template
 names it.
@@ -62,9 +62,10 @@ names it.
   core's repository, which the published images install, holds the twelve gates that read a diff or a
   CI (`ci_green`, `diff_size_max`, `scope_respected` …) and the context provider that reads the diff and
   the checks for them, the step effects `open_pr` and `merge_pr`, the `scm.*`, `ci.*` and `cd.*` event
-  types and the finding types `bug`, `perf`, `tech-debt` and `flaky-test`. By 1.0 it also holds the
+  types, the finding types `bug`, `perf`, `tech-debt` and `flaky-test`, and the release train's
+  workflow and activities, which the workers carry through the worker seam, and its routes. By 1.0 it also holds the
   repository templates, the roles `fix_ci`, `address_review`, `release_notes` and
-  `verify_prod`, and the release train.
+  `verify_prod`, and the rest of the release train.
 - **IT service management**: `servicenow`. Content only: an ITSM triage agent, its skill, and an MCP
   server that implements the tracker profile, so a project's tickets live in ServiceNow and every write
   the agent makes is a governed operation of that server.

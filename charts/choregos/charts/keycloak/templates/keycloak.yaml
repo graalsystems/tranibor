@@ -117,6 +117,7 @@ spec:
         # A new realm file is a new pod: the import runs at start (and only for a realm that is absent).
         checksum/realm: {{ toPrettyJson $realm | sha256sum }}
     spec:
+      enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

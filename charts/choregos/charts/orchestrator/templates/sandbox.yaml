@@ -61,11 +61,17 @@ spec:
       labels:
         app.kubernetes.io/name: choregos-runner
         app.kubernetes.io/component: runner
-        # The label `choregos-runner-assignment` below selects. NOT `app.kubernetes.io/part-of:
-        # choregos`: `choregos-allow-ingress` admits every pod of the namespace to the pods that
-        # carry it, and NetworkPolicies add up — it would reopen the assignment port to all.
+        # The label `choregos-runner-assignment` below selects, and the one a platform's run-pod
+        # policy selects (for example an operator's tenant policy `choregos-sandbox-egress`). NOT
+        # `app.kubernetes.io/part-of: choregos`: `choregos-allow-ingress` admits every pod of the
+        # namespace to the pods that carry it, and NetworkPolicies add up — it would reopen the
+        # assignment port to all.
+        # These labels are `k8s_job.RUNNER_POD_LABELS`, the labels of a Job's pod: the two sets are
+        # the same (`tests/charts/test_run_pod_labels.py`). A Job's pod without `choregos/sandbox`
+        # was outside that policy (finding #2082).
         choregos/sandbox: "true"
     spec:
+      enableServiceLinks: false
       restartPolicy: Never
       serviceAccountName: choregos-runner
       automountServiceAccountToken: false

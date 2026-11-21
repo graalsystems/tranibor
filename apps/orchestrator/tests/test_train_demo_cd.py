@@ -11,6 +11,9 @@ import pytest
 from .conftest import Fixture
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 
 async def _until(handle: Any, predicate: Any, timeout: float = 60.0) -> dict[str, Any]:

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Tranibor API
-  version: 0.28.0
+  version: 0.28.1
   description: |
     The Tranibor platform API. The console and the CLI use this API and nothing else.
     Auth: an OIDC session (cookie) or `Authorization: Bearer <api_token>`.
@@ -7499,6 +7499,7 @@ components:
         slug: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
         name: { type: string }
         template_ref: { type: [string, "null"] }
+        default_workflow: { type: [string, "null"], description: "The workflow tickets go to when no routing rule picks one; it must be published and active in the new project once its template is in (422 with the routing endpoint's message otherwise); absent, the template's default" }
         config: { $ref: "./schemas/project.schema.json" }
         inputs: { type: object, additionalProperties: true }
     ProjectUpdate:
