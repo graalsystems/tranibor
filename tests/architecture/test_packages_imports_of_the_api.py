@@ -16,9 +16,6 @@ PACKAGES = ROOT / "packages"
 # Was 22 (measured at 87ea1831d, all in the ontology service), 0 since the ontology was removed. It
 # is raised only by amending ADR 0099.
 CEILING = 0
-#: The test kit (ADR 0181, round D, S83-05l) is test code, a development dependency no image installs: it
-#: sets the API suite's scene, so it imports the API by design. No product package is exempt.
-TEST_CODE = frozenset({"testkit"})
 
 
 def _is_api(name: str) -> bool:
@@ -29,8 +26,6 @@ def api_imports_by_file(packages: Path) -> dict[Path, int]:
     """The number of `tranibor_api` import statements of each file under packages/*/src."""
     found: dict[Path, int] = {}
     for path in packages.glob("*/src/**/*.py"):
-        if path.relative_to(packages).parts[0] in TEST_CODE:
-            continue
         count = 0
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):

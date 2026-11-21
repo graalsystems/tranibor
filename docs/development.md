@@ -471,8 +471,8 @@ its train: `boarded`). `apps/api/tests/test_readiness_and_inbound_seams.py` prov
 
 A plugin's tests run on the same scene as the core's: an application on a fresh database, a project and a
 work item, a Temporal test server and one worker per queue. That scene is the **test kit**,
-`packages/testkit` (`tranibor_testkit`, ADR 0181 round D), a development dependency of the workspace that
-no image installs:
+`tests/testkit` (`tranibor_testkit`, ADR 0181 round D), a development dependency of the workspace that
+no image installs, test code like the suites it serves:
 
 - `tranibor_testkit.api`: the API suite's fixtures (`app`, `client`, `org`, `admin`, `project`, `pg_app`,
   `github`) and `login`;
@@ -483,7 +483,7 @@ no image installs:
 
 A directory of tests takes the fixtures with one line in its `conftest.py`
 (`from tranibor_testkit.orchestrator import *`), as `apps/api/tests`, `apps/orchestrator/tests` and the
-`software-delivery` plugin's `tests/api` and `tests/orchestrator` do. A core test that needs a plugin moves
+`software-delivery` plugin's `plugins/software-delivery/tests/api` and `plugins/software-delivery/tests/orchestrator` do. A core test that needs a plugin moves
 to the plugin's suite and leaves `tests/core_alone/need_the_plugins.txt`, whose ceiling only falls.
 
 ## Carrying a transition from an extension

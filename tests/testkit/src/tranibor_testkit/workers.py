@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Workers for the interpreter tests: one per queue, with a few activities replaced."""
 
 from __future__ import annotations
