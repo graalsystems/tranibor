@@ -135,9 +135,7 @@ def procurement(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     """The plugin from the archive the core ships, its job image mapped, its server run in memory."""
     from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
     from tranibor_adapters.plugin_servers import PluginServerRuntime
-    from tranibor_api.services import plugin_sources
     from tranibor_api.services.plugin_servers import use_plugin_runtime, use_plugin_transport
-    from tranibor_core.plugins import versions
     from tranibor_core.publishing import PUBLISHING
 
     monkeypatch.setenv("TRANIBOR_PLUGINS_OFFLINE", str(OFFLINE))
@@ -145,10 +143,6 @@ def procurement(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     monkeypatch.setenv(
         "TRANIBOR_PLUGIN_SERVERS_REGISTRIES", json.dumps([PUBLISHING.image("tranibor-agents")])
     )
-    # The archive requires core >=0.28.1, the release that carries the reserved input `attachments`; this
-    # tree is 0.28.0 until the release is cut, so the core reports the release the plugin was written for.
-    monkeypatch.setattr(plugin_sources, "core_version", lambda: "0.28.1")
-    monkeypatch.setattr(versions, "core_version", lambda: "0.28.1")
     _settings_changed()
     kube = FakeKubernetesApi()
     use_plugin_runtime(PluginServerRuntime(kube, "choregos-plugins"))
