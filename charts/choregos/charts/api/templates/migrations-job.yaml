@@ -57,6 +57,7 @@ spec:
       # migration pod named `choregos` was refused until the hook timed out (single-node proof, #1866).
       labels: {{- merge (dict "app.kubernetes.io/name" "choregos-api") (include "choregos.labels" . | fromYaml) | toYaml | nindent 8 }}
     spec:
+      enableServiceLinks: false
       restartPolicy: Never
       serviceAccountName: choregos-migrations
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}

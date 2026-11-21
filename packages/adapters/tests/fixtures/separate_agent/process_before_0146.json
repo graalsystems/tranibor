@@ -290,6 +290,7 @@
        ]
       }
      ],
+     "enableServiceLinks": false,
      "imagePullSecrets": [
       {
        "name": "pull"
@@ -488,6 +489,7 @@
        ]
       }
      ],
+     "enableServiceLinks": false,
      "imagePullSecrets": [
       {
        "name": "pull"

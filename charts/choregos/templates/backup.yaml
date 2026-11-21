@@ -249,6 +249,7 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: backup
         spec:
+          enableServiceLinks: false
           restartPolicy: Never
           {{- include "choregos.imagePullSecrets" $ | nindent 10 }}
           securityContext: {{- toYaml $g.podSecurityContext | nindent 12 }}
@@ -384,6 +385,7 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: restore
         spec:
+          enableServiceLinks: false
           restartPolicy: Never
           {{- include "choregos.imagePullSecrets" $ | nindent 10 }}
           securityContext: {{- toYaml $g.podSecurityContext | nindent 12 }}
