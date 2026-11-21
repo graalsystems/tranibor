@@ -272,6 +272,12 @@ def _declared_slots() -> dict[str, AdapterSlot]:
     return dict(_SLOTS)
 
 
+def declared_adapter_slots() -> dict[str, AdapterSlot]:
+    """`adapter_slots()` once the extensions are loaded: what a process of its own (a seed, a script)
+    reads before anything else loaded them. `adapter_slots()` alone is empty there."""
+    return _declared_slots()
+
+
 def spec_of(kind: ConnectorKind | str, type_name: str) -> ConnectorTypeSpec | None:
     return _SPECS.get((str(kind), type_name))
 
