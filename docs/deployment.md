@@ -1561,6 +1561,9 @@ global:
       runtimeClass: ""          # empty: global.runner.runtimeClass, else the cluster's runtime
       egress: networkpolicy     # or cilium: a CiliumNetworkPolicy names the exact hosts
       resources: { limits: { cpu: 500m, memory: 512Mi } }
+      imageMirrors: {}          # registry prefix -> mirror prefix, for the pull only (below)
+      # imagePullSecrets: []    # unset: global.imagePullSecrets; the Secrets live in the servers' namespace
+      rbac: true                # false: the platform lays the Role and RoleBinding down itself
 ```
 
 With `enabled`, the chart renders a Role in that namespace (Deployments, Services, NetworkPolicies,
@@ -1575,6 +1578,36 @@ What stays with the operator: the namespace (unless `create`), the registry allo
 (`infra/policies/plugin-servers.yaml`, the namespace name too if it is not `choregos-plugins`) — and,
 for `cilium`, a cluster that runs Cilium with its DNS proxy. Signatures follow `images.hostedCosign`
 and its signer.
+
+**A cluster that admits only its mirror** (S80-20). `imageMirrors` maps a registry or repository
+prefix to the mirror's, matched by path segment, the longest first:
+
+```yaml
+imageMirrors:
+  ghcr.io/graalsystems/tranibor-agents: harbor.example/ghcr-proxy/graalsystems/tranibor-agents
+```
+
+The API checks the image the plugin declares (`registries`, digest, signature: the publisher signed
+that reference) and writes the mirror's reference, **same digest**, into the Deployment: the content
+the mirror serves is the content that was signed, or the pull fails. `registries` keeps naming the
+declared prefix, not the mirror's. A mirror that is not a prefix (no registry host, a tag, a digest)
+stops the API at start-up. A private mirror needs `imagePullSecrets`, Secrets of the servers'
+namespace (unset: `global.imagePullSecrets`, which must then exist there too). A Kyverno policy that
+judges the servers' pods (`choregos-plugin-server-images`, or the platform's own) must admit the
+mirror's prefix.
+
+**A platform that lays the Role down** (`rbac: false`, as `rbac.jobRunner: false`). The chart then
+renders neither the Role nor the RoleBinding; the platform grants, in the servers' namespace, to the
+ServiceAccount `choregos-api` of the release's namespace:
+
+| API group | Resources | Verbs |
+|:--|:--|:--|
+| `""` | `secrets`, `services` | get, list, create, update, patch, delete |
+| `apps` | `deployments` | get, list, create, update, patch, delete |
+| `networking.k8s.io` | `networkpolicies` | get, list, create, update, patch, delete |
+| `cilium.io` (with `egress: cilium`) | `ciliumnetworkpolicies` | get, list, create, update, patch, delete |
+
+`tests/charts/test_plugin_servers_chart.py` holds this table to the template's rules.
 
 ## Multi-tenant installations
 

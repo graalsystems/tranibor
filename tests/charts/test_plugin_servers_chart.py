@@ -6,6 +6,7 @@ Off by default: no Role, no variable, the API refuses a plugin that brings a ser
 
 from __future__ import annotations
 
+import json
 import pathlib
 import shutil
 import subprocess
@@ -116,3 +117,59 @@ def test_refused(tmp_path: pathlib.Path, servers: dict[str, Any]) -> None:
     values = yaml.safe_load(yaml.safe_dump(ON))
     values["global"]["plugins"]["servers"].update(servers)
     assert _render(values, tmp_path).returncode != 0
+
+
+def test_rbac_false_leaves_the_role_to_the_platform(tmp_path: pathlib.Path) -> None:
+    """S80-20: a platform that lays the Role down itself (as `rbac.jobRunner: false`) gets none from
+    the chart, and the API still runs servers there."""
+    values = yaml.safe_load(yaml.safe_dump(ON))
+    values["global"]["plugins"]["servers"].update(rbac=False, egress="cilium")
+    docs = _docs(values, tmp_path)
+    assert _named(docs, "Role", "choregos-api-plugin-servers") is None
+    assert _named(docs, "RoleBinding", "choregos-api-plugin-servers") is None
+    assert _api_env(docs)["CHOREGOS_PLUGIN_SERVERS"] == "kubernetes"
+
+
+def test_the_pull_goes_through_the_mirror_with_its_secrets(tmp_path: pathlib.Path) -> None:
+    """S80-20: the mirrors and the pull secrets reach the API; the secrets default to the release's."""
+    mirror = {PUBLISHING.image("tranibor-agents"): "harbor.example/ghcr-proxy/tranibor-agents"}
+    values = yaml.safe_load(yaml.safe_dump(ON))
+    values["global"]["imagePullSecrets"] = ["harbor-pull"]
+    values["global"]["plugins"]["servers"]["imageMirrors"] = mirror
+    env = _api_env(_docs(values, tmp_path))
+    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS"]) == mirror
+    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["harbor-pull"]
+    values["global"]["plugins"]["servers"]["imagePullSecrets"] = []
+    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS" not in _api_env(_docs(values, tmp_path))
+    values["global"]["plugins"]["servers"]["imagePullSecrets"] = ["mirror-pull"]
+    env = _api_env(_docs(values, tmp_path))
+    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["mirror-pull"]
+    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS" not in _api_env(_docs(ON, tmp_path))
+
+
+def test_the_rules_the_docs_list_are_the_roles(tmp_path: pathlib.Path) -> None:
+    """With `rbac: false` the platform grants what docs/deployment.md lists: the template's rules."""
+    values = yaml.safe_load(yaml.safe_dump(ON))
+    values["global"]["plugins"]["servers"]["egress"] = "cilium"
+    role = _named(_docs(values, tmp_path), "Role", "choregos-api-plugin-servers")
+    assert role is not None
+    rendered = {
+        (group, resource, tuple(rule["verbs"]))
+        for rule in role["rules"]
+        for group in rule["apiGroups"]
+        for resource in rule["resources"]
+    }
+    page = (ROOT / "docs" / "deployment.md").read_text(encoding="utf-8")
+    table = page.split("**A platform that lays the Role down**", 1)[1].split("\n\n", 2)[1]
+    listed = set()
+    for line in table.splitlines()[2:]:
+        group, resources, verbs = (cell.strip() for cell in line.strip("|").split("|"))
+        for resource in resources.split(","):
+            listed.add(
+                (
+                    group.split()[0].strip("`").strip('"'),
+                    resource.strip().strip("`"),
+                    tuple(v.strip() for v in verbs.split(",")),
+                )
+            )
+    assert listed == rendered

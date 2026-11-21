@@ -7,12 +7,15 @@ import json
 import httpx
 import pytest
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
+from tranibor_adapters.oci import RegistryError
 from tranibor_adapters.plugin_servers import (
     CONFIG_DIGEST,
     PRIVATE_RANGES,
     PluginServerClient,
     PluginServerRuntime,
     ServerDeployment,
+    check_mirrors,
+    mirrored,
     server_manifests,
 )
 
@@ -47,12 +50,15 @@ def test_default_egress_is_public_addresses_on_the_configured_ports() -> None:
     assert internet["ports"] == [{"protocol": "TCP", "port": 443}]
 
 
-def test_cilium_names_the_exact_hosts_and_the_network_policy_keeps_dns_only() -> None:
+def test_cilium_names_the_exact_hosts_and_the_network_policy_opens_no_egress() -> None:
+    """S80-20b: Cilium unions policies, so a plain port-53 allow in the NetworkPolicy would wildcard
+    the CiliumNetworkPolicy's L7 `dns` rule and the server would resolve any name. With `cilium` the
+    DNS rule is the CNP's alone, narrowed to the configured hosts."""
     objects = server_manifests(_server(egress_mode="cilium"))
-    egress = _kind(objects, "NetworkPolicy")["spec"]["egress"]  # type: ignore[index]
-    assert len(egress) == 1 and egress[0]["ports"][0]["port"] == 53
-    cilium = _kind(objects, "CiliumNetworkPolicy")["spec"]["egress"]  # type: ignore[index]
-    assert cilium[1]["toFQDNs"] == [{"matchName": "greet.example.com"}]
+    assert _kind(objects, "NetworkPolicy")["spec"]["egress"] == []  # type: ignore[index]
+    dns, fqdns = _kind(objects, "CiliumNetworkPolicy")["spec"]["egress"]  # type: ignore[index]
+    assert dns["toPorts"][0]["rules"]["dns"] == [{"matchName": "greet.example.com"}]
+    assert fqdns["toFQDNs"] == [{"matchName": "greet.example.com"}]
 
 
 def test_no_host_no_egress_at_all() -> None:
@@ -102,3 +108,41 @@ async def test_the_server_client_presents_its_token_and_needs_no_egress_policy(
     )
     assert await client.list_tools() == []
     assert seen and all(r.headers["authorization"] == "Bearer secret" for r in seen)
+
+
+MIRRORS = {
+    "registry.example/choregos-agents": "harbor.example/proxy/choregos-agents",
+    "registry.example": "harbor.example/everything",
+}
+
+
+def test_a_mirror_moves_the_pull_and_keeps_the_digest() -> None:
+    """S80-20: the longest matching prefix, matched by path segment, the rest of the reference kept."""
+    assert mirrored(IMAGE, MIRRORS) == "harbor.example/proxy/choregos-agents/hello-mcp@sha256:" + "a" * 64
+    other = "registry.example/other/x@sha256:" + "b" * 64
+    assert mirrored(other, MIRRORS) == "harbor.example/everything/other/x@sha256:" + "b" * 64
+    evil = "registry.example-evil/choregos-agents/x@sha256:" + "c" * 64
+    assert mirrored(evil, MIRRORS) == evil, "a prefix is matched by path segment"
+    assert mirrored(IMAGE, {}) == IMAGE
+    assert mirrored(IMAGE, {"registry.example/choregos-agents/": "harbor.example/p/"}).startswith(
+        "harbor.example/p/hello-mcp@sha256:"
+    )
+
+
+@pytest.mark.parametrize(
+    "mirrors",
+    [{"acme": "harbor.example/acme"}, {"ghcr.io/acme": "harbor.example/acme:1"}, {"ghcr.io/acme": ""}],
+    ids=["no-registry", "a-tag", "empty"],
+)
+def test_a_mirror_that_is_not_a_prefix_is_refused(mirrors: dict[str, str]) -> None:
+    with pytest.raises(RegistryError):
+        check_mirrors(mirrors)
+    check_mirrors(MIRRORS)
+
+
+def test_the_pull_secrets_reach_the_pod() -> None:
+    pod = _kind(server_manifests(_server(image_pull_secrets=("mirror-pull",))), "Deployment")
+    spec = pod["spec"]["template"]["spec"]  # type: ignore[index]
+    assert spec["imagePullSecrets"] == [{"name": "mirror-pull"}]
+    plain = _kind(server_manifests(_server()), "Deployment")["spec"]["template"]["spec"]  # type: ignore[index]
+    assert "imagePullSecrets" not in plain
