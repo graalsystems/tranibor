@@ -131,8 +131,24 @@ def concurrency_options(settings: OrchestratorSettings) -> ConcurrencyOptions:
     }
 
 
-async def run_worker(queues: list[str]) -> None:
+def build_workers(client: Any, queues: list[str], settings: OrchestratorSettings) -> list[Any]:
+    """One `Worker` per queue, registered as the chart's deployments are (shared with the inline demo
+    worker of ADR 0212, so that a demo never registers anything the product does not)."""
     from temporalio.worker import Worker
+
+    return [
+        Worker(
+            client,
+            task_queue=queue,
+            workflows=ALL_WORKFLOWS if queue == "orchestrator" else [],
+            activities=activities_for(queue),
+            **concurrency_options(settings),
+        )
+        for queue in queues
+    ]
+
+
+async def run_worker(queues: list[str]) -> None:
     from tranibor_adapters import load_extensions
     from tranibor_core.temporal_connection import TemporalSecurity, connect_temporal
 
@@ -146,16 +162,7 @@ async def run_worker(queues: list[str]) -> None:
     # The workers decode what the clients encode: one converter for the whole deployment (ADR 0183).
     security = TemporalSecurity.from_env()
     client = await connect_temporal(settings.temporal_address, settings.temporal_namespace, security=security)
-    workers = [
-        Worker(
-            client,
-            task_queue=queue,
-            workflows=ALL_WORKFLOWS if queue == "orchestrator" else [],
-            activities=activities_for(queue),
-            **concurrency_options(settings),
-        )
-        for queue in queues
-    ]
+    workers = build_workers(client, queues, settings)
     logger.info(
         "workers started",
         queues=queues,

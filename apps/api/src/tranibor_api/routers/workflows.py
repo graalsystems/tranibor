@@ -57,6 +57,7 @@ from ..services import (
     ensure_defaults,
     publish_workflow,
     report_unenforced_policy,
+    require_active_workflows,
 )
 from ..services.decision_ledger import routing_calibration as measure_routing
 from ..services.decision_ledger import step_calibration as measure_step
@@ -519,18 +520,9 @@ async def get_routing(ctx: ProjectCtx, session: Db) -> WorkflowRoutingDto:
 async def put_routing(ctx: ProjectCtx, body: WorkflowRoutingDto, session: Db) -> WorkflowRoutingDto:
     """The default and the rules that choose the workflow of a ticket coming from a tracker."""
     ctx.require(Permission.WORKFLOW_WRITE)
-    active = set(
-        (
-            await session.execute(
-                select(WorkflowDef.name).where(
-                    WorkflowDef.project_id == ctx.id, WorkflowDef.is_active.is_(True)
-                )
-            )
-        ).scalars()
+    await require_active_workflows(
+        session, ctx.id, {body.default, *(r.workflow for r in body.rules), *(body.hints or {})}
     )
-    unknown = sorted({body.default, *(r.workflow for r in body.rules), *(body.hints or {})} - active)
-    if unknown:
-        raise unprocessable(f"unknown or inactive workflow(s): {', '.join(unknown)}")
     ctx.project.default_workflow = body.default
     ctx.project.workflow_routing = [r.model_dump(mode="json") for r in body.rules]
     if body.strategy is not None:

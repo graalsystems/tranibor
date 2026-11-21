@@ -6,6 +6,12 @@ any host outside `allow_domains` when the step's list is complete (`egress: list
 tunnel goes through the pod's own egress proxy (`choregos-egress`) when the runner has one, with the
 run's credentials, which the container never sees; the cluster's network policy stays the wall
 behind this one. Plain HTTP through the proxy is refused: a hosted container speaks TLS or nothing.
+
+A refusal is journaled once per host, port and reason (#1987): a harness that calls home retries, and
+gemini-cli asked for `play.googleapis.com` 13 to 36 times a run, each a `hosted.egress_refused` the
+operator did not cause. The first one is journaled when it happens; the others are counted, and
+`flush` journals one `hosted.egress_refused_repeated` per host with the total (`count`), when the
+listeners stop or a session's turn ends.
 """
 
 from __future__ import annotations
@@ -30,6 +36,8 @@ class ConnectProxy:
         self.upstream = upstream
         self.tunnels = 0
         self.refused = 0
+        #: The refusals since the last `flush`, by host, port and reason: how many times each.
+        self._refusals: dict[tuple[str, int, str], int] = {}
 
     def refusal(self, host: str) -> str | None:
         """Why a tunnel to `host` is refused, or `None`."""
@@ -60,7 +68,10 @@ class ConnectProxy:
         port = int(port_text) if port_text.isdigit() else 443
         if (why := self.refusal(host)) is not None:
             self.refused += 1
-            await self.record("hosted.egress_refused", {"host": host, "port": port, "reason": why})
+            key = (host, port, why)
+            self._refusals[key] = self._refusals.get(key, 0) + 1
+            if self._refusals[key] == 1:
+                await self.record("hosted.egress_refused", {"host": host, "port": port, "reason": why})
             await _reply(writer, 403, f"the step's network refuses {host}")
             return
         try:
@@ -74,6 +85,16 @@ class ConnectProxy:
         writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
         await writer.drain()
         await asyncio.gather(_pipe(reader, remote_writer), _pipe(remote_reader, writer))
+
+    async def flush(self) -> None:
+        """Journal, for each host refused more than once since the last flush, how many times in all."""
+        refusals, self._refusals = self._refusals, {}
+        for (host, port, reason), count in sorted(refusals.items()):
+            if count > 1:
+                await self.record(
+                    "hosted.egress_refused_repeated",
+                    {"host": host, "port": port, "reason": reason, "count": count},
+                )
 
     async def _open(self, host: str, port: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         if not self.upstream:

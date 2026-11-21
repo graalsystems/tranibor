@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AnyUrl, Field, field_validator, model_validator
 
+from . import delivery as _delivery
 from .workflow import Slug, Strict
 
 
@@ -330,6 +331,18 @@ class ProjectConfig(Strict):
     #: What the A2A door takes for this project's skills (ADR 0078 §6).
     a2a: A2aConfig = Field(default_factory=A2aConfig)
     labels: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_either_form(cls, data: Any) -> Any:
+        return _delivery.read_project(data)
+
+    @property
+    def delivery(self) -> _delivery.ProjectDelivery | None:
+        """The `software-delivery` plugin's section (ADR 0181 C2): the repositories and the GitOps,
+        derived from the former fields during their window. Read, not written: a document may send it, and
+        the writers keep the former fields until the window's writers switch (ADR 0098 §4)."""
+        return _delivery.project_section(self)
 
     @field_validator("triggers")
     @classmethod

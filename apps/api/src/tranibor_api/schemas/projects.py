@@ -60,6 +60,10 @@ class ProjectCreate(Dto):
     slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")
     name: str
     template_ref: str | None = None
+    #: The workflow tickets go to when no routing rule picks one. It must be one the project has
+    #: published and active once its template (or `default-request`) is in: the rule of
+    #: `PUT /workflow-routing`. Absent, the template's default (S80-21).
+    default_workflow: str | None = None
     config: ProjectConfig
     inputs: dict[str, Any] = Field(default_factory=dict)
 

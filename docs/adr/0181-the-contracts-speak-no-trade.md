@@ -474,9 +474,18 @@ Started on 2026-11-21 (planned 2027-02-08) and split into sub-stories of stream 
   components and the fields `has_release_train` and `trains_pending` carry `x-plugin:
   software-delivery` in `openapi.yaml`: they are outside the frozen REST set (point 5), and the
   vocabulary guard does not read them.
-- **Left (S83-04e).** The `delivery` sections of the project, policy, stage-input and stage-result
-  contracts, with dual read; the connector kinds `scm`, `ci`, `cd`; the train's event types and
-  `ReleaseStatus` (with round D).
+- **S83-04e1, e2, e3 (#2061, #2087, #2097).** The `delivery` sections. A stage result's software evidence
+  is also written as named measured facts, read fact first. The stage input's repository and commands,
+  the result's branch and commits, the project's repositories and GitOps and the policy's diff bounds,
+  merge approval and release trains are sections of `tranibor_contracts.delivery`, marked `x-plugin`,
+  read under either form with the former fields as the one source of truth for the window. The stage
+  contracts write both forms; the project and the policy, which people edit, write the former until
+  the writers switch, so that a removed field is not read back from a section the client did not send.
+- **S83-04f, g, h (#2059, #2060, #2091).** The connector kinds `scm`, `ci`, `cd` are declared by the
+  plugin and kept until round D; a plugin's manifest names the extensions it needs
+  (`requires.extensions`), and a deployment without one refuses it; the console reads the new forms.
+- **C2 is complete** (2026-11-21). What remains is each window's removal PR, the content manifests
+  naming their extension once a release carries the field (S83-04m), and round D.
 - **S83-04w.** The windows are keyed on the releases actually cut, not on version numbers guessed
   ahead: the release ledger `tools/releases.json`, which `tools/bump_version.py` writes, records each
   release and its day, and a window closes in the first release cut on or after its `removed_on`, two

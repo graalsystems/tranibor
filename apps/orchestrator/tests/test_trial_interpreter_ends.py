@@ -21,6 +21,12 @@ import pathlib
 from typing import Any
 
 import pytest
+from temporalio.worker import (
+    ExecuteWorkflowInput,
+    Interceptor,
+    WorkflowInboundInterceptor,
+    WorkflowInterceptorClassInput,
+)
 
 from .conftest import Fixture, recording_history
 from .test_interpreter import start
@@ -58,9 +64,36 @@ async def test_an_interpreter_on_a_trial_item_ends(
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
 
 
+class _EndWitness(Interceptor):
+    """A worker interceptor that keeps what each replayed workflow returned (#2002).
+
+    The interpreter's "ended" log line was the witness, and the suite's logging state decided whether it
+    was heard: after an API test ran the migrations in the same xdist worker, `fileConfig` had disabled
+    `temporalio.workflow` (#2008, fixed by #2010), which load and test distribution made intermittent.
+    The return value does not go through logging, and an interpreter that does not end returns nothing.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.returned: list[Any] = []
+
+    def workflow_interceptor_class(
+        self, input: WorkflowInterceptorClassInput
+    ) -> type[WorkflowInboundInterceptor] | None:
+        returned = self.returned
+
+        class _Returned(WorkflowInboundInterceptor):
+            async def execute_workflow(self, input: ExecuteWorkflowInput) -> Any:
+                result = await super().execute_workflow(input)
+                returned.append(result)
+                return result
+
+        return _Returned
+
+
 async def test_an_interpreter_left_over_on_a_trial_item_replays_to_its_end() -> None:
     """The history of an interpreter stuck on a trial item, recorded before the fix, replays without a
-    nondeterminism error: the workflows left open in production close."""
+    nondeterminism error and reaches the end: the workflows left open in production close."""
     from temporalio.client import WorkflowHistory
     from temporalio.worker import Replayer
     from tranibor_orchestrator.workflows import ALL_WORKFLOWS
@@ -71,12 +104,9 @@ async def test_an_interpreter_left_over_on_a_trial_item_replays_to_its_end() -> 
     assert "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED" not in kinds
     history = WorkflowHistory.from_json(LEFT_OVER.stem, payload)
 
-    # Whether the Replayer runs the history's last, never-completed (failed) task is not stable under
-    # load, so the "ended" log line is not a reliable witness here: it missed on main's CI three times
-    # (#1905, d7af12309, 0.27.16 week), with a handler on the workflow logger and with `log_during_replay`.
-    # That the interpreter ENDS is proved live by `test_an_interpreter_on_a_trial_item_ends` above; this
-    # test proves what only a recorded history can: the history left over in production replays without
-    # a nondeterminism error.
-    result = await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    witness = _EndWitness()
+    result = await Replayer(workflows=ALL_WORKFLOWS, interceptors=[witness]).replay_workflow(history)
 
     assert result.replay_failure is None
+    assert len(witness.returned) == 1, "the replay did not reach the end"
+    assert witness.returned[0]["state"] == "trial" and witness.returned[0]["stopped"] is True

@@ -503,7 +503,10 @@ class Workspace(App[None]):
     #decisions > .option-list--option-disabled { color: ansi_default; text-style: bold; }
     #projects { height: 100%; }
     #crumbs { height: 3; padding: 1 2 0 2; color: ansi_bright_black; }
-    #projects-list { height: 1fr; padding: 1 1 0 1; border: none; background: ansi_default; }
+    #projects-list {
+        height: 1fr; padding: 1 1 0 1; border: none; background: ansi_default;
+        text-wrap: nowrap; text-overflow: ellipsis;
+    }
     #projects-list > .option-list--option-highlighted,
     #projects-list:focus > .option-list--option-highlighted {
         text-style: reverse bold; background: ansi_default; color: ansi_default;
@@ -1310,14 +1313,23 @@ class Workspace(App[None]):
             ]
         if not self.items:
             return [Option(Text("this project has no work item yet", style="dim"), disabled=True)]
+        # Each column is as wide as its longest cell plus a gap of two spaces: a long key never touches the
+        # state, nor the state the spend (#2049).
+        key_width = max(12, *(len(str(i["tracker_key"])) + 2 for i in self.items))
+        state_width = max(16, *(len(str(i.get("state_display") or i["state"])) + 2 for i in self.items))
         head = Text()
-        head.append(self._cell("item", 12) + self._cell("state", 16) + self._cell("spend", 10) + "title")
+        head.append(
+            self._cell("item", key_width)
+            + self._cell("state", state_width)
+            + self._cell("spend", 10)
+            + "title"
+        )
         options = [Option(Text(head.plain, style="dim"), disabled=True)]
         for item in self.items:
             cost = (item.get("totals") or {}).get("cost_eur")
             line = Text()
-            line.append(self._cell(str(item["tracker_key"]), 12, style="bold"))
-            line.append(self._cell(str(item.get("state_display") or item["state"]), 16))
+            line.append(self._cell(str(item["tracker_key"]), key_width, style="bold"))
+            line.append(self._cell(str(item.get("state_display") or item["state"]), state_width))
             line.append(self._cell(self.price(money.Amount(eur=cost)), 10, style="dim"))
             line.append(decide.clean(str(item["title"])).splitlines()[0] if item["title"] else DASH)
             options.append(Option(one_line(line), id=str(item["id"])))

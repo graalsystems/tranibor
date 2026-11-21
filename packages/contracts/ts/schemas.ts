@@ -1111,6 +1111,19 @@ export type Policy = {
     /** Whether a backend may reuse queries (train, rank, re-index). */
     allow_query_reuse?: boolean;
   };
+  /** The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains. Read as one with the former `scope.max_diff_*`, `approvals.merge` and `release_train` until the window list removes them. */
+  delivery?: {
+    scope?: {
+      max_diff_files?: number | null;
+      max_diff_lines?: number | null;
+    };
+    approvals?: {
+      merge?: PolicyApprovalRule | null;
+    };
+    release_train?: {
+      [key: string]: PolicyTrainEnv;
+    };
+  };
 };
 
 export type ProjectProfile = string | {
@@ -1236,6 +1249,39 @@ export type Project = {
   labels?: {
     [key: string]: string;
   };
+  /** The software-delivery plugin's section (ADR 0181 C2): the repositories and the GitOps. Read as one with the former `repo`, `repositories` and `gitops` until the window list removes them. */
+  delivery?: {
+    repo?: {
+      /** The repository's name in its project, what a work item's `fields.repository` names (ADR 0124); the primary is named after its URL's last segment when absent. */
+      name?: string;
+      url: string;
+      default_branch: string;
+      language?: "python" | "node" | "go" | "java" | "dotnet" | "rust" | "other";
+      clone_depth?: number;
+      branch_prefix?: string;
+      test_command?: string;
+      lint_command?: string;
+      typecheck_command?: string;
+    } | null;
+    /** The project's other repositories (ADR 0124): `repo` stays the primary, the one a work item that names none works on. Refused without `repo`, with two equal names and with two names for one URL. */
+    repositories?: Array<{
+      /** The repository's name in its project, what a work item's `fields.repository` names (ADR 0124). */
+      name: string;
+      url: string;
+      default_branch?: string;
+      language?: "python" | "node" | "go" | "java" | "dotnet" | "rust" | "other";
+      clone_depth?: number;
+      branch_prefix?: string;
+      test_command?: string;
+      lint_command?: string;
+      typecheck_command?: string;
+    }>;
+    gitops?: {
+      repo_url?: string;
+      path_prefix?: string;
+      apps?: Array<string>;
+    } | null;
+  } | null;
 };
 
 /** Orchestrator → runner contract (docs/plan/01 §1.5). */
@@ -1456,6 +1502,20 @@ export type StageInput = {
     tool_choice?: "auto" | "required" | "none";
     response_format?: "text" | "json_object";
   } | null;
+  /** The software-delivery plugin's section (ADR 0181 C2): the repository and the project's commands. Read as one with the former `repo` and `project.*_command` until the window list removes them. */
+  delivery?: {
+    repo?: {
+      url: string;
+      base_branch: string;
+      work_branch: string;
+      clone_depth?: number;
+    } | null;
+    commands?: {
+      test?: string | null;
+      lint?: string | null;
+      typecheck?: string | null;
+    };
+  } | null;
 };
 
 /** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .choregos/result.json; the runner completes artifacts/evidence/diagnostics. */
@@ -1502,6 +1562,11 @@ export type StageResult = {
         size: number;
       };
     };
+    /** The software-delivery plugin's section (ADR 0181 C2): the branch and the commits. Read as one with the former `branch` and `commits` until the window list removes them. */
+    delivery?: {
+      branch?: string | null;
+      commits?: Array<string>;
+    } | null;
   };
   evidence?: {
     /** Evidence named by the business (evidence_facts). Simple values: a number, a boolean, a date or a word can be checked. */
