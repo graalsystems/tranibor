@@ -4,6 +4,7 @@
 import { Provenance } from "@/components/provenance";
 import { Card, Empty } from "@/components/ui";
 import { toSentenceCase } from "@/lib/format";
+import { evidenceValue } from "@/lib/neutral-names";
 import { evidenceProvenance } from "@/lib/provenance";
 import type { Run } from "@/lib/types";
 
@@ -26,14 +27,20 @@ export function EvidencePanel({ evidence }: { evidence?: Evidence }) {
   const facts: [string, string | number | boolean, string][] = Object.entries(evidence?.facts ?? {}).map(
     ([nom, valeur]) => [nom, valeur, `facts.${nom}`],
   );
+  // The proofs of software delivery, read as named facts first (ADR 0181 C2), the fields as a fallback.
+  const proof = (name: string) => evidenceValue(evidence as Record<string, unknown> | undefined, name);
   const software: [string, string, string][] = [];
-  if (evidence?.tests_run != null) {
-    software.push(["tests", `${evidence.tests_passed ? "✓" : "✗"} ${evidence.tests_run}`, "tests_passed"]);
+  const testsRun = proof("tests_run");
+  if (testsRun != null) {
+    software.push(["tests", `${proof("tests_passed") ? "✓" : "✗"} ${testsRun}`, "tests_passed"]);
   }
-  if (evidence?.lint) software.push(["lint", evidence.lint, "lint"]);
-  if (evidence?.typecheck) software.push(["typing", evidence.typecheck, "typecheck"]);
-  if (evidence?.coverage_delta != null) {
-    software.push(["coverage", `${evidence.coverage_delta > 0 ? "+" : ""}${evidence.coverage_delta}`, "coverage_delta"]);
+  const lint = proof("lint");
+  if (lint) software.push(["lint", String(lint), "lint"]);
+  const typecheck = proof("typecheck");
+  if (typecheck) software.push(["typing", String(typecheck), "typecheck"]);
+  const coverage = proof("coverage_delta");
+  if (typeof coverage === "number") {
+    software.push(["coverage", `${coverage > 0 ? "+" : ""}${coverage}`, "coverage_delta"]);
   }
   const rows = facts.length > 0 ? facts : software;
 
