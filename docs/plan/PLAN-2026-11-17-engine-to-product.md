@@ -175,5 +175,5 @@ Each gate opens on measurements, not on a date. Only the technical criteria are 
 - [x] A cluster with gVisor (Kubernetes 1.29 or later): `dev` and `prod` (k3s 1.31, Cilium) have the
       `gvisor` RuntimeClass, and the `choregos-runner` pods run under it (checked 2026-11-18)
 - [x] A ServiceNow development instance: provided 2026-11-21, first proof S80-20 (Australia, patch 7)
-- [ ] A capped model key: requested
+- [x] A capped model key: provided 2026-11-19, a dedicated Anthropic workspace with a monthly cap (S80-13)
 - [ ] The local install run once to its end with a real model, then every night (P1)
