@@ -862,6 +862,69 @@
           "default": "text"
         }
       }
+    },
+    "delivery": {
+      "x-plugin": "software-delivery",
+      "description": "The software-delivery plugin's section (ADR 0181 C2): the repository and the project's commands. Read as one with the former `repo` and `project.*_command` until the window list removes them.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "url",
+            "base_branch",
+            "work_branch"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "base_branch": {
+              "type": "string"
+            },
+            "work_branch": {
+              "type": "string"
+            },
+            "clone_depth": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50
+            }
+          }
+        },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "test": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lint": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "typecheck": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

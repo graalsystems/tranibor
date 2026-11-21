@@ -494,3 +494,40 @@ async def test_a_step_that_wrote_a_file_is_still_asked_to_repair(
         },
     )
     assert "dod.retry" in [event["type"] for event in client.events]
+
+
+async def test_a_stage_input_written_with_its_delivery_section_alone_runs_the_same(
+    stage_input: StageInput, runner_settings: Any
+) -> None:
+    """ADR 0181 C2: a writer that switched sends the repository and the commands in `delivery` only. The
+    runner clones, checks and pushes the same, and its result carries the branch and the commits under
+    both forms."""
+    document = stage_input.model_dump(mode="json", by_alias=True)
+    assert document["delivery"]["repo"]["work_branch"] == stage_input.repo.work_branch  # type: ignore[union-attr]
+    document.pop("repo")
+    for former in ("test_command", "lint_command", "typecheck_command"):
+        document["project"].pop(former, None)
+    section_only = StageInput.model_validate(document)
+    assert section_only.repo == stage_input.repo and section_only.project.test_command == (
+        stage_input.project.test_command
+    )
+    outcome, client = await execute(
+        section_only,
+        runner_settings,
+        {
+            "turns": [
+                {
+                    "messages": ["I fix the total"],
+                    "writes": [
+                        {"path": "src/orders.py", "content": "def total(lines):\n    return sum(lines) - 1\n"}
+                    ],
+                    "result": valid_result(),
+                }
+            ]
+        },
+    )
+    assert outcome.exit_code is Exit.OK, outcome.detail
+    assert outcome.result is not None and outcome.result.evidence.tests_run == 3, "the commands ran"
+    posted = client.results[0].model_dump(mode="json", by_alias=True)["artifacts"]
+    assert posted["branch"] == posted["delivery"]["branch"] == stage_input.repo.work_branch  # type: ignore[union-attr]
+    assert posted["commits"] and posted["commits"] == posted["delivery"]["commits"]

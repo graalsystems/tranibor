@@ -32,6 +32,7 @@ from tranibor_contracts import (
     StageStatus,
     is_inert_binary_path,
 )
+from tranibor_contracts.delivery import commits_of, repository_of, without_commands
 from tranibor_contracts.env import with_legacy
 from tranibor_core import telemetry
 from tranibor_core.context_breakdown import PARTS_EVENT, Hints, register
@@ -216,7 +217,7 @@ async def _repairable(
         return True
     changed = (
         [f for f in await workspace.changed_files(start_ref) if not f.startswith(".choregos/")]
-        if stage_input.repo
+        if repository_of(stage_input)
         else []
     )
     if not changed and max_iterations:
@@ -368,12 +369,16 @@ class Runner:
             return RunOutcome(Exit.CLONE_FAILED, detail=str(exc))
         # Without a repository, the reference is git's empty tree: everything the agent writes is
         # therefore "added", which is exactly the truth for a directory that had nothing.
-        base = await workspace.base_sha(stage_input.repo.base_branch) if stage_input.repo else EMPTY_TREE
+        base = (
+            await workspace.base_sha(repository.base_branch)
+            if (repository := repository_of(stage_input))
+            else EMPTY_TREE
+        )
         # The scope is judged on what THIS run writes: the ticket's branch already carries the work
         # of the earlier steps, which the agent did not do and cannot undo. Measured from the
         # base, it was charged to the researcher of a study (dev tenant, 08/10), failing twice
         # on three files that the framing step had pushed.
-        start_ref = await workspace.head_sha() if stage_input.repo else EMPTY_TREE
+        start_ref = await workspace.head_sha() if repository_of(stage_input) else EMPTY_TREE
 
         # 3. contexte
         context = await self._context(client)
@@ -548,9 +553,7 @@ class Runner:
                     final = complete_result(
                         fallback_result(reason, detail),
                         measured=report.evidence(),
-                        artifacts=Artifacts(
-                            branch=stage_input.repo.work_branch if stage_input.repo else None
-                        ),
+                        artifacts=Artifacts(branch=_work_branch(stage_input)),
                         diagnostics=diagnostics,
                     )
                     await self._publish(client, journal, workspace, stage_input, final, base, start_ref)
@@ -562,7 +565,7 @@ class Runner:
         final = complete_result(
             cast(StageResult, agent_result),  # `_stop` ended the run when there was none
             measured=report.evidence(),
-            artifacts=Artifacts(branch=stage_input.repo.work_branch if stage_input.repo else None),
+            artifacts=Artifacts(branch=_work_branch(stage_input)),
             diagnostics=diagnostics,
             scope_blocked=scope_result.remaining if scope_result else None,
         )
@@ -609,7 +612,7 @@ class Runner:
         result = complete_result(
             fallback_result(reason, f"the agent did not start ({phase}): {detail}"),
             measured=Evidence(),
-            artifacts=Artifacts(branch=stage_input.repo.work_branch if stage_input.repo else None),
+            artifacts=Artifacts(branch=_work_branch(stage_input)),
             diagnostics=Diagnostics(
                 duration_s=round(time.monotonic() - self.started, 2), agent_exit="crashed"
             ),
@@ -788,7 +791,7 @@ class Runner:
             result,
             measured=measured,
             artifacts=Artifacts(
-                branch=stage_input.repo.work_branch if stage_input.repo else None,
+                branch=_work_branch(stage_input),
                 reports={REPORT_IMAGE: image, REPORT_COMMAND: command_digest(command)},
             ),
             diagnostics=Diagnostics(
@@ -1059,15 +1062,12 @@ class Runner:
         )
         # No repository was cloned: the project's test, lint and typecheck commands would run in an
         # empty folder and fail the step for nothing. Only its fact commands (`dod.facts`) can run.
-        no_repo = stage_input.project.model_copy(
-            update={"test_command": "", "lint_command": "", "typecheck_command": ""}
-        )
-        report = await self._checks(stage_input.model_copy(update={"project": no_repo}), workspace.path)
+        report = await self._checks(without_commands(stage_input), workspace.path)
         final = complete_result(
             result,
             measured=report.evidence(),
             artifacts=Artifacts(
-                branch=stage_input.repo.work_branch if stage_input.repo else None,
+                branch=_work_branch(stage_input),
                 reports={
                     REPORT_ENDPOINT: remote.endpoint,
                     REPORT_TASK: outcome.task_id,
@@ -1142,7 +1142,7 @@ class Runner:
         final = complete_result(
             result,
             measured=report.evidence(),
-            artifacts=Artifacts(branch=stage_input.repo.work_branch if stage_input.repo else None),
+            artifacts=Artifacts(branch=_work_branch(stage_input)),
             diagnostics=diagnostics,
         )
         final = await self._publish(client, journal, workspace, stage_input, final, base, start_ref)
@@ -1255,9 +1255,7 @@ class Runner:
         final = complete_result(
             result,
             measured=report.evidence(),
-            artifacts=Artifacts(
-                branch=stage_input.repo.work_branch if stage_input.repo else None, reports=reports
-            ),
+            artifacts=Artifacts(branch=_work_branch(stage_input), reports=reports),
             diagnostics=Diagnostics(
                 turns=model.turns,
                 tool_calls=mcp.calls,
@@ -1292,10 +1290,7 @@ class Runner:
                     for name in ("tests", "lint", "typecheck")
                 ]
             )
-        no_repo = stage_input.project.model_copy(
-            update={"test_command": "", "lint_command": "", "typecheck_command": ""}
-        )
-        return await self._checks(stage_input.model_copy(update={"project": no_repo}), workspace.path)
+        return await self._checks(without_commands(stage_input), workspace.path)
 
     async def _place_skills(
         self, client: Any, journal: Any, stage_input: StageInput, backend: Any, workspace: Any
@@ -1420,7 +1415,7 @@ class Runner:
         final = complete_result(
             fallback_result(str(outcome.guard), f"stopped by the runner: {outcome.guard_detail}"),
             measured=report.evidence(),
-            artifacts=Artifacts(branch=stage_input.repo.work_branch if stage_input.repo else None),
+            artifacts=Artifacts(branch=_work_branch(stage_input)),
             diagnostics=Diagnostics(
                 turns=outcome.turns,
                 tool_calls=outcome.tool_calls,
@@ -1519,7 +1514,7 @@ class Runner:
         self, client: InternalClient, journal: EventJournal, stage_input: StageInput
     ) -> None:
         """The run's git token, kept in memory (S22-07). Without it, a public repo still clones."""
-        if stage_input.repo is None:
+        if repository_of(stage_input) is None:
             return
         try:
             self.git_token = await client.fetch_git_token()
@@ -1543,13 +1538,15 @@ class Runner:
         sha = await workspace.commit(commit_message)
         commits = await workspace.commits_since(base)
         additions, deletions = await workspace.diff_stats(base)
-        result.artifacts.commits = commits or result.artifacts.commits
-        if stage_input.repo:
-            result.artifacts.branch = stage_input.repo.work_branch
-            if start_ref:
-                # The commit where this run started: the scope guard measures from it (S22-11),
-                # not from the base, which would count the work of the earlier steps.
-                result.artifacts.reports[REPORT_START_COMMIT] = start_ref
+        repository = repository_of(stage_input)
+        # The result's `delivery` section is derived from these, and written beside them (ADR 0181 C2).
+        result.artifacts.commits = commits or commits_of(result.artifacts)
+        if repository:
+            result.artifacts.branch = repository.work_branch
+        if repository and start_ref:
+            # The commit where this run started: the scope guard measures from it (S22-11),
+            # not from the base, which would count the work of the earlier steps.
+            result.artifacts.reports[REPORT_START_COMMIT] = start_ref
         result.evidence.diff_lines = additions + deletions
         result.evidence.diff_files = len(await workspace.changed_files(base))
         # The diff is what git says, not the agent: measured (ADR 0045).
@@ -1562,8 +1559,8 @@ class Runner:
         # is clean, `commit()` returns nothing, and the work stayed in a pod that
         # disappears; the next step then found the repository unchanged and concluded that
         # nothing had been done.
-        if (sha or commits) and stage_input.repo and not self.settings.dry_run:
-            push = await workspace.push(stage_input.repo.work_branch, token=self.git_token)
+        if (sha or commits) and repository and not self.settings.dry_run:
+            push = await workspace.push(repository.work_branch, token=self.git_token)
             await journal.record("git.push", {"ok": push.ok, "output": push.output[-500:]})
             if not push.ok:
                 # A failed push is the costliest silent ending: the result says
@@ -1595,6 +1592,12 @@ class Runner:
             await journal.record("result.post_failed", {"error": str(exc)[:300]})
             await journal.flush()
         return result
+
+
+def _work_branch(stage_input: StageInput) -> str | None:
+    """The branch a step's work goes to, read from the `delivery` section first (ADR 0181 C2)."""
+    repository = repository_of(stage_input)
+    return repository.work_branch if repository else None
 
 
 def _materialize(plan: Any, workspace: Workspace, stage_input: StageInput) -> list[str]:

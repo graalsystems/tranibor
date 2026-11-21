@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from tranibor_contracts import ArtifactDisplay, ContextPack, StageInput
+from tranibor_contracts.delivery import repository_of
 from tranibor_contracts.env import with_legacy
 
 from . import safe_files
@@ -368,7 +369,7 @@ class Workspace:
         (run journal, leftovers of a replay). `init` + `fetch` gives the same result and
         makes the operation replayable.
         """
-        repo = stage_input.repo
+        repo = repository_of(stage_input)
         self.path.mkdir(parents=True, exist_ok=True)
         if repo is None:
             # Project without a repository (ADR 0012): the agent works in an empty directory.
