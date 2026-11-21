@@ -40,5 +40,9 @@ async def test_an_unsigned_github_webhook_is_refused_on_an_https_dev_instance(
 async def test_an_unsigned_tekton_webhook_is_refused_on_an_https_dev_instance(
     app: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The Tekton webhook is the `software-delivery` plugin's (ADR 0181, round D, S83-05i).
+    pytest.importorskip(
+        "tranibor_software_delivery", reason="the Tekton webhook is the software-delivery plugin's"
+    )
     event = {"Ce-Type": "dev.tekton.event.other", "Ce-Id": "x"}
     assert await _post(monkeypatch, "/api/v1/webhooks/tekton", "https://choregos.example.com", event) == 401

@@ -1,6 +1,6 @@
 """Self-managed GitLab: a base URL under a path prefix, a private CA, the oldest supported version.
 
-The tracker, the SCM and the CI are built the way the registry builds them (`build_client`), then
+The tracker and the SCM are built the way the registry builds them (`build_client`), then
 their transport is swapped for a simulated one. This proves the paths, the token header and the
 version gate; it does not prove a real self-managed instance accepts them.
 """
@@ -17,7 +17,6 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
-from tranibor_adapters.ci.gitlab import GitLabCi
 from tranibor_adapters.errors import ConfigurationError
 from tranibor_adapters.scm.gitlab import GitLabScm
 from tranibor_adapters.tracker.gitlab import GitLabTracker
@@ -82,10 +81,9 @@ async def test_every_adapter_calls_under_the_path_prefix_with_the_token() -> Non
     cfg = {"base_url": PREFIXED}
     tracker = GitLabTracker(served(cfg, instance("16.0.1-ee", seen)), "ops/billing")
     scm = GitLabScm(served(cfg, instance("16.0.1-ee", seen)), "ops/billing")
-    ci = GitLabCi(served(cfg, instance("16.0.1-ee", seen)), "ops/billing")
 
     assert await tracker.create_item(NewItem(title="t", body="b", labels=[])) == "ops/billing#3"
-    for adapter in (tracker, scm, ci):
+    for adapter in (tracker, scm):
         verdict = await adapter.test()
         assert verdict["ok"] is True and verdict["version"] == "16.0.1-ee"
 
@@ -100,9 +98,8 @@ async def test_the_oldest_supported_version_is_15_0() -> None:
     assert ok["ok"] is True
     old = await GitLabTracker(served({}, instance("14.10.5-ee")), "ops/billing").test()
     assert old["ok"] is False and "15.0" in old["reason"] and "14.10.5-ee" in old["reason"]
-    # The same gate holds for the SCM and the CI.
+    # The same gate holds for the SCM (and for the `software-delivery` plugin's CI, in its own tests).
     assert (await GitLabScm(served({}, instance("13.12.0")), "ops/billing").test())["ok"] is False
-    assert (await GitLabCi(served({}, instance("9.9.9")), "ops/billing").test())["ok"] is False
 
 
 async def test_a_refused_token_and_an_unreachable_host_are_verdicts_not_crashes() -> None:
@@ -156,7 +153,7 @@ def test_a_ca_bundle_is_loaded_and_a_bad_one_is_refused(tmp_path: Path) -> None:
         build_client({"token": "t", "ca_bundle": str(junk)})
 
 
-def test_the_registry_builds_the_three_adapters_from_a_self_managed_config(
+def test_the_registry_builds_the_adapters_from_a_self_managed_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from tranibor_adapters import registry
@@ -166,7 +163,7 @@ def test_the_registry_builds_the_three_adapters_from_a_self_managed_config(
     monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
     ca = str(_pem(tmp_path / "ca.pem"))
     cfg = {"base_url": PREFIXED + "/", "project": "ops/billing", "token": "t", "ca_bundle": ca}
-    for family, name in (("tracker", "gitlab-issues"), ("scm", "gitlab"), ("ci", "gitlab")):
+    for family, name in (("tracker", "gitlab-issues"), ("scm", "gitlab")):
         registry.validate_config(family, name, cfg)  # the schema knows `ca_bundle`
         adapter = registry.build(family, name, cfg)
         assert adapter.client.base_url == PREFIXED

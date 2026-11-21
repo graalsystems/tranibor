@@ -19,10 +19,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from tranibor_adapters.fakes.hr import BusinessFake
+from tranibor_adapters.registry import OperationSpec, build_input_schema
 from tranibor_core.domain import Change, Health, PromotionRef, RolloutState, Window
-
-from ..registry import OperationSpec, build_input_schema
-from .hr import BusinessFake
 
 _OBJECT_LIST: dict[str, Any] = {"type": "array", "items": {"type": "object"}}
 

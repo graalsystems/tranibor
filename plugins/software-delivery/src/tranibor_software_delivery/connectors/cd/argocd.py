@@ -11,10 +11,9 @@ import base64
 from typing import Any
 
 import httpx
+from tranibor_adapters.errors import ConfigurationError, UpstreamError
+from tranibor_adapters.github.client import GitHubClient
 from tranibor_core.domain import Change, Health, PromotionRef, RolloutState, Window
-
-from ..errors import ConfigurationError, UpstreamError
-from ..github.client import GitHubClient
 
 
 class ArgoCdAdapter:

@@ -2436,6 +2436,28 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.28.1: the pipeline and deployment connectors are software delivery's
+
+**The `ci` and `cd` connector types left the core** (S83-05i, [ADR 0181](adr/0181-the-contracts-speak-no-trade.md)
+round D): Tekton, GitLab CI, GitHub Actions, Jenkins and Azure Pipelines, Argo CD and the demonstration
+`cd`, their fakes, the webhooks `/webhooks/tekton`, `/webhooks/jenkins` and `/webhooks/argocd`, the
+provisioning steps `gitops.write_project_manifests` and `argocd.wait_synced`, and `make demo`. They are the
+`software-delivery` plugin's extension (`tranibor-software-delivery`), which the published API and worker
+images install: **a deployment on the published images has nothing to do**. Stored connectors keep their
+kind and type, the webhooks their paths, the templates their step names.
+
+A deployment that builds its own images without the extension loses them: a project's `ci` and `cd`
+connectors cannot be declared, the three webhooks answer 404, and those two provisioning steps are skipped,
+saying so. Code that imported them moves its imports:
+
+| Before | After |
+| :-- | :-- |
+| `tranibor_adapters.ci.*`, `tranibor_adapters.cd.*` | `tranibor_software_delivery.connectors.ci.*`, `.cd.*` |
+| `tranibor_adapters.fakes.FakeCi`, `FakeCd`, `fakes.demo_cd` | `tranibor_software_delivery.connectors.fakes` |
+| `tranibor_adapters.CiAdapter`, `CdAdapter` | `tranibor_software_delivery.connectors.CiAdapter`, `CdAdapter` |
+| `adapters.ci`, `adapters.cd` | unchanged (an adapter slot the extension declares), or `ci_of(adapters)`, `cd_of(adapters)` |
+| `python -m tranibor_orchestrator.demo` | `python -m tranibor_software_delivery.demo` (`make demo`) |
+
 ## Upgrading past 0.27.16: the investment research template and its job image
 
 **The investment research template and `choregos-quant` left the core** (S83-07,

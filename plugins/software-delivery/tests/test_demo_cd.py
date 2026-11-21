@@ -8,11 +8,11 @@ from typing import Any
 import httpx
 import pytest
 from tranibor_adapters.errors import ConfigurationError
-from tranibor_adapters.fakes.demo_cd import DemoCd, FakeDemoCd
 from tranibor_adapters.fakes.hr import Desk, RemoteDesk
 from tranibor_adapters.fakes.server import DemoApplication
 from tranibor_adapters.mcp import McpClient
 from tranibor_core.domain import Change
+from tranibor_software_delivery.connectors.fakes.demo_cd import DemoCd, FakeDemoCd
 
 TOKEN = "demo-fakes-token"
 

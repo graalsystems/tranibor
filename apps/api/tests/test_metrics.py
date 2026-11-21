@@ -51,6 +51,9 @@ async def _seed_releases(project_id: str) -> None:
 
 
 async def test_dora_is_computed_on_the_deployments(client: AsyncClient, project: dict[str, Any]) -> None:
+    # The DORA metrics are the `software-delivery` plugin's route (ADR 0181, round D, S83-05e): the first
+    # nightly `core-without-plugins` run found these three still in the core's suite.
+    pytest.importorskip("tranibor_software_delivery", reason="getProjectDora is a plugin's route")
     await _seed_releases(project["id"])
     report = (await client.get(f"/api/v1/projects/{project['id']}/metrics/dora")).json()
 
@@ -66,6 +69,9 @@ async def test_dora_is_computed_on_the_deployments(client: AsyncClient, project:
 
 async def test_dora_without_a_deployment_rates_nothing(client: AsyncClient, project: dict[str, Any]) -> None:
     """No data allows no verdict: `unknown`, not `low`."""
+    # The DORA metrics are the `software-delivery` plugin's route (ADR 0181, round D, S83-05e): the first
+    # nightly `core-without-plugins` run found these three still in the core's suite.
+    pytest.importorskip("tranibor_software_delivery", reason="getProjectDora is a plugin's route")
     report = (await client.get(f"/api/v1/projects/{project['id']}/metrics/dora")).json()
     assert report["deployments"] == 0
     for metric in ("deployment_frequency", "lead_time", "change_failure_rate", "time_to_restore"):
@@ -74,6 +80,9 @@ async def test_dora_without_a_deployment_rates_nothing(client: AsyncClient, proj
 
 
 async def test_dora_filters_by_environment(client: AsyncClient, project: dict[str, Any]) -> None:
+    # The DORA metrics are the `software-delivery` plugin's route (ADR 0181, round D, S83-05e): the first
+    # nightly `core-without-plugins` run found these three still in the core's suite.
+    pytest.importorskip("tranibor_software_delivery", reason="getProjectDora is a plugin's route")
     await _seed_releases(project["id"])
     staging = (
         await client.get(f"/api/v1/projects/{project['id']}/metrics/dora", params={"env": "staging"})

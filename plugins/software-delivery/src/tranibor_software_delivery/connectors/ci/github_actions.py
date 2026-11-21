@@ -20,12 +20,11 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Literal
 
+from tranibor_adapters.errors import ConfigurationError, UpstreamError
+from tranibor_adapters.github.client import GitHubClient
+from tranibor_adapters.tracker.github_events import parse_github_event
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
-
-from ..errors import ConfigurationError, UpstreamError
-from ..github.client import GitHubClient
-from ..tracker.github_events import parse_github_event
 
 State = Literal["pending", "running", "success", "failure", "error", "unknown"]
 Progress = Literal["queued", "in_progress", "completed"]

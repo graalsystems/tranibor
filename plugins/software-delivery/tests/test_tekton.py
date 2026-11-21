@@ -6,14 +6,13 @@ import base64
 from typing import Any
 
 import pytest
-from tranibor_adapters.ci.tekton import TektonCi
 from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.executor.tekton import CORE_API, TEKTON_API, KubernetesClient, TektonExecutor
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
+from tranibor_adapters.fakes.wire import Wire
 from tranibor_contracts import InboundEventType
 from tranibor_core.domain import ExecRef, StageJobSpec
-
-from ._transport import Wire
+from tranibor_software_delivery.connectors.ci.tekton import TektonCi
 
 K8S = "https://k8s.test"
 NS = "proj-billing-runners"

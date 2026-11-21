@@ -21,7 +21,7 @@ import structlog
 from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState
 
-from ..ci.gitlab import _JOB_RUN
+from ..builds import GITLAB_JOB_RUN as _JOB_RUN
 from ..errors import ConfigurationError, HeadMovedError, UpstreamError
 from ..http import RestClient
 from ..tracker.gitlab_events import parse_gitlab_event

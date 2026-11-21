@@ -549,3 +549,21 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   train by calling the activity `signal_train` by name; the activity moved to the extension. The command
   scheduled is unchanged, so no history needed a patch. It belongs to the fifth surface, like the gate and
   worker seams.
+- **S83-05i.** The `ci` and `cd` connector types (Tekton, GitLab CI, GitHub Actions, Jenkins, Azure
+  Pipelines; Argo CD and the demonstration environment), their fakes and their specs are the extension's
+  (`tranibor_software_delivery.connectors`), registered through `tranibor_adapters.register` under the
+  kinds and type names stored connectors carry. The seam chosen is the smallest that keeps the core's
+  adapter set trade-free: an **adapter slot** (`tranibor_adapters.declare_adapter_slot`). An extension
+  names a kind, its default type and its fake; every `AdapterSet` then builds that kind's adapter beside
+  the core's and holds it in `extra`, read as `adapters.slot(kind)` or as an attribute, so the code that
+  read `adapters.cd` still does. Where no extension declares a slot, reading it names the plugin. A
+  second seam the provisioning needed: a template's steps that an extension runs
+  (`WorkerParts.provisioning_steps`, dispatched by the core's `run_provision_step`). The extension's are
+  `gitops.write_project_manifests` and `argocd.wait_synced`, which use the `cd` connector. The webhooks of
+  the pipelines and deployments (`tektonWebhook`, `jenkinsWebhook`, `argocdWebhook`) are the extension's
+  routes, `x-plugin` in `openapi.yaml`, through `extensions.declare_router` under the same paths. The
+  GitHub App reads the repository key of a type from its spec (`ConnectorTypeSpec.github_repository`)
+  instead of the core's list. `make demo`, software delivery's scenario from end to end, is the
+  extension's (`tranibor_software_delivery.demo`). The fakes' process serves the demonstration `cd` an
+  extension declares (`fakes.hr.declare_demo_desk`), and the scripted HTTP transport the adapters' tests
+  drive is shipped with the fakes (`tranibor_adapters.fakes.wire`), so the plugin's tests use the same one.

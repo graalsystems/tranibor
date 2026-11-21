@@ -6,12 +6,11 @@ import base64
 import json
 
 import pytest
-from tranibor_adapters.cd.argocd import ArgoCdAdapter, _replace_image_tag
 from tranibor_adapters.errors import ConfigurationError
+from tranibor_adapters.fakes.wire import Wire
 from tranibor_adapters.github.client import GitHubClient
 from tranibor_core.domain import Change, Window
-
-from ._transport import Wire
+from tranibor_software_delivery.connectors.cd.argocd import ArgoCdAdapter, _replace_image_tag
 
 ARGO = "https://argo.test"
 GH = "https://api.github.test"

@@ -16,7 +16,6 @@ from tranibor_contracts.outpost import ENDPOINT_ALIAS_PATTERN, OUTPOST_SLUG_PATT
 from .azure_devops import azure_boards_egress as _azure_boards_egress
 from .azure_devops import azure_egress as _azure_egress
 from .azure_devops import check_azure_boards as _check_azure_boards
-from .azure_devops import check_azure_pipelines as _check_azure_pipelines
 from .azure_devops import check_azure_repos as _check_azure_repos
 from .errors import AdapterError, ConfigurationError
 from .families import FAMILIES as _FAMILIES
@@ -379,6 +378,7 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
             ("repo",),
         ),
         ("webhook_secret",),
+        github_repository="repo",
     ),
     ("tracker", "internal"): ConnectorTypeSpec("internal (Tranibor holds the work items)", ("tracker",)),
     ("tracker", "jira"): ConnectorTypeSpec(
@@ -541,6 +541,7 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
             },
             ("repo",),
         ),
+        github_repository="repo",
     ),
     ("scm", "gitlab"): ConnectorTypeSpec(
         "GitLab",
@@ -590,121 +591,6 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
         ("pat", "client_secret", "run_token"),
         egress=_azure_egress,
         check_config=_check_azure_repos,
-    ),
-    ("ci", "azure-pipelines"): ConnectorTypeSpec(
-        "Azure Pipelines",
-        ("ci",),
-        _object_schema(
-            {
-                **_AZURE_CONNECTION,
-                "repository": {
-                    "type": "string",
-                    "description": "optional: only the builds of this Azure Repos repository (name or id)",
-                },
-                "pipeline": {
-                    "type": "string",
-                    "description": "optional: the pipeline (name or id) whose builds are read and which is "
-                    "queued when none is named",
-                },
-            },
-            ("base_url", "project"),
-        ),
-        ("pat", "client_secret"),
-        egress=_azure_egress,
-        check_config=_check_azure_pipelines,
-    ),
-    ("ci", "tekton"): ConnectorTypeSpec(
-        "Tekton Pipelines",
-        ("ci",),
-        _object_schema({"namespace": _TEXT, "pipeline": {"type": "string", "default": "choregos-ci"}}),
-    ),
-    ("ci", "gitlab"): ConnectorTypeSpec(
-        "GitLab CI",
-        ("ci",),
-        _object_schema(
-            {
-                "base_url": {
-                    "type": "string",
-                    "default": "https://gitlab.com",
-                    "description": "self-managed: its URL, with the path prefix if any "
-                    "(https://tools.example.org/gitlab); GitLab 15.0 or later",
-                },
-                "ca_bundle": {
-                    "type": "string",
-                    "description": "self-managed only: the PEM file of the internal CA that signed the "
-                    "instance's certificate (verification is never switched off)",
-                },
-                "project": _TEXT,
-            },
-            ("project",),
-        ),
-        ("token",),
-    ),
-    ("ci", "jenkins"): ConnectorTypeSpec(
-        "Jenkins",
-        ("ci",),
-        _object_schema(
-            {
-                "base_url": {"type": "string", "description": "the controller, https://jenkins.example.com"},
-                "job": {
-                    "type": "string",
-                    "description": "the job's path, folder/app; the multibranch folder when `multibranch`",
-                },
-                "user": {"type": "string", "description": "the user the API token belongs to"},
-                "multibranch": {"type": "boolean", "default": False},
-                "ref_parameter": {
-                    "type": "string",
-                    "default": "BRANCH",
-                    "description": "the build parameter that receives the ref (unused by a multibranch job)",
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "description": "build parameters sent with every trigger",
-                },
-                "crumb": {"type": "boolean", "default": True},
-            },
-            ("base_url", "job", "user"),
-        ),
-        ("token",),
-    ),
-    ("ci", "github-actions"): ConnectorTypeSpec(
-        "GitHub Actions",
-        ("ci",),
-        _object_schema(
-            {
-                "repo": {
-                    "type": "string",
-                    "format": "github-repo",
-                    "description": "owner/repo, picked among the repositories the App can see",
-                },
-                "workflow": {
-                    "type": "string",
-                    "description": "the workflow file (ci.yml) to dispatch and to read; empty reads them all",
-                },
-                "inputs": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "description": "workflow_dispatch inputs sent with every trigger",
-                },
-                "api_url": {"type": "string", "default": "https://api.github.com"},
-            },
-            ("repo",),
-        ),
-    ),
-    ("cd", "argocd"): ConnectorTypeSpec(
-        "Argo CD + Rollouts",
-        ("cd",),
-        _object_schema(
-            {
-                "gitops_repo": _TEXT,
-                "base_url": _TEXT,
-                "app_pattern": {"type": "string", "default": "{app}-{env}"},
-                "path_prefix": {"type": "string", "default": "apps"},
-            },
-            ("gitops_repo",),
-        ),
-        ("token",),
     ),
     ("runtime", "tekton"): ConnectorTypeSpec(
         "Tekton PipelineRun",
@@ -1011,15 +897,6 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
         ("api_key",),
         egress=_firecrawl_egress,
         check_config=_firecrawl_check,
-    ),
-    # A demonstration tenant's train (S21-24): an in-memory environment, or served by the fakes'
-    # process. No operation exposed: it is the train that calls it, never an agent.
-    ("cd", "demo"): ConnectorTypeSpec(
-        "demo deployment (in memory: demonstrations only, refused in staging and prod)",
-        ("cd",),
-        _DEMO_CONFIGURATION,
-        secret_fields=("api_key",),
-        dev_only=True,
     ),
     # Netops (ADR 0052, S33-08): our own estate, read through the platform.
     ("firewall", "pfsense"): ConnectorTypeSpec(

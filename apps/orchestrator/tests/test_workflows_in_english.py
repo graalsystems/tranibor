@@ -26,7 +26,6 @@ OWNED_ROOT = (
     "__init__",
     "config",
     "context_reduction",
-    "demo",
     "gitops",
     "local",
     "markdown",

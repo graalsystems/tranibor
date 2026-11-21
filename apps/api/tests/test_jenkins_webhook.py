@@ -7,6 +7,12 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
+# The Jenkins webhook is the `software-delivery` plugin's (ADR 0181, round D, S83-05i): without its
+# extension (the `core-without-plugins` job) the API serves no such route.
+pytest.importorskip(
+    "tranibor_software_delivery", reason="the Jenkins webhook is the software-delivery plugin's"
+)
+
 SECRET = "s3cret-jenkins"
 NOTIFICATION = {
     "name": "app",

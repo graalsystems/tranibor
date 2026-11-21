@@ -231,3 +231,35 @@ def test_a_queue_is_placed_once() -> None:
         queues.declare_queue("whatever", "moon")
     queues.declare_queue("notify", "tracker")  # the same placement: nothing to do
     assert queues.ACTIVITIES_BY_QUEUE["tracker"].count("notify") == 1
+
+
+async def _a_step(params: dict[str, Any], bundle: Any, settings: Any) -> str:
+    return f"paged {params.get('who', 'nobody')}"
+
+
+async def test_an_extension_s_provisioning_step_is_run_by_the_core_s_activity() -> None:
+    """A template names a step an extension runs (ADR 0181, round D): `run_provision_step` dispatches it,
+    and its remediation is the one shown beside a failure."""
+    from tranibor_core import worker_parts
+    from tranibor_core.worker_parts import ProvisioningStep, WorkerParts
+    from tranibor_orchestrator.activities import provisioning
+
+    step = ProvisioningStep(_a_step, "Page someone else.")
+    worker_parts.declare_worker_parts(
+        "itsm-steps", lambda: WorkerParts(provisioning_steps={"itsm.page": step})
+    )
+    try:
+        assert await provisioning._execute("itsm.page", {"who": "ops"}, None, None, {}) == "paged ops"
+        assert provisioning._remediation("itsm.page") == "Page someone else."
+    finally:
+        worker_parts.forget("itsm-steps")
+    said = await provisioning._execute("itsm.page", {}, None, None, {})
+    assert said == "step `itsm.page` skipped (not implemented for this template)"
+    assert provisioning._remediation("itsm.page").startswith("Fix the cause")
+
+
+def test_a_provisioning_step_the_core_runs_stops_the_worker() -> None:
+    from tranibor_core.worker_parts import ProvisioningStep, WorkerParts
+
+    message = _clashing(WorkerParts(provisioning_steps={"memory.create_tenant": ProvisioningStep(_a_step)}))
+    assert "`memory.create_tenant`" in message and "the core" in message and "`clash`" in message

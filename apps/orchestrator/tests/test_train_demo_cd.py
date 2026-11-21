@@ -26,11 +26,11 @@ async def _until(handle: Any, predicate: Any, timeout: float = 60.0) -> dict[str
 
 
 def _demo_cd(setup: Fixture) -> Any:
-    from tranibor_adapters.fakes.demo_cd import DemoCd, FakeDemoCd
     from tranibor_adapters.fakes.hr import Desk
+    from tranibor_software_delivery.connectors.fakes import DemoCd, FakeDemoCd
 
     fake = FakeDemoCd()
-    setup.adapters.cd = DemoCd(Desk(fake))
+    setup.adapters.extra["cd"] = DemoCd(Desk(fake))
     return fake
 
 
