@@ -57,16 +57,27 @@ def test_the_api_starts() -> None:
     app = create_app()
     paths = set(app.openapi()["paths"])
     assert "/api/v1/orgs/{org}/projects" in paths and "/api/v1/projects/{id}/actions" in paths
+    # The release train's routes are the `software-delivery` plugin's (round D, S83-05c).
+    assert not [path for path in paths if "/trains/" in path or path.startswith("/api/v1/releases/")]
+    # A run's diff and the DORA metrics too (S83-05e).
+    assert not {"/api/v1/runs/{id}/diff", "/api/v1/projects/{id}/metrics/dora"} & paths
 
 
 def test_the_worker_builds_its_workflows_and_activities_without_them() -> None:
     from tranibor_core.worker_parts import declared_worker_parts
-    from tranibor_orchestrator.extension_parts import all_activities, all_workflows, extension_parts
+    from tranibor_orchestrator.extension_parts import (
+        all_activities,
+        all_workflows,
+        extension_parts,
+        workflow_name,
+    )
     from tranibor_orchestrator.worker import activities_for
 
     assert not set(declared_worker_parts()) & set(LEFT_OUT)
     assert extension_parts() == []
     assert all_workflows() and all_activities()
+    # The release train is the `software-delivery` plugin's (round D, S83-05b).
+    assert "ReleaseTrain" not in {workflow_name(cls) for cls in all_workflows()}
     assert activities_for("orchestrator") and activities_for("tracker")
 
 
@@ -79,3 +90,27 @@ def test_a_gate_of_the_plugin_is_refused_naming_it() -> None:
     assert why is not None and "`software-delivery`" in why
     _, report = parse_workflow(WORKFLOW, strict=False)
     assert [e.code for e in report.errors if "software-delivery" in e.message] == ["gate.unknown"]
+
+
+def test_a_project_with_a_repository_and_no_template_gets_a_workflow_the_core_runs() -> None:
+    """`default-simple` is the plugin's to run (its gates, `open_pr`, `merge_pr`): the core gives
+    `default-request` instead (S83-05d)."""
+    from tranibor_api.services.templates import delivery
+
+    [source] = delivery({}, None, has_repository=True).workflows
+    workflow, report = parse_workflow_report(source)
+    assert workflow == "default-request" and report
+
+
+def parse_workflow_report(source: str) -> tuple[str, bool]:
+    from tranibor_core import parse_workflow
+
+    parsed, report = parse_workflow(source, strict=False)
+    return parsed.metadata.name, report.valid
+
+
+def test_the_api_emits_none_of_the_plugins_series() -> None:
+    """The release train's series are the plugin's (S83-05f): the core knows them by name only."""
+    from tranibor_api.metrics import PLUGIN_SERIES, emitted_names
+
+    assert PLUGIN_SERIES and not set(PLUGIN_SERIES) & emitted_names()

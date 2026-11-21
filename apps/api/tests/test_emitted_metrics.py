@@ -30,8 +30,11 @@ def _base(name: str) -> str:
 
 
 def test_the_dashboards_and_the_alerts_only_cite_emitted_metrics() -> None:
-    from tranibor_api.metrics import NAMES
+    from tranibor_api.metrics import NAMES, PLUGIN_SERIES
 
+    # A plugin's series (the release train's, ADR 0181 round D) is emitted where its extension is installed,
+    # which the published images do: the core knows it by name.
+    NAMES = NAMES | set(PLUGIN_SERIES)  # noqa: N806 - the inventory, plugins' series included
     cited: dict[str, set[str]] = {}
     for file in sorted(DASHBOARDS.glob("*.json")):
         text = json.dumps(json.loads(file.read_text()))
@@ -47,7 +50,7 @@ async def test_metrics_exposes_the_series_from_the_database(
 ) -> None:
     from tranibor_api.db.models import CostLedger, Run, WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_api.metrics import NAMES, refresh
+    from tranibor_api.metrics import emitted_names, refresh
     from tranibor_core import utcnow
 
     async with session_scope() as session:
@@ -96,7 +99,7 @@ async def test_metrics_exposes_the_series_from_the_database(
     response = await client.get("/metrics")
     assert response.status_code == 200
     body = response.text
-    for name in NAMES:
+    for name in emitted_names():
         assert name in body, f"series missing from /metrics: {name}"
     assert "choregos_runs_active 1.0" in body
     assert (

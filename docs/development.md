@@ -367,6 +367,30 @@ activity is retried, and `request.key` is stable for one crossing.
 `apps/orchestrator/tests/test_step_effect_extension.py` installs a test plugin's extension and has the
 real interpreter play its effect; its history is `tests/replay/histories/wi-step-effect-S83-02c.json`.
 
+## Filling a project's figures and series from an extension
+
+A field of `Project` or `ProjectStats` that `openapi.yaml` marks `x-plugin: <plugin>` is the plugin's to
+fill (ADR 0181, round D): `software-delivery` fills `has_release_train` and `trains_pending`. The core keeps
+the field at its default and merges what the extension declares when it loads:
+
+```python
+from tranibor_api.extensions import declare_project_figure
+
+async def open_incidents(session, project) -> int: ...
+
+def register_extension() -> None:
+    declare_project_figure("ProjectStats", "open_incidents", open_incidents, plugin="itsm")
+```
+
+A field the contract does not mark for that plugin is refused, and so is a second owner.
+`plugins/software-delivery/tests/test_delivery_reads.py` proves both.
+
+Its Prometheus series go the same way: `tranibor_api.metrics.declare_series(plugin, names, refresh)`, where
+the async `refresh(project_slugs)` returns the metric families of `names`, computed with the snapshot and
+served on `/metrics`. A name the core emits or another plugin declared is refused. The release train's
+three series are declared so (`plugins/software-delivery/tests/test_train_series.py`); the core lists
+them in `PLUGIN_SERIES` so that the chart's dashboards may cite them.
+
 ## Shipping durable code from outside this tree
 
 A trade whose work outlives a request (a release train that waits for its window, a deployment that soaks)

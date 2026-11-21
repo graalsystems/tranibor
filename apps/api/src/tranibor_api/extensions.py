@@ -72,6 +72,7 @@ def reset() -> None:
     _SECTIONS.clear()
     _INSTALLERS.clear()
     _THEME_PROVIDER.clear()
+    _PROJECT_FIGURES.clear()
     reset_gesture_checks()
 
 
@@ -396,3 +397,50 @@ def declare_theme_provider(provider: Any) -> None:
 
 def theme_provider() -> Any | None:
     return _THEME_PROVIDER[0] if _THEME_PROVIDER else None
+
+
+# ───────────────────────────── project figures (ADR 0181, round D) ─────────────────────────────
+#
+# A project's page carries figures a plugin computes: `Project.has_release_train` and
+# `ProjectStats.trains_pending` are the `software-delivery` plugin's (`openapi.yaml` marks them `x-plugin`).
+# The core keeps the fields of its contract, at their default, and fills them with what an extension
+# declares: `function(session, project)` (sync or async) returns the value. Without the extension the field
+# keeps its default. Only a field marked `x-plugin` in the contract may be declared, and one owner each.
+
+#: (component, field) -> (plugin, function). `component` is `Project` or `ProjectStats`.
+_PROJECT_FIGURES: dict[tuple[str, str], tuple[str, Any]] = {}
+FIGURE_COMPONENTS = ("Project", "ProjectStats")
+
+
+def declare_project_figure(component: str, field: str, function: Any, *, plugin: str) -> None:
+    """Called by an extension when it loads. Idempotent for the same plugin; another plugin's field stops
+    the start."""
+    if component not in FIGURE_COMPONENTS:
+        raise ValueError(f"a project figure goes on {FIGURE_COMPONENTS}, not `{component}`")
+    if not callable(function):
+        raise TypeError("a project figure is a callable (session, project) -> value")
+    from tranibor_contracts import load_openapi
+
+    schema = load_openapi()["components"]["schemas"][component]["properties"].get(field) or {}
+    if schema.get("x-plugin") != plugin:
+        raise ValueError(
+            f"`{component}.{field}` is not a field `openapi.yaml` marks `x-plugin: {plugin}`: a plugin fills "
+            "only its own fields"
+        )
+    known = _PROJECT_FIGURES.get((component, field))
+    if known is not None and known[0] != plugin:
+        raise RuntimeError(f"`{component}.{field}` is already filled by the plugin `{known[0]}`")
+    _PROJECT_FIGURES[(component, field)] = (plugin, function)
+
+
+async def project_figures(session: Any, project: Any, component: str) -> dict[str, Any]:
+    """field -> value of the figures the installed extensions fill on `component`."""
+    import inspect
+
+    found: dict[str, Any] = {}
+    for (on, name), (_plugin, function) in _PROJECT_FIGURES.items():
+        if on != component:
+            continue
+        value = function(session, project)
+        found[name] = await value if inspect.isawaitable(value) else value
+    return found

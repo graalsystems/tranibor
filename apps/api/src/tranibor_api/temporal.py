@@ -99,7 +99,6 @@ class TemporalGateway(Protocol):
         """The query's answer, or None when the workflow does not exist or does not answer in time."""
         ...
 
-    async def start_train(self, workflow_id: str, payload: dict[str, Any]) -> str: ...
     async def start_provisioning(self, workflow_id: str, payload: dict[str, Any]) -> str: ...
     async def start_action(self, workflow_id: str, payload: dict[str, Any]) -> str: ...
     async def restart_action(self, workflow_id: str, payload: dict[str, Any]) -> str:
@@ -190,10 +189,6 @@ class FakeTemporal:
         if not known:
             raise RPCError(f"workflow not found for ID: {workflow_id}", RPCStatusCode.NOT_FOUND, b"")
         return self.queries.get(f"{workflow_id}:{name}")
-
-    async def start_train(self, workflow_id: str, payload: dict[str, Any]) -> str:
-        self.started.setdefault(workflow_id, payload)
-        return workflow_id
 
     async def start_provisioning(self, workflow_id: str, payload: dict[str, Any]) -> str:
         self.started[workflow_id] = payload
@@ -331,9 +326,6 @@ class RealTemporal:
             id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
         )
         return str(handle.id)
-
-    async def start_train(self, workflow_id: str, payload: dict[str, Any]) -> str:
-        return await self._start("ReleaseTrain", workflow_id, payload)
 
     async def start_action(self, workflow_id: str, payload: dict[str, Any]) -> str:
         return await self._start("ActionWorkflow", workflow_id, payload)
