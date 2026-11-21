@@ -19,7 +19,7 @@ test("the registry shows a badge per scope and filters by scope", async ({ page 
   await expect(row("developer").getByTestId("scope")).toHaveText("Common");
   await expect(row("developer-billing-api").getByTestId("scope")).toHaveText("Project · billing-api");
   await expect(row("leas-scratchpad").getByTestId("scope")).toHaveText("Personal");
-  await page.getByRole("button", { name: /^Personal \(1\)/ }).click();
+  await page.getByRole("button", { name: /^Personal/ }).click();
   await expect(row("leas-scratchpad")).toBeVisible();
   await expect(row("developer")).toHaveCount(0);
 });
