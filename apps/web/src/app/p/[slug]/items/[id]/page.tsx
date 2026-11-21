@@ -31,6 +31,8 @@ import { StopWithReason } from "@/components/activity/stop";
 import { AgentProposal } from "@/components/agent-proposal";
 import { ArtifactFacts } from "@/components/artifact-value";
 import { Artifacts } from "@/components/artifacts";
+import { FilesCard } from "@/components/ticket/files-card";
+import { attachmentRule, handedFiles } from "@/lib/attachments";
 import { LevelBadge } from "@/components/level-badge";
 import { Passages } from "@/components/passages";
 import { Provenance } from "@/components/provenance";
@@ -429,6 +431,19 @@ export default function WorkItemPage({ params }: { params: Promise<{ slug: strin
         fields={data.fields}
       />
 
+      {/* The files a person (or an application) handed to the work item (ADR 0201 §11). */}
+      {(attachmentRule(workflow.data?.json?.metadata) !== null || handedFiles(artifacts.data ?? []).length > 0) && (
+        <Card id="files" title="Files">
+          <FilesCard
+            itemId={id}
+            artifacts={artifacts.data ?? []}
+            rule={attachmentRule(workflow.data?.json?.metadata)}
+            terminal={Boolean(data.closed_at)}
+            onChanged={() => void queryClient.invalidateQueries({ queryKey: ["artifacts", id] })}
+          />
+        </Card>
+      )}
+
       <Card id="artifacts" title="Artifacts" action={<Provenance de="observed" />}>
         {artifacts.error ? (
           <p className="text-sm text-ink-muted">the artifacts cannot be read: {(artifacts.error as Error).message}</p>
@@ -466,7 +481,7 @@ function RunOutcomeChip({ run }: { run: Parameters<typeof runOutcome>[0] }) {
         ? "border-danger text-danger"
         : "border-line text-ink-muted";
   return (
-    <span className={`inline-block rounded-full border px-2 py-0.5 ${colour}`} data-testid="run-outcome">
+    <span className={`inline-block rounded-pill border px-2 py-0.5 ${colour}`} data-testid="run-outcome">
       {label}
     </span>
   );

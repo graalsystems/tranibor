@@ -50,9 +50,10 @@ A project needs, at minimum: a **tracker** (where humans look), a **workflow** a
 
 | Kind | Implementations |
 | :-- | :-- |
-| `tracker` | `github-issues`, `jira`, `gitlab-issues`, `internal`, `fake` |
-| `scm` | `github`, `fake` |
-| `ci` / `cd` | `tekton` / `argocd`, `demo`, `fake` |
+| `tracker` | `github-issues`, `jira`, `gitlab-issues`, `azure-boards`, `internal`, `fake` |
+| `scm` | `github`, `gitlab`, `azure-repos`, `fake` |
+| `ci` | `tekton`, `gitlab`, `azure-pipelines`, `jenkins`, `github-actions`, `fake` |
+| `cd` | `argocd`, `demo`, `fake` |
 | `runtime` | `tekton`, `k8s_job`, `aca`, `local_docker`, `agent_sandbox`, `fake` |
 | `gateway` | `litellm`, `direct`, `fake` |
 | `memory` | `ecphoria`, `lexical`, `fake` |
@@ -60,8 +61,10 @@ A project needs, at minimum: a **tracker** (where humans look), a **workflow** a
 
 A project only needs what its workflows read ([ADR 0034](adr/0034-connectors-by-capability.md)).
 `GET /projects/{id}/requirements` derives it — a guarantee says what it reads (`scope_respected` a
-diff; `ci_green` and `scans_ok` the pull request's checks, read through the `scm`, so GitHub Actions
-needs no `ci` connector), an agent whose role works in a repository needs an `scm`, a release
+diff; `ci_green` and `scans_ok` the pull request's checks, read through the `scm`, so a CI that reports
+its results to the pull request (GitHub Actions, Jenkins with a GitHub plugin) needs no `ci`
+connector for the gate; the `ci` connectors `jenkins` and `github-actions` add what the `scm` cannot
+do: dispatch a run, follow it to its result and console, rerun failed jobs and receive its events), an agent whose role works in a repository needs an `scm`, a release
 train or a production state (`production: true`) needs a `cd`, a transition that opens or merges a
 pull request (`does`) needs an `scm` — and says why for each. An HR project shows
 neither `scm`, nor `ci`, nor `cd`; the settings page lists what is required, what is configured,
@@ -2037,7 +2040,7 @@ How people sign in to the instance is on **Administration → Identity** (below)
   deployment's own answer (`TRANIBOR_EXECUTOR_KIND`, `TRANIBOR_EXECUTORS_ALLOWED`); change it in the
   chart (`global.runner.allowedExecutors`). There is no write route: `PUT /platform/executors`
   was removed (S42-07b), only the `GET` remains.
-- **Gateway keys.** A table of the keys the model gateway minted for runs (key id, run, project, spent over budget, expiry, state, creation date), for platform administrators; a key's secret is never shown (`GET /platform/gateway/keys`).
+- **Gateway keys.** A table of the keys the model gateway minted for runs (key id, run, project, spent over budget, expiry, state, creation date), newest first, for platform administrators; a key's secret is never shown (`GET /platform/gateway/keys`). The server filters and pages it (ADR 0206): the text box matches a part of the key id, the run id or the project slug, the state keeps the active or the revoked keys, and **More** reads the next 50.
 
 ### Identity
 
@@ -3538,11 +3541,11 @@ so a webhook delivered twice starts nothing twice. If a webhook is lost, a recon
 pass every 60 seconds catches up.
 
 You can also file a work item yourself. On a project's board, **New work item** opens a drawer: the workflow, the inputs that workflow declares, a title, a description, a size and an optional budget (which only tightens the workflow's). MCP does the same with `create_work_item`. With
-an internal tracker (or none) the platform mints the key. With GitHub, Jira or GitLab it creates
-the issue there first, labelled `source:choregos` and never `agent-ready`, and records the work
+an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards or GitLab it creates
+the issue there first (Azure Boards: a work item, tagged), labelled `source:choregos` and never `agent-ready`, and records the work
 item under the issue's key, with its creation inputs, workflow and budget (ADR 0059). The tracker's
 credentials need the right to create issues (GitHub App: *Issues: read and write*; Jira: create
-issue on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
+issue on the project; Azure Boards: *Create work items* on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
 
 A `/choregos approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
 workflow: a decision stays in the console, after a fresh sign-in. Tranibor replies on the ticket with a
@@ -3553,7 +3556,7 @@ verified by its HMAC (`TRANIBOR_GITHUB_WEBHOOK_SECRET` is set), by a github.com 
 of the project's organisation. The command runs with that member's own rights (a developer or
 above), is audited as `workitem.pause`, `workitem.resume` or `workitem.stop` on the channel `tracker`,
 and Tranibor confirms on the ticket. A login is never matched, so a renamed account inherits nothing.
-Jira and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
+Jira, Azure Boards and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
 display name or a username is not a stable identity. Anyone else gets the console link, with a note on
 how to link their account. A reply that cannot be posted never fails the webhook.
 
@@ -3676,6 +3679,59 @@ With `auth: signature` the bearer token is refused; the HMAC key is the signing 
 token, and it changes when the token is minted again. The project's settings list its triggers beside
 the received events: their URL, their workflow, whether a token exists, a button to mint it (shown
 once) and a box to fire it with a payload.
+
+### Handing files to a work item
+
+A workflow that works from documents a person received says so in its metadata
+([ADR 0201](adr/0201-a-person-hands-files-to-a-work-item.md)):
+
+```yaml
+metadata:
+  name: compare-documents
+  version: 1
+  attachments:
+    accept: [pdf, xlsx]   # artifact types
+    min: 2                # a start waits for this many files (default 0)
+    max: 20               # distinct names at most (default 20, 50 at most)
+```
+
+A work item of a workflow that requires files (`min` of 1 or more) is filed in two steps: created
+with `start: false`, given its files, then started. Creating it with `start: true` answers `422`.
+
+```shell
+# 1. file it without starting it
+curl -s "$TRANIBOR_API_URL/api/v1/projects/acme:billing-api/work-items" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title": "Compare the quotes", "workflow": "compare-documents", "start": false}'
+
+# 2. hand it the files (the repeated multipart part `files`), for whoever holds `item:control`
+curl -s "$TRANIBOR_API_URL/api/v1/work-items/BIL-12/files" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" \
+  -F files=@quote-a.pdf -F files=@quote-b.pdf
+
+# 3. start it; `409` while fewer than `min` files were handed
+curl -s "$TRANIBOR_API_URL/api/v1/work-items/BIL-12/actions" \
+  -H "Authorization: Bearer $TRANIBOR_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"action": "mark_agent_ready"}'
+```
+
+Each file becomes an input artifact of the work item (`201`, the artifacts, each with
+`handed_by: "person"`; the artifact list shows them with `handed_by: "a2a"` when an application sent
+them through the A2A door, and files sent that way count toward `min`). What is checked, before
+anything is stored:
+
+- the file's type (from its extension) is in `accept`, and its bytes are what the type says (`422`);
+- its size is within the project's limit for handed files, `a2a.max_file_bytes`: 10 MiB by default,
+  50 MiB at most (`413`);
+- the number of distinct names after the request is within `max` (`422`);
+- the work item is not finished (`409`).
+
+The artifact's name is a slug of the file name: ASCII letters, digits, `_`, `.` and `-`, the extension
+kept, 128 characters at most (`Quote A.pdf` becomes `Quote-A.pdf`). Two files of one request that reach
+the same name are refused together. Handing the same name again makes revision 2; the same bytes again
+make none. A name taken by a step's output is refused. Files are stored before any row is written, so a
+store that fails leaves nothing behind (`502`). Each file leaves one audit entry,
+`work_item.file.attached`, with the name, the digest and the size, never the content.
 
 ### Tracker items that start without `agent-ready`
 
