@@ -85,6 +85,12 @@ Ports taken on your machine? `TRANIBOR_PORT_WEB`, `TRANIBOR_PORT_API` and
 `TRANIBOR_PORT_TEMPORAL_UI` in `.env`. PostgreSQL runs without `fsync` here, for start-up time:
 keep nothing in this install that you cannot recreate.
 
+The organisation the first start creates is `demo` (named `Demo`). To start under another slug and
+name, set `TRANIBOR_BOOTSTRAP_ORG` and `TRANIBOR_BOOTSTRAP_ORG_NAME` in `.env` before the first
+`docker compose up`; a second `up` does not rename an organisation that exists, so
+`docker compose down -v` first if you change them later. The demo project stays `demo` and the
+sign-in lands on `/p/demo`.
+
 ## 2. Other ways to look
 
 ```bash
