@@ -42,7 +42,7 @@ metadata:
   publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: A stand-in for the procurement plugin, with its template and its workflow's names.
-  homepage: https://github.com/graalsystems/tranibor-agents
+  homepage: https://plugins.example.test/procurement
   core: ">=0.20.0"
 requires:
   plugins: []
