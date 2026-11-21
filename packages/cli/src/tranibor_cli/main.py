@@ -1111,6 +1111,7 @@ def dev_demo() -> None:
 
 
 def main() -> None:
+    theme.degrade_streams()  # a stream that cannot encode `·` or `—` prints `-`, never a traceback (#2048)
     try:
         app()
     except ApiError as exc:

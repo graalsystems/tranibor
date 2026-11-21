@@ -375,3 +375,25 @@ def test_a_surface_never_reads_a_backends_private_meta() -> None:
     quoted = re.compile(r"""["'](_meta|claudeCode|parentToolUseId|toolName)["']""")
     offenders = [p.name for p in source.glob("*.py") if quoted.search(p.read_text(encoding="utf-8"))]
     assert offenders == []
+
+
+def test_a_stream_that_cannot_encode_the_separators_degrades_to_ascii(
+    platform: Platform, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2048: `PYTHONIOENCODING=ascii` crashed `activity` on `·` and `—`; now `main()` prints `-`."""
+    import io
+    import sys
+
+    from tranibor_cli.main import main
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii", write_through=True)
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setattr(sys, "argv", ["choregos", "activity"])
+    with pytest.raises(SystemExit) as stopped:
+        main()
+    assert stopped.value.code in (0, None)
+    text = raw.getvalue().decode("ascii")  # every byte is ASCII, or this raises
+    said = " ".join(text.split())
+    assert "acme - 1 running - - waiting for you" in said, said
+    assert "?" not in text, text

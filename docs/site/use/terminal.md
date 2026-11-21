@@ -311,7 +311,9 @@ terminal's own sixteen, so your theme sets the contrast, and no background is pa
   with `--no-color` before the command. Output then has no escape sequence at all, and the glyphs and words
   stay.
 - **ASCII fallback.** When the terminal's encoding is not UTF-8, the glyphs and the bars are drawn with
-  the ASCII characters of the table.
+  the ASCII characters of the table, and the separators `·` and `—` are printed as `-`. Any other character
+  the stream cannot hold degrades the same way (an accent loses its mark, the rest is `?`); the CLI never
+  stops on the terminal's encoding.
 - **Force colour** in a place that is not a terminal (a CI log that renders it) with `FORCE_COLOR=1`.
   `NO_COLOR` still wins.
 
