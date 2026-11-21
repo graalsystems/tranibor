@@ -20,6 +20,12 @@ def _services() -> dict[str, Any]:
     return dict(yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"])
 
 
+def _platform_env() -> dict[str, str]:
+    """The shared `x-platform-env` block, unexpanded: `${VAR:-default}` stays as written."""
+    block = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["x-platform-env"]
+    return {k: str(v) for k, v in block.items()}
+
+
 def _env(service: dict[str, Any]) -> dict[str, str]:
     return {k: str(v) for k, v in (service.get("environment") or {}).items()}
 
@@ -146,3 +152,11 @@ def test_the_worker_local_target_has_the_docker_cli_and_is_not_the_default_build
     assert "worker-local" in stages
     assert stages[-1] == "worker", "a build without --target must still produce the published worker"
     assert "/usr/local/bin/docker" in dockerfile.split("AS worker-local", 1)[1].split("FROM ", 1)[0]
+
+
+def test_the_bootstrap_organisation_is_an_override_not_a_literal() -> None:
+    """`.env` can name the organisation the first start creates: the compose must read the variable
+    (with `demo` / `Demo` as the default), not pin the value."""
+    env = _platform_env()
+    assert env["TRANIBOR_BOOTSTRAP_ORG"] == "${TRANIBOR_BOOTSTRAP_ORG:-demo}"
+    assert env["TRANIBOR_BOOTSTRAP_ORG_NAME"] == "${TRANIBOR_BOOTSTRAP_ORG_NAME:-Demo}"
