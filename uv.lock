@@ -2546,14 +2546,20 @@ name = "tranibor-software-delivery"
 version = "0.28.1"
 source = { editable = "plugins/software-delivery" }
 dependencies = [
+    { name = "temporalio" },
+    { name = "tranibor-api" },
     { name = "tranibor-contracts" },
     { name = "tranibor-core" },
+    { name = "tranibor-orchestrator" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "temporalio", specifier = ">=1.8" },
+    { name = "tranibor-api", editable = "apps/api" },
     { name = "tranibor-contracts", editable = "packages/contracts" },
     { name = "tranibor-core", editable = "packages/core" },
+    { name = "tranibor-orchestrator", editable = "apps/orchestrator" },
 ]
 
 [[package]]

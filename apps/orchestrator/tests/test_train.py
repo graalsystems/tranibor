@@ -10,6 +10,9 @@ import pytest
 from .conftest import Fixture
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 
 async def start_train(env: Any, setup: Fixture, env_name: str = "prod", queue: str = "test") -> Any:

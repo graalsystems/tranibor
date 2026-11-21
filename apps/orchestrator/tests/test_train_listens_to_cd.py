@@ -19,6 +19,9 @@ import pytest
 from .conftest import Fixture, recording_history
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
 
@@ -50,7 +53,7 @@ class HeldSteps:
 
 @pytest.fixture
 def holds(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
-    from tranibor_orchestrator.activities import train as train_activities
+    from tranibor_software_delivery.train import activities as train_activities
 
     created: list[HeldSteps] = []
 

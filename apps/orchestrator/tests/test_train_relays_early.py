@@ -21,6 +21,9 @@ import pytest
 from .conftest import recording_history
 
 pytestmark = pytest.mark.asyncio
+# The release train is the `software-delivery` plugin's (ADR 0181, round D): without its extension (the
+# `core-without-plugins` job) there is no train to drive.
+pytest.importorskip("tranibor_software_delivery", reason="the train is the software-delivery plugin's")
 
 HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
 #: What a history can carry while staying replayable well under the 10 s of the workflow task
@@ -133,7 +136,7 @@ async def test_a_train_at_rest_relays_before_being_too_long_to_replay(
     temporal_env: Any, worker_factory: Any
 ) -> None:
     """The DEFAULT threshold: no `relay_threshold` in the input, like the tenant's trains."""
-    from tranibor_orchestrator.workflows.train import (
+    from tranibor_software_delivery.train.workflow import (
         IDLE_TRAIN_CONTINUES_AS_NEW,
         TRAIN_CONTINUES_AS_NEW_EARLY,
     )
@@ -167,7 +170,7 @@ async def test_a_train_relays_right_after_its_departure(temporal_env: Any, worke
     waiting to go back through the collection (where the relay at rest would have done it before S22-27)."""
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
-    from tranibor_orchestrator.workflows.train import TRAIN_CONTINUES_AS_NEW_EARLY
+    from tranibor_software_delivery.train.workflow import TRAIN_CONTINUES_AS_NEW_EARLY
 
     async with worker_factory(replacements=_departing()):
         train = await temporal_env.client.start_workflow(
@@ -200,7 +203,7 @@ async def test_a_train_relays_right_after_its_departure(temporal_env: Any, worke
 
 
 async def test_an_auto_sync_train_relays(temporal_env: Any, worker_factory: Any) -> None:
-    from tranibor_orchestrator.workflows.train import TRAIN_CONTINUES_AS_NEW_EARLY
+    from tranibor_software_delivery.train.workflow import TRAIN_CONTINUES_AS_NEW_EARLY
 
     async with worker_factory(replacements=_in_auto_sync()):
         train = await temporal_env.client.start_workflow(
@@ -241,7 +244,7 @@ async def test_a_run_from_before_replays_against_the_lowered_threshold(
     without a new marker: this is what made `TRAIN_CONTINUES_AS_NEW_EARLY` necessary."""
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
-    from tranibor_orchestrator.workflows import train as module
+    from tranibor_software_delivery.train import workflow as module
 
     monkeypatch.setattr(module, "RELAY_THRESHOLD", 10**9)
     monkeypatch.setattr(module, "FORMER_RELAY_THRESHOLD", 300)

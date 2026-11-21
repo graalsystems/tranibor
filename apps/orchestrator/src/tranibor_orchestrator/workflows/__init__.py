@@ -22,13 +22,11 @@ from .memory import MemoryIngestion
 from .provisioning import ProjectProvisioning
 from .reconciliation import TrackerReconciliation
 from .run_cancellation import RunCancellation
-from .train import ReleaseTrain
 from .trial import AgentTrial
 
 ALL_WORKFLOWS = [
     WorkflowInterpreter,
     ActionWorkflow,
-    ReleaseTrain,
     FindingsTriage,
     ProjectProvisioning,
     MemoryIngestion,
@@ -63,7 +61,6 @@ __all__ = [
     "KnowledgeSync",
     "MemoryIngestion",
     "ProjectProvisioning",
-    "ReleaseTrain",
     "RunCancellation",
     "TrackerReconciliation",
     "WorkflowInterpreter",
