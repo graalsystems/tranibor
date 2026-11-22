@@ -66,7 +66,7 @@ async def _research_project(client: AsyncClient, slug: str) -> str:
     """A project born of the plugin's template, the plugin installed from the offline archive."""
     installed = await client.post(
         "/api/v1/orgs/northwind/plugins/install",
-        json={"source": "offline", "name": "investment-research", "version": "0.1.0"},
+        json={"source": "offline", "name": "investment-research", "version": "0.1.2"},
     )
     assert installed.status_code in (201, 409), installed.text
     created = await client.post(
@@ -86,7 +86,7 @@ def _shipped_campaign() -> str:
     """`campaign.yaml` as the locked archive ships it."""
     from tranibor_core.plugins import opened
 
-    with opened(OFFLINE / "investment-research-0.1.0.tar.gz") as plugin:
+    with opened(OFFLINE / "investment-research-0.1.2.tar.gz") as plugin:
         return (plugin.root / "templates/investment-research/workflows/campaign.yaml").read_text(
             encoding="utf-8"
         )
