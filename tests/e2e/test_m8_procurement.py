@@ -1,7 +1,10 @@
 """M8 — procurement end to end (S85-10, S85-13), on fakes, with the real runner.
 
-The plugin is the archive the core ships offline (`plugins/offline/procurement-0.2.1.tar.gz`, the one
-`plugins/procurement/tests` read), installed through the API like an organisation installs it.
+The plugins are the archives the core ships offline, installed through the API like an organisation installs
+them (`plugins/procurement/tests` read the same bytes): `procurement` 0.3.0 (the comparison of offers, no
+server) for S85-10, `procurement-operations` 0.3.0 (onboarding, requests, renewals and the `purchasing`
+server) for S85-13. The trade was one plugin until 0.2.1 (split in pull request 27 of the plugin
+repository, #2134).
 
 **The comparison of offers** (`procurement-sourcing`, workflow `offer-comparison`). A person files a
 consultation with `start: false`, hands the S85-07 fixture offers to `POST /work-items/{id}/files`, and
@@ -181,10 +184,10 @@ async def api_url(platform: Platform, monkeypatch: pytest.MonkeyPatch) -> AsyncI
 # -- the organisation ---------------------------------------------------------------------------------------
 
 
-async def _install(client: AsyncClient) -> None:
-    """The plugin brings a server: two administrators install it (ADR 0050)."""
+async def _install(client: AsyncClient, plugin: str = "procurement") -> None:
+    """Two administrators install the plugin (ADR 0050); `procurement-operations` brings a server."""
     asked = await client.post(
-        f"{ORG}/plugins/install", json={"source": "offline", "name": "procurement", "version": "0.2.1"}
+        f"{ORG}/plugins/install", json={"source": "offline", "name": plugin, "version": "0.3.0"}
     )
     assert asked.status_code == 202, asked.text
     added = await client.post(f"{ORG}/members", json={"email": SECOND, "role": "org_admin"})
@@ -195,10 +198,12 @@ async def _install(client: AsyncClient) -> None:
     await login(client)
 
 
-async def _project(client: AsyncClient, template: str, slug: str) -> dict[str, Any]:
+async def _project(
+    client: AsyncClient, template: str, slug: str, plugin: str = "procurement"
+) -> dict[str, Any]:
     created = await client.post(
         f"{ORG}/projects",
-        json={"slug": slug, "name": slug, "template_ref": f"plugin:procurement/{template}",
+        json={"slug": slug, "name": slug, "template_ref": f"plugin:{plugin}/{template}",
               "config": {"slug": slug, "org": "northwind"}},
     )  # fmt: skip
     assert created.status_code == 201, created.text
@@ -1004,7 +1009,7 @@ async def _operations_project(
 
     client = platform.client
     await login(client)
-    await _install(client)
+    await _install(client, "procurement-operations")
     configured = await client.patch(
         f"{ORG}/connectors/purchasing",
         json={"config": {"backend": "odoo", "base_url": "https://purchasing.example.com",
@@ -1017,7 +1022,7 @@ async def _operations_project(
     await _group(client, "supplier-data", REVIEWER, APPROVER, role="approver")
     await _group(client, "buyers", BUYER, BUYER_TWO, role="approver")
     await _group(client, "outsiders", OUTSIDER, role="approver")
-    return await _project(client, "procurement-operations", "operations"), fake
+    return await _project(client, "procurement-operations", "operations", "procurement-operations"), fake
 
 
 # -- helpers of the governed actions ---------------------------------------------------------------------

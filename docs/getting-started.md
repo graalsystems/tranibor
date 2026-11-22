@@ -22,10 +22,11 @@ with the demo administrator (`admin@choregos.local`): click *enter* and you land
 **demo project**, with one work item, `DEMO-1`, already waiting for your approval. Approve
 it, or send it back, from its page. A work item you create in the demo project runs the same way.
 
-A second project, `sourcing-demo` (a purchasing consultation with three supplier offers), is **not opened
-by the local install yet**: the `procurement` plugin ships an MCP server and compose runs no plugin server,
-so it cannot be installed here until the plugin is split (#2134). [A trade end to end](site/build/a-trade-end-to-end.md)
-describes the journey it will show.
+A second project, **`sourcing-demo`** (open it from the project list), shows a trade's journey: a purchasing
+consultation with **three supplier offers** (a PDF, a Word file, a spreadsheet) already handed to a work
+item that waits for you to start it. See [a trade end to end](site/build/a-trade-end-to-end.md) for what
+each step does and which guarantee acts there. In fakes mode, the simulated first step measures nothing and
+the first gate stops the work item at a person: that is the guarantee at work, not a broken install.
 
 | Measured on 2026-10-12 (WSL2, 16 cores, images already built) | |
 | :-- | :-- |

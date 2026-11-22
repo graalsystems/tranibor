@@ -201,9 +201,9 @@ jobs:
             image: odoo:20.0@sha256:c7352c766b245b3c0e5c7b7a57e7660dde3265872be9566870d44bdb974f44cf
             registry: "false"
     env:
-      # The image the agents repository published with procurement 0.2.1 (publish.yml, graalsystems/tranibor-agents#26);
+      # The image the agents repository published with procurement-operations 0.3.0 (publish.yml, graalsystems/tranibor-agents#27);
       # its digest, read from the registry, is the one tested (tests/architecture/test_supply_chain_pinned.py).
-      PURCHASING_IMAGE: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.2.1@sha256:7f30dcf159f3b8d4a46dedb9f290c3205c7e1e90f7e7c7970cb48a183513588e
+      PURCHASING_IMAGE: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.3.0@sha256:76121c7f3e1318f9ee2dcdaa3979bb4843f985b9baa5cf3a3d2fb8fc23108c68
       # The TLS terminator (the server only talks to https): its image is pinned too.
       TLS_IMAGE: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
       ODOO_DATABASE: ci
