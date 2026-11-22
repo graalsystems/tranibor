@@ -1028,9 +1028,18 @@ The platform's own agents left the core (ADR 0093 §6, S43-09) for the open-sour
 They are published, signed, to `ghcr.io/graalsystems/tranibor-agents/<plugin>:<version>` with the
 index `oci://ghcr.io/graalsystems/tranibor-agents/index:latest`. The core ships their archives
 offline in `plugins/offline/`, pinned by `plugins.lock` (`make plugins-lock` refreshes them, with the
-network; `make plugins-check` checks them without), and the API image copies them to
+network, from that index whatever the lock's `index:` line says; `make plugins-check` checks them
+without), and the API image copies them to
 `/opt/choregos/plugins`. The chart installs all five by default; the first four pre-approved (`madr-4` links to
 adr.github.io and is rated high risk), `requests` needing no second administrator.
+
+A refresh verifies each artifact's keyless signature with **cosign v3** (written against v3.1.3): the
+source signs v3 bundles, which cosign v2 does not find (`no signatures found`), and the tool refuses an
+older binary before pulling anything (`make plugins-lock COSIGN=<path>` names one that is not on the
+`PATH`).
+Without `--plugin`, it pulls every locked plugin again at its version, and stops on one the index no
+longer offers; `--plugin <name>@<version>` moves only the plugins it names. Moving a plugin changes
+its agents' documents, so organisations that installed them are offered the update.
 
 The **agent catalogue** (`/orgs/{org}/agent-catalogue`, the console's catalogue page) is a view over
 plugins: the offline directory's, each replaced by the version the organisation installed. Installing an

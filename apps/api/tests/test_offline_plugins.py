@@ -45,12 +45,12 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
 
     index = offline_index(OFFLINE)
     assert {name: sorted(v) for name, v in index.releases.items()} == {
-        "authoring": ["1.1.0"],
+        "authoring": ["1.1.2"],
         # The investment research template's plugin (S83-07), from the graalsystems index.
         "investment-research": ["0.1.2"],
         "mcp-clients": ["1.0.0"],
-        "netops": ["1.2.0"],
-        "requests": ["1.1.0"],
+        "netops": ["1.2.2"],
+        "requests": ["1.1.2"],
         "software-delivery": ["1.1.1"],
     }
 
@@ -147,7 +147,7 @@ async def test_requests_is_installed_without_a_second_administrator(
     outcomes = await plugin_defaults.reconcile_all()
     assert [(o.plugin, o.outcome) for o in outcomes] == [("requests", "installed")]
     assert fake.calls == [], "taken from the offline directory: no network at start-up"
-    assert (await _rows())["requests"].version == "1.1.0"
+    assert (await _rows())["requests"].version == "1.1.2"
     assert await _audit("plugin.default.preapproved") == []
     for slug in ("brief-writer", "assistant"):
         agent = (await client.get(f"{ORG}/agents/{slug}")).json()
@@ -202,7 +202,7 @@ async def test_an_installed_version_replaces_the_offline_one_in_the_catalogue(
 ) -> None:
     offline = tmp_path / "offline"
     offline.mkdir()
-    with tarfile.open(OFFLINE / "netops-1.2.0.tar.gz") as source:
+    with tarfile.open(OFFLINE / "netops-1.2.2.tar.gz") as source:
         source.extractall(offline / "netops", filter="data")
     manifest = offline / "netops" / "plugin.yaml"
     document = yaml.safe_load(manifest.read_text(encoding="utf-8"))
