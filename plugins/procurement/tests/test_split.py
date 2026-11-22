@@ -1,4 +1,4 @@
-"""The split of the trade into two plugins (#2134, graalsystems/tranibor-agents#27).
+"""The split of the trade into two plugins (#2134; the agents repository's #27).
 
 `procurement` is what a deployment that runs no plugin server (the local `docker compose` install) can
 install: the installer refuses a plugin that brings a server there. The server, with everything that needs
