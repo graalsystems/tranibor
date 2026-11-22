@@ -21,6 +21,7 @@ in 0.24.0 (S45-49); `docs/deployment.md` ("Upgrading to 0.24") lists their repla
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -421,10 +422,7 @@ def declare_project_figure(component: str, field: str, function: Any, *, plugin:
         raise ValueError(f"a project figure goes on {FIGURE_COMPONENTS}, not `{component}`")
     if not callable(function):
         raise TypeError("a project figure is a callable (session, project) -> value")
-    from tranibor_contracts import load_openapi
-
-    schema = load_openapi()["components"]["schemas"][component]["properties"].get(field) or {}
-    if schema.get("x-plugin") != plugin:
+    if _figure_marks().get((component, field)) != plugin:
         raise ValueError(
             f"`{component}.{field}` is not a field `openapi.yaml` marks `x-plugin: {plugin}`: a plugin fills "
             "only its own fields"
@@ -433,6 +431,23 @@ def declare_project_figure(component: str, field: str, function: Any, *, plugin:
     if known is not None and known[0] != plugin:
         raise RuntimeError(f"`{component}.{field}` is already filled by the plugin `{known[0]}`")
     _PROJECT_FIGURES[(component, field)] = (plugin, function)
+
+
+@functools.cache
+def _figure_marks() -> dict[tuple[str, str], str]:
+    """(component, field) -> the plugin `openapi.yaml` marks `x-plugin` on it, for `FIGURE_COMPONENTS`. Read
+    once per process: the contract does not change while it runs, and parsing it (seconds, in pure Python)
+    on every declaration made each `create_app` that loads the extensions take seconds, every API test
+    included (main's `python` job went from about an hour to over three)."""
+    from tranibor_contracts import load_openapi
+
+    schemas = load_openapi()["components"]["schemas"]
+    return {
+        (component, name): str(prop["x-plugin"])
+        for component in FIGURE_COMPONENTS
+        for name, prop in (schemas[component].get("properties") or {}).items()
+        if isinstance(prop, dict) and prop.get("x-plugin")
+    }
 
 
 async def project_figures(session: Any, project: Any, component: str) -> dict[str, Any]:
