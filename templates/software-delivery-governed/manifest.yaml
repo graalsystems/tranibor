@@ -2,7 +2,7 @@ apiVersion: choregos/v1
 kind: Template
 metadata:
   name: software-delivery-governed
-  version: 1.0.1
+  version: 1.0.2
   display: GitHub · governed software delivery (architecture, QA, security, compliance)
   description: >-
     One workflow for changes that must pass everything, run by the catalogue's specialists: research
@@ -21,7 +21,19 @@ defaults:
   policy: ./policy.yaml
   # The agents the workflow names install themselves (ADR 0040 §5); the list says what the template
   # brings to the organisation.
-  skills: [catalogue:madr-4]
+  # The skills the agents name (software-delivery 1.2.0 added ten beside `madr-4`).
+  skills:
+    - catalogue:acceptance-criteria
+    - catalogue:ci-failure-triage
+    - catalogue:code-review
+    - catalogue:conventional-commits
+    - catalogue:madr-4
+    - catalogue:primary-sources
+    - catalogue:release-notes
+    - catalogue:safe-rollout
+    - catalogue:security-review
+    - catalogue:test-first
+    - catalogue:work-item-sizing
   agents:
     - catalogue:triager
     - catalogue:researcher

@@ -1019,7 +1019,7 @@ The platform's own agents left the core (ADR 0093 §6, S43-09) for the open-sour
 
 | Plugin | What it ships |
 |---|---|
-| `software-delivery` | the 19 delivery agents (triage to the production go/no-go) and the skill `madr-4` |
+| `software-delivery` | the 19 delivery agents (triage to the production go/no-go), the skill `madr-4` and ten generic skills (`test-first`, `code-review`…); it needs its extension |
 | `netops` | `netops`, through the organisation's pfSense, Cilium and nginx connectors |
 | `authoring` | `agent-drafter` (the agent draft of the console) and `knowledge-distiller` |
 | `mcp-clients` | the six MCP clients of the Integrations page (ChatGPT, Claude, Copilot, Cursor) |

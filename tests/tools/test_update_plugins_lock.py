@@ -17,10 +17,8 @@ from tools.plugins.update_lock import problems, read
 
 ROOT = Path(__file__).resolve().parents[2]
 OFFLINE = ROOT / "plugins" / "offline"
-FROZEN_SOURCE = "ghcr.io/vargafoundation/choregos-agents"
-#: The archives still pulled from the frozen source: the publishing index no longer offers their
-#: versions, and moving them changes their agents' documents. Only shrinks.
-FROM_THE_FROZEN_SOURCE = {"mcp-clients", "software-delivery"}
+#: Any index but the publishing one: the frozen source's, whose registry answers 403 (#2140).
+ANOTHER_INDEX = "ghcr.io/example/former-agents/index:latest"
 
 
 def test_the_archives_are_what_the_lock_says() -> None:
@@ -39,9 +37,6 @@ def test_the_archives_are_what_the_lock_says() -> None:
     assert index == PUBLISHING.plugin_index.removeprefix("oci://")
     current = index.rsplit("/", 1)[0]
     for entry in locked.values():
-        if entry.name in FROM_THE_FROZEN_SOURCE:
-            assert entry.source == f"{FROZEN_SOURCE}/{entry.name}:{entry.version}", entry
-            continue
         assert entry.source == f"{current}/{entry.name}:{entry.version}", entry
         assert entry.signature == f"keyless, {PUBLISHING.plugin_signing_identity}", entry
 
@@ -70,9 +65,7 @@ def test_a_refresh_reads_the_publishing_index_not_the_lock_s(
     copy = tmp_path / "offline"
     lock = copy / "plugins.lock"
     lock.write_text(
-        lock.read_text(encoding="utf-8").replace(
-            f"index: {update_lock.INDEX}", f"index: {FROZEN_SOURCE}/index:latest"
-        ),
+        lock.read_text(encoding="utf-8").replace(f"index: {update_lock.INDEX}", f"index: {ANOTHER_INDEX}"),
         encoding="utf-8",
     )
     asked: list[tuple[str, dict[str, str | None]]] = []
