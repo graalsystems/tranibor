@@ -33,9 +33,10 @@ COPY packages packages
 # The former names' shims (ADR 0176 R2): workspace members, and what keeps `import tranibor_api` working for
 # the enterprise edition built FROM this image.
 COPY compat compat
-# A workspace member the image does not install (ADR 0202): uv reads its metadata, the API never imports it.
+# Workspace members the image does not install: uv reads their metadata, the API never imports them. The
+# procurement plugin's command (ADR 0202), and the test kit of the suites (ADR 0181, round D: test code,
+# under `tests/`, which the image does not carry).
 COPY plugins/procurement/pyproject.toml plugins/procurement/
-# The core's test kit (ADR 0181 round D) is a workspace member: uv reads its metadata, no image installs it.
 COPY tests/testkit/pyproject.toml tests/testkit/
 COPY apps/api apps/api
 COPY apps/orchestrator apps/orchestrator
@@ -63,8 +64,8 @@ COPY tests/fixtures/repos tests/fixtures/repos
 # outpost's operator runs in their own network, with an image of its own (`outpost.Dockerfile`), and
 # the platform serves its door without ever importing it.
 # The shims of those two stay out as well (ADR 0176 R2).
-# The procurement plugin's command (ADR 0202) runs in its own job image: not installed here either; nor is the
-# core's test kit.
+# The procurement plugin's command (ADR 0202) runs in its own job image: not installed here either. Nor
+# is the test kit, which only the suites import.
 ARG SHIMS_OUT="--no-install-package choregos-agent-sdk --no-install-package choregos-outpost" # compat-ok
 RUN uv sync --frozen --no-dev --all-packages \
     --no-install-package tranibor-agent-sdk --no-install-package tranibor-outpost \
@@ -168,10 +169,6 @@ COPY --from=builder --chown=1000:1000 /app /app
 # offline directory the chart's `global.plugins.offline` names by default and the catalogue reads.
 # Read only: a plugin is never changed in place.
 COPY plugins/offline /opt/choregos/plugins
-# The three sample offers the local install's seed hands to its procurement work item (S85-11): the
-# plugin's own text-layer test fixtures, copied from where they live (`PROCUREMENT_SAMPLES` of
-# `tranibor_api.local_demo`; `tests/dev/test_local_install.py` keeps the two lists equal).
-COPY plugins/procurement/tests/fixtures/alderbrook-offer.pdf plugins/procurement/tests/fixtures/brightfield-offer.docx plugins/procurement/tests/fixtures/corvane-prices.xlsx /opt/choregos/samples/procurement/
 # The source revision, read by `GET /edition` for the console's About panel (S42-12). Last, so a
 # new commit invalidates no layer above. Empty when the image is built by hand; the API then says so.
 ARG REVISION=""

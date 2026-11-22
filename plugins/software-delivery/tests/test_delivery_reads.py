@@ -112,3 +112,30 @@ def test_a_plugin_fills_only_its_own_fields() -> None:
         declare_project_figure("Project", "has_release_train", lambda s, p: True, plugin="itsm")
     with pytest.raises(ValueError, match="goes on"):
         declare_project_figure("Run", "x", lambda s, p: 1, plugin=NAME)
+
+
+def test_declaring_the_figures_reads_the_contract_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every `create_app` that loads the extensions declares the figures again: reading `openapi.yaml` each
+    time cost seconds per application, so in every API test of the suite."""
+    import tranibor_contracts
+    from tranibor_api import extensions
+
+    reads: list[int] = []
+    real = tranibor_contracts.load_openapi
+
+    def counted() -> dict[str, Any]:
+        reads.append(1)
+        return real()
+
+    monkeypatch.setattr(tranibor_contracts, "load_openapi", counted)
+    monkeypatch.setattr(extensions, "_PROJECT_FIGURES", {})
+    # The marks are read once per process: forget them so that this test sees the one read it causes.
+    forget = getattr(getattr(extensions, "_figure_marks", None), "cache_clear", lambda: None)
+    forget()
+    try:
+        for _ in range(3):
+            extensions.declare_project_figure("Project", "has_release_train", lambda s, p: True, plugin=NAME)
+            extensions.declare_project_figure("ProjectStats", "trains_pending", lambda s, p: 0, plugin=NAME)
+    finally:
+        forget()
+    assert len(reads) == 1, f"the contract was read {len(reads)} times"
