@@ -72,3 +72,31 @@ def test_one_single_pod_that_the_api_and_the_orchestrator_reach() -> None:
 def test_staging_and_prod_refuse_it_by_naming_it(environment: str) -> None:
     rendu = _rendered("demoFakes.enabled=true", f"global.environment={environment}")
     assert rendu.returncode != 0 and "demoFakes.enabled" in rendu.stderr
+
+
+# Seconds until `/healthz` answers, by CPU limit: `python -m tranibor_adapters.fakes.server` from the
+# 0.28.1 API image (`docker run --cpus`), which loads three extensions' desks before it listens (#2139).
+MEASURED_START_SECONDS = {"200m": 34, "500m": 12, "1": 6}
+
+
+def test_the_liveness_probe_waits_for_the_extensions_to_load() -> None:
+    """#2139: without a startup probe, the liveness probe (3 x 10 s) killed the server at 200m, in a loop."""
+    served = _nommes(_documents("demoFakes.enabled=true"), "choregos-demo-fakes")
+    (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
+    startup = conteneur.get("startupProbe")
+    assert startup is not None, "no startup probe: the liveness probe fires while the extensions load"
+    assert startup["httpGet"] == {"path": "/healthz", "port": "http"}
+    budget = startup["periodSeconds"] * startup["failureThreshold"]
+    limit = str(conteneur["resources"]["limits"]["cpu"])
+    assert limit in MEASURED_START_SECONDS, f"no measured start for the default CPU limit {limit}: measure it"
+    # Room for an image with more extensions than the core's (the enterprise edition) and a busy node.
+    assert budget >= 5 * MEASURED_START_SECONDS[limit], (budget, limit)
+    # Even at the former limit, the start fits the budget.
+    assert budget >= 3 * MEASURED_START_SECONDS["200m"], budget
+
+
+def test_a_deployment_sizes_the_start_budget() -> None:
+    documents = _documents("demoFakes.enabled=true", "demoFakes.startupProbe.failureThreshold=60")
+    served = _nommes(documents, "choregos-demo-fakes")
+    (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
+    assert conteneur["startupProbe"]["failureThreshold"] == 60

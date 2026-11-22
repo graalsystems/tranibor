@@ -54,6 +54,12 @@ spec:
             - name: CONNECTOR_DEMO_TOKEN
               valueFrom: { secretKeyRef: { name: {{ .name }}, key: {{ .key }} } }
             {{- end }}
+          # The server listens once the installed extensions' desks are loaded (`extension_desks`), which
+          # takes seconds of CPU: the liveness probe waits for this one (#2139).
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: {{ .Values.demoFakes.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.demoFakes.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet: { path: /healthz, port: http }
           livenessProbe:
