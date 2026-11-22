@@ -20,7 +20,14 @@ import yaml
 from tranibor_core.agent_completeness import missing_components
 from tranibor_core.dsl import parse_workflow
 
-from .content import CONTRACT_RENEWALS, OFFER_COMPARISON, ROOT, SUPPLIER_ONBOARDING
+from .content import (
+    CONTRACT_RENEWALS,
+    OFFER_COMPARISON,
+    OPERATIONS,
+    OPERATIONS_ROOT,
+    ROOT,
+    SUPPLIER_ONBOARDING,
+)
 
 PLUGIN = Path(__file__).resolve().parents[1]
 SCHEMAS = PLUGIN / "src" / "tranibor_procurement" / "schemas"
@@ -78,9 +85,7 @@ def test_offer_comparison_runs_extract_compare_and_tier() -> None:
 
 
 def test_the_onboarding_and_the_renewals_call_the_purchasing_connector_the_template_requires() -> None:
-    manifest = yaml.safe_load(
-        (ROOT / "templates" / "procurement-operations" / "manifest.yaml").read_text(encoding="utf-8")
-    )
+    manifest = yaml.safe_load((OPERATIONS / "manifest.yaml").read_text(encoding="utf-8"))
     assert manifest["requires"]["org_connectors"] == {"purchasing": "mcp"}
     for path, command in ((SUPPLIER_ONBOARDING, "supplier-check"), (CONTRACT_RENEWALS, "renewals")):
         (job,) = [j for j in _jobs(path) if j.command[1] == command]
@@ -114,7 +119,11 @@ def test_a_drifted_schema_is_caught() -> None:
     assert _canonical(carried) != _canonical(shipped)
 
 
-@pytest.mark.parametrize("path", sorted((ROOT / "agents").glob("*.yaml")), ids=lambda p: p.stem)
+@pytest.mark.parametrize(
+    "path",
+    sorted([*(ROOT / "agents").glob("*.yaml"), *(OPERATIONS_ROOT / "agents").glob("*.yaml")]),
+    ids=lambda p: p.stem,
+)
 def test_a_plugin_agent_declares_its_five_components(path: Path) -> None:
     document: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert missing_components(document["agent"]["spec"]) == []

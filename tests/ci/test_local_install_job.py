@@ -33,9 +33,7 @@ def test_the_job_starts_the_compose_and_drives_a_work_item() -> None:
     assert "docker compose up -d --wait" in runs
     assert "tools/local_install_check.py" in runs
     assert "--console-only" not in runs, "the console answering is not a work item running"
-    # The seed does not open the procurement project while `procurement` ships a server the local install
-    # cannot run (#2134): the check leaves it out, and starts it again when the seed does.
-    assert "--skip-procurement" in runs, "the seed opens no procurement project yet (#2134)"
+    assert "--skip-procurement" not in runs, "the seeded procurement consultation is started too (S85-11)"
     assert (ROOT / "tools/local_install_check.py").exists()
 
 

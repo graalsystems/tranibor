@@ -285,3 +285,98 @@ def test_the_samples_directory_is_the_environments_then_the_image_then_the_check
 ) -> None:
     assert procurement_samples_dir({"TRANIBOR_SAMPLES_DIR": str(tmp_path)}) == tmp_path / "procurement"
     assert procurement_samples_dir({}).is_dir(), "a source checkout finds the fixtures without any setting"
+
+
+# -- the REAL locked archive, in the local install's environment (#2134) ------------------------------------
+
+
+@pytest.fixture
+def local_install(monkeypatch: pytest.MonkeyPatch) -> Iterator[pathlib.Path]:
+    """What the compose file gives the API: the offline directory the core ships, signed archives and
+    lock included, and no plugin server (`plugin_servers: off`, not even the fake runtime of the bench)."""
+    from tranibor_api.config import reset_settings_cache
+    from tranibor_api.object_store import use_object_store
+    from tranibor_api.services import plugin_servers, plugin_sources
+    from tranibor_api.services.plugin_supply import use_plugin_supply
+    from tranibor_core.plugins import versions
+
+    offline = pathlib.Path(__file__).resolve().parents[3] / "plugins" / "offline"
+    use_plugin_supply(None)  # the deployment's own sources: the offline directory and its lock
+    monkeypatch.setenv("TRANIBOR_PLUGINS_OFFLINE", str(offline))  # the compose file's one setting
+    monkeypatch.delenv("TRANIBOR_PLUGINS_CONFIG", raising=False)
+    reset_settings_cache()
+    plugin_sources.set_backend(plugin_sources.FakePluginSource())
+    # The archives require a core release the bench's own version is not (as `test_offline_plugins` does).
+    monkeypatch.setattr(plugin_sources, "core_version", lambda: "0.99.0")
+    monkeypatch.setattr(versions, "core_version", lambda: "0.99.0")
+    use_object_store(FakeObjectStore())
+    monkeypatch.setattr(plugin_servers, "fakes_enabled", lambda: False)
+    plugin_servers.use_plugin_runtime(None)
+    assert plugin_servers.runtime(Settings()) is None, "this environment runs no plugin server"
+    yield offline
+    use_object_store(None)
+    plugin_sources.set_backend(None)
+    monkeypatch.undo()
+    reset_settings_cache()
+
+
+def _local_settings(offline: pathlib.Path) -> Settings:
+    return Settings(
+        bootstrap_org="demo", bootstrap_org_name="Demo", bootstrap_admins=EMAIL, plugins_offline=str(offline)
+    )
+
+
+async def test_the_seed_installs_the_real_locked_procurement_archive_where_no_plugin_server_runs(
+    app: Any, local_install: pathlib.Path
+) -> None:
+    """The test that would have caught #2134: `procurement` 0.2.1 shipped a server, and only a stand-in
+    plugin stood in the seed's tests, so the refusal showed up in the CI's `local-install` job alone."""
+    from tranibor_api.db.models import OrgPlugin, Project
+    from tranibor_api.db.session import session_scope
+    from tranibor_core.plugins.sources import read_lock
+
+    locked = read_lock(local_install)
+    assert locked is not None
+    version = locked["procurement"][0]
+    settings = _local_settings(local_install)
+    await _the_demo_user()
+    await seed_local_demo(settings)
+
+    report = await seed_procurement_demo(settings, samples=FIXTURES)
+
+    assert report["plugins"] == [f"procurement@{version}"]
+    assert report["projects"] == [PROCUREMENT_PROJECT]
+    assert len(report["work_items"]) == 1
+    async with session_scope(orgs="*") as session:
+        [plugin] = (await session.execute(select(OrgPlugin))).scalars().all()
+        assert plugin.name == "procurement"
+        project = (
+            await session.execute(select(Project).where(Project.slug == PROCUREMENT_PROJECT))
+        ).scalar_one()
+        assert project.template_ref == "plugin:procurement/procurement-sourcing"
+        assert project.default_workflow == "offer-comparison"
+
+
+async def test_the_environment_of_that_test_refuses_the_plugin_that_brings_a_server(
+    app: Any, local_install: pathlib.Path
+) -> None:
+    """The control: the same environment refuses `procurement-operations`, which ships the server, so the
+    test above passes because of the archive and not because the environment accepts anything."""
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import session_scope
+    from tranibor_api.services import plugin_defaults as defaults
+    from tranibor_api.services.plugin_supply import OFFLINE
+    from tranibor_core.plugins.sources import DefaultPlugin, PluginsConfig
+
+    settings = _local_settings(local_install)
+    await _the_demo_user()
+    await seed_local_demo(settings)
+    config = PluginsConfig(
+        default_plugins=(DefaultPlugin(OFFLINE, "procurement-operations", "0.3.0", preapproved=True),),
+        offline=local_install,
+    )
+    async with session_scope(orgs="*") as session:
+        org = (await session.execute(select(Organization).where(Organization.slug == "demo"))).scalar_one()
+        [outcome] = await defaults.reconcile_org(session, org.id, settings, config)
+    assert outcome.outcome != defaults.INSTALLED
+    assert "brings a server" in outcome.detail, outcome

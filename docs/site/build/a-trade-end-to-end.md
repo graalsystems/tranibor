@@ -8,7 +8,7 @@ sidebar_position: 7
 
 A trade is not a screen, it is a journey with controls. This page walks one through, on your machine:
 a buyer has three offers from three suppliers and wants them compared, without trusting a model with
-arithmetic. The trade is purchasing, shipped as the `procurement` plugin ([Plugins, extensions and
+arithmetic. The trade is purchasing, shipped as the `procurement` plugin (the comparison of offers; supplier onboarding, requests and renewals are in `procurement-operations`, which the local install does not seed) ([Plugins, extensions and
 editions](plugins-and-trades.md)); the platform around it is the one every trade shares.
 
 **What you will be able to do:**
@@ -20,11 +20,9 @@ editions](plugins-and-trades.md)); the platform around it is the one every trade
 
 ## What the local install gives you
 
-**Not yet.** `procurement` 0.2 ships an MCP server (`purchasing`, for supplier onboarding, purchase
-requests and renewals), and the local install runs no plugin server, so it cannot install the plugin.
-Once the comparison of offers ships in a plugin of its own, with no server, `docker compose up` seeds a
-second project beside the demo one: **`sourcing-demo`**, born of the `procurement-sourcing` template. It
-will hold:
+`docker compose up` seeds a second project beside the demo one: **`sourcing-demo`**, born of the
+`procurement-sourcing` template of the `procurement` plugin (which ships no server, so the local install can
+run it). It holds:
 
 - the groups `buyers` and `purchasing-committee`, with the demo administrator in both;
 - one work item, "Steel brackets: three offers", created but **not started**, with three offers

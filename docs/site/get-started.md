@@ -58,10 +58,12 @@ from a template, connect its repository, open an issue, let agents work, approve
 
 ### A second project: three supplier offers
 
-Not yet. The install is meant to seed **`sourcing-demo`**, a purchasing consultation with three supplier
-offers handed to a work item that waits for you to start it, but the `procurement` plugin ships an MCP
-server and the local install runs no plugin server, so it cannot be installed here until the plugin is split.
-[A trade end to end](build/a-trade-end-to-end.md) walks the journey it will show, step by step.
+Beside the demo project, the install seeds **`sourcing-demo`**: a purchasing consultation with three
+supplier offers (a PDF, a Word file and a spreadsheet) handed to a work item that waits for you to start
+it. Open the project from the project list, open the work item, and start it. Without a model key, the simulated first
+step measures nothing and the first gate stops the work item at a person. With a key, the work item goes
+through reading, computing, a memo and your award. [A trade end to end](build/a-trade-end-to-end.md) walks
+each step and names the guarantee that acts there.
 
 ### What can go wrong
 

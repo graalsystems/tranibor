@@ -1573,3 +1573,13 @@ rewritten story.
   Four findings stay open: #2085, the stale runner default of compose (#2086), the unreachable second
   human transition of a waiting state (#2110), a comma CSV read as one number (#2111). S85-14 waits for
   its first night.
+- **2026-11-22, `procurement` is split in two (#2134, graalsystems/tranibor-agents#27).** The local install
+  (`docker compose`) runs no plugin server and the installer refuses a plugin that brings one, so
+  `procurement` 0.2.1, which shipped the `purchasing` server, could not be seeded: the CI's `local-install`
+  job showed it, which the seed's stand-in plugin had hidden. 0.3.0 splits it: `procurement` (the two
+  comparison agents, their skills, the template `procurement-sourcing`; no server) and `procurement-operations`
+  (the four operations agents, the assistant, the `purchasing` server, connector kind
+  `plugin:procurement-operations/purchasing`, the template `procurement-operations`; it requires no other
+  plugin). The core locks both (0.2.1 removed), S85-10 installs `procurement`, S85-13 installs
+  `procurement-operations`, S85-14 plays `purchasing-mcp` 0.3.0, and S85-11 is open again: the seed calls
+  `seed_procurement_demo`, and a test installs the real locked archive where no plugin server runs.
