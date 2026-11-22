@@ -152,7 +152,7 @@ function PeriodTokens({ total }: { total: CostReport["total"] }) {
   const t = tokenTotals(total);
   return (
     <p className="mt-1 text-sm text-ink-muted" data-testid="period-tokens">
-      {tokenCount(t.input)} input tokens, of which {tokenCount(t.cached)} cached · {tokenCount(t.output)} output tokens
+      {tokenCount(t.input)} input tokens, of which {tokenCount(t.cached)} cached and {tokenCount(t.cacheWrite)} cache written · {tokenCount(t.output)} output tokens
     </p>
   );
 }

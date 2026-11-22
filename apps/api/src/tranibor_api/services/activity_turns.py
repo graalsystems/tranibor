@@ -133,6 +133,7 @@ async def _booked(session: AsyncSession, conversation_id: str, since: datetime |
         tokens_in=line.tokens_in,
         tokens_out=line.tokens_out,
         tokens_cached=line.tokens_cached,
+        tokens_cache_write=line.tokens_cache_write,
         cost_usd=line.cost_usd,
         read_at=aware(line.ts) or utcnow(),
         booked=True,
