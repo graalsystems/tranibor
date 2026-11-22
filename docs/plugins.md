@@ -966,7 +966,8 @@ approval).
   already decided each write (a mirrored state, a status comment, a delivered item closed after its
   review stage); an approval per write would put a person in front of every transition. Each write is
   an audit entry `tracker.plugin.<tool>` of the organisation (written in its own transaction: the write
-  happened in the server's system whatever happens next). An agent calling the same tool goes through
+  happened in the server's system whatever happens next; when the caller's transaction already wrote,
+  the entry waits for that transaction to end, commit or rollback, ADR 0211). An agent calling the same tool goes through
   the broker under the declared policy, like any operation.
 - **A project's tracker.** A template that says `requires.connectors.tracker: plugin:<plugin>/<server>`
   gives a project born from it the tracker connector `{type: plugin, config: {plugin, server}}`; the
