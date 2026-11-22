@@ -1377,9 +1377,11 @@ async def test_sixty_contracts_open_fifty_children_and_the_summary_quotes_the_te
         children = await _children(item["key"])
         assert len(children) == 50, "the cap of ADR 0057: the sixty-first never opens, nor the fifty-first"
         assert [c["fields"]["contract_id"] for c in children] == [f"CT-{1000 + d}" for d in range(1, 51)]
-        timeline = await _timeline(client, item["id"])
         await interpreter.cancel()
 
+    # Read once the worker is stopped: fifty children running hold the test database's connections,
+    # and a read beside them waits for a free one until the pool gives up.
+    timeline = await _timeline(client, item["id"])
     async with session_scope() as session:
         listing = (await session.execute(select(Run).where(Run.stage_role == "list"))).scalar_one()
     facts = ((listing.result or {}).get("evidence") or {}).get("facts") or {}
