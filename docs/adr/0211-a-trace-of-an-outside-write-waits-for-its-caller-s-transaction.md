@@ -1,6 +1,6 @@
 # 0211 — A trace of an outside write waits for its caller's transaction
 
-- **Status**: proposed, 2026-11-21 (story S84-05, finding #2031)
+- **Status**: accepted, 2026-11-22 (decided by the project lead at merge; story S84-05, finding #2031)
 - **Concerns**: `apps/api/src/tranibor_api/db/session.py` (`after_end`, `wrote_in_transaction`,
   `run_after_end`), `apps/api/src/tranibor_api/services/plugin_tracker.py` (the audit hook), the owners
   of a session (`session_scope`, `deps.get_db`, `deps.get_platform_db`, `outposts/rendezvous.in_scope`)
