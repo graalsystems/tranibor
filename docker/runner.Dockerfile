@@ -16,6 +16,8 @@ COPY compat compat
 COPY plugins/investment-research/pyproject.toml plugins/investment-research/
 COPY plugins/software-delivery/pyproject.toml plugins/software-delivery/
 COPY plugins/procurement/pyproject.toml plugins/procurement/
+# The core's test kit (ADR 0181 round D) is a workspace member: uv reads its metadata, no image installs it.
+COPY tests/testkit/pyproject.toml tests/testkit/
 COPY plugins/vault-transit/pyproject.toml plugins/vault-transit/
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/orchestrator/pyproject.toml apps/orchestrator/
