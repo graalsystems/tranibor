@@ -17,6 +17,7 @@ INTERNAL = [e for e in entries() if e.kind == "internal"]
 RECORDED_DIGESTS = {
     # Every document moved once, on purpose: the plugins' versions that declare the five components
     # (S60-04, ADR 0127) — software-delivery 1.1.1, netops 1.2.0, authoring 1.1.0, requests 1.1.0.
+    # The agents of procurement 0.3.0 and procurement-operations 0.3.0 (S85, ADR 0202) were born there.
     "agent-drafter": "sha256:28d4c5df5d91ed095358fe7990760eaa4b30f47ca3ed04c0d384ef39ed129734",
     "architect": "sha256:eff0e642adb1912c3764c289654ca961f0068185b8ead70e3a0ebcb0452297b5",
     "assistant": "sha256:e99375ec41aa60fd5202bdace406ee249c24627295f73db81f194e4f696e4e16",
@@ -34,16 +35,22 @@ RECORDED_DIGESTS = {
     "docs-writer": "sha256:9bae9942e8050d85a6fc389c042d7d92b36c3493d520a1888d5e5a7d8c92f1f9",
     "knowledge-distiller": "sha256:01059be74d34854fc824794dea067b72716c8af4c0aa67477ec956a2a7ce538d",
     "netops": "sha256:7f6a8262fee61e909fc5cbeb78d2aa90eff5441868db3a2c150902c846af8718",
+    "offer-reader": "sha256:c84057009db0984cbc593ab375f6da586501745c0b67ca9e96b2157578723579",
     "planner": "sha256:f93fc8a2b3ae9d5b098951c3a9e87c8ab7c81ae8f7f2bc5da389c94af86cc0b6",
     "prod-verifier": "sha256:64b83b446b62cea8ac398f77d7469b25d0f69af685d4cd13f695bcf055b56b9c",
+    "purchasing-desk": "sha256:3a28d8b76718967c17a6483461c050771fde4d5e1c8b08c010c35313537f7d19",
     "qa": "sha256:56dcd15cac559affd95db5e85bb2beede48da7824a816de07ad7d153a945b22c",
     "release-notes-writer": "sha256:7f71971e7afd9f8b565caf4347d50a47459f4f4f018cba9f31a75242699cad84",
+    "renewal-analyst": "sha256:59c5d32fec49f9baa1e795dd485d0394b063139f411cb8c732246595baff81d5",
+    "request-qualifier": "sha256:cdd88241d9a376e89cb1d00e3e2f4edae922bb601006d4c9f50ec2a621585cbd",
     "researcher": "sha256:1b4fb56d160f74c1b437f56cb20f077e2d97858a6a9272a3489a433ec12f3e3c",
     "review-responder": "sha256:1abe0879e42dd199e514e91697025e585f6eb776c38de01ff5921019564c1ea5",
     "reviewer": "sha256:494b21d94b9dc9889193a035886e9dad242e15614a5fb8aa5e01c09d8f2e8bff",
     "secops": "sha256:3fddcf91e661b32595719bbc20a67141de31bf6ca291388bc0fd89f1bdc6446b",
     "security-reviewer": "sha256:99c73cbb47a43e8bd3b3eca6c82a8ab0f92acb6cc50de73cf32a1f55ea2035ae",
+    "sourcing-analyst": "sha256:0be9ab3733366e174bef753c197e951118c746cd09966d1a48e2de5bbfe66d8f",
     "spec-writer": "sha256:53af1e951ee7e39f7bd00a2cc24a22caac8d48c3177726afac8780cad0b14eaf",
+    "supplier-file-checker": "sha256:98c6ed547624bbf6e257e0d8de5012eacbd37f8293bce98a44622bc281edfd67",
     "tester": "sha256:815b82f2e16a3bfb0e6e8f345d5748bb5c6184c6ee865ac67c1445fee4e91f83",
     "triager": "sha256:57a5896da90486707b73633a69d72e4aad63c01f386ac67e65de59ea9cad6a2e",
     "ux-designer": "sha256:ed90d08347d27b93a76bb3e48598638b8854b5b9aa68cc5e7ebef7a150aa32c3",
@@ -92,7 +99,10 @@ def test_no_catalogue_agent_fixes_a_runtime() -> None:
     (a tier or a model; `tests/conformance/test_shipped_agents_are_complete.py` says which agents do)."""
     for agent in entries():
         spec = agent.document["spec"]
-        assert "backend" not in spec and "runtime" not in spec, agent.slug
+        assert "backend" not in spec, agent.slug
+        # A prompt agent (ADR 0080) names the platform's own loop, which every deployment serves: it
+        # fixes no sandbox. Any other runtime is the deployment's to choose.
+        assert "runtime" not in spec or spec["runtime"] == {"kind": "prompt"}, agent.slug
 
 
 def test_every_role_of_the_package_has_its_agent_in_the_catalogue() -> None:

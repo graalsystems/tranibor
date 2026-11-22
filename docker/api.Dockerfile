@@ -169,6 +169,10 @@ COPY --from=builder --chown=1000:1000 /app /app
 # offline directory the chart's `global.plugins.offline` names by default and the catalogue reads.
 # Read only: a plugin is never changed in place.
 COPY plugins/offline /opt/choregos/plugins
+# The three sample offers the local install's seed hands to its procurement work item (S85-11): the
+# plugin's own text-layer test fixtures, copied from where they live (`PROCUREMENT_SAMPLES` of
+# `tranibor_api.local_demo`; `tests/dev/test_local_install.py` keeps the two lists equal).
+COPY plugins/procurement/tests/fixtures/alderbrook-offer.pdf plugins/procurement/tests/fixtures/brightfield-offer.docx plugins/procurement/tests/fixtures/corvane-prices.xlsx /opt/choregos/samples/procurement/
 # The source revision, read by `GET /edition` for the console's About panel (S42-12). Last, so a
 # new commit invalidates no layer above. Empty when the image is built by hand; the API then says so.
 ARG REVISION=""
