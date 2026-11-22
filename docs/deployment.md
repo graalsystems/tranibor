@@ -2327,6 +2327,13 @@ policy opens that pod to the platform; `demoFakes.tokenSecret` (a secret referen
 further. A demonstration: the chart refuses it in `staging` and `prod`. `trials/hr/` plays the HR
 scenario against it.
 
+Before it listens, the server loads the desks of the installed extensions (since 0.28.1): measured on
+the 0.28.1 API image, 34 s at 200m of CPU, 12 s at 500m, 6 s at one CPU, longer with more extensions
+(the enterprise edition's image). The pod therefore has a startup probe on `/healthz`
+(`demoFakes.startupProbe`: 36 tries 5 s apart, 180 s) before the liveness probe applies, and a CPU
+limit of 500m (`demoFakes.resources`). A deployment that raised the limit to keep the 0.28.1 pod from
+being killed by its liveness probe (#2139) can return to the defaults.
+
 ### Which edition am I running?
 
 ```bash
