@@ -20,8 +20,11 @@ editions](plugins-and-trades.md)); the platform around it is the one every trade
 
 ## What the local install gives you
 
-`docker compose up` seeds a second project beside the demo one: **`sourcing-demo`**, born of the
-`procurement-sourcing` template. It holds:
+**Not yet.** `procurement` 0.2 ships an MCP server (`purchasing`, for supplier onboarding, purchase
+requests and renewals), and the local install runs no plugin server, so it cannot install the plugin.
+Once the comparison of offers ships in a plugin of its own, with no server, `docker compose up` seeds a
+second project beside the demo one: **`sourcing-demo`**, born of the `procurement-sourcing` template. It
+will hold:
 
 - the groups `buyers` and `purchasing-committee`, with the demo administrator in both;
 - one work item, "Steel brackets: three offers", created but **not started**, with three offers

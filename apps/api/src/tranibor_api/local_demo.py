@@ -661,10 +661,12 @@ def read_provider(path: pathlib.Path) -> Provider | None:
 
 
 async def seed_everything(settings: Settings, provider: Provider | None) -> None:
-    """What the `seed` service runs: the demo project, then the procurement project (one event loop,
-    so that the database engine the first opened serves the second)."""
+    """What the `seed` service runs: the demo project.
+
+    The procurement project (`seed_procurement_demo`) waits: `procurement` 0.2 ships an MCP server, the
+    local install runs none, and the installer refuses a plugin whose servers cannot run (#2134). It is
+    called here again once the comparison of offers ships in a plugin with no server."""
     await seed_local_demo(settings, provider)
-    await seed_procurement_demo(settings, provider)
 
 
 def main() -> None:
