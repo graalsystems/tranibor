@@ -25,10 +25,10 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
-    from tranibor_contracts import InboundEventType, ReleaseStatus
     from tranibor_orchestrator.workflows.activity_names import english_payload_keys, named
     from tranibor_orchestrator.workflows.scheduling import execute_on_its_queue, start_on_its_queue
 
+    from ..names import CD_DEGRADED, CD_ROLLOUT_ABORTED, ReleaseStatus
     from . import activities as train_activities
 
 DEFAULT_RETRY = RetryPolicy(maximum_attempts=5, initial_interval=timedelta(seconds=2))
@@ -136,7 +136,7 @@ AUTO_SYNC_PAUSE = timedelta(minutes=2)
 #: departure's steps saw a degradation, at its next pass.
 TRAIN_LISTENS_TO_CD = "train-listens-to-cd"
 #: What, announced for the departure's environment, makes it roll back without waiting for polling.
-CD_ALERTS = frozenset({str(InboundEventType.CD_DEGRADED), str(InboundEventType.ROLLOUT_ABORTED)})
+CD_ALERTS = frozenset({CD_DEGRADED, CD_ROLLOUT_ABORTED})
 
 
 @dataclass
@@ -758,7 +758,7 @@ def _alert(event: dict[str, Any], env: str, apps: list[str]) -> str | None:
     if app and apps and app not in apps:
         return None
     subject = app or env
-    if str(event.get("type")) == str(InboundEventType.ROLLOUT_ABORTED):
+    if str(event.get("type")) == CD_ROLLOUT_ABORTED:
         return f"Argo CD reported the {subject} rollout aborted"
     return f"Argo CD reported {subject} degraded"
 

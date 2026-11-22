@@ -1108,16 +1108,10 @@ def dev_seed() -> None:
 @dev_app.command("demo")
 def dev_demo() -> None:
     """Play the offline demonstration (no service needed)."""
-    try:
-        from tranibor_orchestrator.demo import main as demo_main
-    except ImportError:
-        # The CLI no longer depends on the orchestrator (it shipped the whole server — SQLAlchemy,
-        # Temporal, asyncpg — for this one command). The offline demo needs a checkout of the
-        # repository: `make demo` from the root.
-        fail("the offline demo needs the repository: run `make demo` from a checkout of choregos")
-        return
-
-    demo_main()
+    # The CLI no longer depends on the orchestrator (it shipped the whole server — SQLAlchemy, Temporal,
+    # asyncpg — for this one command), and the demonstration is the `software-delivery` plugin's (ADR
+    # 0181, round D): `make demo`, from a checkout of the repository.
+    _make("demo")
 
 
 def main() -> None:

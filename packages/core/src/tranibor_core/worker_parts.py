@@ -34,9 +34,22 @@ that loads extensions.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class ProvisioningStep:
+    """A step a template's provisioning names (`steps:` of its `manifest.yaml`) that an extension runs.
+
+    - `run(params, bundle, settings)`: the step's parameters, the project's bundle (its adapters, its
+      configuration) and the worker's settings; returns the line the console shows. It is replayed when a
+      provisioning resumes, so it creates nothing twice (ADR 0008);
+    - `remediation`: what a person does when it fails, shown beside the failure."""
+
+    run: Callable[[dict[str, Any], Any, Any], Awaitable[str]]
+    remediation: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,12 +60,15 @@ class WorkerParts:
     - `activities`: activity functions, registered on the `orchestrator` queue (which carries everything)
       and on the queue `queues` names for them;
     - `queues`: activity name -> the specialised queue that carries it (`executor`, `tracker`, `memory`).
-      An activity absent from it runs on the queue of the workflow that calls it.
+      An activity absent from it runs on the queue of the workflow that calls it;
+    - `provisioning_steps`: step name -> the step a template's provisioning names, run by the core's
+      `run_provision_step` activity. A name the core or another extension runs is refused.
     """
 
     workflows: Sequence[Any] = ()
     activities: Sequence[Any] = ()
     queues: Mapping[str, str] = field(default_factory=dict)
+    provisioning_steps: Mapping[str, ProvisioningStep] = field(default_factory=dict)
 
 
 Provide = Callable[[], WorkerParts]

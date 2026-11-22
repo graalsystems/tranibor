@@ -13,11 +13,12 @@ from typing import Any
 
 import pytest
 from tranibor_adapters import ConnectorTypeSpec, register
-from tranibor_adapters.registry import _REGISTRY, _SPECS
+from tranibor_adapters.registry import _REGISTRY, _SPECS, _declared_slots
 
 from .conftest import Fixture
 
-KINDS = ("tracker", "scm", "ci", "cd", "runtime", "memory", "gateway", "notify")
+# The core's kinds and the slots the installed extensions declare (ADR 0181, round D).
+KINDS = ("tracker", "runtime", "memory", "gateway", "notify", *_declared_slots())
 VALUE = "sealed-tracker-token-77"
 
 
@@ -71,7 +72,7 @@ async def test_a_project_connector_with_a_sealed_secret_builds_its_adapter_with_
     async with session_scope(orgs="*") as session:
         await load_project(session, setup.project_id)
     assert probes["tracker"] == {"api_token": VALUE}
-    assert "api_token" not in probes["scm"], "another connector gets nothing of it"
+    assert "api_token" not in probes["notify"], "another connector gets nothing of it"
 
 
 async def test_a_lost_sealed_value_fails_that_connector_only_and_loudly(

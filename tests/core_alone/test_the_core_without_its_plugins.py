@@ -114,3 +114,62 @@ def test_the_api_emits_none_of_the_plugins_series() -> None:
     from tranibor_api.metrics import PLUGIN_SERIES, emitted_names
 
     assert PLUGIN_SERIES and not set(PLUGIN_SERIES) & emitted_names()
+
+
+def test_the_core_has_no_scm_ci_or_cd_connector_and_says_whose_they_are() -> None:
+    """The `scm`, `ci` and `cd` connector types and slots are the plugin's (S83-05i, S83-05j): the core
+    registers none, its adapter set has none, and reading one names the plugin."""
+    from tranibor_adapters import AdapterSet, available, connector_types
+    from tranibor_adapters.registry import adapter_slots, default_type
+
+    assert not [pair for pair in connector_types() if pair[0] in {"scm", "ci", "cd"}]
+    assert available("scm") == available("ci") == available("cd") == []
+    assert adapter_slots() == {} and default_type("ci") is None and default_type("scm") is None
+    adapters = AdapterSet.fakes()
+    assert adapters.extra == {}
+    with pytest.raises(AttributeError, match="the plugin `software-delivery`'s"):
+        adapters.slot("cd")
+    with pytest.raises(AttributeError, match="the plugin `software-delivery`'s"):
+        _ = adapters.ci
+    with pytest.raises(AttributeError, match="the plugin `software-delivery`'s"):
+        _ = adapters.scm
+
+
+def test_the_api_serves_none_of_the_pipelines_and_deployments_webhooks() -> None:
+    from tranibor_api.main import create_app
+
+    paths = set(create_app().openapi()["paths"])
+    assert "/api/v1/webhooks/github" in paths
+    assert not {"/api/v1/webhooks/tekton", "/api/v1/webhooks/jenkins", "/api/v1/webhooks/argocd"} & paths
+
+
+async def test_a_provisioning_step_of_the_plugin_is_skipped_saying_so() -> None:
+    from tranibor_orchestrator.activities.provisioning import _execute
+    from tranibor_orchestrator.extension_parts import extension_provisioning_steps
+
+    assert extension_provisioning_steps() == {}
+    said = await _execute("argocd.wait_synced", {}, None, None, {})
+    assert said == "step `argocd.wait_synced` skipped (not implemented for this template)"
+
+
+def test_the_worker_answers_a_run_s_diff_with_the_core_s_stand_in() -> None:
+    """`collect_run_artifacts` (called by name after every agent step) and the source control's activities
+    are the plugin's (S83-05j): the core registers none of them but the stand-in, which files nothing."""
+    from tranibor_orchestrator.activities.stand_ins import collect_run_artifacts
+    from tranibor_orchestrator.extension_parts import all_activities
+    from tranibor_orchestrator.queues import activity_name
+
+    names = {activity_name(fn) for fn in all_activities()}
+    assert collect_run_artifacts in all_activities()
+    assert not {"open_pull_request", "enqueue_merge", "ensure_branch", "check_scope_violations"} & names
+
+
+def test_readiness_asks_no_repository_and_netops_proposes_through_the_core_s_forge() -> None:
+    from tranibor_adapters import build
+    from tranibor_adapters.fakes.gitops import FakeGitOps
+    from tranibor_api.extensions import readiness_items
+    from tranibor_api.services.readiness import need_a_repository
+
+    assert readiness_items() == () and need_a_repository() == frozenset()
+    nginx = build("web_server", "fake", {"repo": "acme/gitops"})
+    assert isinstance(nginx.gitops.forge, FakeGitOps)

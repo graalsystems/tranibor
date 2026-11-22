@@ -25,7 +25,6 @@ RECORDED_ACTIVITY_NAMES = {
     "build_hosted_image",
     "cancel_run",
     "charger_l_action",  # lang: fr-ok
-    "check_scope_violations",
     "children_state",
     "claim_hosted_build",
     "close_action",
@@ -33,15 +32,12 @@ RECORDED_ACTIVITY_NAMES = {
     "close_out",
     "cloturer_l_action",  # lang: fr-ok
     "collect_distillation_batch",
-    "collect_run_artifacts",
     "collect_spend",
     "compensate_effect",
     "compenser_l_effet",  # lang: fr-ok
     "create_human_request",
     "decide",
     "distill_part",
-    "enqueue_merge",
-    "ensure_branch",
     "etat_de_l_action",  # lang: fr-ok
     "evaluate_gates",
     "execute_effect",
@@ -62,7 +58,6 @@ RECORDED_ACTIVITY_NAMES = {
     "mirror_state",
     "note_transition_taken",
     "notify",
-    "open_pull_request",
     "plan_distillation",
     "prepare_stage",
     "propose_transition_action",

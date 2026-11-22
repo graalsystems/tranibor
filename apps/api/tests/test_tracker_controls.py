@@ -289,7 +289,7 @@ async def test_two_commands_in_one_delivery_keep_their_own_members(
         )
 
     async with session_scope() as session:
-        await webhooks._dispatch(session, [command("e1", "pause", "1001"), command("e2", "resume", "1002")])
+        await webhooks.dispatch(session, [command("e1", "pause", "1001"), command("e2", "resume", "1002")])
         await session.flush()
         rows = (
             (

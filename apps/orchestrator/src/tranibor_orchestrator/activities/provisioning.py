@@ -146,10 +146,16 @@ async def run_provision_step(payload: dict[str, Any]) -> dict[str, Any]:
 async def _execute(
     name: str, params: dict[str, Any], bundle: Any, settings: Any, payload: dict[str, Any]
 ) -> str:
-    """Dispatch the steps. Any unknown step is skipped explicitly, never guessed."""
+    """Dispatch the steps: the core's, then those an installed extension runs (the worker seam's
+    `provisioning_steps`). Any unknown step is skipped explicitly, never guessed."""
     handler = _STEPS.get(name)
     if handler is None:
-        return _unknown_step(name)
+        from ..extension_parts import extension_provisioning_steps
+
+        step = extension_provisioning_steps().get(name)
+        if step is None:
+            return _unknown_step(name)
+        handler = step.run
     return str(await handler(params, bundle, settings))
 
 
@@ -210,15 +216,6 @@ async def _github_ensure_project_board(params: dict[str, Any], bundle: Any, sett
 async def _github_ensure_webhooks(params: dict[str, Any], bundle: Any, settings: Any) -> str:
     events = params.get("events", [])
     return f"webhooks: {', '.join(events) if events else 'default'}"
-
-
-async def _argocd_wait_synced(params: dict[str, Any], bundle: Any, settings: Any) -> str:
-    apps = params.get("apps", [f"choregos-project-{bundle.slug}"])
-    for app in apps:
-        health = await bundle.adapters.cd.health(str(app).replace("{{slug}}", bundle.slug))
-        if health.status in {"Degraded", "Missing"}:
-            raise RuntimeError(f"application {app} is not synced: {health.status}")
-    return f"{len(apps)} application(s) synced"
 
 
 async def _memory_create_tenant(params: dict[str, Any], bundle: Any, settings: Any) -> str:
@@ -289,10 +286,6 @@ def _unknown_step(name: str) -> str:
     return f"step `{name}` skipped (not implemented for this template)"
 
 
-async def _gitops_write(params: dict[str, Any], bundle: Any, settings: Any) -> str:
-    return await _write_manifests(bundle, params, settings)
-
-
 async def _repo_scaffold_pr(params: dict[str, Any], bundle: Any, settings: Any) -> str:
     return f"scaffolding pull request: {len(params.get('files', []))} file(s)"
 
@@ -307,7 +300,9 @@ async def _aca_check_identity(params: dict[str, Any], bundle: Any, settings: Any
 
 Step = Callable[[dict[str, Any], Any, Any], Awaitable[str]]
 
-#: A step = a function; what a template names and is not here is skipped, and says so.
+#: A step = a function; what a template names and is neither here nor an installed extension's is skipped,
+#: and says so. `gitops.write_project_manifests` and `argocd.wait_synced` are the `software-delivery`
+#: plugin's (ADR 0181, round D): they write to and read from the project's `cd` connector.
 _STEPS: dict[str, Step] = {
     "github.install_app": _github_install_app,
     "github.ensure_labels": _github_ensure_labels,
@@ -316,15 +311,17 @@ _STEPS: dict[str, Step] = {
     "github.ensure_webhooks": _github_ensure_webhooks,
     "aca.check_environment": _aca_check_environment,
     "aca.check_identity": _aca_check_identity,
-    "gitops.write_project_manifests": _gitops_write,
     "gitops.open_pr_or_commit": _constant_step("GitOps pull request opened on choregos-infra"),
-    "argocd.wait_synced": _argocd_wait_synced,
     "repo.scaffold_pr": _repo_scaffold_pr,
     "memory.create_tenant": _memory_create_tenant,
     "memory.initial_import": _memory_initial_import,
     "gateway.create_team_and_budget": _gateway_create_team_and_budget,
     "notify.test_message": _notify_test_message,
 }
+
+
+#: The steps the core runs: an extension's may not take one of these names.
+CORE_STEPS = frozenset(_STEPS)
 
 
 async def _check_aca(step: str, bundle: Any) -> str:
@@ -352,33 +349,6 @@ async def _check_aca(step: str, bundle: Any) -> str:
     return f"managed identity reachable: {identity.rsplit('/', 1)[-1]}"
 
 
-async def _write_manifests(bundle: Any, params: dict[str, Any], settings: Any) -> str:
-    """Write the project manifests into the GitOps repository: Argo CD applies, not the API."""
-    path = str(params.get("path", "projects/{{slug}}/")).replace("{{slug}}", bundle.slug)
-    from tranibor_core.quotas import quota_for
-
-    from ..gitops import EGRESS_IMAGE, render_project_manifests
-    from ..org_egress import org_runner_hosts
-
-    org_id = getattr(getattr(bundle, "project", None), "org_id", None)
-    org_hosts: list[str] = []
-    if org_id:
-        async with db() as session:
-            org_hosts = await org_runner_hosts(session, org_id)
-    manifests = render_project_manifests(
-        bundle.slug,
-        bundle.config,
-        bundle.policy,
-        egress_image=str(getattr(settings, "egress_image", "") or EGRESS_IMAGE),
-        quota=await quota_for(bundle.org_slug, bundle.slug),
-        org_allow_domains=org_hosts,
-    )
-    writer = getattr(bundle.adapters.cd, "write_files", None)
-    if writer is not None:
-        await writer(path, manifests)
-    return f"{len(manifests)} manifest(s) written to {path}"
-
-
 def _remediation(step: str) -> str:
     return {
         "github.install_app": (
@@ -386,12 +356,19 @@ def _remediation(step: str) -> str:
             "then retry. The installation is discovered: nobody types an installation id."
         ),
         "github.ensure_project_board": "Create the Projects v2 board and give its number to the connector.",
-        "gitops.write_project_manifests": "Check the write rights on `choregos-infra`.",
-        "argocd.wait_synced": "Look at the application in Argo CD: a manual sync is possible.",
         "gateway.create_team_and_budget": "Check the LiteLLM `master_key` and the team's quota.",
         "aca.check_environment": "Create the ACA Managed Environment, or fix `environment_id`.",
         "aca.check_identity": "Check the managed identity and its `AcrPull` role on the registry.",
-    }.get(step, "Fix the cause, then retry the provisioning: it resumes at the failed step.")
+    }.get(step) or _extension_remediation(step)
+
+
+def _extension_remediation(step: str) -> str:
+    from ..extension_parts import extension_provisioning_steps
+
+    declared = extension_provisioning_steps().get(step)
+    return (declared.remediation if declared is not None else "") or (
+        "Fix the cause, then retry the provisioning: it resumes at the failed step."
+    )
 
 
 @activity.defn(name="finish_provisioning")

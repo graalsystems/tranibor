@@ -2,10 +2,10 @@
 """A netops change as a pull request to the GitOps repository (ADR 0052, S33-09).
 
 A Cilium policy or an nginx configuration is never applied by the platform: it is written on a
-branch of the GitOps repository and offered as a pull request, through the SCM adapter (the
-platform holds the forge's credentials; the agent never does). What runs in production is what the
-release train carries after the merge (ADR 0006), and what Argo CD syncs from the repository
-(ADR 0009).
+branch of the GitOps repository and offered as a pull request, through the forge
+(`github.changes.GitHubChanges`: the platform holds the forge's credentials; the agent never does).
+What runs in production is what the release train carries after the merge (ADR 0006), and what
+Argo CD syncs from the repository (ADR 0009).
 
 The branch says which work item the change belongs to. When the action comes from a work item of
 the GitOps repository itself, the branch is `choregos/<number>-netops-…`: the forge's webhook maps
@@ -28,9 +28,10 @@ _ISSUE = re.compile(r"^(?P<repo>[^#\s]+/[^#\s]+)#(?P<number>\d+)$")
 
 @dataclass(frozen=True)
 class GitOpsTarget:
-    """Where changes are proposed: a repository, its base branch, the root the connector owns."""
+    """Where changes are proposed: a repository, its base branch, the root the connector owns, and the
+    forge that writes there (branch, commit, pull request: `GitHubChanges`, `fakes.gitops.FakeGitOps`)."""
 
-    scm: Any
+    forge: Any
     repo: str
     base: str = "main"
     root: str = ""
@@ -59,15 +60,15 @@ async def propose_change(
         if len(content.encode()) > MAX_FILE_BYTES:
             raise AdapterError(f"{path} is larger than {MAX_FILE_BYTES // 1024} KiB")
     branch = branch_for(target.repo, action_key, work_item_key)
-    await target.scm.ensure_branch(target.repo, branch, target.base)
-    commit = await target.scm.commit_files(target.repo, branch, files, title)
+    await target.forge.ensure_branch(target.repo, branch, target.base)
+    commit = await target.forge.commit_files(target.repo, branch, files, title)
     body = (
         f"{rationale}\n\n"
         f"Proposed by a governed action of Tranibor (key `{action_key}`)"
         + (f" for {work_item_key}" if work_item_key else "")
         + ". Merge it through the repository's review; production follows the release train."
     )
-    pr = await target.scm.open_pr(target.repo, branch, target.base, title, body, False)
+    pr = await target.forge.open_pr(target.repo, branch, target.base, title, body, False)
     return {
         "repo": target.repo,
         "branch": branch,

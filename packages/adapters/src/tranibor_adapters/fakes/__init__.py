@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from .agent_sandbox import FakeSandboxCluster
 from .builder import FakeImageBuilder
-from .cd import FakeCd
-from .ci import FakeCi
 from .decisions import FakeDecisionClient
 from .executor import FakeExecutor
 from .gateway import BudgetExceeded, BudgetExceededError, FakeGateway
@@ -22,15 +20,12 @@ from .model_server import FakeModelServer
 from .notify import FakeNotifier
 from .oci import FakeImageVerifier, FakeRegistryClient
 from .realtime import FakeRealtimeUpstream
-from .scm import FakeScm
 from .storage import FakeObjectStore
 from .tracker import FakeTracker
 
 __all__ = [
     "BudgetExceeded",
     "BudgetExceededError",
-    "FakeCd",
-    "FakeCi",
     "FakeDecisionClient",
     "FakeExecutor",
     "FakeGateway",
@@ -46,6 +41,5 @@ __all__ = [
     "FakeRealtimeUpstream",
     "FakeRegistryClient",
     "FakeSandboxCluster",
-    "FakeScm",
     "FakeTracker",
 ]

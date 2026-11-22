@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AfterValidator, Field
 
 from .enums import EventType, HumanRequestKind
-from .open_lists import INBOUND_EVENT_TYPES
+from .open_lists import EVENT_TYPES, INBOUND_EVENT_TYPES
 from .workflow import Strict
 
 
@@ -43,7 +43,11 @@ class ChoregosEvent(Strict):
     specversion: Literal["1.0"] = "1.0"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     source: str
-    type: EventType
+    #: One of the core's `EventType` (returned as the member), or a type an extension declared
+    #: (`EVENT_TYPES.declare`: the release train's `choregos.release.*` are the `software-delivery`
+    #: plugin's, ADR 0181 round D); any other is refused. An event read back from the bus or the
+    #: `events` rows is read with the `stored` context and keeps parsing without the extension.
+    type: Annotated[str, AfterValidator(EVENT_TYPES.validate)]
     subject: str | None = None
     time: datetime = Field(default_factory=_now)
     datacontenttype: str = "application/json"
@@ -53,7 +57,7 @@ class ChoregosEvent(Strict):
     @classmethod
     def emit(
         cls,
-        type_: EventType,
+        type_: EventType | str,
         *,
         source: str = "/choregos/orchestrator",
         subject: str | None = None,

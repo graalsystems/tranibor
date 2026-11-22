@@ -25,6 +25,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any
 
 from tranibor_contracts import ChoregosEvent, EventType
+from tranibor_contracts.open_lists import STORED
 
 from .logging import get_logger
 
@@ -115,7 +116,7 @@ def get_bus() -> EventBus:
 
 
 def emit(
-    type_: EventType,
+    type_: EventType | str,
     *,
     source: str = "/choregos/api",
     subject: str | None = None,
@@ -192,7 +193,9 @@ class PostgresRelay:
 
     def _receive(self, _conn: Any, _pid: int, _channel: str, payload: str) -> None:
         try:
-            event = ChoregosEvent.model_validate_json(payload)
+            # Another replica published it: read as a stored document, so that an extension's event type
+            # (ADR 0181) reaches the bus of a replica that has not loaded that extension yet.
+            event = ChoregosEvent.model_validate_json(payload, context={STORED: True})
         except Exception as exc:
             logger.warning("unreadable notification", error=str(exc)[:120])
             return

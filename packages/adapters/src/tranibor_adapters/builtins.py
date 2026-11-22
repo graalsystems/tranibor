@@ -109,39 +109,6 @@ def _azure_boards_tracker(cfg: dict[str, Any]) -> Any:
     )
 
 
-def _azure_repos_scm(cfg: dict[str, Any]) -> Any:
-    """Azure DevOps Repos: a PAT or an Entra service principal, secrets from the vault. The run token is a
-    separate, narrower PAT: a run never receives the connector's own credential."""
-    from .azure_devops import azure_client, check_azure_repos
-    from .scm.azure_repos import AzureReposScm
-
-    check_azure_repos(cfg)
-    return AzureReposScm(
-        azure_client(cfg, service="azure-repos"),
-        cfg["project"],
-        cfg["repository"],
-        default_branch=cfg.get("default_branch", "main"),
-        merge_strategy=cfg.get("merge_strategy", "squash"),
-        delete_source_branch=bool(cfg.get("delete_source_branch", False)),
-        run_token=str(cfg.get("run_token") or ""),
-        partially_succeeded=cfg.get("partially_succeeded", "failure"),
-    )
-
-
-def _azure_pipelines_ci(cfg: dict[str, Any]) -> Any:
-    from .azure_devops import azure_client, check_azure_pipelines
-    from .ci.azure_pipelines import AzurePipelinesCi
-
-    check_azure_pipelines(cfg)
-    return AzurePipelinesCi(
-        azure_client(cfg, service="azure-pipelines"),
-        cfg["project"],
-        repository=str(cfg.get("repository") or ""),
-        pipeline=str(cfg.get("pipeline") or ""),
-        partially_succeeded=cfg.get("partially_succeeded", "failure"),
-    )
-
-
 def _github_client(config: dict[str, Any]) -> Any:
     """Builds the GitHub client from the connector's configuration or the deployment's App.
 
@@ -448,35 +415,35 @@ def _fake_nginx(cfg: dict[str, Any]) -> Any:
 def _fake_gitops(repo: str, base: str, root: str) -> Any:
     from .netops.gitops import GitOpsTarget
 
-    if "scm" not in _package.FAKE_NETOPS:
-        from .fakes import FakeScm
+    if "gitops" not in _package.FAKE_NETOPS:
+        from .fakes.gitops import FakeGitOps
 
-        _package.FAKE_NETOPS["scm"] = FakeScm()
-    return GitOpsTarget(_package.FAKE_NETOPS["scm"], repo, base, root)
+        _package.FAKE_NETOPS["gitops"] = FakeGitOps()
+    return GitOpsTarget(_package.FAKE_NETOPS["gitops"], repo, base, root)
 
 
 def _nginx(cfg: dict[str, Any]) -> Any:
+    from .github.changes import GitHubChanges
     from .netops import GitHubRepoReader, NginxConfig
     from .netops.gitops import GitOpsTarget
-    from .scm.github import GitHubScm
 
     client = _github_client(cfg)
     repo, ref, root = str(cfg["repo"]), str(cfg.get("ref") or "main"), str(cfg.get("root") or "nginx")
-    gitops = GitOpsTarget(GitHubScm(client, default_repo=repo), repo, ref, root)
+    gitops = GitOpsTarget(GitHubChanges(client, default_repo=repo), repo, ref, root)
     return NginxConfig(GitHubRepoReader(client, repo, ref), root=root, gitops=gitops)
 
 
 def _cilium(cfg: dict[str, Any]) -> Any:
     """The policies' pull requests go through the forge with `gitops_token` (or the GitHub App of
     the deployment) — `token` is the cluster reader's, and never reaches the forge."""
+    from .github.changes import GitHubChanges
     from .netops import CiliumNetwork
-    from .scm.github import GitHubScm
 
-    scm = None
+    forge = None
     if cfg.get("gitops_repo"):
         client = _github_client({**cfg, "token": cfg.get("gitops_token", "")})
-        scm = GitHubScm(client, default_repo=str(cfg["gitops_repo"]))
-    return CiliumNetwork.from_config(cfg, scm=scm)
+        forge = GitHubChanges(client, default_repo=str(cfg["gitops_repo"]))
+    return CiliumNetwork.from_config(cfg, forge=forge)
 
 
 def _fake_web_search(cfg: dict[str, Any]) -> Any:
@@ -486,27 +453,6 @@ def _fake_web_search(cfg: dict[str, Any]) -> Any:
 
         _package.FAKE_WEB_SEARCH = FakeSearchBackend()
     return _package.FAKE_WEB_SEARCH
-
-
-def _demo_cd(cfg: dict[str, Any]) -> Any:
-    """The factory of `cd: demo`: refused in staging and prod; served when it carries a `url`."""
-    from .fakes.demo_cd import DemoCd, FakeDemoCd
-    from .fakes.hr import Desk, RemoteDesk
-
-    environment = _env("TRANIBOR_ENV", "dev")
-    if environment in {"staging", "prod"}:
-        raise ConfigurationError(
-            f"connector `cd: demo` refused in {environment}: a simulated environment, a "
-            "demonstration, not a deployment."
-        )
-    if cfg.get("url"):
-        from .mcp import McpClient
-
-        return DemoCd(RemoteDesk(McpClient(str(cfg["url"]), token=str(cfg.get("api_key", "")))))
-    desks = _package.FAUX_METIER  # lang: fr-ok (the business fakes keep their name)
-    if "cd" not in desks:
-        desks["cd"] = FakeDemoCd()
-    return DemoCd(Desk(desks["cd"], str(cfg.get("api_key", ""))))
 
 
 def _register_web_search() -> None:
@@ -552,21 +498,15 @@ def _plugin_tracker(cfg: dict[str, Any]) -> Any:
 def _register_fakes() -> None:
     """The fake of every kind (`TRANIBOR_FAKES=1`)."""
     from .fakes import (
-        FakeCd,
-        FakeCi,
         FakeExecutor,
         FakeGateway,
         FakeMemory,
         FakeNotifier,
-        FakeScm,
         FakeTracker,
     )
     from .fakes.executor import simulated_executor
 
     register("tracker", "fake")(lambda cfg: FakeTracker(cfg.get("project_slug", "demo")))
-    register("scm", "fake")(lambda cfg: FakeScm())
-    register("ci", "fake")(lambda cfg: FakeCi())
-    register("cd", "fake")(lambda cfg: FakeCd())
     # `{"simulate": true}`: the process-wide simulated agent of the local install (`compose.yaml`).
     register("runtime", "fake")(lambda cfg: simulated_executor() if cfg.get("simulate") else FakeExecutor())
     register("memory", "fake")(lambda cfg: FakeMemory())
@@ -585,16 +525,7 @@ def _register_fakes() -> None:
 
 
 def _register_forges() -> None:
-    """Trackers, source control, CI and CD."""
-    from .cd.argocd import ArgoCdAdapter
-    from .ci.github_actions import GitHubActionsCi
-    from .ci.gitlab import GitLabCi
-    from .ci.jenkins import JenkinsCi
-    from .ci.tekton import TektonCi
-    from .executor.tekton import KubernetesClient
-    from .http import RestClient
-    from .scm.github import GitHubScm
-    from .scm.gitlab import GitLabScm
+    """The trackers."""
     from .tracker.github import GitHubTracker
     from .tracker.gitlab import GitLabTracker
     from .tracker.gitlab_instance import build_client as build_gitlab_client
@@ -618,68 +549,6 @@ def _register_forges() -> None:
             build_gitlab_client(cfg),
             cfg["project"],
             webhook_secret=cfg.get("webhook_secret", ""),
-        )
-    )
-    register("scm", "github", _SHIPPED_SPECS[("scm", "github")])(
-        lambda cfg: GitHubScm(
-            _github_client(cfg),
-            default_repo=cfg.get("repo", ""),
-            merge_method=cfg.get("merge_method", "SQUASH"),
-            use_merge_queue=cfg.get("merge_queue", True),
-        )
-    )
-    register("scm", "gitlab", _SHIPPED_SPECS[("scm", "gitlab")])(
-        lambda cfg: GitLabScm(
-            build_gitlab_client(cfg),
-            cfg["project"],
-            default_branch=cfg.get("default_branch", "main"),
-        )
-    )
-    register("scm", "azure-repos", _SHIPPED_SPECS[("scm", "azure-repos")])(_azure_repos_scm)
-    register("ci", "azure-pipelines", _SHIPPED_SPECS[("ci", "azure-pipelines")])(_azure_pipelines_ci)
-    register("ci", "tekton", _SHIPPED_SPECS[("ci", "tekton")])(
-        lambda cfg: TektonCi(
-            KubernetesClient(**cfg.get("kubernetes", {})),
-            namespace=cfg.get("namespace", "default"),
-            pipeline=cfg.get("pipeline", "choregos-ci"),
-        )
-    )
-    register("ci", "gitlab", _SHIPPED_SPECS[("ci", "gitlab")])(
-        lambda cfg: GitLabCi(
-            build_gitlab_client(cfg),
-            cfg["project"],
-        )
-    )
-    register("ci", "jenkins", _SHIPPED_SPECS[("ci", "jenkins")])(
-        lambda cfg: JenkinsCi(
-            RestClient(
-                cfg["base_url"],
-                auth=(cfg["user"], cfg["token"]),
-                service="jenkins",
-            ),
-            cfg["job"],
-            multibranch=bool(cfg.get("multibranch", False)),
-            parameters=cfg.get("parameters"),
-            ref_parameter=cfg.get("ref_parameter", "BRANCH"),
-            crumb=bool(cfg.get("crumb", True)),
-        )
-    )
-    register("ci", "github-actions", _SHIPPED_SPECS[("ci", "github-actions")])(
-        lambda cfg: GitHubActionsCi(
-            _github_client(cfg),
-            cfg["repo"],
-            workflow=cfg.get("workflow", ""),
-            inputs=cfg.get("inputs"),
-        )
-    )
-    register("cd", "argocd", _SHIPPED_SPECS[("cd", "argocd")])(
-        lambda cfg: ArgoCdAdapter(
-            base_url=cfg.get("base_url", "http://argocd-server.argocd"),
-            token=cfg.get("token", ""),
-            gitops_repo=cfg.get("gitops_repo", ""),
-            github=_github_client(cfg),
-            app_pattern=cfg.get("app_pattern", "{app}-{env}"),
-            path_prefix=cfg.get("path_prefix", "apps"),
         )
     )
 
@@ -856,7 +725,6 @@ def _register_documents_and_identity() -> None:
         register(family, "demo", _SHIPPED_SPECS[(family, "demo")])(
             _demo_desk(family, refuse_in_production=True)
         )
-    register("cd", "demo", _SHIPPED_SPECS[("cd", "demo")])(_demo_cd)
     register("firewall", "pfsense", _SHIPPED_SPECS[("firewall", "pfsense")])(PfSenseFirewall.from_config)
     register("network_policy", "cilium", _SHIPPED_SPECS[("network_policy", "cilium")])(_cilium)
     register("web_server", "nginx", _SHIPPED_SPECS[("web_server", "nginx")])(_nginx)

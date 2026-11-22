@@ -12,7 +12,8 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-DEMOS = {("mdm", "demo"), ("shipping", "demo"), ("access_control", "demo"), ("cd", "demo")}
+# The core's; the `software-delivery` plugin's `cd: demo` is checked by its own tests.
+DEMOS = {("mdm", "demo"), ("shipping", "demo"), ("access_control", "demo")}
 
 
 @pytest.fixture
@@ -54,7 +55,9 @@ async def test_prod_refuses_to_declare_a_demo(
     assert refused.status_code == 422, refused.text
     assert "refused in prod" in refused.json()["detail"]
 
-    put = f"/api/v1/projects/{project['id']}/connectors/cd"
+    # A project's demo connector too (the `software-delivery` plugin's `cd: demo` is another, in its
+    # own tests: the core's project-level demo is a business family declared on a project).
+    put = f"/api/v1/projects/{project['id']}/connectors/mdm"
     refused = await client.put(put, json={"type": "demo", "config": {}})
     assert refused.status_code == 422, refused.text
     assert "refused in prod" in refused.json()["detail"]

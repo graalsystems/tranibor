@@ -27,6 +27,7 @@ from tranibor_adapters import fakes_enabled
 from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.fakes.github_app import FakeGitHubApp
 from tranibor_adapters.github import GitHubApp, GitHubAppPort
+from tranibor_adapters.registry import github_repository_key
 
 from ..config import get_settings
 from ..db.models import GitHubInstallation, Organization
@@ -42,20 +43,19 @@ STALE_AFTER_S = 600
 STATE_TTL_S = 900
 INSTALLATION_ACTIONS = {"created", "unsuspend", "suspend", "new_permissions_accepted"}
 GITHUB_WEB = "https://github.com"
-#: Connector types served by the App, and the configuration key that names their repository. Argo CD
-#: writes its promotions to a GitOps repository through the App (`cd/argocd.py`), so it is pinned too.
-GITHUB_REPO_KEY = {
-    ("tracker", "github-issues"): "repo",
-    ("scm", "github"): "repo",
-    ("ci", "github-actions"): "repo",
-    ("cd", "argocd"): "gitops_repo",
-}
-GITHUB_TYPES = set(GITHUB_REPO_KEY)
+
+
+def served_by_the_app(kind: str, type_: str) -> bool:
+    """Whether the App serves this connector type: its spec names the key of its GitHub repository
+    (`ConnectorTypeSpec.github_repository`), the core's types' and an extension's alike (the
+    `software-delivery` plugin's GitHub Actions and Argo CD, which writes its promotions to a GitOps
+    repository through the App)."""
+    return github_repository_key(kind, type_) is not None
 
 
 def repo_of(kind: str, type_: str, config: dict[str, Any]) -> str:
     """The `owner/name` repository a GitHub-served connector reaches, or "" for any other type."""
-    key = GITHUB_REPO_KEY.get((kind, type_))
+    key = github_repository_key(kind, type_)
     return str(config.get(key) or "") if key else ""
 
 
@@ -392,7 +392,7 @@ async def pin_installation(
     Never stored in `connectors.config` and never shown (ADR 0073). Without a claimed installation
     the config is returned as is: discovery by repository, today's behaviour, which the callers that
     must refuse (`put_connector`, a multi-organisation instance) check beforehand."""
-    if (kind, type_) not in GITHUB_TYPES:
+    if not served_by_the_app(kind, type_):
         return config
     # The adapter about to be built reads the App through the process provider: keep it current.
     await credentials.refresh(session)
@@ -414,7 +414,7 @@ async def checked_config(
     THIS organisation claimed. A connector on another host (`api_url`) or one that names no
     repository is left to its own validation."""
     clean = {k: v for k, v in config.items() if k != "installation_id"}
-    if (kind, type_) not in GITHUB_TYPES or clean.get("api_url"):
+    if not served_by_the_app(kind, type_) or clean.get("api_url"):
         return clean
     owner = owner_of(repo_of(kind, type_, clean))
     app = await github_app(session)
@@ -440,7 +440,7 @@ async def pin_for_runtime(
     claimed by its organisation does not fall back to discovery (any organisation could then borrow
     another's installation): it fails, naming the way out."""
     pinned = await pin_installation(session, org_id, kind, type_, config)
-    if (kind, type_) not in GITHUB_TYPES or "installation_id" in pinned or pinned.get("api_url"):
+    if not served_by_the_app(kind, type_) or "installation_id" in pinned or pinned.get("api_url"):
         return pinned
     owner = owner_of(repo_of(kind, type_, pinned))
     if owner is None or await github_app(session) is None or await implicit_claim_enabled(session):

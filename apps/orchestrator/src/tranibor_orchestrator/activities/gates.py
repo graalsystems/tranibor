@@ -7,16 +7,13 @@ from dataclasses import replace
 from typing import Any
 
 from temporalio import activity
-from tranibor_adapters.errors import UpstreamError
 from tranibor_api.db.models import CostLedger, Run
 from tranibor_contracts import StageResult
-from tranibor_core import GateContext, GateOutcome, evaluate, matches_any
+from tranibor_core import GateContext, GateOutcome, evaluate
 from tranibor_core.gates import ProviderRequest, after_judgment, provide_facts
 from tranibor_core.run_journal import GATE_OUTCOME
 
-from .base import db, load_work_item, project_bundle, scm_for
-from .repositories import repo_slug as _repo_slug
-from .repositories import target_or_none
+from .base import db, load_work_item, project_bundle
 
 
 @activity.defn(name="evaluate_gates")
@@ -148,45 +145,3 @@ async def _journal(session: Any, run: Run, outcomes: list[GateOutcome], head: st
                 ts=utcnow(),
             )
         )
-
-
-async def _head(scm: Any, repo_config: Any, branch: str) -> tuple[str | None, Exception | None]:
-    """The commit the head of `branch` is at (ADR 0171): `(sha, None)`; `(None, None)` when there is no
-    such branch; `(None, error)` when the SCM cannot say."""
-    head_of = getattr(scm, "head_of", None)
-    if head_of is None:
-        return None, UpstreamError("scm", f"the `{type(scm).__name__}` SCM cannot read the head of a branch")
-    try:
-        return await head_of(_repo_slug(repo_config.url), branch), None
-    except Exception as exc:
-        return None, exc
-
-
-@activity.defn(name="check_scope_violations")
-async def check_scope_violations(payload: dict[str, Any]) -> list[str]:
-    async with db() as session:
-        bundle = await project_bundle(session, payload["project_id"])
-        item = await load_work_item(session, payload["work_item_id"])
-        allowed = list(item.allowed_paths or [])
-        denied = bundle.engine.deny_paths()
-        found = target_or_none(bundle, item)
-        repo_config = found.repo if found is not None else None
-        if not (allowed or denied) or repo_config is None:
-            # Without a repository there are no files to compare: no violation to report. That is
-            # an absence of material, not an absence of violation, and the `scope_respected`
-            # guarantee refuses (`diff_available`).
-            return []
-        repo = _repo_slug(repo_config.url)
-        branch = bundle.config.branch_for(item.tracker_key, repo=repo_config)
-        scm = await scm_for(session, bundle, repo_config.url)
-        # The commit at the head of the branch, read once (ADR 0171); a branch that is not there is
-        # compared by its name, and the SCM answers as it did.
-        head, unread = await _head(scm, repo_config, branch)
-        if unread is not None:
-            raise unread
-        diff = await scm.compare(repo, repo_config.default_branch, head or branch)
-        return [
-            path
-            for path in diff.paths()
-            if matches_any(path, denied) or (allowed and not matches_any(path, allowed))
-        ]
