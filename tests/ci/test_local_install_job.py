@@ -33,6 +33,7 @@ def test_the_job_starts_the_compose_and_drives_a_work_item() -> None:
     assert "docker compose up -d --wait" in runs
     assert "tools/local_install_check.py" in runs
     assert "--console-only" not in runs, "the console answering is not a work item running"
+    assert "--skip-procurement" not in runs, "the seeded procurement consultation is started too (S85-11)"
     assert (ROOT / "tools/local_install_check.py").exists()
 
 
@@ -54,4 +55,6 @@ def test_it_runs_when_the_install_changes_on_main_and_in_the_merge_queue() -> No
     paths = yaml.safe_load(filter_step["with"]["filters"])["local-install"]
     for path in ("compose.yaml", ".env.example", "dev/local/**", "docker/**", "tools/local_install_check.py"):
         assert path in paths, path
+    for path in ("plugins/offline/**", "plugins/procurement/tests/fixtures/**"):
+        assert path in paths, f"{path}: the procurement demo's archive and offers (S85-11)"
     assert _workflow()["jobs"]["changes"]["outputs"]["local-install"]

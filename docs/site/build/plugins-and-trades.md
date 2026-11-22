@@ -90,7 +90,8 @@ names it.
   `tranibor-procurement`, whose only product is the command its deterministic steps run, in the
   plugin's job image: it extracts the text of the files, computes every number a memo may quote, and
   registers nothing with the platform. It uses the core's own gates (`numbers_measured`,
-  `evidence_facts`, `output_schema`).
+  `evidence_facts`, `output_schema`). [A trade end to end](a-trade-end-to-end.md) walks its journey on the
+  local install.
 
 ## What changes before 1.0
 
@@ -122,6 +123,7 @@ provider may send `contributors` and `approvers` beside `developers` and `releas
 
 ## Go further
 
+- [A trade end to end](a-trade-end-to-end.md): the purchasing journey, gate by gate, on the local install.
 - [Package agents as a plugin](plugins.md): lay out, validate and install a plugin's content.
 - [Writing a plugin](../../plugins.md), the reference of the format, and
   [Shipping a connector from outside this tree](../../development.md#shipping-a-connector-from-outside-this-tree)

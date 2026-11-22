@@ -147,6 +147,7 @@ DERIVED: tuple[str, ...] = (
     "docs/integrations.md",
     "docs/outpost-operator.md",
     "docs/plugins.md",
+    "docs/runbooks/purchasing-live.md",
     "docs/site/README.md",
     ".github/workflows/docs-site.yml",
     "docs/site/build/agents.md",

@@ -56,6 +56,15 @@ from a template, connect its repository, open an issue, let agents work, approve
 - On the run page (open the agent's step from the journey), the summary says that no model ran. That
   is the simulated mode.
 
+### A second project: three supplier offers
+
+Beside the demo project, the install seeds **`sourcing-demo`**: a purchasing consultation with three
+supplier offers (a PDF, a Word file and a spreadsheet) handed to a work item that waits for you to start
+it. Open the project from the project list, open the work item, and start it. Without a model key, the simulated first
+step measures nothing and the first gate stops the work item at a person. With a key, the work item goes
+through reading, computing, a memo and your award. [A trade end to end](build/a-trade-end-to-end.md) walks
+each step and names the guarantee that acts there.
+
 ### What can go wrong
 
 | Symptom | What to do |

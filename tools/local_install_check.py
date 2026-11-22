@@ -14,7 +14,12 @@ What it does, against the running compose:
 3. creates a work item in the demo project and waits until the workflow has run its agent stage
    and asks a person to approve (`awaiting_approval`);
 4. approves it, and waits for the terminal state (`approved`);
-5. prints the memory of every container of the compose project.
+5. opens the procurement project (`sourcing-demo`, S85-11): its seeded work item waits in `received`
+   with three offers handed by a person; starts it (`mark_agent_ready`) and waits for it to leave
+   `received`. In fakes mode the jobs and agents are simulated, so the first gate refuses what nothing
+   measured and the item stops at `needs_human`: the check is that it started, not that it ended well.
+   With `--expect-real` (a key in `.env` and the job image) it waits for a buyer's or the committee's task;
+6. prints the memory of every container of the compose project.
 
 Standard library only: it runs on any machine with Python 3, with nothing installed. Exit code 0
 when everything held, 1 otherwise, with the step that failed.
@@ -104,6 +109,47 @@ def wait_for_state(console: Console, item_id: str, states: set[str], timeout_s: 
     return item
 
 
+PROCUREMENT_OFFERS = {"alderbrook-offer.pdf", "brightfield-offer.docx", "corvane-prices.xlsx"}
+PROCUREMENT_TASKS = {"awaiting_buyer", "awaiting_committee"}
+
+
+def check_procurement(console: Console, project: str, *, expect_real: bool, timeout_s: float) -> int:
+    """The seeded consultation: found, its three offers handed, then started. 0 when it held."""
+    step(f"the procurement project and its seeded consultation (S85-11): {project}")
+    status, page = console.get(f"/api/v1/projects/{project}/work-items")
+    items = (page or {}).get("items", []) if isinstance(page, dict) else []
+    if status != 200 or len(items) != 1:
+        return fail(f"expected one seeded work item in {project} ({status}): {page}")
+    item = items[0]
+    print(f"  {item['tracker_key']} is `{item['state']}`")
+    if item["state"] != "received":
+        return fail(f"the seeded consultation is `{item['state']}`: it must wait for a person to start it")
+    status, listed = console.get(f"/api/v1/work-items/{item['id']}/artifacts")
+    handed = {a["name"] for a in (listed or {}).get("items", []) if a.get("handed_by") == "person"}
+    if status != 200 or handed != PROCUREMENT_OFFERS:
+        return fail(f"the offers handed to {item['tracker_key']} are {sorted(handed)} ({status})")
+    print(f"  {len(handed)} offers handed by a person")
+
+    step(f"starting {item['tracker_key']}")
+    status, body = console.post(f"/api/v1/work-items/{item['id']}/actions", {"action": "mark_agent_ready"})
+    if status != 202:
+        return fail(f"starting the consultation answered {status}: {body}")
+    wanted = PROCUREMENT_TASKS if expect_real else None
+    deadline = time.monotonic() + timeout_s
+    state = "received"
+    while time.monotonic() < deadline:
+        status, current = console.get(f"/api/v1/work-items/{item['id']}")
+        if status == 200 and isinstance(current, dict):
+            state = str(current.get("state"))
+            if (state in wanted) if wanted else (state != "received"):
+                break
+        time.sleep(2)
+    if (state not in wanted) if wanted else (state == "received"):
+        return fail(f"{item['tracker_key']} is `{state}` after {timeout_s:.0f} s of waiting")
+    print(f"  `{state}`")
+    return 0
+
+
 def memory_by_container(project: str) -> list[tuple[str, float]]:
     """`docker stats` of the compose project's running containers, in MiB."""
     ids = subprocess.run(  # noqa: S603 - fixed argv, `docker` from PATH
@@ -139,6 +185,10 @@ def main() -> int:
     parser.add_argument("--url", default="http://localhost:3000", help="the console (default: %(default)s)")
     parser.add_argument("--email", default="admin@choregos.local", help="development sign-in e-mail")
     parser.add_argument("--project", default="demo:demo", help="org:project of the demo project")
+    parser.add_argument(
+        "--procurement-project", default="demo:sourcing-demo", help="org:project of the procurement demo"
+    )
+    parser.add_argument("--skip-procurement", action="store_true", help="leave the procurement demo out")
     parser.add_argument("--compose-project", default="choregos", help="compose project name, for memory")
     parser.add_argument("--console-timeout", type=float, default=300, help="seconds to wait for the console")
     parser.add_argument("--stage-timeout", type=float, default=180, help="seconds to wait for each state")
@@ -202,6 +252,13 @@ def main() -> int:
         if item.get("state") != "approved":
             return fail(f"the work item is `{item.get('state')}` after approval, expected `approved`")
         print("  `approved`: the workflow reached its terminal state")
+
+    if not args.console_only and not args.skip_procurement:
+        failed = check_procurement(
+            console, args.procurement_project, expect_real=args.expect_real, timeout_s=args.stage_timeout
+        )
+        if failed:
+            return failed
 
     rows = memory_by_container(args.compose_project)
     if rows:

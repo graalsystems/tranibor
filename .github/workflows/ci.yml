@@ -98,6 +98,10 @@ jobs:
               - 'dev/local/**'
               - 'docker/**'
               - 'tools/local_install_check.py'
+              # What the seed's procurement project is made of (S85-11): the archive it installs from
+              # the image's offline directory and the three offers it hands.
+              - 'plugins/offline/**'
+              - 'plugins/procurement/tests/fixtures/**'
               - '.github/workflows/ci.yml'
               - 'apps/api/src/tranibor_api/local_demo.py'
               - 'apps/api/src/tranibor_api/migrations/**'
@@ -591,7 +595,8 @@ jobs:
   local-install:
     # `docker compose up` on a clean runner, then one work item through it in fakes mode (S28-04):
     # console 200, development sign-in, the seeded demo work item, a new one through its agent
-    # stage, an approval, the terminal state. "It works locally" is this job, not a claim.
+    # stage, an approval, the terminal state, then the seeded procurement consultation started.
+    # "It works locally" is this job, not a claim.
     needs: changes
     if: >-
       needs.changes.outputs.local-install == 'true'
@@ -608,7 +613,9 @@ jobs:
           start=$(date +%s)
           docker compose up -d --wait --wait-timeout 600
           echo "healthy after $(( $(date +%s) - start )) s (images already built)"
-      - name: one work item through the install, in fakes mode
+      # The demo project's work item, then the procurement project's (S85-11): its seeded consultation
+      # holds three offers handed by a person and waits in `received`; the check starts it.
+      - name: one work item through the install, in fakes mode, and the seeded consultation started
         run: python3 tools/local_install_check.py --console-timeout 120 --stage-timeout 180
       - name: logs of the install
         if: failure()

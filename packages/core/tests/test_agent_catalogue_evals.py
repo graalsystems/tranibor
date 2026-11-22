@@ -20,15 +20,24 @@ INTERNAL = [e for e in entries() if e.kind == "internal"]
 CASES = {c.name: c.case for c in cases()}
 #: The specialists of S33-06: each states its output contract and the tools it needs.
 SPECIALISTS = ("secops", "compliance", "devops", "docs-writer", "ux-designer", "qa", "architect")
+#: The agents of the two procurement plugins (S85, ADR 0202).
+PROCUREMENT = (
+    "offer-reader",
+    "sourcing-analyst",
+    "purchasing-desk",
+    "renewal-analyst",
+    "request-qualifier",
+    "supplier-file-checker",
+)
 
 
 def test_the_offline_plugins_carry_every_case() -> None:
     """The 25 cases the core held moved with their agents: none was lost on the way. `requests`
-    (ADR 0110, #1091) adds its own three."""
-    requests = ("brief-writer", "assistant")
-    from_the_core = {name for name, case in CASES.items() if case["agent"] not in requests}
+    (ADR 0110, #1091) adds its own three; procurement and procurement-operations (S85, ADR 0202) theirs."""
+    born_in_a_plugin = ("brief-writer", "assistant", *PROCUREMENT)
+    from_the_core = {name for name, case in CASES.items() if case["agent"] not in born_in_a_plugin}
     assert len(from_the_core) == 25
-    assert len(CASES) == 28
+    assert len(CASES) == 28 + len([c for c in CASES.values() if c["agent"] in PROCUREMENT])
 
 
 def test_every_internal_agent_has_an_eval() -> None:

@@ -31,6 +31,8 @@ def test_the_archives_are_what_the_lock_says() -> None:
         "mcp-clients",
         "requests",
         "investment-research",
+        "procurement",
+        "procurement-operations",
     }
     # The lock records the index a refresh reads: the publishing identity's (ADR 0156), never the frozen
     # source's, whose registry refuses it (#2140).

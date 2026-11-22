@@ -32,6 +32,8 @@ PLUGINS = {
     "authoring": 2,
     "mcp-clients": 6,
     "requests": 2,
+    "procurement": 2,
+    "procurement-operations": 4,
 }
 #: The plugin version the offline directory holds, when it is not 1.0.0.
 #: authoring 1.1.2, netops 1.2.2, requests 1.1.2 and mcp-clients 1.0.1 are their 1.1.0, 1.2.0, 1.1.0 and
@@ -43,7 +45,11 @@ PLUGIN_VERSIONS = {
     "authoring": "1.1.2",
     "requests": "1.1.2",
     "mcp-clients": "1.0.1",
+    "procurement": "0.3.0",
+    "procurement-operations": "0.3.0",
 }
+#: Plugins whose agents were born in a plugin, never in the core: each is at its first version (S85).
+BORN_IN_A_PLUGIN = {"procurement", "procurement-operations"}
 
 #: The fingerprints the core's own YAML had at 3156d12e (choregos-agents' MIGRATION-FROM-CORE.md): the
 #: plugins carry the same documents, so an installed agent's checksum does not move. They include the
@@ -77,7 +83,7 @@ def test_every_agent_comes_from_its_plugin() -> None:
         expected = 4 if found.slug in VERSION_FOUR else 3 if found.slug in VERSION_THREE else 2
         if found.plugin == "software-delivery" and found.slug not in UNMOVED_IN_1_2_0:
             expected += 1
-        if found.kind != "internal":
+        if found.kind != "internal" or found.plugin in BORN_IN_A_PLUGIN:
             expected = 1
         assert found.provenance == f"plugin:{found.plugin}/{found.slug}@{expected}"
     assert counted == PLUGINS

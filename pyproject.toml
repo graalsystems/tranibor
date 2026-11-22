@@ -198,6 +198,7 @@ markers = [
   "conformance: backends/templates conformance suite",
   "slow: long test",
   "live: needs real credentials (Jira, GitLab, Azure) — skipped without them",
+  "purchasing_live: the purchasing server against a real Odoo the nightly job starts (S85-14); never skipped, so never `live`",
   "cluster: needs a real Kubernetes cluster (a CNI that enforces NetworkPolicies)",
   "capability(executor, name): this cluster test proves that capability of that executor (S35-04)",
   "buildkit: needs a real buildkitd and a registry (S41-13, the `hosted-build` CI job)",
