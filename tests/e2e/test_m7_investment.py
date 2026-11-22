@@ -308,7 +308,7 @@ async def _organisation(client: AsyncClient) -> dict[str, Any]:
               "secret_refs": {"api_key": "env:CONNECTOR_E2E_MARKETDATA_KEY"}},
     )  # fmt: skip
     assert connector.status_code == 201, connector.text
-    plugin = {"source": "offline", "name": "investment-research", "version": "0.1.0"}
+    plugin = {"source": "offline", "name": "investment-research", "version": "0.1.2"}
     installed = await client.post(f"{ORG}/plugins/install", json=plugin)
     assert installed.status_code == 201, installed.text
     created = await client.post(
