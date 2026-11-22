@@ -33,6 +33,7 @@ members = [
     "tranibor-procurement",
     "tranibor-runner",
     "tranibor-software-delivery",
+    "tranibor-testkit",
     "tranibor-tools-mcp",
     "tranibor-vault-transit",
 ]
@@ -513,6 +514,7 @@ dev = [
     { name = "python-docx" },
     { name = "respx" },
     { name = "ruff" },
+    { name = "tranibor-testkit" },
     { name = "types-jsonschema" },
     { name = "types-pyyaml" },
 ]
@@ -563,6 +565,7 @@ dev = [
     { name = "python-docx", specifier = ">=1.1" },
     { name = "respx", specifier = ">=0.21" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "tranibor-testkit", editable = "tests/testkit" },
     { name = "types-jsonschema", specifier = ">=4.26.0.20260518" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
@@ -2547,6 +2550,7 @@ version = "0.28.1"
 source = { editable = "plugins/software-delivery" }
 dependencies = [
     { name = "temporalio" },
+    { name = "tranibor-adapters" },
     { name = "tranibor-api" },
     { name = "tranibor-contracts" },
     { name = "tranibor-core" },
@@ -2556,9 +2560,33 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "temporalio", specifier = ">=1.8" },
+    { name = "tranibor-adapters", editable = "packages/adapters" },
     { name = "tranibor-api", editable = "apps/api" },
     { name = "tranibor-contracts", editable = "packages/contracts" },
     { name = "tranibor-core", editable = "packages/core" },
+    { name = "tranibor-orchestrator", editable = "apps/orchestrator" },
+]
+
+[[package]]
+name = "tranibor-testkit"
+version = "0.28.1"
+source = { editable = "tests/testkit" }
+dependencies = [
+    { name = "alembic" },
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "temporalio" },
+    { name = "tranibor-api" },
+    { name = "tranibor-orchestrator" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.20.0" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "temporalio", specifier = ">=1.8" },
+    { name = "tranibor-api", editable = "apps/api" },
     { name = "tranibor-orchestrator", editable = "apps/orchestrator" },
 ]
 

@@ -20,11 +20,10 @@ with workflow.unsafe.imports_passed_through():
     from tranibor_core import WorkflowEngine
     from tranibor_core.dsl.dates import UnreadableDate, due_date
     from tranibor_core.gates import ACTION_SETTLED, GateOutcome
-    from tranibor_core.step_effects import CORE_EFFECTS, ENTERED, PASSED
+    from tranibor_core.step_effects import CORE_EFFECTS, EFFECT_ACTIVITY, ENTERED, PASSED
 
     from ...activities import actions as action_activities
     from ...activities import children as children_activities
-    from ...activities import scm as scm_activities
     from ...activities import step_effects as step_effect_activities
 
 from ..interpreter import FAN_OUT, TRANSITION_ACTIONS
@@ -49,8 +48,9 @@ class SystemMixin(InterpreterBase):
         # the target state's name, and is still read that way: a recorded history replays identically.
         effect = transition_effect(transition)
         # An extension's effect (ADR 0181): one activity decides, in the worker, whether it runs now or
-        # once the gates have passed. The core's two keep their own activities below, so a recorded
-        # history (none names another effect) replays unchanged.
+        # once the gates have passed. The core's two keep their own activities below, called by the names
+        # recorded histories carry (`EFFECT_ACTIVITY`, registered by the `software-delivery` plugin's
+        # extension), so a recorded history (none names another effect) replays unchanged.
         later = False
         if effect is not None and effect not in CORE_EFFECTS:
             entered = await self._step_effect(params, transition, effect, ENTERED, attempt + 1)
@@ -64,7 +64,7 @@ class SystemMixin(InterpreterBase):
                 # schedules the same input as before, so a recorded history replays unchanged.
                 draft = transition.pull_request is not None and transition.pull_request.draft
                 await execute_on_its_queue(
-                    scm_activities.open_pull_request,
+                    EFFECT_ACTIVITY["open_pr"],
                     {
                         "project_id": params.project_id,
                         "work_item_id": params.work_item_id,
@@ -81,7 +81,7 @@ class SystemMixin(InterpreterBase):
         outcomes = await self._gates(params, transition, self.current_run or self.last_run or "")
         if effect == "merge_pr" and all(not o.blocking and not o.pending for o in outcomes):
             await execute_on_its_queue(
-                scm_activities.enqueue_merge,
+                EFFECT_ACTIVITY["merge_pr"],
                 {"project_id": params.project_id, "work_item_id": params.work_item_id},
                 start_to_close_timeout=timedelta(minutes=3),
                 retry_policy=DEFAULT_RETRY,

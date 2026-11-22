@@ -17,7 +17,6 @@ from temporalio import activity
 from tranibor_api.db.models import Deployment, Finding, Project, Release, WorkItem
 from tranibor_api.logging import get_logger
 from tranibor_api.services import persist_event
-from tranibor_contracts import EventType
 from tranibor_core import Change, Message, PrRef, utcnow
 from tranibor_orchestrator.activities.base import (
     console_base,
@@ -29,6 +28,9 @@ from tranibor_orchestrator.activities.base import (
 from tranibor_orchestrator.activities.schedules import cron_due
 from tranibor_orchestrator.config import get_settings
 from tranibor_orchestrator.wire_names import read_key
+
+from ..connectors import cd_of, scm_of
+from ..names import ReleaseEvent
 
 logger = get_logger("choregos.train")
 
@@ -150,7 +152,7 @@ async def create_release(payload: dict[str, Any]) -> dict[str, Any]:
         await session.flush()
         await persist_event(
             session,
-            EventType.RELEASE_DEPARTED,
+            ReleaseEvent.DEPARTED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=row.id,
@@ -172,7 +174,7 @@ async def promote(payload: dict[str, Any]) -> dict[str, Any]:
         apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
         tag = f"R-{utcnow():%Y.%m.%d}-{release.batch_no}"
         changes = [Change(app=app, tag=tag) for app in apps]
-        ref = await bundle.adapters.cd.promote(payload["env"], changes, tag)
+        ref = await cd_of(bundle.adapters).promote(payload["env"], changes, tag)
         release.status = "staging"
         release.promotion_url = ref.url
         session.add(
@@ -187,7 +189,7 @@ async def promote(payload: dict[str, Any]) -> dict[str, Any]:
         )
         await persist_event(
             session,
-            EventType.RELEASE_STAGED,
+            ReleaseEvent.STAGED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -226,7 +228,7 @@ async def run_smoke(payload: dict[str, Any]) -> dict[str, Any]:
         bundle = await project_bundle(session, payload["project_slug"])
         apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
         for app in apps:
-            health = await bundle.adapters.cd.health(app)
+            health = await cd_of(bundle.adapters).health(app)
             if health.status in {"Degraded", "Missing"}:
                 return {"ok": False, "reason": f"{app}: {health.status} {health.message}"}
         return {"ok": True}
@@ -248,7 +250,7 @@ async def soak(payload: dict[str, Any]) -> dict[str, Any]:
         async with db() as session:
             bundle = await project_bundle(session, payload["project_slug"])
             for app in apps:
-                health = await bundle.adapters.cd.health(app)
+                health = await cd_of(bundle.adapters).health(app)
                 if health.status == "Degraded":
                     return {"ok": False, "reason": f"{app} degraded during the soak"}
     return {"ok": True}
@@ -273,7 +275,7 @@ async def request_approval(payload: dict[str, Any]) -> dict[str, Any]:
         )
         await persist_event(
             session,
-            EventType.RELEASE_APPROVAL_REQUESTED,
+            ReleaseEvent.APPROVAL_REQUESTED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -296,9 +298,9 @@ async def promote_canary_step(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
         for app in apps:
-            state = await bundle.adapters.cd.rollout_status(app)
+            state = await cd_of(bundle.adapters).rollout_status(app)
             if state.phase in {"Degraded", "Aborted"}:
-                await bundle.adapters.cd.abort_rollout(app)
+                await cd_of(bundle.adapters).abort_rollout(app)
                 return {"ok": False, "reason": f"analysis failed on {app}: {state.message}"}
     return {"ok": True, "weight": payload.get("weight")}
 
@@ -309,7 +311,7 @@ async def verify_prod(payload: dict[str, Any]) -> dict[str, Any]:
         bundle = await project_bundle(session, payload["project_slug"])
         apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
         for app in apps:
-            health = await bundle.adapters.cd.health(app)
+            health = await cd_of(bundle.adapters).health(app)
             if health.status not in {"Healthy", "Progressing"}:
                 return {"ok": False, "reason": f"{app}: {health.status}"}
         release = await session.get(Release, payload["release_id"])
@@ -341,7 +343,7 @@ async def finish_release(payload: dict[str, Any]) -> dict[str, Any]:
                 row.documents = documents
         await persist_event(
             session,
-            EventType.RELEASE_VERIFIED,
+            ReleaseEvent.VERIFIED,
             project_id=bundle.project.id,
             project_slug=bundle.slug,
             subject=release.id,
@@ -390,7 +392,7 @@ async def confirm_auto_sync(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
         apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
-        states = {app: (await bundle.adapters.cd.health(app)).status for app in apps}
+        states = {app: (await cd_of(bundle.adapters).health(app)).status for app in apps}
         to_notify = _recipients(
             bundle.slug, await _work_items_by_key(session, bundle, list(payload["items"]))
         )
@@ -460,7 +462,7 @@ async def rollback(payload: dict[str, Any]) -> dict[str, Any]:
         release = await session.get(Release, payload["release_id"])
         apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
         for app in apps:
-            await bundle.adapters.cd.abort_rollout(app)
+            await cd_of(bundle.adapters).abort_rollout(app)
         if release is not None:
             to_notify = _recipients(bundle.slug, await _release_work_items(session, bundle, release))
             release.status = "rolled_back"
@@ -479,7 +481,7 @@ async def rollback(payload: dict[str, Any]) -> dict[str, Any]:
             )
             await persist_event(
                 session,
-                EventType.RELEASE_ROLLED_BACK,
+                ReleaseEvent.ROLLED_BACK,
                 project_id=bundle.project.id,
                 project_slug=bundle.slug,
                 subject=release.id,
@@ -566,7 +568,7 @@ async def apply_terraform(payload: dict[str, Any]) -> dict[str, Any]:
             for item in release.items
             if item.get("infra_pr_url")
         ]
-        scm = bundle.adapters.scm
+        scm = scm_of(bundle.adapters)
         slug = bundle.slug
         channel = notification_target(bundle)
         notify = bundle.adapters.notify

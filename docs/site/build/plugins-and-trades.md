@@ -43,13 +43,14 @@ the platform's own processes.
 | Templates, with their workflows and knowledge bases | yes | |
 | Setup procedures for its connectors | yes | |
 | Tools of an outside system | an MCP server (an image pinned by digest), governed tool by tool | |
-| A connector type (a tracker, a directory, a market data feed) | an MCP server that implements the tracker profile | a connector type, through `tranibor_adapters.register` |
+| A connector type (a tracker, a directory, a market data feed) | an MCP server that implements the tracker profile | a connector type, through `tranibor_adapters.register`; a kind every project's adapters hold (a source control, a CI), through `declare_adapter_slot` (ADR 0181, round D) |
 | Effects of a governed action | | `effects.declare_effect` |
 | Its own tables, its own routes | | the `choregos.migrations` entry point, `extensions.declare_router` |
 | Gates and the facts they read | | `gates.gate` and `gates.context_provider`, with its `judged` hook ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md), rounds C0 and C2) |
 | Step effects for `does:` | | `step_effects.step_effect` (ADR 0181, round C0) |
 | Inbound event types, finding types, memory kinds, stage roles | | `INBOUND_EVENT_TYPES`, `FINDING_TYPES`, `MEMORY_KINDS` of `tranibor_contracts`, `stage_roles.declare_stage_roles` (ADR 0181, round C0) |
-| Durable code of its own (a release train) | | Temporal workflows and activities, through `worker_parts.declare_worker_parts` (ADR 0181, round D) |
+| Durable code of its own (a release train) | | Temporal workflows, activities and provisioning steps, through `worker_parts.declare_worker_parts`, and the transitions it carries (`via:`), through `carriers.declare_carrier` (ADR 0181, round D) |
+| Readiness items, and what follows an inbound event | | `extensions.declare_readiness_item`, `extensions.declare_inbound_hook` (ADR 0181, round D) |
 
 A deterministic job step runs an image the operator allows (`TRANIBOR_JOB_IMAGES`); a plugin's template
 names it.
@@ -62,10 +63,11 @@ names it.
   core's repository, which the published images install, holds the twelve gates that read a diff or a
   CI (`ci_green`, `diff_size_max`, `scope_respected` …) and the context provider that reads the diff and
   the checks for them, the step effects `open_pr` and `merge_pr`, the `scm.*`, `ci.*` and `cd.*` event
-  types, the finding types `bug`, `perf`, `tech-debt` and `flaky-test`, and the release train's
-  workflow and activities, which the workers carry through the worker seam, and its routes. By 1.0 it also holds the
-  repository templates, the roles `fix_ci`, `address_review`, `release_notes` and
-  `verify_prod`, and the rest of the release train.
+  types, the finding types `bug`, `perf`, `tech-debt` and `flaky-test`, the source control, CI and CD
+  connector types (GitHub, GitLab, Azure Repos; Tekton, GitLab CI, GitHub Actions, Jenkins, Azure
+  Pipelines; Argo CD) and the activities that open and merge a pull request, the release train (its
+  workflow, activities, routes, series and the DORA figures), and `make demo`. By 1.0 it also holds the
+  repository templates and the roles `fix_ci`, `address_review`, `release_notes` and `verify_prod`.
 - **IT service management**: `servicenow`. Content only: an ITSM triage agent, its skill, and an MCP
   server that implements the tracker profile, so a project's tickets live in ServiceNow and every write
   the agent makes is a governed operation of that server.
@@ -104,7 +106,9 @@ first-party plugin like any other, in its own distribution, before 1.0.
 | The twelve gates that read a diff or a CI | `software-delivery`'s extension, under the same names: done (S83-04a, `plugins/software-delivery/`) |
 | `does: open_pr` and `merge_pr` | `software-delivery`, under the same names: done (S83-04b) |
 | The `scm.*`, `ci.*`, `cd.*` events, the finding types `bug`, `perf`, `tech-debt`, `flaky-test` | `software-delivery`, under the same names: declared by it (S83-04c), kept in the core's lists until the first release cut on or after 2026-12-14 |
-| The release train, its routes and the DORA figures | `software-delivery`: its routes are outside the frozen REST set (S83-04d); its code moves in round D |
+| The release train, its routes and the DORA figures | `software-delivery`: its routes are outside the frozen REST set (S83-04d), its code is the extension's: done (S83-05) |
+| The source control, CI and CD connectors, their fakes and webhooks, the pull request's activities | `software-delivery`'s extension, under the same kinds, types, paths and activity names: done (S83-05i, S83-05j). The GitHub App and the GitHub and GitLab webhooks stay the core's: they serve its trackers too |
+| The core's suite needs the plugin | the core runs without it (the `core-without-plugins` jobs); the software delivery tests are the plugin's, on a shared test kit: 91 core test files still drive a delivery workflow (S83-05l) |
 | The repository templates | `software-delivery`'s content |
 | `packages/ontology` | removed |
 | The `quant` command and the investment template | `investment-research`: done (S83-07) |

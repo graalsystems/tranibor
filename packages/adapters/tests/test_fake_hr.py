@@ -111,9 +111,9 @@ def test_the_families_are_connector_types_and_demo_is_refused_in_production(
     demos = {
         k: {o.name: o.default_policy for o in s.operations} for k, t, s in connector_types() if t == "demo"
     }
-    # The demo `cd` (S21-24) exposes nothing: the train calls it, never an agent.
-    assert demos.pop("cd") == {}
-    families = demos
+    # The `software-delivery` plugin's demo `cd` (S21-24) exposes nothing: the train calls it, never an
+    # agent (`plugins/software-delivery/tests/test_connectors.py`).
+    families = {kind: operations for kind, operations in demos.items() if kind != "cd"}
     assert families == {
         "mdm": {"enroll_device": "approval", "wipe_device": "approval", "device_status": "allowed"},
         "shipping": {

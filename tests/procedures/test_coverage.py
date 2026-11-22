@@ -17,6 +17,7 @@ import pytest
 import tranibor_adapters
 from tranibor_adapters import registry
 from tranibor_api.knowledge.sync import KINDS as SOURCE_KINDS
+from tranibor_contracts import CONNECTOR_KINDS
 from tranibor_core import procedures as core
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -145,6 +146,10 @@ def _connector_procedures() -> Iterator[core.Procedure]:
 def test_a_connector_procedure_talks_only_about_fields_its_type_has(proc: core.Procedure) -> None:
     kind, _, name = proc.target[1].partition("/")
     spec = registry.spec_of(kind, name)
+    if spec is None and CONNECTOR_KINDS.plugin_of(kind) is not None:
+        # A plugin's type (the `software-delivery` plugin's `scm`, `ci`, `cd`, ADR 0181 round D), its
+        # extension not installed here: its own tests hold its procedures to its fields.
+        pytest.skip(f"{proc.target[1]} is the plugin `{CONNECTOR_KINDS.plugin_of(kind)}`'s")
     assert spec is not None, f"{proc.id} applies to a type that is not registered"
     known = set(spec.config_schema.get("properties", {})) | set(spec.secret_fields)
     assert set(proc.front.fields) <= known, sorted(set(proc.front.fields) - known)

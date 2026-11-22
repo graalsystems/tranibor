@@ -19,7 +19,7 @@ from ..events import broadcast
 
 async def persist_event(
     session: AsyncSession,
-    type_: EventType,
+    type_: EventType | str,
     *,
     project_id: str | None = None,
     work_item_id: str | None = None,

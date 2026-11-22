@@ -13,6 +13,16 @@ from types import ModuleType
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 TESTS = ROOT / "apps" / "orchestrator" / "tests"
+#: Where the software delivery tests went (ADR 0181, round D, S83-05l): a renamed module may live there now.
+PLUGIN_TESTS = ROOT / "plugins" / "software-delivery" / "tests" / "orchestrator"
+
+
+def _module(name: str) -> pathlib.Path:
+    """A test module of the suite, or of the plugin's suite once it moved there."""
+    here = TESTS / f"{name}.py"
+    return here if here.is_file() else PLUGIN_TESTS / f"{name}.py"
+
+
 FIXTURES = ROOT / "tests" / "fixtures"
 HISTORIES = ROOT / "tests" / "replay" / "histories"
 
@@ -75,8 +85,8 @@ def test_owned_tests_and_fixtures_have_no_french() -> None:
 
 def test_the_french_modules_and_tickets_are_gone_and_their_english_names_exist() -> None:
     for former, current in RENAMED_MODULES.items():
-        assert not (TESTS / f"{former}.py").exists(), former
-        assert (TESTS / f"{current}.py").is_file(), current
+        assert not (TESTS / f"{former}.py").exists() and not (PLUGIN_TESTS / f"{former}.py").exists(), former
+        assert _module(current).is_file(), current
     for former in FORMER_TICKETS:
         assert not (FIXTURES / "tickets" / f"{former}.yaml").exists(), former
     assert not (FIXTURES / "repos" / "python-toy" / "src" / "panier").exists()

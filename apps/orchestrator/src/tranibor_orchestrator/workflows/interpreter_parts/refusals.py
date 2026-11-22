@@ -12,8 +12,8 @@ from temporalio.exceptions import ActivityError, ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from tranibor_core import WorkflowEngine
+    from tranibor_core.step_effects import NO_BRANCH
 
-    from ...activities import scm as scm_activities
     from ...activities.execution import START_REFUSED
     from ...activities.interpretation import (
         message_of,
@@ -110,7 +110,7 @@ class RefusalsMixin(InterpreterBase):
             transition,
             error,
             Refusal(
-                types=frozenset({scm_activities.NO_BRANCH}),
+                types=frozenset({NO_BRANCH}),
                 marker=OPEN_PR_WITHOUT_BRANCH_ESCALATES,
                 reason=detail,
                 question=f"`{transition.key}` cannot open a pull request: {detail}. "

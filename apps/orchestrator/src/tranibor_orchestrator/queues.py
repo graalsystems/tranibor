@@ -53,13 +53,12 @@ ACTIVITIES_BY_QUEUE: dict[str, tuple[str, ...]] = {
         "create_human_request",
         "close_human_request",
         "notify",
-        "open_pull_request",
-        "enqueue_merge",
-        "ensure_branch",
+        # `collect_run_artifacts` runs here: the core's stand-in, or the `software-delivery` plugin's
+        # activity of the same name, which its extension places here with the source control's other
+        # activities (`open_pull_request`, `enqueue_merge`, `ensure_branch`, `check_scope_violations`).
         "collect_run_artifacts",
         "run_step_effect",
         "evaluate_gates",
-        "check_scope_violations",
         "triage_finding",
         "reconcile_tracker",
         "fire_schedules",

@@ -26,7 +26,6 @@ OWNED_ROOT = (
     "__init__",
     "config",
     "context_reduction",
-    "demo",
     "gitops",
     "local",
     "markdown",
@@ -188,7 +187,7 @@ def test_the_queue_table_routes_by_activity_name() -> None:
 
     assert set(ACTIVITIES_BY_QUEUE) == {"executor", "tracker", "memory"}
     assert QUEUE_BY_ACTIVITY["start_run"] == "executor"
-    assert queue_of("open_pull_request") == "tracker"
+    assert queue_of("notify") == "tracker"
     assert queue_of("load_context") is None, "an activity with no declared queue stays on the workflow's"
     assert activity_name("anything") == "anything"
     assert activity_name(object()) is None

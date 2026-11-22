@@ -6,30 +6,17 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
+from tranibor_testkit.interpreter import pr_ref as _pr_ref
+from tranibor_testkit.interpreter import runs as _runs
+from tranibor_testkit.interpreter import scripted, start
+from tranibor_testkit.interpreter import ticket as _ticket
+from tranibor_testkit.interpreter import wait_state as _wait_state
+from tranibor_testkit.interpreter import wait_until as _wait_until
 
 from .conftest import Fixture, refine_result, stage_result
 from .kits.workers import worker_with
 
 pytestmark = pytest.mark.asyncio
-
-
-def scripted(adapters: Any, *results: StageResult) -> None:
-    for result in results:
-        adapters.executor.queue_result(result)
-
-
-async def start(env: Any, setup: Fixture, task_queue: str = "test") -> Any:
-    return await env.client.start_workflow(
-        "WorkflowInterpreter",
-        {
-            "project_id": setup.project_id,
-            "project_slug": setup.project_slug,
-            "work_item_id": setup.work_item_id,
-            "tracker_key": setup.tracker_key,
-        },
-        id=f"wi-{setup.project_slug}-123",
-        task_queue=task_queue,
-    )
 
 
 async def test_default_simple_full_traversal(setup: Fixture, temporal_env: Any, worker_factory: Any) -> None:
@@ -94,22 +81,6 @@ async def test_default_simple_full_traversal(setup: Fixture, temporal_env: Any, 
     comment = setup.adapters.tracker.status_comment(setup.tracker_key)
     assert comment is not None and "Tranibor — progress" in comment
     assert "agent refine" in comment and "agent implement" in comment
-
-
-async def _runs(setup: Fixture) -> int:
-    """How many agent steps ran for this ticket."""
-    from sqlalchemy import func, select
-    from tranibor_api.db.models import Run
-    from tranibor_api.db.session import session_scope
-
-    async with session_scope() as session:
-        return int(
-            (
-                await session.execute(
-                    select(func.count()).select_from(Run).where(Run.work_item_id == setup.work_item_id)
-                )
-            ).scalar_one()
-        )
 
 
 async def test_human_rejection_returns_to_refining(
@@ -254,68 +225,6 @@ def _spend() -> Any:
     return Spend(tokens_in=41000, tokens_out=3000, tokens_cached=28000, cost_usd=0.34, requests=12)
 
 
-def _pr_ref(setup: Fixture) -> Any:
-    from tranibor_core.domain import PrRef
-
-    prs = list(setup.adapters.scm.prs.values())
-    if prs:
-        return prs[0].ref
-    return PrRef(repo="northwind/billing-api", number=1)
-
-
-async def _wait_until(handle: Any, description: str, predicate: Any, *, timeout: int = 60) -> None:
-    """Waits for a CONDITION to be true on the workflow `status`.
-
-    Waiting for a state by equality only works for a **stable** state: one where the workflow
-    stops (a human wait, an end). For a passing state, 100 ms polling misses it
-    one time in two: `test_pause_and_resume` waited for `in_progress` after a resume and went
-    red in CI on `pr_open`, because the following steps had already passed. A test that
-    fails depending on the machine load says nothing about the code.
-    """
-    import asyncio
-    import time
-
-    deadline = time.monotonic() + timeout
-    status: Any = None
-    while time.monotonic() < deadline:
-        status = await _query_status(handle)
-        if status is not None and predicate(status):
-            return
-        await asyncio.sleep(0.1)
-    raise AssertionError(f"{description}: never true (last status: {status})")
-
-
-async def _query_status(handle: Any) -> Any:
-    """One `status` query, or None when it outlasted its deadline (#492, #496).
-
-    On a loaded machine the time-skipping test server can reject a workflow-task completion
-    ("invalid history builder state for action"); until the task is retried, a query hangs. The
-    server then answers DEADLINE_EXCEEDED, and our own `rpc_timeout` ends it as CANCELLED
-    ("Timeout expired"). That says nothing about the workflow, so the query gets a short deadline
-    and the caller asks again until its own timeout.
-    """
-    from datetime import timedelta
-
-    from temporalio.service import RPCError, RPCStatusCode
-
-    try:
-        return await handle.query("status", rpc_timeout=timedelta(seconds=10))
-    except RPCError as error:
-        if error.status not in (RPCStatusCode.DEADLINE_EXCEEDED, RPCStatusCode.CANCELLED):
-            raise
-        return None
-
-
-async def _wait_state(handle: Any, state: str, *, timeout: int = 60) -> None:
-    """Waits for a **stable** state, via the `status` query.
-
-    The `after=` parameter used to exist here and was **never read**: `test_spec_refusal` believed
-    it checked a pass through `refining` and checked nothing. It is not replaced: rebuilding
-    a history by polling would be precisely the same illusion.
-    """
-    await _wait_until(handle, f"state `{state}`", lambda s: s["state"] == state, timeout=timeout)
-
-
 async def test_a_query_past_its_deadline_is_asked_again() -> None:
     """A `status` query that outlasts its deadline is retried, not raised (#492, #496)."""
     from temporalio.service import RPCError, RPCStatusCode
@@ -350,17 +259,6 @@ async def test_any_other_query_error_still_fails() -> None:
 
 
 # ──────────────────────────────── a dead ticket shows (2026-09-24) ────────────────────────────────
-
-
-async def _ticket(setup: Fixture) -> Any:
-    from tranibor_api.db.models import WorkItem
-    from tranibor_api.db.session import session_scope
-
-    async with session_scope() as session:
-        item = await session.get(WorkItem, setup.work_item_id)
-        assert item is not None
-        session.expunge(item)
-        return item
 
 
 async def test_an_interpreter_that_dies_says_so(setup: Fixture, temporal_env: Any) -> None:
