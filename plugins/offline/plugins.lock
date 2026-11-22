@@ -32,6 +32,20 @@ plugins:
     artifact: sha256:01a6a778cc1358cd30eef775f0f2cebdf0b65d2a86d97986e6542c57fd7753d9
     file: netops-1.2.2.tar.gz
     signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
+  procurement:
+    version: 0.3.0
+    digest: sha256:dd7988ac09d4307fcd65db4dfc8c93eed166c1e7a98181795c4cdec1e3fa3bf0
+    source: ghcr.io/graalsystems/tranibor-agents/procurement:0.3.0
+    artifact: sha256:5bff1e252e3f38b2ed6b8649e49a15639cd2d6e95ee6cc2f81fc2c57954af9f5
+    file: procurement-0.3.0.tar.gz
+    signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
+  procurement-operations:
+    version: 0.3.0
+    digest: sha256:1db218214dfa7d78092515b80956f8bec248955acad11f39c30874d30aa45c5e
+    source: ghcr.io/graalsystems/tranibor-agents/procurement-operations:0.3.0
+    artifact: sha256:6cf991db4d227043b667ee3c925b2aecf280c3cbc97caf39c1959425d5dcc1e6
+    file: procurement-operations-0.3.0.tar.gz
+    signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
   requests:
     version: 1.1.2
     digest: sha256:59beefcc51dc010f71967bfa36f3079e1bb552198d610c60420262cd90914ed6

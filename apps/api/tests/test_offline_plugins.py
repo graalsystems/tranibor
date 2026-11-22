@@ -50,6 +50,9 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
         "investment-research": ["0.1.2"],
         "mcp-clients": ["1.0.1"],
         "netops": ["1.2.2"],
+        "procurement": ["0.3.0"],
+        # The operations half of the split (plugin repository pull request 27, #2134): the server.
+        "procurement-operations": ["0.3.0"],
         "requests": ["1.1.2"],
         "software-delivery": ["1.3.0"],
     }

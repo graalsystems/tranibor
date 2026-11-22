@@ -19,6 +19,7 @@ RECORDED_DIGESTS = {
     # (S60-04, ADR 0127) — software-delivery 1.1.1, netops 1.2.0, authoring 1.1.0, requests 1.1.0. Sixteen
     # delivery agents moved once more in software-delivery 1.2.0 (the skills and knowledge their
     # instructions use, offline from 1.3.0, S83-04o): an installed one is offered the update.
+    # The agents of procurement 0.3.0 and procurement-operations 0.3.0 (S85, ADR 0202) were born there.
     "agent-drafter": "sha256:28d4c5df5d91ed095358fe7990760eaa4b30f47ca3ed04c0d384ef39ed129734",
     "architect": "sha256:88ecc0245b687fa1eeb2da7c39dd6e9d6818ada400a1370f275e6eb9030865dc",
     "assistant": "sha256:e99375ec41aa60fd5202bdace406ee249c24627295f73db81f194e4f696e4e16",
@@ -36,16 +37,22 @@ RECORDED_DIGESTS = {
     "docs-writer": "sha256:ba8d70145092a4b6a0a109311033c67e166488402f579e0e7c2cfe3ace9bfccf",
     "knowledge-distiller": "sha256:01059be74d34854fc824794dea067b72716c8af4c0aa67477ec956a2a7ce538d",
     "netops": "sha256:7f6a8262fee61e909fc5cbeb78d2aa90eff5441868db3a2c150902c846af8718",
+    "offer-reader": "sha256:c84057009db0984cbc593ab375f6da586501745c0b67ca9e96b2157578723579",
     "planner": "sha256:5178fd0e2273c5539d86f40394ee6ba6c0edeed2b9cdfd85ddb129e3dfddfb1b",
     "prod-verifier": "sha256:5bcd2c16c62f251fe4159e0d7738f861e53f1477acf9d6ce8fadf680b4d05b65",
+    "purchasing-desk": "sha256:3a28d8b76718967c17a6483461c050771fde4d5e1c8b08c010c35313537f7d19",
     "qa": "sha256:52a584fb1d04f938696194887f4e9424b103471303b595497432a77c7bed5b98",
     "release-notes-writer": "sha256:4bd0fafa0ac5ce85df8dc9143a4fbc6b08a0378052b35bc20a2a73df4f340fce",
+    "renewal-analyst": "sha256:59c5d32fec49f9baa1e795dd485d0394b063139f411cb8c732246595baff81d5",
+    "request-qualifier": "sha256:cdd88241d9a376e89cb1d00e3e2f4edae922bb601006d4c9f50ec2a621585cbd",
     "researcher": "sha256:1821c99802c97dd6ca6ae1c01aed8ff07bbea402fdd2dc16ecf18794fd87db76",
     "review-responder": "sha256:16676d671c8d7c5549d0e8100866e5d0a6f9ba8b97acca3317b2f7ec623e2a6e",
     "reviewer": "sha256:7d75c7b36b847f4d8d072073cb60a21d171aa7ffaa22aaf393042d08d91c4655",
     "secops": "sha256:3fddcf91e661b32595719bbc20a67141de31bf6ca291388bc0fd89f1bdc6446b",
     "security-reviewer": "sha256:4475c3e6e275efe340102e3f815b368e41cbe02e31e0e3f7c31b9f7823bcb929",
+    "sourcing-analyst": "sha256:0be9ab3733366e174bef753c197e951118c746cd09966d1a48e2de5bbfe66d8f",
     "spec-writer": "sha256:d5216835100324d818e5f43f4d72dd134199c7a47359eac54b7b6e621e1aba94",
+    "supplier-file-checker": "sha256:98c6ed547624bbf6e257e0d8de5012eacbd37f8293bce98a44622bc281edfd67",
     "tester": "sha256:9b81d8a155878bd795835c2f54bcb311609f29cf71ef4a8710f49f404afae15d",
     "triager": "sha256:21b84b4838e89c322a618baff828434f5fb62f57b379fadcf394e4d76da99572",
     "ux-designer": "sha256:ed90d08347d27b93a76bb3e48598638b8854b5b9aa68cc5e7ebef7a150aa32c3",
@@ -94,7 +101,10 @@ def test_no_catalogue_agent_fixes_a_runtime() -> None:
     (a tier or a model; `tests/conformance/test_shipped_agents_are_complete.py` says which agents do)."""
     for agent in entries():
         spec = agent.document["spec"]
-        assert "backend" not in spec and "runtime" not in spec, agent.slug
+        assert "backend" not in spec, agent.slug
+        # A prompt agent (ADR 0080) names the platform's own loop, which every deployment serves: it
+        # fixes no sandbox. Any other runtime is the deployment's to choose.
+        assert "runtime" not in spec or spec["runtime"] == {"kind": "prompt"}, agent.slug
 
 
 def test_every_role_of_the_package_has_its_agent_in_the_catalogue() -> None:

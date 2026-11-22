@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The demo organisation of the local install (`compose.yaml`, S28): one project, ready to run.
+"""The demo organisation of the local install (`compose.yaml`, S28): two projects, ready to run.
 
     python -m tranibor_api.local_demo                          # seed (the `seed` service)
     python -m tranibor_api.local_demo litellm-config /litellm  # config.yaml + provider
@@ -8,6 +8,12 @@ The one-shot `seed` service of the compose file runs it after the API is healthy
 API's own bootstrap (`TRANIBOR_BOOTSTRAP_ORG`, `amorcage.py`) has already created the organisation
 and its admin. It writes to the database like `demo/seed.py` does: provisioning a project means
 Kubernetes namespaces and GitOps, which a laptop install does not have.
+
+A second project, `sourcing-demo` (S85-11), is born of the template `procurement-sourcing` of the
+`procurement` plugin, installed from the image's offline directory: the groups `buyers` and
+`purchasing-committee`, the install's administrators in both, and one consultation created with
+`start: false` and three sample offers handed, for the person to start from the console. A plugin the
+image does not carry stops the seed (`ProcurementDemoError`), loudly.
 
 Re-running it changes nothing that exists, except what follows the install's MODE: the demo
 project's runtime and gateway connectors, and its agent backend, switch between fakes and a real
@@ -102,6 +108,43 @@ DEMO_TICKET_BODY = (
     "Two days for twelve people near Lyon, in May. The agent drafts a plan; you approve it or send "
     "it back from the work item's page."
 )
+
+#: The procurement project of the local install (S85-11, ADR 0202): the plugin, its template, its two
+#: groups and one consultation with three offers handed, left for the person to start.
+PROCUREMENT_PLUGIN = "procurement"
+PROCUREMENT_PROJECT = "sourcing-demo"
+PROCUREMENT_TEMPLATE = "plugin:procurement/procurement-sourcing"
+PROCUREMENT_GROUPS = (
+    ("buyers", "Buyers", "Award a consultation under the committee threshold."),
+    ("purchasing-committee", "Purchasing committee", "Award a consultation above the committee threshold."),
+)
+PROCUREMENT_TICKET_TITLE = "Steel brackets: three offers"
+PROCUREMENT_TICKET_BODY = (
+    "Three suppliers answered the consultation for steel brackets (400 of type 4, 250 of type 7, "
+    "delivered to Lyon). Start the work item to have the offers read, compared and written up."
+)
+#: The three text-layer offers of the plugin's own test fixtures (one PDF, one Word file, one sheet
+#: whose last line total is wrong). Their bytes live in `plugins/procurement/tests/fixtures/` and
+#: nowhere else: the API image copies them to `/opt/choregos/samples/procurement/`.
+PROCUREMENT_SAMPLES = ("alderbrook-offer.pdf", "brightfield-offer.docx", "corvane-prices.xlsx")
+SAMPLES_ENV = "TRANIBOR_SAMPLES_DIR"
+
+
+class ProcurementDemoError(RuntimeError):
+    """The procurement demo cannot be seeded: the install must say so, not start half a demonstration."""
+
+
+def procurement_samples_dir(env: Mapping[str, str] | None = None) -> pathlib.Path:
+    """Where the three offers are: `TRANIBOR_SAMPLES_DIR/procurement` (the image's
+    `/opt/choregos/samples`), or the plugin's fixtures of a source checkout (`make dev-seed`)."""
+    given = (env if env is not None else os.environ).get(SAMPLES_ENV, "")
+    if given:
+        return pathlib.Path(given) / "procurement"
+    image = pathlib.Path("/opt/choregos/samples/procurement")
+    if image.is_dir():
+        return image
+    return pathlib.Path(__file__).resolve().parents[4] / "plugins" / "procurement" / "tests" / "fixtures"
+
 
 Provider = Literal["anthropic", "openai"]
 
@@ -293,6 +336,50 @@ def demo_backend(provider: Provider | None) -> str:
     return PROVIDER_BACKENDS[provider] if provider else "claude-code"
 
 
+def _follow_mode(project: Project, provider: Provider | None, report: dict[str, list[str]]) -> None:
+    """Switch a seeded project's agent backend and model profiles to the install's mode, unless a
+    person changed them (what the seed itself wrote in any mode is the only thing it rewrites)."""
+    agent = dict((project.config or {}).get("agent") or {})
+    current = agent.get("default_backend", "claude-code")
+    if current != demo_backend(provider) and current in {
+        demo_backend(p) for p in (None, "anthropic", "openai")
+    }:
+        project.config = {**project.config, "agent": {**agent, "default_backend": demo_backend(provider)}}
+        report["switched"].append("agent")
+    models = dict((project.config or {}).get("models") or {})
+    profiles = models.get("profiles") or {}
+    wanted = demo_models(provider)
+    if profiles != wanted and profiles in [demo_models(p) for p in (None, "anthropic", "openai")]:
+        project.config = {**project.config, "models": {**models, "profiles": wanted}}
+        report["switched"].append("models")
+
+
+async def _sync_connectors(
+    session: Any, project: Project, provider: Provider | None, report: dict[str, list[str]]
+) -> None:
+    """Create the project's missing connectors, and switch those that follow the mode."""
+    existing = {
+        c.kind: c
+        for c in (
+            await session.execute(select(Connector).where(Connector.project_id == project.id))
+        ).scalars()
+    }
+    for kind, (type_name, config) in demo_connectors(provider).items():
+        row = existing.get(kind)
+        if row is None:
+            session.add(
+                Connector(project_id=project.id, kind=kind, type=type_name, config=config, status="ok")
+            )
+            report["connectors"].append(kind)
+        elif (
+            kind in MODE_KINDS
+            and (row.type, row.config) != (type_name, config)
+            and (row.type, row.config) in _seeded(kind)
+        ):
+            row.type, row.config = type_name, config
+            report["switched"].append(kind)
+
+
 async def seed_local_demo(
     settings: Settings | None = None, provider: Provider | None = None
 ) -> dict[str, list[str]]:
@@ -349,38 +436,9 @@ async def seed_local_demo(
             await ensure_defaults(session, project)
             report["projects"].append(DEMO_PROJECT)
         else:
-            agent = dict((project.config or {}).get("agent") or {})
-            current = agent.get("default_backend", "claude-code")
-            if current != backend and current in {demo_backend(p) for p in (None, "anthropic", "openai")}:
-                project.config = {**project.config, "agent": {**agent, "default_backend": backend}}
-                report["switched"].append("agent")
-            models = dict((project.config or {}).get("models") or {})
-            profiles = models.get("profiles") or {}
-            wanted = demo_models(provider)
-            if profiles != wanted and profiles in [demo_models(p) for p in (None, "anthropic", "openai")]:
-                project.config = {**project.config, "models": {**models, "profiles": wanted}}
-                report["switched"].append("models")
+            _follow_mode(project, provider, report)
 
-        existing = {
-            c.kind: c
-            for c in (
-                await session.execute(select(Connector).where(Connector.project_id == project.id))
-            ).scalars()
-        }
-        for kind, (type_name, config) in demo_connectors(provider).items():
-            row = existing.get(kind)
-            if row is None:
-                session.add(
-                    Connector(project_id=project.id, kind=kind, type=type_name, config=config, status="ok")
-                )
-                report["connectors"].append(kind)
-            elif (
-                kind in MODE_KINDS
-                and (row.type, row.config) != (type_name, config)
-                and (row.type, row.config) in _seeded(kind)
-            ):
-                row.type, row.config = type_name, config
-                report["switched"].append(kind)
+        await _sync_connectors(session, project, provider, report)
         await session.flush()
 
         # One work item, so that the first sign-in lands on something that moves. Started at once
@@ -402,6 +460,176 @@ async def seed_local_demo(
     logger.info(
         "local demo seeded", organisation=org_slug, project=DEMO_PROJECT, mode=provider or "fakes", **report
     )
+    return report
+
+
+async def seed_procurement_demo(
+    settings: Settings | None = None,
+    provider: Provider | None = None,
+    samples: pathlib.Path | None = None,
+) -> dict[str, list[str]]:
+    """The demo organisation's procurement project: the plugin installed, the project born of its
+    template, the groups `buyers` and `purchasing-committee` with the install's administrators in both,
+    one work item created with `start: false` and the three offers handed. Returns what was created.
+
+    Idempotent (ADR 0008): every step looks before it writes, so a second run changes nothing; a
+    project that holds a work item, started or not, is left alone (as the demo project is).
+    The organisation must exist (`seed_local_demo` runs first). A plugin that cannot be installed, or a
+    sample that is missing, raises `ProcurementDemoError`: a demonstration that stops at its first
+    gate for want of its files would teach nothing.
+    """
+    from tranibor_core.plugins.sources import DefaultPlugin, PluginsConfig
+
+    from .db.models import OrgGroup, OrgGroupMember, User
+    from .rbac import SYSTEM, Principal
+    from .schemas.tickets import WorkItemCreate
+    from .services import create_work_item, ensure_defaults, work_item_workflow, workflow_model
+    from .services import plugin_defaults as defaults
+    from .services.handed_files import HandedFile, hand_files
+    from .services.initiator import initiator
+    from .services.plugin_supply import OFFLINE, plugin_supply
+
+    settings = settings or get_settings()
+    org_slug = settings.bootstrap_org or "demo"
+    folder = samples or procurement_samples_dir()
+    files = []
+    for name in PROCUREMENT_SAMPLES:
+        path = folder / name
+        if not path.is_file():
+            raise ProcurementDemoError(f"sample offer `{name}` is not in {folder} (set {SAMPLES_ENV})")
+        files.append(HandedFile(name, path.read_bytes()))
+    report: dict[str, list[str]] = {
+        "plugins": [],
+        "projects": [],
+        "connectors": [],
+        "switched": [],
+        "groups": [],
+        "members": [],
+        "work_items": [],
+    }
+    async with session_scope(orgs="*") as session:
+        org = (
+            await session.execute(select(Organization).where(Organization.slug == org_slug))
+        ).scalar_one_or_none()
+        if org is None:
+            raise ProcurementDemoError(f"organisation `{org_slug}` does not exist: seed it first")
+
+        # The plugin, through the start-up reconcile's own path (supply-chain checks, the lock, the
+        # savepoint, the audit entry). The operator's configuration is what pre-approves it: here, the
+        # compose file that names this seed. The newest offline version, exact: a range is a source's.
+        version = await plugin_supply(settings).latest(OFFLINE, PROCUREMENT_PLUGIN)
+        if version is None:
+            raise ProcurementDemoError(
+                f"the offline plugin directory ({settings.plugins_offline or 'unset'}) holds no "
+                f"`{PROCUREMENT_PLUGIN}`: ship it in `plugins/offline/plugins.lock` (S85-10)"
+            )
+        config = PluginsConfig(
+            default_plugins=(DefaultPlugin(OFFLINE, PROCUREMENT_PLUGIN, version, preapproved=True),),
+            offline=pathlib.Path(settings.plugins_offline) if settings.plugins_offline else None,
+        )
+        [outcome] = await defaults.reconcile_org(session, org.id, settings, config)
+        if outcome.outcome == defaults.INSTALLED:
+            report["plugins"].append(f"{PROCUREMENT_PLUGIN}@{outcome.detail}")
+        elif outcome.outcome != defaults.PRESENT:
+            raise ProcurementDemoError(
+                f"`{PROCUREMENT_PLUGIN}` was not installed ({outcome.outcome}): {outcome.detail}"
+            )
+
+        users = [
+            user
+            for email in settings.bootstrap_admin_emails
+            if (user := (await session.execute(select(User).where(User.email == email))).scalar_one_or_none())
+        ]
+        for slug, name, description in PROCUREMENT_GROUPS:
+            group = (
+                await session.execute(
+                    select(OrgGroup).where(OrgGroup.org_id == org.id, OrgGroup.slug == slug)
+                )
+            ).scalar_one_or_none()
+            if group is None:
+                group = OrgGroup(
+                    org_id=org.id, slug=slug, name=name, description=description, created_by="local-install"
+                )
+                session.add(group)
+                await session.flush()
+                report["groups"].append(slug)
+            for user in users:
+                member = (
+                    await session.execute(
+                        select(OrgGroupMember.id).where(
+                            OrgGroupMember.group_id == group.id, OrgGroupMember.user_id == user.id
+                        )
+                    )
+                ).first()
+                if member is None:
+                    session.add(
+                        OrgGroupMember(
+                            org_id=org.id, group_id=group.id, user_id=user.id, added_by="local-install"
+                        )
+                    )
+                    report["members"].append(f"{slug}:{user.email}")
+        await session.flush()
+
+        project = (
+            await session.execute(
+                select(Project).where(Project.org_id == org.id, Project.slug == PROCUREMENT_PROJECT)
+            )
+        ).scalar_one_or_none()
+        if project is None:
+            project = Project(
+                org_id=org.id,
+                slug=PROCUREMENT_PROJECT,
+                name="Sourcing demo",
+                template_ref=PROCUREMENT_TEMPLATE,
+                status="active",
+                config={
+                    "slug": PROCUREMENT_PROJECT,
+                    "org": org_slug,
+                    "display_name": "Sourcing demo",
+                    "agent": {"default_backend": demo_backend(provider)},
+                    "models": {"profiles": demo_models(provider)},
+                },
+            )
+            session.add(project)
+            await session.flush()
+            # What the template delivers (ADR 0031), as the project creation route does.
+            await ensure_defaults(session, project, refuse_unenforced=True)
+            report["projects"].append(PROCUREMENT_PROJECT)
+        else:
+            _follow_mode(project, provider, report)
+        await _sync_connectors(session, project, provider, report)
+        await session.flush()
+
+        # One consultation, never started here: the person who opens the console starts it. Only a
+        # project with no work item gets one.
+        has_items = (
+            await session.execute(select(WorkItem.id).where(WorkItem.project_id == project.id).limit(1))
+        ).first() is not None
+        if not has_items:
+            item = await create_work_item(
+                session,
+                SYSTEM,
+                project,
+                WorkItemCreate(
+                    title=PROCUREMENT_TICKET_TITLE,
+                    body=PROCUREMENT_TICKET_BODY,
+                    start=False,
+                    fields={"currency": "EUR"},
+                ),
+                canal="local-install",
+                initiated_by=initiator("demo"),
+            )
+            workflow = workflow_model(await work_item_workflow(session, item))
+            who = (
+                Principal(user_id=users[0].id, email=users[0].email, display_name=users[0].display_name)
+                if users
+                else SYSTEM
+            )
+            from .object_store import object_store
+
+            await hand_files(session, object_store(), who, project, item, workflow, files)
+            report["work_items"].append(item.tracker_key)
+    logger.info("procurement demo seeded", organisation=org_slug, project=PROCUREMENT_PROJECT, **report)
     return report
 
 
@@ -432,6 +660,17 @@ def read_provider(path: pathlib.Path) -> Provider | None:
     return None
 
 
+async def seed_everything(settings: Settings, provider: Provider | None) -> None:
+    """What the `seed` service runs: the demo project, then the procurement project (one event loop,
+    so that the database engine the first opened serves the second).
+
+    The procurement project installs `procurement`, which ships no MCP server since 0.3.0 (the local
+    install runs none, and the installer refuses a plugin whose servers cannot run: #2134). The operations
+    half, `procurement-operations`, ships the `purchasing` server and is not seeded here."""
+    await seed_local_demo(settings, provider)
+    await seed_procurement_demo(settings, provider)
+
+
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
@@ -440,7 +679,7 @@ def main() -> None:
         logger.info("litellm configured", mode=provider or "fakes", decisions=decisions_enabled(os.environ))
         return
     provider_file = pathlib.Path(os.environ.get("TRANIBOR_LOCAL_PROVIDER_FILE", "/litellm/provider"))
-    asyncio.run(seed_local_demo(settings, read_provider(provider_file)))
+    asyncio.run(seed_everything(settings, read_provider(provider_file)))
 
 
 if __name__ == "__main__":

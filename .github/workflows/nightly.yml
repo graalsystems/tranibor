@@ -180,6 +180,137 @@ jobs:
       - name: adapters against the real services (a required service fails without its secrets)
         run: uv run pytest tests/live -q -m live -rs
 
+  purchasing-live:
+    name: purchasing server against Odoo ${{ matrix.odoo }}
+    # The purchasing MCP server's profile against a REAL Odoo (S85-14). Odoo and its database are
+    # containers this job starts, so nothing here may skip: a service that does not come up fails the
+    # job (a bounded wait, then `exit 1`), and tests/live/purchasing never calls skip
+    # (tests/ci/test_purchasing_live_job.py). No secret: every key is minted in the job. Runbook:
+    # docs/runbooks/purchasing-live.md.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Odoo 19 keeps a registration number on a partner; Odoo 20 does not (`not_supported`).
+          - odoo: "19.0"
+            image: odoo:19.0@sha256:03a47921f9eef2c225ded1167fe7828465d2b3177883f30d173bb1c3c792949b
+            registry: "true"
+          - odoo: "20.0"
+            image: odoo:20.0@sha256:c7352c766b245b3c0e5c7b7a57e7660dde3265872be9566870d44bdb974f44cf
+            registry: "false"
+    env:
+      # The image the agents repository published with procurement-operations 0.3.0 (publish.yml, graalsystems/tranibor-agents#27);
+      # its digest, read from the registry, is the one tested (tests/architecture/test_supply_chain_pinned.py).
+      PURCHASING_IMAGE: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.3.0@sha256:76121c7f3e1318f9ee2dcdaa3979bb4843f985b9baa5cf3a3d2fb8fc23108c68
+      # The TLS terminator (the server only talks to https): its image is pinned too.
+      TLS_IMAGE: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+      ODOO_DATABASE: ci
+    services:
+      db:
+        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U odoo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 24
+      odoo:
+        image: ${{ matrix.image }}
+        env:
+          HOST: db
+          USER: odoo
+          PASSWORD: odoo
+        ports:
+          - 8069:8069
+        options: --label purchasing-live=odoo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - run: uv sync --frozen
+      - name: wait for Odoo (bounded; a service that does not come up fails the job)
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8069/web/health > /dev/null; then echo "odoo is up after $attempt tries"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::Odoo did not answer /web/health in 5 minutes"
+          docker ps -a
+          docker logs "$(docker ps -aq --filter label=purchasing-live=odoo)" 2>&1 | tail -80
+          exit 1
+      - name: initialise the database (Contacts, Purchase, Purchase Agreements) and mint the API keys
+        run: |
+          set -euo pipefail
+          odoo_container="$(docker ps -q --filter label=purchasing-live=odoo)"
+          test -n "$odoo_container" || { echo "::error::no Odoo container"; exit 1; }
+          flags="--db_host=db --db_user=odoo --db_password=odoo --no-http"
+          timeout 1200 docker exec "$odoo_container" odoo -d "$ODOO_DATABASE" $flags \
+            -i base,contacts,purchase,purchase_requisition --without-demo=all --stop-after-init
+          timeout 300 docker exec -i "$odoo_container" odoo shell -d "$ODOO_DATABASE" $flags \
+            < tests/live/purchasing/odoo_keys.py | grep '^PURCHASING_LIVE_' > keys.env
+          for name in PURCHASING_LIVE_ODOO_ADMIN_KEY PURCHASING_LIVE_INTEGRATION_KEY; do
+            value="$(grep "^$name=" keys.env | cut -d= -f2-)"
+            test -n "$value" || { echo "::error::$name was not minted"; exit 1; }
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          rm keys.env
+      - name: TLS in front of Odoo (the server refuses a plain-http base URL)
+        run: |
+          set -euo pipefail
+          mkdir certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -addext "basicConstraints=critical,CA:TRUE" \
+            -keyout certs/server.key -out certs/server.pem
+          chmod -R a+rX certs
+          docker run -d --name tls --network host \
+            -v "$PWD/tests/live/purchasing/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$PWD/certs:/certs:ro" "$TLS_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl -fsS --cacert certs/server.pem https://localhost:8443/web/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::the TLS terminator in front of Odoo did not answer"
+          docker logs tls 2>&1 | tail -40
+          exit 1
+      - name: run the purchasing server image against Odoo
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 24)"
+          echo "::add-mask::$token"
+          echo "PURCHASING_LIVE_MCP_TOKEN=$token" >> "$GITHUB_ENV"
+          docker run -d --name purchasing --network host \
+            -e PORT=8080 -e CHOREGOS_SERVER_TOKEN="$token" \
+            -e PURCHASING_BACKEND=odoo -e PURCHASING_BASE_URL=https://localhost:8443 \
+            -e PURCHASING_DATABASE="$ODOO_DATABASE" -e PURCHASING_USERNAME=purchasing-bot \
+            -e PURCHASING_API_KEY="$PURCHASING_LIVE_INTEGRATION_KEY" \
+            -e SSL_CERT_FILE=/certs/server.pem -v "$PWD/certs:/certs:ro" "$PURCHASING_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::the purchasing server did not answer /healthz"
+          docker logs purchasing 2>&1 | tail -40
+          exit 1
+      - name: every operation of the profile, writes and compensations included
+        env:
+          PURCHASING_LIVE_MCP_URL: http://127.0.0.1:8080/mcp
+          PURCHASING_LIVE_ODOO_URL: http://127.0.0.1:8069
+          PURCHASING_LIVE_ODOO_DATABASE: ci
+          PURCHASING_LIVE_ODOO_VERSION: ${{ matrix.odoo }}
+          PURCHASING_LIVE_REGISTRY_SUPPORTED: ${{ matrix.registry }}
+        run: uv run pytest tests/live/purchasing -q -m purchasing_live -rs
+      - name: logs of the three containers
+        if: always()
+        run: |
+          for name in purchasing tls; do echo "::group::$name"; docker logs "$name" 2>&1 | tail -150 || true; echo "::endgroup::"; done
+          echo "::group::odoo"
+          docker logs "$(docker ps -aq --filter label=purchasing-live=odoo)" 2>&1 | tail -250 || true
+          echo "::endgroup::"
+
   dependencies:
     runs-on: ubuntu-latest
     steps:
@@ -198,7 +329,7 @@ jobs:
           exit-code: "1"
 
   alerte:
-    needs: [e2e, cluster, conformance, evals, replay, core-without-plugins, dependencies, live]
+    needs: [e2e, cluster, conformance, evals, replay, core-without-plugins, dependencies, live, purchasing-live]
     if: failure()
     runs-on: ubuntu-latest
     steps:

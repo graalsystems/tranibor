@@ -6,7 +6,9 @@
 #
 # What runs: PostgreSQL (under row-level security, through a non-superuser role), the Temporal
 # server (on the same PostgreSQL), the migrations, the API, the Temporal workers, the
-# console, LiteLLM, and a one-shot seed that creates the demo organisation and project.
+# console, LiteLLM, an object store (RustFS, for the files a person hands to a work item) and a
+# one-shot seed that creates the demo organisation and its two projects: the demo one, and
+# `sourcing-demo`, a consultation of three supplier offers (the `procurement` plugin, ADR 0202).
 # `docker compose --profile memory up` adds Ecphoria (the memory service).
 # `docker compose --profile mcp-gateway up` adds a fake MCP gateway and the demo fakes behind it.
 # `COMPOSE_PROFILES=decisions docker compose up` (or the line in `.env`) adds Laya, the decision model
@@ -42,6 +44,15 @@ x-platform-env: &platform-env
   # The host of the optional fake MCP gateway (profile `mcp-gateway`, ADR 0105): the API accepts
   # http and a dotless host only when it is listed here. Harmless without the profile.
   TRANIBOR_MCP_GATEWAY_INTERNAL_HOSTS: '["mcp-gateway"]'
+  # Where the bytes of file artifacts go (ADR 0049): the files a person hands to a work item (ADR 0201)
+  # and the files an agent writes. Development keys, for a laptop; `objectstore-bucket` makes the bucket.
+  TRANIBOR_OBJECT_STORE_URL: s3://choregos
+  TRANIBOR_OBJECT_STORE_ENDPOINT: http://objectstore:9000
+  TRANIBOR_OBJECT_STORE_ACCESS_KEY: choregos
+  TRANIBOR_OBJECT_STORE_SECRET_KEY: local-dev-only
+  # The job image a workflow names `procurement` (ADR 0202): the command that reads the offers and
+  # computes the totals. It carries the runner of its own release, so it follows the runner's version.
+  TRANIBOR_JOB_IMAGES: '{"procurement": "ghcr.io/graalsystems/tranibor-procurement:${TRANIBOR_RUNNER_VERSION:-0.17.12}"}'
 
 # The run-token key is generated once per install (service `keys`) and read from a shared
 # volume: the workers sign run tokens, the API verifies them, so both need the same key.
@@ -151,6 +162,38 @@ services:
       retries: 60
       start_period: 30s
 
+  objectstore:
+    # RustFS (Apache-2.0), the S3 server of the development stack and of the chart's embedded object store.
+    image: rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+    command: ["/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: choregos
+      RUSTFS_SECRET_KEY: local-dev-only
+    volumes: ["objectstore:/data"]
+
+  objectstore-bucket:
+    # The bucket the API writes to. `rclone mkdir` is idempotent, and is retried while the server starts.
+    image: rclone/rclone:1.68.2@sha256:74c51b8817e5431bd6d7ed27cb2a50d8ee78d77f6807b72a41ef6f898845942b
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        n=0
+        until rclone mkdir S3:choregos; do
+          n=$$((n+1)); [ "$$n" -lt 30 ] || { echo "no bucket after 30 tries"; exit 1; }
+          sleep 2
+        done
+        echo "bucket choregos ready"
+    environment:
+      HOME: /tmp
+      RCLONE_CONFIG_S3_TYPE: s3
+      RCLONE_CONFIG_S3_PROVIDER: Other
+      RCLONE_CONFIG_S3_ENDPOINT: http://objectstore:9000
+      RCLONE_CONFIG_S3_ACCESS_KEY_ID: choregos
+      RCLONE_CONFIG_S3_SECRET_ACCESS_KEY: local-dev-only
+      RCLONE_CONFIG_S3_REGION: us-east-1
+    depends_on: [objectstore]
+    restart: "no"
+
   keys:
     <<: *platform-image
     user: "0"
@@ -189,6 +232,7 @@ services:
       keys: { condition: service_completed_successfully }
       migrate: { condition: service_completed_successfully }
       temporal: { condition: service_healthy }
+      objectstore-bucket: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
       interval: 2s
@@ -332,4 +376,5 @@ volumes:
   pgdata:
   run-token-key:
   litellm-config:
+  objectstore:
   ecphoriadata:

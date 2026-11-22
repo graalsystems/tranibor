@@ -1562,3 +1562,24 @@ rewritten story.
 - **S85-16 is opt-in.** `identifiers: skip` is off by default: the rule that reads `FA-0012` as a
   reference also lets `EUR-99999` through, so only a workflow that needs it (purchase-request) turns it
   on, and says where the hole stays open.
+- **2026-11-21, R1 to the last wave.** Release 0.28.1 replaced 0.28.0, whose chart job failed on versions
+  three plugins had not raised; `v0.28.0` stays on the commit it names. `procurement` was published
+  directly as 0.2.0 (PA-04 folded into PA-11, graalsystems/tranibor-agents#22). The core's end-to-end tests
+  (S85-10) then installed the signed archive and found it broken: two eval needles wrapped across a line
+  (every install refused) and `t-compute` without the `offers_text` that `compare` reads (every comparison
+  at `needs_human`). 0.2.1 fixed both, each under a test of the agents repository that fails on 0.2.0
+  (#26), and is the version the core locks. `make plugins-lock` cannot run (the lock's index is deleted,
+  graalsystems/tranibor#2085): procurement was locked through the tool's own functions, signature verified.
+  Four findings stay open: #2085, the stale runner default of compose (#2086), the unreachable second
+  human transition of a waiting state (#2110), a comma CSV read as one number (#2111). S85-14 waits for
+  its first night.
+- **2026-11-22, `procurement` is split in two (#2134, graalsystems/tranibor-agents#27).** The local install
+  (`docker compose`) runs no plugin server and the installer refuses a plugin that brings one, so
+  `procurement` 0.2.1, which shipped the `purchasing` server, could not be seeded: the CI's `local-install`
+  job showed it, which the seed's stand-in plugin had hidden. 0.3.0 splits it: `procurement` (the two
+  comparison agents, their skills, the template `procurement-sourcing`; no server) and `procurement-operations`
+  (the four operations agents, the assistant, the `purchasing` server, connector kind
+  `plugin:procurement-operations/purchasing`, the template `procurement-operations`; it requires no other
+  plugin). The core locks both (0.2.1 removed), S85-10 installs `procurement`, S85-13 installs
+  `procurement-operations`, S85-14 plays `purchasing-mcp` 0.3.0, and S85-11 is open again: the seed calls
+  `seed_procurement_demo`, and a test installs the real locked archive where no plugin server runs.
