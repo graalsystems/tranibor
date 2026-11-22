@@ -31,7 +31,9 @@ PLUGINS = {
     "requests": 2,
 }
 #: The plugin version the offline directory holds, when it is not 1.0.0.
-PLUGIN_VERSIONS = {"software-delivery": "1.1.1", "netops": "1.2.0", "authoring": "1.1.0", "requests": "1.1.0"}
+#: authoring 1.1.2, netops 1.2.2 and requests 1.1.2 are their 1.1.0, 1.2.0 and 1.1.0 republished by the
+#: graalsystems source (#2140): the same agents' documents, a new publisher and README.
+PLUGIN_VERSIONS = {"software-delivery": "1.1.1", "netops": "1.2.2", "authoring": "1.1.2", "requests": "1.1.2"}
 
 #: The fingerprints the core's own YAML had at 3156d12e (choregos-agents' MIGRATION-FROM-CORE.md): the
 #: plugins carry the same documents, so an installed agent's checksum does not move. They include the
@@ -99,7 +101,7 @@ def test_without_an_offline_directory_the_catalogue_is_empty(tmp_path: Path) -> 
 
 
 def test_the_environment_names_the_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    shutil.copy(OFFLINE / "netops-1.2.0.tar.gz", tmp_path)
+    shutil.copy(OFFLINE / "netops-1.2.2.tar.gz", tmp_path)
     monkeypatch.setenv("TRANIBOR_PLUGINS_OFFLINE", str(tmp_path))
     assert [e.slug for e in entries()] == ["netops"]
 
