@@ -4,6 +4,7 @@ Off is never sent: a runner older than ADR 0122 refuses `tools.scripts`."""
 
 from __future__ import annotations
 
+import importlib.util
 import itertools
 from collections.abc import Iterator
 from typing import Any
@@ -17,6 +18,14 @@ from tranibor_orchestrator.config import reset_settings_cache
 from tranibor_orchestrator.context_reduction import resolve_tool_scripts, stage_input_payload
 
 from .conftest import Fixture
+
+#: The tests that need the `software-delivery` plugin's source control: a reference ticket's toy repository
+#: is committed through it, and a run's diff read from it (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control is the software-delivery plugin's",
+)
+
 
 OFFERED = {"scripts": "offer", "per_role": {"review": {"scripts": "off"}}}
 #: No ceiling and an agent that declares no default: the resolver as it was before S57-15.
@@ -159,6 +168,7 @@ async def test_the_organisation_s_ceiling_forbids_them(setup: Fixture, switch_on
     assert "scripts" not in await _tools_of(setup, "triage"), "a role's own `offer` is clamped too"
 
 
+@needs_the_plugin
 async def test_an_eval_cell_runs_the_mcp_door_only(setup: Fixture, switch_on: None) -> None:
     """An `mcp` cell (the default, S57-09) gives its run the MCP door only, whatever the policy offers."""
     await _set_tools(setup.project_id, OFFERED)
@@ -353,6 +363,7 @@ def _scripts_cell() -> dict[str, Any]:
     }
 
 
+@needs_the_plugin
 async def test_the_eval_organisation_enables_them_through_its_setting(
     setup: Fixture, deployment: Any
 ) -> None:
@@ -544,6 +555,7 @@ async def test_a_policy_stored_by_0_24_0_keeps_its_off_and_one_stored_now_says_n
     assert (await _agent_tools_of(setup))["scripts"] == FOUR
 
 
+@needs_the_plugin
 async def test_an_mcp_cell_ignores_the_agent_s_default(setup: Fixture, deployment: Any) -> None:
     """An eval cell's door is the cell's (S57-09): the agent's `offer` does not reach an `mcp` cell."""
     deployment()

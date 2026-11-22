@@ -13,6 +13,7 @@ import pytest
 from httpx import AsyncClient
 from tranibor_api.rbac import Principal
 from tranibor_api.services.catalogue_rights import CatalogueAction, decide, projects_where
+from tranibor_api.services.connector_catalogue import FAMILY_ORDER
 from tranibor_contracts import Role
 
 from .agent_scopes_kit import add_member, as_user, make_project
@@ -180,8 +181,8 @@ async def test_the_connector_catalogue_lists_the_registry_by_family(client: Asyn
     kinds = {kind for kind, _ in entries}
     assert not kinds & {"runtime", "gateway", "memory"}, "platform plumbing is not an entry"
     assert all(t != "fake" for _, t in entries)
-    github = entries[("scm", "github")]
-    assert (github["scope"], github["family"]) == ("project", "Source code")
+    github = entries[("tracker", "github-issues")]
+    assert (github["scope"], github["family"]) == ("project", "Work trackers")
     assert github["can"]["configure_projects"] == ["billing", "checkout"]
     assert github["can"]["install"] is False
     entra = entries[("identity", "entra")]
@@ -189,10 +190,13 @@ async def test_the_connector_catalogue_lists_the_registry_by_family(client: Asyn
     assert entra["can"]["install"] is True and entra["operations"] > 0
     assert entra["secret_fields"], "field names are listed, never values"
     assert entries[("documents", "sharepoint")]["family"] == "Documents"
-    assert entries[("cd", "argocd")]["family"] == "Deployment"
+    # An extension's slot names its family (`AdapterSlot.family`): the `software-delivery` plugin's in its
+    # own tests (`test_connectors.py`).
     for kind, type_name in (("firewall", "pfsense"), ("network_policy", "cilium"), ("web_server", "nginx")):
         assert entries[(kind, type_name)]["family"] == "Network operations"
-    assert body["entries"][0]["family"] == "Source code", "families come in the console's order"
+    rank = {name: index for index, name in enumerate(FAMILY_ORDER)}
+    families = [rank.get(e["family"], len(rank)) for e in body["entries"]]
+    assert families == sorted(families), "families come in the console's order"
 
 
 async def test_the_connector_catalogue_filters(client: AsyncClient, org: str) -> None:
@@ -219,10 +223,10 @@ async def test_configured_in_lists_only_projects_the_caller_sees(client: AsyncCl
     async with session_scope() as session:
         for slug in ("billing", "checkout"):
             pid = (await session.execute(select(Project.id).where(Project.slug == slug))).scalar_one()
-            session.add(Connector(project_id=pid, kind="scm", type="github", config={}))
+            session.add(Connector(project_id=pid, kind="tracker", type="github-issues", config={}))
 
     def configured_in(body: dict[str, Any]) -> list[str]:
-        return next(e for e in body["entries"] if (e["kind"], e["type"]) == ("scm", "github"))[
+        return next(e for e in body["entries"] if (e["kind"], e["type"]) == ("tracker", "github-issues"))[
             "configured_in"
         ]
 

@@ -8,12 +8,15 @@ from typing import Any
 import pytest
 from tranibor_adapters import ConnectorTypeSpec, register
 from tranibor_adapters.errors import ConfigurationError
-from tranibor_adapters.registry import _REGISTRY, _SPECS
+from tranibor_adapters.registry import _REGISTRY, _SPECS, _declared_slots
 
 from .conftest import Fixture
 
-KINDS = ("ci", "cd", "runtime", "memory", "gateway", "notify")
-GITHUB = {"tracker": "github-issues", "scm": "github"}
+# The core's kinds and the slots the installed extensions declare (ADR 0181, round D).
+KINDS = ("runtime", "memory", "gateway", "notify", *_declared_slots())
+# The core's GitHub type; an extension's (the `software-delivery` plugin's source control) is pinned the
+# same way, through its spec's `github_repository`.
+GITHUB = {"tracker": "github-issues"}
 
 
 @pytest.fixture
@@ -77,9 +80,8 @@ async def test_load_project_passes_installation_id_for_github_kinds(
     await _declare(setup, second_org=False, claimed=True)
     async with session_scope(orgs="*") as session:
         await load_project(session, setup.project_id)
-    assert probes["scm"]["installation_id"] == 55, "the claimed one, not the legacy value stored"
-    assert probes["tracker"]["installation_id"] == 55
-    assert "installation_id" not in probes["ci"], "other kinds are left alone"
+    assert probes["tracker"]["installation_id"] == 55, "the claimed one, not the legacy value stored"
+    assert "installation_id" not in probes["notify"], "other kinds are left alone"
 
 
 async def test_a_single_org_instance_without_a_claim_still_discovers(
@@ -91,7 +93,7 @@ async def test_a_single_org_instance_without_a_claim_still_discovers(
     await _declare(setup, second_org=False, claimed=False)
     async with session_scope(orgs="*") as session:
         await load_project(session, setup.project_id)
-    assert "installation_id" not in probes["scm"], "no legacy value either: discovery, today's behaviour"
+    assert "installation_id" not in probes["tracker"], "no legacy value either: discovery, today's behaviour"
 
 
 async def test_a_multi_org_instance_without_a_claim_refuses_to_build(

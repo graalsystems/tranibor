@@ -275,8 +275,8 @@ async def test_the_allowlist_is_the_administrators(
     client: AsyncClient, project: dict[str, Any], fake: Any
 ) -> None:
     await client.put(
-        f"/api/v1/projects/{project['id']}/connectors/scm",
-        json={"type": "github", "config": {"repo": "northwind/billing-api"}},
+        f"/api/v1/projects/{project['id']}/connectors/tracker",
+        json={"type": "github-issues", "config": {"repo": "northwind/billing-api"}},
     )
     defaults = (await client.get("/api/v1/orgs/northwind/skill-sources")).json()
     assert defaults == {"sources": ["github.com/anthropics/skills", "github.com/northwind"], "default": True}

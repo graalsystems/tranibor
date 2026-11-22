@@ -21,7 +21,6 @@ from . import (
     outcome,
     provisioning,
     schedules,
-    scm,
     stage,
     step_effects,
     suspension,
@@ -83,11 +82,9 @@ ALL_ACTIVITIES = [
     children.spawn_children,
     children.children_state,
     gates.evaluate_gates,
-    gates.check_scope_violations,
-    scm.open_pull_request,
-    scm.enqueue_merge,
-    scm.ensure_branch,
-    scm.collect_run_artifacts,
+    # `open_pull_request`, `enqueue_merge`, `ensure_branch`, `collect_run_artifacts` and
+    # `check_scope_violations` are the `software-delivery` plugin's (ADR 0181, round D), registered by its
+    # extension; `stand_ins` answers `collect_run_artifacts` where it is not installed.
     # An extension's `does:` (ADR 0181): the core's own effects keep their activities above.
     step_effects.run_step_effect,
     findings.triage_finding,
@@ -119,7 +116,6 @@ __all__ = [
     "outcome",
     "provisioning",
     "schedules",
-    "scm",
     "stage",
     "tracker",
 ]

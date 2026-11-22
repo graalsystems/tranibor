@@ -24,7 +24,8 @@ PLUGIN = "software-delivery"
 METHODS = {"get", "put", "post", "patch", "delete", "head", "options"}
 
 #: ADR 0181's inventory, REST, class (b) "the plugin's operations": the `trains` tag, `getRunDiff`
-#: and `getProjectDora`.
+#: and `getProjectDora`; and, of its "connector routes, outside the frozen set", the webhooks of the `ci`
+#: and `cd` connector types, whose code is the plugin's since round D (S83-05i).
 PLUGIN_OPERATIONS = {
     "listReleases",
     "getRelease",
@@ -36,6 +37,9 @@ PLUGIN_OPERATIONS = {
     "abortRelease",
     "getRunDiff",
     "getProjectDora",
+    "tektonWebhook",
+    "jenkinsWebhook",
+    "argocdWebhook",
 }
 PLUGIN_COMPONENTS = {"Release", "ReleasePage", "TrainStatus", "DoraMetric", "DoraReport", "DiffSummary"}
 PLUGIN_PROPERTIES = {("Project", "has_release_train"), ("ProjectStats", "trains_pending")}

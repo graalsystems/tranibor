@@ -321,7 +321,7 @@ compose-down:
 
 .PHONY: demo
 demo:  ## End-to-end scenario in memory (fakes, no cluster)
-	TRANIBOR_FAKES=1 $(UV) run python -m tranibor_orchestrator.demo
+	TRANIBOR_FAKES=1 $(UV) run python -m tranibor_software_delivery.demo
 
 .PHONY: demo-investment
 demo-investment:  ## Investment campaigns on fakes with the real runner and engine: adopted, not relevant, refused memo (S38-09)

@@ -423,6 +423,69 @@ import), and a workflow module imports the orchestrator's helpers inside
 `apps/orchestrator/tests/test_worker_seam.py` installs a test plugin's extension and runs its workflow on
 the test server, its activity on its queue.
 
+## Adding a connector kind to every project from an extension
+
+A connector type an extension registers (`tranibor_adapters.register(kind, type, spec, plugin=)`) is built
+on demand. A kind the platform builds once per project and hands to every activity, beside the tracker,
+the runtime, the memory, the gateway and the notifier, is an **adapter slot** (ADR 0181, round D): the
+`software-delivery` plugin declares `ci` and `cd` so.
+
+```python
+from tranibor_adapters import declare_adapter_slot
+
+def register_extension() -> None:
+    declare_adapter_slot("cmdb", plugin="itsm", default_type="servicenow", fake=FakeCmdb)
+```
+
+Every `AdapterSet` then holds a `cmdb` adapter, built from the project's connector of that kind
+(`default_type` when it declares none, `fake` under `TRANIBOR_FAKES=1` and in `AdapterSet.fakes()`), read
+as `adapters.slot("cmdb")` or `adapters.cmdb`. A slot of the core's set, or another plugin's, is refused;
+`deployment_fields` names the configuration fields only the deployment sets (refused on a connector, as
+the runtime's `kubernetes` is). Where no installed extension declares the slot, reading it is an
+`AttributeError` that names the plugin, when the core knows which one (`CONNECTOR_KINDS.plugin_of`).
+
+A template's provisioning may name steps the extension runs: `WorkerParts(provisioning_steps={name:
+ProvisioningStep(run, remediation)})`, dispatched by the core's `run_provision_step` (the
+`software-delivery` plugin's `gitops.write_project_manifests` and `argocd.wait_synced`). A step the core
+runs cannot be taken over; a step no installed extension runs is skipped, saying so. The fakes' process
+(`python -m tranibor_adapters.fakes.server`) serves the demonstration desks extensions declare with
+`tranibor_adapters.fakes.hr.declare_demo_desk`. `plugins/software-delivery/tests/test_connectors.py` and
+`apps/orchestrator/tests/test_worker_seam.py` prove them.
+
+A slot also says what the console calls it (`title`, `family`) and whether it is the project's
+**workspace** (`workspace=True`: where a step reads and writes files, the `software-delivery` plugin's `scm`;
+a workflow that needs it needs a repository) or only makes sense for a project with one
+(`needs_workspace=True`: its `ci` and `cd`). An activity the interpreter calls by name after every step and
+that an extension owns has a core **stand-in** under the same name, registered only where no extension
+provides it (`tranibor_orchestrator.activities.stand_ins`: `collect_run_artifacts` files no diff where no
+source control is installed).
+
+Two seams of the API complete it. `extensions.declare_readiness_item(name, function, plugin=)` adds an
+item to a project's readiness, `function(facts) -> list[ReadinessItem]`, evaluated after the connectors'
+items (the `software-delivery` plugin's repository and test command). `extensions.declare_inbound_hook(
+event_type, hook, plugin=)` runs `hook(session, project, item, event)` once a webhook delivered an event of
+that type to its work item, and records the outcome it returns (the plugin boards a merged work item on
+its train: `boarded`). `apps/api/tests/test_readiness_and_inbound_seams.py` proves both.
+
+## Testing an extension on the core's scene
+
+A plugin's tests run on the same scene as the core's: an application on a fresh database, a project and a
+work item, a Temporal test server and one worker per queue. That scene is the **test kit**,
+`tests/testkit` (`tranibor_testkit`, ADR 0181 round D), a development dependency of the workspace that
+no image installs, test code like the suites it serves:
+
+- `tranibor_testkit.api`: the API suite's fixtures (`app`, `client`, `org`, `admin`, `project`, `pg_app`,
+  `github`) and `login`;
+- `tranibor_testkit.orchestrator`: the orchestrator suite's (`setup`, `temporal_env`, `worker_factory`,
+  `stage_result`, `refine_result`), and `tranibor_testkit.interpreter` its helpers (`scripted`, `start`,
+  `wait_state`, `wait_until`, `runs`);
+- `tranibor_testkit.workers`, `.escalation`, `.github_app`, `.delivery.*`: the suites' kits.
+
+A directory of tests takes the fixtures with one line in its `conftest.py`
+(`from tranibor_testkit.orchestrator import *`), as `apps/api/tests`, `apps/orchestrator/tests` and the
+`software-delivery` plugin's `plugins/software-delivery/tests/api` and `plugins/software-delivery/tests/orchestrator` do. A core test that needs a plugin moves
+to the plugin's suite and leaves `tests/core_alone/need_the_plugins.txt`, whose ceiling only falls.
+
 ## Carrying a transition from an extension
 
 `via: release_train` hands a work item to a durable workflow that is not the interpreter: the
@@ -439,7 +502,11 @@ def register_extension() -> None:
 ```
 
 Without it, a workflow naming `via: release_train` is refused at publication, naming the plugin
-(`transition.carrier_unavailable`). The DSL's `via` takes one value today: a new carrier is a contract
+(`transition.carrier_unavailable`). `needs=("cd",)` says what a project needs for a work item to take it:
+its workflows' requirements list it, for the carried transition and the production state it reaches.
+Production is locked to carriers: a production state is reached only `via:` one. What the interpreter does
+once the carrier reports is the core's `WorkflowEngine.after_carrier`, and what it hands the carrier when
+it boards is `carriers.boarding_env` and `boarding_approval`. The DSL's `via` takes one value today: a new carrier is a contract
 change. `plugins/software-delivery/tests/test_carrier.py` proves both sides.
 
 ## Extending the open lists

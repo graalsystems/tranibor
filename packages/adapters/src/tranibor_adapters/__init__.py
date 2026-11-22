@@ -17,14 +17,11 @@ import tranibor_contracts  # noqa: F401 - adopts the former environment variable
 
 from .base import (
     AgentBackend,
-    CdAdapter,
-    CiAdapter,
     DecisionClient,
     Executor,
     GatewayAdapter,
     MemoryAdapter,
     Notifier,
-    ScmAdapter,
     TrackerAdapter,
 )
 from .builtins import (  # noqa: F401 - names the root has always exposed
@@ -37,12 +34,14 @@ from .builtins import (  # noqa: F401 - names the root has always exposed
 from .registry import (
     POLICIES,
     AdapterSet,
+    AdapterSlot,
     ConnectorTypeSpec,
     OperationSpec,
     account_of,
     available,
     build,
     connector_types,
+    declare_adapter_slot,
     default_type,
     deployment_default_type,
     egress_hosts,
@@ -66,9 +65,8 @@ __version__ = "0.1.0"
 __all__ = [
     "POLICIES",
     "AdapterSet",
+    "AdapterSlot",
     "AgentBackend",
-    "CdAdapter",
-    "CiAdapter",
     "ConnectorTypeSpec",
     "DecisionClient",
     "Executor",
@@ -76,12 +74,12 @@ __all__ = [
     "MemoryAdapter",
     "Notifier",
     "OperationSpec",
-    "ScmAdapter",
     "TrackerAdapter",
     "account_of",
     "available",
     "build",
     "connector_types",
+    "declare_adapter_slot",
     "default_type",
     "deployment_default_type",
     "egress_hosts",
@@ -133,6 +131,9 @@ def load_extensions(group: str = EXTENSION_GROUP) -> list[str]:
     """
     from importlib import metadata
 
+    from .registry import extensions_loaded
+
+    extensions_loaded()
     loaded: list[str] = []
     for point in metadata.entry_points(group=group):
         try:

@@ -36,76 +36,20 @@ from tranibor_core import utcnow
 from . import __version__
 from .edition import current as current_edition
 from .logging import get_logger
+from .metric_series import (  # noqa: F401 - the names `metrics` has always exposed
+    _SERIES,
+    NAMES,
+    PLUGIN_SERIES,
+    declare_series,
+    emitted_names,
+    forget_series,
+)
 from .services.personal_spaces import PERSONAL, is_personal
 
 logger = get_logger("choregos.metrics")
 
-#: The inventory: what `/metrics` can produce. The dashboards test refers to it.
-NAMES = frozenset(
-    {
-        "http_requests_total",
-        "choregos_runs_active",
-        "choregos_runs_total",
-        "choregos_run_start_seconds",
-        "choregos_cost_usd_total",
-        "choregos_project_daily_cost_usd",
-        "choregos_project_daily_budget_usd",
-        "choregos_first_pass_merge_rate",
-        "choregos_lead_time_seconds",
-        "choregos_permission_denials_total",
-        "choregos_memory_pending",
-        "choregos_context_pack_empty_total",
-        "choregos_edition_info",
-        "choregos_outpost_poll_conflicts_total",
-        "choregos_audit_export_events_total",
-        "choregos_audit_export_failures_total",
-        "choregos_audit_export_lag_entries",
-        "choregos_audit_export_progress_timestamp_seconds",
-    }
-)
-
 START_SECONDS = (5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0)
 DELIVERY_SECONDS = (3600.0, 4 * 3600.0, 8 * 3600.0, 24 * 3600.0, 3 * 86400.0, 7 * 86400.0, 30 * 86400.0)
-#: The series a plugin's extension emits, by name, and the plugin (ADR 0181, round D): what the core can
-#: say of a series a dashboard cites when the extension is not installed, as `gates.PLUGIN_GATES` does for
-#: gates. The release train's three are the `software-delivery` plugin's.
-PLUGIN_SERIES = {
-    "choregos_releases_total": "software-delivery",
-    "choregos_train_frozen": "software-delivery",
-    "choregos_train_status": "software-delivery",
-}
-
-#: (plugin, names, refresh): what extensions declared through `declare_series`.
-_SERIES: list[tuple[str, frozenset[str], Any]] = []
-
-
-def declare_series(plugin: str, names: Iterable[str], refresh: Any) -> None:
-    """Called by an extension when it loads: `refresh(project_slugs)` (async) returns the metric families
-    of `names`, computed at each refresh of the snapshot and served on `/metrics` beside the core's. A name
-    the core emits, or another extension declared, stops the start. Idempotent for the same plugin."""
-    declared = frozenset(names)
-    if not declared or not callable(refresh):
-        raise TypeError("a plugin's series are names and an async refresh(project_slugs) -> families")
-    if declared & NAMES:
-        raise ValueError(f"the core already emits {sorted(declared & NAMES)}")
-    for other, known, _ in list(_SERIES):
-        if other == plugin:
-            _SERIES.remove((other, known, _))
-        elif declared & known:
-            raise ValueError(f"{sorted(declared & known)} already emitted by the plugin `{other}`")
-    _SERIES.append((plugin, declared, refresh))
-
-
-def forget_series(plugin: str) -> None:
-    """Drop what `plugin` declared (a test that installed an extension does it after)."""
-    _SERIES[:] = [entry for entry in _SERIES if entry[0] != plugin]
-
-
-def emitted_names() -> frozenset[str]:
-    """What `/metrics` produces in this deployment: the core's series and the installed extensions'."""
-    return NAMES.union(*(names for _, names, _ in _SERIES))
-
-
 registry = CollectorRegistry()
 http_requests = PromCounter(
     "http_requests_total",

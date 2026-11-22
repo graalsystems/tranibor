@@ -9,7 +9,7 @@ import json
 
 import pytest
 from tranibor_adapters.errors import AdapterError
-from tranibor_adapters.fakes import FakeScm
+from tranibor_adapters.fakes.gitops import FakeGitOps
 from tranibor_adapters.fakes.netops import FakePfSense, FakeRepo
 from tranibor_adapters.netops import NginxConfig, PfSenseFirewall
 from tranibor_adapters.netops.cilium import checked_policy
@@ -85,6 +85,6 @@ async def test_an_nginx_proposal_without_a_repository_or_empty_is_refused() -> N
         await NginxConfig(FakeRepo()).propose_nginx_config(
             "nginx.conf", "events {}", "t", "r", action_key="k"
         )
-    nginx = NginxConfig(FakeRepo(), gitops=GitOpsTarget(FakeScm(), "acme/gitops", "main", "nginx"))
+    nginx = NginxConfig(FakeRepo(), gitops=GitOpsTarget(FakeGitOps(), "acme/gitops", "main", "nginx"))
     with pytest.raises(AdapterError, match="empty"):
         await nginx.propose_nginx_config("nginx.conf", "  ", "t", "r", action_key="k")

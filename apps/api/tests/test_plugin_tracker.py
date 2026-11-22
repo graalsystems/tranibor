@@ -187,7 +187,7 @@ async def test_tracker_calls_carry_the_token_and_writes_are_audited(
 
 @pytest.fixture
 def trackers() -> list[Any]:
-    """What `_dispatch` was told the tracker says about each dispatched item (S51-04)."""
+    """What `dispatch` was told the tracker says about each dispatched item (S51-04)."""
     return []
 
 
@@ -206,7 +206,7 @@ def dispatched(monkeypatch: pytest.MonkeyPatch, trackers: list[Any]) -> list[Inb
             trackers.append(await tracker_of(project_of, event.work_item_key) if tracker_of else None)
         return len(events)
 
-    monkeypatch.setattr(webhooks, "_dispatch", capture)
+    monkeypatch.setattr(webhooks, "dispatch", capture)
     return seen
 
 

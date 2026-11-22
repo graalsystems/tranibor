@@ -2436,6 +2436,55 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.28.1: the source control is software delivery's
+
+**The `scm` connector types left the core** (S83-05j, [ADR 0181](adr/0181-the-contracts-speak-no-trade.md)
+round D), after the `ci` and `cd` ones (below): GitHub, GitLab and Azure Repos, their fake, the activities
+that open and merge a pull request (`open_pull_request`, `enqueue_merge`, `ensure_branch`,
+`collect_run_artifacts`, `check_scope_violations`, under the same names), the readiness item of a project's
+repository and the boarding of a merged work item on its train. They are the `software-delivery` plugin's
+extension, which the published images install: **a deployment on the published images has nothing to
+do**. Stored connectors keep their kind and type, histories their activity names.
+
+The GitHub App, its routes and the GitHub and GitLab webhooks stay the core's: they serve the
+`github-issues` and `gitlab-issues` trackers, a run's git token and linked accounts as well. A netops change
+(Cilium, nginx) is still proposed as a pull request on the GitOps repository, through the core's
+`tranibor_adapters.github.changes.GitHubChanges`.
+
+A deployment that builds its own images without the extension keeps its trackers and netops; it has no
+source control, so a workflow that opens a pull request is refused at publication, naming the plugin, and
+a run's diff is not filed. Code that imported the moved names:
+
+| Before | After |
+| :-- | :-- |
+| `tranibor_adapters.scm.*`, `tranibor_adapters.fakes.FakeScm` | `tranibor_software_delivery.connectors.scm.*`, `.connectors.fakes.FakeScm` |
+| `tranibor_adapters.ScmAdapter`, `base.SCM_CAPABILITIES`, `base.merge_at_commit_refusal` | `tranibor_software_delivery.connectors.base` |
+| `tranibor_orchestrator.activities.scm`, `activities.base.scm_for`, `activities.gates.check_scope_violations` | `tranibor_software_delivery.source_control` |
+| `adapters.scm` | unchanged (an adapter slot the extension declares), or `scm_of(adapters)` |
+| `ProjectBundle.scm_connector` | `ProjectBundle.stored_connectors["scm"]` |
+
+## Upgrading past 0.28.1: the pipeline and deployment connectors are software delivery's
+
+**The `ci` and `cd` connector types left the core** (S83-05i, [ADR 0181](adr/0181-the-contracts-speak-no-trade.md)
+round D): Tekton, GitLab CI, GitHub Actions, Jenkins and Azure Pipelines, Argo CD and the demonstration
+`cd`, their fakes, the webhooks `/webhooks/tekton`, `/webhooks/jenkins` and `/webhooks/argocd`, the
+provisioning steps `gitops.write_project_manifests` and `argocd.wait_synced`, and `make demo`. They are the
+`software-delivery` plugin's extension (`tranibor-software-delivery`), which the published API and worker
+images install: **a deployment on the published images has nothing to do**. Stored connectors keep their
+kind and type, the webhooks their paths, the templates their step names.
+
+A deployment that builds its own images without the extension loses them: a project's `ci` and `cd`
+connectors cannot be declared, the three webhooks answer 404, and those two provisioning steps are skipped,
+saying so. Code that imported them moves its imports:
+
+| Before | After |
+| :-- | :-- |
+| `tranibor_adapters.ci.*`, `tranibor_adapters.cd.*` | `tranibor_software_delivery.connectors.ci.*`, `.cd.*` |
+| `tranibor_adapters.fakes.FakeCi`, `FakeCd`, `fakes.demo_cd` | `tranibor_software_delivery.connectors.fakes` |
+| `tranibor_adapters.CiAdapter`, `CdAdapter` | `tranibor_software_delivery.connectors.CiAdapter`, `CdAdapter` |
+| `adapters.ci`, `adapters.cd` | unchanged (an adapter slot the extension declares), or `ci_of(adapters)`, `cd_of(adapters)` |
+| `python -m tranibor_orchestrator.demo` | `python -m tranibor_software_delivery.demo` (`make demo`) |
+
 ## Upgrading past 0.27.16: the investment research template and its job image
 
 **The investment research template and `choregos-quant` left the core** (S83-07,

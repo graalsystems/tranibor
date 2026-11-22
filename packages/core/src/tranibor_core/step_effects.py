@@ -37,8 +37,16 @@ ENTERED: Moment = "entered"
 PASSED: Moment = "passed"
 
 #: The effects the interpreter plays with their own activities, by name (it never reads this registry):
-#: the `software-delivery` plugin's two, whose activities are still the orchestrator's until round D.
+#: the `software-delivery` plugin's two, recorded so in every history before the step-effect registry.
 CORE_EFFECTS = ("open_pr", "merge_pr")
+
+#: The activity the interpreter calls, by name, for each of those two: the names every recorded history
+#: carries. The `software-delivery` plugin's extension registers them on the workers (ADR 0181, round D).
+EFFECT_ACTIVITY: Mapping[str, str] = {"open_pr": "open_pull_request", "merge_pr": "enqueue_merge"}
+
+#: The error type `open_pull_request` raises when the work item has no branch to open a pull request from
+#: (S22-46): non-retryable, and the interpreter escalates the work item on it. A wire value.
+NO_BRANCH = "NoBranch"
 
 #: The effects a plugin serves once its extension is installed, by name: what the core can say of an
 #: effect it does not know, so that a workflow naming one is refused at publication naming the plugin

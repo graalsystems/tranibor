@@ -386,68 +386,6 @@ async def test_ecphoria_the_search_reads_the_hits_with_their_score() -> None:
     assert hit.id == "m-1" and "credit notes" in hit.content.lower()
 
 
-# ───────────────────────── Argo CD ─────────────────────────
-
-ARGO = "http://argocd.test"
-
-
-@respx.mock
-async def test_argocd_health_revision_and_unknown_application() -> None:
-    from tranibor_adapters.cd.argocd import ArgoCdAdapter
-
-    respx.get(f"{ARGO}/api/v1/applications/billing-api-prod").mock(
-        return_value=Response(
-            200,
-            json={
-                "status": {
-                    "health": {"status": "Degraded", "message": "1/3 pods"},
-                    "sync": {"revision": "abc123"},
-                }
-            },
-        )
-    )
-    respx.get(f"{ARGO}/api/v1/applications/nowhere").mock(return_value=Response(404, text="not found"))
-    argo = ArgoCdAdapter(base_url=ARGO, token="t")
-    health = await argo.health("billing-api-prod")
-    assert (health.status, health.message, health.revision) == ("Degraded", "1/3 pods", "abc123")
-    assert await argo.current_revision("billing-api-prod") == "abc123"
-    assert (await argo.health("nowhere")).status == "Missing"
-    assert await argo.current_revision("nowhere") == "unknown"
-
-
-@respx.mock
-async def test_argocd_an_aborted_rollout_reads_from_its_conditions() -> None:
-    from tranibor_adapters.cd.argocd import ArgoCdAdapter
-
-    manifest = {
-        "spec": {"strategy": {"canary": {"steps": [{"setWeight": 10}, {"pause": {}}, {"setWeight": 50}]}}},
-        "status": {
-            "phase": "Paused",
-            "currentStepIndex": 1,
-            "canary": {"weight": 10},
-            "conditions": [{"reason": "RolloutAborted"}],
-            "message": "SLO analysis failed",
-        },
-    }
-    respx.get(f"{ARGO}/api/v1/applications/billing-api-prod/resource").mock(
-        return_value=Response(200, json={"manifest": json.dumps(manifest)})
-    )
-    rollout = await ArgoCdAdapter(base_url=ARGO).rollout_status("billing-api-prod")
-    assert (
-        rollout.phase == "Aborted"
-        and rollout.current_step == 1
-        and rollout.total_steps == 3
-        and rollout.canary_weight == 10
-    )
-    assert "SLO" in rollout.message
-
-    abort = respx.post(f"{ARGO}/api/v1/applications/billing-api-prod/rollback").mock(
-        return_value=Response(200, json={})
-    )
-    await ArgoCdAdapter(base_url=ARGO).abort_rollout("billing-api-prod")
-    assert json.loads(abort.calls[0].request.content) == {"name": "billing-api-prod", "prune": False}
-
-
 @respx.mock
 async def test_litellm_a_decision_model_is_listed_as_one_and_calls_no_tool() -> None:
     """ADR 0121: LiteLLM lists Jev and Laya as `mode: evaluation`, with no tool-calling metadata."""
