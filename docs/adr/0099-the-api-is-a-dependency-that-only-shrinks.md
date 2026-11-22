@@ -1,6 +1,6 @@
 # 0099 — The API is a dependency that only shrinks: ratchets on the imports that cross layers
 
-- **Status**: accepted, 2026-10-29
+- **Status**: accepted, 2026-10-29; amended 2026-11-22 (#1896)
 - **Concerns**: `apps/orchestrator`, `packages/*/src`, `apps/api/src/tranibor_api` (services and
   routers); `tests/architecture/`, `apps/api/tests/test_layering_*.py`,
   `apps/api/tests/test_one_organisation_lookup.py`; `docs/development.md`
@@ -43,6 +43,24 @@ on every rename.
 
 The orchestrator and extensions (entry-point packages such as `choregos_ontology`) may import the
 API's persistence and services; they never import its HTTP layer.
+
+## Amendment, 2026-11-22: a new activity trades an import (#1896)
+
+The orchestrator's ceiling sat exactly at its count (156) when S4-09 added two distillation
+activities. Moving shared types to `tranibor_core` would have lowered nothing: the orchestrator
+imports the distillation *steps* (`step_plan`, `step_part`, `step_reduce`, `step_publish`,
+`step_fail`), which open database sessions and are API-only; the one shareable symbol,
+`DistillationError`, is always imported in the same statement as a step.
+
+6. **A PR that needs a new counted import trades one.** It removes at least as many counted
+   statements in the same guard's scope as it adds: by sharing one lazy import between the
+   activities that need the same module (S4-09's `_distill()` helper), or by folding two statements
+   on one module into one. The `CEILING` stays where it is, or goes down. The trade is stated in the
+   PR body, with the count before and after.
+7. **No new feature raises a `CEILING`.** Decision 5's only raise stays the mechanical rename.
+   When no trade is possible, the feature waits for the extraction of Decision 4, which for the
+   distillation means moving the step layer behind a core protocol with its database access
+   injected: a story of its own, not part of the feature.
 
 ## Alternatives rejected
 
