@@ -65,10 +65,8 @@ async def tracker_problem(session: AsyncSession, org_id: str, plugin: str, serve
     return None
 
 
-def _auditor(org_id: str, connector_id: str) -> Any:
-    async def audit(tool: str, details: dict[str, Any]) -> None:
-        # Its own transaction: the write happened in the server's system whatever the caller's
-        # transaction does next, so its trace must not roll back with it.
+def _auditor(caller: AsyncSession, org_id: str, connector_id: str) -> Any:
+    async def write(tool: str, details: dict[str, Any]) -> None:
         from ..db.session import session_scope
 
         async with session_scope(orgs="*") as session:
@@ -81,6 +79,19 @@ def _auditor(org_id: str, connector_id: str) -> Any:
                 target_id=connector_id,
                 **details,
             )
+
+    async def audit(tool: str, details: dict[str, Any]) -> None:
+        # Its own transaction: the write happened in the server's system whatever the caller's
+        # transaction does next, so its trace must not roll back with it. When the caller's
+        # transaction has already written, the trace waits for that transaction's end, commit or
+        # rollback: a second writer would wait for the lock its own caller holds (SQLite: 5 s, then
+        # `database is locked` and no trace), and holds a second connection meanwhile (#2031).
+        from ..db.session import after_end, wrote_in_transaction
+
+        if wrote_in_transaction(caller):
+            after_end(caller, lambda: write(tool, details))
+        else:
+            await write(tool, details)
 
     return audit
 
@@ -106,7 +117,7 @@ async def pin_plugin_tracker(
         "url": endpoint[0],
         "token": endpoint[1],
         "transport": plugin_servers.transport(),
-        "audit": _auditor(org_id, found.id),
+        "audit": _auditor(session, org_id, found.id),
     }
 
 

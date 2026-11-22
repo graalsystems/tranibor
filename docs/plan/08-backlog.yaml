@@ -6151,6 +6151,17 @@ stories:
       - "spawn_children opens each child under <parent>.<rank> in the platform; an external tracker receives nothing, and a replay finds the children"
       - "a child's tracker writes (state, status, fields, comments, close) go nowhere when the project's tracker keeps its items elsewhere; the internal tracker still receives them"
     notes: "Before: children of an external tracker's project were filed there under the tracker's key, so a replay could not find them; a tracker that cannot create items (a plugin's) refused every child."
+  - id: S84-05
+    title: "fix(api): a plugin tracker write's audit entry waits for its caller's transaction (ADR 0211, finding #2031)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: S
+    depends_on: [S43-07]
+    acceptance:
+      - "a plugin tracker write made after its caller's transaction wrote is audited once, whether that transaction commits or rolls back, and the call does not wait for the caller's lock"
+      - "after_end runs after a commit and after a rollback in every owner of a session (session_scope, get_db, get_platform_db, in_scope)"
+    notes: "Before: on SQLite the audit row was written from a second connection while the caller held the write lock: 5 s, database is locked, no trace."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

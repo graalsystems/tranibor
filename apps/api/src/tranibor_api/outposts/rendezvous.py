@@ -86,7 +86,14 @@ from tranibor_core import utcnow
 from ..config import ed25519_public_key, get_settings
 from ..db.base import uuid7
 from ..db.models import Outpost, OutpostCall, OutpostInstance
-from ..db.session import ALL_ORGS, get_sessionmaker, in_outpost_scope, run_after_commit, session_scope
+from ..db.session import (
+    ALL_ORGS,
+    get_sessionmaker,
+    in_outpost_scope,
+    run_after_commit,
+    run_after_end,
+    session_scope,
+)
 from ..logging import get_logger
 from ..secret_store import (
     NO_KEY_MESSAGE,
@@ -247,6 +254,13 @@ async def in_scope(outpost_id: str) -> AsyncIterator[Scope | None]:
             await session.commit()
         except Exception:
             await session.rollback()
+            await run_after_end(session)
+            raise
+        except BaseException:
+            # A cancellation: what waits for the transaction's end is still due (ADR 0211).
+            with contextlib.suppress(Exception):
+                await session.rollback()
+            await run_after_end(session)
             raise
         await run_after_commit(session)
 
