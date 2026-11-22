@@ -38,7 +38,6 @@ ALLOWED = {
     "examples/agents/plain/Dockerfile": "the runner image exists only in the frozen namespace",
     "examples/agents/pydantic-ai/Dockerfile": "the runner image exists only in the frozen namespace",
     "tests/tools/test_publishing_identity.py": "the policy keeps the frozen plugin namespace",
-    "tests/tools/test_update_plugins_lock.py": "the offline archives still pulled from the frozen namespace",
     "tests/charts/test_frozen_image_signers.py": "pins the signers of the images published before the move",
     "apps/api/tests/test_catalogue_provenance_migration.py": "an old migration records the old source name",
 }

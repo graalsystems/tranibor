@@ -2,7 +2,7 @@ apiVersion: choregos/v1
 kind: Template
 metadata:
   name: github-software-delivery
-  version: 1.1.1
+  version: 1.1.2
   display: GitHub · software delivery (fix, study, feature)
   description: >-
     Three workflows for a software team on GitHub, run by agents from the catalogue. A bug or a small
@@ -32,7 +32,19 @@ defaults:
   policy: ./policy.yaml
   # The agents the workflows name install themselves (ADR 0040); the list says what the
   # template brings to the organisation.
-  skills: [catalogue:madr-4]
+  # The skills the agents name (software-delivery 1.2.0 added ten beside `madr-4`).
+  skills:
+    - catalogue:acceptance-criteria
+    - catalogue:ci-failure-triage
+    - catalogue:code-review
+    - catalogue:conventional-commits
+    - catalogue:madr-4
+    - catalogue:primary-sources
+    - catalogue:release-notes
+    - catalogue:safe-rollout
+    - catalogue:security-review
+    - catalogue:test-first
+    - catalogue:work-item-sizing
   agents:
     - catalogue:triager
     - catalogue:spec-writer
