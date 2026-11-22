@@ -121,7 +121,11 @@ def test_a_drifted_schema_is_caught() -> None:
 
 @pytest.mark.parametrize(
     "path",
-    sorted([*(ROOT / "agents").glob("*.yaml"), *(OPERATIONS_ROOT / "agents").glob("*.yaml")]),
+    # By name: the two roots are extracted into temporary folders whose names differ between processes.
+    sorted(
+        [*(ROOT / "agents").glob("*.yaml"), *(OPERATIONS_ROOT / "agents").glob("*.yaml")],
+        key=lambda p: p.name,
+    ),
     ids=lambda p: p.stem,
 )
 def test_a_plugin_agent_declares_its_five_components(path: Path) -> None:
