@@ -20,6 +20,7 @@ const spend = (tokensIn: number, tokensOut: number, cost: number, booked = false
   tokens_in: tokensIn,
   tokens_out: tokensOut,
   tokens_cached: Math.round(tokensIn * 0.4),
+  tokens_cache_write: Math.round(tokensIn * 0.1),
   cost_usd: cost,
   read_at: iso(0),
   booked,

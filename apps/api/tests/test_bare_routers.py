@@ -335,7 +335,7 @@ async def test_the_csv_carries_the_total_the_budget_and_the_bom_for_excel(
     text = response.text
     assert text.startswith("\ufeff"), "the BOM, so that Excel reads the accents"
     header = text.lstrip("\ufeff").splitlines()[0]
-    assert header == "kind;cout_usd;cout_eur;tokens_in;tokens_out;tokens_caches;runs"
+    assert header == "kind;cout_usd;cout_eur;tokens_in;tokens_out;tokens_caches;runs;tokens_cache_write"
     assert any(line.startswith("total;") for line in text.splitlines())
     assert any(line.startswith("budget_quotidien_usd;") for line in text.splitlines())
 

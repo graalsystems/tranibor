@@ -42,6 +42,6 @@ The cost in dollars itself was right: it is LiteLLM's `spend`, priced by the pro
 
 ## Not done
 
-- The CSV export keeps its columns (a consumer parses them by position).
-- The activity feed, the eval matrix and the web/CLI panels still show reads only.
+- (Done in S4-13, finding #1894:) the CSV export gains `tokens_cache_write` as its last column (a consumer parses by position), and the activity feed, the eval matrix (`median_tokens_cache_write`), the web panels and the CLI activity line show writes next to reads.
+- The tracker's markdown table still shows reads only.
 - The realtime relay's `Spend` reports no writes (the Realtime API has none).

@@ -358,7 +358,18 @@ def _csv_response(report: CostReport, filename: str) -> Response:
     group_by = report.group_by
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
-    writer.writerow([group_by, "cout_usd", "cout_eur", "tokens_in", "tokens_out", "tokens_caches", "runs"])
+    writer.writerow(
+        [
+            group_by,
+            "cout_usd",
+            "cout_eur",
+            "tokens_in",
+            "tokens_out",
+            "tokens_caches",
+            "runs",
+            "tokens_cache_write",
+        ]
+    )
     for row in report.rows:
         writer.writerow(
             [
@@ -369,6 +380,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
                 row.tokens_out,
                 row.tokens_cached,
                 row.runs,
+                row.tokens_cache_write,
             ]
         )
     writer.writerow([])
@@ -381,6 +393,8 @@ def _csv_response(report: CostReport, filename: str) -> Response:
             total.tokens_in,
             total.tokens_out,
             total.tokens_cached,
+            "",  # a total has no runs cell: the write column keeps its position
+            total.tokens_cache_write,
         ]
     )
     if total.budget_usd is not None:

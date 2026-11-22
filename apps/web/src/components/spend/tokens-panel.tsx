@@ -86,6 +86,11 @@ export function TokensAndCostPanel({
               label="Cached input tokens"
               hint="Part of the input, read from the model's cache"
             />
+            <Stat
+              value={<span data-testid="total-cache-write">{tokenCount(totals.cacheWrite)}</span>}
+              label="Cache-written input tokens"
+              hint="Part of the input, written to the model's cache: dearer than a fresh input token"
+            />
             <Stat value={<span data-testid="total-cost">{money(cost ?? 0, currency)}</span>} label="Cost" />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">

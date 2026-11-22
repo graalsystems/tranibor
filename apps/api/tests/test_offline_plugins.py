@@ -45,16 +45,16 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
 
     index = offline_index(OFFLINE)
     assert {name: sorted(v) for name, v in index.releases.items()} == {
-        "authoring": ["1.1.0"],
+        "authoring": ["1.1.2"],
         # The investment research template's plugin (S83-07), from the graalsystems index.
-        "investment-research": ["0.1.0"],
-        "mcp-clients": ["1.0.0"],
-        "netops": ["1.2.0"],
+        "investment-research": ["0.1.2"],
+        "mcp-clients": ["1.0.1"],
+        "netops": ["1.2.2"],
         "procurement": ["0.3.0"],
         # The operations half of the split (plugin repository pull request 27, #2134): the server.
         "procurement-operations": ["0.3.0"],
-        "requests": ["1.1.0"],
-        "software-delivery": ["1.1.1"],
+        "requests": ["1.1.2"],
+        "software-delivery": ["1.3.0"],
     }
 
 
@@ -64,15 +64,16 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
 @pytest.fixture
 def deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     """The chart's configuration: the `tranibor` source, the offline directory, these defaults; the core
-    reports a release every offline plugin admits (the S60-04 versions require `>=0.25.1`)."""
+    reports a release every offline plugin admits (software-delivery 1.3.0, which names its extension,
+    requires `>=0.28.1`)."""
     from tranibor_api.config import reset_settings_cache
     from tranibor_api.services import plugin_sources
     from tranibor_core.plugins import versions
 
     fake = plugin_sources.FakePluginSource()
     plugin_sources.set_backend(fake)
-    monkeypatch.setattr(plugin_sources, "core_version", lambda: "0.25.1")
-    monkeypatch.setattr(versions, "core_version", lambda: "0.25.1")
+    monkeypatch.setattr(plugin_sources, "core_version", lambda: "0.28.1")
+    monkeypatch.setattr(versions, "core_version", lambda: "0.28.1")
 
     def write(defaults: list[dict[str, Any]], offline: Path = OFFLINE) -> Any:
         path = tmp_path / "plugins.yaml"
@@ -130,12 +131,12 @@ async def test_a_preapproved_default_is_installed_and_the_configuration_is_the_a
     assert [(o.plugin, o.outcome) for o in outcomes] == [("software-delivery", "installed")]
     assert fake.calls == [], "taken from the offline directory: no network at start-up"
     row = (await _rows())["software-delivery"]
-    assert (row.source, row.version, row.is_default, row.installed_by) == ("tranibor", "1.1.1", True, None)
+    assert (row.source, row.version, row.is_default, row.installed_by) == ("tranibor", "1.3.0", True, None)
     (approval,) = await _audit("plugin.default.preapproved")
     assert approval.payload["approved_by"] == "deployment configuration"
     assert any("madr-4" in reason for reason in approval.payload["reasons"])
     architect = (await client.get(f"{ORG}/agents/architect")).json()
-    assert architect["versions"][0]["created_by"] == "plugin:software-delivery/architect@3"
+    assert architect["versions"][0]["created_by"] == "plugin:software-delivery/architect@4"
     assert (await client.get(f"{ORG}/plugin-approvals")).json()["items"] == []
 
 
@@ -150,7 +151,7 @@ async def test_requests_is_installed_without_a_second_administrator(
     outcomes = await plugin_defaults.reconcile_all()
     assert [(o.plugin, o.outcome) for o in outcomes] == [("requests", "installed")]
     assert fake.calls == [], "taken from the offline directory: no network at start-up"
-    assert (await _rows())["requests"].version == "1.1.0"
+    assert (await _rows())["requests"].version == "1.1.2"
     assert await _audit("plugin.default.preapproved") == []
     for slug in ("brief-writer", "assistant"):
         agent = (await client.get(f"{ORG}/agents/{slug}")).json()
@@ -161,11 +162,11 @@ async def test_the_api_never_takes_a_preapproval(client: AsyncClient, admin: str
     deployment([])
     refused = await client.post(
         f"{ORG}/plugins/install",
-        json={"source": "offline", "name": "software-delivery", "version": "1.1.1", "preapproved": True},
+        json={"source": "offline", "name": "software-delivery", "version": "1.3.0", "preapproved": True},
     )
     assert refused.status_code == 422, refused.text
     waiting = await client.post(
-        f"{ORG}/plugins/install", json={"source": "offline", "name": "software-delivery", "version": "1.1.1"}
+        f"{ORG}/plugins/install", json={"source": "offline", "name": "software-delivery", "version": "1.3.0"}
     )
     assert waiting.status_code == 202, waiting.text
 
@@ -189,7 +190,7 @@ async def test_the_installer_keeps_the_clients_client_and_reach(
 ) -> None:
     deployment([])
     installed = await client.post(
-        f"{ORG}/plugins/install", json={"source": "offline", "name": "mcp-clients", "version": "1.0.0"}
+        f"{ORG}/plugins/install", json={"source": "offline", "name": "mcp-clients", "version": "1.0.1"}
     )
     assert installed.status_code == 201, installed.text
     clients = (await _rows())["mcp-clients"].details["clients"]
@@ -205,7 +206,7 @@ async def test_an_installed_version_replaces_the_offline_one_in_the_catalogue(
 ) -> None:
     offline = tmp_path / "offline"
     offline.mkdir()
-    with tarfile.open(OFFLINE / "netops-1.2.0.tar.gz") as source:
+    with tarfile.open(OFFLINE / "netops-1.2.2.tar.gz") as source:
         source.extractall(offline / "netops", filter="data")
     manifest = offline / "netops" / "plugin.yaml"
     document = yaml.safe_load(manifest.read_text(encoding="utf-8"))

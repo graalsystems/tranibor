@@ -6432,3 +6432,13 @@ stories:
       - "contract-change: Theme.radius.pill is an optional integer 0..999 px; absent keeps the pills round; the API refuses a value out of bounds and serves the one a provider returns"
       - "The console emits --radius-pill from the served theme and every badge, chip, counter and bar uses rounded-pill; dots, avatars, spinners and circular icons stay rounded-full"
       - "A web test fails when a pill-shaped component goes back to rounded-full"
+  - id: S4-13
+    title: "Every cost surface shows cache writes next to cache reads"
+    stream: S4
+    sprint: 2
+    priority: 7
+    size: M
+    depends_on: [S4-07]
+    acceptance:
+      - "The cost CSV, the activity feed and stream, a run's tokens and a work item's totals, the eval matrix, the web cost panels and the CLI activity line carry `tokens_cache_write` next to `tokens_cached` (contract PR first)"
+    notes: "ADR 0188 'Not done', finding #1894"

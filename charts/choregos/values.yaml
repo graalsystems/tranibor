@@ -975,9 +975,17 @@ demoFakes:
   port: 8090
   # { name: <secret>, key: <key> }: the MCP servers' token and the fake Graph's secret.
   tokenSecret: null
+  # Before it listens, the server loads the installed extensions' desks. Measured on the 0.28.1 API
+  # image (three extensions): ready in 34 s at 200m, 12 s at 500m, 6 s at one CPU; an image with one
+  # more extension (the enterprise edition) took 10 s at whole CPUs. Without a startup probe, the
+  # liveness probe (3 x 10 s) killed it at 200m in a loop (#2139).
+  startupProbe:
+    periodSeconds: 5
+    # 36 x 5 s = 180 s to start, five times the measure at 200m, before the liveness probe applies.
+    failureThreshold: 36
   resources:
-    requests: { cpu: 20m, memory: 96Mi }
-    limits: { cpu: 200m, memory: 256Mi }
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
 
 # Netops (ADR 0052): the read-only identity of the `cilium` connector — a service account allowed
 # get/list/watch on CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy, nothing else. Off by
