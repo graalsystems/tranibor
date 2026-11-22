@@ -64,8 +64,11 @@ async def test_installing_an_agent_installs_its_skills_first(client: AsyncClient
     installed = await client.post(f"{ORG}/agent-catalogue/architect/install")
     assert installed.status_code == 201, installed.text
     agent = installed.json()
-    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/architect@3"
-    assert agent["versions"][0]["spec"]["skills"] == [{"slug": "madr-4", "version": None}]
+    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/architect@4"
+    assert agent["versions"][0]["spec"]["skills"] == [
+        {"slug": "primary-sources", "version": None},
+        {"slug": "madr-4", "version": None},
+    ]
     skills = {s["slug"]: s for s in (await client.get(f"{ORG}/skills")).json()["items"]}
     assert skills["madr-4"]["latest_version"] == 1
 
@@ -151,7 +154,7 @@ async def test_publishing_a_workflow_that_names_a_catalogue_agent_installs_it(
     )
     assert published.status_code == 200, published.text
     agent = (await client.get(f"{ORG}/agents/developer")).json()
-    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/developer@2"
+    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/developer@3"
 
 
 @pytest.fixture
@@ -190,7 +193,10 @@ async def test_a_template_can_name_a_catalogue_agent(
     created = await client.post(f"{ORG}/projects", json=body)
     assert created.status_code == 201, created.text
     reviewer = (await client.get(f"{ORG}/agents/reviewer")).json()
-    assert reviewer["versions"][0]["spec"]["skills"] == [{"slug": "madr-4", "version": None}]
+    assert reviewer["versions"][0]["spec"]["skills"] == [
+        {"slug": "code-review", "version": None},
+        {"slug": "madr-4", "version": None},
+    ]
     assert "madr-4" in {s["slug"] for s in (await client.get(f"{ORG}/skills")).json()["items"]}
 
 
@@ -312,7 +318,7 @@ async def test_a_catalogue_agent_installed_by_a_template_carries_the_same_proven
 ) -> None:
     await _project_of_the_template(client, templates)
     agent = (await client.get(f"{ORG}/agents/reviewer")).json()
-    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/reviewer@2"
+    assert agent["versions"][0]["created_by"] == "plugin:software-delivery/reviewer@3"
     assert agent["scope"] == "platform"
     listed_entry = next(
         e

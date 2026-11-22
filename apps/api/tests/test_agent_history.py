@@ -201,7 +201,7 @@ async def test_platform_written_versions_have_a_message(
     installed = await client.post(f"{ORG}/agent-catalogue/triager/install")
     assert (
         installed.json()["versions"][0]["message"]
-        == "Installed from the plugin software-delivery (triager@2)"
+        == "Installed from the plugin software-delivery (triager@3)"
     )
     forked = await client.post(f"{ORG}/agents/triager/fork", json={"slug": "triager-copy", "scope": "org"})
     assert forked.json()["versions"][0]["message"] == "Forked from triager@1"
@@ -220,7 +220,7 @@ async def test_platform_written_versions_have_a_message(
     view = dataclasses.replace(service.offline_catalogue(), entries=(*others, new))
     monkeypatch.setattr(service, "offline_catalogue", lambda: view)
     upgraded = await client.post(f"{ORG}/agent-catalogue/triager/install", json={"upgrade": True})
-    assert upgraded.json()["versions"][0]["message"] == "Catalogue update to software-delivery/triager@3"
+    assert upgraded.json()["versions"][0]["message"] == "Catalogue update to software-delivery/triager@4"
 
 
 async def test_restore_copies_the_stored_bytes_not_a_re_serialisation(client: AsyncClient, org: str) -> None:

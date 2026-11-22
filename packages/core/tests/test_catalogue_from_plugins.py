@@ -20,7 +20,10 @@ OFFLINE = ROOT / "plugins" / "offline"
 #: The plugin of each agent, and the catalogue version its provenance carries (MIGRATION-FROM-CORE.md).
 #: Every internal agent moved one version when its plugin declared its five components (S60-04, ADR 0127);
 #: a client did not. netops had moved once before, for its tool-scripts default (S57-15); the researcher
-#: moved once more in software-delivery 1.1.1, which restored the web its eval E5 reads.
+#: moved once more in software-delivery 1.1.1, which restored the web its eval E5 reads. Sixteen delivery
+#: agents moved once more in software-delivery 1.2.0 (the skills and knowledge their instructions use;
+#: offline from 1.3.0, S83-04o); `compliance`, `secops` and `ux-designer` did not.
+UNMOVED_IN_1_2_0 = {"compliance", "secops", "ux-designer"}
 VERSION_THREE = {"architect", "prod-verifier", "spec-writer", "researcher"}
 VERSION_FOUR = {"netops"}
 PLUGINS = {
@@ -33,11 +36,15 @@ PLUGINS = {
     "procurement-operations": 4,
 }
 #: The plugin version the offline directory holds, when it is not 1.0.0.
+#: authoring 1.1.2, netops 1.2.2, requests 1.1.2 and mcp-clients 1.0.1 are their 1.1.0, 1.2.0, 1.1.0 and
+#: 1.0.0 republished by the graalsystems source (#2140): the same agents' documents, a new publisher and
+#: README (mcp-clients 1.0.2 renames the product in its clients' descriptions without moving their version).
 PLUGIN_VERSIONS = {
-    "software-delivery": "1.1.1",
-    "netops": "1.2.0",
-    "authoring": "1.1.0",
-    "requests": "1.1.0",
+    "software-delivery": "1.3.0",
+    "netops": "1.2.2",
+    "authoring": "1.1.2",
+    "requests": "1.1.2",
+    "mcp-clients": "1.0.1",
     "procurement": "0.3.0",
     "procurement-operations": "0.3.0",
 }
@@ -50,8 +57,8 @@ BORN_IN_A_PLUGIN = {"procurement", "procurement-operations"}
 #: moved once (an installed one is offered the update); `claude-ai`, a client, prepends none. Every
 #: internal agent's document moved once more, on purpose, when it declared its five components (S60-04).
 FINGERPRINTS = {
-    "architect": "sha256:eff0e642adb1912c3764c289654ca961f0068185b8ead70e3a0ebcb0452297b5",
-    "developer": "sha256:d5d0d1986526f3936938bd5ad589f329b153374d7305d78e20855011436f3425",
+    "architect": "sha256:88ecc0245b687fa1eeb2da7c39dd6e9d6818ada400a1370f275e6eb9030865dc",
+    "developer": "sha256:669917186a5ec5d48e86a86678a843a07eae1c3d99f9511bc603eeabc9e95779",
     "netops": "sha256:7f6a8262fee61e909fc5cbeb78d2aa90eff5441868db3a2c150902c846af8718",
     "agent-drafter": "sha256:28d4c5df5d91ed095358fe7990760eaa4b30f47ca3ed04c0d384ef39ed129734",
     "claude-ai": "sha256:56cbd162bc57f803e6e162baf922669d6a50a3d205a521a88b69efc2b3113496",
@@ -74,6 +81,8 @@ def test_every_agent_comes_from_its_plugin() -> None:
         counted[found.plugin] = counted.get(found.plugin, 0) + 1
         assert found.plugin_version == PLUGIN_VERSIONS.get(found.plugin, "1.0.0")
         expected = 4 if found.slug in VERSION_FOUR else 3 if found.slug in VERSION_THREE else 2
+        if found.plugin == "software-delivery" and found.slug not in UNMOVED_IN_1_2_0:
+            expected += 1
         if found.kind != "internal" or found.plugin in BORN_IN_A_PLUGIN:
             expected = 1
         assert found.provenance == f"plugin:{found.plugin}/{found.slug}@{expected}"
@@ -99,7 +108,7 @@ def test_a_client_keeps_its_client_and_reach() -> None:
 
 def test_madr_4_is_the_plugins_with_its_licence() -> None:
     skill = catalogue.catalogue().skills["madr-4"]
-    assert skill.provenance == "plugin:software-delivery/madr-4@1.1.1"
+    assert skill.provenance == "plugin:software-delivery/madr-4@1.3.0"
     assert {"SKILL.md", "LICENSE", "PROVENANCE.json"} <= set(skill.files)
 
 
@@ -110,7 +119,7 @@ def test_without_an_offline_directory_the_catalogue_is_empty(tmp_path: Path) -> 
 
 
 def test_the_environment_names_the_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    shutil.copy(OFFLINE / "netops-1.2.0.tar.gz", tmp_path)
+    shutil.copy(OFFLINE / "netops-1.2.2.tar.gz", tmp_path)
     monkeypatch.setenv("TRANIBOR_PLUGINS_OFFLINE", str(tmp_path))
     assert [e.slug for e in entries()] == ["netops"]
 

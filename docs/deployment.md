@@ -2327,6 +2327,13 @@ policy opens that pod to the platform; `demoFakes.tokenSecret` (a secret referen
 further. A demonstration: the chart refuses it in `staging` and `prod`. `trials/hr/` plays the HR
 scenario against it.
 
+Before it listens, the server loads the desks of the installed extensions (since 0.28.1): measured on
+the 0.28.1 API image, 34 s at 200m of CPU, 12 s at 500m, 6 s at one CPU, longer with more extensions
+(the enterprise edition's image). The pod therefore has a startup probe on `/healthz`
+(`demoFakes.startupProbe`: 36 tries 5 s apart, 180 s) before the liveness probe applies, and a CPU
+limit of 500m (`demoFakes.resources`); it has the deployment's `CHOREGOS_ENV`, which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
+being killed by its liveness probe (#2139) can return to the defaults.
+
 ### Which edition am I running?
 
 ```bash
@@ -2435,6 +2442,28 @@ value>` on the first model call. Nothing said the key had never resolved.
 
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
+
+## Upgrading past 0.28.1: the offline software-delivery plugin is 1.3.0
+
+**The core ships `software-delivery` 1.3.0 offline, instead of 1.1.1** (S83-04o). It is the first version
+that names its extension (`requires.extensions: [software-delivery]`, core `>=0.28.1`), and it carries
+1.2.0's changes: ten generic skills beside `madr-4` (`test-first`, `conventional-commits`, `code-review`,
+`security-review`, `release-notes`, `ci-failure-triage`, `work-item-sizing`, `acceptance-criteria`,
+`safe-rollout`, `primary-sources`), `architect` reading primary sources on the web, and the agents that
+apply an organisation's conventions reading the knowledge bases under `.choregos/knowledge/`.
+
+- **Sixteen of its nineteen agents' documents change** (`compliance`, `secops` and `ux-designer` do
+  not): each moves one version, so an organisation that installed them is **offered the update**; nothing
+  changes an installed agent until someone accepts it. A new organisation receives 1.3.0.
+- The `github-software-delivery` (1.1.2) and `software-delivery-governed` (1.0.2) templates bring the ten
+  new skills with `madr-4`.
+- The chart's default (`software-delivery`, `^1.0`, pre-approved) takes 1.3.0 from the offline directory:
+  nothing to change in the values. A deployment that builds its own image **without** the
+  `tranibor-software-delivery` wheel is refused the plugin, naming the extension; it keeps the version it
+  installed.
+- `mcp-clients` is 1.0.1, its 1.0.0 republished by the current source: the same clients' documents, nothing
+  offered. (1.0.2 renames the product in their descriptions without moving their version; the core does
+  not ship it.)
 
 ## Upgrading past 0.28.1: the source control is software delivery's
 

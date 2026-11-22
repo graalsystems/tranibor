@@ -43,7 +43,10 @@ export function formatElapsed(ms: number): string {
  */
 export function spendSoFar(entry: Pick<ActivityEntry, "spend">): { tokens: string; cost: string } {
   if (!entry.spend) return { tokens: "—", cost: "—" };
-  return { tokens: `${tokens(entry.spend.tokens_in)} in · ${tokens(entry.spend.tokens_out)} out`, cost: usd(entry.spend.cost_usd) };
+  const { tokens_in, tokens_out, tokens_cached, tokens_cache_write } = entry.spend;
+  // The cache's two sides, read and written, only when the provider reported one: most entries have none.
+  const cache = tokens_cached || tokens_cache_write ? ` · ${tokens(tokens_cached)} cached · ${tokens(tokens_cache_write ?? 0)} cache written` : "";
+  return { tokens: `${tokens(tokens_in)} in · ${tokens(tokens_out)} out${cache}`, cost: usd(entry.spend.cost_usd) };
 }
 
 /** The tone family of an entry's status, for its badge (a word always goes with it). */

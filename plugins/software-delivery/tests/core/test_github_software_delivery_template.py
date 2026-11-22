@@ -54,7 +54,7 @@ def test_the_release_notes_read_the_documentation_report() -> None:
 
 def test_the_manifest_installs_exactly_the_agents_the_workflows_name() -> None:
     manifest = _doc(TEMPLATE / "manifest.yaml")
-    assert manifest["metadata"]["version"] == "1.1.1"
+    assert manifest["metadata"]["version"] == "1.1.2"
     listed = {a.removeprefix("catalogue:") for a in manifest["defaults"]["agents"]}
     named = {
         a["agent"]

@@ -272,7 +272,7 @@ async def test_spend_so_far_is_null_when_the_gateway_raises(
     await _run(project["id"], "r-keyless")
     await _run(
         project["id"], "r-booked", status="succeeded", ended_ago=timedelta(minutes=1), spend_collected=True,
-        tokens={"tokens_in": 10, "tokens_out": 4, "tokens_cached": 2}, cost_usd=0.5,
+        tokens={"tokens_in": 10, "tokens_out": 4, "tokens_cached": 2, "tokens_cache_write": 3}, cost_usd=0.5,
     )  # fmt: skip
     body = (await client.get(ACTIVITY)).json()
     spend = {e["id"]: e["spend"] for e in body["in_flight"] + body["finished"]}
@@ -281,6 +281,7 @@ async def test_spend_so_far_is_null_when_the_gateway_raises(
     assert spend["r-keyless"] is None
     booked = spend["r-booked"]
     assert (booked["tokens_in"], booked["tokens_out"], booked["tokens_cached"]) == (10, 4, 2)
+    assert booked["tokens_cache_write"] == 3, "a booked run shows its cache writes next to its reads (S4-13)"
     assert (booked["cost_usd"], booked["booked"]) == (0.5, True)
 
 
@@ -291,12 +292,15 @@ async def test_spend_so_far_is_asked_once_in_30_seconds(
 
     now = [1000.0]
     monkeypatch.setattr(activity, "clock", lambda: now[0])
-    gateway = _Gateway(spend=Spend(tokens_in=120, tokens_out=30, tokens_cached=7, cost_usd=0.02))
+    gateway = _Gateway(
+        spend=Spend(tokens_in=120, tokens_out=30, tokens_cached=7, tokens_cache_write=5, cost_usd=0.02)
+    )
     _use_gateway(monkeypatch, gateway)
     await _run(project["id"], "r-live", gateway_key_id="key-live")
 
     first = (await client.get(ACTIVITY)).json()["in_flight"][0]["spend"]
     assert (first["tokens_in"], first["tokens_out"], first["tokens_cached"]) == (120, 30, 7)
+    assert first["tokens_cache_write"] == 5
     assert (first["cost_usd"], first["booked"]) == (0.02, False)
     now[0] += 29
     await client.get(ACTIVITY)

@@ -108,6 +108,25 @@ describe("an entry, in words", () => {
       entry({ spend: { tokens_in: 184_000, tokens_out: 12_400, tokens_cached: 0, cost_usd: 1.92, read_at: "2026-11-11T10:00:00Z" } }),
     );
     expect(read).toEqual({ tokens: "184 k in · 12 k out", cost: "US$1.92" });
+    // The cache's two sides sit side by side, the write (dearer) next to the read, once either is known.
+    const cached = spendSoFar(
+      entry({
+        spend: {
+          tokens_in: 184_000,
+          tokens_out: 12_400,
+          tokens_cached: 90_000,
+          tokens_cache_write: 31_000,
+          cost_usd: 1.92,
+          read_at: "2026-11-11T10:00:00Z",
+        },
+      }),
+    );
+    expect(cached.tokens).toBe("184 k in · 12 k out · 90 k cached · 31 k cache written");
+    // An entry booked before S4-13 carries no write counter: it reads as none, not as a crash.
+    const old = spendSoFar(
+      entry({ spend: { tokens_in: 1_000, tokens_out: 100, tokens_cached: 500, cost_usd: 0.1, read_at: "2026-11-11T10:00:00Z" } }),
+    );
+    expect(old.tokens).toContain("cache written");
   });
 
   it("gives each status its tone family", () => {

@@ -159,7 +159,7 @@ export default function RunPage({ params }: { params: Promise<{ slug: string; id
           <p className="text-2xl">{usd(run.data.cost_usd)}</p>
           <p className="text-xs text-ink-muted">
             {tokens(run.data.tokens?.tokens_in)} in · {tokens(run.data.tokens?.tokens_out)} out ·{" "}
-            {tokens(run.data.tokens?.tokens_cached)} cached
+            {tokens(run.data.tokens?.tokens_cached)} cached · {tokens(run.data.tokens?.tokens_cache_write)} cache written
           </p>
         </Card>
         <Card title="Duration" action={<Provenance de="observed" />}>
