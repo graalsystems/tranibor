@@ -211,6 +211,8 @@ async def test_a_fake_matrix_has_four_context_cells_with_tokens_from_the_ledger(
             ("median_turns", "turns"),
         ]:
             assert cell[column] == statistics.median(u[key] for u in expected), (cell["context"], column)
+        # The scripted usages write nothing to a cache: measured and zero, not unknown.
+        assert cell["median_tokens_cache_write"] == 0.0
         assert cell["median_cost_usd"] and cell["success_rate"] == 1.0
     costs = [cell["median_cost_usd"] for cell in cells]
     assert costs == sorted(costs, reverse=True), "the scripted usage shrinks from none to rtk+headroom"
@@ -253,7 +255,14 @@ async def test_the_cell_reports_what_the_ledger_says_not_what_the_fixture_script
         "fixtures": ["py-rounding-bug"],
     }
     setup.adapters.gateway = Ledger(
-        Spend(tokens_in=7_000, tokens_cached=3_000, tokens_out=500, cost_usd=0.04, requests=3)
+        Spend(
+            tokens_in=7_000,
+            tokens_cached=3_000,
+            tokens_cache_write=1_200,
+            tokens_out=500,
+            cost_usd=0.04,
+            requests=3,
+        )
     )
     cell = await evals.run_eval_cell(payload)
     assert (cell["median_tokens_in"], cell["median_tokens_cached"], cell["median_tokens_out"]) == (
@@ -261,6 +270,7 @@ async def test_the_cell_reports_what_the_ledger_says_not_what_the_fixture_script
         3000,
         500,
     )
+    assert cell["median_tokens_cache_write"] == 1200, "the cache writes sit next to the reads (S4-13)"
     assert cell["median_cost_usd"] == 0.04
     assert cell["median_turns"] is None, "turns are scripted, and a real gateway billed nothing scripted"
     assert cell["median_requests"] == 3, "the round trips are the gateway's count (S57-01)"

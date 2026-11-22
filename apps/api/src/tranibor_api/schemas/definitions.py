@@ -299,6 +299,7 @@ class ModelMatrixEntry(Dto):
     metered: int | None = None
     median_tokens_in: float | None = None
     median_tokens_cached: float | None = None
+    median_tokens_cache_write: float | None = None
     median_tokens_out: float | None = None
     median_turns: float | None = None
 

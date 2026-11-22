@@ -470,7 +470,13 @@ def spend(value: Any, pricing: money.Pricing | None = None) -> str:
     it has a rate, else printed with its own symbol."""
     if not isinstance(value, dict):
         return DASH
+    # The cache's two sides, read then written (the write is the dearer one, ADR 0188), once the entry has
+    # written to it: most have not, and the line is one row of a narrow pane.
+    cache = ""
+    if value.get("tokens_cache_write"):
+        read, written = _count(value.get("tokens_cached")), _count(value.get("tokens_cache_write"))
+        cache = f" (cache {read} read, {written} written)"
     return (
-        f"{_count(value.get('tokens_in'))} in / {_count(value.get('tokens_out'))} out · "
+        f"{_count(value.get('tokens_in'))} in{cache} / {_count(value.get('tokens_out'))} out · "
         f"{pricing.text(money.amount(value)) if pricing else money.amount(value).text(None)}"
     )

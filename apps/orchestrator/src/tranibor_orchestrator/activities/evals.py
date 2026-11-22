@@ -308,6 +308,11 @@ def _cell(payload: dict[str, Any], context: str, outcomes: list[dict[str, Any]])
         "median_cost_usd": round(statistics.median(costs), 4) if costs else None,
         "median_tokens_in": _median(metered, "tokens_in"),
         "median_tokens_cached": _median(metered, "tokens_cached"),
+        # A measure booked before S4-07 has no write counter: it counts as no write (ADR 0188).
+        "median_tokens_cache_write": _median(
+            [{**u, "tokens_cache_write": u.get("tokens_cache_write", 0)} for u in metered],
+            "tokens_cache_write",
+        ),
         "median_tokens_out": _median(metered, "tokens_out"),
         "median_turns": _median([u for u in metered if u["turns"] is not None], "turns"),
         # The round trips (S57-01): over the cases whose model calls the gateway counted.
@@ -481,6 +486,7 @@ async def _ledger(gateway: Any, key_id: str, turns: int | None) -> dict[str, Any
     return {
         "tokens_in": spend.tokens_in,
         "tokens_cached": spend.tokens_cached,
+        "tokens_cache_write": spend.tokens_cache_write,
         "tokens_out": spend.tokens_out,
         "cost_usd": spend.cost_usd,
         "turns": turns,
@@ -1425,6 +1431,7 @@ def _usage_of(run: Run) -> dict[str, Any] | None:
     return {
         "tokens_in": int(tokens.get("tokens_in", 0)),
         "tokens_cached": int(tokens.get("tokens_cached", 0)),
+        "tokens_cache_write": int(tokens.get("tokens_cache_write", 0)),
         "tokens_out": int(tokens.get("tokens_out", 0)),
         "cost_usd": float(tokens.get("cost_usd", 0.0)),
         "turns": turns if isinstance(turns, int) else None,

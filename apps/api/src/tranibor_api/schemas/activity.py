@@ -19,6 +19,8 @@ class SpendSoFar(Dto):
     tokens_in: int
     tokens_out: int
     tokens_cached: int
+    #: Part of `tokens_in` like `tokens_cached`, and the dearer part (ADR 0188); 0 when none was reported.
+    tokens_cache_write: int = 0
     cost_usd: float
     #: When the gateway was asked (at most every 30 s per run), or when the spend was booked.
     read_at: datetime
