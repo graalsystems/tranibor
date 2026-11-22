@@ -2331,7 +2331,7 @@ Before it listens, the server loads the desks of the installed extensions (since
 the 0.28.1 API image, 34 s at 200m of CPU, 12 s at 500m, 6 s at one CPU, longer with more extensions
 (the enterprise edition's image). The pod therefore has a startup probe on `/healthz`
 (`demoFakes.startupProbe`: 36 tries 5 s apart, 180 s) before the liveness probe applies, and a CPU
-limit of 500m (`demoFakes.resources`). A deployment that raised the limit to keep the 0.28.1 pod from
+limit of 500m (`demoFakes.resources`); it has the deployment's `CHOREGOS_ENV`, which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
 being killed by its liveness probe (#2139) can return to the defaults.
 
 ### Which edition am I running?

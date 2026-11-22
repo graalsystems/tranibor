@@ -100,3 +100,11 @@ def test_a_deployment_sizes_the_start_budget() -> None:
     served = _nommes(documents, "choregos-demo-fakes")
     (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
     assert conteneur["startupProbe"]["failureThreshold"] == 60
+
+
+def test_the_fakes_know_the_deployment_s_environment() -> None:
+    """#2145: the extensions load in this process too; one that reads the environment (an enterprise image
+    built against a core commit starts only in `dev`) refused to start without it."""
+    served = _nommes(_documents("demoFakes.enabled=true", "global.environment=dev"), "choregos-demo-fakes")
+    (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
+    assert {"name": "CHOREGOS_ENV", "value": "dev"} in conteneur["env"]

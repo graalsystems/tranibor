@@ -48,6 +48,10 @@ spec:
           env:
             - name: CHOREGOS_DEMO_PORT
               value: {{ .Values.demoFakes.port | quote }}
+            # The deployment's environment, as the API and the workers have it: the installed extensions
+            # load here too (an enterprise image built against a core commit starts only in `dev`, #2145).
+            - name: CHOREGOS_ENV
+              value: {{ .Values.global.environment | quote }}
             {{- with .Values.demoFakes.tokenSecret }}
             # The MCP servers' token, and the fake Graph's application secret: by
             # reference, like any secret; without it, the network policy is the only gate.
