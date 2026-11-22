@@ -47,7 +47,7 @@ global:
   # `choregos-api.runDoor.hostnames`, and write that URL here (ADR 0144).
   internalApiUrl: ""
   imageRegistry: ghcr.io/graalsystems
-  imageTag: "0.28.0"
+  imageTag: "0.28.1"
   imagePullPolicy: IfNotPresent
   # Images are referenced by digest in staging and prod (Kyverno policy).
   imageDigest: ""
@@ -638,6 +638,18 @@ global:
       egress: networkpolicy
       resources:
         limits: { cpu: 500m, memory: 512Mi }
+      # Where the pods pull a server's image from (S80-20), for a cluster that admits only its mirror:
+      # a registry or repository prefix mapped to the mirror's. The digest is kept, and the checks
+      # (`registries`, the signature) are made on the image the plugin declares; only the pull moves.
+      #   imageMirrors:
+      #     ghcr.io/graalsystems/tranibor-agents: harbor.example/ghcr-proxy/graalsystems/tranibor-agents
+      imageMirrors: {}
+      # The Secrets the servers' pods pull with, in the servers' namespace; unset: `global.imagePullSecrets`
+      # (which must then exist there too). `[]`: none.
+      # imagePullSecrets: []
+      # The Role and RoleBinding that let the API run the servers in their namespace. `false` when the
+      # platform lays them down itself (as `rbac.jobRunner`): docs/deployment.md lists their rules.
+      rbac: true
   # All in one (ADR 0208): a cluster with nothing but Kubernetes and a default StorageClass gets a working
   # platform in one `helm install -f values/all-in-one.yaml`. This switch does NOT embed anything by
   # itself (a Helm condition reads values, not templates): the profile sets the `embedded` switches, and
@@ -963,9 +975,17 @@ demoFakes:
   port: 8090
   # { name: <secret>, key: <key> }: the MCP servers' token and the fake Graph's secret.
   tokenSecret: null
+  # Before it listens, the server loads the installed extensions' desks. Measured on the 0.28.1 API
+  # image (three extensions): ready in 34 s at 200m, 12 s at 500m, 6 s at one CPU; an image with one
+  # more extension (the enterprise edition) took 10 s at whole CPUs. Without a startup probe, the
+  # liveness probe (3 x 10 s) killed it at 200m in a loop (#2139).
+  startupProbe:
+    periodSeconds: 5
+    # 36 x 5 s = 180 s to start, five times the measure at 200m, before the liveness probe applies.
+    failureThreshold: 36
   resources:
-    requests: { cpu: 20m, memory: 96Mi }
-    limits: { cpu: 200m, memory: 256Mi }
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
 
 # Netops (ADR 0052): the read-only identity of the `cilium` connector — a service account allowed
 # get/list/watch on CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy, nothing else. Off by

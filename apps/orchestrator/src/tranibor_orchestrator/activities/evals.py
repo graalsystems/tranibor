@@ -119,6 +119,9 @@ LIVE_TOOLS: dict[str, dict[str, int] | None] = {"mcp": None, "scripts": {"max_co
 #: The journal's events of the tool scripts (S57-07, S57-08).
 CLIENT_EVENT, SCRIPT_EVENT, SCRIPT_CALL_EVENT = "tools.client", "tools.script", "tools.script.call"
 EVAL_BRANCH_PREFIX = "choregos-evals"
+#: The adapter slot a reference ticket's toy repository is committed through: the `software-delivery`
+#: plugin's source control (ADR 0181, round D). A deployment without it skips those cases, saying so.
+SOURCE_CONTROL = "scm"
 _NOT_TOY = {"__pycache__", ".pytest_cache", "node_modules", ".venv"}
 
 
@@ -305,6 +308,11 @@ def _cell(payload: dict[str, Any], context: str, outcomes: list[dict[str, Any]])
         "median_cost_usd": round(statistics.median(costs), 4) if costs else None,
         "median_tokens_in": _median(metered, "tokens_in"),
         "median_tokens_cached": _median(metered, "tokens_cached"),
+        # A measure booked before S4-07 has no write counter: it counts as no write (ADR 0188).
+        "median_tokens_cache_write": _median(
+            [{**u, "tokens_cache_write": u.get("tokens_cache_write", 0)} for u in metered],
+            "tokens_cache_write",
+        ),
         "median_tokens_out": _median(metered, "tokens_out"),
         "median_turns": _median([u for u in metered if u["turns"] is not None], "turns"),
         # The round trips (S57-01): over the cases whose model calls the gateway counted.
@@ -478,6 +486,7 @@ async def _ledger(gateway: Any, key_id: str, turns: int | None) -> dict[str, Any
     return {
         "tokens_in": spend.tokens_in,
         "tokens_cached": spend.tokens_cached,
+        "tokens_cache_write": spend.tokens_cache_write,
         "tokens_out": spend.tokens_out,
         "cost_usd": spend.cost_usd,
         "turns": turns,
@@ -738,10 +747,15 @@ async def seed_eval_ticket(payload: dict[str, Any]) -> dict[str, Any]:
         digest = sha256(repr(sorted(files.items())).encode()).hexdigest()[:10]
         branch = f"{EVAL_BRANCH_PREFIX}/{spec['repo']}-{digest}"
         repo = _repo_slug(depot.url)
-        await bundle.adapters.scm.ensure_branch(repo, branch, depot.default_branch)
-        await bundle.adapters.scm.commit_files(
-            repo, branch, files, f"chore(evals): toy repository {spec['repo']}"
-        )
+        # The project's source control is an extension's slot (the `software-delivery` plugin's, ADR 0181
+        # round D): a deployment without it has nothing to commit a toy repository to.
+        forge = bundle.adapters.extra.get(SOURCE_CONTROL)
+        if forge is None:
+            return _skip(
+                f"the eval project {bundle.slug} has no source control: no installed extension serves one"
+            )
+        await forge.ensure_branch(repo, branch, depot.default_branch)
+        await forge.commit_files(repo, branch, files, f"chore(evals): toy repository {spec['repo']}")
 
         cell = (
             "|".join(str(payload.get(k, "")) for k in ("matrix_id", "backend", "model"))
@@ -1417,6 +1431,7 @@ def _usage_of(run: Run) -> dict[str, Any] | None:
     return {
         "tokens_in": int(tokens.get("tokens_in", 0)),
         "tokens_cached": int(tokens.get("tokens_cached", 0)),
+        "tokens_cache_write": int(tokens.get("tokens_cache_write", 0)),
         "tokens_out": int(tokens.get("tokens_out", 0)),
         "cost_usd": float(tokens.get("cost_usd", 0.0)),
         "turns": turns if isinstance(turns, int) else None,

@@ -6,6 +6,7 @@ This test is what prevents drift between `schemas/*.json`, `openapi.yaml` and `t
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -146,16 +147,34 @@ def _schema_fields(node: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {}
 
 
+class _Annotated:
+    """A computed field's return type, read as a field's annotation."""
+
+    def __init__(self, annotation: Any) -> None:
+        self.annotation = annotation
+
+
 def _compare(trail: str, node: dict[str, Any], model: type, gaps: list[str]) -> None:
     schema_fields = _schema_fields(node)
     if not schema_fields:
         return
-    model_fields = {
+    model_fields: dict[str, Any] = {
         (info.alias or name): info
         for name, info in model.model_fields.items()  # type: ignore[attr-defined]
     }
+    # A field the model derives and writes (a `delivery` section, ADR 0181 C2) is declared by the schema too.
+    computed = {
+        name: info.return_type
+        for name, info in model.model_computed_fields.items()  # type: ignore[attr-defined]
+    }
+    model_fields.update({name: _Annotated(annotation) for name, annotation in computed.items()})
     missing_from_schema = set(model_fields) - set(schema_fields)
-    missing_from_model = set(schema_fields) - set(model_fields)
+    # A plugin's section a model reads but does not write (`x-plugin`, ADR 0181 C2): a property of it.
+    missing_from_model = {
+        name
+        for name in set(schema_fields) - set(model_fields)
+        if not (schema_fields[name].get("x-plugin") and isinstance(getattr(model, name, None), property))
+    }
     for name in sorted(missing_from_schema):
         gaps.append(f"{trail}.{name} : in the model {model.__name__}, absent from the schema")
     for name in sorted(missing_from_model):
@@ -195,8 +214,9 @@ def test_event_schema_knows_every_emitted_type() -> None:
     """
     from tranibor_contracts.enums import EventType
 
-    declares = set(contracts.load_schema("event.schema.json")["properties"]["type"]["enum"])
-    assert {t.value for t in EventType} == declares
+    # An open list since round D of ADR 0181: the schema holds the pattern and names the core's types.
+    node = contracts.load_schema("event.schema.json")["properties"]["type"]
+    assert all(re.fullmatch(node["pattern"], t.value) and t.value in node["description"] for t in EventType)
 
 
 def test_openapi_is_coherent() -> None:
@@ -576,7 +596,7 @@ def test_a_missed_status_comment_is_an_event_of_the_work_item() -> None:
 
     missed = "choregos.workitem.status_comment_missed"
     assert EventType.WORKITEM_STATUS_COMMENT_MISSED.value == missed
-    assert missed in contracts.load_schema("event.schema.json")["properties"]["type"]["enum"]
+    assert missed in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
 
 
 def test_the_network_denied_event_is_declared_and_the_openapi_names_the_four_operations() -> None:
@@ -584,7 +604,8 @@ def test_the_network_denied_event_is_declared_and_the_openapi_names_the_four_ope
 
     assert EventType.NETWORK_DENIED.value == "choregos.network.denied"
     assert (
-        "choregos.network.denied" in contracts.load_schema("event.schema.json")["properties"]["type"]["enum"]
+        "choregos.network.denied"
+        in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
     )
     spec = contracts.load_openapi()
     operations = {

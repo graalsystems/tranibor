@@ -54,6 +54,11 @@ A project without a repository files its requests in Tranibor itself:
 choregos projects create onboarding --name "Employee onboarding"
 ```
 
+Without a template, a project with a repository gets the `default-simple` workflow, which delivers code,
+and a project without one gets `default-request`, which delivers none. `default-simple`'s checks are the
+`software-delivery` plugin's: on a deployment that does not install it, a project with a repository gets
+`default-request` too.
+
 ### Which template
 
 | Template | When |

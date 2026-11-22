@@ -172,7 +172,7 @@ class CiliumNetwork:
         config: dict[str, Any],
         *,
         transport: httpx.AsyncBaseTransport | None = None,
-        scm: Any = None,
+        forge: Any = None,
     ) -> Any:
         kubernetes = ReadOnlyKubernetes(
             str(config["kubernetes_url"]),
@@ -191,12 +191,12 @@ class CiliumNetwork:
         )
         gitops = (
             GitOpsTarget(
-                scm,
+                forge,
                 str(config["gitops_repo"]),
                 str(config.get("gitops_base") or "main"),
                 str(config.get("gitops_path") or "cilium"),
             )
-            if scm is not None and config.get("gitops_repo")
+            if forge is not None and config.get("gitops_repo")
             else None
         )
         return cls(kubernetes, hubble, gitops)

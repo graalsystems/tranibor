@@ -37,11 +37,10 @@ PLATFORM_KINDS = frozenset({"runtime", "gateway", "memory"})
 #: The kinds a project configures for itself (its delivery connectors): tracker, scm, ci, cd, notify.
 PROJECT_KINDS = frozenset(ORDER) - PLATFORM_KINDS
 
+#: The core's kinds; an extension's slot names its own (`AdapterSlot.family`: the `software-delivery`
+#: plugin's source code, CI and deployment).
 FAMILIES: dict[str, str] = {
-    "scm": "Source code",
     "tracker": "Work trackers",
-    "ci": "CI",
-    "cd": "Deployment",
     "documents": "Documents",
     "identity": "Directory",
     "forge_account": "Member accounts",
@@ -73,7 +72,10 @@ FAMILY_ORDER = (
 
 
 def family_of(kind: str) -> str:
-    return FAMILIES.get(kind, "Other")
+    from tranibor_adapters.registry import adapter_slots
+
+    slot = adapter_slots().get(kind)
+    return FAMILIES.get(kind) or (slot.family if slot is not None and slot.family else "Other")
 
 
 async def enablement_by_connector(

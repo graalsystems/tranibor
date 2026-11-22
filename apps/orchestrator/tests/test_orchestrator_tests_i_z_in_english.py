@@ -14,6 +14,16 @@ from types import ModuleType
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 TESTS = ROOT / "apps" / "orchestrator" / "tests"
+#: Where the software delivery tests went (ADR 0181, round D, S83-05l): a renamed module may live there now.
+PLUGIN_TESTS = ROOT / "plugins" / "software-delivery" / "tests" / "orchestrator"
+
+
+def _module(name: str) -> pathlib.Path:
+    """A test module of the suite, or of the plugin's suite once it moved there."""
+    here = TESTS / f"{name}.py"
+    return here if here.is_file() else PLUGIN_TESTS / f"{name}.py"
+
+
 REPLAY = ROOT / "tests" / "replay"
 HISTORIES = REPLAY / "histories"
 
@@ -97,8 +107,8 @@ def test_orchestrator_tests_baseline_is_empty() -> None:
 
 def test_the_french_modules_are_gone_and_their_english_names_exist() -> None:
     for former, current in RENAMED_MODULES.items():
-        assert not (TESTS / f"{former}.py").exists(), former
-        assert (TESTS / f"{current}.py").is_file(), current
+        assert not (TESTS / f"{former}.py").exists() and not (PLUGIN_TESTS / f"{former}.py").exists(), former
+        assert _module(current).is_file(), current
 
 
 def test_the_renamed_histories_are_the_renamed_files_and_their_writers_follow() -> None:
@@ -107,7 +117,7 @@ def test_the_renamed_histories_are_the_renamed_files_and_their_writers_follow() 
         assert not (HISTORIES / f"{former}.json").exists(), former
         assert (HISTORIES / f"{current}.json").is_file(), current
         if writer is not None:
-            source = (TESTS / f"{writer}.py").read_text("utf-8")
+            source = _module(writer).read_text("utf-8")
             assert current in source, f"{writer} does not write {current}"
             assert former not in source, f"{writer} still writes {former}"
     for stem in FROZEN_STEMS:

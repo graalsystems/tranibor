@@ -48,6 +48,18 @@ class CodexBackend(Backend):
         return {**self.openai_env(model, key), "CODEX_MODEL": model.litellm_model}
 
 
+#: gemini-cli's own traffic, turned off (#1987): the usage statistics it sends to
+#: `play.googleapis.com` (Clearcut), and its update check. Keys read from the settings schema of the
+#: pinned 0.60.0 (`privacy.usageStatisticsEnabled`, `general.enableAutoUpdate`,
+#: `general.enableAutoUpdateNotification`). Measured in the runner image 0.27.15 over ACP against a fake
+#: Gemini API, one prompt: one tunnel to `play.googleapis.com:443` without them (13 to 36 on a real run),
+#: none with them, whether they are in the workspace's settings or in the user's.
+GEMINI_QUIET_SETTINGS: dict[str, Any] = {
+    "privacy": {"usageStatisticsEnabled": False},
+    "general": {"enableAutoUpdate": False, "enableAutoUpdateNotification": False},
+}
+
+
 class GeminiCliBackend(Backend):
     name: ClassVar[str] = "gemini-cli"
     skills_dir: ClassVar[str | None] = ".gemini/skills"
@@ -64,6 +76,7 @@ class GeminiCliBackend(Backend):
             "selectedAuthType": "api-key",
             "model": stage_input.model.litellm_model,
             "mcpServers": json.loads(self.mcp_config_json(stage_input))["mcpServers"],
+            **GEMINI_QUIET_SETTINGS,
         }
         return LaunchPlan(
             command=command,
@@ -77,6 +90,10 @@ class GeminiCliBackend(Backend):
                 **stage_input.agent.launch.files,
             },
             mcp_servers=self.mcp_servers(stage_input),
+            # Also in the user's settings, under the run's `$HOME`: a repository that has its own
+            # `.gemini/settings.json` keeps it (`materialize` never overwrites), and gemini-cli merges the
+            # user's beneath it, so the switches hold unless the repository turns them back on.
+            home_files={".gemini/settings.json": json.dumps(GEMINI_QUIET_SETTINGS, indent=2)},
         )
 
     def model_env(self, model: ModelRef, key: str | None) -> dict[str, str]:

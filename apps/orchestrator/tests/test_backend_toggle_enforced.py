@@ -139,7 +139,7 @@ async def test_a_disabled_backend_escalates_then_runs_once_enabled(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     backend = await _planned_backend(setup)
     await _switch(backend, enabled=False)
@@ -161,7 +161,7 @@ async def test_a_disabled_backend_escalates_then_runs_once_enabled(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-backend-disabled-S42-07c.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

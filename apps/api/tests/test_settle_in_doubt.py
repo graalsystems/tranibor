@@ -419,14 +419,13 @@ async def temporal() -> AsyncIterator[Any]:
 
 
 def _workers(temporal: Any) -> Any:
-    from tranibor_orchestrator.activities import ALL_ACTIVITIES
+    from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS, WORKFLOW_ACTIVITIES
 
     return workers_by_queue(
         temporal.client,
-        activities=[*ALL_ACTIVITIES, *WORKFLOW_ACTIVITIES],
-        workflows=ALL_WORKFLOWS,
+        activities=all_activities(),
+        workflows=all_workflows(),
         workflow_queue=QUEUE,
     )
 

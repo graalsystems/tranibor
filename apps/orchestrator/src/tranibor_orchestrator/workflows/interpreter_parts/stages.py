@@ -21,11 +21,11 @@ with workflow.unsafe.imports_passed_through():
     from tranibor_core.run_stop import STOPPED_BY_A_PERSON, stopped_by_a_person
 
     from ...activities import decision as decision_activities
-    from ...activities import scm as scm_activities
     from ...activities import stage as stage_activities
     from ...activities.interpretation import (
         message_of,
     )
+    from ...activities.stand_ins import RUN_ARTIFACTS
 
 from ..interpreter import (
     ALREADY_FIXED_ON_EVIDENCE,
@@ -144,7 +144,7 @@ class StagesMixin(InterpreterBase):
         # stage that has just succeeded: it happened to RH-1 on 2026-09-24.
         try:
             await execute_on_its_queue(
-                scm_activities.collect_run_artifacts,
+                RUN_ARTIFACTS,
                 {"project_id": params.project_id, "work_item_id": params.work_item_id, "run_id": run_id},
                 start_to_close_timeout=timedelta(minutes=2),
                 retry_policy=NO_RETRY,

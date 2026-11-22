@@ -21,6 +21,7 @@ in 0.24.0 (S45-49); `docs/deployment.md` ("Upgrading to 0.24") lists their repla
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -72,6 +73,9 @@ def reset() -> None:
     _SECTIONS.clear()
     _INSTALLERS.clear()
     _THEME_PROVIDER.clear()
+    _PROJECT_FIGURES.clear()
+    _READINESS_ITEMS.clear()
+    _INBOUND_HOOKS.clear()
     reset_gesture_checks()
 
 
@@ -396,3 +400,123 @@ def declare_theme_provider(provider: Any) -> None:
 
 def theme_provider() -> Any | None:
     return _THEME_PROVIDER[0] if _THEME_PROVIDER else None
+
+
+# ───────────────────────────── project figures (ADR 0181, round D) ─────────────────────────────
+#
+# A project's page carries figures a plugin computes: `Project.has_release_train` and
+# `ProjectStats.trains_pending` are the `software-delivery` plugin's (`openapi.yaml` marks them `x-plugin`).
+# The core keeps the fields of its contract, at their default, and fills them with what an extension
+# declares: `function(session, project)` (sync or async) returns the value. Without the extension the field
+# keeps its default. Only a field marked `x-plugin` in the contract may be declared, and one owner each.
+
+#: (component, field) -> (plugin, function). `component` is `Project` or `ProjectStats`.
+_PROJECT_FIGURES: dict[tuple[str, str], tuple[str, Any]] = {}
+FIGURE_COMPONENTS = ("Project", "ProjectStats")
+
+
+def declare_project_figure(component: str, field: str, function: Any, *, plugin: str) -> None:
+    """Called by an extension when it loads. Idempotent for the same plugin; another plugin's field stops
+    the start."""
+    if component not in FIGURE_COMPONENTS:
+        raise ValueError(f"a project figure goes on {FIGURE_COMPONENTS}, not `{component}`")
+    if not callable(function):
+        raise TypeError("a project figure is a callable (session, project) -> value")
+    if _figure_marks().get((component, field)) != plugin:
+        raise ValueError(
+            f"`{component}.{field}` is not a field `openapi.yaml` marks `x-plugin: {plugin}`: a plugin fills "
+            "only its own fields"
+        )
+    known = _PROJECT_FIGURES.get((component, field))
+    if known is not None and known[0] != plugin:
+        raise RuntimeError(f"`{component}.{field}` is already filled by the plugin `{known[0]}`")
+    _PROJECT_FIGURES[(component, field)] = (plugin, function)
+
+
+@functools.cache
+def _figure_marks() -> dict[tuple[str, str], str]:
+    """(component, field) -> the plugin `openapi.yaml` marks `x-plugin` on it, for `FIGURE_COMPONENTS`. Read
+    once per process: the contract does not change while it runs, and parsing it (seconds, in pure Python)
+    on every declaration made each `create_app` that loads the extensions take seconds, every API test
+    included (main's `python` job went from about an hour to over three)."""
+    from tranibor_contracts import load_openapi
+
+    schemas = load_openapi()["components"]["schemas"]
+    return {
+        (component, name): str(prop["x-plugin"])
+        for component in FIGURE_COMPONENTS
+        for name, prop in (schemas[component].get("properties") or {}).items()
+        if isinstance(prop, dict) and prop.get("x-plugin")
+    }
+
+
+async def project_figures(session: Any, project: Any, component: str) -> dict[str, Any]:
+    """field -> value of the figures the installed extensions fill on `component`."""
+    import inspect
+
+    found: dict[str, Any] = {}
+    for (on, name), (_plugin, function) in _PROJECT_FIGURES.items():
+        if on != component:
+            continue
+        value = function(session, project)
+        found[name] = await value if inspect.isawaitable(value) else value
+    return found
+
+
+# ───────────────────────────── readiness items ─────────────────────────────
+#
+# A project's readiness (`services/readiness.py`) is a list of items, each computed from the project's
+# facts. An extension adds the items its trade asks (the `software-delivery` plugin's repository: a URL and
+# a measured test command, when a workflow needs its source control, ADR 0181 round D):
+# `function(facts) -> list[ReadinessItem]`, evaluated with the core's, after the connectors' items.
+
+#: name -> (plugin, function), in the order the extensions declared them.
+_READINESS_ITEMS: dict[str, tuple[str, Any]] = {}
+
+
+def declare_readiness_item(name: str, function: Any, *, plugin: str) -> None:
+    """Called by an extension when it loads. Idempotent for the same plugin; another plugin's name stops
+    the start."""
+    if not callable(function):
+        raise TypeError("a readiness item is a callable (facts) -> list[ReadinessItem]")
+    known = _READINESS_ITEMS.get(name)
+    if known is not None and known[0] != plugin:
+        raise RuntimeError(f"the readiness item `{name}` is already declared by the plugin `{known[0]}`")
+    _READINESS_ITEMS[name] = (plugin, function)
+
+
+def readiness_items() -> tuple[Any, ...]:
+    """The functions of the readiness items the installed extensions declared."""
+    return tuple(function for _plugin, function in _READINESS_ITEMS.values())
+
+
+# ───────────────────────────── inbound hooks ─────────────────────────────
+#
+# A tracker's or a forge's webhook delivers each event to its work item (`routers/webhooks.dispatch`). An
+# extension acts on the events of its trade once the work item has them: the `software-delivery` plugin
+# boards a merged work item on the release train its workflow takes (ADR 0181, round D).
+# `hook(session, project, item, event)` (async) returns the outcome `received_events` records (`boarded`),
+# or `None` to leave the core's.
+
+#: event type -> (plugin, hook).
+_INBOUND_HOOKS: dict[str, tuple[str, Any]] = {}
+
+
+def declare_inbound_hook(event_type: str, hook: Any, *, plugin: str) -> None:
+    """Called by an extension when it loads. Idempotent for the same plugin; another plugin's hook on the
+    same event type stops the start."""
+    if not callable(hook):
+        raise TypeError("an inbound hook is an async callable (session, project, item, event) -> str | None")
+    known = _INBOUND_HOOKS.get(event_type)
+    if known is not None and known[0] != plugin:
+        raise RuntimeError(f"the inbound event `{event_type}` is already hooked by the plugin `{known[0]}`")
+    _INBOUND_HOOKS[event_type] = (plugin, hook)
+
+
+async def run_inbound_hooks(session: Any, project: Any, item: Any, event: Any) -> str | None:
+    """The hook an extension declared for the event's type, run; its outcome, or `None`."""
+    found = _INBOUND_HOOKS.get(str(event.type))
+    if found is None:
+        return None
+    outcome = await found[1](session, project, item, event)
+    return str(outcome) if outcome else None

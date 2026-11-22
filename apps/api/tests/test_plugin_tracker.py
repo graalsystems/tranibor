@@ -238,7 +238,7 @@ async def test_a_write_after_the_caller_wrote_is_audited_once_its_transaction_en
 
 @pytest.fixture
 def trackers() -> list[Any]:
-    """What `_dispatch` was told the tracker says about each dispatched item (S51-04)."""
+    """What `dispatch` was told the tracker says about each dispatched item (S51-04)."""
     return []
 
 
@@ -257,7 +257,7 @@ def dispatched(monkeypatch: pytest.MonkeyPatch, trackers: list[Any]) -> list[Inb
             trackers.append(await tracker_of(project_of, event.work_item_key) if tracker_of else None)
         return len(events)
 
-    monkeypatch.setattr(webhooks, "_dispatch", capture)
+    monkeypatch.setattr(webhooks, "dispatch", capture)
     return seen
 
 

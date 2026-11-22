@@ -26,6 +26,16 @@ in that namespace and deletes them; it touches nothing else. On the dev cluster:
     TRANIBOR_CLUSTER_CONTEXT=dev TRANIBOR_CLUSTER_ALLOW_SHARED=dev \
     TRANIBOR_ISOLATION_PLATFORM_NAMESPACE=choregos uv run pytest tests/cluster/test_agent_isolation.py
 
+**What the agent's container reaches in the namespace (#2082)**: `TRANIBOR_ISOLATION_CLOSED` and
+`TRANIBOR_ISOLATION_OPEN` (comma-separated `host:port`) name services that must time out from the agent's
+container of BOTH pods and services that must accept its connection (where it holds no credential: the API,
+the gateway, the memory, the egress proxy). The warm-pool probe pod then carries `choregos/sandbox`, the label
+a platform's run-pod policy selects, as a Job's pod does. On the dev cluster:
+
+    TRANIBOR_ISOLATION_CLOSED=temporal-frontend:7233,temporal-frontend:8233,choregos-pg:5432,\
+    firecrawl-redis:6379,searxng:8080,firecrawl:3002,choregos-web:3000,choregos-demo-fakes:8090 \
+    TRANIBOR_ISOLATION_OPEN=choregos-api:8000,litellm:4000,ecphoria:8432,choregos-egress:3128 ...
+
 What this does NOT prove: a real agent (the probe is a shell), what a run's real CONNECT listener
 carries (a run's journal does: `hosted.egress`), the agent-sandbox operator's suspension.
 """
@@ -56,6 +66,9 @@ GATEWAY_KEY = "secret-gateway-key-01"  # idem, the run's gateway key in the Job'
 #: A deployed platform's namespace (S65-04o): the probe then runs there, as its warm pool's template says.
 PLATFORM_NS = os.environ.get("TRANIBOR_ISOLATION_PLATFORM_NAMESPACE", "")
 WARM_POOL_TEMPLATE = os.environ.get("TRANIBOR_ISOLATION_TEMPLATE", "choregos-runner")
+#: In-namespace services the agent's container must not reach, and those it must (finding #2082).
+CLOSED = [t for t in os.environ.get("TRANIBOR_ISOLATION_CLOSED", "").split(",") if t]
+OPEN = [t for t in os.environ.get("TRANIBOR_ISOLATION_OPEN", "").split(",") if t]
 #: Objects of this test, in a namespace it does not own: a suffix of their own.
 SUFFIX = secrets.token_hex(3)
 CONFIG = f"isolation-{SUFFIX}" if PLATFORM_NS else "isolation"
@@ -85,6 +98,9 @@ if proxy:
         print("proxy_without_credentials=" + s.recv(64).split(b" ")[1].decode())
     except (OSError, IndexError):
         print("proxy_without_credentials=unreachable")
+for target in filter(None, os.environ.get("REACH", "").split(",")):
+    host, port = target.rsplit(":", 1)
+    print("reach:" + target + "=" + tcp(host, port))
 """
 
 #: Looks for what the runner holds. The patterns use a character class (`[0]1`) so that the probe's
@@ -129,7 +145,7 @@ async def main():
     env = {{"PATH": os.environ["PATH"], "PY": sys.executable}}
     if os.environ.get("PROBE_NETWORK"):
         env.update(NETPROBE=NETPROBE, EXTERNAL=os.environ.get("PROBE_EXTERNAL", ""),
-                   PROXY=os.environ.get("PROBE_PROXY", ""))
+                   PROXY=os.environ.get("PROBE_PROXY", ""), REACH=os.environ.get("PROBE_REACH", ""))
     # The control: the agent as the runner's child, as in `process` mode.
     local = parse(subprocess.run(["sh", "-c", PROBE], capture_output=True, text=True, env=env).stdout)
     reset()
@@ -242,6 +258,7 @@ def _probe_env(pod_spec: dict[str, Any]) -> list[dict[str, str]]:
         {"name": "PROBE_NETWORK", "value": "1"},
         {"name": "PROBE_EXTERNAL", "value": target},
         {"name": "PROBE_PROXY", "value": proxy},
+        {"name": "PROBE_REACH", "value": ",".join(CLOSED + OPEN)},
     ]
 
 
@@ -265,7 +282,10 @@ def _platform_manifest(namespace: str) -> dict[str, Any]:
     if not any(v["name"] == "workspace" for v in pod_spec.get("volumes", [])):
         pod_spec.setdefault("volumes", []).append({"name": "workspace", "emptyDir": {}})
     pod_spec["volumes"].append({"name": "cfg", "configMap": {"name": CONFIG}})
-    labels = {"choregos/probe": "s65-04o"}  # not the runner's labels: no pool or claim may take it
+    # Not the runner's name: no pool, claim or count of runs may take it. But the label a platform's
+    # run-pod policy selects (#2082), which the template's pod carries.
+    held = {k: v for k, v in template["metadata"].get("labels", {}).items() if k == "choregos/sandbox"}
+    labels = {"choregos/probe": "s65-04o", **held}
     return {
         "apiVersion": "v1",
         "kind": "Pod",
@@ -547,3 +567,21 @@ def test_on_the_platform_the_jobs_pod_is_gated_and_closed_to_the_agent(job_resul
     if agent.get("external") is not None:
         assert agent["external"] == "closed", agent
     assert agent["proxy_without_credentials"] == "407", agent
+
+
+def _reach(found: dict[str, str]) -> dict[str, str]:
+    return {key.removeprefix("reach:"): value for key, value in found.items() if key.startswith("reach:")}
+
+
+@pytest.mark.skipif(not PLATFORM_NS or not (CLOSED or OPEN), reason="a platform's in-namespace services")
+@pytest.mark.capability("k8s_job", "separate_agent")
+def test_on_the_platform_both_pods_agents_reach_the_same_services(
+    result: dict[str, Any], job_result: dict[str, Any]
+) -> None:
+    """Finding #2082: the Job's pod was outside the platform's run-pod policy, and its agent reached the
+    Temporal server, Redis and the web search that the warm pool's agent could not. Both now reach what
+    the run names (each refusing it without credentials) and nothing else of the namespace."""
+    for pod, found in (("warm pool", result["container"]), ("k8s_job", job_result["container"])):
+        reach = _reach(found)
+        assert {t: reach.get(t) for t in CLOSED} == dict.fromkeys(CLOSED, "closed"), (pod, reach)
+        assert {t: reach.get(t) for t in OPEN} == dict.fromkeys(OPEN, "open"), (pod, reach)

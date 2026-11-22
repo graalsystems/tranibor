@@ -366,9 +366,9 @@ async def test_cancelling_a_suspended_run_keeps_the_question_it_asked(setup: Fix
 async def _waiting_for_a_lock() -> int:
     """The application role's sessions that wait for a lock, seen as a superuser."""
     import asyncpg
+    from tranibor_testkit.postgres import APP_ROLE
 
     from .conftest import PG_URL
-    from .pg_kit import APP_ROLE
 
     connection = await asyncpg.connect(PG_URL.replace("postgresql+asyncpg://", "postgresql://"))
     try:

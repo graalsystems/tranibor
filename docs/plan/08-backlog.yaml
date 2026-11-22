@@ -5798,6 +5798,22 @@ stories:
     size: L
     depends_on: []
     notes: "Closes the no-native-Vault gap without a Vault client in the core. plugins/vault-transit, a fake Vault transport, docs for External Secrets Operator and for the wrapper. Fixes POST /platform/secrets/rewrap ignoring a store set through set_secret_store. Not done: a run against a real Vault, a published wheel or image, an async KeyWrapper protocol."
+  - id: S80-20
+    title: "test(live): ServiceNow proven on a real instance, through the plugin's server and the core's tracker/plugin adapter (plan P1)"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: M
+    depends_on: []
+    notes: "Plan workstream P1, its ServiceNow half. tests/live/test_servicenow_live.py: PluginTracker through PluginServerClient to the plugin's MCP server on a Personal Developer Instance (Australia, patch 7). The plugin's own live suite and the six fixes the instance asked for are graalsystems/tranibor-agents#23 (servicenow 0.2.4). Not done: the governed path end to end (a plugin server needs a cluster), a delivery to the webhook route, a nightly run."
+  - id: S80-21
+    title: "feat(api): a project is created with its default workflow in one call (default_workflow on the creation request, `--default-workflow` on the CLI)"
+    stream: S80
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: []
+    notes: "Before, a project created without a template got default-request and another default needed a separate PUT /workflow-routing. The creation request takes an optional default_workflow, validated by the routing endpoint's own helper (require_active_workflows). Not done: the console's create form (its workflow picker adopts a catalogue workflow, a different path), rules/strategy at creation."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
@@ -6427,3 +6443,13 @@ stories:
       - "contract-change: Theme.radius.pill is an optional integer 0..999 px; absent keeps the pills round; the API refuses a value out of bounds and serves the one a provider returns"
       - "The console emits --radius-pill from the served theme and every badge, chip, counter and bar uses rounded-pill; dots, avatars, spinners and circular icons stay rounded-full"
       - "A web test fails when a pill-shaped component goes back to rounded-full"
+  - id: S4-13
+    title: "Every cost surface shows cache writes next to cache reads"
+    stream: S4
+    sprint: 2
+    priority: 7
+    size: M
+    depends_on: [S4-07]
+    acceptance:
+      - "The cost CSV, the activity feed and stream, a run's tokens and a work item's totals, the eval matrix, the web cost panels and the CLI activity line carry `tokens_cache_write` next to `tokens_cached` (contract PR first)"
+    notes: "ADR 0188 'Not done', finding #1894"

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Sending signals to Temporal workflows from an activity (train, findings, memory).
+"""Sending signals to Temporal workflows from an activity (findings, memory; the `software-delivery`
+plugin's train goes through `signal_workflow` since round D of ADR 0181).
 
 In fakes mode, the signals are queued in memory: the demo and the tests work without a Temporal
 server, and the content of the signals stays checkable.
@@ -164,15 +165,6 @@ async def signal_workflow(
         )
         return
     await client.get_workflow_handle(workflow_id).signal(name, payload)
-
-
-async def signal_release_train(project_slug: str, env: str, name: str, payload: dict[str, Any]) -> None:
-    await signal_workflow(
-        f"train-{project_slug}-{env}",
-        name,
-        {**payload, "start_payload": {"project_slug": project_slug, "env": env}},
-        start="ReleaseTrain",
-    )
 
 
 async def signal_findings(project_slug: str, name: str, payload: dict[str, Any]) -> None:

@@ -31,10 +31,10 @@ const REPORT: CostReport = {
   group_by: "model",
   currency: "EUR",
   rows: [
-    { key: "claude-sonnet", cost_usd: 3, cost_eur: 2.76, tokens_in: 120_000, tokens_out: 9_000, tokens_cached: 60_000, runs: 3 },
+    { key: "claude-sonnet", cost_usd: 3, cost_eur: 2.76, tokens_in: 120_000, tokens_out: 9_000, tokens_cached: 60_000, tokens_cache_write: 25_000, runs: 3 },
     { key: "claude-haiku", cost_usd: 5, cost_eur: 4.6, tokens_in: 20_000, tokens_out: 1_000, tokens_cached: 0, runs: 1 },
   ],
-  total: { cost_usd: 8, cost_eur: 7.36, budget_usd: null, tokens_in: 140_000, tokens_out: 10_000, tokens_cached: 60_000 },
+  total: { cost_usd: 8, cost_eur: 7.36, budget_usd: null, tokens_in: 140_000, tokens_out: 10_000, tokens_cached: 60_000, tokens_cache_write: 25_000 },
 };
 
 async function show(node: ReactNode) {
@@ -63,16 +63,16 @@ beforeEach(() => {
 
 describe("the arithmetic of tokens", () => {
   it("reads the totals' three counts, zero when the report says nothing", () => {
-    expect(tokenTotals(REPORT.total)).toEqual({ input: 140_000, output: 10_000, cached: 60_000 });
-    expect(tokenTotals({})).toEqual({ input: 0, output: 0, cached: 0 });
+    expect(tokenTotals(REPORT.total)).toEqual({ input: 140_000, output: 10_000, cached: 60_000, cacheWrite: 25_000 });
+    expect(tokenTotals({})).toEqual({ input: 0, output: 0, cached: 0, cacheWrite: 0 });
   });
 
   it("ranks rows by the tokens they moved, the cache counted once, inside the input", () => {
     const ranked = topTokens(REPORT.rows);
     expect(ranked.map((r) => r.key)).toEqual(["claude-sonnet", "claude-haiku"]);
-    expect(ranked[0]).toMatchObject({ value: 129_000, input: 120_000, output: 9_000, cached: 60_000 });
+    expect(ranked[0]).toMatchObject({ value: 129_000, input: 120_000, output: 9_000, cached: 60_000, cacheWrite: 25_000 });
     expect(ranked[0]!.share).toBeCloseTo(129_000 / 150_000);
-    expect(topTokens([{ key: "x" }])).toEqual([{ key: "x", value: 0, share: 0, input: 0, output: 0, cached: 0 }]);
+    expect(topTokens([{ key: "x" }])).toEqual([{ key: "x", value: 0, share: 0, input: 0, output: 0, cached: 0, cacheWrite: 0 }]);
   });
 
   it("the mock ledger narrows by agent, workflow and work item, and its tokens add up", () => {
@@ -96,6 +96,7 @@ describe("the tokens-and-cost panel", () => {
     expect(within(totals).getByTestId("total-input")).toHaveTextContent("140,000");
     expect(within(totals).getByTestId("total-output")).toHaveTextContent("10,000");
     expect(within(totals).getByTestId("total-cached")).toHaveTextContent("60,000");
+    expect(within(totals).getByTestId("total-cache-write")).toHaveTextContent("25,000");
     expect(within(totals).getByTestId("total-cost")).toHaveTextContent("US$8.00");
   });
 
@@ -120,8 +121,8 @@ describe("the tokens-and-cost panel", () => {
     expect(tokens).toHaveAttribute("data-measure", "tokens");
     const rows = within(tokens).getAllByTestId("row-tokens");
     // The heaviest in tokens first, though it cost less.
-    expect(rows[0]).toHaveTextContent("120,000 in · 9,000 out · 60,000 cached");
-    expect(rows[1]).toHaveTextContent("20,000 in · 1,000 out · 0 cached");
+    expect(rows[0]).toHaveTextContent("120,000 in · 9,000 out · 60,000 cached · 25,000 cache written");
+    expect(rows[1]).toHaveTextContent("20,000 in · 1,000 out · 0 cached · 0 cache written");
     expect(screen.getByRole("button", { name: "Tokens" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -200,7 +201,7 @@ describe("each page passes its own filter", () => {
     const runs = await screen.findByTestId("ventilation-run");
     expect(runs).toHaveAttribute("data-measure", "cost");
     expect(vi.mocked(api.orgCosts).mock.calls.some(([, group]) => group === "run")).toBe(true);
-    expect(await screen.findByTestId("period-tokens")).toHaveTextContent(/input tokens, of which .* cached · .* output tokens/);
+    expect(await screen.findByTestId("period-tokens")).toHaveTextContent(/input tokens, of which .* cached and .* cache written · .* output tokens/);
     await act(async () => {
       fireEvent.change(screen.getByRole("combobox", { name: "Measure" }), { target: { value: "tokens" } });
     });

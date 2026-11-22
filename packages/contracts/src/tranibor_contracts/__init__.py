@@ -85,6 +85,7 @@ from .enums import (
 from .events import ChoregosEvent, Control, DeployResult, HumanDecision, InboundEvent
 from .open_lists import (
     CONNECTOR_KINDS,
+    EVENT_TYPES,
     FINDING_TYPES,
     INBOUND_EVENT_TYPES,
     MEMORY_KINDS,
@@ -356,6 +357,7 @@ __all__ = [
     "DIFF_ARTIFACT",
     "DOOR_STATUS",
     "ENROLMENT_TTL_S",
+    "EVENT_TYPES",
     "FACT_TYPES",
     "FINDING_TYPES",
     "IAT_WINDOW_S",

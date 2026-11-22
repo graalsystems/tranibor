@@ -39,7 +39,10 @@ async def _record(converter: Any) -> Any:
     signal. Returns its history."""
     from temporalio.testing import WorkflowEnvironment
     from tranibor_orchestrator.testing import workers_by_queue
-    from tranibor_orchestrator.workflows.train import ReleaseTrain
+
+    ReleaseTrain = pytest.importorskip(  # noqa: N806 - the class, by its name
+        "tranibor_software_delivery.train.workflow", reason="the release train is the plugin's"
+    ).ReleaseTrain
 
     environment = await WorkflowEnvironment.start_time_skipping(data_converter=converter)
     try:
@@ -84,13 +87,15 @@ async def test_a_history_recorded_with_the_codec_replays_with_the_codec_and_not_
     from temporalio.client import WorkflowHistory
     from temporalio.converter import DataConverter
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     converter = data_converter(_security())
     archived = json.loads((await _record(converter)).to_json())
     history = WorkflowHistory.from_json("train-codec-dev", archived)
 
-    await Replayer(workflows=ALL_WORKFLOWS, data_converter=converter).replay_workflow(history)
+    await Replayer(workflows=all_workflows(), data_converter=converter).replay_workflow(history)
 
     with pytest.raises(RuntimeError, match="Failed decoding arguments"):
-        await Replayer(workflows=ALL_WORKFLOWS, data_converter=DataConverter.default).replay_workflow(history)
+        await Replayer(workflows=all_workflows(), data_converter=DataConverter.default).replay_workflow(
+            history
+        )

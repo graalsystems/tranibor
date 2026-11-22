@@ -306,6 +306,22 @@ def test_elapsed_and_counts_read_as_a_person_reads_them() -> None:
     assert elapsed({}, NOW) == "—"
     assert spend({"tokens_in": 2_500_000, "tokens_out": 999, "cost_usd": 3}) == "2.5M in / 999 out · $3.00"
     assert spend(None) == "—"
+    # The cache's reads and writes are shown side by side once the entry has written to it (S4-13).
+    cached = {
+        "tokens_in": 184_000,
+        "tokens_out": 12_400,
+        "tokens_cached": 90_000,
+        "tokens_cache_write": 31_000,
+    }
+    assert (
+        spend({**cached, "cost_usd": 1.92})
+        == "184.0k in (cache 90.0k read, 31.0k written) / 12.4k out · $1.92"
+    )
+    # An entry with reads only, or from an API older than S4-13, keeps its line.
+    assert (
+        spend({"tokens_in": 1000, "tokens_out": 10, "tokens_cached": 500, "cost_usd": 1})
+        == "1.0k in / 10 out · $1.00"
+    )
 
 
 def test_no_color_gives_no_escape_sequence_and_keeps_the_words(platform: Platform) -> None:
@@ -375,3 +391,25 @@ def test_a_surface_never_reads_a_backends_private_meta() -> None:
     quoted = re.compile(r"""["'](_meta|claudeCode|parentToolUseId|toolName)["']""")
     offenders = [p.name for p in source.glob("*.py") if quoted.search(p.read_text(encoding="utf-8"))]
     assert offenders == []
+
+
+def test_a_stream_that_cannot_encode_the_separators_degrades_to_ascii(
+    platform: Platform, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2048: `PYTHONIOENCODING=ascii` crashed `activity` on `·` and `—`; now `main()` prints `-`."""
+    import io
+    import sys
+
+    from tranibor_cli.main import main
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii", write_through=True)
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setattr(sys, "argv", ["choregos", "activity"])
+    with pytest.raises(SystemExit) as stopped:
+        main()
+    assert stopped.value.code in (0, None)
+    text = raw.getvalue().decode("ascii")  # every byte is ASCII, or this raises
+    said = " ".join(text.split())
+    assert "acme - 1 running - - waiting for you" in said, said
+    assert "?" not in text, text

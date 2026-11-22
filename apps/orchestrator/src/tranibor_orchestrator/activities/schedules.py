@@ -29,7 +29,6 @@ from tranibor_api.errors import ApiError
 from tranibor_api.logging import get_logger
 
 from .base import db, project_bundle
-from .train import _cron_due
 
 logger = get_logger("choregos.schedules")
 
@@ -42,7 +41,7 @@ def window_start(cron: str, now: datetime) -> datetime | None:
     minute = now.astimezone(UTC).replace(second=0, microsecond=0)
     for back in range(int(CATCH_UP.total_seconds() // 60) + 1):
         candidate = minute - timedelta(minutes=back)
-        if _cron_due(cron, candidate):
+        if cron_due(cron, candidate):
             return candidate
     return None
 
@@ -58,6 +57,46 @@ def window_fields(fields: dict[str, Any], start: datetime) -> dict[str, Any]:
     campaign moves its `end` with the week instead of repeating the same test."""
     day = start.date().isoformat()
     return {k: v.replace("{window}", day) if isinstance(v, str) else v for k, v in fields.items()}
+
+
+def cron_due(schedule: str, now: datetime) -> bool:
+    """5-field cron, minute resolution: enough for a schedule's or a train's cadence (the `software-delivery`
+    plugin's train reads it too). Unlike `tranibor_core.cron`, a day matches when BOTH its day of month and
+    its day of week do."""
+    try:
+        minute, hour, dom, month, dow = schedule.split()
+    except ValueError:
+        return False
+
+    def matches(field: str, value: int, *, names: dict[str, int] | None = None) -> bool:
+        if field == "*":
+            return True
+        for part in field.split(","):
+            if part.startswith("*/"):
+                if value % int(part[2:]) == 0:
+                    return True
+            elif "-" in part:
+                start, end = part.split("-", 1)
+                lo = names[start.lower()[:3]] if names and not start.isdigit() else int(start)
+                hi = names[end.lower()[:3]] if names and not end.isdigit() else int(end)
+                if lo <= value <= hi:
+                    return True
+            else:
+                target = names[part.lower()[:3]] if names and not part.isdigit() else int(part)
+                if value == target:
+                    return True
+        return False
+
+    dow_value = (now.weekday() + 1) % 7  # cron : 0 = dimanche
+    return (
+        matches(minute, now.minute)
+        and matches(hour, now.hour)
+        and matches(dom, now.day)
+        and matches(month, now.month)
+        and matches(
+            dow, dow_value, names={"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
+        )
+    )
 
 
 @activity.defn(name="fire_schedules")

@@ -61,7 +61,7 @@ export function BreakdownTable({
           share: row.share,
           figure: (
             <span data-testid="row-tokens">
-              {tokenCount(row.input)} in · {tokenCount(row.output)} out · {tokenCount(row.cached)} cached
+              {tokenCount(row.input)} in · {tokenCount(row.output)} out · {tokenCount(row.cached)} cached · {tokenCount(row.cacheWrite)} cache written
             </span>
           ),
         }))

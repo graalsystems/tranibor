@@ -23,7 +23,9 @@ digest of the Secret on the pod template rolls the Deployment. Until the configu
 schema the Deployment has no replica and the connector says `unconfigured`.
 
 The image follows the hosted-agent rules (ADR 0080 §8): pinned by digest (the contract), under
-`TRANIBOR_PLUGIN_SERVERS_REGISTRIES`, and signed per `TRANIBOR_HOSTED_COSIGN`.
+`TRANIBOR_PLUGIN_SERVERS_REGISTRIES`, and signed per `TRANIBOR_HOSTED_COSIGN`. Those checks read the
+declared reference; the pod pulls it through `TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS` (S80-20), same
+digest, with `TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS`.
 
 **The eval instance (#1372).** A server that declares its `fake` (the variables that switch it to its
 seeded fake, the scenes that fake serves) is also run, where the deployment serves eval fakes
@@ -54,6 +56,7 @@ from tranibor_adapters.plugin_servers import (
     PluginServerClient,
     PluginServerRuntime,
     ServerDeployment,
+    mirrored,
 )
 from tranibor_adapters.registry import FAKE_SCENE_FIELD, fakes_enabled
 from tranibor_core.egress import host_port_of
@@ -518,7 +521,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     d = ServerDeployment(
         name=str(server["object"]),
         namespace=settings.plugin_servers_namespace,
-        image=str(server["image"]),
+        image=mirrored(str(server["image"]), settings.plugin_servers_image_mirrors),
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
@@ -536,6 +539,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         api_namespace=settings.plugin_servers_api_namespace,
         egress=egress_of(server, resolved),
         egress_mode=settings.plugin_servers_egress,
+        image_pull_secrets=tuple(settings.plugin_servers_image_pull_secrets),
     )
     await _apply(found.apply(d), instance)
     await _reconcile_fake(found, instance, server, token, settings)
@@ -554,7 +558,7 @@ def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: S
     return ServerDeployment(
         name=str(server["fake_object"]),
         namespace=settings.plugin_servers_namespace,
-        image=str(server["image"]),
+        image=mirrored(str(server["image"]), settings.plugin_servers_image_mirrors),
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
@@ -573,6 +577,7 @@ def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: S
         api_namespace=settings.plugin_servers_api_namespace,
         egress=(),
         egress_mode=settings.plugin_servers_egress,
+        image_pull_secrets=tuple(settings.plugin_servers_image_pull_secrets),
     )
 
 

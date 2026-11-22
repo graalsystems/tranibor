@@ -45,7 +45,7 @@ async def test_a_refused_start_escalates_and_the_stage_replays_once_fixed(
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Run
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     executor = _refusing(setup)
     scripted(setup.adapters, refine_result("spec"))
@@ -75,7 +75,7 @@ async def test_a_refused_start_escalates_and_the_stage_replays_once_fixed(
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-start-refusal-S38-13e.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")

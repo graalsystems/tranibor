@@ -226,6 +226,32 @@ FAKES_BY_FAMILY: dict[str, type[BusinessFake]] = {
     "access_control": FakeBadges,
 }
 
+#: The demonstration desks extensions add to the fakes' process (`fakes.server`): path -> its fake and
+#: the plugin that declared it. The `software-delivery` plugin's `cd` is the environment a demo project's
+#: train promotes (S21-24).
+_EXTENSION_DESKS: dict[str, tuple[type[BusinessFake], str]] = {}
+
+
+def declare_demo_desk(path: str, fake: type[BusinessFake], *, plugin: str) -> None:
+    """Called by an extension when it loads: the fakes' process serves `fake` at `/<path>/mcp`, beside the
+    families'. Idempotent for the same plugin; a path a family or another plugin holds is refused."""
+    if path in FAKES_BY_FAMILY:
+        raise ValueError(f"`/{path}/mcp` is the `{path}` family's desk")
+    owner = _EXTENSION_DESKS.get(path)
+    if owner is not None and owner[1] != plugin:
+        raise ValueError(f"the demo desk `/{path}/mcp` is already declared by the plugin `{owner[1]}`")
+    _EXTENSION_DESKS[path] = (fake, plugin)
+
+
+def extension_desks() -> dict[str, type[BusinessFake]]:
+    """path -> the fake an extension serves there."""
+    return {path: fake for path, (fake, _) in _EXTENSION_DESKS.items()}
+
+
+def forget_demo_desks(plugin: str) -> None:
+    for path in [path for path, (_, owner) in _EXTENSION_DESKS.items() if owner == plugin]:
+        del _EXTENSION_DESKS[path]
+
 
 @dataclass
 class Desk:

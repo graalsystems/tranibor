@@ -449,3 +449,51 @@ async def test_anthropic_paths_reach_the_gateway_under_v1_when_the_platform_name
         assert json.loads(forwarded.content)["model"] == step.model.litellm_model
     assert gateway.requests[0].headers["x-api-key"] == GATEWAY
     assert gateway.requests[1].headers["x-api-key"] == GATEWAY
+
+
+#: Opens three tunnels to one host through the agent's proxy, as a harness that calls home retries.
+CALLS_HOME = (
+    "import os, socket\n"
+    "host, port = os.environ['HTTPS_PROXY'].rsplit('/', 1)[-1].rsplit(':', 1)\n"
+    "ask = b'CONNECT play.googleapis.com:443 HTTP/1.1\\r\\nHost: play.googleapis.com\\r\\n\\r\\n'\n"
+    "for _ in range(3):\n"
+    "    with socket.create_connection((host, int(port))) as s:\n"
+    "        s.sendall(ask)\n"
+    "        s.recv(100)\n"
+)
+
+
+async def test_a_containers_repeated_refusals_reach_the_journal_once_with_their_count(
+    stage_input: StageInput,
+    runner_settings: Any,
+    serving: tuple[int, list[Any]],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1987: the loopback listeners of an agent in a container stop after the journal's last flush, so
+    their count is journaled with the result, not when they stop."""
+    port, _ = serving
+    monkeypatch.setenv("HTTPS_PROXY", PROXY_URL)
+    settings = _settings(runner_settings, launcher_port=port, launcher_wait_seconds=10)
+    step = _step(stage_input)
+    step = step.model_copy(
+        update={"permissions": step.permissions.model_copy(update={"allow_domains": ["api.example"]})}
+    )
+    agent_script(
+        {"turns": [{"runs": [[sys.executable, "-c", CALLS_HOME]], "result": valid_result()}]},
+        step,
+        settings.workspace,
+    )
+    client = FakeInternalClient(step)
+    runner = Runner(settings, client)  # type: ignore[arg-type]
+    runner.loopback_ports = loopback_ports(avoid=[port_of(settings.tools_url)])
+    runner.model_transport = httpx.MockTransport(Gateway())
+    runner.mcp_transport = FakeMcpServer().transport()
+    outcome = await runner.execute(step, client)  # type: ignore[arg-type]
+    assert outcome.exit_code is Exit.OK, outcome.detail
+
+    def events(kind: str) -> list[Any]:
+        return [event["payload"] for event in client.events if event["type"] == kind]
+
+    refused = {"host": "play.googleapis.com", "port": 443, "reason": "not_allowed"}
+    assert events("hosted.egress_refused") == [refused]
+    assert events("hosted.egress_refused_repeated") == [{**refused, "count": 3}]

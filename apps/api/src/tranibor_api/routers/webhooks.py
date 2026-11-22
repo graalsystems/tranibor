@@ -17,13 +17,13 @@ from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core import utcnow
-from tranibor_core.dsl.trains import train_after_merge, train_approval, train_env
 
 from ..audit import record
 from ..config import get_settings
 from ..db.models import Connector, OrgConnector, Project, User, WebhookDelivery, WorkItem
 from ..deps import PlatformDb, principal_for_user, resolve_project
 from ..errors import ApiError, not_found, unauthorized
+from ..extensions import run_inbound_hooks
 from ..logging import get_logger
 from ..schemas import WebhookAck
 from ..security import body_digest, verify_github_signature, verify_shared_secret
@@ -34,8 +34,6 @@ from ..services import (
     received_events,
     record_labels,
     tickets,
-    work_item_workflow,
-    workflow_model,
 )
 from ..services.decision_ledger import ended_issue_reopened, observe_reopening
 from ..services.initiator import initiator
@@ -50,7 +48,6 @@ from ..temporal import (
     get_temporal,
     interpreter_id,
     signal_memory_loop,
-    train_id,
 )
 from ..tenant_host import org_base_url_of_id
 
@@ -63,7 +60,7 @@ AGENT_READY_LABEL = "agent-ready"
 LABEL_STATE_EVENTS = frozenset({InboundEventType.ITEM_LABELED, InboundEventType.ITEM_UPDATED})
 
 
-async def _already_seen(session: Any, source: str, delivery_id: str, event_type: str, body: bytes) -> bool:
+async def already_seen(session: Any, source: str, delivery_id: str, event_type: str, body: bytes) -> bool:
     """Dedup by (source, delivery_id): a replay restarts nothing."""
     existing = (
         await session.execute(
@@ -91,7 +88,7 @@ async def _already_seen(session: Any, source: str, delivery_id: str, event_type:
     return False
 
 
-async def _project_for(session: Any, slug_or_repo: str | None) -> Project | None:
+async def project_for(session: Any, slug_or_repo: str | None) -> Project | None:
     """The project an event targets: by its repository first, by its slug if that is unique.
 
     Two organisations can have a project `billing-api`; taking "the first" routed one tenant's
@@ -285,7 +282,7 @@ async def _answer_tracker_command(
 TrackerOf = Callable[[Project, str], Awaitable[dict[str, Any] | None]]
 
 
-async def _dispatch(
+async def dispatch(
     session: Any,
     events: list[InboundEvent],
     project_of: Project | None = None,
@@ -301,7 +298,7 @@ async def _dispatch(
     replaced, so a requester or an answer changed in the tracker reaches the next stage (S51-04)."""
     delivered = 0
     for event in events:
-        project = project_of or await _project_for(session, event.project_slug)
+        project = project_of or await project_for(session, event.project_slug)
         if project is None:
             logger.info("event without a known project", event_type=str(event.type), slug=event.project_slug)
             continue
@@ -386,10 +383,11 @@ async def _dispatch(
                 work_item=item.id,
                 event_type=str(event.type),
             )
-        if event.type == InboundEventType.PR_MERGED:
-            await _board_train(session, project, item, event)
+        # What an extension does with the event once its work item has it (`extensions.declare_inbound_hook`:
+        # the `software-delivery` plugin boards a merged work item on its train, ADR 0181 round D).
+        hooked = await run_inbound_hooks(session, project, item, event)
         received_events.record(
-            session, project, event, _outcome(event, created, should_start, label_list), item
+            session, project, event, hooked or _outcome(event, created, should_start, label_list), item
         )
         delivered += 1
     return delivered
@@ -477,43 +475,14 @@ def _starts_by_rule(project: Project, event: InboundEvent) -> bool:
 
 
 def _outcome(event: InboundEvent, created: bool, started: bool, labels: Any) -> str:
-    """What `_dispatch` did with an event that reached a work item (S42-06f)."""
+    """What `dispatch` did with an event that reached a work item (S42-06f)."""
     if created:
         return "created_work_item"
     if started:
         return "started"
-    if event.type == InboundEventType.PR_MERGED:
-        return "boarded"
     if event.type in LABEL_STATE_EVENTS and isinstance(labels, list):
         return "labels_updated"
     return "signalled"
-
-
-async def _board_train(session: Any, project: Project, item: WorkItem, event: InboundEvent) -> None:
-    """The merged ticket boards the train that ITS workflow takes after the merge, with the approval
-    it requires there (ADR 0041). Every merged ticket used to board the PROD train: a study that
-    merges an ADR went to production, a careful delivery skipped its staging."""
-    workflow = workflow_model(await work_item_workflow(session, item))
-    train = train_after_merge(workflow)
-    if train is None:
-        return
-    # The PR's labels AND the ticket's: a `hotfix` ticket takes the express lane, whether this
-    # webhook or the interpreter boards it first (#279).
-    merged_labels = [*event.payload.get("labels", []), *(item.documents or {}).get("labels", [])]
-    await get_temporal().signal(
-        train_id(project.slug, train_env(train)),
-        "merged",
-        {
-            "work_item_key": item.tracker_key,
-            "sha": event.payload.get("sha", ""),
-            "merged_at": utcnow().isoformat(),  # start bound of the delivery delay
-            "risk": item.risk,
-            "labels": list(dict.fromkeys(merged_labels)),
-            "pr_url": event.payload.get("pr_url"),
-            "title": item.title,
-            "approval": dict(train_approval(workflow, train)),
-        },
-    )
 
 
 # ───────────────────────────── GitHub ─────────────────────────────
@@ -543,7 +512,7 @@ async def github_webhook(
             raise unauthorized("GitHub webhook not configured: TRANIBOR_GITHUB_WEBHOOK_SECRET is missing")
     elif not verify_github_signature(secret, body, x_hub_signature_256):
         raise unauthorized("invalid HMAC signature")
-    if await _already_seen(session, "github", x_github_delivery or body_digest(body), x_github_event, body):
+    if await already_seen(session, "github", x_github_delivery or body_digest(body), x_github_event, body):
         return WebhookAck(accepted=True, duplicate=True)
 
     if x_github_event in {"installation", "installation_repositories"}:
@@ -556,162 +525,9 @@ async def github_webhook(
     from tranibor_adapters.tracker.github_events import parse_github_event
 
     events = parse_github_event(x_github_event, x_github_delivery, json.loads(body or b"{}"))
-    delivered = await _dispatch(session, events)
+    delivered = await dispatch(session, events)
     response.status_code = status.HTTP_202_ACCEPTED
     return WebhookAck(accepted=True, events=delivered)
-
-
-# ───────────────────────────── Tekton ─────────────────────────────
-
-
-@router.post(
-    "/tekton", response_model=WebhookAck, status_code=status.HTTP_202_ACCEPTED, operation_id="tektonWebhook"
-)
-async def tekton_webhook(
-    request: Request,
-    session: PlatformDb,
-    ce_type: Annotated[str, Header()] = "",
-    ce_id: Annotated[str, Header()] = "",
-    x_choregos_secret: Annotated[str, Header()] = "",
-) -> WebhookAck:
-    """CloudEvents `dev.tekton.event.pipelinerun.{successful,failed}.v1`.
-
-    Authenticated by the shared secret, in the `X-Choregos-Secret` header OR in the sink URL
-    (`?token=`): Tekton's CloudEvents sink is configured with a URL and adds no header. The former
-    spelling of the parameter was removed in 0.24.0 (S45-49): it authenticates nothing. There used
-    to be NO check: harmless while row-level security hid everything from this route on PostgreSQL,
-    an anonymous write path as soon as it sees the projects ("CI passed" on any work item).
-    """
-    settings = get_settings()
-    supplied = x_choregos_secret or request.query_params.get("token", "")
-    if not settings.generic_webhook_secret:
-        if settings.deployed:
-            raise unauthorized("Tekton webhook not configured: TRANIBOR_GENERIC_WEBHOOK_SECRET is missing")
-    elif not verify_shared_secret(settings.generic_webhook_secret, supplied):
-        raise unauthorized("invalid shared secret")
-    body = await request.body()
-    if await _already_seen(session, "tekton", ce_id or body_digest(body), ce_type, body):
-        return WebhookAck(accepted=True, duplicate=True)
-    payload = json.loads(body or b"{}")
-    run = payload.get("pipelineRun", payload)
-    labels = (run.get("metadata", {}) or {}).get("labels", {})
-    mapping = {
-        "dev.tekton.event.pipelinerun.successful.v1": InboundEventType.CI_SUCCEEDED,
-        "dev.tekton.event.pipelinerun.failed.v1": InboundEventType.CI_FAILED,
-        "dev.tekton.event.pipelinerun.started.v1": InboundEventType.CI_STARTED,
-    }
-    event = InboundEvent(
-        type=mapping.get(ce_type, InboundEventType.CI_STARTED),
-        source="tekton",
-        delivery_id=ce_id or body_digest(body),
-        project_slug=labels.get("choregos/project"),
-        work_item_key=labels.get("choregos/work-item"),
-        payload={
-            "pipeline_run": (run.get("metadata", {}) or {}).get("name"),
-            "sha": labels.get("choregos/sha"),
-            "run_id": labels.get("choregos/run-id"),
-        },
-    )
-    delivered = await _dispatch(session, [event])
-    return WebhookAck(accepted=True, events=delivered)
-
-
-# ───────────────────────────── Jenkins ─────────────────────────────
-
-
-@router.post(
-    "/jenkins", response_model=WebhookAck, status_code=status.HTTP_202_ACCEPTED, operation_id="jenkinsWebhook"
-)
-async def jenkins_webhook(
-    request: Request,
-    session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-) -> WebhookAck:
-    """A build notification from Jenkins: the Notification plugin's payload, or the flat one a pipeline
-    posts (`tranibor_adapters.ci.jenkins.parse_jenkins_event`).
-
-    Authenticated like the Tekton sink, by the shared secret in `X-Choregos-Secret` or in the URL
-    (`?token=`): the Notification plugin takes a URL and no header."""
-    settings = get_settings()
-    supplied = x_choregos_secret or request.query_params.get("token", "")
-    if not settings.generic_webhook_secret:
-        if settings.deployed:
-            raise unauthorized("Jenkins webhook not configured: TRANIBOR_GENERIC_WEBHOOK_SECRET is missing")
-    elif not verify_shared_secret(settings.generic_webhook_secret, supplied):
-        raise unauthorized("invalid shared secret")
-    body = await request.body()
-
-    from tranibor_adapters.ci.jenkins import parse_jenkins_event
-
-    events = parse_jenkins_event(json.loads(body or b"{}"))
-    if not events:
-        return WebhookAck(accepted=True)
-    if await _already_seen(session, "jenkins", events[0].delivery_id, str(events[0].type), body):
-        return WebhookAck(accepted=True, duplicate=True)
-    delivered = await _dispatch(session, events)
-    return WebhookAck(accepted=True, events=delivered)
-
-
-# ───────────────────────────── Argo CD ─────────────────────────────
-
-
-@router.post(
-    "/argocd", response_model=WebhookAck, status_code=status.HTTP_202_ACCEPTED, operation_id="argocdWebhook"
-)
-async def argocd_webhook(
-    request: Request,
-    session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-) -> WebhookAck:
-    body = await request.body()
-    settings = get_settings()
-    if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
-        raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
-    app = payload.get("app", payload.get("application", ""))
-    health = str(payload.get("health", payload.get("status", ""))).lower()
-    kind = _argocd_kind(health, payload.get("rollout"))
-    delivery = payload.get("delivery_id", body_digest(body))
-    if await _already_seen(session, "argocd", delivery, str(kind or f"argocd.{health or 'unknown'}"), body):
-        return WebhookAck(accepted=True, duplicate=True)
-    if kind is None:
-        # A transient health (`progressing`, `suspended`, `missing`, `unknown`...) is neither a
-        # delivery nor an alert: reporting it as `cd.app.degraded` rolled back a healthy start,
-        # since the train listens to the CD (S22-18, #349).
-        return WebhookAck(accepted=True, events=0)
-    event = InboundEvent(
-        type=kind,
-        source="argocd",
-        delivery_id=delivery,
-        project_slug=payload.get("project"),
-        payload={
-            "app": app,
-            "revision": payload.get("revision"),
-            "env": payload.get("env"),
-            "health": health,
-        },
-    )
-    project = await _project_for(session, event.project_slug)
-    if project is not None and event.payload.get("env"):
-        await get_temporal().signal(
-            train_id(project.slug, str(event.payload["env"])), "deploy_event", event.model_dump(mode="json")
-        )
-        received_events.record(session, project, event, "signalled")
-    return WebhookAck(accepted=True, events=1)
-
-
-def _argocd_kind(health: str, rollout: Any) -> InboundEventType | None:
-    """What an Argo CD notification announces: delivered, degraded, rollout finished or aborted, or
-    nothing, for a transient health. Only `degraded` is an alert (#349)."""
-    if rollout == "aborted":
-        return InboundEventType.ROLLOUT_ABORTED
-    if rollout == "completed":
-        return InboundEventType.ROLLOUT_COMPLETED
-    if health in {"healthy", "synced"}:
-        return InboundEventType.CD_SYNCED
-    if health == "degraded":
-        return InboundEventType.CD_DEGRADED
-    return None
 
 
 # ───────────────────────────── Alertmanager ─────────────────────────────
@@ -738,7 +554,7 @@ async def alertmanager_webhook(
     for alert in alerts:
         labels = alert.get("labels", {})
         delivery = alert.get("fingerprint", body_digest(body)) + alert.get("status", "")
-        if await _already_seen(session, "alertmanager", delivery, alert.get("status", ""), body):
+        if await already_seen(session, "alertmanager", delivery, alert.get("status", ""), body):
             continue
         event = InboundEvent(
             type=InboundEventType.ALERT_FIRED
@@ -753,7 +569,7 @@ async def alertmanager_webhook(
                 "labels": labels,
             },
         )
-        project = await _project_for(session, event.project_slug)
+        project = await project_for(session, event.project_slug)
         if project is not None and await _alert_reaches_memory(session, project, event):
             received_events.record(session, project, event, "signalled")
         count += 1
@@ -796,7 +612,7 @@ async def jira_webhook(
     if not verify_shared_secret(get_settings().generic_webhook_secret, x_choregos_secret):
         raise unauthorized("invalid shared secret")
     delivery = x_atlassian_webhook_identifier or body_digest(body)
-    if await _already_seen(session, "jira", delivery, "jira", body):
+    if await already_seen(session, "jira", delivery, "jira", body):
         return WebhookAck(accepted=True, duplicate=True)
 
     from tranibor_adapters.tracker.jira_events import parse_jira_event
@@ -806,7 +622,7 @@ async def jira_webhook(
     project, decided = await _jira_project_for(session, payload)
     if decided and project is None:
         return WebhookAck(accepted=True, events=0)
-    delivered = await _dispatch(session, events, project_of=project, tracker_of=_jira_tracker_of(session))
+    delivered = await dispatch(session, events, project_of=project, tracker_of=_jira_tracker_of(session))
     return WebhookAck(accepted=True, events=delivered)
 
 
@@ -858,14 +674,14 @@ async def azure_boards_webhook(
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
     delivery = _azure_delivery_id(payload, body)
-    if await _already_seen(session, "azure-boards", delivery, "azure-boards", body):
+    if await already_seen(session, "azure-boards", delivery, "azure-boards", body):
         return WebhookAck(accepted=True, duplicate=True)
 
     events = parse_azure_boards_event(delivery, payload)
     project, decided = await _azure_boards_project_for(session, payload)
     if decided and project is None:
         return WebhookAck(accepted=True, events=0)
-    delivered = await _dispatch(
+    delivered = await dispatch(
         session, events, project_of=project, tracker_of=_azure_boards_tracker_of(session)
     )
     return WebhookAck(accepted=True, events=delivered)
@@ -993,14 +809,14 @@ async def azure_devops_webhook(
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
     delivery = _azure_delivery_id(payload, body)
-    if await _already_seen(session, "azure-devops", delivery, "azure-devops", body):
+    if await already_seen(session, "azure-devops", delivery, "azure-devops", body):
         return WebhookAck(accepted=True, duplicate=True)
 
     events = parse_azure_devops_event(delivery, payload)
     project, decided = await _azure_devops_project_for(session, payload)
     if decided and project is None:
         return WebhookAck(accepted=True, events=0)
-    delivered = await _dispatch(session, events, project_of=project)
+    delivered = await dispatch(session, events, project_of=project)
     return WebhookAck(accepted=True, events=delivered)
 
 
@@ -1071,13 +887,13 @@ async def gitlab_webhook(
     if not verify_shared_secret(get_settings().generic_webhook_secret, x_gitlab_token):
         raise unauthorized("invalid GitLab token")
     delivery = x_gitlab_event_uuid or body_digest(body)
-    if await _already_seen(session, "gitlab", delivery, x_gitlab_event, body):
+    if await already_seen(session, "gitlab", delivery, x_gitlab_event, body):
         return WebhookAck(accepted=True, duplicate=True)
 
     from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
 
     events = parse_gitlab_event(x_gitlab_event, delivery, json.loads(body or b"{}"))
-    delivered = await _dispatch(session, events)
+    delivered = await dispatch(session, events)
     return WebhookAck(accepted=True, events=delivered)
 
 
@@ -1200,7 +1016,7 @@ async def plugin_webhook(
         delivered = duplicates = 0
         for found in events:
             delivery = f"{connector.id}:{found['delivery_id']}"[:255]
-            if await _already_seen(session, "plugin", delivery, found["kind"], body):
+            if await already_seen(session, "plugin", delivery, found["kind"], body):
                 duplicates += 1
                 continue
             project = await _project_of_item(session, projects, found["item_key"])
@@ -1224,7 +1040,7 @@ async def plugin_webhook(
                     "state": item.state,
                 },
             )
-            delivered += await _dispatch(
+            delivered += await dispatch(
                 session,
                 [event],
                 project_of=project,

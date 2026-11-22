@@ -77,8 +77,8 @@ catalogues-record:  ## A maintainer, WITH network and GITHUB_TOKEN: re-record th
 	$(UV) run python -m tools.catalogues.build_skill_catalogue --record
 
 .PHONY: plugins-lock
-plugins-lock:  ## A maintainer, WITH network: refresh plugins/offline/ and its plugins.lock from the signed source
-	$(UV) run python -m tools.plugins.update_lock
+plugins-lock:  ## A maintainer, WITH network and cosign v3 (COSIGN=<path>): refresh plugins/offline/ and its plugins.lock
+	$(UV) run python -m tools.plugins.update_lock --cosign $(or $(COSIGN),cosign)
 
 .PHONY: plugins-check
 plugins-check:  ## No network: the archives of plugins/offline/ are what plugins.lock says
@@ -321,7 +321,7 @@ compose-down:
 
 .PHONY: demo
 demo:  ## End-to-end scenario in memory (fakes, no cluster)
-	TRANIBOR_FAKES=1 $(UV) run python -m tranibor_orchestrator.demo
+	TRANIBOR_FAKES=1 $(UV) run python -m tranibor_software_delivery.demo
 
 .PHONY: demo-investment
 demo-investment:  ## Investment campaigns on fakes with the real runner and engine: adopted, not relevant, refused memo (S38-09)

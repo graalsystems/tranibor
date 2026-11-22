@@ -14,6 +14,9 @@ from types import ModuleType
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
+#: The release train, the `software-delivery` plugin's since round D of ADR 0181: its wire names are
+#: recorded with the others, read from its source so that the core alone reads them too.
+TRAIN_WORKFLOW = ROOT / "plugins/software-delivery/src/tranibor_software_delivery/train/workflow.py"
 PACKAGE = ROOT / "apps" / "orchestrator" / "src" / "tranibor_orchestrator"
 WORKFLOWS = PACKAGE / "workflows"
 
@@ -23,7 +26,6 @@ OWNED_ROOT = (
     "__init__",
     "config",
     "context_reduction",
-    "demo",
     "gitops",
     "local",
     "markdown",
@@ -135,7 +137,7 @@ def _declared_name(decorator: ast.expr, default: str) -> str:
 def _wire_names() -> tuple[set[tuple[str, str, str]], set[str]]:
     names: set[tuple[str, str, str]] = set()
     types: set[str] = set()
-    for path in sorted(WORKFLOWS.glob("*.py")):
+    for path in [*sorted(WORKFLOWS.glob("*.py")), TRAIN_WORKFLOW]:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(node, ast.ClassDef) or (defn := _decorator(node, "defn")) is None:
                 continue
@@ -185,7 +187,7 @@ def test_the_queue_table_routes_by_activity_name() -> None:
 
     assert set(ACTIVITIES_BY_QUEUE) == {"executor", "tracker", "memory"}
     assert QUEUE_BY_ACTIVITY["start_run"] == "executor"
-    assert queue_of("open_pull_request") == "tracker"
+    assert queue_of("notify") == "tracker"
     assert queue_of("load_context") is None, "an activity with no declared queue stays on the workflow's"
     assert activity_name("anything") == "anything"
     assert activity_name(object()) is None
@@ -199,7 +201,8 @@ def test_the_tools_sidecar_url_has_its_english_name() -> None:
 
 
 def test_the_train_reads_a_recorded_former_threshold_input() -> None:
-    from tranibor_orchestrator.workflows import train
+    pytest.importorskip("tranibor_software_delivery", reason="the release train is the plugin's")
+    from tranibor_software_delivery.train import workflow as train
 
     old = train.TrainInput(project_slug="p", env="e", seuil_de_relais=40)  # lang: fr-ok
     assert old.former_idle_threshold() == 40
@@ -222,9 +225,12 @@ def test_the_action_workflow_names() -> None:
         ("interpreter", "HUMAN_TASKS", "taches-humaines"),
         ("interpreter", "TRAIN_PER_ENVIRONMENT", "train-par-environnement"),
         ("action", "AWAITED_EVIDENCE_PATCH", "preuve-attendue"),
-        ("train", "AUTO_SYNC_WARNS_ITS_ITEMS", "auto-sync-previent"),
+        ("tranibor_software_delivery.train.workflow", "AUTO_SYNC_WARNS_ITS_ITEMS", "auto-sync-previent"),
     ],
 )
 def test_the_patch_ids_keep_their_values(module: str, name: str, value: str) -> None:
     """The renamed Python constants hold the recorded ids: a history marks them."""
-    assert getattr(importlib.import_module(f"tranibor_orchestrator.workflows.{module}"), name) == value
+    path = module if "." in module else f"tranibor_orchestrator.workflows.{module}"
+    if path.startswith("tranibor_software_delivery"):
+        pytest.importorskip("tranibor_software_delivery", reason="the release train is the plugin's")
+    assert getattr(importlib.import_module(path), name) == value

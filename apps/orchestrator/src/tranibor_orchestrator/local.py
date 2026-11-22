@@ -18,17 +18,33 @@ from typing import Any
 from tranibor_contracts import StageResult, StageStatus, Workflow
 from tranibor_core import GateOutcome, WorkflowEngine
 from tranibor_core.decision_ledger import declares_a_confidence
+from tranibor_core.step_effects import EFFECT_ACTIVITY
 
 from .activities import decision as decision_activities
 from .activities import findings as finding_activities
 from .activities import gates as gate_activities
-from .activities import scm as scm_activities
 from .activities import stage as stage_activities
 from .activities import tracker as tracker_activities
 from .activities.interpretation import load_context
+from .activities.stand_ins import RUN_ARTIFACTS
 
 Decider = Callable[[str, str], bool]
 StateHook = Callable[[str], Awaitable[None]]
+
+
+def _activity(name: str) -> Callable[[dict[str, Any]], Awaitable[Any]]:
+    """The activity the workers register under `name`: the core's, an extension's (the worker seam: the
+    `software-delivery` plugin's `open_pull_request`), or a core stand-in, as the interpreter would reach
+    it by name."""
+    from .extension_parts import all_activities
+    from .queues import activity_name
+
+    found: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {
+        str(activity_name(fn)): fn for fn in all_activities()
+    }
+    if name not in found:
+        raise LookupError(f"no worker registers the activity `{name}`: is its extension installed?")
+    return found[name]
 
 
 @dataclass
@@ -157,12 +173,12 @@ async def run_local(
             decision = engine.after_human(transition, approved, "simulated decision")
             trace.steps.append(Step(state, key, kind, decision.reason, decision.next_state))
         elif kind == "train":
-            decision = engine.after_train(transition, ok=deploy_ok)
+            decision = engine.after_carrier(transition, ok=deploy_ok)
             trace.steps.append(Step(state, key, kind, decision.reason, decision.next_state))
         else:
             outcomes = await _gates(project_id, work_item_id, transition, last_run)
             if transition.to.startswith("pr_"):
-                await scm_activities.open_pull_request(
+                await _activity(EFFECT_ACTIVITY["open_pr"])(
                     {"project_id": project_id, "work_item_id": work_item_id}
                 )
             decision = engine.after_gates(transition, outcomes, attempt)
@@ -244,9 +260,7 @@ async def _run_stage(
     await stage_activities.record_run_outcome(
         {"project_id": project_id, "run_id": run_id, "result": awaited["result"]}
     )
-    await scm_activities.collect_run_artifacts(
-        {"project_id": project_id, "work_item_id": work_item_id, "run_id": run_id}
-    )
+    await _activity(RUN_ARTIFACTS)({"project_id": project_id, "work_item_id": work_item_id, "run_id": run_id})
     outcomes = await _gates(project_id, work_item_id, transition, run_id)
     await _emit_findings(project_id, work_item_id, run_id, result)
     decision = engine.after_stage(transition, result, attempt + 1, outcomes)

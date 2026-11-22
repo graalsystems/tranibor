@@ -162,7 +162,9 @@ class KnowledgeBaseDto(Dto):
     #: `index` mode: chunks, documents indexed, and how the search ranks here
     index: dict[str, Any] | None = None
     eval_set: list[dict[str, Any]] = Field(default_factory=list)
-    #: the last run of the eval set: `recall` (at `k`), per question, `mode`, `ran_at`
+    #: the last run of the eval set: `recall` (at `k`), per question, `mode`, `ran_at`;
+    #: `indexing` (`in_progress`, `pending`, `converting`) counts the documents still being converted,
+    #: not in the index yet, so that the score undercounts
     eval_result: dict[str, Any] | None = None
     #: where its documents are synced from (S33-04); a reading of ONE base carries them
     sources: list[KnowledgeSourceDto] | None = None

@@ -227,6 +227,56 @@
         "allow_query_reuse": { "type": "boolean", "default": false,
           "description": "Whether a backend may reuse queries (train, rank, re-index)." }
       }
+    },
+    "delivery": {
+      "x-plugin": "software-delivery",
+      "description": "The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains. Read as one with the former `scope.max_diff_*`, `approvals.merge` and `release_train` until the window list removes them.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_diff_files": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "max_diff_lines": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          }
+        },
+        "approvals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "merge": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/approvalRule"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "release_train": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/trainEnv"
+          }
+        }
+      }
     }
   },
   "$defs": {

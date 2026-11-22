@@ -440,6 +440,7 @@ class SessionServer:
                     tools.calls = 0
                     turn_events.take()
                     answer = await self._answer(http, base, stage_input, turn, ready, model)
+                    await connect.flush()  # the turn's repeated refusals, with the turn's events
                     answer.update(turns=model.turns, tool_calls=tools.calls, events=turn_events.take())
                     try:
                         await client.post_turn(str(turn["turn_id"]), answer)

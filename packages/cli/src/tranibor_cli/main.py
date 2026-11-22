@@ -608,6 +608,14 @@ def projects_create(
     template: Annotated[str | None, typer.Option("--template")] = None,
     org: Annotated[str | None, typer.Option()] = None,
     language: Annotated[str, typer.Option()] = "python",
+    default_workflow: Annotated[
+        str | None,
+        typer.Option(
+            "--default-workflow",
+            help="The workflow tickets go to when no routing rule picks one; it must be one the "
+            "project has once its template is in (refused otherwise). Absent, the template's default",
+        ),
+    ] = None,
     tracker: Annotated[
         str | None,
         typer.Option(
@@ -626,7 +634,9 @@ def projects_create(
     config: dict[str, Any] = {"slug": slug, "org": organization}
     if repo:
         config["repo"] = {"url": repo, "default_branch": "main", "language": language}
-    payload = {"slug": slug, "name": name or slug, "template_ref": template, "config": config}
+    payload: dict[str, Any] = {"slug": slug, "name": name or slug, "template_ref": template, "config": config}
+    if default_workflow:
+        payload["default_workflow"] = default_workflow
     project = api.post(f"/orgs/{organization}/projects", json=payload)
     console.print(f"[green]✓[/green] project {project['slug']} created ({project['id']})")
     # `--tracker` is honoured with or without `--repo` (#704): it used to be dropped with one, and
@@ -1098,19 +1108,14 @@ def dev_seed() -> None:
 @dev_app.command("demo")
 def dev_demo() -> None:
     """Play the offline demonstration (no service needed)."""
-    try:
-        from tranibor_orchestrator.demo import main as demo_main
-    except ImportError:
-        # The CLI no longer depends on the orchestrator (it shipped the whole server — SQLAlchemy,
-        # Temporal, asyncpg — for this one command). The offline demo needs a checkout of the
-        # repository: `make demo` from the root.
-        fail("the offline demo needs the repository: run `make demo` from a checkout of choregos")
-        return
-
-    demo_main()
+    # The CLI no longer depends on the orchestrator (it shipped the whole server — SQLAlchemy, Temporal,
+    # asyncpg — for this one command), and the demonstration is the `software-delivery` plugin's (ADR
+    # 0181, round D): `make demo`, from a checkout of the repository.
+    _make("demo")
 
 
 def main() -> None:
+    theme.degrade_streams()  # a stream that cannot encode `·` or `—` prints `-`, never a traceback (#2048)
     try:
         app()
     except ApiError as exc:

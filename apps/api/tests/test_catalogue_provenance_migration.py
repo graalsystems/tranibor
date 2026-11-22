@@ -166,7 +166,8 @@ def test_the_mapping_is_the_offline_plugins() -> None:
             version,
         )
         assert set(agents) == {e.slug for e in shipped.entries if e.plugin == name}, name
-        assert set(skills) == {s for s, found in shipped.skills.items() if found.plugin == name}, name
+        # A later version may bring more skills (software-delivery 1.2.0: ten beside `madr-4`), never fewer.
+        assert set(skills) <= {s for s, found in shipped.skills.items() if found.plugin == name}, name
     from tranibor_core.plugins.sources import read_lock
 
     locked = read_lock(pathlib.Path(__file__).resolve().parents[3] / "plugins" / "offline")

@@ -55,7 +55,17 @@ BATCH_API = "/apis/batch/v1"
 AGENT_CONTAINER = "agent"
 #: The volume a hosted container shares with the runner, the copy of the working tree (S41-18).
 HOSTED_WORKSPACE_VOLUME = "hosted-workspace"
-RUNNER_POD_LABELS = {"app.kubernetes.io/name": "choregos-runner", "app.kubernetes.io/component": "runner"}
+#: The labels of every pod an agent runs in, the SAME as the warm pool's (`sandbox.yaml`'s
+#: `podTemplate`): the network policies that hold an agent's pod select one of them, the chart's
+#: `choregos-runner-egress` by name, a platform's (and the chart's `choregos-runner-assignment`) by
+#: `choregos/sandbox`. A Job's pod without `choregos/sandbox` was outside the platform's run-pod policy
+#: and reached Temporal, Redis and the web search from its agent's container (finding #2082);
+#: `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+RUNNER_POD_LABELS = {
+    "app.kubernetes.io/name": "choregos-runner",
+    "app.kubernetes.io/component": "runner",
+    "choregos/sandbox": "true",
+}
 
 
 class KubernetesJobExecutor:
@@ -288,6 +298,9 @@ class KubernetesJobExecutor:
             "restartPolicy": "Never",
             "serviceAccountName": self.service_account,
             "automountServiceAccountToken": False,
+            # The cluster's services are not announced as `<SERVICE>_PORT` variables (finding #2057):
+            # the runner finds what it calls by name, and the agent has no map of the namespace.
+            "enableServiceLinks": False,
             # The POD's context, not only the container's: the strict Kyverno rule
             # (`infra/policies/pod-security.yaml`) requires the seccomp profile at this level.
             "securityContext": {
@@ -445,8 +458,6 @@ class KubernetesJobExecutor:
                 },
             }
         )
-        # The cluster's services are not announced to the container as variables.
-        pod_spec["enableServiceLinks"] = False
         pod_spec["terminationGracePeriodSeconds"] = agent.termination_grace_s
 
     async def renew(self, ref: ExecRef, run_token: str) -> None:

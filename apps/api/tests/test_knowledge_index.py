@@ -522,3 +522,34 @@ async def test_postgres_ranks_hybrid_with_pgvector_and_full_text_without(pg_app:
         assert (await search(session, [base], "TLS")).hits == [], (
             "another organisation's chunks are invisible"
         )
+
+
+async def test_the_eval_says_documents_are_still_being_indexed(client: AsyncClient, admin: str) -> None:
+    """Indexing is asynchronous: a score taken while a document is still converting is not a verdict."""
+    from sqlalchemy import select
+    from tranibor_api.db.models import KnowledgeBase, KnowledgeDocument
+    from tranibor_api.db.session import session_scope
+
+    base = await _indexed_base(client)
+    assert (await client.put(f"{BASE}/framework/eval", json={"cases": EVAL_SET})).status_code == 200
+    settled = (await client.post(f"{BASE}/framework/eval/run")).json()["eval_result"]
+    assert settled["indexing"] == {"in_progress": False, "pending": 0, "converting": 0}
+    async with session_scope() as session:
+        found = (
+            await session.execute(select(KnowledgeBase).where(KnowledgeBase.slug == base["slug"]))
+        ).scalar_one()
+        for status, name in (("pending", "p.md"), ("converting", "c.md")):
+            session.add(
+                KnowledgeDocument(
+                    org_id=found.org_id,
+                    knowledge_base_id=found.id,
+                    filename=name,
+                    title=name,
+                    mime="text/markdown",
+                    size_bytes=1,
+                    digest=f"digest-{name}",
+                    status=status,
+                )
+            )
+    waiting = (await client.post(f"{BASE}/framework/eval/run")).json()["eval_result"]
+    assert waiting["indexing"] == {"in_progress": True, "pending": 1, "converting": 1}

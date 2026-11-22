@@ -3,6 +3,7 @@ and billed by the ledger, never by what the fixture scripted."""
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,6 +17,14 @@ from tranibor_orchestrator.activities import stage as stage_activities
 from tranibor_orchestrator.config import reset_settings_cache
 
 from .conftest import Fixture
+
+#: The tests that need the `software-delivery` plugin's source control: a reference ticket's toy repository
+#: is committed through it, and a run's diff read from it (ADR 0181, round D).
+needs_the_plugin = pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="the source control is the software-delivery plugin's",
+)
+
 
 TICKETS = sorted(evals.TICKETS.glob("*.yaml"))
 
@@ -54,6 +63,7 @@ async def eval_project(setup: Fixture) -> Fixture:
 # ───────────────────────── the ticket is seeded once, on the toy repository ─────────────────────────
 
 
+@needs_the_plugin
 async def test_the_toy_repository_is_committed_once_and_the_ticket_filed_once(eval_project: Fixture) -> None:
     scm = eval_project.adapters.scm
     first = await evals.seed_eval_ticket(_cell("py-rounding-bug"))
@@ -73,6 +83,7 @@ async def test_the_toy_repository_is_committed_once_and_the_ticket_filed_once(ev
     assert len([c for c in scm.commits if c[1] == branch]) == 1, "a retry commits nothing"
 
 
+@needs_the_plugin
 async def test_each_cell_has_its_own_ticket(eval_project: Fixture) -> None:
     none = await evals.seed_eval_ticket(_cell("py-rounding-bug", "none"))
     rtk = await evals.seed_eval_ticket(_cell("py-rounding-bug", "rtk"))
@@ -81,6 +92,7 @@ async def test_each_cell_has_its_own_ticket(eval_project: Fixture) -> None:
     assert len(ids) == 3
 
 
+@needs_the_plugin
 async def test_the_plan_asks_the_cell_s_reduction_and_fails_without_headroom(eval_project: Fixture) -> None:
     spec = yaml.safe_load((evals.TICKETS / "py-rounding-bug.yaml").read_text(encoding="utf-8"))
     plan = (await evals.seed_eval_ticket(_cell("py-rounding-bug")))["plan"]
@@ -106,6 +118,7 @@ async def test_the_plan_asks_the_cell_s_reduction_and_fails_without_headroom(eva
         (_cell("does-not-exist"), "no reference ticket"),
     ],
 )
+@needs_the_plugin
 async def test_a_case_a_live_cell_cannot_measure_is_skipped(
     eval_project: Fixture, cell: dict[str, Any], why: str
 ) -> None:
@@ -119,6 +132,7 @@ async def test_a_project_with_memory_on_cannot_run_a_cell_without_it(setup: Fixt
     assert seeded["skipped"] and "memory on" in seeded["reason"]
 
 
+@needs_the_plugin
 async def test_the_kill_switch_skips_the_reduced_cells(
     eval_project: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -243,6 +257,7 @@ async def _live_case(
     return verdict, seen
 
 
+@needs_the_plugin
 async def test_the_runner_gets_the_toy_branch_the_facts_and_the_cell_s_reduction(
     eval_project: Fixture,
 ) -> None:
@@ -258,12 +273,14 @@ async def test_the_runner_gets_the_toy_branch_the_facts_and_the_cell_s_reduction
     assert stage_input.context.on_unavailable == "fail"
 
 
+@needs_the_plugin
 async def test_a_case_whose_facts_hold_succeeds_with_the_ledger_s_tokens(eval_project: Fixture) -> None:
     verdict, _ = await _live_case(eval_project, "py-rounding-bug", "none")
     assert verdict["ok"] and not verdict["skipped"], verdict["reason"]
     assert verdict["usage"] == {
         "tokens_in": 30_000,
         "tokens_cached": 10_000,
+        "tokens_cache_write": 0,
         "tokens_out": 2_000,
         "cost_usd": pytest.approx(verdict["usage"]["cost_usd"]),
         "turns": 7,
@@ -273,16 +290,19 @@ async def test_a_case_whose_facts_hold_succeeds_with_the_ledger_s_tokens(eval_pr
     assert verdict["usage"]["cost_usd"] > 0
 
 
+@needs_the_plugin
 async def test_a_case_nothing_was_sent_for_has_no_measure(eval_project: Fixture) -> None:
     verdict, _ = await _live_case(eval_project, "py-rounding-bug", "none", billed=False)
     assert verdict["ok"] and verdict["usage"] is None
 
 
+@needs_the_plugin
 async def test_a_missing_tool_skips_the_case(eval_project: Fixture) -> None:
     verdict, _ = await _live_case(eval_project, "node-slug-length", "none", facts=False)
     assert verdict["skipped"] and "eval_1_requires" in verdict["reason"]
 
 
+@needs_the_plugin
 async def test_the_kill_switch_still_wins_at_prepare_time(
     eval_project: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -298,22 +318,26 @@ async def test_the_kill_switch_still_wins_at_prepare_time(
     assert prepared["stage_input"]["repo"]["base_branch"].startswith("choregos-evals/")
 
 
+@needs_the_plugin
 async def test_a_false_fact_fails_the_case(eval_project: Fixture) -> None:
     verdict, _ = await _live_case(eval_project, "py-rounding-bug", "none", facts=False)
     assert not verdict["ok"] and not verdict["skipped"]
     assert "eval_0_" in verdict["reason"]
 
 
+@needs_the_plugin
 async def test_a_ticket_that_must_block_fails_when_the_run_says_done(eval_project: Fixture) -> None:
     done, _ = await _live_case(eval_project, "py-out-of-scope", "none")
     assert not done["ok"] and "expected status blocked" in done["reason"]
 
 
+@needs_the_plugin
 async def test_a_ticket_that_must_block_succeeds_when_the_run_blocks(eval_project: Fixture) -> None:
     blocked, _ = await _live_case(eval_project, "py-out-of-scope", "none", status=StageStatus.BLOCKED)
     assert blocked["ok"], blocked["reason"]
 
 
+@needs_the_plugin
 async def test_an_out_of_scope_ticket_also_accepts_a_question_to_a_human(eval_project: Fixture) -> None:
     # #736: the agent that asks instead of doing out-of-scope work did what the ticket wants.
     asked, _ = await _live_case(eval_project, "py-out-of-scope", "none", status=StageStatus.NEEDS_HUMAN)
@@ -343,6 +367,7 @@ def test_expect_status_is_one_status_or_a_list(expect: object, status: str, ok: 
         ("context.shell_filter", {"shell_filter": "rtk", "backend": "codex", "applied": False}, "no hook"),
     ],
 )
+@needs_the_plugin
 async def test_a_run_without_the_cell_s_reduction_is_skipped(
     eval_project: Fixture, event: str, payload: dict[str, Any], why: str
 ) -> None:
@@ -360,6 +385,7 @@ async def test_a_run_without_the_cell_s_reduction_is_skipped(
     assert verdict["skipped"] and why in verdict["reason"]
 
 
+@needs_the_plugin
 async def test_a_run_given_another_reduction_is_skipped(eval_project: Fixture) -> None:
     _, seen = await _live_case(eval_project, "py-rounding-bug", "none")
     verdict = await evals.judge_eval_run(
@@ -368,6 +394,7 @@ async def test_a_run_given_another_reduction_is_skipped(eval_project: Fixture) -
     assert verdict["skipped"] and "shell_filter=none" in verdict["reason"]
 
 
+@needs_the_plugin
 async def test_a_run_without_result_fails_with_its_cause(eval_project: Fixture) -> None:
     seeded = await evals.seed_eval_ticket(_cell("py-rounding-bug", "none"))
     prepared = await stage_activities.prepare_stage(seeded["plan"])

@@ -65,10 +65,10 @@ async def _replayed(handle: Any, archive: str) -> None:
     (`TRANIBOR_RECORD_HISTORY=1`): a change to the interpreter that would decide differently
     on a job step fails `tests/replay`."""
     from temporalio.worker import Replayer
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     history = await handle.fetch_history()
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if os.environ.get("TRANIBOR_RECORD_HISTORY"):
         target = HISTORIES / archive
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
@@ -308,7 +308,7 @@ async def _organisation(client: AsyncClient) -> dict[str, Any]:
               "secret_refs": {"api_key": "env:CONNECTOR_E2E_MARKETDATA_KEY"}},
     )  # fmt: skip
     assert connector.status_code == 201, connector.text
-    plugin = {"source": "offline", "name": "investment-research", "version": "0.1.0"}
+    plugin = {"source": "offline", "name": "investment-research", "version": "0.1.2"}
     installed = await client.post(f"{ORG}/plugins/install", json=plugin)
     assert installed.status_code == 201, installed.text
     created = await client.post(

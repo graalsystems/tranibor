@@ -3,14 +3,13 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
-from tranibor_core import access_report, matches_any
+from tranibor_core import access_report
 from tranibor_core.agent_tree import NodeStatus, agent_nodes
 from tranibor_core.context_breakdown import EVENT as CONTEXT_BREAKDOWN
 from tranibor_core.domain import aware, utcnow
@@ -26,8 +25,6 @@ from ..knowledge.marked import readable, require_readable
 from ..rbac import Permission
 from ..schemas import (
     ArtifactRef,
-    DiffFileDto,
-    DiffSummaryDto,
     RunAgentList,
     RunAgentNode,
     RunContextDto,
@@ -400,33 +397,4 @@ async def run_logs(id: str, session: Db, principal: Me) -> RunLogsDto:
         truncated=bool(archive.get("truncated")),
         error=archive.get("error"),
         captured_at=archive.get("archived_at"),
-    )
-
-
-@router.get("/runs/{id}/diff", response_model=DiffSummaryDto, operation_id="getRunDiff")
-async def diff(id: str, session: Db, principal: Me) -> DiffSummaryDto:
-    """The run's diff, annotated: each file is marked inside or outside the allowed scope."""
-    run, _project = await _run(session, id, principal)
-    result = run.result or {}
-    reports: dict[str, Any] = (result.get("artifacts") or {}).get("reports", {})
-    raw = reports.get("diff_files")
-    files_raw: list[dict[str, Any]] = json.loads(raw) if isinstance(raw, str) else (raw or [])
-    allowed = list(run.allowed_paths or [])
-    files = [
-        DiffFileDto(
-            path=entry.get("path", ""),
-            status=entry.get("status", "modified"),
-            additions=int(entry.get("additions", 0)),
-            deletions=int(entry.get("deletions", 0)),
-            patch=entry.get("patch"),
-            in_scope=matches_any(entry.get("path", ""), allowed) if allowed else True,
-        )
-        for entry in files_raw
-    ]
-    return DiffSummaryDto(
-        base=reports.get("base"),
-        head=(result.get("artifacts") or {}).get("branch"),
-        files=files,
-        additions=sum(f.additions for f in files),
-        deletions=sum(f.deletions for f in files),
     )

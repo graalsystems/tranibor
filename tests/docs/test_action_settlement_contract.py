@@ -122,4 +122,4 @@ def test_a_person_s_settlement_is_an_event_of_its_own() -> None:
 
     assert EventType.ACTION_SETTLED.value == "choregos.action.settled"
     event = json.loads((CONTRACTS / "schemas" / "event.schema.json").read_text())
-    assert "choregos.action.settled" in event["properties"]["type"]["enum"]
+    assert "choregos.action.settled" in event["properties"]["type"]["description"]

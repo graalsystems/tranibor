@@ -70,6 +70,7 @@ spec:
         {{- end }}
         checksum/config: {{ toJson $hashed | sha256sum }}
     spec:
+      enableServiceLinks: false
       serviceAccountName: choregos-api
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
       {{- include "choregos.antiAffinity" (dict "global" .Values.global "labels" (dict "app.kubernetes.io/name" "choregos-api" "app.kubernetes.io/instance" .Release.Name)) | nindent 6 }}
@@ -145,6 +146,15 @@ spec:
               value: {{ $servers.egress | default "networkpolicy" | quote }}
             - name: CHOREGOS_PLUGIN_SERVERS_API_NAMESPACE
               value: {{ .Release.Namespace | quote }}
+            {{- with ($servers.imageMirrors | default dict) }}
+            # Where the servers' pods pull their image from (S80-20): same digest, checks on the declared one.
+            - name: CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with (hasKey $servers "imagePullSecrets" | ternary $servers.imagePullSecrets .Values.global.imagePullSecrets) }}
+            - name: CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS
+              value: {{ toJson . | quote }}
+            {{- end }}
             {{- with (($servers.resources | default dict).limits | default dict) }}
             - name: CHOREGOS_PLUGIN_SERVERS_CPU
               value: {{ .cpu | default "500m" | quote }}

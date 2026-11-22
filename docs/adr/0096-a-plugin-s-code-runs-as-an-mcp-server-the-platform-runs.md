@@ -78,7 +78,10 @@ platform fills.
    through to DNS and to public addresses on the configured hosts' ports, never the private, link-local
    (metadata) or carrier-grade ranges. Kubernetes cannot name a host: with `plugins.servers.egress:
    cilium` a `CiliumNetworkPolicy` narrows egress to the exact names (`toFQDNs`) and the NetworkPolicy
-   keeps DNS only.
+   keeps DNS only. *Amended 2026-11-21 (S80-20b):* with `cilium` the NetworkPolicy opens no egress at
+   all and DNS is the `CiliumNetworkPolicy`'s L7 rule on the configured names alone — Cilium unions
+   policies, and a plain port-53 allow beside that rule let a pod resolve any name (measured on the
+   Diametral dev cluster for another tenant's run pods), a way out for a server's configuration.
 9. **The descriptor says what the first plugin needed** (contract change): `paths: {mcp, health}`
    (defaults `/mcp`, `/healthz`); `compensation: {operation, arguments}`, the shape a connector type
    declares, its `arguments` rendered from the write's own result (`{{ result.sys_id }}`) — a template

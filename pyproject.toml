@@ -1,6 +1,6 @@
 [project]
 name = "choregos-workspace"
-version = "0.28.0"
+version = "0.28.1"
 description = "Choregos — plateforme de delivery agentique (GRAAL.SYSTEMS SAS)"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -58,13 +58,15 @@ dev = [
   "mcp>=1.20",
   "python-docx>=1.1",
   "pytest-textual-snapshot>=1.0.0",
+  # The test kit of the core's suites, shared with the first-party plugins' tests (ADR 0181, round D).
+  "tranibor-testkit",
 ]
 
 [tool.uv]
 default-groups = ["dev"]
 
 [tool.uv.workspace]
-members = ["packages/*", "apps/api", "apps/orchestrator", "compat/*", "plugins/investment-research", "plugins/software-delivery", "plugins/procurement", "plugins/vault-transit"]
+members = ["packages/*", "apps/api", "apps/orchestrator", "compat/*", "plugins/investment-research", "plugins/software-delivery", "plugins/procurement", "plugins/vault-transit", "tests/testkit"]
 exclude = ["packages/contracts/ts", "apps/web"]
 
 [tool.uv.sources]
@@ -78,6 +80,7 @@ tranibor-cli = { workspace = true }
 tranibor-api = { workspace = true }
 tranibor-orchestrator = { workspace = true }
 tranibor-agent-sdk = { workspace = true }
+tranibor-testkit = { workspace = true }
 tranibor-outpost = { workspace = true }
 tranibor-investment-research = { workspace = true }
 tranibor-software-delivery = { workspace = true }

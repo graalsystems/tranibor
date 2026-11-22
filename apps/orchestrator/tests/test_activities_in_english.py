@@ -15,18 +15,16 @@ ACTIVITIES = ROOT / "apps" / "orchestrator" / "src" / "tranibor_orchestrator" / 
 
 #: The name every activity of `ALL_ACTIVITIES` is registered under, as recorded before S45-23. A
 #: history and every workflow in flight schedule an activity by this name: a rename of a function
-#: that moved its `name=` would stop them. The seven `actions` aliases and `confirmer_auto_sync`
-#: stay registered under their French names (S34-02).
+#: that moved its `name=` would stop them. The seven `actions` aliases stay registered under their
+#: French names (S34-02). The release train's sixteen are the `software-delivery` plugin's since round D
+#: of ADR 0181, pinned by `plugins/software-delivery/tests/test_train_on_the_worker_seam.py`.
 RECORDED_ACTIVITY_NAMES = {
     "accept_pending_facts",
     "action_state",
-    "apply_terraform",
     "await_run",
     "build_hosted_image",
     "cancel_run",
     "charger_l_action",  # lang: fr-ok
-    "check_scope_violations",
-    "check_window",
     "children_state",
     "claim_hosted_build",
     "close_action",
@@ -34,18 +32,12 @@ RECORDED_ACTIVITY_NAMES = {
     "close_out",
     "cloturer_l_action",  # lang: fr-ok
     "collect_distillation_batch",
-    "collect_run_artifacts",
     "collect_spend",
     "compensate_effect",
     "compenser_l_effet",  # lang: fr-ok
-    "confirm_auto_sync",
-    "confirmer_auto_sync",  # lang: fr-ok
     "create_human_request",
-    "create_release",
     "decide",
     "distill_part",
-    "enqueue_merge",
-    "ensure_branch",
     "etat_de_l_action",  # lang: fr-ok
     "evaluate_gates",
     "execute_effect",
@@ -53,7 +45,6 @@ RECORDED_ACTIVITY_NAMES = {
     "fail_distillation",
     "finding_quality_ratio",
     "finish_provisioning",
-    "finish_release",
     "fire_schedules",
     "ingest_alert",
     "ingest_sources",
@@ -61,19 +52,14 @@ RECORDED_ACTIVITY_NAMES = {
     "list_fixtures",
     "load_action",
     "load_template_steps",
-    "load_train_config",
     "mark_awaiting_evidence",
-    "mark_release",
     "marquer_l_attente",  # lang: fr-ok
     "memory_ab_report",
     "mirror_state",
     "note_transition_taken",
     "notify",
-    "open_pull_request",
     "plan_distillation",
     "prepare_stage",
-    "promote",
-    "promote_canary_step",
     "propose_transition_action",
     "proposer_l_action_de_transition",  # lang: fr-ok
     "publish_distillation",
@@ -84,15 +70,11 @@ RECORDED_ACTIVITY_NAMES = {
     "record_status_comment_missed",
     "reduce_distillation",
     "release_suspended_run",
-    "request_approval",
     "resume_run",
-    "rollback",
     "run_eval_cell",
     "run_provision_step",
-    "run_smoke",
     "run_step_effect",
     "seed_eval_ticket",
-    "soak",
     "spawn_children",
     "start_run",
     "start_session_pod",
@@ -101,10 +83,8 @@ RECORDED_ACTIVITY_NAMES = {
     "summarize_eval_cell",
     "suspend_run",
     "sync_knowledge_source",
-    "train_stats",
     "triage_finding",
     "update_status_comment",
-    "verify_prod",
     "write_run_lesson",
 }
 

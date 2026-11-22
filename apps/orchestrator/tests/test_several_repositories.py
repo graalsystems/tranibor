@@ -181,8 +181,12 @@ async def test_a_job_step_clones_the_target_too(setup: Fixture) -> None:
 
 
 async def test_the_branch_the_pull_request_and_the_guarantees_are_diamctl_s(setup: Fixture) -> None:
-    from tranibor_orchestrator.activities.gates import check_scope_violations, evaluate_gates
-    from tranibor_orchestrator.activities.scm import ensure_branch, open_pull_request
+    from tranibor_orchestrator.activities.gates import evaluate_gates
+    from tranibor_software_delivery.source_control import (
+        check_scope_violations,
+        ensure_branch,
+        open_pull_request,
+    )
 
     await _scene(setup, fields={"repository": "diamctl"})
     ids = {"project_id": setup.project_id, "work_item_id": setup.work_item_id}
@@ -214,7 +218,7 @@ async def test_the_branch_the_pull_request_and_the_guarantees_are_diamctl_s(setu
 async def test_the_diff_shown_for_a_run_is_the_target_s(setup: Fixture) -> None:
     from tranibor_api.db.models import Run
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.activities.scm import collect_run_artifacts
+    from tranibor_software_delivery.source_control import collect_run_artifacts
 
     from .conftest import stage_result
 
@@ -388,9 +392,9 @@ async def test_a_target_of_another_owner_gets_that_owner_s_installation(
     from tranibor_orchestrator.activities.base import (
         adapters_override,
         load_project,
-        scm_for,
         set_adapters_override,
     )
+    from tranibor_software_delivery.source_control import scm_for
 
     async with session_scope(orgs="*") as session:
         project = await session.get(Project, setup.project_id)
@@ -440,7 +444,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Run, WorkItem
     from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.workflows import ALL_WORKFLOWS
+    from tranibor_orchestrator.extension_parts import all_workflows
 
     await _scene(setup, fields={"repository": "diamclt"})  # a label typed in the tracker
     scripted(setup.adapters, refine_result("spec"))
@@ -467,7 +471,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
         await handle.result()
         history = await handle.fetch_history()
 
-    await Replayer(workflows=ALL_WORKFLOWS).replay_workflow(history)
+    await Replayer(workflows=all_workflows()).replay_workflow(history)
     if recording_history():
         target = HISTORIES / "wi-repository-refused-S58-02.json"
         target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
