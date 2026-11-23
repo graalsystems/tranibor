@@ -49,8 +49,12 @@ def test_the_form_placeholders_are_the_platform_defaults() -> None:
         "attempts_default_max": float(props["attempts"]["properties"]["default_max"]["default"]),
         "dod_iterations": float(props["attempts"]["properties"]["dod_iterations"]["default"]),
         "auto_grant_max_files": float(props["scope"]["properties"]["auto_grant_max_files"]["default"]),
-        "max_diff_files": float(props["scope"]["properties"]["max_diff_files"]["default"]),
-        "max_diff_lines": float(props["scope"]["properties"]["max_diff_lines"]["default"]),
+        "max_diff_files": float(
+            props["delivery"]["properties"]["scope"]["properties"]["max_diff_files"]["default"]
+        ),
+        "max_diff_lines": float(
+            props["delivery"]["properties"]["scope"]["properties"]["max_diff_lines"]["default"]
+        ),
         "findings_max_per_run": float(props["findings"]["properties"]["max_per_run"]["default"]),
     }
 
