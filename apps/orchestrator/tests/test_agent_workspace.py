@@ -2,7 +2,9 @@
 
 On the production tenant an analysis agent that only reads a ticket got the whole repository, the
 write scope `**` and `github.com` on its network: every stage of every agent cloned the project's
-repository. A version now says what it needs, and the run gets that and no more.
+repository. A version now says what it needs, and the run gets that and no more. What the
+`software-delivery` plugin's diff guarantees make of a run that never cloned is in its suite
+(`plugins/software-delivery/tests/orchestrator/test_diff_gates_without_a_workspace.py`).
 """
 
 from __future__ import annotations
@@ -137,44 +139,3 @@ async def test_a_trial_runs_with_the_drafts_workspace(setup: Fixture) -> None:
     stage_input = await _prepared(setup, trial_spec=draft, trial_budget_usd=0.5)
     assert stage_input["repo"] is None
     assert stage_input["permissions"]["allow_domains"] == ["pypi.org"]
-
-
-async def test_the_diff_gates_pass_on_a_run_that_never_cloned(
-    setup: Fixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """No branch (the SCM says 404), and whatever the agent wrote in its empty directory is no
-    change to the repository: `diff_size_max files: 0` passes instead of "diff unavailable"."""
-    from tranibor_adapters.errors import UpstreamError
-    from tranibor_api.db.models import Run
-    from tranibor_api.db.session import session_scope
-    from tranibor_contracts import StageResult, StageStatus
-    from tranibor_orchestrator.activities.gates import evaluate_gates
-
-    async def compare(repo: str, base: str, head: str) -> Any:
-        raise UpstreamError("github", f"compare {base}...{head}", status_code=404)
-
-    monkeypatch.setattr(setup.adapters.scm, "compare", compare)
-    await _network(setup, project={"allow_domains": ["pypi.org"]})
-    await _agent(setup, workspace="none")
-    await _prepared(setup, agent="analyst")
-    result = StageResult(status=StageStatus.DONE, summary="Analysed")
-    # The runner's local git measured the notes the agent left in its empty directory.
-    result.evidence.diff_files, result.evidence.diff_lines = 1, 12
-    result.evidence.measured = ["diff_files", "diff_lines"]
-    result.artifacts.commits = ["0ddba11"]
-    async with session_scope() as session:
-        run = await session.get(Run, f"{setup.work_item_id}-t-implement-1")
-        assert run is not None
-        run.result = result.model_dump(mode="json", by_alias=True)
-        run_id = run.id
-
-    verdicts = await evaluate_gates(
-        {
-            "project_id": setup.project_id,
-            "work_item_id": setup.work_item_id,
-            "run_id": run_id,
-            "gates": [{"name": "diff_size_max", "params": {"files": 0, "lines": 0}}],
-        }
-    )
-    assert [v["passed"] for v in verdicts] == [True], verdicts
-    assert verdicts[0]["detail"] == "0 files / 0 lines"

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """No pull request is asked for without a branch: the work item escalates instead (S22-46, #539).
 
 On the dev tenant (2026-10-15, v0.17.15), `globex/choregos-sandbox-dev#21` (`dev-simple`):
@@ -17,18 +18,37 @@ import pathlib
 from typing import Any
 
 import pytest
-
-from .conftest import Fixture, recording_history, refine_result, stage_result
-from .kits.escalation import requests_of
-from .test_interpreter import _wait_state, _wait_until, scripted, start
-from .test_restarted_interpreter_resumes import _state_changes
+from tranibor_testkit.escalation import requests_of
+from tranibor_testkit.interpreter import scripted, start
+from tranibor_testkit.interpreter import wait_state as _wait_state
+from tranibor_testkit.interpreter import wait_until as _wait_until
+from tranibor_testkit.orchestrator import Fixture, recording_history, refine_result, stage_result
 
 pytestmark = pytest.mark.asyncio
 
-HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
+HISTORIES = pathlib.Path(__file__).resolve().parents[4] / "tests" / "replay" / "histories"
 REPO = "northwind/billing-api"
 BRANCH = "choregos/123"
 NO_BRANCH = "no branch: the implementation changed nothing"
+
+
+async def _state_changes(setup: Fixture) -> list[Any]:
+    """The work item's state changes, in order (`test_restarted_interpreter_resumes`'s, in the core suite)."""
+    from sqlalchemy import select
+    from tranibor_api.db.models import Event
+    from tranibor_api.db.session import session_scope
+    from tranibor_contracts import EventType
+
+    async with session_scope() as session:
+        rows = await session.execute(
+            select(Event)
+            .where(
+                Event.work_item_id == setup.work_item_id,
+                Event.type == str(EventType.WORKITEM_STATE_CHANGED),
+            )
+            .order_by(Event.ts)
+        )
+        return list(rows.scalars())
 
 
 def _pr_calls(setup: Fixture, monkeypatch: pytest.MonkeyPatch) -> list[str]:
