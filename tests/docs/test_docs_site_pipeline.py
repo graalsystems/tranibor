@@ -58,7 +58,7 @@ def _steps() -> list[str]:
 
 
 def test_the_connector_pages_are_written_after_the_import_and_before_the_build() -> None:
-    """S84-06 (ADR 0213): the import empties website/docs/ first, so the pages are written after it, and
+    """S84-06 (ADR 0215): the import empties website/docs/ first, so the pages are written after it, and
     the build publishes them; each assertion fails if its step is removed or moved."""
     steps = _steps()
     at = {

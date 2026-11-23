@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .kits.escalation import requests_of
@@ -29,6 +30,7 @@ async def test_replay_the_stage_resumes_an_escalated_ticket(
 ) -> None:
     """Two failures exhaust `t-refine` and the work item escalates; "Replay the stage" brings it
     back for ONE more attempt (S27-13): it succeeds and the spec arrives."""
+    await use_workflow(setup)
     scripted(setup.adapters, FAILURE, FAILURE, refine_result("spec"))
     async with worker_factory():
         handle = await start(temporal_env, setup)
@@ -56,6 +58,7 @@ async def test_a_rerun_buys_one_attempt_not_a_new_allowance(
     """S27-13: `max_attempts` is 2. Each rerun is ONE more attempt: a rerun whose attempt fails
     escalates again at once (before: it had two fresh attempts, and the third failure of the
     script would have been played), and every click pays for exactly one run."""
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -90,6 +93,7 @@ async def test_an_answer_buys_one_attempt_not_a_new_allowance(
     """S27-04: `max_attempts` is 2. A failure, then a question on the second attempt; the answer is
     ONE more attempt: it fails and the work item escalates after three runs (before: the answer
     reset the attempts, and a fourth run was played)."""
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -133,6 +137,7 @@ async def test_an_answer_resumes_the_step_that_asked_the_question(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """`on_answer: resume`: the answer brings the ticket back to the step, and the resuming agent READS it."""
+    await use_workflow(setup)
     question = StageResult(
         status=StageStatus.NEEDS_HUMAN,
         summary="which currency?",
@@ -177,6 +182,7 @@ async def test_replay_outside_a_parked_ticket_is_forgotten(
 ) -> None:
     """On a ticket waiting for an ordinary approval, `rerun_stage` moves nothing, and does not
     stay in reserve for an escalation to come."""
+    await use_workflow(setup)
     scripted(setup.adapters, refine_result("spec"))
     async with worker_factory():
         handle = await start(temporal_env, setup)
@@ -197,6 +203,7 @@ async def test_a_rerun_that_cannot_play_does_not_loop(
     """A history from before the marker: `patched` answered no there, and the SDK remembers the
     answer: `rerun_stage` cannot play. It must be forgotten. On the dev tenant (10/09), it stayed
     in place, and the ticket recreated an abandonment request every 4 s."""
+    await use_workflow(setup)
     from tranibor_orchestrator.workflows import interpreter
 
     real_patched = interpreter.workflow.patched

@@ -387,7 +387,7 @@ function InstalledCard({
 
 /**
  * What an installed plugin brought. Each of its procedures opens, by its id, in the setup panel a
- * connector's form uses (ADR 0213); an id the API does not serve stays plain text.
+ * connector's form uses (ADR 0215); an id the API does not serve stays plain text.
  */
 function Contents({ contents }: { contents: PluginContents }) {
   const kinds = CONTENT_KINDS.filter(({ key }) => contents[key].length > 0);

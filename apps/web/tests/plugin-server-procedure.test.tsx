@@ -8,7 +8,7 @@ import { serverConnectorOf } from "@/mocks/plugins";
 import { proceduresApi } from "@/mocks/procedures";
 
 /**
- * S84-06 (ADR 0213): the connector of a plugin's server is an `mcp/mcp` connector, and its settings show
+ * S84-06 (ADR 0215): the connector of a plugin's server is an `mcp/mcp` connector, and its settings show
  * its plugin's own setup procedure (`connector: mcp/servicenow`), not the generic MCP server one.
  */
 vi.mock("next/navigation", () => ({ usePathname: () => "/admin/connectors", useSearchParams: () => new URLSearchParams() }));

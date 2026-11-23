@@ -16,8 +16,9 @@ LIST = pathlib.Path(__file__).with_name("need_the_plugins.txt")
 #: The number of files the list holds. It only falls: lower it with each file that leaves the list. 435 when
 #: it was written (S83-05a, 2026-11-21: 2,632 tests); 116 since a project without a template gets a workflow
 #: the core runs (S83-05d: 469 tests); 115 once `make demo` is the plugin's (S83-05i); 91 once the
-#: software delivery tests run on the shared test kit in the plugin's own suite (S83-05l).
-CEILING = 91
+#: software delivery tests run on the shared test kit in the plugin's own suite (S83-05l); 88 once core tests
+#: run on a workflow of the core's (`tranibor_testkit.workflows`, S83-05n).
+CEILING = 65
 
 
 def listed() -> list[str]:

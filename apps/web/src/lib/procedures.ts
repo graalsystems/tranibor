@@ -20,7 +20,7 @@ export function connectorTarget(kind: string, type: string): string {
 const PLUGIN_ENTRY = /^plugin:([^/@]+)\/([^/@]+)@/;
 
 /**
- * What a connector's setup panel looks up, in order (ADR 0213). A plugin's server is an `mcp/mcp`
+ * What a connector's setup panel looks up, in order (ADR 0215). A plugin's server is an `mcp/mcp`
  * connector: its plugin's own procedure applies to `mcp/<plugin>` or `mcp/<server>`, and the generic MCP
  * server procedure stands in when the plugin ships none. Any other connector asks its own type.
  */

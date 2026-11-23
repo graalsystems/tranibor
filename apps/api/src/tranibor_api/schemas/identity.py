@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -159,9 +159,14 @@ class OrgDto(Dto):
     slug: str
     name: str
     role: Role | None = None
-    #: The currency the console shows spend in (S29-03, decision D4): an organisation setting, EUR by
-    #: default. The ledger holds both USD and EUR.
-    currency: Literal["EUR", "USD"] = "EUR"
+    #: The currency the console shows spend in (S29-03, decision D4, ADR 0214): an organisation setting,
+    #: EUR by default, any ISO 4217 code. The ledger stays in USD (and EUR); another code is USD converted
+    #: at `fx_rate`, the organisation's own declaration.
+    currency: str = Field(default="EUR", pattern=r"^[A-Z]{3}$")
+    #: Units of `currency` per 1 USD, as declared; `None` for EUR and USD, which need none.
+    fx_rate: float | None = Field(default=None, gt=0)
+    #: The UTC date the rate was set.
+    fx_rate_set_on: date | None = None
     #: The slugs the organisation had: they still resolve to it (ADR 0090).
     aliases: list[str] = Field(default_factory=list)
     #: Whether the organisation's runs may be offered tool scripts (S57-05b, ADR 0122 §6): `enabled`,
@@ -189,7 +194,9 @@ class OrgUpdate(Dto):
 
     slug: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    currency: Literal["EUR", "USD"] | None = None
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    #: Units of `currency` per 1 USD; the server stamps the date. Only with a currency that is not EUR or USD.
+    fx_rate: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Absent: unchanged. `enabled` or `disabled`: the organisation's choice. `null`: back to the
     #: deployment's default (S57-05b) — unlike the other fields, where `null` changes nothing.
     tool_scripts: OrgToolScripts | None = None

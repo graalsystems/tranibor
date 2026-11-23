@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """The documentation site's connector pages, generated from the platform's and the plugins' procedures
-(ADR 0213, S84-06): one page per procedure, Docusaurus front matter, the placeholders of the docs export,
+(ADR 0215, S84-06): one page per procedure, Docusaurus front matter, the placeholders of the docs export,
 the plugin named and linked, the fields as a table, prose the site's MDX reader accepts."""
 
 from __future__ import annotations
@@ -234,7 +234,7 @@ def test_the_command_refuses_a_bad_ref_and_plugins_without_site(tmp_path: pathli
 def test_a_plugin_that_does_not_parse_is_left_out_of_a_lenient_export(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """ADR 0213: a publish leaves a plugin out, with a warning, rather than stop the platform's pages."""
+    """ADR 0215: a publish leaves a plugin out, with a warning, rather than stop the platform's pages."""
     plugins = _plugin(tmp_path, "## Before you start\n\nOnly one section.\n")
     good = tmp_path / "plugins" / "hello"
     good.mkdir()

@@ -41,7 +41,7 @@ function subscribe(listener: () => void) {
  * `fallback`): a missing help never blocks the form.
  *
  * `target` may be a list of candidates, looked up in order: the first that has a procedure wins (a plugin
- * server's connector asks its plugin's procedure before the generic MCP one, ADR 0213).
+ * server's connector asks its plugin's procedure before the generic MCP one, ADR 0215).
  */
 export function ProcedurePanel({
   target,

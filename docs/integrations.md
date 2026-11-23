@@ -450,6 +450,41 @@ curl -X POST $API/orgs/acme/connectors -d '{"kind": "mcp", "name": "rovo", "type
 section); `basic` needs `username`. The server allows about 1 000 calls per hour on Standard and
 Premium plans.
 
+## A demonstration MCP server
+
+A pre-sales demonstration often has to show a **governed write** to a business system (a warranty decision
+recorded in a dealer system) without running a real MCP server
+([ADR 0213](adr/0213-the-demonstration-mcp-server-is-the-fakes-with-tools-declared-in-a-file.md)). Under
+`TRANIBOR_FAKES=1` every `mcp` connector is served by the fakes' MCP server; `TRANIBOR_DEMO_MCP_TOOLS` gives
+it tools, declared in a YAML or JSON file:
+
+```bash
+TRANIBOR_FAKES=1 TRANIBOR_DEMO_INLINE_WORKER=1 \
+TRANIBOR_DEMO_MCP_TOOLS=examples/demo-mcp/dealer-system.yaml \
+  uv run uvicorn tranibor_api.main:app --port 8000
+```
+
+Then declare a connector of type `mcp` (any `https` URL, no key), *discover* it and open the tools as for any
+server: a new tool is born closed. With `record_warranty_decision` under the policy `approval`, an agent's call
+becomes a governed action that waits for a person (not the agent's owner), and once approved it reaches the
+server, which **records it**. `get_claim` (a read) returns the claim and the decisions recorded on it, and
+`received_writes` (open it too) lists every write received, in order: that is what to show the audience.
+
+| Key of a tool | Meaning |
+| :-- | :-- |
+| `name`, `description` | What discovery announces |
+| `kind` | `read` (announced `readOnlyHint`) or `write` (anything else is a write, ADR 0034) |
+| `input_schema` | The JSON Schema the platform checks the arguments against before the call |
+| `answer` | The canned answer, an object; `{"ok": true}` by default. A write adds `recorded: <n>` |
+| `recorded_from` | On a read: the write tools whose recorded arguments come back under `recorded`, for the writes that share every argument the read gives |
+
+The sample `examples/demo-mcp/dealer-system.yaml` declares `get_claim` and `record_warranty_decision`. Limits,
+all deliberate: it runs **in the API's process** (so the inline worker plays the approved action; separate
+worker processes would each have their own server), keeps its record in memory, and answers canned texts.
+It is refused unless `TRANIBOR_FAKES` is on and `TRANIBOR_ENV` is `dev` or `test`, the API will not start
+otherwise, and a file that names a token, secret, password, API key or credential is refused: it holds
+none and checks none.
+
 ## An MCP server that only accepts short-lived OAuth tokens
 
 An enterprise MCP server often sits behind its organisation's identity provider and accepts no static

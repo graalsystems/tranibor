@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 CARD = "/a2a/orgs/northwind/.well-known/agent-card.json"
 ENDPOINT = "/a2a/orgs/northwind"
@@ -35,14 +36,13 @@ async def _token(client: AsyncClient, *scopes: str, project: str | None = None) 
 async def _publish(
     client: AsyncClient, project: dict[str, Any], *, opt_in: bool = True, modes: list[str] | None = None
 ) -> None:
-    from tranibor_core.dsl import template_yaml
-
     tracker = await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
     assert tracker.status_code == 200, tracker.text
+    # The door is the core's: the skill is a workflow of the core's, the same with or without the plugins.
     block = OPT_IN + (f"  input_modes: [{', '.join(modes)}]\n" if modes else "")
-    text = template_yaml("default-simple").rstrip("\n") + "\n" + (block if opt_in else "")
+    text = CORE_SIMPLE.rstrip("\n") + "\n" + (block if opt_in else "")
     published = await client.put(f"/api/v1/projects/{project['id']}/workflow", json={"yaml": text})
     assert published.status_code == 200, published.text
 
@@ -332,7 +332,7 @@ async def test_a_file_part_is_an_input_artefact_a_step_reads(
         done = await session.get(WorkItem, task["id"])
         owner = await session.get(Project, project["id"])
         assert done is not None and owner is not None
-        done.state = "deployed_prod"
+        done.state = "done"
     completed = (await _rpc(client, token, "tasks/get", {"id": task["id"]})).json()["result"]
     assert completed["status"]["state"] == "completed"
     assert "contract.pdf" not in [a["name"] for a in completed.get("artifacts", [])], "not sent back"
@@ -466,7 +466,7 @@ async def test_states_map_one_way(client: AsyncClient, project: dict[str, Any]) 
     async with session_scope() as session:
         done, failed, closed = [await session.get(WorkItem, i) for i in ids]
         assert done and failed and closed
-        done.state = "deployed_prod"
+        done.state = "done"
         failed.failure = {"reason": "boom"}
         closed.closed_at = utcnow()
         owner = await session.get(Project, project["id"])
@@ -511,7 +511,7 @@ async def test_a_completed_task_carries_its_artefacts_content(
         done = await session.get(WorkItem, task_id)
         owner = await session.get(Project, project["id"])
         assert done and owner
-        done.state = "deployed_prod"
+        done.state = "done"
 
         def row(name: str, type_: str, media: str, data: bytes, **where: Any) -> ArtifactRecord:
             kind = "inline" if "content" in where else "file"
@@ -723,7 +723,7 @@ async def test_message_stream_follows_the_work_item_to_its_end(
         async with session_scope() as session:
             item = (await session.execute(select(WorkItem))).scalar_one()
             (await session.execute(select(HumanRequest))).scalar_one().decided_at = utcnow()
-            item.state = "deployed_prod"
+            item.state = "done"
             session.add(
                 ArtifactRecord(
                     org_id=(await session.get(Project, project["id"])).org_id,  # type: ignore[union-attr]

@@ -1,0 +1,32 @@
+# A "dealer system" for a pre-sales demonstration (ADR 0213): start the API with
+#   TRANIBOR_FAKES=1 TRANIBOR_DEMO_INLINE_WORKER=1 TRANIBOR_DEMO_MCP_TOOLS=examples/demo-mcp/dealer-system.yaml \
+#     uv run uvicorn tranibor_api.main:app --port 8000
+# then declare a connector of type `mcp` (any URL) and discover it. Nothing here is real.
+tools:
+  - name: get_claim
+    description: A warranty claim, with the decisions recorded on it in the dealer system.
+    kind: read
+    input_schema:
+      type: object
+      properties:
+        claim_id: {type: string, description: The claim's reference}
+      required: [claim_id]
+    answer:
+      claim_id: W-1042
+      vehicle: Demo hatchback, 2 years old
+      status: awaiting decision
+    recorded_from: [record_warranty_decision]
+  - name: record_warranty_decision
+    description: Records the decision taken on a warranty claim in the dealer system.
+    kind: write
+    input_schema:
+      type: object
+      properties:
+        claim_id: {type: string}
+        decision: {type: string, enum: [accepted, refused, partially_accepted]}
+        amount_eur: {type: number}
+        reason: {type: string}
+      required: [claim_id, decision]
+      additionalProperties: false
+    answer:
+      status: recorded

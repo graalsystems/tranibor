@@ -8,7 +8,7 @@ import { use, useState } from "react";
 import { LiveIndicator, useActivityFeed } from "@/components/live/live-kit";
 import { LiveBoardSection } from "@/components/workflows/live-board-section";
 import { useSession } from "@/lib/session";
-import { type Currency, monthStart, usdToCurrency } from "@/lib/spend";
+import { type Currency, monthStart, orgCurrency, reportRate } from "@/lib/spend";
 import { Button, Drawer, Empty, ErrorNote } from "@/components/ui";
 import { WorkflowChip } from "@/components/workflow-chip";
 import { cn } from "@/lib/cn";
@@ -59,7 +59,7 @@ export default function BoardPage({ params }: { params: Promise<{ slug: string }
   });
   // The board is live (ADR 0187 §4): one activity stream for the project, read by each workflow's section.
   const { org, orgs } = useSession();
-  const currency: Currency = orgs.find((o) => o.slug === org)?.currency === "USD" ? "USD" : "EUR";
+  const currency: Currency = orgCurrency(orgs, org);
   const feed = useActivityFeed({ org, slug, demo: IS_MOCK });
   const today = new Date().toISOString().slice(0, 10);
   // What the ledger says for this month: today's spend, and its rate to the organisation's currency.
@@ -69,7 +69,7 @@ export default function BoardPage({ params }: { params: Promise<{ slug: string }
     refetchInterval: 60_000,
   });
   const spentToday = spendReport.data?.rows.find((r) => r.key === today)?.cost_usd ?? (spendReport.data ? 0 : null);
-  const usdTo = spendReport.data ? usdToCurrency(spendReport.data.total) : null;
+  const usdTo = spendReport.data ? reportRate(spendReport.data) : null;
   const [showEmpty, setShowEmpty] = useShowEmptyColumns();
   const connectors = useQuery({ queryKey: ["connectors", slug], queryFn: () => api.connectors(slug) });
   // A work item is filed from here whatever the tracker: with an external one the platform creates

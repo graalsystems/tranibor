@@ -11,7 +11,7 @@ The app serves the same files with this deployment's URLs filled in; here the pl
 shown as `<api_url>`, `<public_url>` and `<org>`, so the documentation cannot drift from the app.
 `--mocks` writes the console's mock data (the API's `Procedure` shape, example URLs).
 
-`--site` writes the documentation site's connector pages (ADR 0213): one page per procedure, the
+`--site` writes the documentation site's connector pages (ADR 0215): one page per procedure, the
 platform's grouped by connector kind (then knowledge sources, MCP-door clients and external agents),
 and, with `--plugins`, one group per plugin of that directory (`<plugin>/plugin.yaml` and the files its
 `contents.procedures` patterns match), each page naming its plugin and linking its source at
@@ -180,7 +180,7 @@ def write(target: pathlib.Path = TARGET) -> int:
     return len(wanted)
 
 
-# ───────────────────────────── the documentation site (ADR 0213) ─────────────────────────────
+# ───────────────────────────── the documentation site (ADR 0215) ─────────────────────────────
 
 #: Where the platform's procedures live in its repository, for a page's "Edit this page".
 SHIPPED_IN_REPOSITORY = "packages/core/src/tranibor_core/procedures"
@@ -240,7 +240,7 @@ def plugin_procedures(plugins: pathlib.Path, lenient: bool = False) -> list[Plug
 
     `lenient`: a plugin one of whose procedures this parser refuses is left out whole, with a warning on
     stderr, instead of failing the export; one plugin, or a newer procedure format, never stops the
-    platform's own pages from being published (ADR 0213)."""
+    platform's own pages from being published (ADR 0215)."""
     if not plugins.is_dir():
         raise core.ProcedureError(f"{plugins}: not a directory of plugins")
     found: list[PluginProcedure] = []

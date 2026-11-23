@@ -204,7 +204,7 @@ describe("what picks a preset", () => {
   });
 });
 
-describe("the procedure of a plugin's server (S84-06, ADR 0213)", () => {
+describe("the procedure of a plugin's server (S84-06, ADR 0215)", () => {
   const servicenow = serverConnectorOf("servicenow", "0.1.0", "servicenow");
 
   it("asks the plugin's name, then the server's, then the generic MCP server", () => {

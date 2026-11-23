@@ -1,4 +1,12 @@
-"""`WorkflowInterpreter`: full traversal, human wait, resumes, control."""
+"""`WorkflowInterpreter`: human wait, resumes, control, failures, on a workflow of the core's.
+
+The work item runs `CORE_SIMPLE` (`tranibor_testkit.workflows`), `default-simple`'s front half on the
+core's gates: these mechanisms are the core's, and run the same without the plugins' extensions
+(ADR 0181, round D). The traversal of `default-simple` itself, PR, CI, review and train, is the
+`software-delivery` plugin's, in its suite (`orchestrator/test_default_simple_traversal.py`).
+Other core test modules import `_runs`, `_wait_state`, … from here: they are the test kit's
+`tranibor_testkit.interpreter`, under their former names.
+"""
 
 from __future__ import annotations
 
@@ -6,81 +14,17 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
-from tranibor_testkit.interpreter import pr_ref as _pr_ref
 from tranibor_testkit.interpreter import runs as _runs
 from tranibor_testkit.interpreter import scripted, start
 from tranibor_testkit.interpreter import ticket as _ticket
 from tranibor_testkit.interpreter import wait_state as _wait_state
 from tranibor_testkit.interpreter import wait_until as _wait_until
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, refine_result, stage_result
 from .kits.workers import worker_with
 
 pytestmark = pytest.mark.asyncio
-
-
-async def test_default_simple_full_traversal(setup: Fixture, temporal_env: Any, worker_factory: Any) -> None:
-    """A ticket goes through `default-simple` from end to end: agents, human, system, train."""
-    scripted(
-        setup.adapters,
-        stage_result("spec written", outputs={"size": "M", "risk": "low", "spec_markdown": "## Spec"}),
-        stage_result(
-            "implemented", artifacts={"branch": "choregos/123", "commits": ["fix(orders): credit notes"]}
-        ),
-        stage_result("verified"),
-    )
-    setup.adapters.cd.set_health("billing-api", "Healthy")
-
-    async with worker_factory():
-        handle = await start(temporal_env, setup)
-
-        # 1. the `refine` agent ran, the human validation is requested
-        await _wait_state(handle, "awaiting_spec_approval")
-        await handle.signal(
-            "human_decision", {"approved": True, "decided_by": "augustin", "kind": "approval"}
-        )
-
-        # 2. implementation, verification, PR: CI and review arrive by events
-        await _wait_state(handle, "pr_open")
-        await handle.signal(
-            "inbound",
-            {
-                "type": "scm.check.completed",
-                "source": "github",
-                "delivery_id": "d1",
-                "payload": {"conclusion": "success"},
-            },
-        )
-        setup.adapters.scm.set_checks(_pr_ref(setup), "success")
-        setup.adapters.scm.submit_review(_pr_ref(setup), "marie", "approved")
-        await handle.signal(
-            "inbound",
-            {
-                "type": "scm.pr.review_submitted",
-                "source": "github",
-                "delivery_id": "d2",
-                "payload": {"state": "approved"},
-            },
-        )
-
-        # 3. the train announces the successful deployment
-        await _wait_state(handle, "merged")
-        await handle.signal(
-            "inbound",
-            {
-                "type": "cd.rollout.completed",
-                "source": "argocd",
-                "delivery_id": "d3",
-                "payload": {"env": "prod"},
-            },
-        )
-        outcome = await handle.result()
-
-    assert outcome["state"] == "deployed_prod"
-    assert outcome["cost_usd"] >= 0
-    comment = setup.adapters.tracker.status_comment(setup.tracker_key)
-    assert comment is not None and "Tranibor — progress" in comment
-    assert "agent refine" in comment and "agent implement" in comment
 
 
 async def test_human_rejection_returns_to_refining(
@@ -98,6 +42,7 @@ async def test_human_rejection_returns_to_refining(
     in `_wait_until` and in `test_pause_and_resume`. What can be observed without a race is its
     effect: a second agent step ran.
     """
+    await use_workflow(setup)
     scripted(setup.adapters, refine_result("spec v1"), refine_result("spec v2"))
     async with worker_factory():
         handle = await start(temporal_env, setup)
@@ -133,6 +78,7 @@ async def test_failures_are_bounded_then_escalate(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """Two attempts, then escalation to `needs_human`: never an infinite loop."""
+    await use_workflow(setup)
     failure = StageResult(status=StageStatus.FAILED, summary="the agent crashed", reason="agent_error")
     scripted(setup.adapters, failure, failure, failure)
     async with worker_factory():
@@ -147,6 +93,7 @@ async def test_failures_are_bounded_then_escalate(
 async def test_agent_question_creates_human_request(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     scripted(
         setup.adapters,
         StageResult(
@@ -174,6 +121,7 @@ async def test_agent_question_creates_human_request(
 
 
 async def test_pause_and_resume(setup: Fixture, temporal_env: Any, worker_factory: Any) -> None:
+    await use_workflow(setup)
     scripted(setup.adapters, refine_result("spec"), stage_result("implemented"), stage_result("verified"))
     async with worker_factory():
         handle = await start(temporal_env, setup)
@@ -192,12 +140,14 @@ async def test_pause_and_resume(setup: Fixture, temporal_env: Any, worker_factor
             lambda s: not s["paused"] and s["state"] != "awaiting_spec_approval",
             timeout=40,
         )
-        await handle.signal("control", {"action": "stop"})
-        await handle.result()
+        # And it goes on to its end: nothing holds it any more.
+        outcome = await handle.result()
+    assert outcome["state"] == "done", outcome
 
 
 async def test_cost_is_counted_once_per_run(setup: Fixture, temporal_env: Any, worker_factory: Any) -> None:
     """The cost comes from the gateway, once per run: no double counting."""
+    await use_workflow(setup)
     scripted(setup.adapters, refine_result("spec"))
     gateway = setup.adapters.gateway
     async with worker_factory():
@@ -357,6 +307,7 @@ async def test_an_interpreter_that_restarts_clears_the_mark(setup: Fixture, temp
 
 async def test_an_uncollected_diff_does_not_kill_the_step(setup: Fixture, temporal_env: Any) -> None:
     """`collect_run_artifacts` serves the display: its failure does not cost the ticket (RH-1, 24/09)."""
+    await use_workflow(setup)
     from temporalio import activity
     from temporalio.exceptions import ApplicationError
 
@@ -378,6 +329,7 @@ async def test_an_uncollected_diff_does_not_kill_the_step(setup: Fixture, tempor
 
 async def test_await_run_is_replayed_after_a_transient_failure(setup: Fixture, temporal_env: Any) -> None:
     """A worker that restarts during a run (missed heartbeat) no longer kills the ticket."""
+    await use_workflow(setup)
     from temporalio import activity
     from temporalio.exceptions import ApplicationError
     from tranibor_orchestrator.activities import stage as stage_activities
@@ -407,6 +359,7 @@ async def test_the_gate_verdicts_are_in_the_run_journal(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """Which gates ran, and what they answered: it is in the run journal."""
+    await use_workflow(setup)
     from sqlalchemy import select
     from tranibor_api.db.models import Run, RunEvent
     from tranibor_api.db.session import session_scope
@@ -425,8 +378,9 @@ async def test_the_gate_verdicts_are_in_the_run_journal(
         await handle.signal(
             "human_decision", {"approved": True, "decided_by": "augustin", "kind": "approval"}
         )
-        # the implementation carries the perimeter and evidence gates
-        await _wait_state(handle, "pr_open")
+        # the implementation, the verification and the delivery carry the evidence gate
+        outcome = await handle.result()
+    assert outcome["state"] == "done", outcome
 
     async with session_scope(orgs="*") as session:
         runs = (
@@ -445,7 +399,7 @@ async def test_the_gate_verdicts_are_in_the_run_journal(
         )
     assert rows, "no verdict logged"
     names = {r.payload["name"] for r in rows}
-    assert "scope_respected" in names or "evidence_present" in names, names
+    assert "evidence_present" in names, names
     assert all(isinstance(r.payload["passed"], bool) and "detail" in r.payload for r in rows)
 
 
@@ -463,6 +417,7 @@ async def test_a_failing_notifier_does_not_kill_the_human_gate(
     human gate was therefore unreachable on any installation without a notifier, and the message
     blamed Slack instead of saying "the request is there, nobody was notified".
     """
+    await use_workflow(setup)
     from sqlalchemy import select
     from tranibor_api.db.models import HumanRequest
     from tranibor_api.db.session import session_scope
@@ -535,6 +490,7 @@ async def test_the_reminder_without_a_notifier_keeps_the_interpreter_alive(
     the Slack "no `bot_token` nor `webhook_url`" error and the activity failure failed the whole
     WorkItem interpreter, leaving the work item in its human state with nobody to receive the
     decision (globex/choregos-sandbox-dev#4 and #6, 10/11 and 10/13)."""
+    await use_workflow(setup)
     from datetime import timedelta
 
     from temporalio.client import WorkflowExecutionStatus
@@ -565,15 +521,15 @@ async def test_the_reminder_without_a_notifier_keeps_the_interpreter_alive(
 
 
 async def _refine_attempts(setup: Fixture, attempts: int) -> None:
-    """The project's workflow, with `t-refine` retried up to `attempts` times."""
-    from sqlalchemy import select
-    from tranibor_api.db.models import WorkflowDef
+    """The work item's workflow, with `t-refine` retried up to `attempts` times."""
+    from tranibor_api.db.models import WorkflowDef, WorkItem
     from tranibor_api.db.session import session_scope
 
     async with session_scope() as session:
-        row = (
-            await session.execute(select(WorkflowDef).where(WorkflowDef.project_id == setup.project_id))
-        ).scalar_one()
+        item = await session.get(WorkItem, setup.work_item_id)
+        assert item is not None
+        row = await session.get(WorkflowDef, item.workflow_def_id)
+        assert row is not None
         document = dict(row.json_doc)
         document["transitions"] = [
             {**t, "on_fail": {**t["on_fail"], "max_attempts": attempts}} if t["id"] == "t-refine" else t
@@ -586,6 +542,7 @@ async def test_the_same_failure_twice_escalates_instead_of_retrying(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """S27-07: three attempts allowed, but the second fails exactly like the first — no third."""
+    await use_workflow(setup)
     await _refine_attempts(setup, 3)
     failure = StageResult(
         status=StageStatus.FAILED, summary="pytest: 3 failed in 12.4s", reason="tests_failed"
@@ -620,6 +577,7 @@ async def test_the_same_failure_twice_escalates_instead_of_retrying(
 async def test_different_failures_use_every_attempt(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     await _refine_attempts(setup, 3)
     scripted(
         setup.adapters,

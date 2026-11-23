@@ -52,5 +52,5 @@ its console only, never here.
 
 - [Connectors](../use/connectors.md): where each kind is set, and how to tell that it works.
 - [Plugins](../build/plugins.md): what a plugin ships, its procedures included.
-- [Each connector has a page on the documentation site](../../adr/0213-each-connector-has-a-page-on-the-documentation-site.md),
+- [Each connector has a page on the documentation site](../../adr/0215-each-connector-has-a-page-on-the-documentation-site.md),
   the decision behind this section.

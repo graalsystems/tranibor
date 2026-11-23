@@ -20,7 +20,7 @@ these addresses (`TRANIBOR_DOCS_URL`, by default `https://graalsystems.github.io
 | `concepts.md` | Concepts | 2 |
 | `get-started.md` | Get started | 3 |
 | `use/` | Use Tranibor: the seven task pages of the contract | 4 |
-| `connectors/` | Connector setup: `connectors/index.md` is the section's page; the build writes one page per setup procedure beside it, the platform's and the plugins' (ADR 0213), never committed | 4.5 |
+| `connectors/` | Connector setup: `connectors/index.md` is the section's page; the build writes one page per setup procedure beside it, the platform's and the plugins' (ADR 0215), never committed | 4.5 |
 | `build/` | Build agents: skills, agents, plugins, tools | 5 |
 | `integrate/` | Integrate: MCP, A2A, triggers, REST | 6 |
 | `cli/` | Command line: install, reference | 7 |

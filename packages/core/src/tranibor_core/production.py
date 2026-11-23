@@ -93,3 +93,34 @@ def refuse_demo_inline_worker(*, environment: str | None, fakes: str | bool | No
             "The inline demo worker plays a simulated agent against fake adapters (ADR 0005, ADR 0212); "
             f"set {FAKES_VARIABLE}=1, or unset {DEMO_INLINE_WORKER_VARIABLE} and run a real worker."
         )
+
+
+#: The variable that names the file of tools the demonstration MCP server serves (ADR 0213).
+DEMO_MCP_TOOLS_VARIABLE = "TRANIBOR_DEMO_MCP_TOOLS"
+
+
+class DemoMcpToolsRefusedError(RuntimeError):
+    """The demonstration MCP server was asked for where it must not run."""
+
+
+def refuse_demo_mcp_tools(*, environment: str | None, fakes: str | bool | None) -> None:
+    """Stop a process when `TRANIBOR_DEMO_MCP_TOOLS` is set outside development under the fakes.
+
+    The demonstration MCP server (ADR 0213) answers a canned text to anyone who asks and checks no
+    credential: it is the fakes' MCP server with tools declared from a file. It needs the fakes (so that
+    nothing real is reached) and a `dev` or `test` environment; anything else is refused, naming the
+    setting to change.
+    """
+    env = (environment or "").strip().lower()
+    if env not in DEMO_INLINE_WORKER_ENVIRONMENTS:
+        raise DemoMcpToolsRefusedError(
+            f"{DEMO_MCP_TOOLS_VARIABLE} is set and {ENVIRONMENT_VARIABLE}={env or '(unset)'}: refused. The "
+            "demonstration MCP server (ADR 0213) checks no credential and is for a development machine "
+            f"only: unset {DEMO_MCP_TOOLS_VARIABLE}, or run with {ENVIRONMENT_VARIABLE}=dev."
+        )
+    if not fakes_on(fakes):
+        raise DemoMcpToolsRefusedError(
+            f"{DEMO_MCP_TOOLS_VARIABLE} is set and {FAKES_VARIABLE} is off: refused. The demonstration MCP "
+            f"server is the fakes' (ADR 0005, ADR 0213); set {FAKES_VARIABLE}=1, or unset "
+            f"{DEMO_MCP_TOOLS_VARIABLE} and connect a real MCP server."
+        )

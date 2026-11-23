@@ -288,7 +288,7 @@ describe("Catalogue → Plugins", () => {
   });
 });
 
-describe("an installed plugin's procedures (S84-06, ADR 0213)", () => {
+describe("an installed plugin's procedures (S84-06, ADR 0215)", () => {
   it("open in the setup panel by their id, with the procedure's own text", async () => {
     window.localStorage.clear();
     page();

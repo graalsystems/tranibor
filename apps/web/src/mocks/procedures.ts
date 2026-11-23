@@ -15,7 +15,7 @@ const SHIPPED = raw as unknown as Procedure[];
 
 /**
  * What the demo's plugins ship: the `servicenow` plugin's server procedure, shortened from the plugins'
- * repository, so that its server's connector shows it instead of the generic MCP one (ADR 0213).
+ * repository, so that its server's connector shows it instead of the generic MCP one (ADR 0215).
  */
 const PLUGIN_PROCEDURES: Procedure[] = [
   {

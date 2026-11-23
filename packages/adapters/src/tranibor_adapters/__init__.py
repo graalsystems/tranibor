@@ -29,6 +29,7 @@ from .builtins import (  # noqa: F401 - names the root has always exposed
     _jira_tracker,
     _register_builtins,
     fake_mcp_gateway,
+    fake_mcp_server,
     fake_outpost,
 )
 from .registry import (
@@ -84,6 +85,7 @@ __all__ = [
     "deployment_default_type",
     "egress_hosts",
     "fake_mcp_gateway",
+    "fake_mcp_server",
     "fake_outpost",
     "fakes_enabled",
     "load_extensions",

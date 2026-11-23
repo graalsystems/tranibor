@@ -1,4 +1,4 @@
-# 0213 — Each connector has a page on the documentation site, the platform's and the plugins'
+# 0215 — Each connector has a page on the documentation site, the platform's and the plugins'
 
 - **Status**: proposed, 2026-11-23 (story S84-06)
 - **Concerns**: `tools/procedures/export_docs.py` (`--site`), `docs/site/connectors/`,

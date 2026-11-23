@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Card, Empty, ReadState, Stat, buttonClasses } from "@/components/ui";
 import type { CostFilter } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { type Currency, type Measure, money, tokenCount, tokenTotals } from "@/lib/spend";
+import { amount, type Currency, type Measure, money, tokenCount, tokenTotals } from "@/lib/spend";
 import { BreakdownTable, csvUrl, fetchReport, reportKey, type Scope } from "./breakdown";
 
 /** The groupings a tokens-and-cost panel may offer, as the cost report names them (ADR 0141 §1). */
@@ -60,7 +60,7 @@ export function TokensAndCostPanel({
   const filtre: CostFilter = { since, ...filter };
   const report = useQuery({ queryKey: reportKey(scope, group, filtre), queryFn: () => fetchReport(scope, group, filtre) });
   const totals = tokenTotals(report.data?.total);
-  const cost = currency === "USD" ? report.data?.total.cost_usd : report.data?.total.cost_eur;
+  const cost = report.data ? amount(report.data.total, currency) : undefined;
   return (
     <Card
       eyebrow={`Last ${days} days`}

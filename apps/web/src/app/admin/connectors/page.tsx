@@ -433,7 +433,7 @@ function Secrets({
         <Button size="sm" onClick={() => setEditing(!editing)}>
           {editing ? "Close settings" : "Edit settings"}
         </Button>
-        {/* A plugin's server shows its plugin's procedure, the generic MCP one when it ships none (ADR 0213). */}
+        {/* A plugin's server shows its plugin's procedure, the generic MCP one when it ships none (ADR 0215). */}
         <ProcedurePanel
           target={connectorTargets(instance)}
           preset={instance.kind === "mcp" ? presetOfMcpUrl(config.url) : undefined}

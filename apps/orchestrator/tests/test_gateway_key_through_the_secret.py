@@ -18,6 +18,7 @@ import json
 from typing import Any
 
 import pytest
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, refine_result
 from .test_interpreter import _wait_until, scripted, start
@@ -207,6 +208,7 @@ async def test_a_gateway_that_cannot_answer_does_not_keep_the_key_alive_on_cance
 async def test_a_resumed_run_gets_its_fresh_key_through_the_executor_not_the_row(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from .test_suspend_around_human import QUESTION, _answer, _can_suspend
 
     executor = _can_suspend(setup)
@@ -269,6 +271,7 @@ async def test_a_resumed_run_key_joins_the_project_day_team(
 ) -> None:
     """The continuation's key is minted like any run key (S27-10): it joins the project's day team,
     so what the resumed run spends counts against the project's daily cap."""
+    await use_workflow(setup)
     from tranibor_orchestrator.activities.provisioning import project_team_id
 
     from .test_project_day_team import _daily

@@ -572,6 +572,8 @@ class Workspace(App[None]):
         #: The organisation's currency and its ledger's ratio (S67-25): every amount goes through `price`.
         self.currency: str | None = None
         self.rate: float | None = None
+        #: The rate the organisation declared for a currency the ledger does not hold (ADR 0214), per dollar.
+        self.declared: float | None = None
         self.assistants: list[dict[str, Any]] = []
         #: The organisations the person may switch to (`GET /orgs`), by slug.
         self.organisations: list[str] = []
@@ -866,7 +868,8 @@ class Workspace(App[None]):
 
     def price(self, amount: money.Amount, places: int = 2) -> str:
         """The one place the workspace prints an amount: the organisation's currency, `—` when unknown."""
-        return amount.text(self.currency, places, self.rate)
+        declared = self.currency not in (None, *money.SYMBOLS)
+        return amount.text(self.currency, places, self.declared if declared else self.rate)
 
     async def _currency(self) -> str | None:
         """The organisation's currency (`GET /orgs`); `None` when unreadable (own symbols then)."""
@@ -877,8 +880,8 @@ class Workspace(App[None]):
         self.organisations = [str(o["slug"]) for o in listed or [] if o.get("slug")]
         for org in listed or []:
             if self.organisation == org.get("slug") or self.organisation in (org.get("aliases") or []):
-                value = org.get("currency") or "EUR"  # the setting's default (S29-03)
-                return value if value in money.SYMBOLS else None
+                self.declared = money.declared_rate(org)
+                return money.currency_code(org)
         return None
 
     async def _spend(self) -> tuple[money.Amount, float | None]:
@@ -2067,7 +2070,7 @@ class Workspace(App[None]):
         self.organisation, self.assistant = slug, None
         self.conversation_id, self.conversation = None, None
         self.board, self.live = activity.Board(), False
-        self.today, self.currency, self.rate = money.Amount(), None, None
+        self.today, self.currency, self.rate, self.declared = money.Amount(), None, None, None
         self.assistants, self.conversations, self.inbox, self.projects = [], [], [], None
         self.depth, self.project, self.item, self.run_summary = 0, None, None, None
         self.items = self.item_runs = None

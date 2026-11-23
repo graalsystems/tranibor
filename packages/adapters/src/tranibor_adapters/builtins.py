@@ -169,11 +169,19 @@ def _direct_gateway(cfg: dict[str, Any]) -> Any:
 
 def _current_fake_mcp() -> Any:
     """The fake MCP server of TRANIBOR_FAKES=1: one, scripted by the tests and the demo."""
+    from .fakes.demo_mcp import demo_mcp_tools_path, load_demo_mcp
     from .fakes.mcp import FakeMcpServer
 
     if _package.FAKE_MCP is None:
-        _package.FAKE_MCP = FakeMcpServer()
+        # `TRANIBOR_DEMO_MCP_TOOLS=<file>`: the tools of a demonstration, declared in a file (ADR 0213).
+        declared = demo_mcp_tools_path()
+        _package.FAKE_MCP = load_demo_mcp(declared) if declared else FakeMcpServer()
     return _package.FAKE_MCP
+
+
+def fake_mcp_server() -> Any:
+    """The process-wide fake MCP server, built now: a demonstration's tools file is read at startup."""
+    return _current_fake_mcp()
 
 
 def fake_mcp_gateway() -> Any:
