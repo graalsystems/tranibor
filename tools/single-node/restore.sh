@@ -28,9 +28,21 @@ k get cronjob "$RELEASE-restore" >/dev/null || {
 }
 
 selector="app.kubernetes.io/instance=$RELEASE"
-replicas=$(k get deploy -l "$selector" -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}')
+# The replica counts to give back, remembered in an annotation of each Deployment: a run that failed
+# leaves the writers at 0, and the next run (or a stack someone scaled down first) would otherwise read
+# 0 as the count to restore and never start them again (S80-32).
+saved=choregos-restore-replicas
+replicas=""
+while IFS='=' read -r name count note; do
+  [ -n "$name" ] || continue
+  if [ "$count" = 0 ] && [ -n "$note" ]; then count=$note; fi
+  replicas+="$name=$count"$'\n'
+done < <(k get deploy -l "$selector" -o jsonpath="{range .items[*]}{.metadata.name}={.spec.replicas}={.metadata.annotations.$saved}{\"\\n\"}{end}")
 echo "== stopping the writers"
 echo "$replicas"
+while IFS='=' read -r name count; do
+  if [ -n "$name" ] && [ "$count" != 0 ]; then k annotate deploy "$name" "$saved=$count" --overwrite >/dev/null; fi
+done <<<"$replicas"
 k scale deploy -l "$selector" --replicas=0
 writers="app.kubernetes.io/name in (choregos-api,choregos-web,choregos-orchestrator,choregos-temporal,choregos-litellm,choregos-ecphoria)"
 if k get pod -l "$selector,$writers" -o name | grep -q .; then
@@ -45,7 +57,18 @@ else
 fi
 job="$RELEASE-restore-$(date -u +%Y%m%d%H%M%S)"
 k create job --from="cronjob/$RELEASE-restore" "$job"
-if ! k wait --for=condition=complete "job/$job" --timeout="${TIMEOUT}s"; then
+# `kubectl wait --for=condition=complete` does not return when the job FAILS: it would wait out the whole
+# timeout (an hour by default) on a restore that stopped in its first second (S80-32).
+done_ok=""
+for _ in $(seq $((TIMEOUT / 5 + 1))); do
+  state=$(k get "job/$job" -o jsonpath='{.status.succeeded}/{.status.failed}')
+  case "$state" in
+    1/*) done_ok=1; break ;;
+    */[1-9]*) break ;;
+  esac
+  sleep 5
+done
+if [ -z "$done_ok" ]; then
   echo "== the restore FAILED; the writers stay stopped. Its log:" >&2
   for c in fetch database files objects done; do
     k logs "job/$job" -c "$c" 2>/dev/null | sed "s/^/[$c] /" >&2 || true
@@ -61,6 +84,9 @@ while IFS='=' read -r name count; do
   [ -n "$name" ] && k scale deploy "$name" --replicas="$count"
 done <<<"$replicas"
 while IFS='=' read -r name count; do
-  if [ -n "$name" ] && [ "$count" != 0 ]; then k rollout status "deploy/$name" --timeout=600s; fi
+  if [ -n "$name" ] && [ "$count" != 0 ]; then
+    k rollout status "deploy/$name" --timeout=600s
+    k annotate deploy "$name" "$saved-" >/dev/null
+  fi
 done <<<"$replicas"
 echo "== restored"
