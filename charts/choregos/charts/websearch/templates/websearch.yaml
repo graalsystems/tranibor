@@ -4,6 +4,10 @@
 {{- $rd := .Values.names.redis | default (printf "%s-firecrawl-redis" $r) }}
 {{- $rl := .Values.names.relay | default (printf "%s-relay" $r) }}
 {{- $relay := .Values.relay }}
+{{- $sxSel := include "choregos.selectorLabels" (dict "override" .Values.searxng.selectorLabels "default" (dict "app.kubernetes.io/name" "choregos-searxng" "app.kubernetes.io/instance" $r)) }}
+{{- $fcSel := include "choregos.selectorLabels" (dict "override" .Values.firecrawl.selectorLabels "default" (dict "app.kubernetes.io/name" "choregos-firecrawl" "app.kubernetes.io/instance" $r)) }}
+{{- $rdSel := include "choregos.selectorLabels" (dict "override" .Values.redis.selectorLabels "default" (dict "app.kubernetes.io/name" "choregos-firecrawl-redis" "app.kubernetes.io/instance" $r)) }}
+{{- $rlSel := include "choregos.selectorLabels" (dict "override" .Values.relay.selectorLabels "default" (dict "app.kubernetes.io/name" "choregos-relay" "app.kubernetes.io/instance" $r)) }}
 {{- if and $relay.enabled (not $relay.secretName) }}
 {{- fail "choregos-websearch.relay.enabled needs relay.secretName: the Secret holding `api-token` and `client-token`." }}
 {{- end }}
@@ -79,13 +83,13 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app.kubernetes.io/name: choregos-searxng, app.kubernetes.io/instance: {{ $r }} }
+    matchLabels: {{- $sxSel | nindent 6 }}
   template:
     metadata:
-      labels: { app.kubernetes.io/name: choregos-searxng, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
+      labels: {{- include "choregos.podLabels" (dict "selector" ($sxSel | fromYaml) "component" "websearch" "extra" .Values.searxng.podLabels) | nindent 8 }}
       annotations:
         # SearXNG reads its settings at start only (the init container copies them): the digest restarts the pod.
-        checksum/settings: {{ print (toJson .Values.searxng) $relay.enabled | sha256sum }}
+        checksum/settings: {{ print (toJson (omit .Values.searxng "selectorLabels" "podLabels")) $relay.enabled | sha256sum }}
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -155,7 +159,7 @@ metadata:
   name: {{ $sx }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
-  selector: { app.kubernetes.io/name: choregos-searxng, app.kubernetes.io/instance: {{ $r }} }
+  selector: {{- $sxSel | nindent 4 }}
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
@@ -167,10 +171,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app.kubernetes.io/name: choregos-firecrawl-redis, app.kubernetes.io/instance: {{ $r }} }
+    matchLabels: {{- $rdSel | nindent 6 }}
   template:
     metadata:
-      labels: { app.kubernetes.io/name: choregos-firecrawl-redis, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
+      labels: {{- include "choregos.podLabels" (dict "selector" ($rdSel | fromYaml) "component" "websearch" "extra" .Values.redis.podLabels) | nindent 8 }}
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -195,7 +199,7 @@ metadata:
   name: {{ $rd }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
-  selector: { app.kubernetes.io/name: choregos-firecrawl-redis, app.kubernetes.io/instance: {{ $r }} }
+  selector: {{- $rdSel | nindent 4 }}
   ports:
     - { name: redis, port: 6379, targetPort: redis }
 ---
@@ -207,10 +211,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app.kubernetes.io/name: choregos-firecrawl, app.kubernetes.io/instance: {{ $r }} }
+    matchLabels: {{- $fcSel | nindent 6 }}
   template:
     metadata:
-      labels: { app.kubernetes.io/name: choregos-firecrawl, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
+      labels: {{- include "choregos.podLabels" (dict "selector" ($fcSel | fromYaml) "component" "websearch" "extra" .Values.firecrawl.podLabels) | nindent 8 }}
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -250,7 +254,7 @@ metadata:
   name: {{ $fc }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
-  selector: { app.kubernetes.io/name: choregos-firecrawl, app.kubernetes.io/instance: {{ $r }} }
+  selector: {{- $fcSel | nindent 4 }}
   ports:
     - { name: http, port: 3002, targetPort: http }
 {{- if $relay.enabled }}
@@ -263,10 +267,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app.kubernetes.io/name: choregos-relay, app.kubernetes.io/instance: {{ $r }} }
+    matchLabels: {{- $rlSel | nindent 6 }}
   template:
     metadata:
-      labels: { app.kubernetes.io/name: choregos-relay, app.kubernetes.io/instance: {{ $r }}, app.kubernetes.io/component: websearch }
+      labels: {{- include "choregos.podLabels" (dict "selector" ($rlSel | fromYaml) "component" "websearch" "extra" .Values.relay.podLabels) | nindent 8 }}
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -302,7 +306,7 @@ metadata:
   name: {{ $rl }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
-  selector: { app.kubernetes.io/name: choregos-relay, app.kubernetes.io/instance: {{ $r }} }
+  selector: {{- $rlSel | nindent 4 }}
   ports:
     - { name: proxy, port: 3128, targetPort: proxy }
 {{- end }}

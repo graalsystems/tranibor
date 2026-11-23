@@ -6,11 +6,19 @@ names:
   searxng: ""
   redis: ""
   relay: ""
+# Adopt Deployments that already run (#2150). The Deployment and its Service share the name set in `names`.
+# Each piece below (`searxng`, `firecrawl`, `redis`, `relay`) also takes `selectorLabels` and `podLabels`:
+# `selectorLabels`, when set, REPLACES whole the labels the pods carry and the selector and Service match
+# (default `app.kubernetes.io/name: choregos-<piece>` and `app.kubernetes.io/instance: <release>`; a site's
+# network policy selects on them, and a Deployment's selector is immutable, so it must equal the live one);
+# `podLabels` adds labels to the pods only.
 # SearXNG, the meta-search engine Firecrawl asks (`SEARXNG_ENDPOINT`; without it Firecrawl queries
 # DuckDuckGo itself). It relays the query, without cookie or identity, to its upstream engines: "local"
 # removes the SaaS third party, not the query's exit. No limiter or bot detection (the only caller is
 # Firecrawl, in this namespace). Pin by tag AND digest: `tag: "2026.10.19-81371861f@sha256:..."`.
 searxng:
+  selectorLabels: {}
+  podLabels: {}
   image:
     repository: docker.io/searxng/searxng
     tag: "2026.10.19-81371861f@sha256:5ed0323b5f5f8701264ef65e239a2bd83cb57098f2b971fa30bf79c06eeae271"
@@ -29,6 +37,8 @@ searxng:
 # the network. A search is all a caller gets (no key, no state, and the scrape cannot leave: do not open
 # an egress to this pod).
 firecrawl:
+  selectorLabels: {}
+  podLabels: {}
   image:
     repository: ghcr.io/firecrawl/firecrawl
     tag: "2.11.109@sha256:4a1814baf80e323e5c4ac5162edfd130ad645c0d75a21276562df38b90fc75d3"
@@ -37,6 +47,8 @@ firecrawl:
     limits: { cpu: "1", memory: 1536Mi }
 # Cache and rate limiter, nothing that must survive: no save, no volume, no password.
 redis:
+  selectorLabels: {}
+  podLabels: {}
   image:
     repository: docker.io/library/redis
     tag: 7.4-alpine
@@ -50,6 +62,8 @@ redis:
 # mint --org <org>`; it expires) and `client-token` (the password SearXNG gives the relay, 16
 # characters or more).
 relay:
+  selectorLabels: {}
+  podLabels: {}
   enabled: false
   organisation: ""
   secretName: ""

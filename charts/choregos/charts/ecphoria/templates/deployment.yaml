@@ -1,24 +1,21 @@
 {{- $name := printf "%s-ecphoria" .Release.Name }}
+{{- $deploy := .Values.deploymentName | default $name }}
+{{- $sel := include "choregos.selectorLabels" (dict "override" .Values.selectorLabels "default" (dict "app.kubernetes.io/name" "choregos-ecphoria" "app.kubernetes.io/instance" .Release.Name)) }}
 {{- $secret := include "choregos.memoryTokenSecret" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $name }}
+  name: {{ $deploy }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
   replicas: 1
   # DuckDB: a single writer.
   strategy: { type: Recreate }
   selector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-ecphoria
-      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchLabels: {{- $sel | nindent 6 }}
   template:
     metadata:
-      labels:
-        app.kubernetes.io/name: choregos-ecphoria
-        app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: memory
+      labels: {{- include "choregos.podLabels" (dict "selector" ($sel | fromYaml) "component" "memory" "extra" .Values.podLabels) | nindent 8 }}
     spec:
       enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}
@@ -76,9 +73,7 @@ metadata:
   name: {{ include "choregos.memoryServiceName" . }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
-  selector:
-    app.kubernetes.io/name: choregos-ecphoria
-    app.kubernetes.io/instance: {{ .Release.Name }}
+  selector: {{- $sel | nindent 4 }}
   ports:
     - { name: http, port: 8432, targetPort: http }
 {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
