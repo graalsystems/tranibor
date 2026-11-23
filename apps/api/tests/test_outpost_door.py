@@ -1168,6 +1168,31 @@ async def test_the_slot_is_given_back_when_the_request_is_cut_short(
     assert (await daemon.poll(client)).status_code == 200
 
 
+async def test_the_slot_is_given_back_when_the_cut_lands_as_it_is_taken(
+    client: AsyncClient, daemon: Daemon, quick_looks: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The slot is visible once the poll's commit lands, and the request still awaits the pool's reset
+    of its connection: a cut there, which `_poll_waits` can see coming, left the slot to lapse and the
+    instance's next polls refused (S80-29, a CI run of #2157). Held open here, the window is the
+    whole test."""
+    from tranibor_api.outposts import door
+
+    taken = asyncio.Event()
+    releasing = door.release_connection
+
+    async def released_then_held(session: Any) -> None:
+        await releasing(session)
+        taken.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(door, "release_connection", released_then_held)
+    waiting = asyncio.create_task(daemon.poll(client, wait_s=25))
+    await asyncio.wait_for(taken.wait(), timeout=10)
+    monkeypatch.setattr(door, "release_connection", releasing)
+    await _cut_short(waiting, daemon)
+    assert (await daemon.poll(client)).status_code == 200
+
+
 async def test_a_slot_nobody_gave_back_lapses_by_itself(client: AsyncClient, daemon: Daemon) -> None:
     """A replica that dies gives nothing back: the slot is on the row with an expiry, and the
     instance's next poll, at whichever replica, takes it once it has lapsed."""

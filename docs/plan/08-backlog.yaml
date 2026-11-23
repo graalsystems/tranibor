@@ -5862,6 +5862,14 @@ stories:
     size: S
     depends_on: [S80-16, S80-25]
     notes: "Finding #2153. One claim helper per owner (choregos.temporalClaim, choregos.memoryClaim) called by the owner's template and by the backup and restore CronJobs, so an adopted claim or a kept Temporal Service name is the one backed up. Not done: a run on a cluster; the Temporal claim mounted in server mode (#2156)."
+  - id: S80-29
+    title: "fix(api): a poll cut short as it takes its slot gives the slot back"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: []
+    notes: "Flaky test_the_slot_is_given_back_when_the_request_is_cut_short (CI of #2157): the slot was taken before the try whose finally gives it back, so a cut during the commit's connection reset left it to lapse. Not done: the window on PostgreSQL."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
