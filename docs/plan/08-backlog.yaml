@@ -5838,6 +5838,14 @@ stories:
     size: S
     depends_on: [S80-23]
     notes: "Left of S80-23: the lock's move to the graalsystems index was done by S83-04o (#2147); only the history exemption of plugins/offline/ in tests/licences/test_no_varga.py remained."
+  - id: S80-25
+    title: "fix(charts): the embedded gateway and memory are a production tier when they rest on no bench dependency"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-14, S80-15, S80-16]
+    notes: "Finding #2150 point 2 and the doc gaps. The guard admits global.gateway.embedded on the operator's PostgreSQL and global.memory.embedded on a persistent volume in staging/prod (ADR 0195 amended); Prune=false on adoption documented; the S80-17 row corrected; modelInfo prices rendered as floats. Not done: a prod switch; the backup of an adopted memory claim (#2153)."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

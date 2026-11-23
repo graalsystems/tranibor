@@ -54,8 +54,10 @@ data:
           {{- /* The rest of the price sheet, as the operator wrote it: cache read and write prices,
                  `tiered_pricing` (LiteLLM >= 1.105), a context window. Without them the cost of a cached
                  or long request is wrong, and a wrong counter is worse than none. */}}
+          {{- /* #2150: `toYaml` writes a small price as `1e-08`, which YAML 1.1 (LiteLLM's PyYAML) reads as a
+                 string: a mantissa without a dot gets `.0`, so every price is a float again. */}}
           {{- with .modelInfo }}
-          {{- toYaml . | nindent 10 }}
+          {{- regexReplaceAll "(?m)([:-] )(-?[0-9]+)([eE][-+]?[0-9]+)$" (toYaml .) "${1}${2}.0${3}" | nindent 10 }}
           {{- end }}
         {{- else }}
         {{- with .mode }}

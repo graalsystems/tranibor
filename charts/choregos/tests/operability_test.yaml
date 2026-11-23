@@ -111,6 +111,65 @@ tests:
       - failedTemplate:
           errorPattern: "global.database.embedded, global.devLogin.enabled"
 
+  # #2150: the embedded LiteLLM and Ecphoria are a production tier when they rest on no bench dependency.
+  - it: in production, the embedded gateway on the operator's PostgreSQL renders
+    template: templates/guard.yaml
+    set:
+      global.environment: prod
+      global.gateway.embedded: true
+      global.database.embedded: false
+    asserts:
+      - notFailedTemplate: {}
+      - hasDocuments:
+          count: 0
+
+  - it: in production, the embedded gateway on the embedded PostgreSQL is refused, and says why
+    template: templates/guard.yaml
+    set:
+      global.environment: prod
+      global.gateway.embedded: true
+      global.database.embedded: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "global.database.embedded, global.gateway.embedded \\(on global.database.embedded, the bench PostgreSQL\\)"
+
+  - it: in staging, the embedded memory on a volume renders, its own claim or an adopted one
+    template: templates/guard.yaml
+    set:
+      global.environment: staging
+      global.memory.embedded: true
+      choregos-ecphoria.persistence.enabled: true
+      choregos-ecphoria.persistence.existingClaim: ecphoria-data
+    asserts:
+      - notFailedTemplate: {}
+      - hasDocuments:
+          count: 0
+
+  - it: in production, the embedded memory on an emptyDir is refused, and says why
+    template: templates/guard.yaml
+    set:
+      global.environment: prod
+      global.memory.embedded: true
+      choregos-ecphoria.persistence.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "global.memory.embedded \\(choregos-ecphoria.persistence.enabled=false, an emptyDir that a restart wipes\\)"
+
+  - it: in production, the bench values stay refused beside an accepted embedded gateway and memory
+    template: templates/guard.yaml
+    set:
+      global.environment: prod
+      global.gateway.embedded: true
+      global.memory.embedded: true
+      choregos-ecphoria.persistence.enabled: true
+      global.devSecrets: true
+      global.devLogin.enabled: true
+      demoFakes.enabled: true
+      global.fakes: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "refused: global.devSecrets, global.devLogin.enabled, demoFakes.enabled, global.fakes\\."
+
   - it: in staging, the secrets written by the chart are refused
     template: templates/guard.yaml
     set:

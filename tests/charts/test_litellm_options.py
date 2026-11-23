@@ -111,6 +111,31 @@ def test_a_model_carries_its_endpoint_its_key_variable_and_its_whole_price_sheet
     }
 
 
+def test_every_price_of_a_sheet_is_a_float_for_litellms_yaml_reader(tmp_path: pathlib.Path) -> None:
+    """#2150: `toYaml` wrote `1e-08`, which YAML 1.1 (PyYAML, LiteLLM's reader) takes for a string."""
+    values = tmp_path / "v.yaml"
+    sheet = {
+        "cache_read_input_token_cost": 0.00000001,
+        "cache_creation_input_token_cost": 0.000000125,
+        "tiered_pricing": [
+            {"range": [0, 200000], "input_cost_per_token": 0.00000001, "output_cost_per_token": 0.00000004},
+            {"range": [200000, 1000000], "input_cost_per_token": 2e-6, "output_cost_per_token": 1.5e-5},
+        ],
+    }
+    model = {"alias": "platform/standard", "model": "openai/gpt-5.5", "modelInfo": sheet}
+    values.write_text(yaml.safe_dump({L: {"models": [model]}}))
+    raw = _render(values=str(values))["ConfigMap"]["data"]["config.yaml"]
+    assert "1e-08" not in raw, raw
+    (rendered,) = yaml.safe_load(raw)["model_list"]
+    info = rendered["model_info"]
+    prices = [info["cache_read_input_token_cost"], info["cache_creation_input_token_cost"]]
+    for tier in info["tiered_pricing"]:
+        prices += [tier["input_cost_per_token"], tier["output_cost_per_token"]]
+        assert all(isinstance(bound, int) for bound in tier["range"])
+    assert all(isinstance(price, float) for price in prices), prices
+    assert prices == pytest.approx([1e-8, 1.25e-7, 1e-8, 4e-8, 2e-6, 1.5e-5])
+
+
 def test_the_database_takes_its_own_host_user_secret_and_sslmode() -> None:
     docs = _render(
         f"{L}.database.host=choregos-pg",
