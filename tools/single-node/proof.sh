@@ -24,8 +24,12 @@
 #                                      and no pod is scheduled.
 # The backups go to an S3 bucket OFF the node, because the node is destroyed: in k3d mode a SeaweedFS
 # container beside the cluster; in k3s mode PROOF_S3_ENDPOINT, PROOF_S3_BUCKET, PROOF_S3_ACCESS_KEY
-# and PROOF_S3_SECRET_KEY name one. The site's secrets (the "vault") are drawn once into PROOF_WORKDIR
-# and given to both installations, as a real site would.
+# and PROOF_S3_SECRET_KEY name one. The same store holds the site's object store (`global.objectStore`,
+# which the profile does not embed): the bucket `choregos` in k3d mode, PROOF_OBJECTS_BUCKET in k3s
+# mode. The demo seed hands the procurement work item its files there; without one the API wrote to
+# AWS's `s3://choregos` and the seed died on `NoSuchBucket` (#2187). The backup copies it too.
+# The site's secrets (the "vault") are drawn once into PROOF_WORKDIR and given to both installations,
+# as a real site would.
 #
 # The agent of the work item is simulated (the demo project's `fake` runtime): the proof is about
 # the installation, the backup and the restore, not about a model. Exit 0 only if every step held.
@@ -60,17 +64,22 @@ s3_up() {
     fi
     S3_ENDPOINT="http://$(docker inspect -f "{{(index .NetworkSettings.Networks \"$NAME\").IPAddress}}" "$NAME-s3"):8333"
     S3_BUCKET=choregos-backups
+    OBJECTS_BUCKET=choregos
     S3_ACCESS_KEY=proof
     S3_SECRET_KEY=proof-secret
-    for _ in $(seq 60); do
-      # A `weed shell` started before the master is up can hang for good: bounded, then tried again.
-      timeout 30 docker exec "$NAME-s3" sh -c "echo 's3.bucket.create -name $S3_BUCKET' | weed shell" >/dev/null 2>&1 && break
-      sleep 2
+    local bucket
+    for bucket in "$S3_BUCKET" "$OBJECTS_BUCKET"; do
+      for _ in $(seq 60); do
+        # A `weed shell` started before the master is up can hang for good: bounded, then tried again.
+        timeout 30 docker exec "$NAME-s3" sh -c "echo 's3.bucket.create -name $bucket' | weed shell" >/dev/null 2>&1 && break
+        sleep 2
+      done
     done
   else
     : "${PROOF_S3_ENDPOINT:?k3s mode needs PROOF_S3_ENDPOINT (an S3 bucket off this machine)}"
     S3_ENDPOINT=$PROOF_S3_ENDPOINT
     S3_BUCKET=${PROOF_S3_BUCKET:?}
+    OBJECTS_BUCKET=${PROOF_OBJECTS_BUCKET:?k3s mode needs PROOF_OBJECTS_BUCKET (the site object store, on the same endpoint with the same keys)}
     S3_ACCESS_KEY=${PROOF_S3_ACCESS_KEY:?}
     S3_SECRET_KEY=${PROOF_S3_SECRET_KEY:?}
   fi
@@ -124,6 +133,8 @@ install() {
   k create secret generic choregos-oidc --from-literal=client-secret=proof-unused
   k create secret generic choregos-backup-target \
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
+  k create secret generic choregos-object-store \
+    --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
   local tag=()
   [ -n "${PROOF_IMAGE_TAG:-}" ] && tag=(--set "global.imageTag=$PROOF_IMAGE_TAG")
   helm install "$RELEASE" "$ROOT/charts/choregos" -n "$NAMESPACE" \
@@ -138,6 +149,10 @@ install() {
     --set global.bootstrap.admins="$ADMIN" \
     --set backup.target.s3.url="s3://$S3_BUCKET/$NAME" \
     --set backup.target.s3.endpoint="$S3_ENDPOINT" \
+    --set global.objectStore.url="s3://$OBJECTS_BUCKET" \
+    --set global.objectStore.endpoint="$S3_ENDPOINT" \
+    --set global.objectStore.secretRef=choregos-object-store \
+    --set backup.objectStore=true \
     "${tag[@]}" --timeout 20m
   # No `helm --wait`: the migrations are a post-install hook (the embedded database does not exist
   # before the install), and the API is not ready before they ran.
@@ -270,7 +285,7 @@ trap 'status=$?; [ $status -ne 0 ] && echo "PROOF FAILED (exit $status) — work
 
 step "off-node bucket ($MODE)"
 s3_up
-echo "  $S3_ENDPOINT, bucket $S3_BUCKET"
+echo "  $S3_ENDPOINT, bucket $S3_BUCKET, object store bucket $OBJECTS_BUCKET"
 step "blank node -> k3s"
 node_up
 vault
@@ -287,7 +302,7 @@ echo "  $ITEM"
 step "backup (the chart's CronJob, started now)"
 k create job --from=cronjob/choregos-backup proof-backup
 k wait --for=condition=complete job/proof-backup --timeout=1200s
-for c in prepare database files ship; do k logs job/proof-backup -c "$c" | sed "s/^/  [$c] /"; done
+for c in prepare database files objects ship; do k logs job/proof-backup -c "$c" | sed "s/^/  [$c] /"; done
 step "destroy the node"
 node_destroy
 step "a new blank node -> k3s -> the chart"
