@@ -92,7 +92,13 @@ contents:
   links listed in `vendor_docs`, no secret-shaped string. A procedure gives the address of its server's
   webhook with `{{plugin_webhook_url:<plugin>/<server>}}`, filled with
   `<api>/api/v1/webhooks/plugins/<org>/<plugin>/<server>`; it may name only a server of its own plugin that
-  declares a `webhook`.
+  declares a `webhook`. **A server's procedure applies to `connector: mcp/<plugin>`** (a plugin with one
+  server) **or `mcp/<server>`**: the server's connector is an `mcp/mcp` connector, and the console's
+  setup panel on it asks `connector:mcp/<plugin>`, then `connector:mcp/<server>`, then the generic
+  `connector:mcp/mcp`, the first that has a procedure winning (ADR 0213). Library → Plugins opens each
+  procedure an installed plugin brought, by its id. The documentation site publishes one page per
+  procedure of the plugins' repository, under **Connector setup**, rebuilt daily from its `main`
+  (`tools/procedures/export_docs.py --site … --plugins …`).
 - **Servers** match `plugin-server.schema.json`:
   - the image is pinned by `@sha256:`;
   - every operation states its `access` (`read` or `write`);
