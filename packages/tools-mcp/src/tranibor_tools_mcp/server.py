@@ -15,7 +15,7 @@ from tranibor_core.mcp import ok as _ok
 
 from .answer import render_answer
 from .client import InternalClient
-from .tools import TOOL_SCHEMAS, ToolContext, finding_from, text_result
+from .tools import TOOL_SCHEMAS, UNJUDGED, ToolContext, finding_from, text_result
 
 #: The only version the sidecar used to announce; it now answers the one the client asks for,
 #: when it is understood (`tranibor_core.mcp.VERSIONS`).
@@ -127,7 +127,7 @@ class McpServer:
         if not isinstance(data, dict):
             return text_result("expected: a JSON object (`{…}`)", is_error=True)
         try:
-            result = StageResult.model_validate(data)
+            result = StageResult.model_validate(data, context=UNJUDGED)
         except ValidationError as exc:
             lines = [f"- `{'.'.join(str(p) for p in e['loc'])}`: {e['msg']}" for e in exc.errors()]
             return text_result("result does NOT conform:\n" + "\n".join(lines), is_error=True)

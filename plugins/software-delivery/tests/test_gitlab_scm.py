@@ -229,7 +229,7 @@ def test_parse_webhook_delegates_merge_request_payloads() -> None:
         b' "target_branch": "main"}}'
     )
     events = adapter().parse_webhook({"X-Gitlab-Event-UUID": "u-1"}, body)
-    assert [e.type.value for e in events] == ["scm.pr.opened"]
+    assert [e.type for e in events] == ["scm.pr.opened"]
     assert events[0].delivery_id == "u-1"
 
 

@@ -472,7 +472,7 @@ export type ProvisionStatus = {
 
 export type Connector = {
   id?: string;
-  /** a capability (ADR 0034): tracker, scm, ci, cd, runtime, memory, notify, gateway — or one a plugin type declares (identity, mcp…) */
+  /** a capability (ADR 0034): tracker, runtime, memory, notify, gateway — or one a plugin declares (scm, ci, cd, identity, mcp…) */
   kind: string;
   type: string;
   config?: {

@@ -2,19 +2,20 @@
 
 The contracts' internal event types are an open list since this round (`EVENT_TYPES`, the schema a pattern):
 the extension declares `choregos.release.*`, under the strings subscribers and the `events` rows key on, and
-holds its own `ReleaseStatus`. The core keeps the eight types, `EventType.RELEASE_*` and `ReleaseStatus` for
-the window `D-train` (`tranibor_contracts.window`), removed in the first release cut on or after 2026-12-14.
+holds its own `ReleaseStatus`. The core kept the eight types, `EventType.RELEASE_*`, `ReleaseStatus` and two
+unused domain models for the window `D-train`, which closed early on 2026-11-23 (S83-04r): they are gone.
 """
 
 from __future__ import annotations
 
 import pytest
+import tranibor_contracts
+import tranibor_core
 from pydantic import ValidationError
 from tranibor_contracts import EVENT_TYPES, ChoregosEvent, EventType
-from tranibor_contracts import ReleaseStatus as ContractsReleaseStatus
 from tranibor_contracts.open_lists import STORED
-from tranibor_contracts.window import D_TRAIN, RELEASE_EVENT_TYPES, WINDOW
 from tranibor_software_delivery import NAME
+from tranibor_software_delivery.lists import RELEASE_EVENT_TYPES
 from tranibor_software_delivery.names import ReleaseEvent, ReleaseStatus
 
 
@@ -25,16 +26,25 @@ def test_the_extension_declares_the_train_s_event_types_under_their_strings() ->
         assert ChoregosEvent.emit(member, project_slug="p").type == member.value
 
 
-def test_the_plugin_s_statuses_are_the_contracts_values() -> None:
-    assert {s.value for s in ReleaseStatus} == {s.value for s in ContractsReleaseStatus}
+def test_the_plugin_holds_the_statuses_the_releases_rows_store() -> None:
+    assert {s.value for s in ReleaseStatus} == {
+        "collecting",
+        "departing",
+        "staging",
+        "awaiting_approval",
+        "promoting",
+        "verifying",
+        "done",
+        "rolled_back",
+        "frozen",
+    }
 
 
-def test_the_core_keeps_them_for_the_window_only() -> None:
-    kept = {entry.name for entry in WINDOW if entry.window is D_TRAIN}
-    assert {f"EventType.{m.name}" for m in EventType if m.value in RELEASE_EVENT_TYPES} <= kept
-    assert {"ReleaseStatus", "ReleaseRecord", "ReleaseItem"} <= kept
-    assert set(EVENT_TYPES.kept) == RELEASE_EVENT_TYPES
-    assert D_TRAIN.removed_on.isoformat() == "2026-12-14"
+def test_the_core_keeps_none_of_them() -> None:
+    assert not {m.value for m in EventType} & RELEASE_EVENT_TYPES
+    assert not RELEASE_EVENT_TYPES & EVENT_TYPES.core
+    assert not hasattr(tranibor_contracts, "ReleaseStatus")
+    assert not hasattr(tranibor_core, "ReleaseRecord") and not hasattr(tranibor_core, "ReleaseItem")
 
 
 def test_a_type_no_one_declares_is_refused_and_a_stored_one_is_read() -> None:

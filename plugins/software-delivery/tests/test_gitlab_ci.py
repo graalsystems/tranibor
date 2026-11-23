@@ -78,7 +78,7 @@ def test_parse_event_delegates_pipeline_payloads() -> None:
         b' "object_attributes": {"id": 5, "status": "success", "ref": "main", "sha": "abc"}}'
     )
     events = adapter().parse_event({"X-Gitlab-Event-UUID": "u-1"}, body)
-    assert [e.type.value for e in events] == ["ci.run.succeeded"]
+    assert [e.type for e in events] == ["ci.run.succeeded"]
     assert events[0].delivery_id == "u-1"
 
 

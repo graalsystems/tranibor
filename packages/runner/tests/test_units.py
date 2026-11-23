@@ -368,7 +368,7 @@ async def test_the_internal_client_speaks_the_contract() -> None:
     async with client:
         assert await client.post_events([{"seq": 1, "type": "x", "payload": {}}]) == 1
         assert await client.post_events([]) == 0, "an empty batch does not call the API"
-        ack = await client.report_finding(_finding("N+1 query on the lines", "perf", "medium", "repo.py:88"))
+        ack = await client.report_finding(_finding("N+1 query on the lines", "docs", "medium", "repo.py:88"))
         assert ack["finding_id"] == "f1"
         assert (await client.request_scope_change(["src/**"], "needed"))["decision"] == "granted"
         assert "erreur" in await client.fetch_ci_logs()

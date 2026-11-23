@@ -274,7 +274,7 @@ async def test_a_cilium_policy_change_is_a_pull_request_that_rides_the_work_item
     pull_request = {"number": opened["pr"], "merged": True, "head": {"ref": opened["branch"]}}
     merged = {"action": "closed", "repository": {"full_name": "acme/gitops"}, "pull_request": pull_request}
     (event,) = parse_github_event("pull_request", "d-1", merged)
-    assert (event.type.value, event.work_item_key) == ("scm.pr.merged", "acme/gitops#7")
+    assert (event.type, event.work_item_key) == ("scm.pr.merged", "acme/gitops#7")
 
 
 async def test_a_proposal_that_is_not_one_cilium_policy_or_leaves_its_root_is_refused(

@@ -544,6 +544,16 @@ plugin is gone: a memory keeps its kind, and a stored document is validated with
 (`tranibor_contracts.open_lists.STORED`). `packages/core/tests/test_open_lists_extension.py` installs a
 test plugin's extension that declares one of each and checks each reader takes it.
 
+Software delivery's values (the `scm.*`, `ci.*`, `cd.*` event types, the finding types `bug`, `perf`,
+`tech-debt`, `flaky-test`, the memory kinds `flaky_test` and `hotspot`, the connector kinds `scm`, `ci`,
+`cd` and the release train's `choregos.release.*`) are not the core's: only the `software-delivery`
+extension declares them (`tranibor_software_delivery.lists`, its enumerations in `names.py`). The readers
+that load no extension, the runner and its tools in a job's image, read a value that matches a list's
+pattern and leave the platform to judge it; the interpreter reads a recorded result as a stored document,
+so a history replays with or without the plugin. Where the extension is absent, the core's GitHub,
+GitLab and Azure DevOps webhooks deliver their issue events and no pull request or pipeline event
+(`tranibor_adapters.forge_events`).
+
 ## Shipping a connector from outside this tree
 
 A package installed next to Tranibor can register its own connectors — no fork, no patch to the

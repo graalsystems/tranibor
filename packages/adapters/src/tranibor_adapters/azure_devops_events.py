@@ -16,7 +16,18 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
+
+from .forge_events import (
+    CI_FAILED,
+    CI_STARTED,
+    CI_SUCCEEDED,
+    PR_CLOSED,
+    PR_MERGED,
+    PR_OPENED,
+    PR_SYNCHRONIZED,
+    forge_events,
+)
 
 SOURCE = "azure-devops"
 BRANCH_KEY_RE = re.compile(r"choregos/(?P<number>\d+)")
@@ -113,15 +124,15 @@ def _pull_request(delivery_id: str, payload: dict[str, Any], resource: dict[str,
     }
     kind = str(payload.get("eventType"))
     if kind == "git.pullrequest.created":
-        return [InboundEvent(type=InboundEventType.PR_OPENED, payload=body, **common)]
+        return forge_events(PR_OPENED, payload=body, **common)
     if status == "completed":
-        return [InboundEvent(type=InboundEventType.PR_MERGED, payload=body, **common)]
+        return forge_events(PR_MERGED, payload=body, **common)
     if status == "abandoned":
-        return [InboundEvent(type=InboundEventType.PR_CLOSED, payload=body, **common)]
+        return forge_events(PR_CLOSED, payload=body, **common)
     if kind == "git.pullrequest.updated":
         # Any change of an active pull request (a push, a vote, a status) arrives as `updated`: the gates
         # read the pull request again, they never trust what the delivery says of a vote.
-        return [InboundEvent(type=InboundEventType.PR_SYNCHRONIZED, payload=body, **common)]
+        return forge_events(PR_SYNCHRONIZED, payload=body, **common)
     return []  # `git.pullrequest.merged` of an active pull request is a merge attempt, not a merge
 
 
@@ -136,10 +147,10 @@ def _pr_url(payload: dict[str, Any], resource: dict[str, Any]) -> str | None:
 
 
 _BUILD = {
-    "succeeded": InboundEventType.CI_SUCCEEDED,
-    "failed": InboundEventType.CI_FAILED,
-    "partiallysucceeded": InboundEventType.CI_FAILED,
-    "canceled": InboundEventType.CI_FAILED,
+    "succeeded": CI_SUCCEEDED,
+    "failed": CI_FAILED,
+    "partiallysucceeded": CI_FAILED,
+    "canceled": CI_FAILED,
 }
 
 
@@ -152,26 +163,24 @@ def _build(delivery_id: str, payload: dict[str, Any], resource: dict[str, Any]) 
     common = _common(
         delivery_id, payload, work_item_of(branch), (resource.get("requestedFor") or {}).get("uniqueName")
     )
-    return [
-        InboundEvent(
-            type=kind,
-            payload={
-                "conclusion": result,
-                "sha": resource.get("sourceVersion"),
-                "branch": branch,
-                "url": _web(resource),
-                "pipeline_id": (resource.get("definition") or {}).get("id"),
-                "run_id": resource.get("id"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        kind,
+        payload={
+            "conclusion": result,
+            "sha": resource.get("sourceVersion"),
+            "branch": branch,
+            "url": _web(resource),
+            "pipeline_id": (resource.get("definition") or {}).get("id"),
+            "run_id": resource.get("id"),
+        },
+        **common,
+    )
 
 
 _RUN_RESULT = {
-    "succeeded": InboundEventType.CI_SUCCEEDED,
-    "failed": InboundEventType.CI_FAILED,
-    "canceled": InboundEventType.CI_FAILED,
+    "succeeded": CI_SUCCEEDED,
+    "failed": CI_FAILED,
+    "canceled": CI_FAILED,
 }
 
 
@@ -192,24 +201,22 @@ def _run_state(delivery_id: str, payload: dict[str, Any], resource: dict[str, An
         if kind is None:
             return []
     elif state == "inProgress":
-        kind = InboundEventType.CI_STARTED
+        kind = CI_STARTED
     else:
         return []
     common = _common(delivery_id, payload, work_item_of(branch))
-    return [
-        InboundEvent(
-            type=kind,
-            payload={
-                "conclusion": result or state.lower(),
-                "sha": sha,
-                "branch": branch,
-                "url": _web(run),
-                "pipeline_id": (run.get("pipeline") or resource.get("pipeline") or {}).get("id"),
-                "run_id": run.get("id"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        kind,
+        payload={
+            "conclusion": result or state.lower(),
+            "sha": sha,
+            "branch": branch,
+            "url": _web(run),
+            "pipeline_id": (run.get("pipeline") or resource.get("pipeline") or {}).get("id"),
+            "run_id": run.get("id"),
+        },
+        **common,
+    )
 
 
 _HANDLERS = {

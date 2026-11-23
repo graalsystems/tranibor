@@ -313,7 +313,7 @@ def test_a_workflow_run_webhook_becomes_a_ci_event() -> None:
     }
     headers = {"X-GitHub-Event": "workflow_run", "X-GitHub-Delivery": "d-1"}
     (event,) = ci(Wire()).parse_event(headers, json.dumps(payload).encode())
-    assert event.type.value == "ci.run.failed" and event.delivery_id == "d-1"
+    assert event.type == "ci.run.failed" and event.delivery_id == "d-1"
     assert (event.project_slug, event.work_item_key) == ("billing", f"{REPO}#12")
     assert event.payload["run_attempt"] == 2 and event.payload["pr_numbers"] == [3]
     for conclusion, kind in (
@@ -322,10 +322,10 @@ def test_a_workflow_run_webhook_becomes_a_ci_event() -> None:
         ("cancelled", "ci.run.failed"),
     ):
         payload["workflow_run"]["conclusion"] = conclusion  # type: ignore[index]
-        assert ci(Wire()).parse_event(headers, json.dumps(payload).encode())[0].type.value == kind
+        assert ci(Wire()).parse_event(headers, json.dumps(payload).encode())[0].type == kind
     for action, kind in (("requested", "ci.run.started"), ("in_progress", "ci.run.started")):
         payload["action"] = action
-        assert ci(Wire()).parse_event(headers, json.dumps(payload).encode())[0].type.value == kind
+        assert ci(Wire()).parse_event(headers, json.dumps(payload).encode())[0].type == kind
     payload["action"] = "unknown"
     assert ci(Wire()).parse_event(headers, json.dumps(payload).encode()) == []
 

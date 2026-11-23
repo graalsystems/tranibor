@@ -4,34 +4,31 @@
 Five lists of the contracts were closed enumerations although a trade names their values: the inbound
 event types (`scm.pr.opened`), the finding types (`flaky-test`), the memory kinds (`hotspot`), the
 connector kinds (`scm`) and the stage roles (`fix_ci`); a sixth, the platform's gestures on a system
-transition (`does:`), is `workflow.STEP_EFFECTS`. The schemas hold a pattern for each, and this module
-holds the list: the core's values, and the ones an extension declares from its `choregos.plugins`
-entry point. A value neither in the core's list nor declared is refused where it was refused before,
-so opening a list changes nothing for the values that exist: every current value stays valid, under
-the same spelling.
+transition (`does:`), is `workflow.STEP_EFFECTS`, and a seventh, the internal event types, was opened by
+round D. The schemas hold a pattern for each, and this module holds the list: the core's values, and the
+ones an extension declares from its `choregos.plugins` entry point. A value neither in the core's list
+nor declared is refused.
 
-A core value is returned as its enumeration's member (`InboundEventType.PR_OPENED`), so code that
+Software delivery's values of the first four lists (`scm.*`, `ci.*`, `cd.*`, `bug`, `perf`, `tech-debt`,
+`flaky-test`, `flaky_test`, `hotspot`, the kinds `scm`, `ci`, `cd`) and the release train's
+`choregos.release.*` left the core's lists with their enumeration members (ADR 0181, windows C2, D-train
+and D, closed on 2026-11-23): only the `software-delivery` plugin's extension declares them, under the
+same strings. A document the platform stored reads them whether or not it is installed (`STORED`).
+
+A core value is returned as its enumeration's member (`InboundEventType.ITEM_CREATED`), so code that
 compares by identity keeps working; a declared value is returned as a string.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from enum import StrEnum
 from typing import Any
 
 from pydantic import ValidationInfo
 
 from .enums import ConnectorKind, EventType, FindingType, InboundEventType, MemoryKind, StageRole
-from .window import (
-    DELIVERY_CONNECTOR_KINDS,
-    DELIVERY_EVENT_TYPES,
-    DELIVERY_FINDING_TYPES,
-    DELIVERY_MEMORY_KINDS,
-    RELEASE_EVENT_TYPES,
-    SOFTWARE_DELIVERY,
-)
 
 #: The validation context of a document read back from the platform's own storage (`{STORED: True}`).
 STORED = "stored"
@@ -46,24 +43,16 @@ class OpenList:
         pattern: str,
         core: Iterable[str],
         enum: type[StrEnum] | None = None,
-        kept: Mapping[str, str] | None = None,
     ) -> None:
         self.what = what
         self.pattern = pattern
         self.core: frozenset[str] = frozenset(core)
-        #: Values of the core's list that are a plugin's (ADR 0181, round C2): its extension declares
-        #: them, and the core keeps them in its list for one window, so that a deployment without the
-        #: extension still reads them. Each is on the window list (`tranibor_contracts.window`), with
-        #: the release that takes it out of the core's list.
-        self.kept: Mapping[str, str] = dict(kept or {})
         self._enum = enum
         self._compiled = re.compile(pattern)
         self._declared: dict[str, str] = {}
         for value in self.core:
             if not self._compiled.fullmatch(value):
                 raise ValueError(f"the core's {what} `{value}` does not match {pattern}")
-        if not set(self.kept) <= self.core:
-            raise ValueError(f"a kept {what} is not in the core's list: {sorted(set(self.kept) - self.core)}")
 
     def declare(self, value: str, *, plugin: str) -> None:
         """Declare a value for `plugin`. A value of the core may be declared too (a plugin that takes
@@ -83,14 +72,9 @@ class OpenList:
         """The values `plugin`'s extension declared."""
         return frozenset(value for value, owner in self._declared.items() if owner == plugin)
 
-    def own(self) -> frozenset[str]:
-        """The values the core owns: its list without those it keeps for a plugin."""
-        return self.core - frozenset(self.kept)
-
     def plugin_of(self, value: str) -> str | None:
-        """The plugin that declared `value`, else the one the core keeps it for; `None` for a value the
-        core owns, or nobody's."""
-        return self._declared.get(value) or self.kept.get(value)
+        """The plugin that declared `value`; `None` for a value the core owns, or nobody's."""
+        return self._declared.get(value)
 
     def forget(self, plugin: str) -> None:
         """Drop what `plugin` declared: what a test does after installing an extension."""
@@ -139,34 +123,29 @@ INBOUND_EVENT_TYPES = OpenList(
     INBOUND_EVENT_TYPE_PATTERN,
     (v.value for v in InboundEventType),
     InboundEventType,
-    kept=dict.fromkeys(DELIVERY_EVENT_TYPES, SOFTWARE_DELIVERY),
 )
 FINDING_TYPES = OpenList(
     "finding type",
     FINDING_TYPE_PATTERN,
     (v.value for v in FindingType),
     FindingType,
-    kept=dict.fromkeys(DELIVERY_FINDING_TYPES, SOFTWARE_DELIVERY),
 )
 MEMORY_KINDS = OpenList(
     "memory kind",
     MEMORY_KIND_PATTERN,
     (v.value for v in MemoryKind),
     MemoryKind,
-    kept=dict.fromkeys(DELIVERY_MEMORY_KINDS, SOFTWARE_DELIVERY),
 )
 CONNECTOR_KINDS = OpenList(
     "connector kind",
     CONNECTOR_KIND_PATTERN,
     (v.value for v in ConnectorKind),
     ConnectorKind,
-    kept=dict.fromkeys(DELIVERY_CONNECTOR_KINDS, SOFTWARE_DELIVERY),
 )
 EVENT_TYPES = OpenList(
     "event type",
     EVENT_TYPE_PATTERN,
     (v.value for v in EventType),
     EventType,
-    kept=dict.fromkeys(RELEASE_EVENT_TYPES, SOFTWARE_DELIVERY),
 )
 STAGE_ROLES = OpenList("stage role", STAGE_ROLE_PATTERN, (v.value for v in StageRole), StageRole)

@@ -35,6 +35,7 @@ from ..interpreter import (
     DECLARED_OUTPUTS_REQUIRED,
     IDENTICAL_FAILURE_ESCALATES,
     RUN_STOPPED_GOES_TO_A_PERSON,
+    STORED_DOCUMENT,
     SUSPEND_AROUND_HUMAN,
     TICKET_SPEND_FROM_LEDGER,
     _attempts_ceiling,
@@ -131,7 +132,9 @@ class StagesMixin(InterpreterBase):
             heartbeat_timeout=timedelta(minutes=5),
             retry_policy=POLL_RETRY,
         )
-        result = StageResult.model_validate(awaited["result"])
+        # A recorded activity result: read whatever extensions are installed (ADR 0098 §4), so a history
+        # holding a plugin's finding type replays without the plugin.
+        result = StageResult.model_validate(awaited["result"], context=STORED_DOCUMENT)
         spend = await self._close_the_run(params, run_id, awaited["result"])
         # A person stopped the run (ADR 0142 §2): its spend is booked and its outcome recorded, and
         # nothing else of a finished stage applies (no diff, no gates, no retry). The condition
@@ -371,7 +374,7 @@ class StagesMixin(InterpreterBase):
                 raise
             return escalated
         run_id = str(decided["run_id"])
-        result = StageResult.model_validate(decided["result"])
+        result = StageResult.model_validate(decided["result"], context=STORED_DOCUMENT)
         self.cost_usd = float(decided["ticket_cost_usd"])  # the ledger, as after a run
         self.last_run = run_id
         if result.status is StageStatus.DONE:

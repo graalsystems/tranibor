@@ -90,7 +90,7 @@ async def test_proposing_a_fact_puts_it_on_hold_with_its_provenance() -> None:
     fil = Wire({("POST", "/api/v1/memories"): (201, {"id": "p-1"})})
     prov = Provenance(source="agent", run_id="r-9")
     assert (
-        await memory_for(fil).propose_fact("billing", Fact(kind="hotspot", subject="s", content="c"), prov)
+        await memory_for(fil).propose_fact("billing", Fact(kind="convention", subject="s", content="c"), prov)
         == "p-1"
     )
     assert fil.requests[0].url.params["status"] == "pending"

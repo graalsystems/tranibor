@@ -432,6 +432,7 @@ def test_commands_in_comments_become_decisions() -> None:
     assert events[1].work_item_key == f"{REPO}#12" and events[1].project_slug == "billing"
 
 
+@pytest.mark.usefixtures("forge_types")
 def test_a_closed_pr_is_merged_or_not_and_names_its_ticket_by_its_branch() -> None:
     base = {"repository": {"full_name": REPO}, "sender": {"login": "bot"}}
     pr = {
@@ -446,7 +447,7 @@ def test_a_closed_pr_is_merged_or_not_and_names_its_ticket_by_its_branch() -> No
     fermee = parse_github_event(
         "pull_request", "d", {**base, "action": "closed", "pull_request": {**pr, "merged": False}}
     )
-    assert fusion[0].type == InboundEventType.PR_MERGED and fermee[0].type == InboundEventType.PR_CLOSED
+    assert fusion[0].type == "scm.pr.merged" and fermee[0].type == "scm.pr.closed"
     assert fusion[0].work_item_key == f"{REPO}#12"
     assert parse_github_event("pull_request", "d", {**base, "action": "edited", "pull_request": pr}) == []
     assert parse_github_event("ping", "d", base) == []
@@ -467,6 +468,7 @@ def test_a_card_moved_on_the_board_is_a_move() -> None:
     assert (event.payload["from_status"], event.payload["to_status"]) == ("Inbox", "Done")
 
 
+@pytest.mark.usefixtures("forge_types")
 def test_a_completed_check_suite_comes_up_with_its_prs() -> None:
     payload = {
         "action": "completed",
@@ -479,8 +481,26 @@ def test_a_completed_check_suite_comes_up_with_its_prs() -> None:
         },
     }
     (event,) = parse_github_event("check_suite", "d", payload)
-    assert event.type == InboundEventType.CHECK_COMPLETED and event.payload["pr_numbers"] == [8]
+    assert event.type == "scm.check.completed" and event.payload["pr_numbers"] == [8]
     assert parse_github_event("check_suite", "d", {**payload, "action": "requested"}) == []
+
+
+@pytest.mark.usefixtures("no_forge_types")
+def test_without_the_software_delivery_plugin_a_pull_request_or_a_run_is_not_delivered() -> None:
+    """Their types are the plugin's (ADR 0181, C2 closed on 2026-11-23): where its extension is absent the
+    webhook still delivers the issue events, and none of a pull request, a check suite or a workflow run."""
+    base = {"repository": {"full_name": REPO}, "sender": {"login": "bot"}}
+    pr = {"number": 8, "head": {"ref": "choregos/12-x", "sha": "s"}, "base": {"ref": "main"}, "labels": []}
+    assert parse_github_event("pull_request", "d", {**base, "action": "opened", "pull_request": pr}) == []
+    reviewed = {**base, "review": {"state": "approved"}, "pull_request": pr}
+    assert parse_github_event("pull_request_review", "d", reviewed) == []
+    suite = {"conclusion": "success", "head_branch": "choregos/12-x", "pull_requests": []}
+    assert parse_github_event("check_suite", "d", {**base, "action": "completed", "check_suite": suite}) == []
+    run = {"id": 1, "conclusion": "success", "head_branch": "choregos/12-x"}
+    assert parse_github_event("workflow_run", "d", {**base, "action": "completed", "workflow_run": run}) == []
+    issue = {"number": 12, "title": "t", "labels": [], "state": "open"}
+    (opened,) = parse_github_event("issues", "d", {**base, "action": "opened", "issue": issue})
+    assert opened.type is InboundEventType.ITEM_CREATED
 
 
 async def test_the_poll_also_searches_the_labels_of_the_start_rules() -> None:

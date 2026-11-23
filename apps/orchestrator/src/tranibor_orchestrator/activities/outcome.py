@@ -23,6 +23,7 @@ from tranibor_api.services.budgets import ticket_budget, ticket_spent
 from tranibor_api.services.model_catalogue import priced_spend
 from tranibor_api.services.tickets import outputs_to_store
 from tranibor_contracts import CHANGE_REQUEST, EventType, StageInput, StageResult, StageStatus
+from tranibor_contracts.open_lists import STORED
 from tranibor_core import Message, Spend, elapsed_seconds, utcnow
 from tranibor_core.decision_ledger import declared_confidences
 from tranibor_core.domain import DiffSummary
@@ -243,7 +244,7 @@ async def record_run_outcome(payload: dict[str, Any]) -> dict[str, Any]:
         run = await session.get(Run, payload["run_id"])
         if run is None:
             return {"recorded": False}
-        result = StageResult.model_validate(payload["result"])
+        result = StageResult.model_validate(payload["result"], context={STORED: True})
         if run.result is None:
             run.result = result.model_dump(mode="json", by_alias=True)
         if stopped_by_a_person(result):
