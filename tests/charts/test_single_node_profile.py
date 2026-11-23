@@ -123,7 +123,7 @@ def test_the_backup_dumps_every_database_copies_the_files_and_ships_off_the_mach
     assert cronjob["spec"]["schedule"] == "0 2 * * *"
     assert cronjob["spec"]["concurrencyPolicy"] == "Forbid"
     pod = _pod(cronjob)
-    assert [c["name"] for c in pod["initContainers"]] == ["prepare", "database", "files"]
+    assert [c["name"] for c in pod["initContainers"]] == ["prepare", "database", "files", "memory"]
     assert [c["name"] for c in pod["containers"]] == ["ship"]
     claims = {v["name"]: v.get("persistentVolumeClaim", {}).get("claimName") for v in pod["volumes"]}
     assert claims["temporal"] == "choregos-temporal"
@@ -145,7 +145,7 @@ def test_the_restore_is_a_job_template_that_never_runs_by_itself() -> None:
     restore = _one(documents, "CronJob", "choregos-restore")
     assert restore["spec"]["suspend"] is True
     pod = _pod(restore)
-    assert [c["name"] for c in pod["initContainers"]] == ["fetch", "database", "files"]
+    assert [c["name"] for c in pod["initContainers"]] == ["fetch", "database", "files", "memory"]
     scripts = _one(documents, "ConfigMap", "choregos-backup")["data"]
     assert "pg_restore --create" in scripts["restore-database.sh"]
     assert "COMPLETE" in scripts["fetch.sh"]

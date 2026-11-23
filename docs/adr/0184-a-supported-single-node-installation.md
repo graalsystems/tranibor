@@ -91,6 +91,12 @@ the existing chart on one k3s node, with a backup.
 - The memory's DuckDB files are copied as files, consistent between two checkpoints of Ecphoria, not
   at an instant: a backup taken during a write may restore the memory a few writes behind. The
   database and Temporal copies are consistent.
+  *Amended 2026-11-23 (S80-41, #2185)*: that was wrong. Copied while Ecphoria ran, the files missed
+  their WAL and the restored Ecphoria ran empty, in memory, without an error. The memory is now
+  backed up by Ecphoria itself (`POST /api/v1/admin/backup`: its stores exported, a manifest of
+  digests written last) and restored by it (`POST /api/v1/admin/restore`, while it runs); the backup
+  copies that directory from its volume. Its stores are exported one after the other, so a backup
+  taken during writes may differ by a few writes between them, never by a store that does not open.
 
 ## What is not done
 
