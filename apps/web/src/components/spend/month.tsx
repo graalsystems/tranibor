@@ -3,7 +3,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Card, ReadState, Stat } from "@/components/ui";
-import { type Currency, money, monthForecast, monthStart, usdToCurrency } from "@/lib/spend";
+import { type Currency, declaredRate, fxNote, money, monthForecast, monthStart, reportRate } from "@/lib/spend";
 import { fetchReport, reportKey, type Scope } from "./breakdown";
 
 /**
@@ -21,7 +21,8 @@ export function MonthPanel({ scope, currency, now }: { scope: Scope; currency: C
       </Card>
     );
   }
-  const forecast = monthForecast(report.data.rows, now, currency, report.data.total.budget_usd, currency === "USD" ? 1 : usdToCurrency(report.data.total));
+  const forecast = monthForecast(report.data.rows, now, currency, report.data.total.budget_usd, currency === "USD" ? 1 : reportRate(report.data));
+  const declared = declaredRate(report.data);
   return (
     <Card title="This month" eyebrow="Budget against actual">
       <div className="flex flex-wrap items-end gap-x-10 gap-y-3" data-testid="month">
@@ -39,6 +40,11 @@ export function MonthPanel({ scope, currency, now }: { scope: Scope; currency: C
           </Badge>
         )}
       </div>
+      {declared && (
+        <p className="mt-3 text-xs text-ink-muted" data-testid="fx-note">
+          {fxNote(currency, declared.rate, declared.setOn)}
+        </p>
+      )}
     </Card>
   );
 }

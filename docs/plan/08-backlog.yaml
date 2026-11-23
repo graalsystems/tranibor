@@ -6501,3 +6501,14 @@ stories:
     acceptance:
       - "The cost CSV, the activity feed and stream, a run's tokens and a work item's totals, the eval matrix, the web cost panels and the CLI activity line carry `tokens_cache_write` next to `tokens_cached` (contract PR first)"
     notes: "ADR 0188 'Not done', finding #1894"
+  - id: S29-05
+    title: "An organisation reads its spend in any ISO 4217 currency, at the rate it declares (ADR 0214)"
+    stream: S29
+    sprint: 17
+    priority: 5
+    size: M
+    depends_on: [S29-03]
+    acceptance:
+      - "contract-change: Org.currency and CostReport.currency are ISO 4217 codes; OrgUpdate and Org carry fx_rate (units per USD) and its date; a cost report names how cost_display was obtained"
+      - "An organisation in MXN with a declared rate gets converted amounts and the USD ones unchanged; an unknown code, a missing rate and a rate for EUR or USD are refused; budgets stay in USD"
+      - "The CSV, the Spend page, the live board and the CLI show the converted amount labelled with its currency and say it is converted at the declared rate"
