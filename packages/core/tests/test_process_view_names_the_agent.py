@@ -80,10 +80,10 @@ def test_a_step_names_the_registry_agent_not_the_actor_key() -> None:
 
 def test_a_step_that_carries_a_workspace_gate_writes_the_branch(workspace_gate: None) -> None:
     steps = _steps(INLINE)
-    assert steps["t-write"]["writes_branch"] is True and steps["t-write"]["writes_workspace"] is True
-    assert steps["t-make"]["writes_branch"] is False, "no gate reads what it wrote"
-    assert steps["t-approve"]["writes_branch"] is False, "a person does not write the branch"
-    assert steps["t-close"]["writes_branch"] is False, "nor does the platform"
+    assert steps["t-write"]["writes_workspace"] is True and steps["t-write"]["writes_workspace"] is True
+    assert steps["t-make"]["writes_workspace"] is False, "no gate reads what it wrote"
+    assert steps["t-approve"]["writes_workspace"] is False, "a person does not write the branch"
+    assert steps["t-close"]["writes_workspace"] is False, "nor does the platform"
 
 
 def test_a_human_step_names_its_group_and_its_sla_and_no_agent() -> None:
@@ -95,7 +95,7 @@ def test_a_human_step_names_its_group_and_its_sla_and_no_agent() -> None:
 def test_a_job_carries_its_command_and_typed_outputs_pass_through(workspace_gate: None) -> None:
     steps = _steps(INLINE)
     assert steps["t-run"]["command"] == ["python", "run.py", "--fast"]
-    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_branch"] is True
+    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_workspace"] is True
     assert steps["t-make"]["output_types"] == {"deck": "pptx"} and steps["t-make"]["agent"] is None
 
 

@@ -254,7 +254,7 @@ async def test_the_agent_managers_right_stops_runs_in_projects_where_they_cannot
     its run in `billing-api`, where stopping that run alone is refused."""
     second = await _second_project(client)
     await _member("owner@northwind.dev", "viewer")
-    await _member("owner@northwind.dev", "developer", second["id"])
+    await _member("owner@northwind.dev", "contributor", second["id"])
     owner = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     try:
         await login(owner, "owner@northwind.dev")
@@ -278,7 +278,7 @@ async def test_a_member_who_cannot_manage_the_agent_gets_403(
     await _agent(client)
     await _run(project["id"], "run-keep")
     session_id = await _open_session(project["id"])
-    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     developer = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     try:
         await login(developer, "dev@northwind.dev")

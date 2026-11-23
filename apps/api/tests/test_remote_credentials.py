@@ -224,7 +224,7 @@ async def test_only_an_org_admin_manages_remote_credentials(
     await _create_oauth(client, remote)
     await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        json={"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
     )
     client.cookies.clear()
     await login(client, "dev@northwind.dev")

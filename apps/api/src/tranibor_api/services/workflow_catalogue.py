@@ -322,7 +322,6 @@ def entry_dto(
             for e in requires
         ],
         needs_workspace=any(e.capability in workspace_kinds() for e in requires),
-        needs_repository=any(e.capability in workspace_kinds() for e in requires),
         groups=groups,
         agents=agents,
         yaml=o.yaml if with_yaml else None,

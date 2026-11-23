@@ -81,7 +81,7 @@ async def test_a_developer_reads_the_registry_but_does_not_write_to_it(
 ) -> None:
     await _create(client)
     member = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     assert member.status_code in {200, 201}
     await login(client, "dev@northwind.dev")

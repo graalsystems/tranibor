@@ -94,11 +94,11 @@ async def test_only_a_member_of_the_named_group_approves_a_firewall_rule(
     action_id = await _proposed_rule_change(client, project)
     path = f"/api/v1/projects/{project['id']}/actions/{action_id}"
     action = (await client.get(path)).json()
-    assert action["approval"]["approvers"] == [{"role": "developer", "group": GROUP, "min": 1}]
+    assert action["approval"]["approvers"] == [{"role": "contributor", "group": GROUP, "min": 1}]
 
     await _member(client, "owner@northwind.dev", "project_owner", ["platform-team"])
-    await _member(client, "dev@northwind.dev", "developer", [])
-    await _member(client, "net@northwind.dev", "developer", [GROUP, "platform-team"])
+    await _member(client, "dev@northwind.dev", "contributor", [])
+    await _member(client, "net@northwind.dev", "contributor", [GROUP, "platform-team"])
     for outsider in ("owner@northwind.dev", "dev@northwind.dev"):
         session = await _session(app, outsider)
         try:
@@ -169,10 +169,10 @@ async def test_a_rule_naming_the_project_is_approved_by_that_projects_group(
     path = f"/api/v1/projects/{project['id']}/actions/{action_id}"
     resolved = f"{project['slug']}-maintainers"
     action = (await client.get(path)).json()
-    assert action["approval"]["approvers"] == [{"role": "developer", "group": resolved, "min": 1}]
+    assert action["approval"]["approvers"] == [{"role": "contributor", "group": resolved, "min": 1}]
 
-    await _member(client, "other@northwind.dev", "developer", ["other-maintainers"])
-    await _member(client, "lead@northwind.dev", "developer", [resolved])
+    await _member(client, "other@northwind.dev", "contributor", ["other-maintainers"])
+    await _member(client, "lead@northwind.dev", "contributor", [resolved])
     other = await _session(app, "other@northwind.dev")
     try:
         refused = await other.post(f"{path}/decision", json={"decision": "approve"})

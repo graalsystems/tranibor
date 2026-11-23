@@ -10,7 +10,7 @@ const schema: JsonSchema = {
   required: ["name", "role"],
   properties: {
     name: { type: "string", title: "name" },
-    role: { type: "string", enum: ["viewer", "developer"] },
+    role: { type: "string", enum: ["viewer", "contributor"] },
     seats: { type: "integer", description: "how many" },
     enabled: { type: "boolean", title: "enabled" },
     domains: { type: "array", items: { type: "string" } },
@@ -99,8 +99,8 @@ describe("SchemaForm: multi-line texts and mappings (S17-04)", () => {
     render(<FormulaireSaml initial={{ correspondance: { admins: "org_admin" } }} onValue={(v) => (latest = v)} />);
     const correspondance = screen.getByLabelText(/^mapping/);
     expect(correspondance).toHaveValue("admins = org_admin");
-    fireEvent.change(correspondance, { target: { value: "admins = org_admin\ndevs=developer\n" } });
-    expect(latest.correspondance).toEqual({ admins: "org_admin", devs: "developer" });
+    fireEvent.change(correspondance, { target: { value: "admins = org_admin\ndevs=contributor\n" } });
+    expect(latest.correspondance).toEqual({ admins: "org_admin", devs: "contributor" });
   });
 
   it("an unreadable line is reported, not erased; a value read afterwards replaces the text", () => {

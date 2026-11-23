@@ -55,7 +55,7 @@ describe("the project memory's re-import", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/Re-import scheduled/);
 
     document.body.innerHTML = "";
-    session.me = { memberships: [{ org: "acme", role: "developer", project_slug: "billing-api" }] };
+    session.me = { memberships: [{ org: "acme", role: "contributor", project_slug: "billing-api" }] };
     await open();
     await screen.findByLabelText("Memory");
     expect(screen.queryByRole("button", { name: "Re-import the project memory" })).toBeNull();

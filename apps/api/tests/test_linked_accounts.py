@@ -35,7 +35,7 @@ def forge() -> Iterator[FakeForge]:
     set_forge_transport(None)
 
 
-async def _member(client: AsyncClient, email: str, role: str = "developer") -> str:
+async def _member(client: AsyncClient, email: str, role: str = "contributor") -> str:
     added = await client.post(f"{ORG}/members", json={"email": email, "role": role})
     assert added.status_code == 201, added.text
     return str(added.json()["user_id"])

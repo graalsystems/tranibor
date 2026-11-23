@@ -15,7 +15,7 @@ from .conftest import login
 from .test_knowledge_rights import ORG, _as, _uid
 
 READER, STRANGER = "reader@northwind.dev", "stranger@northwind.dev"
-MEMBER = {"projects": {"billing-api": "developer"}}
+MEMBER = {"projects": {"billing-api": "contributor"}}
 
 
 async def _marked(

@@ -8,10 +8,13 @@
       "name": "product-owners"
     },
     {
+      "name": "approvers"
+    },
+    {
       "name": "release-captains"
     },
     {
-      "name": "developers"
+      "name": "contributors"
     },
     {
       "name": "org-admins"
@@ -80,6 +83,7 @@
         }
       ],
       "groups": [
+        "/approvers",
         "/release-captains"
       ]
     }

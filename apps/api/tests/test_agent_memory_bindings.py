@@ -76,8 +76,8 @@ async def test_an_invisible_global_memory_is_unknown_not_forbidden(client: Async
     )
     assert made.status_code == 201
     spec = AgentSpec.model_validate({"memories": [{"scope": "global", "slug": "billing-only"}]})
-    outsider = Principal(user_id="u", email="u@x", project_roles={"northwind/checkout-web": Role.DEVELOPER})
-    insider = Principal(user_id="v", email="v@x", project_roles={"northwind/billing-api": Role.DEVELOPER})
+    outsider = Principal(user_id="u", email="u@x", project_roles={"northwind/checkout-web": Role.CONTRIBUTOR})
+    insider = Principal(user_id="v", email="v@x", project_roles={"northwind/billing-api": Role.CONTRIBUTOR})
     async with session_scope() as session:
         organisation = (
             await session.execute(select(Organization).where(Organization.slug == "northwind"))

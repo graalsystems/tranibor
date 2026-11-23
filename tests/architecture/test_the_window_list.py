@@ -30,12 +30,9 @@ from typing import Any
 
 import pytest
 import yaml
-from tranibor_contracts import Role
 from tranibor_contracts.window import (
     C1,
     GRACE,
-    ROLE_STORED_AS,
-    ROLE_SUCCESSORS,
     WINDOW,
     FormerName,
     Window,
@@ -136,16 +133,6 @@ def test_a_former_name_is_where_the_list_says_until_its_release_removes_it(entry
         )
 
 
-def test_the_writers_switch_one_release_after_the_readers() -> None:
-    if writers_due(C1, releases(), current()):
-        assert not ROLE_STORED_AS, (
-            f"{current()} writes the neutral role names (ADR 0098 §4): empty `ROLE_STORED_AS`"
-        )
-    else:
-        assert {old.stored for old in ROLE_SUCCESSORS} == set(ROLE_SUCCESSORS)
-        assert {new.stored for new in ROLE_SUCCESSORS.values()} == set(ROLE_SUCCESSORS)
-
-
 @pytest.mark.parametrize("window", sorted({entry.window for entry in WINDOW} | {C1}, key=lambda w: w.round))
 def test_a_window_is_ordered_and_its_removal_waits_two_weeks(window: Window) -> None:
     assert window.opened_on < window.writers_switch_on < window.removed_on
@@ -207,27 +194,15 @@ def test_the_list_is_empty_on_1_0() -> None:
         assert not WINDOW, "1.0 freezes the surfaces (ADR 0168): no former name may be kept on them"
 
 
-def test_a_former_role_and_its_successor_are_one_role() -> None:
-    assert Role.DEVELOPER.neutral is Role.CONTRIBUTOR and Role.CONTRIBUTOR.neutral is Role.CONTRIBUTOR
-    assert Role.RELEASE_CAPTAIN.neutral is Role.APPROVER and Role.APPROVER.neutral is Role.APPROVER
-    assert Role.ORG_ADMIN.neutral is Role.ORG_ADMIN and Role.ORG_ADMIN.stored is Role.ORG_ADMIN
-    assert set(Role.current()) == {role.neutral for role in Role}
-    assert not set(Role.current()) & set(ROLE_SUCCESSORS)
-
-
 def test_the_locator_finds_a_name_and_misses_one_that_left() -> None:
-    there = FormerName(
-        "pr_url", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_url", C1
-    )
+    there = FormerName("links", "links", "rest", "openapi:/components/schemas/WorkItem/properties/links", C1)
     gone = FormerName(
         "pr_number", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_number", C1
     )
-    value = FormerName(
-        "developer", "contributor", "rest", "openapi:/components/schemas/Role/enum", C1, "developer"
-    )
+    value = FormerName("viewer", "reader", "rest", "openapi:/components/schemas/Role/enum", C1, "viewer")
     missing = FormerName(
         "captain", "approver", "rest", "openapi:/components/schemas/Role/enum", C1, "captain"
     )
-    module = FormerName("X", "Y", "python", "py:tranibor_contracts.enums:Role.CAPTAIN", C1)
+    module = FormerName("X", "Y", "python", "py:tranibor_contracts.enums:Role.DEVELOPER", C1)
     assert present(there) and present(value)
     assert not present(gone) and not present(missing) and not present(module)

@@ -245,8 +245,6 @@ def to_process(wf: Workflow) -> list[dict[str, Any]]:
                 "inputs": list(t.inputs),
                 "output_types": dict(t.output_types),
                 "writes_workspace": writes,
-                # The former name, served beside it until the release the window list names (ADR 0181 C1).
-                "writes_branch": writes,
             }
         )
     return steps

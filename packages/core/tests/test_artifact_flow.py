@@ -55,12 +55,12 @@ def test_dev_complex_flow() -> None:
     )
     review = flow["review_markdown"]
     assert review["produced_by"] == ["t-review", "t-address-review"]
-    assert review["read_by"] == ["t-address-review"] and review["in_pull_request"] is True
+    assert review["read_by"] == ["t-address-review"] and review["in_change_request"] is True
     feedback = flow["human_feedback"]
     assert feedback["origin"] == "feedback" and feedback["produced_by"] == ["t-approve-spec", "t-approve-pr"]
     spec = flow["spec_markdown"]
-    assert spec["context"] is True and spec["in_pull_request"] is True and spec["origin"] == "step"
-    assert flow["verdict"]["context"] is False and flow["verdict"]["in_pull_request"] is False
+    assert spec["context"] is True and spec["in_change_request"] is True and spec["origin"] == "step"
+    assert flow["verdict"]["context"] is False and flow["verdict"]["in_change_request"] is False
 
 
 def test_the_graph_carries_the_flow_and_it_is_deterministic() -> None:

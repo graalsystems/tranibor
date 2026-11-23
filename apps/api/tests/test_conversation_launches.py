@@ -155,7 +155,7 @@ async def test_a_person_without_rights_in_the_project_cannot_start_it(
 
     await _bound(client, project, offline)
     await add_member(client, "dev@northwind.dev", "viewer")
-    await add_member(client, "dev@northwind.dev", "developer", project="billing-api")
+    await add_member(client, "dev@northwind.dev", "contributor", project="billing-api")
     conversation = await _conversation("dev@northwind.dev")
     await as_user(client, "dev@northwind.dev")
     (action,) = await _propose(client, upstream, conversation)

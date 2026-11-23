@@ -254,7 +254,7 @@ async def test_accepting_a_removal_deletes_the_document(client: AsyncClient, org
 async def test_only_the_owners_read_and_decide(client: AsyncClient, org: str, offline: Path) -> None:
     await _scenario(client, offline, "propose_updates")
     proposed = await _updates(client)
-    await add_member(client, "plain@northwind.dev", "developer")
+    await add_member(client, "plain@northwind.dev", "contributor")
     await as_user(client, "plain@northwind.dev")
     assert (await client.get(UPDATES)).status_code == 403
     assert (await _decide(client, proposed["both.md"], decision="accept")).status_code == 403

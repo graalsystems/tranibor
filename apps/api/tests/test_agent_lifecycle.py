@@ -185,7 +185,7 @@ async def test_ownership_moves_and_the_credentials_stay(client: AsyncClient, adm
         user = User(email="lea@northwind.dev", display_name="Lea")
         session.add(user)
         await session.flush()
-        session.add(Membership(user_id=user.id, org_id=org.id, role="developer"))
+        session.add(Membership(user_id=user.id, org_id=org.id, role="contributor"))
         session.add(User(email="stranger@else.dev", display_name="Stranger"))
     moved = await client.post(f"{AGENTS}/onboarding-coordinator/owner", json={"email": "Lea@northwind.dev"})
     assert moved.status_code == 200, moved.text
@@ -308,7 +308,7 @@ async def test_deleting_needs_the_right_to_manage_the_agent(
     await _create(client)
     async with session_scope() as session:
         for membership in (await session.execute(select(Membership))).scalars():
-            membership.role = "developer"
+            membership.role = "contributor"
     refused = await client.delete(f"{AGENTS}/onboarding-coordinator")
     assert refused.status_code in {403, 404}, refused.text
     assert refused.status_code != 204

@@ -26,8 +26,8 @@ async def test_an_admin_links_a_github_identity_and_a_developer_cannot(
     from tranibor_api.db.models import AuditLog
     from tranibor_api.db.session import session_scope
 
-    dev = await _member(client, "dev@northwind.dev", "developer")
-    other = await _member(client, "other@northwind.dev", "developer")
+    dev = await _member(client, "dev@northwind.dev", "contributor")
+    other = await _member(client, "other@northwind.dev", "contributor")
 
     linked = await client.put(_url(dev), json={"external_id": "1001", "login": "devon"})
     assert linked.status_code == 200, linked.text
@@ -67,7 +67,7 @@ async def test_a_project_member_is_not_an_organisation_member(
 ) -> None:
     added = await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "scoped@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        json={"email": "scoped@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
     )
     assert added.status_code == 201, added.text
     linked = await client.put(_url(added.json()["user_id"]), json={"external_id": "9", "login": "scoped"})

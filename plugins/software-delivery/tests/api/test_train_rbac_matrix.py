@@ -14,11 +14,9 @@ from httpx import ASGITransport, AsyncClient
 from tranibor_contracts import Role
 from tranibor_testkit.api import login
 
-#: Both spellings of a renamed role (ADR 0181 C1): a row may hold either until the window closes.
+#: Every role, under its neutral name (ADR 0181 C1).
 ROLES = [
     Role.VIEWER,
-    Role.DEVELOPER,
-    Role.RELEASE_CAPTAIN,
     Role.CONTRIBUTOR,
     Role.APPROVER,
     Role.PROJECT_OWNER,
@@ -56,7 +54,7 @@ async def test_each_role_gets_exactly_its_train_permissions(
     from tranibor_api.rbac import ROLE_PERMISSIONS, Permission
 
     # the dev sign-in must neither demote nor promote: the role is set in the database, then we
-    # sign in as that member (no dev admin, so the default `developers` is ignored)
+    # sign in as that member (no dev admin, so the default `contributors` is ignored)
     monkeypatch.setenv("TRANIBOR_DEV_ADMIN_EMAILS", "admin@northwind.dev")
     reset_settings_cache()
     email = f"{role}@northwind.dev"

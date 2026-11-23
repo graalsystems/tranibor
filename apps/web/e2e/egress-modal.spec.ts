@@ -38,7 +38,7 @@ test("catalogue-style add: the modal names the host, shows the platform change, 
 });
 
 test("a developer asks an administrator: the request carries the prefilled reason and origin", async ({ page }) => {
-  await page.addInitScript(() => window.sessionStorage.setItem("choregos.mock.role", "developer"));
+  await page.addInitScript(() => window.sessionStorage.setItem("choregos.mock.role", "contributor"));
   await page.goto("/skills");
   await page.getByLabel("Repository").fill("https://gitlab.com/acme/skills");
   await page.getByRole("button", { name: "Preview" }).click();

@@ -19,7 +19,7 @@ const config = {
   repositories: [{ name: "diamctl", url: "https://github.com/acme/diamctl.git", default_branch: "main", branch_prefix: "fix/" }],
 };
 const project = { id: "p", slug: "platform", org: "acme", name: "Platform", status: "active", template_ref: null, config };
-const developer = { id: "u1", email: "lea@acme.dev", display_name: "Léa", memberships: [{ org: "acme", role: "developer" }] };
+const developer = { id: "u1", email: "lea@acme.dev", display_name: "Léa", memberships: [{ org: "acme", role: "contributor" }] };
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -115,7 +115,7 @@ describe("the project's repositories in its settings", () => {
 });
 
 describe("a ticket's repository", () => {
-  const item = { id: "w1", repository: "diamctl", repository_fixed: false, closed_at: null };
+  const item = { id: "w1", workspace: "diamctl", workspace_fixed: false, closed_at: null };
 
   it("is shown, and set to another one while no step has touched it", async () => {
     const onDone = vi.fn();
@@ -136,7 +136,7 @@ describe("a ticket's repository", () => {
   it("is only said once fixed", async () => {
     wrap(
       <dl>
-        <TargetRepository slug="platform" item={{ ...item, repository_fixed: true }} onDone={vi.fn()} />
+        <TargetRepository slug="platform" item={{ ...item, workspace_fixed: true }} onDone={vi.fn()} />
       </dl>,
     );
     const facts = await screen.findByTestId("ticket-repository");

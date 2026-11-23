@@ -26,7 +26,7 @@ async def test_the_catalogue_lists_the_delivery_template_and_default_simple_with
     assert ("developer", "catalogue") in {(a["slug"], a["resolution"]) for a in delivery["agents"]}, (
         "not installed yet: the platform's catalogue (its offline plugins) provides it"
     )
-    assert _entry(entries, "core", "default-simple")["needs_repository"] is True
+    assert _entry(entries, "core", "default-simple")["needs_workspace"] is True
     assert not any(e["source"].startswith("template:") and e["name"] == "default-simple" for e in entries), (
         "a template's reference to a core workflow is the core entry, not a second one"
     )

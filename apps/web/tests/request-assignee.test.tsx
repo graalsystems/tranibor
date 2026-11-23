@@ -32,9 +32,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
       me: vi.fn(),
       project: vi.fn().mockResolvedValue({ id: "p1", slug: "fon", org: "acme", name: "fon" }),
       members: vi.fn().mockResolvedValue({ meta: { has_more: false, next_cursor: null }, items: [
-        { user_id: "u2", email: "max@acme.dev", org: "acme", role: "developer" },
+        { user_id: "u2", email: "max@acme.dev", org: "acme", role: "contributor" },
         { user_id: "u2", email: "max@acme.dev", org: "acme", project_slug: "fon", role: "project_owner" },
-        { user_id: "u1", email: "lea@acme.dev", org: "acme", role: "developer" },
+        { user_id: "u1", email: "lea@acme.dev", org: "acme", role: "contributor" },
       ] }),
       reassign: vi.fn(),
     },
@@ -43,7 +43,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 vi.mock("@/lib/sse", () => ({ useEventStream: () => ({ events: [], connected: false, error: null }) }));
 
 const admin = { id: "u0", email: "boss@acme.dev", memberships: [{ org: "acme", role: "org_admin" }] };
-const developer = { id: "u1", email: "lea@acme.dev", memberships: [{ org: "acme", role: "developer" }] };
+const developer = { id: "u1", email: "lea@acme.dev", memberships: [{ org: "acme", role: "contributor" }] };
 
 const waiting: HumanRequest = {
   id: "r1",

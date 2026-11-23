@@ -21,7 +21,7 @@ def test_the_contract_declares_the_catalogue_operations() -> None:
 def test_an_entry_says_where_each_agent_resolves() -> None:
     schemas = contracts.load_openapi()["components"]["schemas"]
     entry = schemas["WorkflowCatalogueEntry"]
-    assert {"source", "requires", "needs_repository", "agents", "groups"} <= set(entry["required"])
+    assert {"source", "requires", "needs_workspace", "agents", "groups"} <= set(entry["required"])
     resolution = schemas["WorkflowCatalogueAgent"]["properties"]["resolution"]["enum"]
     assert set(resolution) == {"org", "plugin", "remote", "catalogue", "unresolved"}
     assert "catalogue" in schemas["WorkflowDef"]["properties"]["source"]["enum"]

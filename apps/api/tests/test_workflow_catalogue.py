@@ -47,12 +47,12 @@ async def test_the_catalogue_lists_core_and_template_workflows_with_what_they_ne
     assert listed.status_code == 200, listed.text
     entries = listed.json()["items"]
     request = _entry(entries, "core", "default-request")
-    assert request["needs_repository"] is False
+    assert request["needs_workspace"] is False
     assert [r["capability"] for r in request["requires"]] == ["tracker", "runtime", "gateway"]
     assert request["groups"] == ["product-owners"]
     assert request["agents"] == [], "its two agents are core playbooks (ADR 0110), not registry agents"
     hr = [e for e in entries if e["source"] == "template:joiners-leavers"]
-    assert hr and all(not e["needs_repository"] for e in hr), "a template's own workflows are listed"
+    assert hr and all(not e["needs_workspace"] for e in hr), "a template's own workflows are listed"
     # A delivery template's entries (`dev-simple`, `default-simple` needing a repository) are the
     # `software-delivery` plugin's: plugins/software-delivery/tests/api/test_workflow_catalogue_delivery.py.
 

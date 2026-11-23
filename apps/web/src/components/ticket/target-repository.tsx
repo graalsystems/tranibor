@@ -22,7 +22,7 @@ export function TargetRepository({
   onDone,
 }: {
   slug: string;
-  item: Pick<WorkItemDto, "id" | "workspace" | "workspace_fixed" | "repository" | "repository_fixed" | "closed_at">;
+  item: Pick<WorkItemDto, "id" | "workspace" | "workspace_fixed" | "closed_at">;
   onDone: () => unknown;
 }) {
   const id = useId();

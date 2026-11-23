@@ -98,7 +98,7 @@ async def test_a_member_of_one_project_gets_full_pages_of_what_they_may_read(
     await _seed(60, scope="agent", subject="coordinator", prefix="agent", newer=True)
     await _seed(60, subject="other-project", prefix="theirs", newer=True)
     await _seed(60, prefix="mine")
-    await _member("hakim@northwind.dev", "developer", project["slug"])
+    await _member("hakim@northwind.dev", "contributor", project["slug"])
     async with _as(client, "hakim@northwind.dev") as member:
         await _drop_organisation_role("hakim@northwind.dev")
         first = (await member.get(URL, params={"limit": 50})).json()

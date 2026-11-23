@@ -57,7 +57,7 @@ const item = {
   totals: {},
 } as unknown as WorkItemDto;
 
-const developer = { id: "u1", email: "lea@acme.dev", display_name: "Léa", memberships: [{ org: "acme", role: "developer" }] };
+const developer = { id: "u1", email: "lea@acme.dev", display_name: "Léa", memberships: [{ org: "acme", role: "contributor" }] };
 
 /** Lets every pending read of the page answer, so that an absent button is absent for good. */
 async function settle() {
@@ -140,9 +140,9 @@ describe("a ticket changes workflow (S52-12, ADR 0123)", () => {
 
 describe("who may control a project's work items", () => {
   it("every role but viewer, on the organisation or on the project", () => {
-    expect(canControlItems([{ org: "acme", role: "developer" }], "acme", "fon")).toBe(true);
+    expect(canControlItems([{ org: "acme", role: "contributor" }], "acme", "fon")).toBe(true);
     expect(canControlItems([{ org: "acme", role: "viewer" }], "acme", "fon")).toBe(false);
-    expect(canControlItems([{ org: "acme", role: "viewer" }, { org: "acme", project_slug: "fon", role: "developer" }], "acme", "fon")).toBe(
+    expect(canControlItems([{ org: "acme", role: "viewer" }, { org: "acme", project_slug: "fon", role: "contributor" }], "acme", "fon")).toBe(
       true,
     );
     expect(canControlItems([{ org: "acme", project_slug: "other", role: "project_owner" }], "acme", "fon")).toBe(false);
