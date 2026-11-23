@@ -11,6 +11,8 @@ import pathlib
 import re
 from urllib.parse import urlparse
 
+from tranibor_core.publishing import PUBLISHING
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WEBSITE = ROOT / "website"
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-site.yml"
@@ -77,7 +79,8 @@ def test_the_connector_pages_are_written_after_the_import_and_before_the_build()
 
 def test_the_plugins_are_read_from_their_public_repository_without_credentials() -> None:
     checkout = next(step for step in _steps() if "path: .plugins-checkout" in step)
-    assert "repository: graalsystems/tranibor-agents" in checkout and "ref: main" in checkout
+    plugins = urlparse(PUBLISHING.plugin_repository).path.strip("/")
+    assert f"repository: {plugins}" in checkout and "ref: main" in checkout
     assert "persist-credentials: false" in checkout
 
 
