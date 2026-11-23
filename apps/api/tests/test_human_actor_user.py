@@ -92,7 +92,7 @@ async def test_a_step_addressed_to_a_person_is_answered_by_that_person_only(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     item_id, _ = await _waiting_ticket(client, project["id"], PERSON_ONLY)
-    await _member(client, PERSON, "developer", [])
+    await _member(client, PERSON, "contributor", [])
     await _member(client, "cap@northwind.dev", "project_owner", [GROUP])
     refused = await _decide(app, "cap@northwind.dev", item_id)
     assert refused.status_code == 403 and PERSON in refused.text, refused.text
@@ -111,7 +111,7 @@ async def test_the_person_is_matched_without_regard_to_case(
     item_id, _ = await _waiting_ticket(
         client, project["id"], PERSON_ONLY.replace(PERSON, "Lea@Northwind.DEV")
     )
-    await _member(client, PERSON, "developer", [])
+    await _member(client, PERSON, "contributor", [])
     answered = await _decide(app, PERSON, item_id)
     assert answered.status_code == 202, answered.text
 
@@ -141,7 +141,7 @@ async def test_the_person_still_needs_the_rank_to_decide(
 async def test_the_group_waits_for_the_sla_before_answering_a_step_addressed_to_a_person(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
-    await _member(client, "cap@northwind.dev", "developer", [GROUP])
+    await _member(client, "cap@northwind.dev", "contributor", [GROUP])
     item_id, _ = await _waiting_ticket(client, project["id"], PERSON_THEN_GROUP)
     early = await _decide(app, "cap@northwind.dev", item_id)
     assert early.status_code == 403 and "SLA" in early.text and PERSON in early.text, early.text
@@ -154,8 +154,8 @@ async def test_the_group_waits_for_the_sla_before_answering_a_step_addressed_to_
 async def test_the_person_answers_before_the_sla_and_an_outsider_never(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
-    await _member(client, PERSON, "developer", [])
-    await _member(client, "out@northwind.dev", "developer", ["platform-team"])
+    await _member(client, PERSON, "contributor", [])
+    await _member(client, "out@northwind.dev", "contributor", ["platform-team"])
     item_id, _ = await _waiting_ticket(client, project["id"], PERSON_THEN_GROUP, overdue=True)
     outsider = await _decide(app, "out@northwind.dev", item_id)
     assert outsider.status_code == 403 and GROUP in outsider.text, outsider.text
@@ -191,8 +191,8 @@ async def test_a_reassigned_request_is_audited_and_answered_by_its_new_assignee(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     item_id, request_id = await _waiting_ticket(client, project["id"], PERSON_ONLY)
-    await _member(client, PERSON, "developer", [])
-    await _member(client, "max@northwind.dev", "developer", [])
+    await _member(client, PERSON, "contributor", [])
+    await _member(client, "max@northwind.dev", "contributor", [])
     path = f"/api/v1/work-items/{item_id}/human-requests/{request_id}/assignee"
 
     stranger = await client.post(path, json={"user": "nobody@else.dev", "reason": "x"})
@@ -250,7 +250,7 @@ async def test_a_person_outside_the_organisation_is_warned_about_at_validation(
     assert PERSON in unknown["warnings"][0]["message"]
     assert unknown["warnings"][0]["path"] == "/actors/captain/user"
 
-    await _member(client, PERSON, "developer", [])
+    await _member(client, PERSON, "contributor", [])
     known = (await client.post(path, json={"yaml": PERSON_ONLY})).json()
     assert known["warnings"] == []
 

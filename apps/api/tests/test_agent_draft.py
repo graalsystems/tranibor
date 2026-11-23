@@ -102,7 +102,7 @@ async def test_instructions_with_an_unknown_variable_are_refused_in_notes(
 
 
 async def test_only_an_org_admin_drafts(client: AsyncClient, admin: str) -> None:
-    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     await login(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/agent-drafts", json=REQUEST)).status_code == 403
 

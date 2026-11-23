@@ -73,7 +73,7 @@ async def _stranded(client: AsyncClient, app: Any, pid: str, monkeypatch: pytest
     from tranibor_core import utcnow
 
     member = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     assert member.status_code in {200, 201}, member.text
     dev = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

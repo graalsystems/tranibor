@@ -83,7 +83,7 @@ describe("my account, your roles", () => {
   });
 
   it("enterprise: the organisation named once, 'organisation : org_admin', a group per organisation", async () => {
-    memberships.list = [...memberships.list, row("acme", "developer")];
+    memberships.list = [...memberships.list, row("acme", "contributor")];
     vi.mocked(api.edition).mockResolvedValue({ edition: "enterprise", features: ["multi_org"] } as never);
     wrap();
     const list = await screen.findByRole("list", { name: "Your roles in northwind" });

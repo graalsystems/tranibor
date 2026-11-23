@@ -246,7 +246,7 @@ async def test_a_member_who_cannot_manage_members_cannot_create_one(
 ) -> None:
     added = await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        json={"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
     )
     assert added.status_code in (200, 201), added.text
     client.cookies.clear()

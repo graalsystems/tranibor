@@ -17,7 +17,7 @@ class OrgSamlIdp(Base, PkMixin, TimestampMixin):
 
     `certificate_pem` is the provider's signing certificate, pinned: an assertion is verified against it
     and never against a certificate the message carries. `group_map` translates a group value at the
-    provider into a core group (`org-admins`, `developers`...); a value it does not list is dropped.
+    provider into a core group (`org-admins`, `contributors`...); a value it does not list is dropped.
     `domains` are the e-mail domains the provider may vouch for, declared by a platform administrator."""
 
     __tablename__ = "org_saml_idps"

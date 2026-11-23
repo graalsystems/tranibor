@@ -96,7 +96,7 @@ async def test_an_org_admin_changes_a_common_agent_and_it_is_audited(client: Asy
 async def test_a_personal_agent_is_invisible_to_everyone_but_its_owner_and_an_admin(
     client: AsyncClient, org: str
 ) -> None:
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await as_user(client, DEV)
     assert (await create_agent(client, "secret-helper", scope="personal")).status_code == 201
 
@@ -204,7 +204,7 @@ async def test_a_trial_is_open_to_a_developer_with_a_personal_agent_only(
     client: AsyncClient, org: str
 ) -> None:
     dev = await make_project(client, "dev")
-    await add_member(client, DEV, "developer")
+    await add_member(client, DEV, "contributor")
     await add_member(client, VIEWER, "viewer")
     await as_user(client, DEV)
     assert (await create_agent(client, "my-helper", scope="personal")).status_code == 201

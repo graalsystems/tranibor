@@ -1910,8 +1910,8 @@ export type WorkflowActionEffect = {
 
 export type WorkflowActionApproval = {
   approvers?: Array<{
-    /** the least rank an approver holds: `contributor`, `approver`, `project_owner` or `org_admin`. `developer` and `release_captain` are their former names, read until the release the window list names (ADR 0181 C1) */
-    role?: "contributor" | "approver" | "project_owner" | "org_admin" | "developer" | "release_captain";
+    /** the least rank an approver holds: `contributor`, `approver`, `project_owner` or `org_admin` (ADR 0181 C1) */
+    role?: "contributor" | "approver" | "project_owner" | "org_admin";
     /** an identity-provider group the approver must also belong to, as a human actor's `group` names people (ADR 0044, ADR 0052); in a workflow's action, `{{ fields.<name> }}` names the group a field of the work item holds, rendered when the action is proposed (ADR 0196) */
     group?: string;
     min?: number;

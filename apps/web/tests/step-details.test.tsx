@@ -104,7 +104,7 @@ describe("the step card (S39-13)", () => {
   });
 
   it("types an output and names who reads it", () => {
-    const deck = { ...step("t-test"), outputs: ["deck"], output_types: { deck: "pptx" }, writes_branch: false } as ProcessStep;
+    const deck = { ...step("t-test"), outputs: ["deck"], output_types: { deck: "pptx" }, writes_workspace: false } as ProcessStep;
     const lu = { name: "deck", type: "pptx", produced_by: ["t-test"], read_by: ["t-review"], origin: "step" } as ArtifactFlow;
     render(<StepDetails step={deck} flow={[lu]} stepsById={parId} />);
     expect(screen.getByText("pptx")).toBeInTheDocument();

@@ -131,7 +131,13 @@ async def _principal_from_user(session: AsyncSession, user: User, *, narrow: boo
     org_roles: dict[str, Role] = {}
     project_roles: dict[str, Role] = {}
     for membership, org_slug, project_slug in rows:
-        role = Role(membership.role)
+        try:
+            role = Role(membership.role)
+        except ValueError:
+            # A row no release reads any more (a former role written by an older replica during an
+            # upgrade, ADR 0181 C1): it grants nothing, and says so, instead of failing every request.
+            _run_log.warning("membership_role_unknown", membership=membership.id, role=membership.role)
+            continue
         if project_slug:
             project_roles[f"{org_slug}/{project_slug}"] = role
         else:

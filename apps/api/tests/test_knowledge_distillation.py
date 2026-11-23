@@ -119,7 +119,7 @@ async def test_only_an_org_admin_distils(client: AsyncClient, admin: str) -> Non
 
     await client.post(BASE, json={"slug": "architecture", "name": "Architecture framework"})
     await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     await login(client, "dev@northwind.dev")
     assert (await client.post(f"{BASE}/architecture/distill")).status_code == 403

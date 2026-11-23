@@ -115,8 +115,8 @@ async def test_a_person_without_a_session_is_refused(client: AsyncClient, org: s
 async def test_a_human_step_is_listed_for_its_assignee_and_with_the_route_that_decides_it(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
-    await _member(client, LEA, "developer", [])
-    await _member(client, MAX, "developer", [])
+    await _member(client, LEA, "contributor", [])
+    await _member(client, MAX, "contributor", [])
     item_id, key, request_id = await _request(client, project["id"], "Ship 1.2", user=LEA)
     _, _, others = await _request(client, project["id"], "Ship 2.0", user=MAX)
 
@@ -137,8 +137,8 @@ async def test_a_step_addressed_to_a_group_is_not_listed_outside_it(
     from tranibor_api.db.models import HumanRequest
     from tranibor_api.db.session import session_scope
 
-    await _member(client, LEA, "developer", ["finance"])
-    await _member(client, MAX, "developer", [])
+    await _member(client, LEA, "contributor", ["finance"])
+    await _member(client, MAX, "contributor", [])
     _, _, request_id = await _request(client, project["id"], "Close the quarter", user=LEA)
     async with session_scope() as session:
         row = await session.get(HumanRequest, request_id)
@@ -234,8 +234,8 @@ async def test_a_governed_action_of_a_project_the_person_cannot_read_is_not_list
 async def test_a_governed_action_needs_the_rank_of_its_rule(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
-    await _member(client, LEA, "developer", [])
-    await _action(project["id"], "Release captain only", role="release_captain")
+    await _member(client, LEA, "contributor", [])
+    await _action(project["id"], "Release captain only", role="approver")
     assert await _pending(app, LEA) == [], "a developer is below the rule's rank"
 
 

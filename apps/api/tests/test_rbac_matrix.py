@@ -21,8 +21,8 @@ from .conftest import login
 #: Both spellings of a renamed role (ADR 0181 C1): a row may hold either until the window closes.
 ROLES = [
     Role.VIEWER,
-    Role.DEVELOPER,
-    Role.RELEASE_CAPTAIN,
+    Role.CONTRIBUTOR,
+    Role.APPROVER,
     Role.CONTRIBUTOR,
     Role.APPROVER,
     Role.PROJECT_OWNER,

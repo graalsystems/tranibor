@@ -478,13 +478,13 @@ async def test_a_project_role_does_not_become_an_organisation_role(
         session.add(invited)
         await session.flush()
         session.add(
-            Membership(user_id=invited.id, org_id=a.id, project_id=two_organisations["a"], role="developer")
+            Membership(user_id=invited.id, org_id=a.id, project_id=two_organisations["a"], role="contributor")
         )
         secret_id = other.id
 
     # Directly, like `current_principal`: the user read in platform scope, then the
     # resolution, which itself sets `*` before the join, and bounds afterwards. A development
-    # login would additionally give "developer" in the default organisation, and blur the
+    # login would additionally give "contributor" in the default organisation, and blur the
     # proof.
     from tranibor_api.deps import _principal_from_user
 
@@ -492,7 +492,7 @@ async def test_a_project_role_does_not_become_an_organisation_role(
         user = await session.get(User, invited.id)
         assert user is not None
         principal = await _principal_from_user(session, user)
-    assert principal.project_roles == {"a/billing-api": "developer"}, principal.project_roles
+    assert principal.project_roles == {"a/billing-api": "contributor"}, principal.project_roles
     assert principal.org_roles == {}, f"the project role became an organisation role: {principal.org_roles}"
     assert not principal.can(
         __import__("tranibor_api.rbac", fromlist=["Permission"]).Permission.PROJECT_READ, "a", "secret"
@@ -544,7 +544,7 @@ async def test_an_organisation_sees_neither_the_name_nor_the_members_of_the_othe
             u = User(oidc_sub=f"dev|m@{slug}", email=f"member@{slug}.test", display_name=slug)
             session.add(u)
             await session.flush()
-            session.add(Membership(user_id=u.id, org_id=orgs[slug], role="developer"))
+            session.add(Membership(user_id=u.id, org_id=orgs[slug], role="contributor"))
             session.add(ApiToken(user_id=u.id, name="ci", hash=f"{slug}" * 64, scopes=[]))
 
     async with session_scope(orgs=["a"]) as session:
@@ -570,7 +570,7 @@ async def test_inviting_a_user_already_a_member_elsewhere_creates_no_duplicate(
         elsewhere = User(oidc_sub="dev|x@b", email="shared@b.test", display_name="shared")
         session.add(elsewhere)
         await session.flush()
-        session.add(Membership(user_id=elsewhere.id, org_id=b.id, role="developer"))
+        session.add(Membership(user_id=elsewhere.id, org_id=b.id, role="contributor"))
         elsewhere_id = elsewhere.id
     async with AsyncClient(transport=ASGITransport(app=pg_app), base_url="http://test") as client:
         await login(client, "admin@a.test")

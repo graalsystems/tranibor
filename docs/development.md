@@ -80,7 +80,7 @@ Development accounts (Keycloak, realm `choregos`): `augustin` / `choregos` (owne
 `marie` / `choregos` (release captain). Locally, `/auth/login?as=<email>` opens a session
 without the IdP — **only** when `TRANIBOR_DEV_LOGIN_ENABLED=true` (the chart sets it through
 `global.devLogin.enabled`, in `values/local.yaml` only), and `TRANIBOR_DEV_ADMIN_EMAILS`
-names who becomes `org_admin`; everyone else is `developer`. The API refuses development
+names who becomes `org_admin`; everyone else is `contributor`. The API refuses development
 login in `staging` and `prod`. The front shows the development form when
 `NEXT_PUBLIC_DEV_LOGIN=true`.
 

@@ -92,7 +92,7 @@ async def test_rbac_developer_cannot_write_workflow(client: AsyncClient, project
         user = User(email="dev@northwind.dev", display_name="dev")
         session.add(user)
         await session.flush()
-        session.add(Membership(user_id=user.id, org_id=org_row.id, role="developer"))
+        session.add(Membership(user_id=user.id, org_id=org_row.id, role="contributor"))
 
     async with AsyncClient(transport=client._transport, base_url="http://test") as dev_client:
         await login(dev_client, "dev@northwind.dev")

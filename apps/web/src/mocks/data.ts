@@ -143,11 +143,11 @@ export const me: MeDto = {
 /** The organisation's memberships: a person may have one for the organisation and one per project. */
 export const memberships: Membership[] = [
   { org: "acme", role: "org_admin", user_id: "u1", email: "augustin@acme.dev" },
-  { org: "acme", role: "developer", user_id: "u2", email: "lea@acme.dev" },
+  { org: "acme", role: "contributor", user_id: "u2", email: "lea@acme.dev" },
   { org: "acme", role: "project_owner", user_id: "u2", email: "lea@acme.dev", project_slug: "billing-api" },
   { org: "acme", role: "viewer", user_id: "u3", email: "marc@acme.dev" },
-  { org: "acme", role: "developer", user_id: "u3", email: "marc@acme.dev", project_slug: "billing-api" },
-  { org: "acme", role: "release_captain", user_id: "u3", email: "marc@acme.dev", project_slug: "checkout-web" },
+  { org: "acme", role: "contributor", user_id: "u3", email: "marc@acme.dev", project_slug: "billing-api" },
+  { org: "acme", role: "approver", user_id: "u3", email: "marc@acme.dev", project_slug: "checkout-web" },
 ];
 
 export const projects: ProjectPage = {
@@ -169,7 +169,7 @@ export const projects: ProjectPage = {
         cost_month_eur: 42.18,
         budget_month_eur: 150,
         trains_pending: 1,
-        first_pass_merge_rate: 0.72,
+        first_pass_acceptance_rate: 0.72,
         cycle_time_p50_hours: 19.5,
       },
       created_at: iso(60 * 24 * 40),
@@ -247,7 +247,7 @@ function item(
     workflow_name: "default-simple",
     workflow_version: 1,
     paused: false,
-    pr_url: extra.pr,
+    links: extra.pr ? [{ rel: "change_request", url: extra.pr }] : [],
     totals: {
       tokens_in: 645_000,
       tokens_out: 35_000,
@@ -1433,7 +1433,7 @@ export const workflowCatalogue: WorkflowCatalogueEntry[] = [
       requirement("runtime", "default-request: the agent assistant runs somewhere"),
       requirement("gateway", "default-request: the agent assistant calls models"),
     ],
-    needs_repository: false,
+    needs_workspace: false,
     groups: ["product-owners"],
     agents: [],
     yaml: workflow.yaml,
@@ -1450,7 +1450,7 @@ export const workflowCatalogue: WorkflowCatalogueEntry[] = [
       requirement("scm", "default-simple: the agent dev (implement) works in a repository"),
       requirement("cd", "default-simple: the state deployed_prod is production"),
     ],
-    needs_repository: true,
+    needs_workspace: true,
     groups: ["product-owners", "release-captains"],
     agents: [],
     yaml: workflow.yaml,
@@ -1463,7 +1463,7 @@ export const workflowCatalogue: WorkflowCatalogueEntry[] = [
     summary: "A joiner's accounts, equipment and access, planned by an agent and approved by HR.",
     tags: ["hr"],
     requires: [requirement("tracker", "work items live in a tracker: the internal one unless you connect another")],
-    needs_repository: false,
+    needs_workspace: false,
     groups: ["hr"],
     agents: [{ actor: "coordinator", slug: "onboarding-coordinator", version: null, resolution: "org", plugin: null, display_name: "Onboarding coordinator" }],
     yaml: workflow.yaml,
@@ -1476,7 +1476,7 @@ export const workflowCatalogue: WorkflowCatalogueEntry[] = [
     summary: "An incident from ServiceNow, triaged by an agent, routed to its team.",
     tags: ["itsm"],
     requires: [requirement("tracker", "work items live in a tracker: the internal one unless you connect another")],
-    needs_repository: false,
+    needs_workspace: false,
     groups: ["service-desk"],
     agents: [{ actor: "triager", slug: "snow-triager", version: null, resolution: "unresolved", plugin: null, display_name: null }],
     yaml: workflow.yaml,
@@ -1696,7 +1696,7 @@ export const sectionScim = {
         type: "object",
         properties: {
           enabled: { type: "boolean", title: "accept SCIM requests" },
-          default_role: { type: "string", enum: ["viewer", "developer"], title: "role of a provisioned member" },
+          default_role: { type: "string", enum: ["viewer", "contributor"], title: "role of a provisioned member" },
         },
       },
       read: "/orgs/{org}/scim/settings",
@@ -3025,7 +3025,7 @@ const mockReadiness = (slug: string): ProjectReadiness => {
     { id: "connector-runtime", section: "connections", title: "Agent runtime", state: "done", detail: "Provided by the platform: agent_sandbox.", fix: { by: "platform_operator" } },
     { id: "backend", section: "agents", title: "Agent backend", state: "done", detail: `${config.agent?.default_backend ?? "claude-code"} is run by this deployment.`, fix: { by: "project_owner" } },
     { id: "budgets", section: "guardrails", title: "Budgets", state: "check", detail: "No daily project budget in the policy.", fix: { href: `${settings}#guardrails`, by: "project_owner" } },
-    { id: "people-release-captain", section: "people", title: "A release captain", state: "todo", detail: "The release train has no release_captain member.", fix: { href: `/p/${bare}/members`, by: "project_owner" } },
+    { id: "people-release-captain", section: "people", title: "A release captain", state: "todo", detail: "The release train has no approver member.", fix: { href: `/p/${bare}/members`, by: "project_owner" } },
     config.notify?.slack_channel
       ? { id: "notifications", section: "notifications", title: "Notifications", state: "done", detail: `Announcements go to ${config.notify.slack_channel}.`, fix: { by: "project_owner" } }
       : { id: "notifications", section: "notifications", title: "Notifications", state: "todo", detail: "The release train announces itself, and no Slack channel is set.", fix: { href: `${settings}#notifications`, by: "project_owner" } },
@@ -3618,8 +3618,8 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
       org: "acme",
       weeks,
       since: "2026-10-01T00:00:00Z",
-      with_memory: { projects: ["billing-api"], tickets: 18, first_pass_merge_rate: 0.72, cost_per_ticket_usd: 1.8 },
-      without_memory: { projects: ["checkout-web"], tickets: 15, first_pass_merge_rate: 0.53, cost_per_ticket_usd: 2.4 },
+      with_memory: { projects: ["billing-api"], tickets: 18, first_pass_acceptance_rate: 0.72, cost_per_ticket_usd: 1.8 },
+      without_memory: { projects: ["checkout-web"], tickets: 15, first_pass_acceptance_rate: 0.53, cost_per_ticket_usd: 2.4 },
       verdict: "Memory helps: more tickets merge at first pass, at a lower cost.",
       detail: `Over ${weeks} weeks, 33 tickets in two projects. The groups are small: read the gap as a signal, not a proof.`,
     } as T;
@@ -4811,7 +4811,7 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
         searched(
           workflowCatalogue.filter((e) => {
             const wanted = new URLSearchParams(path.split("?")[1] ?? "").get("needs_workspace");
-            return wanted === null || (e.needs_workspace ?? e.needs_repository ?? false) === (wanted === "true");
+            return wanted === null || (e.needs_workspace ?? false) === (wanted === "true");
           }),
           path,
           (e) => [e.name, e.title, e.summary, e.source, ...e.tags],

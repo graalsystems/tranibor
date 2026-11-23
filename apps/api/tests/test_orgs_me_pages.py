@@ -54,7 +54,7 @@ async def _organisations(count: int) -> None:
             other = Organization(slug=f"org-{index:03d}", name=f"Company {count - index}")
             session.add(other)
             await session.flush()
-            session.add(Membership(user_id=me, org_id=other.id, role="developer"))
+            session.add(Membership(user_id=me, org_id=other.id, role="contributor"))
 
 
 async def test_every_organisation_is_reached_once_in_slug_order(client: AsyncClient, admin: str) -> None:
@@ -78,7 +78,7 @@ async def test_the_organisation_filters_run_in_the_query(client: AsyncClient, ad
     assert await _pages(client, ORGS, "slug", slug="org-007") == ["org-007"]
     assert await _pages(client, ORGS, "slug", slug="org-0") == [], "`slug` is exact, `q` is the substring"
     body = (await client.get(ORGS, params={"slug": "org-007"})).json()
-    assert body["items"][0]["role"] == "developer" and body["items"][0]["aliases"] == []
+    assert body["items"][0]["role"] == "contributor" and body["items"][0]["aliases"] == []
 
 
 async def test_a_former_slug_finds_the_organisation(client: AsyncClient, admin: str) -> None:

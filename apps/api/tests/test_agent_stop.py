@@ -278,7 +278,7 @@ async def test_a_member_who_cannot_manage_the_agent_gets_403(
     await _agent(client)
     await _run(project["id"], "run-keep")
     session_id = await _open_session(project["id"])
-    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     developer = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     try:
         await login(developer, "dev@northwind.dev")

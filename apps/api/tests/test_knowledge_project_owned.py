@@ -81,7 +81,7 @@ async def owners(client: AsyncClient, project: dict[str, Any]) -> dict[str, Any]
     """billing-api: an owner and a developer; checkout-web: its own owner."""
     other = await _checkout(client)
     await _member("owner@northwind.dev", "project_owner", "billing-api")
-    await _member("dev@northwind.dev", "developer", "billing-api")
+    await _member("dev@northwind.dev", "contributor", "billing-api")
     await _member("other@northwind.dev", "project_owner", "checkout-web")
     return other
 
@@ -237,7 +237,7 @@ async def test_the_owning_project_and_its_curators(client: AsyncClient, admin: s
     from tranibor_api.rbac import Principal, Role
 
     owner = Principal(user_id="u", email="o@x", project_roles={"northwind/billing-api": Role.PROJECT_OWNER})
-    developer = Principal(user_id="d", email="d@x", project_roles={"northwind/billing-api": Role.DEVELOPER})
+    developer = Principal(user_id="d", email="d@x", project_roles={"northwind/billing-api": Role.CONTRIBUTOR})
     mine = SimpleNamespace(owner_project="billing-api")
     unowned = SimpleNamespace(owner_project=None)
     assert can_curate(owner, "northwind", mine)

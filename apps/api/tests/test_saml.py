@@ -41,7 +41,7 @@ def provider(idp: kit.Idp, **changes: Any) -> engine.Provider:
         "certificate_pem": idp.certificate_pem,
         "domains": PROVIDER_DOMAINS,
         "groups_attribute": "groups",
-        "group_map": {"Admins": "org-admins", "Devs": "developers"},
+        "group_map": {"Admins": "org-admins", "Devs": "contributors"},
     }
     return engine.Provider(**(base | changes))
 
@@ -341,7 +341,7 @@ def configuration(idp: kit.Idp, **changes: Any) -> dict[str, Any]:
         "sso_url": "https://idp.globex.example/sso",
         "certificate_pem": idp.certificate_pem,
         "groups_attribute": "groups",
-        "group_map": {"Admins": "org-admins", "Devs": "developers"},
+        "group_map": {"Admins": "org-admins", "Devs": "contributors"},
         "domains": ["Globex.Example"],
     }
     return body | changes
@@ -532,7 +532,7 @@ async def test_a_member_signs_in_through_the_provider(app: Any, configured: kit.
             .scalars()
             .all()
         )
-    assert list(roles) == ["developer"]
+    assert list(roles) == ["contributor"]
 
 
 async def test_a_sign_in_that_maps_no_group_grants_no_membership(app: Any, configured: kit.Idp) -> None:

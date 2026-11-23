@@ -567,7 +567,7 @@ async def test_only_the_administrator_installs_and_members_read(
     client: AsyncClient, org: str, offline: Path
 ) -> None:
     await make_project(client, "billing")
-    await add_member(client, "dev@northwind.dev", "developer", "billing")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing")
     await project_only(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/plugins/install", json=INSTALL)).status_code == 403
     assert (await client.get(f"{ORG}/plugins")).status_code == 200

@@ -156,7 +156,7 @@ async def create_machine_account(
             user_id=user.id,
             org_id=ctx.project.org_id,
             project_id=ctx.id,
-            role=str(ROLE.stored),
+            role=str(ROLE),
             source=SOURCE,
         )
     )

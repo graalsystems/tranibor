@@ -33,7 +33,7 @@ def elsewhere(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     reset_settings_cache()
 
 
-async def _member(client: AsyncClient, email: str, role: str = "developer") -> str:
+async def _member(client: AsyncClient, email: str, role: str = "contributor") -> str:
     added = await client.post(f"{ORG}/members", json={"email": email, "role": role})
     assert added.status_code == 201, added.text
     return str(added.json()["user_id"])
@@ -148,7 +148,7 @@ async def test_an_administrator_reads_the_whole_profile(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["view"] == "full" and body["status"] == "active"
-    assert body["email"] == "dev@northwind.dev" and body["org_role"] == "developer"
+    assert body["email"] == "dev@northwind.dev" and body["org_role"] == "contributor"
     assert body["groups"] == [{"slug": "reviewers", "name": "Reviewers", "source": "internal"}]
     assert body["origin"] == "manual", "invited by an administrator, never signed in"
     assert body["sessions"] == {"open": 0, "last_activity_at": None}
@@ -181,7 +181,7 @@ async def test_a_member_reads_the_basic_card_of_another_member(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["view"] == "basic"
-    assert body["email"] == "dev@northwind.dev" and body["org_role"] == "developer"
+    assert body["email"] == "dev@northwind.dev" and body["org_role"] == "contributor"
     for hidden in ("origin", "last_login_at", "sessions", "work", "administration"):
         assert body[hidden] is None, hidden
 

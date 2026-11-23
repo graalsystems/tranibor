@@ -345,7 +345,7 @@ async def test_a_link_as_the_migration_left_it_still_pauses_from_a_signed_commen
 
     await _routed_item(client, project)
     added = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     async with session_scope() as session:
         org_id = (await session.execute(select(Organization.id))).scalar_one()
@@ -374,7 +374,7 @@ async def test_a_link_on_another_forge_instance_is_not_a_github_com_identity(
     """The same numeric id on a GitLab or a GitHub Enterprise instance is another person's account."""
     await _routed_item(client, project)
     added = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     for provider, base_url in (("gitlab", None), ("github", "https://ghe.corp.example")):
         declared = await client.post(

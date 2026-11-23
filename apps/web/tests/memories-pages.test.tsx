@@ -126,7 +126,7 @@ describe("the organisation's registry", () => {
   });
 
   it("offers nobody but an administrator the creation", async () => {
-    session.me = { memberships: [{ org: "acme", role: "developer" }] };
+    session.me = { memberships: [{ org: "acme", role: "contributor" }] };
     await show(<MemoriesPage />);
     await screen.findByTestId("memories");
     expect(screen.queryByRole("button", { name: "New memory" })).toBeNull();
@@ -193,7 +193,7 @@ describe("one global memory", () => {
   });
 
   it("shows a member neither the proposals nor the controls", async () => {
-    session.me = { memberships: [{ org: "acme", role: "developer" }] };
+    session.me = { memberships: [{ org: "acme", role: "contributor" }] };
     await open();
     await screen.findByText(/An organisation administrator decides what agents propose/);
     expect(api.globalMemoryPending).not.toHaveBeenCalled();
@@ -265,7 +265,7 @@ describe("a project's memories", () => {
   });
 
   it("offers a developer no creation", async () => {
-    session.me = { memberships: [{ org: "acme", role: "developer", project_slug: "billing-api" }] };
+    session.me = { memberships: [{ org: "acme", role: "contributor", project_slug: "billing-api" }] };
     await open();
     await screen.findByLabelText("Memory");
     expect(screen.queryByRole("button", { name: "New project memory" })).toBeNull();
