@@ -16,9 +16,13 @@ from typing import Any
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from tranibor_adapters import load_extensions
+from tranibor_adapters import fake_mcp_server, load_extensions
 from tranibor_core import telemetry
-from tranibor_core.production import refuse_demo_inline_worker, refuse_fakes_in_production
+from tranibor_core.production import (
+    refuse_demo_inline_worker,
+    refuse_demo_mcp_tools,
+    refuse_fakes_in_production,
+)
 
 from . import __version__
 from .a2a.push import push_loop
@@ -143,6 +147,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:
         refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)
+    # The demonstration MCP server (ADR 0213): refused elsewhere; its file is read now.
+    if settings.demo_mcp_tools:
+        refuse_demo_mcp_tools(environment=settings.env, fakes=settings.fakes)
+        fake_mcp_server()
     if not settings.is_sqlite:
         await _refuse_the_superuser()
     _warn_without_secrets_key(settings.fakes)

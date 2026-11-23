@@ -38,6 +38,10 @@ placeholders; the first start downloads Temporal's test server (cached afterward
 unless `TRANIBOR_FAKES` is on and `TRANIBOR_ENV` is `dev` (the default) or `test`, and it is never on
 unless asked. For a scripted story (a finding, a refused gate) use `make demo`.
 
+To show a governed write to a "business system" in the same demonstration, add `TRANIBOR_DEMO_MCP_TOOLS=<file>`: the
+fakes' MCP server then offers the tools the file declares and records the writes it receives
+([integrations](integrations.md#a-demonstration-mcp-server), ADR 0213).
+
 ## Local services
 
 For front-end and API work, without Docker:
