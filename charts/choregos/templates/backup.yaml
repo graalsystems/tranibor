@@ -6,14 +6,21 @@ order as init containers, each writing into `/backup/<stamp>/`:
   database  `pg_dump -Fc --create` of every database of the embedded PostgreSQL, plus the roles
             without their passwords (`globals.sql`, for reference: a restore re-creates the roles
             from the chart's init scripts);
-  files     an online SQLite copy of the embedded Temporal (`temporal.db`), and the embedded
-            memory's files;
+  files     an online SQLite copy of the embedded Temporal (`temporal.db`) in `dev` mode, and the
+            embedded memory's files;
   objects   a copy of the object store, when `backup.objectStore` is on;
   ship      (the main container) writes `MANIFEST` and `COMPLETE`, copies the directory to the S3
             target when there is one, and keeps the `keep` newest complete backups.
 
 The embedded volumes are ReadWriteOnce: the backup pod mounts them beside their owner, which a
 single node allows and a multi-node cluster does not guarantee. That is the profile it serves.
+
+The embedded Temporal in `server` mode (ADR 0195) has no volume: its state is two databases
+(`choregos-temporal.database.name`, `.visibilityName`) on `global.database` (#2156). The backup
+mounts no Temporal claim then, and the `files` step copies no Temporal. Those databases are in the
+`database` step's `pg_dump` when they are on the embedded PostgreSQL (every database but the
+templates and `postgres`); on the operator's PostgreSQL, or on another host
+(`choregos-temporal.database.host`), they are backed up by whoever runs that PostgreSQL.
 */ -}}
 {{- if .Values.backup.enabled }}
 {{- $g := .Values.global }}
@@ -29,13 +36,16 @@ single node allows and a multi-node cluster does not guarantee. That is the prof
 {{- if and $b.objectStore (not $g.objectStore.secretRef) }}
 {{- fail "backup.objectStore=true needs global.objectStore.secretRef: the backup reads the object store with the platform's own keys." }}
 {{- end }}
-{{- if not (or $g.database.embedded $g.temporal.embedded $g.memory.embedded $b.objectStore) }}
-{{- fail "backup.enabled=true with nothing to back up: no embedded database, Temporal or memory, and backup.objectStore is off. An external dependency is backed up by whoever runs it." }}
+{{- /* `server` mode keeps Temporal's state in PostgreSQL, never on a volume (ADR 0195, #2156). */ -}}
+{{- $temporalServer := eq (toString ((index .Values "choregos-temporal" | default dict).mode | default "dev")) "server" }}
+{{- $temporalFiles := and $g.temporal.embedded (not $temporalServer) }}
+{{- if not (or $g.database.embedded $temporalFiles $g.memory.embedded $b.objectStore) }}
+{{- fail "backup.enabled=true with nothing to back up: no embedded database, SQLite Temporal (`dev` mode) or memory, and backup.objectStore is off. An external dependency is backed up by whoever runs it, and a `server` mode Temporal lives in its PostgreSQL." }}
 {{- end }}
 {{- $pg := index .Values "choregos-postgresql" | default dict }}
 {{- $pgImage := $b.images.postgres | default (printf "%s:%s" (($pg.image | default dict).repository | default "pgvector/pgvector") (($pg.image | default dict).tag | default "0.8.1-pg16")) }}
 {{- $tools := include "choregos.image" (dict "global" $g "image" (index .Values "choregos-api").image) }}
-{{- $temporalVolume := and $g.temporal.embedded (ne ((index .Values "choregos-temporal" | default dict).persistence | default dict).enabled false) }}
+{{- $temporalVolume := and $temporalFiles (ne ((index .Values "choregos-temporal" | default dict).persistence | default dict).enabled false) }}
 {{- $memoryVolume := and $g.memory.embedded (ne ((index .Values "choregos-ecphoria" | default dict).persistence | default dict).enabled false) }}
 {{- /* The claims the owners mount, from the helpers their own templates call (#2153). */ -}}
 {{- $temporalClaim := include "choregos.temporalClaim" (dict "root" . "persistence" ((index .Values "choregos-temporal" | default dict).persistence)) }}

@@ -5862,6 +5862,14 @@ stories:
     size: S
     depends_on: [S80-16, S80-25]
     notes: "Finding #2153. One claim helper per owner (choregos.temporalClaim, choregos.memoryClaim) called by the owner's template and by the backup and restore CronJobs, so an adopted claim or a kept Temporal Service name is the one backed up. Not done: a run on a cluster; the Temporal claim mounted in server mode (#2156)."
+  - id: S80-28
+    title: "fix(charts): in Temporal server mode the backup mounts no Temporal claim"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-27]
+    notes: "Finding #2156. The Temporal volume, its files-step mount and the nothing-to-back-up check count Temporal only in dev mode; in server mode its databases are in the embedded PostgreSQL's dump, or the operator's to back up. Not done: a server-mode backup played on a cluster."
   - id: S80-29
     title: "fix(api): a poll cut short as it takes its slot gives the slot back"
     stream: S80
