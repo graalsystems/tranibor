@@ -351,9 +351,7 @@ async def add_member(org: str, body: MembershipUpsert, session: Db, principal: M
             )
         )
     ).scalar_one_or_none()
-    # Either spelling of a renamed role is accepted; the row is written with the one every reader of
-    # the previous release knows (`Role.stored`, ADR 0181 C1, ADR 0098 §4).
-    stored = body.role.stored
+    stored = body.role
     if existing is None:
         existing = Membership(
             user_id=user.id,

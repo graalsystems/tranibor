@@ -83,10 +83,10 @@ async def test_a_work_item_names_its_repository_or_works_on_the_primary(
     pid = await _two_repositories(client, project)
     named = await _file(client, pid, fields={"finding": "CVE-2026-1", "repository": "diamctl"})
     assert named.status_code == 201, named.text
-    assert named.json()["repository"] == "diamctl", "a strict workflow still takes the platform's field"
-    assert named.json()["repository_fixed"] is False
+    assert named.json()["workspace"] == "diamctl", "a strict workflow still takes the platform's field"
+    assert named.json()["workspace_fixed"] is False
     plain = await _file(client, pid, fields={"finding": "CVE-2026-2"})
-    assert plain.json()["repository"] == "billing-api", "the primary, by its name"
+    assert plain.json()["workspace"] == "billing-api", "the primary, by its name"
     labelled = await _file(client, pid, fields={}, labels=["repository:diamctl", "security"])
     assert labelled.json()["fields"] == {"repository": "diamctl"}, "a tracker's label names it"
 
@@ -113,11 +113,11 @@ async def test_a_person_moves_a_work_item_until_it_is_fixed(
     assert unknown.status_code == 422, unknown.text
     moved = await client.patch(url, json={"fields": {"repository": "diamctl"}})
     assert moved.status_code == 200, moved.text
-    assert moved.json()["repository"] == "diamctl"
+    assert moved.json()["workspace"] == "diamctl"
 
     await _documents(item["id"], repository_fixed="diamctl")  # a stage cloned it
     fixed = (await client.get(url)).json()
-    assert fixed["repository"] == "diamctl" and fixed["repository_fixed"] is True
+    assert fixed["workspace"] == "diamctl" and fixed["workspace_fixed"] is True
     refused = await client.patch(url, json={"fields": {"repository": "billing-api"}})
     assert refused.status_code == 409, refused.text
     assert "works on `diamctl` since its first step" in refused.text
@@ -148,7 +148,7 @@ async def test_a_work_item_that_ran_on_a_repository_is_fixed_to_it(
             )
         )
     url = f"/api/v1/work-items/{item['id']}"
-    assert (await client.get(url)).json()["repository_fixed"] is True
+    assert (await client.get(url)).json()["workspace_fixed"] is True
     refused = await client.patch(url, json={"fields": {"repository": "diamctl"}})
     assert refused.status_code == 409, refused.text
 
@@ -159,7 +159,7 @@ async def test_a_project_with_one_repository_says_it_and_refuses_another_name(
     pid = project["id"]
     item = await client.post(f"/api/v1/projects/{pid}/work-items", json={"title": "A fix", "start": False})
     assert item.status_code == 201, item.text
-    assert item.json()["repository"] == "billing-api"
+    assert item.json()["workspace"] == "billing-api"
     refused = await client.post(
         f"/api/v1/projects/{pid}/work-items",
         json={"title": "A fix", "start": False, "fields": {"repository": "x"}},
@@ -195,4 +195,4 @@ async def test_a_task_that_names_the_repository_is_held_to_the_same_rules(
     assert "`diamclt` is not a repository" in refused.text
     done = await client.post(decisions, json={"kind": "complete", "values": {"repository": "diamctl"}})
     assert done.status_code == 202, done.text
-    assert (await client.get(f"/api/v1/work-items/{item['id']}")).json()["repository"] == "diamctl"
+    assert (await client.get(f"/api/v1/work-items/{item['id']}")).json()["workspace"] == "diamctl"

@@ -108,7 +108,7 @@ async def test_a_member_reads_the_organisation_s_choice(
 ) -> None:
     """The project's Tool scripts card says when the organisation has them disabled: a member reads it."""
     assert (await client.patch(f"{ORG}/northwind", json={"tool_scripts": "disabled"})).status_code == 200
-    member = {"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"}
+    member = {"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"}
     assert (await client.post(f"{ORG}/northwind/members", json=member)).status_code in {200, 201}
     await login(client, "dev@northwind.dev")
     assert await _shown(client) == "disabled"

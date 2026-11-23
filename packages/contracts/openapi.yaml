@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Tranibor API
-  version: 0.28.1
+  version: 0.28.2
   description: |
     The Tranibor platform API. The console and the CLI use this API and nothing else.
     Auth: an OIDC session (cookie) or `Authorization: Bearer <api_token>`.
@@ -2612,7 +2612,7 @@ paths:
     post:
       tags: [costs]
       operationId: acknowledgeBudgetAlert
-      description: Someone has seen it; it leaves the inbox. `item:decide` (developer and above). Audited.
+      description: Someone has seen it; it leaves the inbox. `item:decide` (contributor and above). Audited.
       responses:
         "200": { description: Acknowledged, content: { application/json: { schema: { $ref: "#/components/schemas/BudgetAlert" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -4700,7 +4700,7 @@ paths:
     post:
       tags: [agents]
       operationId: forkAgent
-      description: A new agent, in the scope asked, whose version 1 is a byte-for-byte copy of one of the source's versions (its latest by default; same checksum). It records `forked_from` and inherits nothing else. Needs to see the source AND to create in that scope (a developer forks into `personal`, a project owner into their project, an org_admin anywhere). A source the caller may not see is a 404. Audited (`agent.fork`).
+      description: A new agent, in the scope asked, whose version 1 is a byte-for-byte copy of one of the source's versions (its latest by default; same checksum). It records `forked_from` and inherits nothing else. Needs to see the source AND to create in that scope (a contributor forks into `personal`, a project owner into their project, an org_admin anywhere). A source the caller may not see is a 404. Audited (`agent.fork`).
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/AgentFork" } } }
@@ -7249,12 +7249,10 @@ components:
         has_more: { type: boolean }
     Role:
       type: string
-      enum: [org_admin, project_owner, contributor, approver, viewer, developer, release_captain]
+      enum: [org_admin, project_owner, contributor, approver, viewer]
       description: >-
         `contributor` does the project's work and decides its work items; `approver` also approves what
-        leaves for production (ADR 0181 C1). `developer` and `release_captain` are their former names:
-        a request may send either spelling, and a response gives the one the row holds, until the
-        release the window list names (`tranibor_contracts.window`).
+        leaves for production (ADR 0181 C1).
     Size: { type: string, enum: [S, M, L, XL] }
     Risk: { type: string, enum: [low, medium, high, critical] }
     Me:
@@ -7486,7 +7484,6 @@ components:
         cost_month_eur: { type: number }
         budget_month_eur: { type: [number, "null"] }
         trains_pending: { type: integer, x-plugin: software-delivery }
-        first_pass_merge_rate: { type: [number, "null"], description: "The former name of `first_pass_acceptance_rate`, until the release the window list names (ADR 0181 C1)." }
         first_pass_acceptance_rate: { type: [number, "null"], description: "The share of the work items accepted without a rework loop (ADR 0181 C1)." }
         cycle_time_p50_hours: { type: [number, "null"] }
     ProjectPage:
@@ -8022,8 +8019,8 @@ components:
             properties:
               role:
                 type: string
-                enum: [contributor, approver, project_owner, org_admin, developer, release_captain]
-                description: "The least rank an approver holds; `developer` and `release_captain` are the former names of `contributor` and `approver` (ADR 0181 C1)."
+                enum: [contributor, approver, project_owner, org_admin]
+                description: "The least rank an approver holds (ADR 0181 C1)."
               group: { type: [string, "null"], description: "an identity-provider group the approver must also belong to (ADR 0052); a workflow's action may name it from a field of its work item, rendered when proposed (ADR 0196)" }
               min: { type: integer, minimum: 1, maximum: 5 }
         step_up_minutes: { type: integer, minimum: 1, maximum: 120, default: 10 }
@@ -8182,7 +8179,7 @@ components:
     WorkflowCatalogueEntry:
       type: object
       additionalProperties: false
-      required: [source, name, version, title, summary, tags, requires, needs_repository, groups, agents]
+      required: [source, name, version, title, summary, tags, requires, needs_workspace, groups, agents]
       description: A workflow the organisation can adopt (ADR 0111).
       properties:
         source:
@@ -8195,7 +8192,6 @@ components:
         summary: { type: string, description: "`metadata.catalogue.summary`, else `metadata.description`" }
         tags: { type: array, items: { type: string } }
         requires: { type: array, items: { $ref: "#/components/schemas/WorkflowCatalogueRequirement" } }
-        needs_repository: { type: boolean, description: "The former name of `needs_workspace`, until the release the window list names (ADR 0181 C1)." }
         needs_workspace: { type: boolean, description: "it requires a workspace its steps read and write (an `scm` today): a project without one cannot run it (ADR 0181 C1)" }
         groups: { type: array, items: { type: string }, description: "the human groups its actors name (ADR 0044)" }
         agents: { type: array, items: { $ref: "#/components/schemas/WorkflowCatalogueAgent" } }
@@ -8383,7 +8379,6 @@ components:
         image: { type: [string, "null"], description: The image name of a job actor. }
         inputs: { type: array, items: { type: string }, description: The documents the step reads (`inputs:` of the transition). }
         output_types: { type: object, additionalProperties: { type: string }, description: "The declared file type of an output (ADR 0049); an output not listed is inline, markdown or JSON." }
-        writes_branch: { type: boolean, description: "The former name of `writes_workspace`, until the release the window list names (ADR 0181 C1)." }
         writes_workspace: { type: boolean, description: "True for an agent or job step whose transition carries a gate that reads the diff: it changes the work item's workspace (ADR 0181 C1)." }
     WorkflowOperation:
       type: object
@@ -10556,7 +10551,6 @@ components:
             rejection (`produced_by` lists the human transitions with `on_reject`). `field`: a
             property of `metadata.inputs`. `missing`: read, but nothing produces it.
         context: { type: boolean, description: True when the platform gives it to every agent stage. }
-        in_pull_request: { type: boolean, description: "The former name of `in_change_request`, until the release the window list names (ADR 0181 C1)." }
         in_change_request: { type: boolean, description: "True when the change request's body carries it (the pull request, for a repository; ADR 0181 C1)." }
     WorkflowTemplate:
       type: object
@@ -12366,18 +12360,10 @@ components:
         paused: { type: boolean, default: false }
         current_run: { oneOf: [{ $ref: "#/components/schemas/RunSummary" }, { type: "null" }] }
         pending_request: { oneOf: [{ $ref: "#/components/schemas/HumanRequest" }, { type: "null" }] }
-        pr_url: { type: [string, "null"], description: "The former name of the `change_request` link, until the release the window list names (ADR 0181 C1)." }
         links:
           type: array
           items: { $ref: "#/components/schemas/Link" }
           description: "Where the work item's work can be seen, by relation: `change_request` for the change it proposes (ADR 0181 C1)."
-        repository:
-          type: [string, "null"]
-          description: "The former name of `workspace`, until the release the window list names (ADR 0181 C1)."
-        repository_fixed:
-          type: boolean
-          default: false
-          description: "The former name of `workspace_fixed`, until the release the window list names (ADR 0181 C1)."
         workspace:
           type: [string, "null"]
           description: >-
@@ -13449,7 +13435,6 @@ components:
       properties:
         projects: { type: array, items: { type: string } }
         tickets: { type: integer, default: 0 }
-        first_pass_merge_rate: { type: number, nullable: true, description: "The former name of `first_pass_acceptance_rate`, until the release the window list names (ADR 0181 C1)." }
         first_pass_acceptance_rate: { type: number, nullable: true }
         cost_per_ticket_usd: { type: number, nullable: true }
     MemoryAbReport:

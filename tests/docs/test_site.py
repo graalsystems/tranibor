@@ -31,8 +31,9 @@ import pytest
 import yaml
 from tranibor_cli.knowledge import Manifest
 from tranibor_contracts import Policy
-from tranibor_core import parse_workflow
 from tranibor_core.policy import parse_policy
+
+from .workflow_examples import assert_the_workflow_example_holds
 
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "docs" / "site"
@@ -269,9 +270,8 @@ def test_a_yaml_example_is_valid(name: str, body: str) -> None:
         return
     kind = document.get("kind")
     if kind == "Workflow":
-        _workflow, report = parse_workflow(body, strict=False)
-        assert report.valid, f"{name}: " + " · ".join(i.format() for i in report.errors)
-        assert not report.warnings, f"{name}: " + " · ".join(i.format() for i in report.warnings)
+        # A software delivery example: valid with the plugin, refused naming it without (ADR 0181, round D).
+        assert_the_workflow_example_holds(name, body)
     elif kind == "Policy":
         parse_policy(body)
         Policy.model_validate(document)

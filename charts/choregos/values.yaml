@@ -47,7 +47,7 @@ global:
   # `choregos-api.runDoor.hostnames`, and write that URL here (ADR 0144).
   internalApiUrl: ""
   imageRegistry: ghcr.io/graalsystems
-  imageTag: "0.28.1"
+  imageTag: "0.28.2"
   imagePullPolicy: IfNotPresent
   # Images are referenced by digest in staging and prod (Kyverno policy).
   imageDigest: ""
@@ -550,7 +550,7 @@ global:
     issuer: https://keycloak.choregos.local/realms/choregos
     clientId: choregos
     secretRef: choregos-oidc
-    # Organization to attach the NON-prefixed OIDC groups to (`developers`,
+    # Organization to attach the NON-prefixed OIDC groups to (`contributors`,
     # `org-admins`…). Empty: only `choregos:<org>:<group>` groups give a role.
     defaultOrg: ""
     # ADR 0208. `true`: the chart deploys one Keycloak with a realm (`choregos-keycloak.realm`), a client

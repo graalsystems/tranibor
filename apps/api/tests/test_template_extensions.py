@@ -25,7 +25,7 @@ def templates(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathli
     (folder / "trial" / "sub").mkdir(parents=True)
     (folder / "manifest.yaml").write_text(
         "apiVersion: choregos/v1\nkind: Template\nmetadata: {name: trial-ext, version: 1.0.0}\n"
-        "defaults:\n  workflows: ['template:default-simple@1']\n  extensions: {trial: ./trial}\n",
+        "defaults:\n  workflows: ['template:default-request@1']\n  extensions: {trial: ./trial}\n",
         encoding="utf-8",
     )
     (folder / "trial" / "a.yaml").write_text("a: 1\n", encoding="utf-8")

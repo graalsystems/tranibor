@@ -81,7 +81,7 @@ async def test_patch_replaces_the_tags_and_leaves_versions_alone(client: AsyncCl
 
 async def test_only_who_may_publish_changes_tags(client: AsyncClient, org: str) -> None:
     await make_project(client, "dev")
-    await add_member(client, DEV, "developer")
+    await add_member(client, DEV, "contributor")
     await add_member(client, OWNER, "project_owner", project="dev")
     await as_user(client, ADMIN)
     await install_common(client)
@@ -110,8 +110,8 @@ async def test_the_registry_filters_by_every_tag_given(client: AsyncClient, org:
 
 
 async def test_the_tag_filter_never_reveals_an_invisible_agent(client: AsyncClient, org: str) -> None:
-    await add_member(client, DEV, "developer")
-    await add_member(client, OTHER, "developer")
+    await add_member(client, DEV, "contributor")
+    await add_member(client, OTHER, "contributor")
     await as_user(client, OTHER)
     assert (await create_agent(client, "secret", scope="personal", tags=["madr"])).status_code == 201
     await as_user(client, ADMIN)

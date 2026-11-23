@@ -210,7 +210,7 @@ async def test_a_conversation_is_its_openers_alone(
 ) -> None:
     await _agent(client)
     upstream.model.say("Mine.")
-    async with as_person(client, "dev@northwind.dev", "developer") as other:
+    async with as_person(client, "dev@northwind.dev", "contributor") as other:
         mine = await _open("northwind", admin)
         theirs = await _open("northwind", "dev@northwind.dev")
         assert (await _say(client, mine, "Hi")).status_code == 200

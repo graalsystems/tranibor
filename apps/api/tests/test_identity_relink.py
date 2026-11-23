@@ -134,7 +134,7 @@ async def test_a_new_provider_moves_the_same_account_while_the_window_is_open(
     user_id = await _account("jo@northwind.dev", "old-sub")
     async with session_scope(orgs="*") as session:
         org_id = (await session.execute(select(Organization.id))).scalar_one()
-        session.add(Membership(user_id=user_id, org_id=org_id, role="developer"))
+        session.add(Membership(user_id=user_id, org_id=org_id, role="contributor"))
         session.add(AuditLog(actor_id=user_id, actor_kind="user", action="work_item.approve", ts=_in(-3)))
     response = await _sign_in(
         client, {"sub": "new-sub", "email": "jo@northwind.dev", "email_verified": True, "name": "Jo"}

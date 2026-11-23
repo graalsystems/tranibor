@@ -15,7 +15,6 @@ from tranibor_core.dsl.process import to_process
 from tranibor_core.dsl.requirements import requirements
 from tranibor_core.step_effects import (
     CORE_EFFECTS,
-    ENTERED,
     PASSED,
     PLUGIN_EFFECTS,
     StepEffectRequest,
@@ -23,6 +22,7 @@ from tranibor_core.step_effects import (
     known_step_effects,
     step_effect,
     step_effect_of,
+    unavailable_effect,
 )
 
 DESK = """
@@ -61,18 +61,31 @@ def itsm() -> Iterator[None]:
     forget("itsm")
 
 
-def test_open_pr_and_merge_pr_are_the_software_delivery_plugin_s_under_their_names() -> None:
-    """Registered by its extension since ADR 0181 round C2 (the suite registers it, as the API and the
-    worker do); the contract's list still holds them for the window, and the core names their plugin."""
-    assert set(CORE_EFFECTS) <= set(known_step_effects())
-    opened, merged = step_effect_of("open_pr"), step_effect_of("merge_pr")
-    assert opened is not None and merged is not None
-    assert (opened.when, merged.when) == (ENTERED, PASSED)
-    assert opened.needs == merged.needs == {"scm"}
-    assert opened.plugin == merged.plugin == "software-delivery"
+@pytest.fixture
+def without_software_delivery() -> Iterator[None]:
+    """The deployment without the `software-delivery` extension's effects, whether this process installed it
+    or not: what it registered is put back after."""
+    registered, declared = dict(step_effects._EFFECTS), dict(STEP_EFFECTS._declared)
+    forget("software-delivery")
+    try:
+        yield
+    finally:
+        step_effects._EFFECTS.clear()
+        step_effects._EFFECTS.update(registered)
+        STEP_EFFECTS._declared = declared
+
+
+def test_open_pr_and_merge_pr_are_the_software_delivery_plugin_s_under_their_names(
+    without_software_delivery: None,
+) -> None:
+    """Registered by its extension since ADR 0181 round C2 (what it registers is pinned in
+    `plugins/software-delivery/tests/core/test_core_seams.py`); the contract's list still holds them for
+    the window, and without the extension the core names their plugin."""
     assert STEP_EFFECTS.core == set(CORE_EFFECTS)
-    assert STEP_EFFECTS.plugin_of("open_pr") == "software-delivery"
     assert dict.fromkeys(CORE_EFFECTS, "software-delivery") == PLUGIN_EFFECTS
+    for name in CORE_EFFECTS:
+        assert step_effect_of(name) is None and name not in known_step_effects()
+        assert "served by the plugin `software-delivery`" in str(unavailable_effect(name))
     source = Path(step_effects.__file__).read_text(encoding="utf-8")
     assert "_EFFECTS[" not in source.split("def step_effect(")[0], "the core registers none of its own"
 
@@ -97,8 +110,6 @@ def test_with_its_extension_it_validates_shows_and_requires(itsm: None) -> None:
 def test_one_name_is_one_owner(itsm: None) -> None:
     with pytest.raises(ValueError, match="already registered by the plugin `itsm`"):
         step_effect("close_incident", gesture="x", when=PASSED, plugin="other", execute=_close)
-    with pytest.raises(ValueError, match="already registered by the plugin `software-delivery`"):
-        step_effect("merge_pr", gesture="x", when=PASSED, plugin="other", execute=_close)
     with pytest.raises(ValueError, match="needs an `execute`"):
         step_effect("reopen", gesture="x", when=PASSED, plugin="itsm", execute=None)
     with pytest.raises(ValueError, match="runs `entered` or `passed`"):

@@ -33,6 +33,8 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
+from .workflow_examples import assert_the_workflow_example_holds, plugin_installed
+
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "docs" / "site"
 SECTIONS = ("build", "integrate", "cli", "host", "reference")
@@ -356,15 +358,13 @@ def _yaml_blocks() -> list[tuple[str, str, str]]:
 @pytest.mark.parametrize(("page", "info", "block"), _yaml_blocks())
 def test_every_yaml_block_is_checked(page: str, info: str, block: str) -> None:
     from tranibor_contracts import Policy
-    from tranibor_core import parse_workflow
 
     document = yaml.safe_load(block)
     assert isinstance(document, dict), f"{page}: a YAML block is not a mapping"
     kind = document.get("kind")
     if kind == "Workflow":
-        _workflow, report = parse_workflow(block, strict=False)
-        assert report.valid, f"{page}: " + " · ".join(i.format() for i in report.errors)
-        assert not report.warnings, f"{page}: " + " · ".join(i.format() for i in report.warnings)
+        # A software delivery example: valid with the plugin, refused naming it without (ADR 0181, round D).
+        assert_the_workflow_example_holds(page, block)
     elif kind == "Policy":
         Policy.model_validate(document)
     elif kind in {"Plugin", "Assistant", "conversation"} or {"catalogue", "agent"} <= set(document):
@@ -477,14 +477,19 @@ def test_the_workflow_reference_names_every_key_of_the_schema() -> None:
 
 
 def test_the_workflow_reference_lists_exactly_the_known_gates() -> None:
-    from tranibor_core.gates import is_async_gate, known_gates
+    from tranibor_core.gates import PLUGIN_GATES, is_async_gate, known_gates
 
     page = _text(SITE / "reference" / "workflow-yaml.md")
     table = page.split("## Gates", 1)[1].split("\n## ", 1)[0]
     rows = dict(re.findall(r"^\| `([a-z_]+)` \| (.+) \|$", table, re.M))
-    assert set(rows) == set(known_gates())
+    # The page lists the gates of the plugins too: where a plugin is not installed, its gates are the ones
+    # the core names for it (ADR 0181, round D); with it installed they are registered, and judged below.
+    absent = {name for name, plugin in PLUGIN_GATES.items() if not plugin_installed(plugin)}
+    assert not absent & set(known_gates()), "a gate registered by a plugin that is not installed"
+    assert set(rows) == set(known_gates()) | absent
     for name, text in rows.items():
-        assert ("(waits)" in text) == is_async_gate(name), name
+        if name not in absent:
+            assert ("(waits)" in text) == is_async_gate(name), name
 
 
 def test_the_validation_codes_the_pages_name_exist() -> None:

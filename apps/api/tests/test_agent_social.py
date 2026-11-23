@@ -40,7 +40,7 @@ async def _kinds(client: AsyncClient) -> list[str]:
 
 async def _watched_reviewer(client: AsyncClient, policy: dict[str, Any] | None = None) -> None:
     """`reviewer` (an org agent of the administrator) watched by OTHER, a developer."""
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await as_user(client, ADMIN)
     body: dict[str, Any] = {"spec": _spec(1)}
     if policy:
@@ -56,7 +56,7 @@ async def _watched_reviewer(client: AsyncClient, policy: dict[str, Any] | None =
 async def test_the_forks_are_listed_with_how_far_they_moved_and_only_the_visible_ones(
     client: AsyncClient, org: str
 ) -> None:
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await install_common(client)
     await as_user(client, DEV)
     mine = await client.post(f"{ORG}/agents/developer/fork", json={"slug": "my-dev", "scope": "personal"})
@@ -88,7 +88,7 @@ async def test_the_forks_are_listed_with_how_far_they_moved_and_only_the_visible
 async def test_an_agent_the_caller_cannot_see_has_no_forks_to_list_watch_or_star(
     client: AsyncClient, org: str
 ) -> None:
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await as_user(client, DEV)
     assert (await create_agent(client, "private-one", scope="personal")).status_code == 201
     await as_user(client, OTHER)
@@ -125,7 +125,7 @@ async def test_the_owner_watches_what_they_create_and_a_fork_and_can_stop(
 
 async def test_watch_and_star_count_people_once_and_retune_the_level(client: AsyncClient, org: str) -> None:
     await install_common(client)
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await as_user(client, DEV)
     first = await client.put(f"{ORG}/agents/developer/watch")
     assert first.json()["watching"] == "all" and first.json()["watchers"] == 1
@@ -154,7 +154,7 @@ async def test_the_list_sorts_by_stars_and_keeps_the_starred_ones(client: AsyncC
     await as_user(client, ADMIN)
     for slug in ("aaa", "zzz"):
         assert (await create_agent(client, slug)).status_code == 201
-    await add_member(client, DEV, "developer")
+    await add_member(client, DEV, "contributor")
     await as_user(client, DEV)
     await client.put(f"{ORG}/agents/zzz/star")
     await as_user(client, ADMIN)
@@ -249,7 +249,7 @@ async def test_a_new_fork_and_a_lifecycle_change_reach_the_watchers_at_level_all
     client: AsyncClient, org: str
 ) -> None:
     await _watched_reviewer(client)
-    await add_member(client, DEV, "developer")
+    await add_member(client, DEV, "contributor")
     await as_user(client, DEV)
     await client.put(f"{ORG}/agents/reviewer/watch", json={"level": "releases"})
     fork = await client.post(f"{ORG}/agents/reviewer/fork", json={"slug": "org-rev", "scope": "org"})
@@ -274,8 +274,8 @@ async def test_a_new_fork_and_a_lifecycle_change_reach_the_watchers_at_level_all
 async def test_a_watcher_who_loses_sight_of_the_agent_gets_nothing_and_it_is_not_counted(
     client: AsyncClient, org: str
 ) -> None:
-    await add_member(client, OTHER, "developer")
-    await add_member(client, DEV, "developer")
+    await add_member(client, OTHER, "contributor")
+    await add_member(client, DEV, "contributor")
     await as_user(client, DEV)
     assert (await create_agent(client, "shared-one", scope="personal")).status_code == 201
     # an org admin may see it, so the admin can watch it; the owner's change of scope is out of reach

@@ -1,4 +1,5 @@
-"""The core templates walked through where they used to break (S21-26).
+# SPDX-License-Identifier: Apache-2.0
+"""The delivery templates walked through where they used to break (S21-26).
 
 `full-auto` and `advanced` carried their CI fixer from `pr_open`, where it was chosen only on a
 result the interpreter had already forgotten: a red CI ended with a human (#284). The release notes
@@ -13,14 +14,13 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-
-from .conftest import Fixture, stage_result
+from tranibor_testkit.orchestrator import Fixture, stage_result
 
 pytestmark = pytest.mark.asyncio
 
 
 async def _pin(setup: Fixture, name: str) -> None:
-    """Publish the core template `name` in the project and pin the fixture work item to it."""
+    """Publish the shipped template `name` in the project and pin the fixture work item to it."""
     from tranibor_api.db.models import Project, WorkItem
     from tranibor_api.db.session import session_scope
     from tranibor_api.rbac import SYSTEM

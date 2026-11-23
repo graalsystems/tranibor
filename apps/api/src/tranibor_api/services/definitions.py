@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import Policy, ProjectConfig, Size, Workflow
+from tranibor_contracts.open_lists import STORED
 from tranibor_core import (
     PolicyEngine,
     checksum,
@@ -477,9 +478,9 @@ def workflow_model(row: WorkflowDef | None) -> Workflow:
     # re-read, the only place where the declaration order survived. Documents written since the
     # field exists carry `initial` and take the fast path.
     if row.json_doc and row.json_doc.get("initial"):
-        return Workflow.model_validate(row.json_doc)
+        return Workflow.model_validate(row.json_doc, context={STORED: True})
     # A stored definition passed the rules of its day and must keep loading when a rule is added.
-    parsed, _ = parse_workflow(row.yaml, strict=False)
+    parsed, _ = parse_workflow(row.yaml, strict=False, stored=True)
     return parsed
 
 

@@ -1,10 +1,23 @@
-"""The process view says which registry agent carries each step, and what it reads and writes (S39-13a)."""
+"""The process view says which registry agent carries each step, and what it reads and writes (S39-13a).
+
+`dev-complex` (the `github-software-delivery` template) is read as the platform reads a template: where the
+`software-delivery` extension is absent it is refused for that plugin's gates, effects and train alone, at
+publication (ADR 0181, round D), and the view of its steps is the same. A step writes the work item's
+branch when its transition carries a gate that reads the workspace: an extension registers one so
+(`workspace=True`, here a stand-in's); the plugin's diff gates are pinned in its suite
+(`plugins/software-delivery/tests/core/test_process_view.py`, S83-05n).
+"""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
+import pytest
 from tranibor_core import parse_workflow, to_process
+from tranibor_core.dsl.validator import deployment_issues
+from tranibor_core.gates import GateContext, GateOutcome, forget, gate
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_COMPLEX = ROOT / "templates/github-software-delivery/workflows/dev-complex.yaml"
@@ -17,19 +30,42 @@ initial: todo
 actors:
   quant: { type: job, role: backtest, command: [python, run.py, "--fast"], image: quant-tools }
   maker: { type: agent, role: custom, playbook: maker }
+  writer: { type: agent, role: custom, playbook: writer }
+  owner: { type: human, group: owners }
   platform: { type: system }
 states:
   todo: { display: To do, kind: wait }
   made: { display: Made }
+  run: { display: Run }
+  written: { display: Written }
+  approved: { display: Approved }
   done: { display: Done, terminal: true, kind: terminal }
 transitions:
   - { id: t-make, from: todo, to: made, by: maker, outputs: [deck], output_types: { deck: pptx } }
-  - { id: t-run, from: made, to: done, by: quant, gates: [no_secrets] }
+  - { id: t-run, from: made, to: run, by: quant, gates: [files_scanned] }
+  - { id: t-write, from: run, to: written, by: writer, gates: [files_scanned] }
+  - { id: t-approve, from: written, to: approved, by: owner, gates: [files_scanned] }
+  - { id: t-close, from: approved, to: done, by: platform, gates: [files_scanned] }
 """
 
 
+@pytest.fixture
+def workspace_gate() -> Iterator[None]:
+    """A stand-in plugin's gate that reads what a step wrote to the workspace, as an extension registers
+    one."""
+
+    @gate("files_scanned", plugin="stand-in", workspace=True)
+    def _scanned(ctx: GateContext, params: dict[str, Any]) -> GateOutcome:
+        return GateOutcome("files_scanned", True)
+
+    yield
+    forget("stand-in")
+
+
 def _steps(text: str) -> dict[str, dict]:
-    workflow, _ = parse_workflow(text)
+    workflow, report = parse_workflow(text, strict=False)
+    refused = deployment_issues(workflow, report)[1]
+    assert refused == [], [i.format() for i in refused]
     return {s["id"]: s for s in to_process(workflow)}
 
 
@@ -42,11 +78,12 @@ def test_a_step_names_the_registry_agent_not_the_actor_key() -> None:
     assert steps["t-release-notes"]["agent"] == "release-notes-writer"
 
 
-def test_a_step_that_carries_a_diff_gate_writes_the_branch() -> None:
-    steps = _steps(DEV_COMPLEX.read_text("utf-8"))
-    assert steps["t-implement"]["writes_branch"] is True and steps["t-implement"]["outputs"] == []
-    assert steps["t-review"]["writes_branch"] is False
-    assert steps["t-approve-spec"]["writes_branch"] is False, "a person does not write the branch"
+def test_a_step_that_carries_a_workspace_gate_writes_the_branch(workspace_gate: None) -> None:
+    steps = _steps(INLINE)
+    assert steps["t-write"]["writes_workspace"] is True and steps["t-write"]["writes_workspace"] is True
+    assert steps["t-make"]["writes_workspace"] is False, "no gate reads what it wrote"
+    assert steps["t-approve"]["writes_workspace"] is False, "a person does not write the branch"
+    assert steps["t-close"]["writes_workspace"] is False, "nor does the platform"
 
 
 def test_a_human_step_names_its_group_and_its_sla_and_no_agent() -> None:
@@ -55,10 +92,10 @@ def test_a_human_step_names_its_group_and_its_sla_and_no_agent() -> None:
     assert approve["role"] is None and approve["command"] is None
 
 
-def test_a_job_carries_its_command_and_typed_outputs_pass_through() -> None:
+def test_a_job_carries_its_command_and_typed_outputs_pass_through(workspace_gate: None) -> None:
     steps = _steps(INLINE)
     assert steps["t-run"]["command"] == ["python", "run.py", "--fast"]
-    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_branch"] is True
+    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_workspace"] is True
     assert steps["t-make"]["output_types"] == {"deck": "pptx"} and steps["t-make"]["agent"] is None
 
 

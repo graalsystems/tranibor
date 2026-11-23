@@ -179,7 +179,7 @@ async def test_who_may_turn_a_connector_on(client: AsyncClient, project: dict[st
     other = await make_project(client, "checkout")
     await _prepare(client, project, availability="selected_projects")
     await add_member(client, "owner@northwind.dev", "project_owner", "billing-api")
-    await add_member(client, "dev@northwind.dev", "developer", "billing-api")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing-api")
 
     await project_only(client, "dev@northwind.dev")
     assert (await client.put(_enablement(project))).status_code == 403

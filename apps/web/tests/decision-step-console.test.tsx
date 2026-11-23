@@ -95,7 +95,7 @@ const STEP: ProcessStep = {
   model: "platform/decide",
   inputs: [],
   output_types: {},
-  writes_branch: false,
+  writes_workspace: false,
 };
 
 function YamlProbe() {

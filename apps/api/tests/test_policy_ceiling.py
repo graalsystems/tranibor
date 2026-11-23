@@ -84,7 +84,7 @@ async def test_the_orchestrator_runs_the_clamped_policy(client: AsyncClient, pro
 
 async def test_only_an_org_admin_sets_the_ceiling(client: AsyncClient, admin: str) -> None:
     await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     await login(client, "dev@northwind.dev")
     assert (await _ceiling(client)).status_code == 403

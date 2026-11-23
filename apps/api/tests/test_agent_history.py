@@ -112,7 +112,7 @@ async def test_restore_appends_a_copy_with_the_same_checksum(client: AsyncClient
 
 
 async def test_restore_respects_governance_and_the_eval_gate(client: AsyncClient, org: str) -> None:
-    await add_member(client, DEV, "developer")
+    await add_member(client, DEV, "contributor")
     await as_user(client, ADMIN)
     await install_common(client)
     await as_user(client, DEV)
@@ -180,7 +180,9 @@ async def test_pinned_by_lists_the_projects_the_caller_may_see(client: AsyncClie
 
     # A member of one project only (the dev sign-in gives an organisation role, so the principal is built):
     # the other project's pin stays out of the answer.
-    member = Principal(user_id="u", email="m@northwind.dev", project_roles={"northwind/dev": Role.DEVELOPER})
+    member = Principal(
+        user_id="u", email="m@northwind.dev", project_roles={"northwind/dev": Role.CONTRIBUTOR}
+    )
     async with session_scope(orgs="*") as session:
         from sqlalchemy import select
 

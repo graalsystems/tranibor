@@ -462,7 +462,7 @@ vendor). `ready` is true when no item is `todo`.
 | `backend` | the default backend is not enabled on the deployment | |
 | `models` | a `profile:` named by an active workflow is defined nowhere | the pairing with the default backend has no eval (unless `allow_unvalidated`) |
 | `budgets` | | `budgets.ticket_usd` or `budgets.daily_project_usd` unset |
-| `people-owner`, `people-release-captain` | nobody is `project_owner`; a release train and nobody is `release_captain` | |
+| `people-owner`, `people-release-captain` | nobody is `project_owner`; a release train and nobody is `approver` | |
 | `people-group-<group>` | | a human actor's group was never carried by anyone at sign-in |
 | `notifications` | a release train announces and there is no notify connector, channel or e-mail | findings or memory reviews announce and nothing is set, or the connector was never tested |
 | `object-store` | an active workflow declares a file output (`output_types` other than `markdown`/`json`) and a `HEAD` on the store's bucket fails: unreachable, credentials refused, bucket missing, no access key set. The probe writes nothing, waits 5 s at most and is cached for a minute. Not listed when no workflow writes a file. Not part of `/readyz`: an unreachable store does not take the API out of service | |
@@ -1049,7 +1049,7 @@ answer and on the ticket's journey):
 - **Reads**: the `inputs` of the transition. The map's artifact flow says where each comes from:
   another step, a person's rejection reason, a work item field, or nothing (`missing`).
 - **Produces**: the `outputs`, typed when `output_types` declares a file type, and
-  `writes_branch` for an agent or job step whose transition carries a gate that reads the diff
+  `writes_workspace` for an agent or job step whose transition carries a gate that reads the diff
   (`scope_respected`, `no_secrets`, `diff_size_max`, `markdown_sections`, `adr_number_free`): it
   changes the work item's branch even though it lists no output.
 
@@ -1089,7 +1089,7 @@ The map also says what the shape alone did not:
   it names another or a routing rule sends it elsewhere.
 
 `graph.artifacts` is the artifact flow: one entry per document with `produced_by`, `read_by`,
-`origin`, `context` (given to every agent stage) and `in_pull_request`.
+`origin`, `context` (given to every agent stage) and `in_change_request`.
 
 Which agent version a run would load for those references, through the runtime's own resolver
 (an explicit `@N`, else the project's pin, else its channel, else production: see
@@ -2711,8 +2711,9 @@ Batch mode (S4-09, ADR 0190, off by default): with `CHOREGOS_KNOWLEDGE_DISTILL_B
 through the gateway's OpenAI-compatible batch API (same gateway URL, key and alias as the synchronous call) as one
 batch at half the price, and the run ends within a day (polled every `..._BATCH_POLL_SECONDS`, 120). No LiteLLM
 enterprise licence is needed: the adapter uses the open `model=` path (ADR 0190, S4-11 amendment). The alias must
-be a single OpenAI deployment (`platform/standard` is) that the key can list in `/v1/model/info`, and the gateway
-must not set `litellm_settings.require_managed_files`. The estimate is halved and each part is booked at half its
+be a single OpenAI deployment that the key can list in `/v1/model/info`, and the gateway
+must not set `litellm_settings.require_managed_files`. A gateway whose alias points at another LiteLLM (a platform's shared gateway) has no batch
+path: the run stays synchronous (ADR 0190, finding of 2026-11-23). The estimate is halved and each part is booked at half its
 price; that `kind=distill` ledger line is the cost of record (the gateway's own spend for the key is not read). A
 part the batch cannot answer, or a gateway or upstream that refuses it, falls back to the synchronous call.
 

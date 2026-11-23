@@ -41,7 +41,7 @@ async def _person(client: AsyncClient, email: str, groups: list[str]) -> str:
     from tranibor_api.db.models import User
     from tranibor_api.db.session import session_scope
 
-    await add_member(client, email, "developer")
+    await add_member(client, email, "contributor")
     async with session_scope() as session:
         user = (await session.execute(select(User).where(User.email == email))).scalar_one()
         user.groups = groups

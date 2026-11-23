@@ -65,7 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.members).mockResolvedValue({
     items: [
-      { user_id: "u-ana", email: "ana@northwind.dev", org: "northwind", role: "developer" },
+      { user_id: "u-ana", email: "ana@northwind.dev", org: "northwind", role: "contributor" },
       { user_id: "u-ana", email: "ana@northwind.dev", org: "northwind", project_slug: "billing-api", role: "viewer" },
       { user_id: "u-bo", email: "bo@northwind.dev", org: "northwind", role: "viewer" },
     ],

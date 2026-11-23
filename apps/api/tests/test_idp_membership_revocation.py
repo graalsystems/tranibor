@@ -110,14 +110,14 @@ async def _source(slug: str, email: str = EMAIL) -> str | None:
 async def test_a_group_withdrawn_at_the_idp_withdraws_the_role(
     client: AsyncClient, org: str, idp: dict[str, Any]
 ) -> None:
-    await _sign_in(client, idp, ["choregos:northwind:release-captains"])
-    assert await _memberships(client) == {("northwind", "release_captain")}
+    await _sign_in(client, idp, ["choregos:northwind:approvers"])
+    assert await _memberships(client) == {("northwind", "approver")}
     assert await _source("northwind") == "idp"
     await _sign_in(client, idp, [])
     assert await _memberships(client) == set()
     revoked = await _revocations()
     assert len(revoked) == 1
-    assert revoked[0].payload["role"] == "release_captain"
+    assert revoked[0].payload["role"] == "approver"
 
 
 async def test_a_role_moved_to_another_org_at_the_idp_moves(
@@ -128,10 +128,10 @@ async def test_a_role_moved_to_another_org_at_the_idp_moves(
 
     async with session_scope() as session:
         session.add(Organization(slug="autre", name="Autre"))
-    await _sign_in(client, idp, ["choregos:northwind:developers"])
-    assert await _memberships(client) == {("northwind", "developer")}
-    await _sign_in(client, idp, ["choregos:autre:developers"])
-    assert await _memberships(client) == {("autre", "developer")}
+    await _sign_in(client, idp, ["choregos:northwind:contributors"])
+    assert await _memberships(client) == {("northwind", "contributor")}
+    await _sign_in(client, idp, ["choregos:autre:contributors"])
+    assert await _memberships(client) == {("autre", "contributor")}
 
 
 async def test_a_manual_membership_survives_a_sign_in_without_groups(
@@ -148,11 +148,11 @@ async def test_a_bootstrap_admin_mapped_by_the_idp_stays_manual(
 ) -> None:
     await _seed("northwind", "org_admin", "manual")
     await _seed("northwind", "org_admin", "manual", email="other@northwind.dev")
-    await _sign_in(client, idp, ["choregos:northwind:developers"])
-    assert await _memberships(client) == {("northwind", "developer")}  # the role follows the provider
+    await _sign_in(client, idp, ["choregos:northwind:contributors"])
+    assert await _memberships(client) == {("northwind", "contributor")}  # the role follows the provider
     assert await _source("northwind") == "manual"
     await _sign_in(client, idp, [])
-    assert await _memberships(client) == {("northwind", "developer")}
+    assert await _memberships(client) == {("northwind", "contributor")}
     assert await _source("northwind") == "manual"
     assert await _revocations() == []
 
@@ -180,7 +180,7 @@ async def test_an_idp_org_admin_goes_when_another_administrator_exists(
 
 
 async def test_the_development_login_revokes_nothing(client: AsyncClient, org: str) -> None:
-    await _seed("northwind", "release_captain", "idp", email="dev@northwind.dev")
+    await _seed("northwind", "approver", "idp", email="dev@northwind.dev")
     await login(client, "dev@northwind.dev")
     first = await _memberships(client)
     await login(client, "dev@northwind.dev")
@@ -196,7 +196,7 @@ async def test_an_instance_sign_in_leaves_an_organisation_with_its_own_provider_
     from tranibor_api import tenant_sign_in
     from tranibor_api.tenant_sign_in import OidcProvider, TenantSignIn
 
-    await _sign_in(client, idp, ["choregos:northwind:developers"])
+    await _sign_in(client, idp, ["choregos:northwind:contributors"])
 
     async def resolver(_session: Any, hint: Any) -> TenantSignIn | None:
         if hint.org == "northwind":
@@ -206,7 +206,7 @@ async def test_an_instance_sign_in_leaves_an_organisation_with_its_own_provider_
     tenant_sign_in.declare_sign_in_resolver(resolver)
     try:
         await _sign_in(client, idp, [])
-        assert await _memberships(client) == {("northwind", "developer")}
+        assert await _memberships(client) == {("northwind", "contributor")}
         assert await _revocations() == []
     finally:
         tenant_sign_in.reset()
@@ -220,7 +220,7 @@ async def test_a_group_naming_a_former_slug_keeps_its_role(
     # The administrator who renames `northwind` signs in through the provider (the development login is off).
     await _sign_in(client, idp, ["choregos:northwind:org-admins"])
     await _rename(client)
-    await _sign_in(client, idp, ["choregos:northwind:developers"])
-    await _sign_in(client, idp, ["choregos:northwind:developers"])
-    assert await _memberships(client) == {("fondation", "developer")}
+    await _sign_in(client, idp, ["choregos:northwind:contributors"])
+    await _sign_in(client, idp, ["choregos:northwind:contributors"])
+    assert await _memberships(client) == {("fondation", "contributor")}
     assert await _revocations() == []

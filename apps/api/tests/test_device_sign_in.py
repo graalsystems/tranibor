@@ -364,7 +364,7 @@ async def _other_organisation_member(email: str, *, subject: str | None) -> None
         user = (await session.execute(select(User).where(User.email == email))).scalar_one()
         if subject is not None:
             user.oidc_sub = subject.replace("<id>", other.id)
-        session.add(Membership(user_id=user.id, org_id=other.id, role="developer"))
+        session.add(Membership(user_id=user.id, org_id=other.id, role="contributor"))
 
 
 async def test_a_session_of_another_organisations_provider_is_refused(
@@ -396,7 +396,7 @@ async def _other_organisation_member_again(email: str) -> None:
         other = (await session.execute(select(Organization).where(Organization.slug == "other"))).scalar_one()
         user = (await session.execute(select(User).where(User.email == email))).scalar_one()
         user.oidc_sub = f"tenant:{other.id}:carol"
-        session.add(Membership(user_id=user.id, org_id=other.id, role="developer"))
+        session.add(Membership(user_id=user.id, org_id=other.id, role="contributor"))
 
 
 async def test_a_request_for_an_unknown_organisation_is_refused(org: str, anyone: AsyncClient) -> None:

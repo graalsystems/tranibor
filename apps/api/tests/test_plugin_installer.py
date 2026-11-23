@@ -63,7 +63,7 @@ def offline(tmp_path: Path) -> Iterator[Path]:
     root = tmp_path / "plugins"
     first = _version(root, "1.0.0")
     # The template ships its own workflow file: proof that a plugin's template carries its files.
-    workflow = template_yaml("default-simple").replace("name: default-simple", "name: hello-simple", 1)
+    workflow = template_yaml("default-request").replace("name: default-request", "name: hello-request", 1)
     (first / "templates" / "hello-flow" / "workflow.yaml").write_text(workflow, encoding="utf-8")
     _edit(
         first / "templates" / "hello-flow" / "manifest.yaml",
@@ -455,7 +455,7 @@ async def test_a_project_is_born_from_a_plugin_template_with_its_files(
                 select(WorkflowDef.name).where(WorkflowDef.project_id == created.json()["id"])
             )
         ).scalars()
-        assert "hello-simple" in set(names), "the workflow file of the plugin's template was published"
+        assert "hello-request" in set(names), "the workflow file of the plugin's template was published"
     refused = await client.post(
         f"{ORG}/projects",
         json={
@@ -567,7 +567,7 @@ async def test_only_the_administrator_installs_and_members_read(
     client: AsyncClient, org: str, offline: Path
 ) -> None:
     await make_project(client, "billing")
-    await add_member(client, "dev@northwind.dev", "developer", "billing")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing")
     await project_only(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/plugins/install", json=INSTALL)).status_code == 403
     assert (await client.get(f"{ORG}/plugins")).status_code == 200
@@ -592,7 +592,8 @@ async def test_a_plugin_s_template_workflows_join_the_workflow_catalogue(
     await _install(client)
     entries = (await client.get(f"{ORG}/workflow-catalogue?limit=200")).json()["items"]
     (entry,) = [e for e in entries if e["source"] == "plugin:hello"]
-    assert entry["name"] == "hello-simple" and entry["needs_repository"] is True
+    assert entry["name"] == "hello-request" and entry["needs_workspace"] is False
+    assert [r["capability"] for r in entry["requires"]] == ["tracker", "runtime", "gateway"]
     async with session_scope() as session:
         org_id = (
             await session.execute(select(Organization.id).where(Organization.slug == "northwind"))

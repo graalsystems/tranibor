@@ -146,7 +146,7 @@ async def test_a_global_memory_exports_for_whoever_may_search_it(client: AsyncCl
     [fact] = [_header(t) for n, t in files.items() if n != "lessons/index.md"]
     assert fact["title"] == "tls" and fact["verified"][0]["by"].startswith("human:")
 
-    await add_member(client, "dev@northwind.dev", "developer")
+    await add_member(client, "dev@northwind.dev", "contributor")
     await as_user(client, "dev@northwind.dev")
     assert (await client.get(f"{ORG}/memories/lessons/export")).status_code == 200
     assert (await client.get(f"{ORG}/memories/nothing/export")).status_code == 404

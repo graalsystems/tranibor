@@ -243,7 +243,7 @@ async def test_a_developer_and_an_api_token_do_not_settle(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     _served, _fake, _daemon, action_id = await _in_doubt(client, project)
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     await login(dev, "dev@northwind.dev")
     try:

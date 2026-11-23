@@ -1481,8 +1481,7 @@
     "read_by": [],
     "origin": "step",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "size",
@@ -1493,8 +1492,7 @@
     "read_by": [],
     "origin": "step",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "allowed_paths",
@@ -1505,8 +1503,7 @@
     "read_by": [],
     "origin": "step",
     "context": true,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "spec_markdown",
@@ -1517,8 +1514,7 @@
     "read_by": [],
     "origin": "step",
     "context": true,
-    "in_change_request": true,
-    "in_pull_request": true
+    "in_change_request": true
    },
    {
     "name": "plan_markdown",
@@ -1529,8 +1525,7 @@
     "read_by": [],
     "origin": "step",
     "context": true,
-    "in_change_request": true,
-    "in_pull_request": true
+    "in_change_request": true
    },
    {
     "name": "test_report",
@@ -1543,8 +1538,7 @@
     ],
     "origin": "step",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "docs_report",
@@ -1557,8 +1551,7 @@
     ],
     "origin": "step",
     "context": false,
-    "in_change_request": true,
-    "in_pull_request": true
+    "in_change_request": true
    },
    {
     "name": "review_markdown",
@@ -1572,8 +1565,7 @@
     ],
     "origin": "step",
     "context": false,
-    "in_change_request": true,
-    "in_pull_request": true
+    "in_change_request": true
    },
    {
     "name": "verdict",
@@ -1586,8 +1578,7 @@
     "read_by": [],
     "origin": "step",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "security_review_markdown",
@@ -1600,8 +1591,7 @@
     ],
     "origin": "step",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    },
    {
     "name": "release_notes_markdown",
@@ -1612,8 +1602,7 @@
     "read_by": [],
     "origin": "step",
     "context": false,
-    "in_change_request": true,
-    "in_pull_request": true
+    "in_change_request": true
    },
    {
     "name": "human_feedback",
@@ -1630,8 +1619,7 @@
     ],
     "origin": "feedback",
     "context": false,
-    "in_change_request": false,
-    "in_pull_request": false
+    "in_change_request": false
    }
   ]
  },
@@ -1667,7 +1655,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-specify",
@@ -1702,7 +1690,7 @@
    ],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-approve-spec",
@@ -1732,7 +1720,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-plan",
@@ -1764,7 +1752,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-implement",
@@ -1816,7 +1804,7 @@
    ],
    "output_types": {},
    "writes_workspace": true,
-   "writes_branch": true
+   "writes_workspace": true
   },
   {
    "id": "t-test",
@@ -1855,7 +1843,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-document",
@@ -1908,7 +1896,7 @@
    ],
    "output_types": {},
    "writes_workspace": true,
-   "writes_branch": true
+   "writes_workspace": true
   },
   {
    "id": "t-review",
@@ -1948,7 +1936,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-security-review",
@@ -1988,7 +1976,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-address-review",
@@ -2037,7 +2025,7 @@
    ],
    "output_types": {},
    "writes_workspace": true,
-   "writes_branch": true
+   "writes_workspace": true
   },
   {
    "id": "t-release-notes",
@@ -2071,7 +2059,7 @@
    ],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-open-pr",
@@ -2101,7 +2089,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-approve-pr",
@@ -2131,7 +2119,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-merge",
@@ -2192,7 +2180,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-fix-ci",
@@ -2235,7 +2223,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": true,
-   "writes_branch": true
+   "writes_workspace": true
   },
   {
    "id": "t-stage",
@@ -2265,7 +2253,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-release",
@@ -2295,7 +2283,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-verify-prod",
@@ -2340,7 +2328,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   },
   {
    "id": "t-abandon",
@@ -2370,7 +2358,7 @@
    "inputs": [],
    "output_types": {},
    "writes_workspace": false,
-   "writes_branch": false
+   "writes_workspace": false
   }
  ]
 }

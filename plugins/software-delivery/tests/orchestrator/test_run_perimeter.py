@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """`scope_respected` judges what the RUN wrote, not the whole ticket (S22-11).
 
 On the dev tenant, on 10/09, the ADR of study #5 went red on "3 file(s) outside the allowed

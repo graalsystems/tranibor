@@ -64,7 +64,7 @@ async def _people(count: int, *, project_slug: str | None = None) -> None:
                         user_id=user.id,
                         org_id=org_id,
                         project_id=project_id,
-                        role="developer",
+                        role="contributor",
                         created_at=instant,
                     )
                 )
@@ -144,7 +144,7 @@ async def test_a_project_reader_pages_only_the_projects_they_read(
         session.add(reader)
         await session.flush()
         # A role on the project only: no organisation-wide row, so only its memberships are readable.
-        session.add(Membership(user_id=reader.id, org_id=org_id, project_id=project_id, role="developer"))
+        session.add(Membership(user_id=reader.id, org_id=org_id, project_id=project_id, role="contributor"))
     client.cookies.clear()
     await login(client, "dev@northwind.dev")
     first = (await client.get(f"{ORG}/members", params={"limit": 5})).json()
@@ -213,7 +213,7 @@ async def test_the_linked_accounts_page_by_provider_then_instance(client: AsyncC
     from tranibor_api.db.models import LinkedAccount, Organization
     from tranibor_api.db.session import session_scope
 
-    added = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    added = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     dev = str(added.json()["user_id"])
     start = utcnow()
     async with session_scope() as session:
@@ -252,7 +252,7 @@ async def test_the_tracker_identities_stay_a_single_row_whatever_the_member_link
     from tranibor_api.db.models import LinkedAccount, Organization
     from tranibor_api.db.session import session_scope
 
-    added = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    added = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     dev = str(added.json()["user_id"])
     async with session_scope() as session:
         org_id = (

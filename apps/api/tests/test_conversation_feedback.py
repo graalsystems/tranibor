@@ -131,7 +131,7 @@ async def test_only_the_opener_rates_and_only_those_who_manage_read_the_candidat
 ) -> None:
     session_id = await _converse(client, upstream)
     await client.post(_feedback(session_id), json={"rating": "down"})
-    async with as_person(client, "dev@northwind.dev", "developer") as other:
+    async with as_person(client, "dev@northwind.dev", "contributor") as other:
         stranger = await other.post(_feedback(session_id), json={"rating": "down"})
         assert stranger.status_code == 404, stranger.text
         refused = await other.get(CANDIDATES)

@@ -129,7 +129,7 @@ async def test_global_memory_search_pending_and_decision(client: AsyncClient, ad
         for m in (await client.get(f"{ORG}/memories/lessons/search", params={"q": "HSTS"})).json()
     ] == ["hsts"]
     # Only an administrator decides.
-    await add_member(client, "dev@northwind.dev", "developer")
+    await add_member(client, "dev@northwind.dev", "contributor")
     await as_user(client, "dev@northwind.dev")
     assert (await client.get(f"{ORG}/memories/lessons/pending")).status_code == 403
     refused = await client.post(f"{ORG}/memories/lessons/pending", json={"id": proposed, "action": "reject"})

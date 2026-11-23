@@ -3,12 +3,32 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Iterator, Mapping
+from typing import Any
 
+import pytest
 from tranibor_core import parse_workflow, to_process
 from tranibor_core.dsl.process import gate_summary
-from tranibor_core.gates import known_gates
+from tranibor_core.gates import GateContext, GateOutcome, forget, gate, known_gates
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture
+def waiting_gate() -> Iterator[None]:
+    """A stand-in plugin's asynchronous gate, registered as its extension would, removed after."""
+
+    def _detail(params: Mapping[str, Any]) -> str:
+        if "approvals" in params:
+            return f"at least {params['approvals']} approvals"
+        return "at least 2 approvals (the platform's defaults)"
+
+    @gate("approvals_counted", asynchronous=True, plugin="stand-in", detail=_detail)
+    def _counted(ctx: GateContext, params: dict[str, Any]) -> GateOutcome:
+        return GateOutcome("approvals_counted", True)
+
+    yield
+    forget("stand-in")
 
 
 def _staffing() -> list[dict[str, object]]:
@@ -39,32 +59,23 @@ def test_a_person_their_delay_and_the_rejection() -> None:
     assert "If rejected, back to “Sourcing”" in phrase and "times out after 72 h" in phrase
 
 
-def test_what_the_platform_does_is_said_in_plain_words() -> None:
-    """`does` (#175): the process view says the platform opens, then merges the PR."""
-    from tranibor_core.dsl import template_yaml
-
-    workflow, _ = parse_workflow(template_yaml("default-simple"))
-    steps = {e["to"]: str(e["sentence"]) for e in to_process(workflow)}
-    assert "the platform, which opens the pull request" in steps["pr_open"]
-    assert "the platform, which merges the pull request" in steps["merged"]
-
-
-def test_a_guarantee_says_its_thresholds_and_how_long_it_waits() -> None:
-    """The map listed `diff_size_max` and `ci_green` as bare names: what the limit is, and that the
-    step waits for the CI, were not said anywhere."""
+def test_a_guarantee_says_its_thresholds_and_how_long_it_waits(waiting_gate: None) -> None:
+    """The map listed guarantees as bare names: what the limit is, and that the step waits, were not said
+    anywhere. A gate says its thresholds when its extension registers it (`detail`, with its own defaults);
+    an asynchronous one waits up to the transition's timeout, 24 h without one. The `software-delivery`
+    plugin's (`diff_size_max`, `ci_green`...) are pinned in its suite (`tests/core/test_process_view.py`)."""
     from tranibor_core.dsl.process import gate_detail
 
     assert (
-        gate_detail("diff_size_max", {})
-        == "at most 60 files and 100000 lines changed (the platform's defaults)"
+        gate_detail("approvals_counted", {})
+        == "at least 2 approvals (the platform's defaults); waits for it up to 24 h"
     )
     assert (
-        gate_detail("diff_size_max", {"files": 10, "lines": 400}) == "at most 10 files and 400 lines changed"
+        gate_detail("approvals_counted", {"approvals": 3}, 72)
+        == "at least 3 approvals; waits for it up to 72 h"
     )
-    assert "with none declared, anything passes" in str(gate_detail("scope_respected", {}))
-    assert gate_detail("ci_green", {}, 72) == "waits for it up to 72 h"
-    assert gate_detail("ci_green", {}) == "waits for it up to 24 h"
-    assert gate_detail("no_secrets", {}) is None
+    assert gate_detail("outputs_present", {}) is None
+    assert gate_detail("outputs_in", {"values": {"verdict": ["approve"]}}) == "`verdict` in `approve`"
 
 
 def test_each_step_s_guarantees_carry_their_detail() -> None:

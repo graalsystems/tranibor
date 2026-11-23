@@ -213,7 +213,7 @@ async def test_a_caller_who_lost_the_project_cannot_resume(
 ) -> None:
     await _agent(client)
     voice.model.say(GREETING)
-    async with as_person(client, "dev@northwind.dev", "developer") as person:
+    async with as_person(client, "dev@northwind.dev", "contributor") as person:
         socket = _socket(person)
         await socket.__aenter__()
         session_id, read_up_to = await _greeted(socket)

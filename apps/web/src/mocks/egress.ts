@@ -4,7 +4,7 @@
  * the MCP hosts outside — so the modal shows its platform change. The governed "add" endpoints answer
  * 409 `egress_required` until their host is allowed, as the API does.
  *
- * Who is looking: an administrator unless `sessionStorage["choregos.mock.role"]` is `developer`.
+ * Who is looking: an administrator unless `sessionStorage["choregos.mock.role"]` is `contributor`.
  */
 import { ApiError } from "@/lib/api";
 import type { EgressRule, EgressVerdict } from "@/lib/types";
@@ -25,9 +25,9 @@ export const egressRules: EgressRule[] = [
 
 let counter = 3;
 
-function role(): "org_admin" | "developer" {
+function role(): "org_admin" | "contributor" {
   try {
-    return typeof window !== "undefined" && window.sessionStorage.getItem("choregos.mock.role") === "developer" ? "developer" : "org_admin";
+    return typeof window !== "undefined" && window.sessionStorage.getItem("choregos.mock.role") === "contributor" ? "contributor" : "org_admin";
   } catch {
     return "org_admin";
   }

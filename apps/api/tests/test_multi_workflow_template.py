@@ -146,12 +146,16 @@ async def test_a_faulty_template_gives_no_project(
     assert "hr" not in {p["slug"] for p in projects}, "nothing is half-created"
 
 
-async def test_the_shipped_templates_keep_their_shape(client: AsyncClient, admin: str) -> None:
-    """`defaults.workflow`, singular: the shape of the templates shipped so far."""
-    created = await _project(client, "github-aca@1.0.0", slug="on-azure")
+async def test_a_template_s_single_workflow_keeps_its_shape(
+    client: AsyncClient, admin: str, templates: Any
+) -> None:
+    """`defaults.workflow`, singular: the shape of the templates shipped first (`github-aca`'s is pinned in
+    the `software-delivery` plugin's suite, `test_shipped_template_shape.py`)."""
+    templates({"workflow": "template:blank@1"})
+    created = await _project(client, "hr@1.0.0")
     assert created.status_code == 201, created.text
     active = (await client.get(f"/api/v1/projects/{created.json()['id']}/workflows")).json()["items"]
-    assert [w["name"] for w in active] == ["default-simple"]
+    assert [w["name"] for w in active] == ["blank"], "not the default of a project without a template"
 
 
 def test_the_template_schema_knows_these_fields() -> None:

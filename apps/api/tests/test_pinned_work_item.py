@@ -37,12 +37,12 @@ async def test_the_work_item_keeps_its_workflow_when_the_default_changes(
     ticket = created.json()
     assert (ticket["workflow_name"], ticket["state"]) == ("staffing", "request")
 
-    # The default becomes default-simple again: the work item stays in staffing.
+    # The default becomes another workflow (a core one, published with or without the plugins'
+    # extensions): the work item stays in staffing.
     from tranibor_core import template_yaml
 
-    other = await client.put(
-        f"/api/v1/projects/{pid}/workflow", json={"yaml": template_yaml("default-simple")}
-    )
+    other = await client.put(f"/api/v1/projects/{pid}/workflow", json={"yaml": template_yaml("blank")})
     assert other.status_code == 200, other.text
+    assert other.json()["name"] == "blank"
     reread = (await client.get(f"/api/v1/work-items/{ticket['id']}")).json()
     assert (reread["workflow_name"], reread["workflow_version"]) == ("staffing", 1)

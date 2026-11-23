@@ -15,8 +15,8 @@ const report = (weeks: number, verdict: string): MemoryAbReport => ({
   weeks,
   verdict,
   detail: "Small groups.",
-  with_memory: { projects: ["billing-api"], tickets: 18, first_pass_merge_rate: 0.72, cost_per_ticket_usd: 1.8 },
-  without_memory: { projects: ["checkout-web"], tickets: 15, first_pass_merge_rate: 0.53, cost_per_ticket_usd: 2.4 },
+  with_memory: { projects: ["billing-api"], tickets: 18, first_pass_acceptance_rate: 0.72, cost_per_ticket_usd: 1.8 },
+  without_memory: { projects: ["checkout-web"], tickets: 15, first_pass_acceptance_rate: 0.53, cost_per_ticket_usd: 2.4 },
 });
 
 describe("the memory A/B report", () => {

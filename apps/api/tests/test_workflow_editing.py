@@ -13,6 +13,8 @@ from httpx import AsyncClient
 from tranibor_core.dsl import template_yaml
 
 ORIGIN = template_yaml("default-simple")
+#: A workflow of the core's (ADR 0181): it validates with or without the plugins' extensions.
+CORE_ORIGIN = template_yaml("default-request")
 
 
 async def _edit(client: AsyncClient, text: str, *operations: dict[str, Any]) -> Any:
@@ -23,29 +25,33 @@ async def test_an_added_guarantee_reads_back_as_a_diff_and_can_be_undone(
     client: AsyncClient, admin: str
 ) -> None:
     response = await _edit(
-        client, ORIGIN, {"op": "add_gate", "transition": "t-implement", "gate": "ci_green", "index": 0}
+        client,
+        CORE_ORIGIN,
+        {"op": "add_gate", "transition": "t-deliver", "gate": "evidence_present", "index": 0},
     )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["valid"] is True and body["graph"]["nodes"]
     # The process view of the edited text (S16-08): the added guarantee is stated there.
-    (step,) = [e for e in body["process"] if e["id"] == "t-implement"]
-    assert "ci_green" in {g["name"] for g in step["gates"]}
+    (step,) = [e for e in body["process"] if e["id"] == "t-deliver"]
+    assert "evidence_present" in {g["name"] for g in step["gates"]}
     changed = [
         line
         for line in body["diff"].splitlines()
         if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
     ]
     removed, added = changed  # one line changes, the rest does not move
-    assert removed.startswith("-") and "ci_green" not in removed
-    assert added.startswith("+") and "gates: [ci_green, " in added
-    assert [c for c in ORIGIN.splitlines() if c.lstrip().startswith("#")] == [
-        c for c in body["yaml"].splitlines() if c.lstrip().startswith("#")
-    ], "the comments stay"
+    assert removed.startswith("-") and "evidence_present" not in removed
+    assert added.startswith("+") and "gates: [evidence_present, " in added
+    comments = [c for c in CORE_ORIGIN.splitlines() if c.lstrip().startswith("#")]
+    assert comments, "the original carries comments, so their staying is a check"
+    assert comments == [c for c in body["yaml"].splitlines() if c.lstrip().startswith("#")], (
+        "the comments stay"
+    )
     undone = await client.post(
         "/api/v1/workflows/edit", json={"yaml": body["yaml"], "operations": body["inverse"]}
     )
-    assert undone.json()["yaml"] == ORIGIN
+    assert undone.json()["yaml"] == CORE_ORIGIN
 
 
 async def test_renaming_a_state_with_an_effect_writes_it_first(client: AsyncClient, admin: str) -> None:

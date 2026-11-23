@@ -121,7 +121,7 @@ async def test_a_developer_reads_the_groups_and_writes_none_of_them(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     assert (await _create(client)).status_code == 201
-    await _member(client, "dev@northwind.dev", "developer", [])
+    await _member(client, "dev@northwind.dev", "contributor", [])
     dev_id = await _user_id("dev@northwind.dev")
     developer = await _session(app, "dev@northwind.dev")
     try:
@@ -162,7 +162,7 @@ async def test_only_a_member_of_the_organisation_joins_a_group(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     assert (await _create(client)).status_code == 201
-    await _member(client, "dev@northwind.dev", "developer", [])
+    await _member(client, "dev@northwind.dev", "contributor", [])
     dev_id = await _user_id("dev@northwind.dev")
     members = f"{BASE}/{GROUP}/members"
 
@@ -194,7 +194,7 @@ async def test_only_a_member_of_the_organisation_joins_a_group(
 async def test_a_group_the_identity_provider_pushes_is_read_only_here(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    await _member(client, "dev@northwind.dev", "developer", [])
+    await _member(client, "dev@northwind.dev", "contributor", [])
     dev_id = await _user_id("dev@northwind.dev")
     await _scim_group([dev_id])
     one = f"{BASE}/platform-team"
@@ -225,7 +225,7 @@ async def test_upsert_external_group_creates_then_replaces_the_group_and_its_mem
     from tranibor_api.services.org_groups import upsert_external_group
 
     for email in ("a@northwind.dev", "b@northwind.dev", "c@northwind.dev"):
-        await _member(client, email, "developer", [])
+        await _member(client, email, "contributor", [])
     a, b, c = [await _user_id(f"{x}@northwind.dev") for x in "abc"]
     org_id = await _org_id()
 
@@ -312,7 +312,7 @@ async def test_a_member_of_the_internal_group_answers_a_step_addressed_to_it_wit
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     item_id = await _waiting_ticket(client, project["id"])
-    await _member(client, "cap@northwind.dev", "developer", [])  # no group in the identity provider's claim
+    await _member(client, "cap@northwind.dev", "contributor", [])  # no group in the identity provider's claim
     refused = await _decide(app, "cap@northwind.dev", item_id)
     assert refused.status_code == 403 and GROUP in refused.text, refused.text
 
@@ -330,7 +330,7 @@ async def test_a_member_of_the_internal_group_answers_a_step_addressed_to_it_wit
 async def test_the_principal_carries_the_table_groups_namespaced_and_only_while_a_member(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
-    await _member(client, "cap@northwind.dev", "developer", ["from-the-idp"])
+    await _member(client, "cap@northwind.dev", "contributor", ["from-the-idp"])
     assert (await _create(client)).status_code == 201
     assert (
         await client.post(f"{BASE}/{GROUP}/members", json={"email": "cap@northwind.dev"})
@@ -369,7 +369,7 @@ async def test_an_internal_group_with_a_member_is_known_and_its_members_are_list
     empty = (await client.post(path, json={"yaml": WORKFLOW})).json()["warnings"]
     assert [w["code"] for w in empty] == ["actor.group_unknown"], "an empty group is carried by nobody"
 
-    await _member(client, "cap@northwind.dev", "developer", [])
+    await _member(client, "cap@northwind.dev", "contributor", [])
     assert (
         await client.post(f"{BASE}/{GROUP}/members", json={"email": "cap@northwind.dev"})
     ).status_code == 201

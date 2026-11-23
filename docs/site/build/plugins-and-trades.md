@@ -101,8 +101,8 @@ first-party plugin like any other, in its own distribution, before 1.0.
 
 | Today in the core | By 1.0 |
 | :-- | :-- |
-| The roles `developer` and `release_captain` | `contributor` and `approver`, in the core |
-| `pr_url` on a work item and a step's result, `repository` fields | `links`, with `rel: change_request`; `workspace` |
+| The roles `developer` and `release_captain` | `contributor` and `approver`, in the core: done (S83-03) |
+| `pr_url` on a work item and a step's result, `repository` fields | `links`, with `rel: change_request`; `workspace`: done (S83-03) |
 | The twelve gates that read a diff or a CI | `software-delivery`'s extension, under the same names: done (S83-04a, `plugins/software-delivery/`) |
 | `does: open_pr` and `merge_pr` | `software-delivery`, under the same names: done (S83-04b) |
 | The `scm.*`, `ci.*`, `cd.*` events, the finding types `bug`, `perf`, `tech-debt`, `flaky-test` | `software-delivery`, under the same names: declared by it (S83-04c), kept in the core's lists until the first release cut on or after 2026-12-14 |

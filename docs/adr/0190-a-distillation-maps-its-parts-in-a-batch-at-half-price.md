@@ -116,3 +116,25 @@ synchronous calls, and is never added to the ledger. Pinned by
 `apps/api/tests/test_knowledge_distillation_batch.py::test_a_batched_part_is_booked_once_and_on_no_run_or_work_item_budget`.
 
 Still not proven: no live gateway or provider call; the open path is read in source only.
+
+## Finding, 2026-11-23: a gateway whose alias points at another LiteLLM has no batch path
+
+Tried on a deployment where `platform/standard` is `openai/choregos-standard` at a second LiteLLM (the
+platform's shared gateway), both at v1.108.12:
+
+- through the embedded gateway, `POST /v1/files` reaches the second gateway with no model (the OpenAI SDK
+  call carries no `x-litellm-model`) and fails there: 500 `files_settings is not set`;
+- sent to the second gateway directly with `x-litellm-model: choregos-standard`, the upload passes but
+  `POST /v1/batches` checks that the caller's key may call each row's `body.model`: `gpt-5.5` is refused
+  (403, the key holds aliases only), and `choregos-standard` is accepted and then passed to OpenAI
+  unchanged, which fails the batch (`model_not_found`: not supported by the Batch API). LiteLLM does not
+  rewrite the rows on the model-routed path.
+
+So the batch needs the gateway that holds the provider key, with a key allowed to name the provider's
+model id. Where the platform's rule is that a project only calls its own aliases, there is no batch path,
+and the run stays synchronous with no loss. The deployment measured spent USD 0.75 on distillation in
+30 days, so the half price was worth USD 0.38 a month there: no change was made to either gateway.
+
+Rows now set `max_completion_tokens`, not `max_tokens`: a batch row is passed on as written, with none of
+the parameter mapping of a synchronous call, and OpenAI's reasoning models (gpt-5.x) refuse `max_tokens`.
+

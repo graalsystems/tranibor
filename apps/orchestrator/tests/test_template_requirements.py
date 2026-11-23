@@ -1,5 +1,6 @@
-"""What the development template needs (S21-22): the reason for a refusal reaches the next agent,
-the repository receives the labels the template routes, the PR carries the release notes."""
+"""What the development template needs (S21-22): the reason for a refusal reaches the next agent, the
+repository receives the labels the template routes. The pull request's release notes are the
+`software-delivery` plugin's (`plugins/software-delivery/tests/test_pull_request_body.py`)."""
 
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, stage_result
 
@@ -41,7 +43,10 @@ async def test_the_reason_for_a_refusal_reaches_the_work_item_and_an_approval_cl
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """A transition that declares `inputs: [human_feedback]` receives it; it used to be lost, and the
-    agent redid the same work without knowing why it was sent back."""
+    agent redid the same work without knowing why it was sent back. Played on the core's own
+    refinement and approval (`CORE_SIMPLE`, `default-simple`'s front half), so it runs without the
+    plugins' extensions (ADR 0181, round D)."""
+    await use_workflow(setup)
     for resume in ("spec v1", "spec v2"):
         # `t-refine` declares its outputs: a step without them fails (S31-02).
         setup.adapters.executor.queue_result(
@@ -99,14 +104,3 @@ async def test_the_labels_step_adds_the_templates_without_touching_the_platforms
     message = await _github_ensure_labels({"labels": ["study"]}, bundle, None)
     assert received == [{**LABELS, "study": "ededed"}]
     assert message == f"{len(LABELS) + 1} labels ensured"
-
-
-def test_the_pr_carries_the_release_notes_in_english() -> None:
-    from tranibor_software_delivery.source_control import _pr_body
-
-    item = SimpleNamespace(tracker_key="northwind/billing-api#7", body_snapshot="The total ignores credits.")
-    body = _pr_body(item, {"release_notes_markdown": "- Credits are now deducted from the total."})
-    assert "## Release notes\n- Credits are now deducted from the total." in body
-    assert body.startswith("Work item: northwind/billing-api#7")
-    assert "Ticket :" not in body and "ouverte" not in body  # lang: fr-ok
-    assert "## Release notes" not in _pr_body(item, {}), "no empty section"

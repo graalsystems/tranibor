@@ -2,20 +2,32 @@
 
 A template that declares a nonexistent connector or a step nobody implements fails at
 provisioning, at a customer's, at the worst moment. This suite says so beforehand.
+
+The checks of a template's connectors, workflows, actions and agents are the test kit's
+(`tranibor_testkit.templates`): a software delivery template (it requires the `software-delivery` plugin's
+`scm`, `ci` or `cd`) is held to them by the plugin's suite
+(`plugins/software-delivery/tests/core/test_template_conformance.py`), where the plugin is installed; every
+other template here, with or without the plugins (ADR 0181, round D).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pytest
-import yaml
+from tranibor_testkit.templates import (
+    CORE_MANIFESTS,
+    MANIFESTS,
+    SOFTWARE_DELIVERY_MANIFESTS,
+    TEMPLATES,
+    assert_actions_call_only_what_the_template_announces,
+    assert_the_declared_connectors_exist,
+    assert_the_template_agents_and_skills_are_installable,
+    assert_the_workflows_the_default_the_routing_and_the_policy_exist,
+    manifest,
+)
 
 pytestmark = pytest.mark.conformance
-
-TEMPLATES = Path(__file__).resolve().parents[3] / "templates"
-MANIFESTS = sorted(TEMPLATES.glob("*/manifest.yaml"))
 
 # Steps known to `provisioning._execute`, plus those explicitly ignored.
 KNOWN_STEPS = {
@@ -37,10 +49,6 @@ KNOWN_STEPS = {
 }
 
 
-def manifest(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
-
-
 def test_il_y_a_des_templates() -> None:
     assert MANIFESTS, "no template shipped"
 
@@ -54,22 +62,21 @@ def test_the_manifest_is_well_formed(path: Path) -> None:
     assert metadata["version"] and metadata["display"] and metadata["description"].strip()
 
 
-@pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
+def test_the_shipped_templates_are_split_between_the_core_and_the_plugin_suites() -> None:
+    """Every shipped template is held to the connector, workflow, action and agent checks by one suite: the
+    core's here, the `software-delivery` plugin's for the templates that require its kinds."""
+    assert Path(__file__).resolve().parents[3] / "templates" == TEMPLATES
+    assert CORE_MANIFESTS and SOFTWARE_DELIVERY_MANIFESTS
+    assert sorted(CORE_MANIFESTS + SOFTWARE_DELIVERY_MANIFESTS) == MANIFESTS
+    assert (
+        Path(__file__).resolve().parents[3]
+        / "plugins/software-delivery/tests/core/test_template_conformance.py"
+    ).is_file()
+
+
+@pytest.mark.parametrize("path", CORE_MANIFESTS, ids=lambda p: p.parent.name)
 def test_the_declared_connectors_exist(path: Path) -> None:
-    """A template only promises registered adapters."""
-    import os
-
-    from tranibor_adapters import available
-
-    was_fake = os.environ.pop("TRANIBOR_FAKES", None)
-    try:
-        for kind, type_name in manifest(path)["requires"]["connectors"].items():
-            assert type_name in available(kind), (
-                f"{path.parent.name} demande `{kind}: {type_name}`, connus : {', '.join(available(kind))}"
-            )
-    finally:
-        if was_fake is not None:
-            os.environ["TRANIBOR_FAKES"] = was_fake
+    assert_the_declared_connectors_exist(path)
 
 
 @pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
@@ -79,49 +86,9 @@ def test_the_steps_are_implemented(path: Path) -> None:
         assert name in KNOWN_STEPS, f"unknown step in {path.parent.name}: {name}"
 
 
-def _workflows(path: Path) -> list[Any]:
-    """The workflows the template ships, read and validated as at a project's birth."""
-    from tranibor_core.dsl import load_template, parse_workflow
-
-    defaults = manifest(path)["defaults"]
-    refs = list(defaults.get("workflows") or [defaults["workflow"]])
-    delivered = []
-    for ref in refs:
-        if str(ref).startswith("template:"):
-            delivered.append(load_template(str(ref).removeprefix("template:").split("@")[0]))
-            continue
-        resolved = (path.parent / str(ref)).resolve()
-        assert resolved.is_relative_to(path.parent.resolve()), f"{ref} leaves the template folder"
-        workflow, report = parse_workflow(resolved.read_text(encoding="utf-8"), strict=False)
-        assert report.valid, f"{path.parent.name}/{ref} : {report.as_dict()['errors']}"
-        assert not report.warnings, f"{path.parent.name}/{ref} : {report.as_dict()['warnings']}"
-        delivered.append(workflow)
-    return delivered
-
-
-@pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
+@pytest.mark.parametrize("path", CORE_MANIFESTS, ids=lambda p: p.parent.name)
 def test_the_workflows_the_default_the_routing_and_the_policy_exist(path: Path) -> None:
-    from tranibor_core import load_preset
-
-    defaults = manifest(path)["defaults"]
-    names = [w.metadata.name for w in _workflows(path)]
-    assert len(set(names)) == len(names), f"two workflows with the same name: {names}"
-    assert defaults.get("default_workflow", names[0]) in names
-    for rule in defaults.get("routing") or []:
-        assert rule["workflow"] in names, (
-            f"the routing targets `{rule['workflow']}`, which the template does not ship"
-        )
-
-    policy_ref = str(defaults["policy"])
-    if policy_ref.startswith("preset:"):
-        assert load_preset(policy_ref.removeprefix("preset:")) is not None
-        return
-    # A policy of the template's own (S21-22): in its folder, and readable.
-    from tranibor_core.policy import parse_policy
-
-    resolved = (path.parent / policy_ref).resolve()
-    assert resolved.is_relative_to(path.parent.resolve()), f"{policy_ref} leaves the template folder"
-    assert parse_policy(resolved.read_text(encoding="utf-8")).metadata.name
+    assert_the_workflows_the_default_the_routing_and_the_policy_exist(path)
 
 
 @pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
@@ -140,80 +107,14 @@ def test_the_scaffold_exists_and_holds_what_the_manifest_announces(path: Path) -
         assert any(c.exists() for c in candidats), f"{file} announced but missing from the scaffold"
 
 
-@pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
+@pytest.mark.parametrize("path", CORE_MANIFESTS, ids=lambda p: p.parent.name)
 def test_actions_call_only_what_the_template_announces(path: Path) -> None:
-    """Every `connector.call` names a connector the manifest announces (`org_connectors`), an
-    operation its capability declares, with the arguments its schema requires — and nothing else. An
-    `mcp` server discovers its tools: only the connector name is judged. A template only calls
-    core effects: a plugin's are not everywhere. `work_item.file` (ADR 0197) names a project, not a
-    connector: the project's own `accepts_items_from` judges it."""
-    from tranibor_adapters import connector_types
-
-    annonces = dict(manifest(path)["requires"].get("org_connectors") or {})
-    operations = {
-        kind: {o.name: o for o in spec.operations} for kind, _, spec in connector_types() if spec.operations
-    }
-    for workflow in _workflows(path):
-        for transition in workflow.transitions:
-            action = transition.action
-            if action is None:
-                continue
-            for effect in action.effects:
-                specs = [
-                    effect.model_dump(by_alias=True),
-                    *([effect.compensate] if effect.compensate else []),
-                ]
-                for spec in specs:
-                    name = str(spec["effect"])
-                    assert name in {"connector.call", "check", "verifier", "work_item.file"}, (
-                        f"{transition.key}: effect `{name}` outside the core"
-                    )
-                    if name != "connector.call":
-                        continue
-                    call = dict(spec.get("with") or {})
-                    connector = call["connector"]
-                    ou = f"{workflow.metadata.name}/{transition.key} : {connector}"
-                    assert connector in annonces, f"{ou} is not announced in `requires.org_connectors`"
-                    capability = annonces[connector]
-                    if capability == "mcp":
-                        continue
-                    operation = operations.get(capability, {}).get(call["operation"])
-                    assert operation is not None, (
-                        f"{ou} : `{call['operation']}` n'est pas une opération de `{capability}`"
-                    )
-                    schema = operation.input_schema or {}
-                    arguments = set(dict(call.get("arguments") or {}))
-                    manquants = set(schema.get("required", [])) - arguments
-                    assert not manquants, f"{ou}/{call['operation']} : il manque {sorted(manquants)}"
-                    en_trop = arguments - set(schema.get("properties", {}))
-                    assert not en_trop, f"{ou}/{call['operation']}: {sorted(en_trop)} outside the schema"
+    assert_actions_call_only_what_the_template_announces(path)
 
 
-@pytest.mark.parametrize("path", MANIFESTS, ids=lambda p: p.parent.name)
+@pytest.mark.parametrize("path", CORE_MANIFESTS, ids=lambda p: p.parent.name)
 def test_the_template_agents_and_skills_are_installable(path: Path) -> None:
-    from tranibor_api.schemas.agents import AgentCreate
-    from tranibor_api.services.agents import version_errors
-    from tranibor_api.services.templates import delivery
-
-    livree = delivery(manifest(path), path.parent)
-    from tranibor_api.services.skills import validate
-
-    skills = {validate(files).name for files in livree.skills}
-    agents = set()
-    for document in livree.agents:
-        agent = AgentCreate.model_validate(document)
-        version_errors(agent.spec)
-        agents.add(agent.slug)
-        orphelines = {s.slug for s in agent.spec.skills} - skills
-        assert not orphelines, f"{agent.slug} names skills the template does not ship: {sorted(orphelines)}"
-    for workflow in _workflows(path):
-        for name, acteur in workflow.actors.items():
-            reference = getattr(acteur, "agent", None)
-            if reference:
-                slug = reference.split("@")[0]
-                assert slug in agents, (
-                    f"{workflow.metadata.name}/{name} names agent `{slug}`, which the template does not ship"
-                )
+    assert_the_template_agents_and_skills_are_installable(path)
 
 
 #: The extensions a template may ship (S20-09): any other would have nobody to validate it before a

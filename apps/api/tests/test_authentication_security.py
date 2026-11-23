@@ -88,7 +88,7 @@ async def test_an_email_that_starts_with_admin_is_not_admin(client: AsyncClient,
     """Before: `admin*` => ORG_ADMIN. Now only the `dev_admin_emails` list counts."""
     await login(client, "admin@evil.dev")
     me = (await client.get("/api/v1/me")).json()
-    assert [m["role"] for m in me["memberships"]] == ["developer"]
+    assert [m["role"] for m in me["memberships"]] == ["contributor"]
     created = await client.post(
         "/api/v1/orgs/northwind/projects",
         json={"slug": "x", "name": "x", "config": {"slug": "x", "org": "northwind"}},
@@ -131,14 +131,14 @@ async def test_a_project_role_does_not_cross_organisations(
     other_id = await _second_organisation()
     invited = await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        json={"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
     )
     assert invited.status_code in {200, 201}, invited.text
 
     await login(client, "dev@northwind.dev")
     me = (await client.get("/api/v1/me")).json()
     roles = {(m["org"], m.get("project_slug")): m["role"] for m in me["memberships"]}
-    assert roles[("northwind", "billing-api")] == "developer"
+    assert roles[("northwind", "billing-api")] == "contributor"
     assert ("other", "billing-api") not in roles
 
     assert (await client.get(f"/api/v1/projects/{project['id']}")).status_code == 200
@@ -167,13 +167,13 @@ async def test_the_oidc_groups_are_attached_to_their_organisation() -> None:
     from tranibor_contracts import Role
 
     roles = roles_from_groups(
-        ["choregos:northwind:developers", "choregos:other:org-admins", "developers", "unrelated"],
+        ["choregos:northwind:contributors", "choregos:other:org-admins", "contributors", "unrelated"],
         default_org="",
     )
-    # `developers` gives the neutral role (ADR 0181 C1); the row is written with `Role.stored`.
+    # a bare group without a default organisation gives nothing
     assert roles == {"northwind": Role.CONTRIBUTOR, "other": Role.ORG_ADMIN}
     # a bare group holds only for the default organisation, and the highest one wins
-    roles = roles_from_groups(["developers", "choregos:northwind:product-owners"], default_org="northwind")
+    roles = roles_from_groups(["contributors", "choregos:northwind:product-owners"], default_org="northwind")
     assert roles == {"northwind": Role.PROJECT_OWNER}
 
 
@@ -219,7 +219,7 @@ async def test_the_oidc_flow_checks_state_and_pkce_and_bounds_the_redirection(
                         "sub": "u-1",
                         "email": "jo@northwind.dev",
                         "name": "Jo",
-                        "groups": ["choregos:northwind:release-captains"],
+                        "groups": ["choregos:northwind:approvers"],
                     },
                 )
             )
@@ -244,7 +244,7 @@ async def test_the_oidc_flow_checks_state_and_pkce_and_bounds_the_redirection(
 
             me = (await client.get("/api/v1/me")).json()
             assert me["email"] == "jo@northwind.dev"
-            assert {(m["org"], m["role"]) for m in me["memberships"]} == {("northwind", "release_captain")}
+            assert {(m["org"], m["role"]) for m in me["memberships"]} == {("northwind", "approver")}
 
             # 4. the same `state` does not serve twice: the handshake cookie is gone
             again = await client.get("/api/v1/auth/callback", params={"code": "c", "state": state})

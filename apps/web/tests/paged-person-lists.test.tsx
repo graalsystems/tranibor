@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 const meta = (next: string | null) => ({ has_more: next !== null, next_cursor: next });
-const org = (slug: string): Org => ({ slug, name: `Company ${slug}`, role: "developer", currency: "EUR" }) as Org;
+const org = (slug: string): Org => ({ slug, name: `Company ${slug}`, role: "contributor", currency: "EUR" }) as Org;
 const token = (id: string): ApiToken => ({ id, name: `token-${id}`, scopes: ["*"], created_at: "2026-11-01T00:00:00Z" }) as ApiToken;
 const session = (id: string, current = false): BrowserSession =>
   ({ id, channel: "oidc", kind: "browser", created_at: "2026-11-01T00:00:00Z", expires_at: "2026-11-02T00:00:00Z", current }) as BrowserSession;

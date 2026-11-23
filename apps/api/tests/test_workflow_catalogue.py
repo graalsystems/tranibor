@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pathlib
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 from tranibor_api.services.workflow_catalogue import renamed
 from tranibor_core.dsl import template_yaml
@@ -26,6 +28,13 @@ transitions:
   - { id: t-haunt, from: inbox, to: done, by: spirit, outputs: [spec_markdown], gates: [outputs_present] }
 """
 
+#: A template's own workflow naming an agent of the platform's catalogue.
+REVIEWED = (
+    GHOST.replace("name: ghostly", "name: reviewed")
+    .replace("title: Ghostly", "title: Reviewed")
+    .replace("agent: ghost-agent", "agent: security-reviewer")
+)
+
 
 def _entry(entries: list[dict[str, Any]], source: str, name: str) -> dict[str, Any]:
     return next(e for e in entries if e["source"] == source and e["name"] == name)
@@ -38,19 +47,44 @@ async def test_the_catalogue_lists_core_and_template_workflows_with_what_they_ne
     assert listed.status_code == 200, listed.text
     entries = listed.json()["items"]
     request = _entry(entries, "core", "default-request")
-    assert request["needs_repository"] is False
+    assert request["needs_workspace"] is False
     assert [r["capability"] for r in request["requires"]] == ["tracker", "runtime", "gateway"]
     assert request["groups"] == ["product-owners"]
     assert request["agents"] == [], "its two agents are core playbooks (ADR 0110), not registry agents"
-    delivery = _entry(entries, "template:github-software-delivery", "dev-simple")
-    assert ("developer", "catalogue") in {(a["slug"], a["resolution"]) for a in delivery["agents"]}, (
-        "not installed yet: the platform's catalogue (its offline plugins) provides it"
-    )
-    assert _entry(entries, "core", "default-simple")["needs_repository"] is True
     hr = [e for e in entries if e["source"] == "template:joiners-leavers"]
-    assert hr and all(not e["needs_repository"] for e in hr), "a template's own workflows are listed"
-    assert not any(e["source"].startswith("template:") and e["name"] == "default-simple" for e in entries), (
+    assert hr and all(not e["needs_workspace"] for e in hr), "a template's own workflows are listed"
+    # A delivery template's entries (`dev-simple`, `default-simple` needing a repository) are the
+    # `software-delivery` plugin's: plugins/software-delivery/tests/api/test_workflow_catalogue_delivery.py.
+
+
+def _front_desk(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The templates folder holds one template: it takes `default-request` by reference and ships its own
+    workflow, which names an agent of the platform's catalogue (`security-reviewer`)."""
+    folder = tmp_path / "templates" / "front-desk"
+    (folder / "workflows").mkdir(parents=True)
+    (folder / "workflows" / "reviewed.yaml").write_text(REVIEWED, encoding="utf-8")
+    (folder / "manifest.yaml").write_text(
+        "apiVersion: choregos/v1\nkind: Template\nmetadata: {name: front-desk, version: 1.0.0}\n"
+        "defaults:\n  workflows: ['template:default-request@1', ./workflows/reviewed.yaml]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TRANIBOR_TEMPLATES_DIR", str(folder.parent))
+
+
+async def test_a_template_s_reference_to_a_core_workflow_is_the_core_entry(
+    client: AsyncClient, admin: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _front_desk(tmp_path, monkeypatch)
+    entries = (await client.get(ALL)).json()["items"]
+    assert [e["name"] for e in entries if e["source"] == "template:front-desk"] == ["reviewed"], (
+        "a template's own workflows are listed"
+    )
+    assert [e["source"] for e in entries if e["name"] == "default-request"] == ["core"], (
         "a template's reference to a core workflow is the core entry, not a second one"
+    )
+    reviewed = _entry(entries, "template:front-desk", "reviewed")
+    assert ("security-reviewer", "catalogue") in {(a["slug"], a["resolution"]) for a in reviewed["agents"]}, (
+        "not installed yet: the platform's catalogue (its offline plugins) provides it"
     )
 
 
@@ -78,9 +112,13 @@ async def test_a_member_reads_the_catalogue_an_outsider_does_not(client: AsyncCl
 
 
 async def test_adopting_publishes_the_entry_installs_its_agents_and_records_its_origin(
-    client: AsyncClient, project: dict[str, Any]
+    client: AsyncClient, project: dict[str, Any], tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pid = project["id"]
+    # The workflow the project was born with (`default-simple` with the `software-delivery` plugin,
+    # `default-request` without it, S83-05d): a name used by another workflow than an adopted one.
+    born = (await client.get(f"/api/v1/projects/{pid}/workflows")).json()["items"]
+    assert born, "the project is born with a workflow"
     adopted = await client.post(
         f"/api/v1/projects/{pid}/workflow-adoptions",
         json={"source": "core", "name": "default-request", "as": "requests", "make_default": True},
@@ -94,14 +132,13 @@ async def test_adopting_publishes_the_entry_installs_its_agents_and_records_its_
     assert row["is_default"] is True
     routing = (await client.get(f"/api/v1/projects/{pid}/workflow-routing")).json()
     assert routing["default"] == "requests"
-    delivery = await client.post(
+    _front_desk(tmp_path, monkeypatch)
+    reviewed = await client.post(
         f"/api/v1/projects/{pid}/workflow-adoptions",
-        json={"source": "template:github-software-delivery", "name": "dev-simple"},
+        json={"source": "template:front-desk", "name": "reviewed"},
     )
-    assert delivery.status_code == 201, delivery.text
-    adopted_entry = _entry(
-        (await client.get(ALL)).json()["items"], "template:github-software-delivery", "dev-simple"
-    )
+    assert reviewed.status_code == 201, reviewed.text
+    adopted_entry = _entry((await client.get(ALL)).json()["items"], "template:front-desk", "reviewed")
     assert {a["resolution"] for a in adopted_entry["agents"]} == {"plugin"}, (
         "installed by the adoption, from their plugin"
     )
@@ -113,7 +150,7 @@ async def test_adopting_publishes_the_entry_installs_its_agents_and_records_its_
     assert again.status_code == 201 and again.json()["version"] == row["version"] + 1, "an update"
     taken = await client.post(
         f"/api/v1/projects/{pid}/workflow-adoptions",
-        json={"source": "core", "name": "default-request", "as": "default-simple"},
+        json={"source": "core", "name": "default-request", "as": born[0]["name"]},
     )
     assert taken.status_code == 409, "a name used by another workflow is never overwritten"
     stale = await client.post(
@@ -177,29 +214,3 @@ def test_renaming_keeps_every_other_byte() -> None:
     source = template_yaml("default-request")
     out = renamed(source, "requests")
     assert out.replace("name: requests", "name: default-request", 1) == source
-
-
-async def test_the_core_catalogue_offers_development_and_audit_workflows_with_their_agents(
-    client: AsyncClient, project: dict[str, Any], admin: str
-) -> None:
-    """S59-02: the core ships a catalogue (development, audit, decision, documentation, operations), each
-    entry presented and its agents resolved; adopting an audit installs the agents it names."""
-    entries = (await client.get(ALL)).json()["items"]
-    core = {e["name"]: e for e in entries if e["source"] == "core"}
-    assert {"dev-feature", "dev-fix", "hotfix", "code-audit", "security-audit", "incident-postmortem"} <= set(
-        core
-    )
-    audit = core["security-audit"]
-    assert audit["title"] == "Security audit" and "audit" in audit["tags"]
-    assert {a["slug"] for a in audit["agents"]} == {"secops", "security-reviewer", "compliance"}
-    assert "unresolved" not in {a["resolution"] for a in audit["agents"]}, "every agent ships with the core"
-
-    adopted = await client.post(
-        f"/api/v1/projects/{project['id']}/workflow-adoptions",
-        json={"source": "core", "name": "security-audit"},
-    )
-    assert adopted.status_code == 201, adopted.text
-    assert adopted.json()["origin"] == "core/security-audit@1"
-    agents = (await client.get("/api/v1/orgs/northwind/agents")).json()["items"]
-    listed = {a["slug"] for a in (agents["items"] if isinstance(agents, dict) else agents)}
-    assert {"secops", "security-reviewer", "compliance"} <= listed, "the adoption installed its agents"

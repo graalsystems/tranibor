@@ -33,7 +33,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 const ADMIN = [{ org: "acme", project_slug: null, role: "org_admin", user_id: "u-admin", email: "ada@acme.dev" }] as Membership[];
-const DEVELOPER = [{ org: "acme", project_slug: null, role: "developer", user_id: "u-dev", email: "dev@acme.dev" }] as Membership[];
+const DEVELOPER = [{ org: "acme", project_slug: null, role: "contributor", user_id: "u-dev", email: "dev@acme.dev" }] as Membership[];
 
 const group = (changes: Partial<OrgGroup> = {}): OrgGroup => ({
   slug: "release-captains",
@@ -137,8 +137,8 @@ describe("one group's page", () => {
     vi.mocked(api.orgGroupMembers).mockResolvedValue({ items: [member("cap@acme.dev", "u-cap")] });
     vi.mocked(api.members).mockResolvedValue({
       items: [
-        { org: "acme", project_slug: null, role: "developer", user_id: "u-cap", email: "cap@acme.dev" },
-        { org: "acme", project_slug: null, role: "developer", user_id: "u-dev", email: "dev@acme.dev" },
+        { org: "acme", project_slug: null, role: "contributor", user_id: "u-cap", email: "cap@acme.dev" },
+        { org: "acme", project_slug: null, role: "contributor", user_id: "u-dev", email: "dev@acme.dev" },
         { org: "acme", project_slug: "billing", role: "viewer", user_id: "u-view", email: "view@acme.dev" },
       ] as Membership[],
       meta: { has_more: false, next_cursor: null },
@@ -162,7 +162,7 @@ describe("one group's page", () => {
     vi.mocked(api.orgGroup).mockResolvedValue(group());
     vi.mocked(api.orgGroupMembers).mockResolvedValue({ items: [] });
     vi.mocked(api.members).mockResolvedValue({
-      items: [{ org: "acme", project_slug: null, role: "developer", user_id: "u-dev", email: "dev@acme.dev" }] as Membership[],
+      items: [{ org: "acme", project_slug: null, role: "contributor", user_id: "u-dev", email: "dev@acme.dev" }] as Membership[],
       meta: { has_more: false, next_cursor: null },
     });
     vi.mocked(api.addOrgGroupMember).mockRejectedValue(new ApiError(422, { detail: "`u-dev` is not a member of acme: only its members join its groups" }));
