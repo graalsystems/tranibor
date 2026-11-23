@@ -109,7 +109,9 @@ async def test_the_wizard_creates_a_project_and_starts_provisioning(platform: Pl
             "config": {
                 "slug": "checkout-web",
                 "org": "northwind",
-                "repo": {"url": "https://github.com/northwind/checkout-web.git", "default_branch": "main"},
+                "delivery": {
+                    "repo": {"url": "https://github.com/northwind/checkout-web.git", "default_branch": "main"}
+                },
             },
         },
     )

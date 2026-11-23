@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from tranibor_contracts.delivery import ResultDelivery
 
 pytestmark = pytest.mark.asyncio
 
@@ -30,13 +31,15 @@ async def _implement_run(
     from tranibor_contracts import StageResult, StageStatus
 
     result = StageResult(status=StageStatus.DONE, summary="Already fixed on main: nothing to change")
-    result.artifacts.branch = BRANCH
-    result.artifacts.commits = commits
+    result.artifacts.delivery = ResultDelivery(branch=BRANCH, commits=commits)
     result.artifacts.reports["start_commit"] = "abc123"
-    result.evidence.diff_files = diff_files
-    result.evidence.diff_lines = diff_lines
+    result.evidence.facts = {
+        **(result.evidence.facts or {}),
+        "diff_files": diff_files,
+        "diff_lines": diff_lines,
+    }
     if measured:
-        result.evidence.measured = ["diff_files", "diff_lines"]
+        result.evidence.measured = ["facts.diff_files", "facts.diff_lines"]
     async with session_scope() as session:
         run = Run(
             id=f"{setup.work_item_id}-t-implement-1",

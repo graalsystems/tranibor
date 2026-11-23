@@ -40,7 +40,7 @@ def _implied_hosts(
 ) -> list[str]:
     """The repository's host — the work item's target's when given (ADR 0124), else the primary's —
     and what the organisation opened for its runners."""
-    primary = bundle.config.repo.url if bundle.config.repo else None
+    primary = bundle.config.delivery_section.repo.url if bundle.config.delivery_section.repo else None
     host = repo_host((repo_url or primary) if with_repo else None)
     return list(dict.fromkeys([*([host] if host else []), *org_hosts]))
 

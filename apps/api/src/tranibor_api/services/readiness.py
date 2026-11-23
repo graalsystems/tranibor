@@ -423,7 +423,8 @@ def workflow_without_repository(f: Facts) -> ReadinessFix:
 
 
 def _has_repository(f: Facts) -> bool:
-    return bool(f.config.repo and f.config.repo.url)
+    repo = f.config.delivery_section.repo
+    return bool(repo and repo.url)
 
 
 def _workflow_without_repository(f: Facts) -> ReadinessFix:

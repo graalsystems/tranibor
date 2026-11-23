@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from tranibor_contracts import ExecutorKind, StageResult
+from tranibor_contracts.delivery import repository_of
 from tranibor_core.domain import ExecRef, ExecStatus, StageJobSpec, utcnow
 
 from ..errors import ConfigurationError, UpstreamError
@@ -224,7 +225,7 @@ class TektonExecutor:
             )
 
     def _pipeline_run(self, spec: StageJobSpec, name: str) -> dict[str, Any]:
-        depot = spec.stage_input.repo if spec.stage_input else None
+        depot = repository_of(spec.stage_input) if spec.stage_input else None
         pod_template: dict[str, Any] = {
             "securityContext": {
                 "runAsNonRoot": True,

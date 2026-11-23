@@ -24,12 +24,12 @@ from tranibor_contracts import (
     Permissions,
     PlaybookRef,
     ProjectRef,
-    RepoRef,
     StageInput,
     StageResult,
     TransitionRef,
     WorkItemRef,
 )
+from tranibor_contracts.delivery import Commands, Repository, StageDelivery
 from tranibor_tools_mcp.client import Relayed
 
 FAKE_AGENT = Path(__file__).parent / "fixtures" / "fake_agent.py"
@@ -72,13 +72,7 @@ def stage_input(toy_repo: Path, tmp_path: Path) -> StageInput:
     return StageInput(
         run_id="run-test-1",
         attempt=1,
-        project=ProjectRef(
-            slug="demo",
-            org="northwind",
-            test_command="make test",
-            lint_command="make lint",
-            typecheck_command="make typecheck",
-        ),
+        project=ProjectRef(slug="demo", org="northwind"),
         work_item=WorkItemRef(
             key="northwind/demo#1",
             title="Corriger le total",
@@ -87,7 +81,12 @@ def stage_input(toy_repo: Path, tmp_path: Path) -> StageInput:
             risk="low",
         ),
         transition=TransitionRef(id="t-implement", role="implement", **{"from": "ready"}, to="in_progress"),
-        repo=RepoRef(url=str(toy_repo), base_branch="main", work_branch="choregos/1-total", clone_depth=10),
+        delivery=StageDelivery(
+            repo=Repository(
+                url=str(toy_repo), base_branch="main", work_branch="choregos/1-total", clone_depth=10
+            ),
+            commands=Commands(test="make test", lint="make lint", typecheck="make typecheck"),
+        ),
         agent=AgentRef(backend="codex", launch=LaunchSpec(command=[sys.executable, str(FAKE_AGENT)])),
         model=ModelRef(
             litellm_model="platform/standard", base_url="http://litellm:4000", api_format="openai"

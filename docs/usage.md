@@ -458,7 +458,7 @@ vendor). `ready` is true when no item is `todo`.
 | `runtime-class` | the policy says `sandbox.runtime: gvisor` and the `agent_sandbox` warm pool runs another RuntimeClass (`global.runner.runtimeClass`): every run would be refused at start. Not listed for another executor, under fakes, when the policy asks for none, or when the deployment never set `global.runner.runtimeClass` (the pool's class is then unknown) | |
 | `agent-isolation` | the deployment runs every agent in a container of its own (`global.runner.agentIsolation: container`, [ADR 0146](adr/0146-the-runner-and-the-agent-do-not-share-a-container.md)) and the project's executor does not declare `separate_agent`: every run would be refused at start, with the same sentence. Not listed under `process` (the default) or under fakes | |
 | `repository` | a repository is needed and has no URL | |
-| `repository-checks` | | no `repo.test_command` and no `dod.facts`: the runner measures nothing |
+| `repository-checks` | | no `delivery.repo.test_command` and no `dod.facts`: the runner measures nothing |
 | `backend` | the default backend is not enabled on the deployment | |
 | `models` | a `profile:` named by an active workflow is defined nowhere | the pairing with the default backend has no eval (unless `allow_unvalidated`) |
 | `budgets` | | `budgets.ticket_usd` or `budgets.daily_project_usd` unset |
@@ -701,22 +701,25 @@ A team whose work spans several repositories (a platform team's `infra`, `diamct
 beside its repository ([ADR 0124](adr/0124-a-project-may-hold-several-repositories-a-work-item-works-on-one.md)):
 
 ```yaml
-repo:                       # the primary: a ticket that names no repository works on it
-  url: https://github.com/acme/infra.git
-  name: infra               # optional: the URL's last segment otherwise
-repositories:
-  - name: diamctl
-    url: https://github.com/acme/diamctl.git
-    test_command: go test ./...
-  - name: fondation
-    url: https://github.com/acme/fondation.git
-    default_branch: trunk
+delivery:                   # the software-delivery plugin's section (ADR 0181 C2)
+  repo:                     # the primary: a ticket that names no repository works on it
+    url: https://github.com/acme/infra.git
+    name: infra             # optional: the URL's last segment otherwise
+  repositories:
+    - name: diamctl
+      url: https://github.com/acme/diamctl.git
+      test_command: go test ./...
+    - name: fondation
+      url: https://github.com/acme/fondation.git
+      default_branch: trunk
 ```
 
-Each entry takes the fields of `repo` (default branch, language, clone depth, branch prefix, test, lint and
-typecheck commands) and a `name`. The configuration is refused with `repositories` but no `repo`, with two
-repositories of one name (the primary's derived name included: give `repo.name`) and with one URL under two
-names. The console edits them in *General*, *Other repositories*: add, remove, *Make primary*.
+The repositories, and the GitOps repository (`delivery.gitops`), live in the project's `delivery` section
+only: a configuration that writes `repo`, `repositories` or `gitops` at its root is refused (`422`), naming
+the section. Each entry takes the fields of `repo` (default branch, language, clone depth, branch prefix,
+test, lint and typecheck commands) and a `name`. The configuration is refused with `repositories` but no
+`repo`, with two repositories of one name (the primary's derived name included: give `repo.name`) and with
+one URL under two names. The console edits them in *General*, *Other repositories*: add, remove, *Make primary*.
 
 **The checks the runner measures** are the repository's `test_command`, `lint_command` and
 `typecheck_command`; one left empty falls back to the language's convention (`make test`, `make lint`,
@@ -1856,7 +1859,7 @@ run's `StageInput` carries the resolved list (`memories`) and the legacy equival
 run whose bindings are exactly that.
 
 A version also says **which workspace** its runs need ([ADR 0119](adr/0119-an-agent-declares-the-workspace-it-needs.md)),
-in `"workspace"`. The repository itself is never the agent's: it is the project's (`config.repo`),
+in `"workspace"`. The repository itself is never the agent's: it is the project's (`config.delivery.repo`),
 and a project without one gives no repository whatever the agent says.
 
 | `workspace` | what a run gets |
@@ -2750,7 +2753,7 @@ inputs:
 
 - Sources are **git** only. `config.url` names the repository (https), or `config.url_from_input` names a
   template input: `owner/name` reads `https://github.com/owner/name`, an https URL is kept, and a
-  `github-repo` input that was not given is the project's repository (`config.repo.url`).
+  `github-repo` input that was not given is the project's repository (`config.delivery.repo.url`).
 - **The project's own GitHub repository** is read without a connector, through the deployment's GitHub
   App: the source is stored with `github_app: true` and each sync mints a one-hour token for that
   repository only, `contents: read`, through the installation the organisation claimed (ADR 0073). No
@@ -2782,14 +2785,21 @@ budgets:
   tool_calls_per_run: 20        # catalogue tools; omit for no cap
   daily_project_usd: 50
 scope:
-  max_diff_files: 60
   deny_paths: [".choregos/**", ".github/workflows/**", "charts/**"]   # never written, whatever the scope
 sandbox:
   unknown_requests: reject      # refuse what the runner cannot classify (default: allow + journal)
   prompt_injection: block       # warn (default) journals; block stops the stage before any run
   llm_security_analyzer: true   # the gateway masks secrets in what goes to the model (ADR 0084)
   suspend_max_hours: 24         # agent_sandbox only: how long a sandbox waits for an answer; 0 = never
+delivery:                       # the software-delivery plugin's section (ADR 0181 C2)
+  scope: { max_diff_files: 60, max_diff_lines: 3000 }   # the bounds of `diff_size_max`
+  release_train: {}             # per environment: mode, schedule, windows, approval, canary...
 ```
+
+The bounds on a diff, the approval of a merge (`delivery.approvals.merge`, not enforced and refused, like
+the other approvals) and the release trains are the software-delivery plugin's: they live in the policy's
+`delivery` section only, and a policy that writes `scope.max_diff_files`, `scope.max_diff_lines`,
+`approvals.merge` or `release_train` is refused (`422`), naming the section.
 
 Three presets ship (`solo`, `team`, `regulated`) and are a reasonable starting point.
 
@@ -3318,7 +3328,7 @@ in the run's activity. The project's **Agents** settings show, in **Tools**, the
 **A policy does not decide who approves a work item.** People are declared in the **workflow**: a
 transition `by` a human actor, or `train: {approval: <actor>}` on a release train
 ([ADR 0041](adr/0041-approval-follows-what-the-batch-ships.md)). The policy's own human gate is
-the release train's: `release_train.<env>.approval` holds a departure until its group approves.
+the release train's: `delivery.release_train.<env>.approval` holds a departure until its group approves.
 
 `approvals.*` (`spec`, `merge`, `prod`, `scope_change`), `attempts.default_max` and
 `review.require_human_for_risk` are still part of the schema, but **nothing enforces them**: no one
@@ -4015,7 +4025,7 @@ list: no sub-agent is guessed. Tokens and cost stay per run.
 | An agent pod refused with no message | `runner.limits` above the namespace `LimitRange` |
 | Spend drifting | `budgets.daily_project_usd`, `ticket_usd`, alert at `alert_at_ratio` |
 | Third-party API spend | `budgets.tool_calls_per_run`, cost report grouped by `kind` |
-| An agent wandering outside its scope | `scope.max_diff_files`, `scope.deny_paths`, gate `scope_respected` |
+| An agent wandering outside its scope | `delivery.scope.max_diff_files`, `scope.deny_paths`, gate `scope_respected` |
 | Too many findings from one run | `findings.max_per_run` |
 
 Costs export as CSV from the project overview, grouped by day, stage, model, backend, size,

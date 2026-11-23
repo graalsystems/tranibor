@@ -81,15 +81,17 @@ async def main() -> int:
                 config={
                     "slug": "billing-api",
                     "org": "northwind",
-                    "repo": {
-                        "url": "https://github.com/northwind/billing-api.git",
-                        "default_branch": "main",
-                        "language": "python",
-                        "test_command": "make test",
-                    },
-                    "gitops": {
-                        "repo_url": "https://github.com/northwind/billing-gitops.git",
-                        "apps": ["billing-api"],
+                    "delivery": {
+                        "repo": {
+                            "url": "https://github.com/northwind/billing-api.git",
+                            "default_branch": "main",
+                            "language": "python",
+                            "test_command": "make test",
+                        },
+                        "gitops": {
+                            "repo_url": "https://github.com/northwind/billing-gitops.git",
+                            "apps": ["billing-api"],
+                        },
                     },
                     "notify": {"slack_channel": "#billing"},
                 },
@@ -154,7 +156,7 @@ async def main() -> int:
                         "schema": "choregos/StageResult/v1",
                         "status": "done",
                         "summary": f"{role} stage done",
-                        "evidence": {"tests_passed": True, "tests_run": random.randint(80, 500)},
+                        "evidence": {"facts": {"tests_passed": True, "tests_run": random.randint(80, 500)}},
                     },
                     allowed_paths=["src/orders/**"],
                 )

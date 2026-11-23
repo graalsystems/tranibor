@@ -12,7 +12,8 @@ from collections.abc import AsyncIterator
 import pytest
 from tranibor_adapters.http import RestClient
 from tranibor_adapters.tracker.gitlab import GitLabTracker
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 
 from .conftest import require
@@ -84,7 +85,11 @@ async def test_full_cycle_on_a_real_ticket(tracker: GitLabTracker) -> None:
     assert "choregos:fields" not in with_fields.body, "the metadata does not pollute the body"
 
     # The fallback polling finds the ticket by its label.
-    config = ProjectConfig(slug="sandbox", org="northwind", repo=RepoConfig(url="https://gitlab.com/x/y.git"))
+    config = ProjectConfig(
+        slug="sandbox",
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://gitlab.com/x/y.git")),
+    )
     assert key in await tracker.list_candidates(config)
 
     # Cleanup: the ticket is closed, not left open in the project.

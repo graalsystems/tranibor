@@ -24,7 +24,9 @@ async def run_with_repository(project: dict[str, Any], url: str, **fields: Any) 
             stage_role="implement",
             attempt=1,
             status="running",
-            stage_input={"repo": {"url": url, "base_branch": "main", "work_branch": "choregos/acme-1"}},
+            stage_input={
+                "delivery": {"repo": {"url": url, "base_branch": "main", "work_branch": "choregos/acme-1"}}
+            },
             **fields,
         )
         session.add(run)

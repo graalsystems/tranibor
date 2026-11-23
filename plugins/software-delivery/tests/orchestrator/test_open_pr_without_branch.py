@@ -74,8 +74,8 @@ def _no_change(setup: Fixture) -> None:
     # As the runner reports it: an empty change MEASURED by git, which is what makes a branch that
     # does not exist an empty diff (#536). `FakeScm` no longer answers one by itself (ADR 0171).
     unchanged = stage_result("Already fixed on main: nothing to change", artifacts={"commits": []})
-    unchanged.evidence.diff_files = unchanged.evidence.diff_lines = 0
-    unchanged.evidence.measured = ["diff_files", "diff_lines"]
+    unchanged.evidence.facts = {**(unchanged.evidence.facts or {}), "diff_files": 0, "diff_lines": 0}
+    unchanged.evidence.measured = ["facts.diff_files", "facts.diff_lines"]
     scripted(setup.adapters, refine_result("spec"), unchanged, stage_result("verified"))
     setup.adapters.scm.delete_branch(REPO, BRANCH)
 

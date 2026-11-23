@@ -195,6 +195,33 @@ async def test_a_template_delivers_its_own_policy(
     assert policy["name"] == "hr-delivery"
 
 
+async def test_a_template_s_policy_written_the_former_way_is_read_into_its_section(
+    client: AsyncClient, admin: str, templates: Any, tmp_path: pathlib.Path
+) -> None:
+    """A content plugin's template signed before ADR 0181 C2's window closed may write its diff bounds and
+    trains at their former places: the project is born, its policy holds them in its `delivery` section,
+    and the text it stores, which a person edits and sends back, does too (comments kept)."""
+    templates({"workflows": ["workflows/arrival.yaml"], "policy": "./policy.yaml"})
+    former = (
+        "apiVersion: choregos/v1\nkind: Policy\nmetadata: { name: hr-delivery, version: 1 }\n"
+        "scope:\n  max_diff_files: 30  # a reviewer's reading\n"
+        "release_train:\n  prod: { mode: train }\n"
+    )
+    (tmp_path / "hr" / "policy.yaml").write_text(former, encoding="utf-8")
+    created = await _project(client, "hr@1.0.0")
+    assert created.status_code == 201, created.text
+    policy = (await client.get(f"/api/v1/projects/{created.json()['id']}/policy")).json()
+    assert policy["json"]["delivery"]["scope"]["max_diff_files"] == 30
+    assert policy["json"]["delivery"]["release_train"]["prod"]["mode"] == "train"
+    stored = yaml.safe_load(policy["yaml"])
+    assert "release_train" not in stored and stored["delivery"]["scope"]["max_diff_files"] == 30
+    assert "# a reviewer's reading" in policy["yaml"]
+    sent_back = await client.put(
+        f"/api/v1/projects/{created.json()['id']}/policy", json={"yaml": policy["yaml"]}
+    )
+    assert sent_back.status_code == 200, sent_back.text
+
+
 # ───────────────────────── a project created with its default workflow (S80-21) ─────────────────────────
 
 

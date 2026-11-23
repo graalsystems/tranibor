@@ -84,7 +84,7 @@ async def set_prod_approval_policy(setup: Fixture, *, approval: bool) -> None:
             )
         ).scalar_one()
         doc = copy.deepcopy(row.json_doc)
-        doc["release_train"]["prod"]["approval"]["required"] = approval
+        doc["delivery"]["release_train"]["prod"]["approval"]["required"] = approval
         row.json_doc = doc
 
 

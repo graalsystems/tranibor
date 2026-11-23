@@ -16,7 +16,7 @@ const base = {
   name: "Dev",
   status: "active",
   template_ref: null,
-  config: { slug: "dev", org: "acme", repo: { url: "https://github.com/acme/box.git", default_branch: "main" } },
+  config: { slug: "dev", org: "acme", delivery: { repo: { url: "https://github.com/acme/box.git", default_branch: "main" } } },
 };
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -27,7 +27,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...real.api,
       project: vi.fn(async () =>
         saved.current
-          ? { ...base, config: { ...base.config, repo: { ...base.config.repo, test_command: "pytest -q" } } }
+          ? { ...base, config: { ...base.config, delivery: { repo: { ...base.config.delivery.repo, test_command: "pytest -q" } } } }
           : structuredClone(base),
       ),
       updateProject: vi.fn(async () => {

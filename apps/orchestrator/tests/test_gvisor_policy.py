@@ -20,7 +20,8 @@ import pytest
 import yaml
 from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.tekton import KubernetesClient
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_core.domain import AgentContainer, StageJobSpec
 from tranibor_orchestrator.gitops import render_project_manifests
@@ -30,7 +31,9 @@ SLUG = "billing"
 
 def _files() -> dict[str, str]:
     config = ProjectConfig(
-        slug=SLUG, org="northwind", repo=RepoConfig(url="https://github.com/northwind/billing.git")
+        slug=SLUG,
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/billing.git")),
     )
     policy = load_preset("team")
     assert policy.sandbox.runtime == "gvisor", "the `team` preset is the one that asks for gVisor"

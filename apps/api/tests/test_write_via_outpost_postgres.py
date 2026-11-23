@@ -65,11 +65,13 @@ async def project(client: AsyncClient) -> dict[str, Any]:
         "config": {
             "slug": "billing-api",
             "org": outposts_kit.ORG,
-            "repo": {
-                "url": "https://github.com/northwind/billing-api.git",
-                "default_branch": "main",
-                "language": "python",
-                "test_command": "make test",
+            "delivery": {
+                "repo": {
+                    "url": "https://github.com/northwind/billing-api.git",
+                    "default_branch": "main",
+                    "language": "python",
+                    "test_command": "make test",
+                }
             },
         },
     }

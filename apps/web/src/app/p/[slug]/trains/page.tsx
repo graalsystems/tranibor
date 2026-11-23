@@ -10,12 +10,12 @@ import type { PolicyDef } from "@/lib/types";
 import { ConfirmedGesture } from "@/components/confirmed-gesture";
 
 /**
- * The environments that have a release train: the keys of the active policy's `release_train`, in
+ * The environments that have a release train: the keys of the active policy's `delivery.release_train`, in
  * the policy's order (S26-05). The page used to show a fixed `prod` and `staging`, whatever the
  * policy said — a train for an environment the project does not have, and none for one it has.
  */
 function trainEnvironments(policy: PolicyDef): string[] {
-  return Object.keys(policy.json?.release_train ?? {});
+  return Object.keys(policy.json?.delivery?.release_train ?? {});
 }
 
 export default function TrainsPage({ params }: { params: Promise<{ slug: string }> }) {

@@ -11,7 +11,8 @@ others — a sandbox that holds nothing back must be visible.
 from __future__ import annotations
 
 import pytest
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.gitops import render_project_manifests
 
@@ -27,7 +28,9 @@ RUNNERS = f"proj-{SLUG}-runners"
 def project() -> None:
     """Provision the project with its real manifests, then remove it."""
     config = ProjectConfig(
-        slug=SLUG, org="northwind", repo=RepoConfig(url="https://github.com/northwind/sandbox.git")
+        slug=SLUG,
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/sandbox.git")),
     )
     manifests = render_project_manifests(SLUG, config, load_preset("team"))
     # The platform chart is not deployed here: only what describes the sandbox is applied,

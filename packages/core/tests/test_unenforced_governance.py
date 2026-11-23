@@ -94,8 +94,9 @@ def test_unenforced_governance_lists_only_the_three_codes() -> None:
 apiVersion: choregos/v1
 kind: Policy
 metadata: { name: p, version: 1 }
-approvals:
-  merge: { required: always, group: maintainers }
+delivery:
+  approvals:
+    merge: { required: always, group: maintainers }
 sandbox:
   network: { deny_by_default: false }
 """

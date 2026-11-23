@@ -63,7 +63,7 @@ def stage_input() -> StageInput:
     return StageInput(
         run_id="run-test-1",
         attempt=1,
-        project=ProjectRef(slug="demo", org="acme", test_command="", lint_command="", typecheck_command=""),
+        project=ProjectRef(slug="demo", org="acme"),
         work_item=WorkItemRef(key="acme/demo#1", title="Sourcing", body="Three offers."),
         transition=TransitionRef(
             id="t-extract",

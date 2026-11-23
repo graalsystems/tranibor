@@ -118,8 +118,10 @@ async def test_project_manifests_lock_the_network(platform: Platform) -> None:
         {
             "slug": "billing-api",
             "org": "northwind",
-            "repo": {"url": "https://github.com/northwind/billing-api.git", "default_branch": "main"},
-            "gitops": {"repo_url": "https://github.com/northwind/gitops.git", "apps": ["billing-api"]},
+            "delivery": {
+                "repo": {"url": "https://github.com/northwind/billing-api.git", "default_branch": "main"},
+                "gitops": {"repo_url": "https://github.com/northwind/gitops.git", "apps": ["billing-api"]},
+            },
         }
     )
     files = render_project_manifests("billing-api", config, load_preset("team"))

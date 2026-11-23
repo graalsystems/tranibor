@@ -44,7 +44,7 @@ const projectDto = {
   config: {
     slug: "dev",
     org: "acme",
-    repo: { url: "https://github.com/acme/box.git", default_branch: "main" },
+    delivery: { repo: { url: "https://github.com/acme/box.git", default_branch: "main" } },
     envs: ["dev", "prod"],
     notify: {},
     tools: [],
@@ -205,7 +205,7 @@ describe("the project settings page (S40-03b)", () => {
     expect((await screen.findByTestId("people-count")).textContent).toContain("2 on this project: 1 project owner, 1 contributor");
   });
 
-  it("the general form saves repo.test_command and keeps the rest of the configuration", async () => {
+  it("the general form saves delivery.repo.test_command and keeps the rest of the configuration", async () => {
     await renderPage("general");
     const section = await screen.findByTestId("section-general");
     fireEvent.change(await within(section).findByLabelText("Test command"), { target: { value: "pytest -q" } });
@@ -213,8 +213,9 @@ describe("the project settings page (S40-03b)", () => {
     await vi.waitFor(() => expect(api.updateProject).toHaveBeenCalled());
     const [slug, body] = vi.mocked(api.updateProject).mock.calls.at(-1)!;
     expect(slug).toBe("dev");
+    expect(body.config).not.toHaveProperty("repo");
     expect(body.config).toMatchObject({
-      repo: { url: "https://github.com/acme/box.git", default_branch: "main", test_command: "pytest -q" },
+      delivery: { repo: { url: "https://github.com/acme/box.git", default_branch: "main", test_command: "pytest -q" } },
       envs: ["dev", "prod"],
       groups: ["dev"],
       labels: { team: "platform" },
@@ -289,7 +290,7 @@ describe("the pieces of the page", () => {
   });
 
   it("summarises a policy", () => {
-    expect(policySummary({ budgets: { per_ticket_usd: 25 }, release_train: { prod: { mode: "train" } } })).toBe(
+    expect(policySummary({ budgets: { per_ticket_usd: 25 }, delivery: { release_train: { prod: { mode: "train" } } } })).toBe(
       "budget $25 per ticket · release prod: train",
     );
     expect(policySummary(undefined)).toBe("defaults of the organisation");

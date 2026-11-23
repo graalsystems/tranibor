@@ -48,10 +48,9 @@ async def _scene(
         project = await session.get(Project, setup.project_id)
         item = await session.get(WorkItem, setup.work_item_id)
         assert project is not None and item is not None
-        project.config = {
-            **project.config,
-            "repositories": [DIAMCTL] if repositories is None else repositories,
-        }
+        delivery = dict(project.config["delivery"])
+        delivery["repositories"] = [DIAMCTL] if repositories is None else repositories
+        project.config = {**project.config, "delivery": delivery}
         item.fields = dict(fields or {})
         item.documents = dict(documents or {})
 
@@ -102,10 +101,10 @@ async def _prepared(setup: Fixture) -> dict[str, Any]:
 async def test_a_work_item_that_names_no_repository_works_on_the_primary(setup: Fixture) -> None:
     await _scene(setup)
     stage_input = await _prepared(setup)
-    assert stage_input["repo"]["url"] == PRIMARY_URL
-    assert stage_input["repo"]["base_branch"] == "main"
-    assert stage_input["repo"]["work_branch"] == "choregos/123"
-    assert stage_input["project"]["test_command"] == "make test"
+    assert stage_input["delivery"]["repo"]["url"] == PRIMARY_URL
+    assert stage_input["delivery"]["repo"]["base_branch"] == "main"
+    assert stage_input["delivery"]["repo"]["work_branch"] == "choregos/123"
+    assert stage_input["delivery"]["commands"]["test"] == "make test"
     assert (await _item(setup)).documents["repository_fixed"] == "billing-api", "fixed at its first clone"
 
 
@@ -115,14 +114,14 @@ async def test_a_work_item_on_diamctl_clones_diamctl_with_its_branch_commands_an
     await _scene(setup, fields={"repository": "diamctl"})
     await _allow_only_pypi(setup)
     stage_input = await _prepared(setup)
-    assert stage_input["repo"] == {
+    assert (stage_input.get("delivery") or {}).get("repo") == {
         "url": DIAMCTL["url"],
         "base_branch": "trunk",
         "work_branch": "fix/123",
         "clone_depth": 50,
     }
-    assert stage_input["project"]["test_command"] == "go test ./..."
-    assert stage_input["project"]["lint_command"] == "", "diamctl's commands, not the primary's"
+    assert stage_input["delivery"]["commands"]["test"] == "go test ./..."
+    assert stage_input["delivery"]["commands"].get("lint") is None, "diamctl's commands, not the primary's"
     reachable = stage_input["permissions"]["allow_domains"]
     assert "git.acme.example" in reachable, "the target's host is implied on the run's network"
     assert "github.com" not in reachable, "the primary's host is not: the run never clones it"
@@ -133,8 +132,8 @@ async def test_a_project_with_one_repository_is_unchanged(setup: Fixture) -> Non
     await _scene(setup, repositories=[])
     await _allow_only_pypi(setup)
     stage_input = await _prepared(setup)
-    assert stage_input["repo"]["url"] == PRIMARY_URL
-    assert stage_input["repo"]["work_branch"] == "choregos/123"
+    assert stage_input["delivery"]["repo"]["url"] == PRIMARY_URL
+    assert stage_input["delivery"]["repo"]["work_branch"] == "choregos/123"
     assert "github.com" in stage_input["permissions"]["allow_domains"]
     assert "repository_fixed" not in ((await _item(setup)).documents or {}), "nothing to choose, nothing kept"
 
@@ -170,9 +169,9 @@ async def test_a_job_step_clones_the_target_too(setup: Fixture) -> None:
     await _allow_only_pypi(setup)
     prepared = await prepare_stage({**_plan(setup), "job": {"command": ["make", "scan"]}})
     stage_input = prepared["stage_input"]
-    assert stage_input["repo"]["url"] == DIAMCTL["url"]
-    assert stage_input["repo"]["work_branch"] == "fix/123"
-    assert stage_input["project"]["test_command"] == "go test ./..."
+    assert stage_input["delivery"]["repo"]["url"] == DIAMCTL["url"]
+    assert stage_input["delivery"]["repo"]["work_branch"] == "fix/123"
+    assert stage_input["delivery"]["commands"]["test"] == "go test ./..."
     assert "git.acme.example" in stage_input["permissions"]["allow_domains"]
     assert "github.com" not in stage_input["permissions"]["allow_domains"]
 
@@ -211,7 +210,7 @@ async def test_a_declared_repository_output_becomes_the_target(setup: Fixture) -
     result = await _run_with_outputs(setup, "run-triage", {"repository": "diamctl"}, ["repository"])
     await record_run_outcome({"project_id": setup.project_id, "run_id": "run-triage", "result": result})
     assert (await _item(setup)).fields["repository"] == "diamctl"
-    assert (await _prepared(setup))["repo"]["url"] == DIAMCTL["url"], "the next stage clones it"
+    assert (await _prepared(setup))["delivery"]["repo"]["url"] == DIAMCTL["url"], "the next stage clones it"
 
 
 @pytest.mark.parametrize("step", ["job", "agent"])
@@ -229,14 +228,14 @@ async def test_a_step_that_names_the_repository_does_not_fix_the_one_it_reads(
     if step == "job":
         plan["job"] = {"command": ["make", "context"]}
     prepared = await prepare_stage(plan)
-    assert prepared["stage_input"]["repo"]["url"] == PRIMARY_URL, "it reads the current target"
+    assert prepared["stage_input"]["delivery"]["repo"]["url"] == PRIMARY_URL, "it reads the current target"
     assert "repository_fixed" not in ((await _item(setup)).documents or {}), "nothing is fixed yet"
 
     result = await _run_with_outputs(setup, "run-context", {"repository": "diamctl"}, ["repository"])
     await record_run_outcome({"project_id": setup.project_id, "run_id": "run-context", "result": result})
     # The next stage (another attempt: the same plan returns the run it already prepared).
     nxt = (await prepare_stage({**_plan(setup), "attempt": 2}))["stage_input"]
-    assert nxt["repo"]["url"] == DIAMCTL["url"], "the next stage clones the named one"
+    assert nxt["delivery"]["repo"]["url"] == DIAMCTL["url"], "the next stage clones the named one"
     assert (await _item(setup)).documents["repository_fixed"] == "diamctl"
 
 
@@ -330,7 +329,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
             run = (
                 await session.execute(select(Run).where(Run.work_item_id == setup.work_item_id))
             ).scalar_one()
-            assert run.stage_input["repo"]["url"] == DIAMCTL["url"]
+            assert run.stage_input["delivery"]["repo"]["url"] == DIAMCTL["url"]
         await handle.signal("control", {"action": "stop"})
         await handle.result()
         history = await handle.fetch_history()

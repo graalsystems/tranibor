@@ -10,7 +10,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.gitops import EGRESS_NAME, EGRESS_PORT, render_project_manifests
 
@@ -26,7 +27,9 @@ PROXY = f"http://{EGRESS_NAME}.{RUNNERS}.svc:{EGRESS_PORT}"
 @pytest.fixture(scope="module", autouse=True)
 def project() -> Iterator[None]:
     config = ProjectConfig(
-        slug=SLUG, org="northwind", repo=RepoConfig(url="https://github.com/northwind/egress.git")
+        slug=SLUG,
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/egress.git")),
     )
     manifests = render_project_manifests(SLUG, config, load_preset("team"))
     apply([manifests[name] for name in ("namespaces.yaml", "egress.yaml")])

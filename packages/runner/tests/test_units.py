@@ -17,6 +17,7 @@ from tranibor_contracts import (
     StageResult,
     StageStatus,
 )
+from tranibor_contracts.delivery import Commands, Repository, StageDelivery, repository_of
 from tranibor_runner.backends import (
     BACKENDS,
     RUNTIME_BACKENDS,
@@ -144,8 +145,8 @@ def test_measured_evidence_overwrites_declared_evidence() -> None:
         artifacts=Artifacts(branch="choregos/1"),
         diagnostics=Diagnostics(turns=4),
     )
-    assert completed.evidence.tests_passed is False
-    assert completed.evidence.tests_run == 12
+    assert completed.evidence.value("tests_passed") is False
+    assert completed.evidence.value("tests_run") == 12
     assert completed.status is StageStatus.FAILED
     assert completed.reason == "tests"
 
@@ -177,11 +178,8 @@ def test_writing_and_rereading_the_result(tmp_path: Path) -> None:
 
 
 def test_commands_deduced_from_the_repository(tmp_path: Path) -> None:
-    from tranibor_contracts import ProjectRef
-
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
-    stage_input = _minimal_stage_input(tmp_path)
-    stage_input.project = ProjectRef(slug="demo", org="northwind")
+    stage_input = _minimal_stage_input(tmp_path).model_copy(update={"delivery": None})
     commands = commands_for(stage_input, tmp_path)
     assert "npm" in commands["tests"], commands
 
@@ -194,13 +192,12 @@ def test_the_project_commands_take_precedence(tmp_path: Path) -> None:
 
 def test_a_dash_skips_a_check_the_project_does_not_have(tmp_path: Path) -> None:
     """S59-04: `typecheck_command: "-"` skips the check instead of falling back to `make typecheck`."""
-    from tranibor_contracts import ProjectRef
+    from tranibor_contracts.delivery import Commands
 
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
     stage_input = _minimal_stage_input(tmp_path)
-    stage_input.project = ProjectRef(
-        slug="demo", org="northwind", typecheck_command="-", lint_command="ruff check ."
-    )
+    assert stage_input.delivery is not None
+    stage_input.delivery.commands = Commands(typecheck="-", lint="ruff check .")
     commands = commands_for(stage_input, tmp_path)
     assert commands["typecheck"] == "", commands
     assert commands["lint"] == "ruff check ."
@@ -208,10 +205,11 @@ def test_a_dash_skips_a_check_the_project_does_not_have(tmp_path: Path) -> None:
 
 
 async def test_an_absent_command_is_skipped_not_ok(tmp_path: Path) -> None:
-    from tranibor_contracts import ProjectRef
+    from tranibor_contracts.delivery import Commands
 
     stage_input = _minimal_stage_input(tmp_path)
-    stage_input.project = ProjectRef(slug="demo", org="northwind", test_command="true")
+    assert stage_input.delivery is not None
+    stage_input.delivery.commands = Commands(test="true")
     report = await run_checks(stage_input, tmp_path, timeout=30)
     tests = report.get("tests")
     lint = report.get("lint")
@@ -427,7 +425,6 @@ def _minimal_stage_input(path: Path) -> Any:
         McpServerRef,
         PlaybookRef,
         ProjectRef,
-        RepoRef,
         StageInput,
         ToolsRef,
         TransitionRef,
@@ -437,10 +434,13 @@ def _minimal_stage_input(path: Path) -> Any:
     return StageInput(
         run_id="run-unit",
         attempt=1,
-        project=ProjectRef(slug="demo", org="northwind", test_command="make test"),
+        project=ProjectRef(slug="demo", org="northwind"),
         work_item=WorkItemRef(key="northwind/demo#1", title="Titre"),
         transition=TransitionRef(id="t", role="implement", **{"from": "ready"}, to="in_progress"),
-        repo=RepoRef(url=str(path), base_branch="main", work_branch="choregos/1"),
+        delivery=StageDelivery(
+            repo=Repository(url=str(path), base_branch="main", work_branch="choregos/1"),
+            commands=Commands(test="make test"),
+        ),
         agent=AgentRef(backend="codex"),
         model=ModelRef(
             litellm_model="platform/standard", base_url="http://litellm:4000", api_format="openai"
@@ -523,7 +523,7 @@ def test_the_repository_is_not_the_agents_home_directory(stage_input) -> None:  
     env = workspace_env(stage_input)
     home = Path(env["HOME"])
     assert home.is_dir()
-    assert not str(home).startswith(str(stage_input.repo.url))
+    assert not str(home).startswith(str(repository_of(stage_input).url))
     assert stage_input.run_id in str(home)
 
 

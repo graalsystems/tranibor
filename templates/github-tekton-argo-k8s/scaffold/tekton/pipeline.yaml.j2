@@ -6,9 +6,9 @@ metadata:
 spec:
   pipelineRef: { name: choregos-ci }
   params:
-    - { name: repo-url, value: "{{ project.repo.url }}" }
-    - { name: revision, value: "{{ project.repo.default_branch }}" }
-    - { name: language, value: "{{ project.repo.language or 'python' }}" }
+    - { name: repo-url, value: "{{ project.delivery.repo.url }}" }
+    - { name: revision, value: "{{ project.delivery.repo.default_branch }}" }
+    - { name: language, value: "{{ project.delivery.repo.language or 'python' }}" }
     - { name: image, value: "ghcr.io/{{ inputs.repo }}:latest" }
   workspaces:
     - name: source

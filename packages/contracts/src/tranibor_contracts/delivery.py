@@ -3,27 +3,45 @@
 round C2).
 
 A stage input's repository and the project's commands, a stage result's branch and commits, a project's
-repositories and GitOps, a policy's diff bounds, merge approvals and release train: they are software
+repositories and GitOps, a policy's diff bounds, merge approval and release trains: they are software
 delivery's, not the core's. Each lives in a `delivery` section that the plugin owns. Every model here
 says so (`__plugin__`), the schemas mark the same sections `x-plugin: software-delivery`, and neither is
 on the core's frozen surfaces: the vocabulary guard does not read this module, as it does not read a
 node marked `x-plugin`.
 
-For one window the former fields stay beside their section, and a document written with either form
-validates the same and is written back with both. The models keep the former fields, read a section
-into them (`read_*`) and derive the section from them (`*_section`), so the two forms cannot disagree.
-The window list (`tranibor_contracts.window`, window `C2-delivery`) names each former field and the
-release that removes it.
+The section is the one place these values live: the former fields beside it left with the window
+`C2-delivery` (closed early, 2026-11-23). A project or a policy that still writes one is refused, naming
+the section that holds it (`refuse_former_project`, `refuse_former_policy`). What still reads the former
+spellings of a stage input or a stage result, which recorded Temporal histories carry, is
+`tranibor_contracts.recorded`.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .approval import ApprovalRule
+from .workflow import Slug
 
 #: The plugin that owns the sections of this module.
 PLUGIN = "software-delivery"
+
+#: A stage result's evidence of software delivery, as named measured facts (`evidence.facts`, ADR 0056):
+#: what the runner measures after a step (the tests, the checks, the diff), `facts.<name>` in `measured`.
+EVIDENCE_FACTS: tuple[str, ...] = (
+    "tests_passed",
+    "tests_run",
+    "tests_failed",
+    "coverage_delta",
+    "lint",
+    "typecheck",
+    "security_scan",
+    "diff_files",
+    "diff_lines",
+)
 
 
 class _Section(BaseModel):
@@ -33,8 +51,13 @@ class _Section(BaseModel):
     __plugin__ = PLUGIN
 
 
+# --- The stage contracts ---------------------------------------------------------------------------
+
+
 class Repository(_Section):
-    """The repository a stage works on (the former `StageInput.repo`)."""
+    """The repository a stage works on. **Absent** for a project without a repository: the runner then
+    prepares an empty directory, clones nothing, pushes nothing, and the guarantees that read a diff
+    refuse for lack of matter (ADR 0012, limit no. 1)."""
 
     url: str
     base_branch: str
@@ -43,7 +66,7 @@ class Repository(_Section):
 
 
 class Commands(_Section):
-    """The project's commands the runner runs after a step (the former `ProjectRef.*_command`)."""
+    """The project's commands the runner runs after a step."""
 
     test: str | None = None
     lint: str | None = None
@@ -58,82 +81,20 @@ class StageDelivery(_Section):
 
 
 class ResultDelivery(_Section):
-    """A stage result's `delivery` section (the former `Artifacts.branch` and `Artifacts.commits`)."""
+    """A stage result's `delivery` section: the branch the step pushed and its commits."""
 
     branch: str | None = None
     commits: list[str] = Field(default_factory=list)
 
 
-#: The former fields of a stage input's project and their name in `Commands`.
-COMMAND_FIELDS = {"test_command": "test", "lint_command": "lint", "typecheck_command": "typecheck"}
-
-
-def read_stage_input(data: Any) -> Any:
-    """A stage input document read under either form (ADR 0098 §4): the section's values go to the former
-    fields the document did not write, and the section itself is not kept, since the model derives it
-    from them (`stage_section`). One source of truth for the window: a copy that edits a former field
-    cannot leave a stale section behind."""
-    if not isinstance(data, dict) or "delivery" not in data:
-        return data
-    data = dict(data)
-    section = data.pop("delivery") or {}
-    if isinstance(section, BaseModel):
-        section = section.model_dump()
-    if "repo" not in data and section.get("repo") is not None:
-        data["repo"] = section["repo"]
-    commands = section.get("commands") or {}
-    if any(commands.get(name) is not None for name in COMMAND_FIELDS.values()):
-        project = data.get("project")
-        project = (
-            project.model_dump(exclude_unset=True) if isinstance(project, BaseModel) else dict(project or {})
-        )
-        for former, name in COMMAND_FIELDS.items():
-            if former not in project and commands.get(name) is not None:
-                project[former] = commands[name]
-        data["project"] = project
-    return data
-
-
-def stage_section(stage_input: Any) -> StageDelivery | None:
-    """A stage input's `delivery` section, derived from the former fields: `None` when it has none."""
-    former = stage_input.repo
-    commands = Commands(**{name: getattr(stage_input.project, f) for f, name in COMMAND_FIELDS.items()})
-    if former is None and not commands.model_dump(exclude_none=True):
-        return None
-    repo = Repository.model_validate(former.model_dump()) if former is not None else None
-    return StageDelivery(repo=repo, commands=commands)
-
-
-def read_artifacts(data: Any) -> Any:
-    """A stage result's artifacts read under either form: the section's branch and commits go to the
-    former fields the document did not write."""
-    if not isinstance(data, dict) or "delivery" not in data:
-        return data
-    data = dict(data)
-    section = data.pop("delivery") or {}
-    if isinstance(section, BaseModel):
-        section = section.model_dump()
-    for name in ("branch", "commits"):
-        if name not in data and section.get(name):
-            data[name] = section[name]
-    return data
-
-
-def result_section(artifacts: Any) -> ResultDelivery | None:
-    """A stage result's `delivery` section, derived from the former fields: `None` when it has none."""
-    if artifacts.branch is None and not artifacts.commits:
-        return None
-    return ResultDelivery(branch=artifacts.branch, commits=list(artifacts.commits))
-
-
 def repository_of(stage_input: Any) -> Repository | None:
-    """The repository a stage works on, read through its `delivery` section (ADR 0181 C2)."""
+    """The repository a stage works on, from its `delivery` section."""
     section = stage_input.delivery
     return section.repo if section is not None else None
 
 
 def commands_of(stage_input: Any) -> Commands:
-    """The project's commands, read through the `delivery` section."""
+    """The project's commands, from the `delivery` section."""
     section = stage_input.delivery
     return section.commands if section is not None else Commands()
 
@@ -141,42 +102,249 @@ def commands_of(stage_input: Any) -> Commands:
 def without_commands(stage_input: Any) -> Any:
     """The same stage input with every project command set to the empty string: what the runner checks
     with when no repository was cloned."""
-    project = stage_input.project.model_copy(update=dict.fromkeys(COMMAND_FIELDS, ""))
-    return stage_input.model_copy(update={"project": project})
+    section = stage_input.delivery or StageDelivery()
+    blank = section.model_copy(update={"commands": Commands(test="", lint="", typecheck="")})
+    return stage_input.model_copy(update={"delivery": blank})
 
 
 def branch_of(artifacts: Any) -> str | None:
-    """A stage result's branch, read through its `delivery` section."""
+    """A stage result's branch, from its `delivery` section."""
     section = artifacts.delivery
     return section.branch if section is not None else None
 
 
 def commits_of(artifacts: Any) -> list[str]:
-    """A stage result's commits, read through its `delivery` section."""
+    """A stage result's commits, from its `delivery` section."""
     section = artifacts.delivery
     return list(section.commits) if section is not None else []
 
 
-class ProjectDelivery(_Section):
-    """A project's `delivery` section: its repositories and its GitOps (the former `repo`, `repositories`
-    and `gitops`). Read into the former fields, which validate them (`read_project`)."""
+# --- The project ------------------------------------------------------------------------------------
 
-    repo: dict[str, Any] | None = None
-    repositories: list[dict[str, Any]] = Field(default_factory=list)
-    gitops: dict[str, Any] | None = None
+
+class RepoConfig(_Section):
+    #: The repository's name in its project (ADR 0124): what a work item's `fields.repository` names.
+    #: Optional on the primary `repo`, named after the last segment of its URL when absent.
+    name: Slug | None = None
+    url: str
+    default_branch: str = "main"
+    language: Literal["python", "node", "go", "java", "dotnet", "rust", "other"] | None = None
+    clone_depth: int = Field(default=50, ge=1)
+    branch_prefix: str = "choregos/"
+    test_command: str | None = None
+    lint_command: str | None = None
+    typecheck_command: str | None = None
+
+
+class NamedRepository(RepoConfig):
+    """Another repository of the project (ADR 0124): a work item works on it when its
+    `fields.repository` names it. The fields of `RepoConfig`, its `name` required.
+
+        delivery:
+          repositories:
+            - name: diamctl
+              url: https://github.com/acme/diamctl.git
+              test_command: make test
+    """
+
+    name: Slug
+
+
+def name_of_url(url: str) -> str:
+    """The name a repository gets from its URL's last segment, as a slug: `.../Infra.git` → `infra`.
+
+    `primary` when nothing of the segment is left: a slug cannot be empty."""
+    last = url.strip().removesuffix("/").removesuffix(".git").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    slug = re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9-]", "-", last.lower())).strip("-")[:63].strip("-")
+    return slug or "primary"
+
+
+def _same_url(url: str) -> str:
+    """A URL as two declarations of the same repository compare: no `.git`, no trailing slash, no case."""
+    return url.strip().removesuffix("/").removesuffix(".git").lower()
+
+
+class GitopsConfig(_Section):
+    repo_url: str | None = None
+    path_prefix: str = "apps"
+    apps: list[str] = Field(default_factory=list)
+
+
+class ProjectDelivery(_Section):
+    """A project's `delivery` section: its repositories and its GitOps.
+
+    The repository is **optional**: a trade that processes case files, qualifies profiles or drafts
+    letters has none (limit no. 1 of ADR 0012). Without one the agent works in an empty directory,
+    nothing is cloned or pushed, and the guarantees that read a diff refuse, having nothing to read."""
+
+    repo: RepoConfig | None = None
+    #: The project's other repositories (ADR 0124): `repo` stays the primary, the one a work item that
+    #: names none works on. Refused without `repo`, with two equal names (the primary's included) and
+    #: with two names for one URL.
+    repositories: list[NamedRepository] = Field(default_factory=list)
+    gitops: GitopsConfig | None = None
+
+    @model_validator(mode="after")
+    def _repositories_named_once(self) -> ProjectDelivery:
+        """ADR 0124 §1: the primary is explicit, a name designates one repository, a URL has one name."""
+        if not self.repositories:
+            return self
+        if self.repo is None:
+            raise ValueError(
+                "`delivery.repositories` without `delivery.repo`: the primary repository is the one a work "
+                "item that names none works on, declare it in `delivery.repo`"
+            )
+        names = self.repository_names()
+        if twice := sorted({n for n in names if names.count(n) > 1}):
+            hint = (
+                f" (the primary is named `{self.primary_name}` after its URL: give `repo.name`)"
+                if self.repo.name is None and self.primary_name in twice
+                else ""
+            )
+            raise ValueError(f"two repositories named {', '.join(f'`{n}`' for n in twice)}{hint}")
+        urls = [_same_url(r.url) for r in (self.repo, *self.repositories)]
+        if twice_url := sorted({u for u in urls if urls.count(u) > 1}):
+            raise ValueError(f"one repository under two names: {', '.join(twice_url)}")
+        return self
+
+    @property
+    def has_repo(self) -> bool:
+        """Does the project have a repository? Everything that talks to git goes through here."""
+        return self.repo is not None
+
+    @property
+    def primary_name(self) -> str | None:
+        """The primary repository's name (ADR 0124): `repo.name`, else its URL's last segment."""
+        if self.repo is None:
+            return None
+        return self.repo.name or name_of_url(self.repo.url)
+
+    def repository_names(self) -> list[str]:
+        """Every repository's name, the primary's first; empty for a project without a repository."""
+        if self.repo is None:
+            return []
+        return [str(self.primary_name), *(r.name for r in self.repositories)]
+
+    def repository_named(self, name: str | None) -> RepoConfig | None:
+        """The repository `name` designates, the primary for `None`; `None` when the project holds none
+        by that name."""
+        if self.repo is None:
+            return None
+        if name is None or name == self.primary_name:
+            return self.repo
+        return next((r for r in self.repositories if r.name == name), None)
+
+    @property
+    def repo_url(self) -> str:
+        """The repository URL. Raises if the project has none: the caller must have checked.
+
+        Returning an empty string would clone "nothing" and fail three layers further on, on a
+        message that would not mention the missing repository."""
+        if self.repo is None:
+            raise ValueError("the project has no repository (`delivery.repo`)")
+        return self.repo.url
+
+    def branch_for(self, key: str, slug_hint: str = "", repo: RepoConfig | None = None) -> str:
+        """Deterministic branch name for a work item, with the prefix of the repository it works on
+        (`repo`, ADR 0124; the primary when not given)."""
+        target = repo or self.repo
+        if target is None:
+            raise ValueError("the project has no repository (`delivery.repo`)")
+        number = key.rsplit("#", 1)[-1] if "#" in key else key.replace("/", "-")
+        suffix = f"-{slug_hint}" if slug_hint else ""
+        return f"{target.branch_prefix}{number}{suffix}"
+
+
+#: The fields of a project the section holds since ADR 0181 C2: a document that writes one at its
+#: root is refused, naming the section.
+PROJECT_FIELDS = ("repo", "repositories", "gitops")
+
+
+def refuse_former_project(data: Any) -> Any:
+    """A project that writes a former field at its root is refused, naming where it lives now."""
+    if isinstance(data, dict) and (found := [name for name in PROJECT_FIELDS if name in data]):
+        raise ValueError(
+            ", ".join(f"`{name}`" for name in found)
+            + " moved to the `delivery` section of the project (`delivery."
+            + found[0]
+            + "`, ADR 0181): the software-delivery plugin's"
+        )
+    return data
+
+
+def stage_section(repo: Repository | None, configured: RepoConfig | None) -> StageDelivery | None:
+    """A stage input's `delivery` section: what the runner clones (`repo`, `None` when it clones
+    nothing), and the commands it measures after the stage, those of the repository the work item works
+    on (`configured`); `None` for a project without software."""
+    commands = (
+        Commands(
+            test=configured.test_command,
+            lint=configured.lint_command,
+            typecheck=configured.typecheck_command,
+        )
+        if configured is not None
+        else Commands()
+    )
+    if repo is None and not commands.model_dump(exclude_none=True):
+        return None
+    return StageDelivery(repo=repo, commands=commands)
+
+
+# --- The policy -------------------------------------------------------------------------------------
 
 
 class DiffBounds(_Section):
-    """A policy's bounds on a diff (the former `scope.max_diff_files` and `scope.max_diff_lines`)."""
+    """A policy's bounds on a diff."""
 
-    max_diff_files: int | None = None
-    max_diff_lines: int | None = None
+    max_diff_files: int = Field(default=60, ge=1)
+    max_diff_lines: int = Field(default=3000, ge=1)
 
 
 class DeliveryApprovals(_Section):
-    """A policy's approval of a merge (the former `approvals.merge`)."""
+    """A policy's approval of a merge."""
 
-    merge: dict[str, Any] | None = None
+    merge: ApprovalRule | None = None
+
+
+class TrainApproval(_Section):
+    group: str | None = None
+    required: bool = False
+    timeout_hours: int = Field(default=4, ge=1)
+
+
+class CanarySpec(_Section):
+    steps: list[int] = Field(default_factory=list)
+    analysis: str | None = None
+    step_minutes: list[int] = Field(default_factory=list)
+
+
+class ExpressLane(_Section):
+    label: str = "hotfix"
+    soak_minutes: int = Field(default=5, ge=0)
+    skip_schedule: bool = True
+    approval: TrainApproval | None = None
+
+
+class TerraformSpec(_Section):
+    via: Literal["atlantis", "none"] = "none"
+    apply_requires_approval: bool = True
+
+
+class TrainEnvPolicy(_Section):
+    mode: Literal["auto_sync", "train"] = "train"
+    schedule: str | None = None
+    timezone: str = "Europe/Paris"
+    windows: list[str] = Field(default_factory=list)
+    batch_min: int = Field(default=1, ge=1)
+    batch_max: int = Field(default=8, ge=1)
+    soak_minutes: int = Field(default=10, ge=0)
+    approval: TrainApproval | None = None
+    canary: CanarySpec | None = None
+    express_lane: ExpressLane | None = None
+    freeze: bool = False
+    auto_rollback: bool = True
+    freeze_on_rollback: bool = True
+    terraform: TerraformSpec | None = None
 
 
 class PolicyDelivery(_Section):
@@ -184,112 +352,65 @@ class PolicyDelivery(_Section):
 
     scope: DiffBounds = Field(default_factory=DiffBounds)
     approvals: DeliveryApprovals = Field(default_factory=DeliveryApprovals)
-    release_train: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    release_train: dict[str, TrainEnvPolicy] = Field(default_factory=dict)
 
 
-#: The former fields of a project the section holds.
-PROJECT_FIELDS = ("repo", "repositories", "gitops")
-#: The former fields of a policy's `scope` the section holds.
-DIFF_FIELDS = ("max_diff_files", "max_diff_lines")
+#: The fields of a policy the section holds since ADR 0181 C2, as (section, name): `None` for the root.
+POLICY_FIELDS: tuple[tuple[str | None, str], ...] = (
+    ("scope", "max_diff_files"),
+    ("scope", "max_diff_lines"),
+    ("approvals", "merge"),
+    (None, "release_train"),
+)
 
 
-def _section_of(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    data = dict(data)
-    section = data.pop("delivery") or {}
-    if isinstance(section, BaseModel):
-        section = section.model_dump()
-    return data, dict(section)
-
-
-def read_project(data: Any) -> Any:
-    """A project configuration read under either form: the section's values go to the former fields the
-    document did not write."""
-    if not isinstance(data, dict) or "delivery" not in data:
+def refuse_former_policy(data: Any) -> Any:
+    """A policy that writes a former field is refused, naming where it lives now."""
+    if not isinstance(data, dict):
         return data
-    data, section = _section_of(data)
-    for name in PROJECT_FIELDS:
-        if name not in data and section.get(name):
-            data[name] = section[name]
+    found = [
+        f"{parent}.{name}" if parent else name
+        for parent, name in POLICY_FIELDS
+        if (name in data if parent is None else isinstance(data.get(parent), dict) and name in data[parent])
+    ]
+    if found:
+        raise ValueError(
+            ", ".join(f"`{path}`" for path in found)
+            + " moved to the `delivery` section of the policy (`delivery."
+            + found[0]
+            + "`, ADR 0181): the software-delivery plugin's"
+        )
     return data
-
-
-def project_section(config: Any) -> ProjectDelivery | None:
-    """A project's `delivery` section, derived from the former fields: `None` when it has none."""
-    if config.repo is None and not config.repositories and config.gitops is None:
-        return None
-    return ProjectDelivery(
-        repo=config.repo.model_dump(mode="json", exclude_none=True) if config.repo is not None else None,
-        repositories=[r.model_dump(mode="json", exclude_none=True) for r in config.repositories],
-        gitops=config.gitops.model_dump(mode="json", exclude_none=True)
-        if config.gitops is not None
-        else None,
-    )
-
-
-def read_policy(data: Any) -> Any:
-    """A policy read under either form: the section's values go to the former fields the document did
-    not write (`scope.max_diff_*`, `approvals.merge`, `release_train`)."""
-    if not isinstance(data, dict) or "delivery" not in data:
-        return data
-    data, section = _section_of(data)
-    scope = dict(data.get("scope") or {})
-    for name in DIFF_FIELDS:
-        found = (section.get("scope") or {}).get(name)
-        if name not in scope and found is not None:
-            scope[name] = found
-    if scope:
-        data["scope"] = scope
-    merge = (section.get("approvals") or {}).get("merge")
-    approvals = dict(data.get("approvals") or {})
-    if "merge" not in approvals and merge is not None:
-        approvals["merge"] = merge
-        data["approvals"] = approvals
-    if "release_train" not in data and section.get("release_train"):
-        data["release_train"] = section["release_train"]
-    return data
-
-
-def policy_section(policy: Any) -> PolicyDelivery:
-    """A policy's `delivery` section, derived from the former fields."""
-    merge = policy.approvals.merge
-    return PolicyDelivery(
-        scope=DiffBounds(
-            max_diff_files=policy.scope.max_diff_files, max_diff_lines=policy.scope.max_diff_lines
-        ),
-        approvals=DeliveryApprovals(
-            merge=merge.model_dump(mode="json", exclude_none=True) if merge is not None else None
-        ),
-        release_train={
-            env: train.model_dump(mode="json", exclude_none=True)
-            for env, train in policy.release_train.items()
-        },
-    )
 
 
 __all__ = [
-    "COMMAND_FIELDS",
-    "DIFF_FIELDS",
+    "EVIDENCE_FACTS",
     "PLUGIN",
+    "POLICY_FIELDS",
     "PROJECT_FIELDS",
+    "CanarySpec",
     "Commands",
     "DeliveryApprovals",
     "DiffBounds",
+    "ExpressLane",
+    "GitopsConfig",
+    "NamedRepository",
     "PolicyDelivery",
     "ProjectDelivery",
+    "RepoConfig",
     "Repository",
     "ResultDelivery",
     "StageDelivery",
+    "TerraformSpec",
+    "TrainApproval",
+    "TrainEnvPolicy",
     "branch_of",
     "commands_of",
     "commits_of",
-    "policy_section",
-    "project_section",
-    "read_artifacts",
-    "read_policy",
-    "read_project",
-    "read_stage_input",
+    "name_of_url",
+    "refuse_former_policy",
+    "refuse_former_project",
     "repository_of",
-    "result_section",
     "stage_section",
     "without_commands",
 ]

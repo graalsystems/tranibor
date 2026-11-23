@@ -74,7 +74,7 @@ def test_tracker_is_written_with_a_repository_too(profile: Path) -> None:
     repo = "https://github.com/acme/sandbox"
     result = _run("projects", "create", "evals", "--repo", repo, "--tracker", "internal")
     assert result.exit_code == 0, result.output
-    assert json.loads(respx.calls[0].request.content)["config"]["repo"]["url"] == repo
+    assert json.loads(respx.calls[0].request.content)["config"]["delivery"]["repo"]["url"] == repo
     assert tracker.called and json.loads(tracker.calls[0].request.content)["type"] == "internal"
 
 

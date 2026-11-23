@@ -196,7 +196,7 @@ class _Birth:
     declared: dict[str, dict[str, Any]]
     #: the inputs the project was given
     given: dict[str, Any]
-    #: the project's repository (`config.repo.url`), empty without one
+    #: the project's repository (`config.delivery.repo.url`), empty without one
     repo: str
 
 
@@ -245,7 +245,7 @@ async def install_template_knowledge(
         author=author,
         declared={str(i.get("name")): i for i in inputs if isinstance(i, dict)},
         given=dict((project.provision_state or {}).get("inputs") or {}),
-        repo=str(((project.config or {}).get("repo") or {}).get("url") or ""),
+        repo=str((((project.config or {}).get("delivery") or {}).get("repo") or {}).get("url") or ""),
     )
     for entry in bases:
         base = (

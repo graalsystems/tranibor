@@ -632,7 +632,8 @@ def projects_create(
     organization = _organisation(api.profile, org)
     config: dict[str, Any] = {"slug": slug, "org": organization}
     if repo:
-        config["repo"] = {"url": repo, "default_branch": "main", "language": language}
+        # The software-delivery plugin's section of the project (ADR 0181 C2).
+        config["delivery"] = {"repo": {"url": repo, "default_branch": "main", "language": language}}
     payload: dict[str, Any] = {"slug": slug, "name": name or slug, "template_ref": template, "config": config}
     if default_workflow:
         payload["default_workflow"] = default_workflow

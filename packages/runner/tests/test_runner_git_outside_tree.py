@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageInput, StageStatus
+from tranibor_contracts.delivery import commits_of
 from tranibor_runner import workspace as workspace_module
 from tranibor_runner.exits import Exit
 from tranibor_runner.runner import Runner
@@ -105,7 +106,7 @@ async def test_planted_hooks_config_filters_and_includes_are_never_run(
 
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert outcome.result is not None and outcome.result.status is StageStatus.DONE
-    assert outcome.result.artifacts.commits, "the run committed and pushed"
+    assert commits_of(outcome.result.artifacts), "the run committed and pushed"
     assert [e for e in client.events if e["type"] == "scope.reverted"], "the scope check ran its checkout"
     assert (markers / "extra").exists(), "the agent's shell did plant its files"
     ran = sorted(p.name for p in markers.iterdir() if p.name != "extra")
@@ -157,7 +158,7 @@ async def test_a_git_dir_replaced_by_a_link_is_not_followed(
         },
     )
     assert outcome.exit_code is Exit.OK, outcome.detail
-    assert outcome.result is not None and outcome.result.artifacts.commits
+    assert outcome.result is not None and commits_of(outcome.result.artifacts)
     assert list(markers.iterdir()) == []
     assert sorted(p.name for p in outside.iterdir()) == ["config", "hooks"], (
         "nothing written through the link"

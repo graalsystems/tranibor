@@ -14,7 +14,8 @@ from tranibor_adapters.errors import ConfigurationError
 from tranibor_adapters.http import RestClient
 from tranibor_adapters.tracker.gitlab import GitLabTracker
 from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
-from tranibor_contracts import InboundEventType, ProjectConfig, RepoConfig, Risk, Size
+from tranibor_contracts import InboundEventType, ProjectConfig, Risk, Size
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 
 PROJECT = "northwind/billing-api"
@@ -85,7 +86,9 @@ async def test_les_candidats_sont_les_issues_agent_ready() -> None:
         vu.update(dict(request.url.params))
         return httpx.Response(200, json=[{"iid": 7}, {"iid": 9}])
 
-    config = ProjectConfig(slug="billing-api", org="northwind", repo=RepoConfig(url="https://x/y.git"))
+    config = ProjectConfig(
+        slug="billing-api", org="northwind", delivery=ProjectDelivery(repo=RepoConfig(url="https://x/y.git"))
+    )
     keys = await tracker(handler).list_candidates(config)
 
     assert keys == [f"{PROJECT}#7", f"{PROJECT}#9"]

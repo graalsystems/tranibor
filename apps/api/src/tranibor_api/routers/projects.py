@@ -601,7 +601,7 @@ def _nothing_to_provision(project: Project) -> bool:
 
     The orchestrator falls back to the GitHub · Tekton · Argo steps when a project names no template;
     a project that has no repository would only fail them, and stayed a draft nobody could activate."""
-    repo = (project.config or {}).get("repo") or {}
+    repo = ((project.config or {}).get("delivery") or {}).get("repo") or {}
     return not project.template_ref and not repo.get("url")
 
 

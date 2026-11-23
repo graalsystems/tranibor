@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from tranibor_contracts.delivery import ResultDelivery
 from tranibor_testkit.orchestrator import Fixture
 
 pytestmark = pytest.mark.asyncio
@@ -92,9 +93,9 @@ async def test_the_diff_gates_pass_on_a_run_that_never_cloned(
     await _prepared(setup, agent="analyst")
     result = StageResult(status=StageStatus.DONE, summary="Analysed")
     # The runner's local git measured the notes the agent left in its empty directory.
-    result.evidence.diff_files, result.evidence.diff_lines = 1, 12
-    result.evidence.measured = ["diff_files", "diff_lines"]
-    result.artifacts.commits = ["0ddba11"]
+    result.evidence.facts = {**(result.evidence.facts or {}), "diff_files": 1, "diff_lines": 12}
+    result.evidence.measured = ["facts.diff_files", "facts.diff_lines"]
+    result.artifacts.delivery = ResultDelivery(commits=["0ddba11"])
     async with session_scope() as session:
         run = await session.get(Run, f"{setup.work_item_id}-t-implement-1")
         assert run is not None

@@ -731,7 +731,7 @@ async def seed_eval_ticket(payload: dict[str, Any]) -> dict[str, Any]:
         return _skip(f"toy repository missing: {spec.get('repo')}")
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        depot = bundle.config.repo
+        depot = bundle.config.delivery_section.repo
         if depot is None:
             return _skip(f"the eval project {bundle.slug} has no repository to commit the toy one to")
         if not await tracker_is_internal(session, bundle.project):
@@ -859,9 +859,9 @@ def _file_check(kind: str, raw: dict[str, Any], toy: Path) -> str:
 # ───────────────────────── a live agent case (S57-11a) ─────────────────────────
 
 #: What the case's eval project keeps of the matrix's eval project's configuration: what a run reads.
-#: Its repository, its GitOps, its schedules, triggers and start rules are left behind: a case's run
-#: clones nothing, ships nothing and nothing opens a work item there but the matrix.
-_CASE_PROJECT_DROPS = ("repo", "gitops", "schedules", "triggers", "start_rules")
+#: Its `delivery` section (repositories, GitOps), its schedules, triggers and start rules are left behind:
+#: a case's run clones nothing, ships nothing and nothing opens a work item there but the matrix.
+_CASE_PROJECT_DROPS = ("delivery", "schedules", "triggers", "start_rules")
 #: The project connectors a case's run needs from the matrix's eval project: where it runs, its gateway.
 _CASE_PROJECT_KINDS = ("runtime", "gateway")
 

@@ -80,7 +80,8 @@ EXCLUDED: dict[str, str] = {
     ),
     "packages/contracts/src/tranibor_contracts/recorded.py": (
         "the former spellings the platform still reads from documents it recorded or stored and cannot "
-        "rewrite (ADR 0098 §4, ADR 0181 Decision (2026-11-23)): read only, never written or served"
+        "rewrite (ADR 0098 §4, ADR 0181 Decision (2026-11-23)): read only, never written or served; each is "
+        "folded into its successor before validation (Temporal histories, published plugins, ADR 0008)"
     ),
     "packages/contracts/src/tranibor_contracts/window.py": (
         "the window list names each former name once, with the release that removes it; "
@@ -147,77 +148,17 @@ ALLOWED: dict[str, dict[str, int]] = {
         "repositories": 2,
         "repository": 7,
     },
-    "packages/contracts/schemas/policy.schema.json": {"max_diff": 2, "release_train": 1, "train": 4},
-    "packages/contracts/schemas/project.schema.json": {
-        "branch": 5,
-        "gitops": 1,
-        "lint": 2,
-        "repo": 3,
-        "repositories": 3,
-        "typecheck": 2,
-    },
-    "packages/contracts/schemas/stage-input.schema.json": {
-        "branch": 4,
-        "lint": 1,
-        "pr": 1,
-        "repo": 1,
-        "typecheck": 1,
-    },
-    "packages/contracts/schemas/stage-result.schema.json": {
-        "branch": 1,
-        "commits": 1,
-        "coverage": 1,
-        "diff_files": 1,
-        "diff_lines": 1,
-        "lint": 1,
-        "pr": 1,
-        "release_notes": 1,
-        "security_scan": 1,
-        "tests_failed": 1,
-        "tests_passed": 1,
-        "tests_run": 1,
-        "typecheck": 1,
-    },
+    "packages/contracts/schemas/stage-result.schema.json": {"release_notes": 1},
     "packages/contracts/schemas/template.schema.json": {"repo": 1},
     "packages/contracts/schemas/workflow.schema.json": {"pull_request": 1, "release_train": 1, "train": 2},
-    "packages/contracts/src/tranibor_contracts/__init__.py": {
-        "pull_request": 2,
-        "repo": 4,
-        "repository": 2,
-        "train": 2,
-    },
+    "packages/contracts/src/tranibor_contracts/__init__.py": {"pull_request": 2},
     "packages/contracts/src/tranibor_contracts/enums.py": {
         "address_review": 2,
         "fix_ci": 2,
         "release_notes": 2,
         "verify_prod": 2,
     },
-    "packages/contracts/src/tranibor_contracts/policy.py": {"max_diff": 2, "release_train": 1, "train": 7},
-    "packages/contracts/src/tranibor_contracts/project.py": {
-        "branch": 4,
-        "gitops": 4,
-        "lint": 1,
-        "repo": 25,
-        "repositories": 6,
-        "repository": 6,
-        "typecheck": 1,
-    },
-    "packages/contracts/src/tranibor_contracts/stage.py": {
-        "branch": 3,
-        "commits": 1,
-        "coverage": 1,
-        "diff_files": 1,
-        "diff_lines": 1,
-        "lint": 2,
-        "pr": 2,
-        "release_notes": 1,
-        "repo": 3,
-        "security_scan": 1,
-        "tests_failed": 1,
-        "tests_passed": 2,
-        "tests_run": 2,
-        "typecheck": 2,
-    },
+    "packages/contracts/src/tranibor_contracts/stage.py": {"release_notes": 1},
     "packages/contracts/src/tranibor_contracts/workflow.py": {
         "pr": 9,
         "pull_request": 3,
@@ -317,8 +258,8 @@ def measure() -> dict[str, dict[str, int]]:
 
 
 def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None:
-    """What `delivery.py` may hold without being read: models that say they are the plugin's, and the
-    functions that read them as one with the former fields."""
+    """What `delivery.py` may hold without being read: models that say they are the plugin's, the
+    functions that read them, and the refusals that name the section a former field moved to."""
     import inspect
 
     from pydantic import BaseModel
@@ -336,20 +277,48 @@ def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None
         if fn.__module__ == delivery.__name__
     }
     assert functions <= {
-        "read_stage_input",
-        "read_artifacts",
-        "stage_section",
-        "result_section",
-        "read_project",
-        "project_section",
-        "read_policy",
-        "policy_section",
         "repository_of",
         "commands_of",
         "without_commands",
         "branch_of",
         "commits_of",
-        "_section_of",
+        "name_of_url",
+        "_same_url",
+        "refuse_former_project",
+        "refuse_former_policy",
+        "stage_section",
+    }
+
+
+def test_the_excluded_recorded_module_only_folds_former_spellings() -> None:
+    """What `recorded.py` may hold without being read: the folds of a recorded document's former
+    spellings into their successors, and the names they fold."""
+    import inspect
+
+    from pydantic import BaseModel
+    from tranibor_contracts import recorded
+
+    assert not [
+        obj
+        for _, obj in inspect.getmembers(recorded, inspect.isclass)
+        if issubclass(obj, BaseModel) and obj.__module__ == recorded.__name__
+    ], "recorded.py defines no model: it reads former spellings, it writes nothing"
+    functions = {
+        name
+        for name, fn in inspect.getmembers(recorded, inspect.isfunction)
+        if fn.__module__ == recorded.__name__
+    }
+    assert functions <= {
+        "fold_stage_input",
+        "fold_work_item_links",
+        "fold_artifacts",
+        "fold_evidence",
+        "fold_policy",
+        "fold_policy_text",
+        "_plain",
+        "_blocks",
+        "_children",
+        "_moved_text",
     }
 
 

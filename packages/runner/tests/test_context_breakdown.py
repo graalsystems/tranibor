@@ -42,13 +42,9 @@ LOOPBACK = {"authorization": f"Bearer {LOOPBACK_KEY}"}
 
 
 def _prompt(stage_input: StageInput, **update: Any) -> StageInput:
-    no_repo = stage_input.project.model_copy(
-        update={"test_command": "", "lint_command": "", "typecheck_command": ""}
-    )
     return stage_input.model_copy(
         update={
-            "repo": None,
-            "project": no_repo,
+            "delivery": None,
             "agent": AgentRef(backend="prompt"),
             "model": ModelRef(litellm_model="platform/standard", base_url="http://gateway:4000/v1"),
             "gateway_key": KEY,

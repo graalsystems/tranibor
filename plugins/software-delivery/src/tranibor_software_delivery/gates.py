@@ -94,7 +94,7 @@ class DeliveryFacts:
     #: The paths present on the DEFAULT branch, under the folders the `adr_number_free` declarations
     #: read; `None` when the SCM connector could not list one of them.
     default_branch_files: list[str] | None = None
-    #: The project's policy bounds on a diff, `(files, lines)` (`scope.max_diff_*`).
+    #: The project's policy bounds on a diff, `(files, lines)` (`delivery.scope.max_diff_*`).
     max_diff: tuple[int, int] | None = None
     ci_status: str | None = None
     review_state: str | None = None
@@ -369,7 +369,7 @@ def _diff_size_max(ctx: GateContext, params: dict[str, Any]) -> GateOutcome:
     if not d.diff_available:
         return _without_diff("diff_size_max")
     if "files" not in params and d.max_diff is not None:
-        # The project's policy bounds (`scope.max_diff_*`) when the declaration names no file count.
+        # The project's policy bounds (`delivery.scope.max_diff_*`) when the declaration names no file count.
         params = {**params, "files": d.max_diff[0], "lines": params.get("lines", d.max_diff[1])}
     max_files = int(params.get("files", params.get("n", 60)))
     max_lines = int(params.get("lines", 100_000))

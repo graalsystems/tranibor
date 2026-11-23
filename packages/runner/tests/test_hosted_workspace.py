@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from tranibor_adapters.fakes import FakeHostedAgent
 from tranibor_contracts import HostedCall, StageInput, StageStatus
+from tranibor_contracts.delivery import Commands, commits_of, repository_of
 from tranibor_runner import hosted_workspace
 from tranibor_runner.exits import Exit
 from tranibor_runner.workspace import Workspace
@@ -31,7 +32,7 @@ BRANCH = "choregos/1-total"
 def _working(stage_input: StageInput, workspace: str, **update: Any) -> StageInput:
     """A hosted step that keeps the repository, as the orchestrator sends it under `read`/`write`."""
     hosted = HostedCall(image=IMAGE, agent_slug="triage", agent_version=3, workspace=workspace)  # type: ignore[arg-type]
-    return _hosted(stage_input, hosted=hosted, repo=stage_input.repo, **update)
+    return _hosted(stage_input, hosted=hosted, repo=repository_of(stage_input), **update)
 
 
 @pytest.fixture
@@ -98,7 +99,7 @@ async def test_what_the_container_writes_is_committed_and_pushed(
     assert _events(client, "hosted.workspace.imported") == [
         {"written": ["src/orders.py", "tests/test_total.py"], "deleted": []}
     ]
-    assert client.results[-1].artifacts.commits, "the runner committed it"
+    assert commits_of(client.results[-1].artifacts), "the runner committed it"
     assert client.results[-1].diagnostics.permission_denials == 0
 
 
@@ -274,24 +275,23 @@ async def test_under_write_no_project_command_runs(
 ) -> None:
     """The project's commands would run the container's code inside the runner, beside the run's
     token and keys: none runs, and the step says so."""
-    project = stage_input.project.model_copy(
-        update={"test_command": "touch RAN", "lint_command": "touch RAN", "typecheck_command": "touch RAN"}
-    )
     stage = _working(stage_input, "write")
-    stage = stage.model_copy(update={"project": project})
+    assert stage.delivery is not None
+    stage.delivery.commands = Commands(test="touch RAN", lint="touch RAN", typecheck="touch RAN")
     _, client, _ = await _go(stage, [("write", "tests/x.py", "pass\n")], settings, shared)
 
     assert not (settings.workspace / "RAN").exists()
     assert len(_events(client, "checks.skipped")) == 1
     evidence = client.results[-1].evidence
-    assert evidence.tests_passed is None and evidence.lint == "skipped"
+    assert evidence.value("tests_passed") is None and evidence.value("lint") == "skipped"
 
 
 async def test_under_read_the_fact_commands_still_run(
     stage_input: StageInput, settings: Any, shared: Path
 ) -> None:
-    project = stage_input.project.model_copy(update={"test_command": "touch RAN"})
-    stage = _working(stage_input, "read").model_copy(update={"project": project})
+    stage = _working(stage_input, "read")
+    assert stage.delivery is not None
+    stage.delivery.commands = Commands(test="touch RAN")
     _, client, _ = await _go(stage, [], settings, shared)
 
     assert _events(client, "checks.skipped") == []

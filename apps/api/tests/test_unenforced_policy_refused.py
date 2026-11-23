@@ -12,8 +12,9 @@ PROMISING_POLICY = """
 apiVersion: choregos/v1
 kind: Policy
 metadata: { name: promising, version: 1 }
-approvals:
-  merge: { required: always, group: maintainers }
+delivery:
+  approvals:
+    merge: { required: always, group: maintainers }
 """
 
 WORKFLOW_WITH_REVIEW_HUMANS = """
@@ -41,7 +42,7 @@ async def test_a_policy_promising_an_approval_is_refused(
     assert response.status_code == 422, response.text
     body = response.json()
     assert [e["code"] for e in body["errors"]] == ["policy.approval_not_enforced"]
-    assert "approvals.merge" in body["detail"]
+    assert "delivery.approvals.merge" in body["detail"]
     assert "ADR 0101" in body["detail"]
 
 

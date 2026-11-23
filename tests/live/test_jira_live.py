@@ -25,7 +25,8 @@ from collections.abc import AsyncIterator
 import pytest
 from tranibor_adapters.http import RestClient
 from tranibor_adapters.tracker.jira import JiraTracker
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 
 from .conftest import require
@@ -100,7 +101,9 @@ async def test_full_cycle_on_a_real_ticket(tracker: JiraTracker) -> None:
 
     # The fallback polling finds the ticket by its label (JQL).
     config = ProjectConfig(
-        slug="sandbox", org="northwind", repo=RepoConfig(url="https://example.invalid/x/y.git")
+        slug="sandbox",
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://example.invalid/x/y.git")),
     )
     assert key in await tracker.list_candidates(config)
 
