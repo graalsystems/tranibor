@@ -115,11 +115,11 @@ first-party plugin like any other, in its own distribution, before 1.0.
 | The `marketdata` connectors | `investment-research`'s extension: done (S83-08) |
 
 Gate names, event types and effect names do not change: stored workflows and subscribers keep working
-once the plugin is installed. A renamed name is served beside its former one for a window of at least
-two weeks, then only under the new one. One list, `tranibor_contracts.window`, names every former name
-and the release that removes it: the roles, the fields and the role groups renamed in round C1 leave in
-the first release cut on or after 2026-12-07 (the release ledger `tools/releases.json` says which). Until then a request may send either spelling, a response carries both fields, and an identity
-provider may send `contributors` and `approvers` beside `developers` and `release-captains`.
+once the plugin is installed. The renamed names (the roles and role groups, the REST fields, the
+`delivery` sections, the enumeration values the plugin now declares) left the core in 0.29.0, all at once:
+the project lead closed every window early on 2026-11-23. A former name is refused where it is sent; the
+platform still reads it only from what it recorded or stored and cannot rewrite (a stored workflow version,
+a recorded history, a published plugin's policy), and writes it back under the new name.
 
 ## Go further
 
