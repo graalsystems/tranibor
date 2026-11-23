@@ -27,7 +27,7 @@ Optional but recommended in production: a model gateway (LiteLLM), a memory serv
 
 ```bash
 helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
-  --version 0.28.2 --namespace choregos --create-namespace \
+  --version 0.29.0 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
 
@@ -1880,7 +1880,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.28.2 \
+helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.29.0 \
   -n choregos --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
 ```
@@ -2033,8 +2033,7 @@ Roles come from **groups**, and a group names its organisation:
 | `choregos:<org>:viewers` | `viewer` |
 
 `approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
-([ADR 0181](adr/0181-the-contracts-speak-no-trade.md) round C1), which give no role since the release
-after 0.28.1.
+([ADR 0181](adr/0181-the-contracts-speak-no-trade.md) round C1), which give no role since 0.29.0.
 
 The same claim carries an organisation's **human groups** (ADR 0052): a workflow's
 `group: architects` is matched by a member carrying `architects` or `choregos:<org>:architects`
@@ -2383,7 +2382,7 @@ being killed by its liveness probe (#2139) can return to the defaults.
 
 ```bash
 curl -s https://<api-host>/edition
-{"edition":"community","features":[],"version":"0.28.2","publisher":null,"edition_version":null}
+{"edition":"community","features":[],"version":"0.29.0","publisher":null,"edition_version":null}
 ```
 
 `version` is the core's. `publisher` and `edition_version` are announced by the edition's plugin:
@@ -2488,7 +2487,7 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
-## Upgrading past 0.28.2: software delivery lives in the `delivery` sections only
+## Upgrading to 0.29.0: software delivery lives in the `delivery` sections only
 
 The window `C2-delivery` of [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) closed early (2026-11-23):
 the project, the policy and the stage contracts no longer carry the former software-delivery fields beside
@@ -2507,7 +2506,7 @@ The stage contracts still read the former spellings of a stage input or a stage 
 deployment upgrades, carry them, and the agents of the published `software-delivery` plugin write
 `evidence.tests_passed`. A template's policy is read the same way (`fold_policy`). They are never written.
 
-## Upgrading past 0.28.1: the roles and fields of round C1 have only their neutral names
+## Upgrading to 0.29.0: the roles and fields of round C1 have only their neutral names
 
 **ADR 0181 round C1's window closed early** (the project lead's decision of 2026-11-23, recorded in
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md)). Old clients break; there is no window left.
@@ -2683,8 +2682,8 @@ the `ontology:` extension of the `joiners-leavers` template are gone. It was off
 The downgrade of `b4d6f8a0c2e5` does not create the tables again.
 
 **Neutral names beside the former ones** ([ADR 0181](adr/0181-the-contracts-speak-no-trade.md), round C1).
-The former names left in the release after 0.28.1, earlier than planned: see "Upgrading past 0.28.1: the
-roles and fields of round C1 have only their neutral names".
+The former names left in 0.29.0, earlier than planned: see "Upgrading to 0.29.0: the roles and fields of
+round C1 have only their neutral names".
 
 | What | What happens | What to do |
 | :-- | :-- | :-- |

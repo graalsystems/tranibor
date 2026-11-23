@@ -48,7 +48,7 @@ URI to register, whether the secret is set), never a secret's value.
 
 `approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
 ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md) round C1). The former groups give no role
-since the release after 0.28.1: make the identity provider send the new ones before upgrading.
+since 0.29.0: make the identity provider send the new ones before upgrading.
 
 The same claim carries the human groups workflows name: a step for `group: architects` is offered to
 members carrying `architects` or `choregos:acme:architects`. Groups without the `choregos:<org>:`
