@@ -110,7 +110,10 @@ choregos-temporal:
 - `dev`: `server start-dev` on SQLite. With `tls.enabled` it listens on 127.0.0.1:7234 and an nginx relay
   holds the pod's port 7233 with the server certificate (start-dev has no TLS option).
 - `server`: `temporalio/auto-setup`, the four services in one pod, persistence on PostgreSQL. The pod holds
-  no data: a restart cuts the workflows for about 30 s and the clients resume alone.
+  no data: a restart cuts the workflows for about 30 s and the clients resume alone. The chart renders
+  no Temporal claim, and the scheduled backup mounts none: Temporal's databases (`database.name`,
+  `database.visibilityName`) are in the backup's `pg_dump` when they are on the embedded PostgreSQL, and
+  backed up by whoever runs the PostgreSQL otherwise (the operator's, or `database.host`) (#2156).
   `server.numHistoryShards` is **immutable** once the database is initialised.
 - A serious environment (`staging`, `prod`) refuses the embedded Temporal in `dev` mode only.
 - **Adopting what already runs.** `global.temporal.serviceName` keeps the Service name clients dial;
@@ -1717,8 +1720,8 @@ helm install choregos charts/choregos -n choregos --create-namespace \
 `backup.target.s3.{url,endpoint,region}`.
 
 **The backup.** The CronJob `choregos-backup` runs every night at 02:00 UTC (`backup.schedule`) and
-writes one directory per run: a `pg_dump -Fc --create` of every database, an online copy of
-Temporal's SQLite file, the memory's files, the object store when asked, a `MANIFEST` and a
+writes one directory per run: a `pg_dump -Fc --create` of every database (Temporal's included in
+`server` mode), an online copy of Temporal's SQLite file in `dev` mode, the memory's files, the object store when asked, a `MANIFEST` and a
 `COMPLETE` marker; it keeps the 7 newest complete backups (`backup.keep`). To take one now:
 `kubectl -n choregos create job --from=cronjob/choregos-backup backup-now`. A `volume` target
 (`backup.target.kind: volume`) is accepted, and is a backup only if that volume is not on the
