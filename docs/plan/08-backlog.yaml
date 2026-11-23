@@ -5838,6 +5838,14 @@ stories:
     size: S
     depends_on: [S80-23]
     notes: "Left of S80-23: the lock's move to the graalsystems index was done by S83-04o (#2147); only the history exemption of plugins/offline/ in tests/licences/test_no_varga.py remained."
+  - id: S80-27
+    title: "docs(charts): the handover from an Argo application (Prune=false), the S80-17 row, numeric LiteLLM prices"
+    stream: S80
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: [S80-15, S80-17]
+    notes: "Finding #2150 point 4. choregos.litellm.value renders modelInfo numbers as numbers."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

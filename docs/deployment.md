@@ -133,6 +133,22 @@ chart only references it. Service names are `<release>-firecrawl`, `<release>-se
 set in `choregos-websearch.names.*`. Firecrawl has no authentication when self-hosted: open no network
 path to it except from the platform's namespace, and none to the internet from its pod.
 
+### Handing a piece over from an operator's Argo application to the chart (#2150)
+
+A site that switches a piece (Service, Certificate, Issuer, PVC, Deployment) from its own manifests to the
+chart's keeps the names and the volume with the adoption values above. The objects exist already, owned by
+the site's Argo CD application, and **that application prunes what its manifests no longer list**: the first
+sync after the switch deletes them. Before the change merges, set on each live object that moves
+
+```
+kubectl annotate <kind> <name> argocd.argoproj.io/sync-options=Prune=false --overwrite
+```
+
+(a PVC above all: deleting the Temporal claim loses the workflow history, the Ecphoria claim the memory).
+Then sync the chart's application, check that it owns the objects, and remove the annotation. A Deployment
+on a single-writer volume (SQLite for Temporal `dev` mode, DuckDB for Ecphoria) must not run twice: retire
+the old Deployment first, the chart's then starts on the same claim.
+
 ### Temporal over TLS, payloads encrypted ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 
 Temporal keeps every workflow's inputs, results, signals and failure messages: ticket text, agents'

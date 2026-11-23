@@ -54,8 +54,8 @@ data:
           {{- /* The rest of the price sheet, as the operator wrote it: cache read and write prices,
                  `tiered_pricing` (LiteLLM >= 1.105), a context window. Without them the cost of a cached
                  or long request is wrong, and a wrong counter is worse than none. */}}
-          {{- with .modelInfo }}
-          {{- toYaml . | nindent 10 }}
+          {{- range $k, $v := .modelInfo }}
+          {{ $k | toJson }}: {{ include "choregos.litellm.value" $v }}
           {{- end }}
         {{- else }}
         {{- with .mode }}

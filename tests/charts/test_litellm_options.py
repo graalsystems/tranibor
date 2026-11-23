@@ -89,6 +89,7 @@ def test_a_model_carries_its_endpoint_its_key_variable_and_its_whole_price_sheet
                             "outputCostPerToken": 0.0000005,
                             "modelInfo": {
                                 "cache_read_input_token_cost": 0.00000001,
+                                "max_input_tokens": 200000,
                                 "tiered_pricing": [{"range": [0, 100000], "input_cost_per_token": 0.0000001}],
                             },
                         }
@@ -105,6 +106,13 @@ def test_a_model_carries_its_endpoint_its_key_variable_and_its_whole_price_sheet
     assert float(info["input_cost_per_token"]) == pytest.approx(1e-7)
     assert float(info["cache_read_input_token_cost"]) == pytest.approx(1e-8)
     assert info["tiered_pricing"][0]["range"] == [0, 100000]
+    # #2150: a price is a number for the YAML 1.1 reader LiteLLM uses, not the string `'1e-08'` helm's
+    # `toYaml` wrote; a whole number stays an integer.
+    assert isinstance(info["cache_read_input_token_cost"], float)
+    assert info["cache_read_input_token_cost"] == pytest.approx(1e-8)
+    assert isinstance(info["tiered_pricing"][0]["input_cost_per_token"], float)
+    assert info["tiered_pricing"][0]["input_cost_per_token"] == pytest.approx(1e-7)
+    assert info["max_input_tokens"] == 200000 and isinstance(info["max_input_tokens"], int)
     assert _env(docs)["PLATFORM_LLM_KEY"]["valueFrom"]["secretKeyRef"] == {
         "name": "gw",
         "key": "platform-llm-key",
