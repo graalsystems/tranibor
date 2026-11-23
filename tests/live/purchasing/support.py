@@ -195,6 +195,19 @@ def seed(env: Environment) -> Seed:
     today = dt.datetime.now(dt.UTC).date()
     country = odoo.call("res.country", "search_read", domain=[["code", "=", "FR"]], fields=["code"], limit=1)
     assert country, "Odoo has no country FR: the database was not initialised with the base module"
+    # A fresh database has only its company's currency active (USD without a chart of accounts); the
+    # purchase requests are in EUR, as a French buyer's are, and the server refuses an inactive one.
+    euro = odoo.call(
+        "res.currency",
+        "search_read",
+        domain=[["name", "=", "EUR"]],
+        fields=["active"],
+        limit=1,
+        context={"active_test": False},
+    )
+    assert euro, "Odoo has no currency EUR"
+    if not euro[0]["active"]:
+        odoo.call("res.currency", "write", ids=[euro[0]["id"]], vals={"active": True})
     registration = "552 100 554" if env.registry_supported else None
     supplier_values: dict[str, Any] = {
         "name": "Live Seed Supplies SA",
