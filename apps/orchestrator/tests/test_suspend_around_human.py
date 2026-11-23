@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .kits.escalation import requests_of
@@ -116,6 +117,7 @@ async def _run_row(setup: Fixture) -> Any:
 async def test_an_answered_question_costs_one_run_not_two(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -152,6 +154,7 @@ async def test_an_answered_question_costs_one_run_not_two(
 async def test_past_the_bound_the_sandbox_is_gone_and_the_stage_replays(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -192,6 +195,7 @@ async def test_without_the_capability_nothing_is_suspended(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """Every other executor: the interpreter asks, is told no, and does nothing new."""
+    await use_workflow(setup)
     executor = setup.adapters.executor
     scripted(setup.adapters, QUESTION, refine_result("spec"))
     async with worker_factory():

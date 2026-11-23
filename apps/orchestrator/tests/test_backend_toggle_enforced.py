@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from temporalio.exceptions import ApplicationError
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .kits.escalation import requests_of
@@ -138,6 +139,7 @@ async def test_the_reviewer_swap_skips_a_disabled_backend(setup: Fixture) -> Non
 async def test_a_disabled_backend_escalates_then_runs_once_enabled(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
