@@ -1,6 +1,6 @@
 [project]
 name = "tranibor-testkit"
-version = "0.28.2"
+version = "0.29.0"
 description = "The test kit of the core's suites, shared with the first-party plugins' tests (ADR 0181, round D): fixtures and helpers, never shipped in an image"
 requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
