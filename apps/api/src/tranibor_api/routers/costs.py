@@ -28,9 +28,12 @@ from ..db.models import (
     WorkItem,
 )
 from ..deps import Db, Me, ProjectCtx
+from ..display_currency import DisplayCurrency
+from ..display_currency import read as read_display_currency
 from ..errors import forbidden, not_found
 from ..rbac import Permission
 from ..schemas import (
+    CostFx,
     CostReport,
     CostRow,
     CostTotal,
@@ -216,6 +219,20 @@ async def _readable_keys(session: Db, report: CostReport, org_id: str | None) ->
     return report
 
 
+def _show_in(report: CostReport, display: DisplayCurrency) -> None:
+    """Say which currency the report is read in and fill `cost_display` (ADR 0214). The USD and EUR
+    figures stay as measured; a declared rate only ever produces the extra column, and the report says so."""
+    report.currency = display.code
+    if display.declared:
+        report.fx = CostFx(declared=True, rate=display.rate, set_on=display.set_on)
+    lines: list[CostRow | CostTotal] = [*report.rows, report.total]
+    for line in lines:
+        if display.declared:
+            line.cost_display = display.convert(line.cost_usd)
+        else:
+            line.cost_display = line.cost_usd if display.code == "USD" else line.cost_eur
+
+
 @router.get("/projects/{id}/costs", response_model=CostReport, operation_id="getProjectCosts")
 async def project_costs(  # noqa: PLR0913 - the report's period and filters, as query parameters
     ctx: ProjectCtx,
@@ -239,8 +256,7 @@ async def project_costs(  # noqa: PLR0913 - the report's period and filters, as 
         session, where=where, group_by=group_by, budget_usd=policy.budgets.daily_project_usd
     )
     organisation = await session.get(Organization, ctx.project.org_id)
-    if organisation is not None and (organisation.settings or {}).get("currency") == "USD":
-        report.currency = "USD"
+    _show_in(report, read_display_currency(organisation.settings if organisation is not None else None))
     return await _readable_keys(session, report, None)
 
 
@@ -276,7 +292,7 @@ async def org_costs(  # noqa: PLR0913 - the report's period and filters, as quer
         *_narrowed(agent, workflow, work_item, assistant),
     ]
     report = await _report(session, where=where, group_by=group_by)
-    report.currency = "USD" if (organization.settings or {}).get("currency") == "USD" else "EUR"
+    _show_in(report, read_display_currency(organization.settings))
     # The organisation's daily budget: what its projects may spend a day, summed (S29-03).
     daily = [(await effective_policy(session, pid)).budgets.daily_project_usd for pid in project_ids]
     budgets = [b for b in daily if b is not None]
@@ -368,6 +384,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
             "tokens_caches",
             "runs",
             "tokens_cache_write",
+            *([f"cost_{report.currency.lower()}"] if report.fx.declared else []),
         ]
     )
     for row in report.rows:
@@ -381,6 +398,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
                 row.tokens_cached,
                 row.runs,
                 row.tokens_cache_write,
+                *([f"{row.cost_display:.6f}"] if report.fx.declared else []),
             ]
         )
     writer.writerow([])
@@ -395,8 +413,19 @@ def _csv_response(report: CostReport, filename: str) -> Response:
             total.tokens_cached,
             "",  # a total has no runs cell: the write column keeps its position
             total.tokens_cache_write,
+            *([f"{total.cost_display:.6f}"] if report.fx.declared else []),
         ]
     )
+    if report.fx.declared:
+        # Said in the file itself, so a figure pasted into a spreadsheet keeps its provenance (ADR 0214).
+        writer.writerow(["declared_rate", f"1 USD = {report.fx.rate} {report.currency}", report.fx.set_on])
+        writer.writerow(
+            [
+                "note",
+                f"cost_{report.currency.lower()} is cost_usd (as measured) converted at the rate the "
+                "organisation declared; the USD figures are the ledger's",
+            ]
+        )
     if total.budget_usd is not None:
         writer.writerow(["budget_quotidien_usd", f"{total.budget_usd:.2f}"])
     return Response(

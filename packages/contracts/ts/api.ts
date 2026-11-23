@@ -4531,8 +4531,12 @@ export type Org = {
   slug: string;
   name: string;
   role?: Role | null;
-  /** the currency the console shows spend in (S29-03); an organisation setting */
-  currency?: "EUR" | "USD";
+  /** the currency the console shows spend in (S29-03, ADR 0214): an organisation setting, any ISO 4217 code. The ledger stays in USD as measured; `EUR` and `USD` are read from the ledger's own columns, every other code is USD converted at `fx_rate`. */
+  currency?: string;
+  /** units of `currency` per 1 USD, as the organisation declared it (ADR 0214); null for `EUR` and `USD`, which need none */
+  fx_rate?: number | null;
+  /** the UTC date the declared rate was set; null when there is none */
+  fx_rate_set_on?: string | null;
   /** the slugs the organisation had before; they still resolve to it (ADR 0090). The organisation's id never changes, its slug is an address. */
   aliases?: Array<string>;
   /** whether the organisation's runs may be offered tool scripts (S57-05b, ADR 0122 §6): `enabled`, `disabled`, or null to follow the deployment's default (`CHOREGOS_TOOL_SCRIPTS`). Past it, the organisation's ceiling and each project's policy (`tools.scripts: offer`) decide; the deployment's brake (`CHOREGOS_TOOL_SCRIPTS_ALLOWED`) wins over it. */
@@ -4550,8 +4554,10 @@ export type OrgCreate = {
 export type OrgUpdate = {
   slug?: string | null;
   name?: string | null;
-  /** the currency spend is shown in; org_admin */
-  currency?: "EUR" | "USD" | null;
+  /** the currency spend is shown in, an ISO 4217 code (422 when it is not one); org_admin. A code other than `EUR` and `USD` needs `fx_rate` in the same request (422 otherwise): there is no default rate (ADR 0214). */
+  currency?: string | null;
+  /** units of `currency` per 1 USD, declared by the organisation; the server stamps the date (`fx_rate_set_on`). Refused (422) with `EUR` or `USD`. Absent or null: unchanged, and dropped when the currency changes (ADR 0214). */
+  fx_rate?: number | null;
   /** the organisation's switch for tool scripts (S57-05b); org_admin only, a platform administrator who is not one is refused (403). Absent: unchanged; `enabled` or `disabled`: the organisation's choice; null: back to the deployment's default. Audited in `org.update`. */
   tool_scripts?: "enabled" | "disabled" | null;
   /** require complete agents (S60-05, ADR 0127 §8); org_admin only (403 otherwise). Absent: unchanged; `required`: required; null: no longer required. Audited in `org.update`. */
@@ -6303,11 +6309,23 @@ export type RunContext = {
 
 export type CostReport = {
   group_by: string;
+  /** the organisation's display currency (ISO 4217); `cost_display` is in it */
   currency?: string;
+  /** how `cost_display` was obtained (ADR 0214) */
+  fx?: {
+    /** true when `cost_display` is USD converted at the organisation's declared rate; false when it is the ledger's own EUR or USD column */
+    declared: boolean;
+    /** the declared units of `currency` per 1 USD; null when not declared */
+    rate?: number | null;
+    /** the UTC date the organisation set that rate */
+    set_on?: string | null;
+  };
   rows: Array<{
     key: string;
     cost_usd: number;
     cost_eur: number;
+    /** the line in `currency`: the ledger's EUR or USD column, or `cost_usd` times the declared rate (ADR 0214) */
+    cost_display?: number;
     tokens_in?: number;
     tokens_out?: number;
     tokens_cached?: number;
@@ -6320,6 +6338,9 @@ export type CostReport = {
   total: {
     cost_usd?: number;
     cost_eur?: number;
+    /** the total in `currency` (ADR 0214) */
+    cost_display?: number;
+    /** always USD: budgets are set, enforced and alerted in USD (ADR 0214) */
     budget_usd?: number | null;
     /** the input tokens of the report's lines, summed (ADR 0141 §1) */
     tokens_in?: number;
