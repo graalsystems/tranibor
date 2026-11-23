@@ -40,11 +40,11 @@ plugins:
     file: procurement-0.3.0.tar.gz
     signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
   procurement-operations:
-    version: 0.3.0
-    digest: sha256:1db218214dfa7d78092515b80956f8bec248955acad11f39c30874d30aa45c5e
-    source: ghcr.io/graalsystems/tranibor-agents/procurement-operations:0.3.0
-    artifact: sha256:6cf991db4d227043b667ee3c925b2aecf280c3cbc97caf39c1959425d5dcc1e6
-    file: procurement-operations-0.3.0.tar.gz
+    version: 0.3.1
+    digest: sha256:11e52941b9e7fb0897dece7480ed94267b92b7d8ac70377a456f32cef6e78c0a
+    source: ghcr.io/graalsystems/tranibor-agents/procurement-operations:0.3.1
+    artifact: sha256:e8a8ddcadfbff9fa69fe9c206bd7999cb375548ec3ee53a6a1aa66ae292d6f29
+    file: procurement-operations-0.3.1.tar.gz
     signature: keyless, https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
   requests:
     version: 1.1.2
