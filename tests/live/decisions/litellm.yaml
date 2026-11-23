@@ -18,6 +18,7 @@ general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
   store_model_in_db: false
+  disable_budget_reservation: true
 guardrails:
   - guardrail_name: choregos-secrets
     litellm_params:

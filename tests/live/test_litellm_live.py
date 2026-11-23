@@ -13,12 +13,14 @@ what `.github/workflows/live-model.yml` runs every night (S80-13):
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from uuid import uuid4
 
 import httpx
 import pytest
 from tranibor_adapters.gateway.litellm import LiteLlmGateway
+from tranibor_api.routers.agents.trials import TRIAL_CAP_USD, TRIAL_DEFAULT_USD
 from tranibor_core import ModelResolver
 from tranibor_core.domain import GatewayModel
 
@@ -178,6 +180,67 @@ async def test_the_budget_is_a_hard_ceiling(gateway: LiteLlmGateway, base_url: s
     assert "budget" in refusal.text.lower(), refusal.text[:300]
 
     await gateway.revoke(key.key)
+
+
+#: The agent profiles whose opening calls must fit a trial's budget: every one the chart ships for an
+#: agent. `platform/strong` is priced in `model/litellm.yaml` like a frontier model, so that one call's
+#: worst case is more than the budget. On another gateway, `TRANIBOR_LIVE_LITELLM_PROFILES` lists them.
+PROFILES = tuple(
+    os.environ.get(
+        "TRANIBOR_LIVE_LITELLM_PROFILES", "platform/strong,platform/standard,platform/cheap"
+    ).split(",")
+)
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+@pytest.mark.parametrize("budget_usd", [TRIAL_DEFAULT_USD, TRIAL_CAP_USD])
+async def test_a_run_s_opening_calls_fit_its_budget_together(
+    gateway: LiteLlmGateway, base_url: str, profile: str, budget_usd: float
+) -> None:
+    """#2181: an agent opens with calls that overlap (opencode titles its session while it answers,
+    Claude Code makes side calls). LiteLLM 1.108 reserved each call's worst case (its input plus
+    16,384 output tokens when `max_tokens` is unset, at the model's price) against the key while it
+    ran; at $30 per million output tokens that is the whole budget of a trial, and the second call was
+    refused "Budget has been exceeded! ... Current cost: 0.5, Max budget: 0.5" with almost nothing
+    spent. The gateway's config turns the reservation off (`disable_budget_reservation`): the second
+    call, made while the first one streams, is answered."""
+    key = await gateway.mint_key(
+        {"project": "billing-api", "run_id": f"live-{RUN}-open-{profile.rsplit('/', 1)[-1]}-{budget_usd}"},
+        budget_usd=budget_usd,
+        ttl_s=900,
+        models=[profile],
+    )
+    headers = {"Authorization": f"Bearer {key.key}"}
+    try:
+        async with (
+            httpx.AsyncClient(timeout=60) as client,
+            client.stream(
+                "POST",
+                f"{base_url}/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": profile,
+                    "stream": True,
+                    "messages": [{"role": "user", "content": "Count from 1 to 60, comma separated."}],
+                },
+            ) as first,
+        ):
+            assert first.status_code == 200, (await first.aread())[:300]
+            lines = first.aiter_lines()
+            async for line in lines:
+                if line.startswith("data:"):
+                    break
+            # The first call is still streaming: its reservation, if any, is held now.
+            second = await client.post(
+                f"{base_url}/v1/chat/completions",
+                headers=headers,
+                json={"model": profile, "messages": [{"role": "user", "content": "Say OK."}]},
+            )
+            async for _ in lines:
+                pass
+        assert second.status_code == 200, second.text[:300]
+    finally:
+        await gateway.revoke(key.key)
 
 
 async def test_a_revoked_key_no_longer_passes(gateway: LiteLlmGateway, base_url: str) -> None:

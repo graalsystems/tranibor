@@ -270,6 +270,9 @@ def litellm_config(provider: Provider | None, *, embed: bool = False, decide: bo
         "general_settings": {
             "master_key": "os.environ/LITELLM_MASTER_KEY",
             "database_url": "os.environ/DATABASE_URL",
+            # As the chart renders it (#2181): a call's worst case is not reserved against a run
+            # key's budget, or the agent's overlapping calls are refused with nothing spent.
+            "disable_budget_reservation": True,
         },
         # ADR 0084, as in the chart: the file sits next to this config (`write_litellm_config`).
         "guardrails": [
