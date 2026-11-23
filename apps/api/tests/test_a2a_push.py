@@ -188,7 +188,7 @@ async def test_a_notification_is_signed_carries_the_event_id_and_ends_with_the_t
     assert await deliver_pending() == []
     assert len(receiver.calls) == 1
 
-    done = await _happen(task["id"], state="deployed_prod")
+    done = await _happen(task["id"], state="done")
     assert len(await deliver_pending()) == 1
     assert receiver.calls[-1].headers["x-choregos-event-id"] == done
     assert json.loads(receiver.calls[-1].content)["status"]["state"] == "completed"

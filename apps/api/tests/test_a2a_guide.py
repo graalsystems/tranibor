@@ -15,6 +15,7 @@ from typing import Any
 
 import yaml
 from httpx import AsyncClient
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 GUIDE = pathlib.Path(__file__).resolve().parents[3] / "docs" / "starting-a-workflow-from-outside.md"
 ENDPOINT = "/a2a/orgs/northwind"
@@ -39,8 +40,6 @@ def _bodies() -> list[dict[str, Any]]:
 async def _publish(
     client: AsyncClient, project: dict[str, Any], *, input_modes: list[str] | None = None
 ) -> None:
-    from tranibor_core.dsl import template_yaml
-
     tracker = await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
@@ -48,7 +47,7 @@ async def _publish(
     block = OPT_IN.search(_page())
     assert block, "the guide no longer shows the workflow's opt-in"
     opt_in = yaml.safe_load(block.group(1))
-    workflow = yaml.safe_load(template_yaml("default-simple"))
+    workflow = yaml.safe_load(CORE_SIMPLE)
     workflow["metadata"]["inputs"] = opt_in["metadata"]["inputs"]
     workflow["a2a"] = opt_in["a2a"]
     if input_modes:

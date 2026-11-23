@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 from httpx import AsyncClient
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .site_pages import run_cli
 
@@ -70,8 +71,6 @@ def _commands(prefix: str) -> list[list[str]]:
 
 
 async def _publish(client: AsyncClient, project: dict[str, Any]) -> None:
-    from tranibor_core.dsl import template_yaml
-
     tracker = await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
@@ -79,7 +78,7 @@ async def _publish(client: AsyncClient, project: dict[str, Any]) -> None:
     block = OPT_IN.search(_page())
     assert block, "the page no longer shows the workflow's opt-in"
     opt_in = yaml.safe_load(block.group(1))
-    workflow = yaml.safe_load(template_yaml("default-simple"))
+    workflow = yaml.safe_load(CORE_SIMPLE)
     workflow["metadata"]["inputs"] = opt_in["metadata"]["inputs"]
     workflow["metadata"]["name"] = opt_in["metadata"]["name"]
     workflow["a2a"] = opt_in["a2a"]
