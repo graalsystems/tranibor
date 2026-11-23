@@ -3,6 +3,16 @@ image:
   # one `compose.yaml` runs: `tests/charts/test_ecphoria_image.py` keeps the chart on it.
   repository: ghcr.io/graalsystems/ecphoria
   tag: "0.2.6-memory"
+# Adopt a Deployment that already runs (#2150). Empty: `<release>-ecphoria`. The volume keeps its own name
+# (`persistence.existingClaim`), and the Service its own (`global.memory.serviceName`).
+deploymentName: ""
+# The labels the pods carry and the selector and Service match. Empty: `app.kubernetes.io/name:
+# choregos-ecphoria` and `app.kubernetes.io/instance: <release>`. Set, this map REPLACES them whole (a site's
+# network policy selects on them; a Deployment's selector is immutable, so it must equal the live one).
+# The chart's own NetworkPolicies follow its `app.kubernetes.io/name`.
+selectorLabels: {}
+# Extra labels on the pods only (never in a selector).
+podLabels: {}
 persistence:
   enabled: true
   size: 5Gi
