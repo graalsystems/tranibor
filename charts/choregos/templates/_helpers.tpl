@@ -504,6 +504,16 @@ workers, which render the address from their own values, see it too), or `<relea
 {{- (.Values.global.temporal | default dict).serviceName | default (printf "%s-temporal" .Release.Name) -}}
 {{- end -}}
 
+{{- /* The claim the embedded Temporal's SQLite file lives on: `persistence.existingClaim` when the
+operator adopts a volume, otherwise the Service name. One definition for the subchart's Deployment
+and the umbrella's backup and restore, so the backup mounts the claim the server writes (#2153).
+Called with `(dict "root" <a context with .Values.global and .Release> "persistence" <the
+choregos-temporal persistence values>)`: the subchart passes `.Values.persistence`, the umbrella
+`(index .Values "choregos-temporal").persistence`. */ -}}
+{{- define "choregos.temporalClaim" -}}
+{{- (.persistence | default dict).existingClaim | default (include "choregos.temporalServiceName" .root) -}}
+{{- end -}}
+
 {{- define "choregos.temporalAddress" -}}
 {{- if .Values.global.temporal.embedded -}}
 {{ include "choregos.temporalServiceName" . }}:7233
@@ -608,6 +618,16 @@ subcharts render the URLs from their own values. */ -}}
 {{- end -}}
 {{- define "choregos.memoryServiceName" -}}
 {{- (.Values.global.memory).serviceName | default (printf "%s-ecphoria" .Release.Name) -}}
+{{- end -}}
+
+{{- /* The claim the embedded memory's DuckDB and SQLite files live on: `persistence.existingClaim`
+when the operator adopts a volume (S80-16), otherwise `<release>-ecphoria` (never the Service name,
+which an adoption may change while the data stays where it is). One definition for the Ecphoria
+Deployment and the umbrella's backup and restore, so the backup mounts the claim the server writes
+(#2153). Called with `(dict "root" <a context with .Release> "persistence" <the choregos-ecphoria
+persistence values>)`. */ -}}
+{{- define "choregos.memoryClaim" -}}
+{{- (.persistence | default dict).existingClaim | default (printf "%s-ecphoria" .root.Release.Name) -}}
 {{- end -}}
 
 {{- define "choregos.gatewayUrl" -}}
