@@ -16,6 +16,7 @@ import httpx
 import pytest
 import yaml
 from httpx import ASGITransport, AsyncClient, Response
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .test_a2a_inbound import CARD, ENDPOINT, _ready, _rpc, _send, _stream, _touch, _when_followed
 from .test_a2a_push import HOOK, Receiver, _happen
@@ -174,12 +175,10 @@ async def test_a_refusal_carries_an_error_info(client: AsyncClient, project: dic
 async def test_fields_a_workflow_refuses_are_field_violations(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    from tranibor_core.dsl import template_yaml
-
     await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
-    workflow = yaml.safe_load(template_yaml("default-simple"))
+    workflow = yaml.safe_load(CORE_SIMPLE)
     workflow["metadata"]["inputs"] = {
         "type": "object",
         "required": ["ticket"],
@@ -277,7 +276,7 @@ async def test_send_streaming_message_follows_the_work_item_to_its_end(
     async def drive() -> None:
         async with session_scope() as session:
             item = (await session.execute(select(WorkItem))).scalar_one()
-            item.state = "deployed_prod"
+            item.state = "done"
             key = item.tracker_key
         await _touch(key)
 
@@ -316,7 +315,7 @@ async def test_push_configs_in_1_0_are_flat_and_notified_as_a_stream_response(
     listed = (await _call(client, token, "ListTaskPushNotificationConfigs", {"taskId": task["id"]})).json()
     assert [c["id"] for c in listed["result"]["configs"]] == ["ops"]
 
-    await _happen(task["id"], state="deployed_prod")
+    await _happen(task["id"], state="done")
     assert len(await deliver_pending()) == 1
     body = json.loads(hook.calls[-1].content)
     assert list(body) == ["task"] and body["task"]["status"]["state"] == "TASK_STATE_COMPLETED"

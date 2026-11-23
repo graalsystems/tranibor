@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from tranibor_adapters.fakes import FakeObjectStore
 from tranibor_contracts import artifact_digest
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .conftest import login
 
@@ -38,13 +39,11 @@ def store() -> Iterator[FakeObjectStore]:
 
 
 async def _publish(client: AsyncClient, project: dict[str, Any], attachments: dict[str, Any] | None) -> None:
-    from tranibor_core.dsl import template_yaml
-
     tracker = await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
     assert tracker.status_code == 200, tracker.text
-    document = yaml.safe_load(template_yaml("default-simple"))
+    document = yaml.safe_load(CORE_SIMPLE)
     if attachments is not None:
         document["metadata"]["attachments"] = attachments
     published = await client.put(

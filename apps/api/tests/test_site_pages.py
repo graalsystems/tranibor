@@ -22,6 +22,7 @@ from typing import Any
 import pytest
 import yaml
 from httpx import AsyncClient
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .site_pages import SITE, run_cli
 
@@ -228,8 +229,6 @@ async def test_the_server_the_grant_and_the_policy_of_the_page_are_taken(
 
 
 async def test_the_trigger_of_the_page_answers_as_its_table_says(client: AsyncClient, admin: str) -> None:
-    from tranibor_core.dsl import template_yaml
-
     triggers = json.loads(_blocks("integrate/triggers.md", "json")[0])
     created = await client.post(
         "/api/v1/orgs/northwind/projects",
@@ -244,7 +243,7 @@ async def test_the_trigger_of_the_page_answers_as_its_table_says(client: AsyncCl
     opt_in = yaml.safe_load(
         re.search(r"```yaml\n(metadata:.*?)```", _page("integrate/a2a.md"), re.S).group(1)
     )  # type: ignore[union-attr]
-    workflow = yaml.safe_load(template_yaml("default-simple"))
+    workflow = yaml.safe_load(CORE_SIMPLE)
     workflow["metadata"].update(name="ship-a-change", inputs=opt_in["metadata"]["inputs"])
     published = await client.put(
         f"/api/v1/projects/{project['id']}/workflows/ship-a-change",
@@ -298,13 +297,11 @@ async def _login_back(client: AsyncClient) -> None:
 async def test_the_rest_page_s_requests_work_with_a_full_access_token(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    from tranibor_core.dsl import template_yaml
-
     await _internal_tracker(client, project)
     opt_in = yaml.safe_load(
         re.search(r"```yaml\n(metadata:.*?)```", _page("integrate/a2a.md"), re.S).group(1)
     )  # type: ignore[union-attr]
-    workflow = yaml.safe_load(template_yaml("default-simple"))
+    workflow = yaml.safe_load(CORE_SIMPLE)
     workflow["metadata"].update(name="ship-a-change", inputs=opt_in["metadata"]["inputs"])
     await client.put(
         f"/api/v1/projects/{project['id']}/workflows/ship-a-change",

@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .conftest import login
 
@@ -20,13 +21,11 @@ def _base(project: dict[str, Any]) -> str:
 
 
 async def _publish(client: AsyncClient, project: dict[str, Any]) -> None:
-    from tranibor_core.dsl import template_yaml
-
     tracker = await client.put(
         f"/api/v1/projects/{project['id']}/connectors/tracker", json={"type": "internal", "config": {}}
     )
     assert tracker.status_code == 200, tracker.text
-    text = template_yaml("default-simple").rstrip("\n") + "\n" + OPT_IN
+    text = CORE_SIMPLE.rstrip("\n") + "\n" + OPT_IN
     published = await client.put(f"/api/v1/projects/{project['id']}/workflow", json={"yaml": text})
     assert published.status_code == 200, published.text
 
