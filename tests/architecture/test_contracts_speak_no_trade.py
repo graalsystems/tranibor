@@ -83,10 +83,6 @@ EXCLUDED: dict[str, str] = {
         "rewrite (ADR 0098 §4, ADR 0181 Decision (2026-11-23)): read only, never written or served; each is "
         "folded into its successor before validation (Temporal histories, published plugins, ADR 0008)"
     ),
-    "packages/contracts/src/tranibor_contracts/window.py": (
-        "the window list names each former name once, with the release that removes it; "
-        "tests/architecture/test_the_window_list.py removes them (ADR 0181 C1)"
-    ),
 }
 
 _C1 = "C1: a neutral name for a concept the core owns"

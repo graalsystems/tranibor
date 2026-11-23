@@ -2,7 +2,8 @@
 
 - **Status**: accepted, 2026-11-19, by the project lead: option **D** with **O4-1**, **O4-3** and **O4-4**
   (see [Decision (2026-11-19)](#decision-2026-11-19), which replaces "Decision (proposed)" where they
-  differ). Proposed 2026-11-17 for a decision in December 2026 (plan of 2026-11-16, workstreams A1
+  differ), amended 2026-11-23: every window closed early (see
+  [Decision (2026-11-23)](#decision-2026-11-23-windows-closed-early)). Proposed 2026-11-17 for a decision in December 2026 (plan of 2026-11-16, workstreams A1
   "decision" and O4 "decision"). The work is tracked by the `contract-change` issue
   [#1832](https://github.com/graalsystems/tranibor/issues/1832) and stream S83.
 - **Concerns**: `packages/contracts` (the schemas, `openapi.yaml`, `src/tranibor_contracts/`, `ts/`), the
@@ -634,3 +635,80 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   inbound-hook seams, and the adapter slot. What remains of software delivery in the core is named above,
   each with why: wire values every history carries, GitHub as a system the core's trackers use, and the
   windows' former names, each removed by its own PR in the release its window names.
+
+## Decision (2026-11-23): windows closed early
+
+The project lead decided on 2026-11-23 to make every rename of this record **now**, instead of waiting
+for the dates the window list held. The platform has few users, and
+breaking old clients is accepted. What this replaces: point 3 of "Decision (proposed)" (one window per
+round, removal in N + 1) and point 6 of "Decision (2026-11-19)" (removal at least two weeks after the
+round's release), and the dates of S83-04w. The rule of ADR 0098 §4 still holds for what the platform
+recorded or stored and cannot rewrite: readers keep the former spelling there, and only there.
+
+The windows closed, each in its own pull request, all released in **0.29.0**:
+
+| Window | What left | Pull request |
+| :-- | :-- | :-- |
+| C1 | `Role.DEVELOPER`, `Role.RELEASE_CAPTAIN` (with `Role.neutral`, `Role.stored`, `Role.current`, `ROLE_STORED_AS`, `ROLE_SUCCESSORS`), the REST role enums and the DSL's approver role `developer` and `release_captain`, the role groups `developers` and `release-captains` (`GROUP_ROLES`), `WorkItem.pr_url`, `repository`, `repository_fixed`, `ProcessStep.writes_branch`, `WorkflowCatalogueEntry.needs_repository`, `ArtifactFlow.in_pull_request`, `first_pass_merge_rate` | #2173 |
+| C1 (stage result) and C2-delivery | `artifacts.pr_url`; the stage result's evidence fields (now `evidence.facts`), `artifacts.branch` and `commits`; the stage input's `repo`, `project.*_command`, `work_item.links.pr`; the project's `repo`, `repositories`, `gitops`; the policy's `scope.max_diff_*`, `approvals.merge`, `release_train`, now only in their `delivery` sections, which projects and policies write | #2176 |
+| C2, D-train, D | `InboundEventType`'s `scm.*`, `ci.*`, `cd.*` members, `FindingType` `BUG`, `PERF`, `TECH_DEBT`, `FLAKY_TEST`, `MemoryKind` `FLAKY_TEST`, `HOTSPOT`, `ConnectorKind` `SCM`, `CI`, `CD`, `EventType.RELEASE_*`, the core's `ReleaseStatus`, `ReleaseRecord`, `ReleaseItem`: the `software-delivery` plugin declares the values, under the same strings | #2175 |
+
+**Data migrations.** Two Alembic migrations, idempotent, whose downgrade does nothing (0.28.x already
+reads the new spellings): `c1a3e5f7b9d2` rewrites `memberships.role`, the approver roles of
+`actions.approval` and the role groups of `org_saml_idps.group_map` (`developers`, `release-captains` →
+`contributors`, `approvers`); `13e34c50cb88` moves the former fields of `projects.config`, `policies.json`,
+`policies.yaml` (a block-style text keeps its comments), `runs.result`, `runs.stage_input` and
+`agent_sessions.stage_input` into their `delivery` sections, named facts and links. The enterprise edition
+rewrites its own per-organisation group maps (`ee_oidc`, `ee_saml`) in its migration `ee0014`.
+
+**Readers kept, and why.** Each reads a former spelling and never writes one:
+
+- **A stored or recorded workflow's approver role** (`tranibor_contracts.recorded.FORMER_APPROVER_ROLES`,
+  under the validation context `{"stored": True}`: the interpreter, `services.definitions.workflow_model`,
+  the readiness's checksum, `parse_workflow(stored=True)`). A stored workflow version is never rewritten
+  (its digest would move), and a running workflow carries its definition in its history. A workflow sent
+  to the API with a former role is refused.
+- **The stage contracts' former fields, always on** (`recorded.fold_stage_input`, `fold_work_item_links`,
+  `fold_artifacts`, `fold_evidence`). The recorded Temporal histories (about 240 stage documents in
+  `tests/replay/histories/`, and those of the workflows running in a deployment when it upgrades) carry
+  `repo`, `*_command`, `links.pr`, `artifacts.branch`/`commits`/`pr_url` and the evidence fields, and
+  Temporal's data converter deserialises them with no validation context, so the reading cannot be limited
+  to stored documents. These contracts are internal (runner, orchestrator, internal API), outside the
+  frozen REST surface. The signed `software-delivery` 1.3.0 agents are also told to write
+  `evidence.tests_passed`.
+- **A template's or content plugin's policy** (`parse_policy(text, recorded=True)`, `recorded.fold_policy`,
+  `fold_policy_text`), where a project is born from a template: a content plugin already signed and
+  published, or a deployment's own, may write `scope.max_diff_*`, `approvals.merge` or `release_train` at
+  their former places, and no migration reaches an archive. The stored text is written in the new form.
+  A policy or a project sent through the REST API is refused (422, naming the section).
+- **Stored values of the open lists** (`{"stored": True}`, unchanged since C0): a `received_events` row, a
+  stored stage result or a recorded history that holds `scm.*`, `ci.*`, `cd.*`, a delivery finding type or
+  memory kind, or a stored connector of kind `scm`, `ci` or `cd`, keeps reading where the plugin is absent;
+  the runner and the agents' tools, which load no extension, read a finding type unjudged
+  (`UNJUDGED`) and leave the platform to judge it. An absent slot still names its plugin
+  (`tranibor_adapters.registry.PLUGIN_KINDS`).
+- **A membership row with a role no release reads** (written by a replica of 0.28.x during the upgrade,
+  after the migration ran) grants nothing and is logged `membership_role_unknown`, instead of failing
+  every request of that person.
+
+**What breaks for old clients.** A REST client that sends a former role (`developer`, `release_captain`)
+or a former field of a project or a policy gets a 422; one that reads `pr_url`, `repository`,
+`repository_fixed`, `needs_repository`, `writes_branch`, `in_pull_request` or `first_pass_merge_rate` finds
+nothing. An identity provider that sends only `developers` or `release-captains` gives no role: a member
+whose role the provider granted loses it at the next sign-in, so the deployment's provider must send
+`contributors` and `approvers` before the upgrade (diametral: DiametralGroup/infra#1637, synchronised on
+2026-11-23 before the deployment). The human group `release-captains` that the core's templates address
+(`group: release-captains`) is a group slug, not a role, and is unchanged. An enterprise edition or a plugin
+that imported a removed name moves with the same release. A Python import of a removed member fails.
+
+**The window list stays, empty.** `tranibor_contracts.window` keeps the machinery (`Window`, `FormerName`,
+the release ledger) and `WINDOW` is empty; `tests/architecture/test_the_window_list.py` passes on an empty
+list and still requires every new entry to carry its three dates and to be where it says. The list is
+empty on 1.0, as point 3 asked. The vocabulary guard's allowlist falls from 262 hits in 13 files to 69 in 8, none of them a window's former name:
+what remains is what this record keeps or classes otherwise (the GitHub App's routes and `GitToken`,
+git as a transport for skills and workflows, `open_pr`/`merge_pr`/`pull_request.draft` and
+`via: release_train` in the DSL, which stored workflows carry, the stage roles `fix_ci`,
+`address_review`, `release_notes`, `verify_prod`, the internal `getRunCiLogs`, the organisation's policy
+ceiling `max_diff_*`, the process view's actor type `release_train`). The allowlist of the frozen surfaces is therefore
+not empty: those 69 hits are the next rounds' work, not former names. `window.py` is read by the guard
+again (it names no former name any more).

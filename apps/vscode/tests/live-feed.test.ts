@@ -174,7 +174,7 @@ describe("the live feed", () => {
       id: "u",
       email: "a@example.com",
       display_name: "A",
-      memberships: [{ org: "acme", role: "developer" }],
+      memberships: [{ org: "acme", role: "contributor" }],
     };
     api.json("GET", "/api/v1/me", me);
     api.json("GET", LIST, { in_flight: [], finished: [] });

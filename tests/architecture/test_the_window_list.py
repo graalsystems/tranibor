@@ -1,4 +1,4 @@
-"""The window list holds every former name a round keeps, and each leaves at its release (ADR 0181 C1).
+"""The window list holds every former name a rename keeps, and each leaves at its release (ADR 0181).
 
 `tranibor_contracts.window.WINDOW` is the only place a former name may stay beside its successor
 (ADR 0098 left no alias policy). This test holds it both ways: an entry names a place where its former
@@ -12,9 +12,14 @@ on or after its `removed_on`, two weeks at least after the release that opened i
 is a patch (0.27.18) or a minor. The verdict moves only when the version and the ledger move, never on a
 calendar day.
 
-To see it fail, set `removed_on` of `C1` to a day before the last release of the ledger and that
-release two weeks after 0.27.17: every entry is reported, naming its place. Or delete `pr_url` from
-the `WorkItem` of `openapi.yaml` without taking its entry off the list.
+Every window of ADR 0181 closed early on 2026-11-23 (the project lead's decision, recorded in the ADR):
+the list is empty, and an empty list passes. The machinery stays for a later rename: an entry still needs
+its window's three days, ordered, and its place, as `test_an_entry_needs_its_window_and_its_place` shows
+on an entry made up for the test.
+
+To see it fail, add an entry for a name that is not where it says (`pr_url` on the `WorkItem` of
+`openapi.yaml`, which left), or one for a name still there whose window's removal day is before the last
+release of the ledger.
 """
 
 from __future__ import annotations
@@ -31,7 +36,6 @@ from typing import Any
 import pytest
 import yaml
 from tranibor_contracts.window import (
-    C1,
     GRACE,
     WINDOW,
     FormerName,
@@ -133,7 +137,14 @@ def test_a_former_name_is_where_the_list_says_until_its_release_removes_it(entry
         )
 
 
-@pytest.mark.parametrize("window", sorted({entry.window for entry in WINDOW} | {C1}, key=lambda w: w.round))
+#: A window made up for the tests below: ADR 0181's own windows all closed on 2026-11-23.
+SAMPLE = Window("sample", date(2026, 11, 19), date(2026, 11, 30), date(2026, 12, 7))
+
+
+WINDOWS: list[Window] = sorted({entry.window for entry in WINDOW} | {SAMPLE}, key=lambda w: w.round)
+
+
+@pytest.mark.parametrize("window", WINDOWS)
 def test_a_window_is_ordered_and_its_removal_waits_two_weeks(window: Window) -> None:
     assert window.opened_on < window.writers_switch_on < window.removed_on
     assert window.removed_on >= window.opened_on + GRACE
@@ -146,8 +157,8 @@ def test_the_ledger_holds_the_current_release_in_order() -> None:
     assert current() in ledger or "-" in current(), "run tools/bump_version.py: it writes the ledger"
     days = [day for _, day in sorted(ledger.items(), key=lambda item: release(item[0]))]
     assert days == sorted(days)
-    # C1 merged on 2026-11-19 and was first served by 0.27.17, as STATUS says.
-    assert opening_release(C1, ledger, "0.27.17") == ("0.27.17", date(2026, 11, 20))
+    # A round merged on 2026-11-19 was first served by 0.27.17 (C1 was, as STATUS says).
+    assert opening_release(SAMPLE, ledger, "0.27.17") == ("0.27.17", date(2026, 11, 20))
 
 
 def test_a_window_closes_in_the_first_release_cut_on_its_day_patch_or_minor() -> None:
@@ -189,20 +200,42 @@ def test_the_release_writes_the_ledger_and_checks_it(tmp_path: Path, monkeypatch
     assert bump.record_release("0.28.0-rc1", check=True) == 0, "a pre-release is not a release"
 
 
+def test_the_windows_of_adr_0181_closed_early_and_the_list_is_empty() -> None:
+    """The project lead's decision of 2026-11-23: every former name left in 0.29.0, none is kept."""
+    assert WINDOW == ()
+
+
+def test_an_entry_needs_its_window_and_its_place() -> None:
+    """A later rename still lists its former names with dated windows: a window without its three days
+    cannot be built, a disordered one is refused, and an entry whose name already left is not present."""
+    with pytest.raises(TypeError):
+        Window("undated", date(2026, 11, 19))  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        FormerName("pr_url", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_url")  # type: ignore[call-arg]
+    backwards = Window("backwards", date(2026, 12, 7), date(2026, 11, 30), date(2026, 11, 19))
+    assert not backwards.opened_on < backwards.writers_switch_on < backwards.removed_on
+    left = FormerName(
+        "pr_url", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_url", SAMPLE
+    )
+    assert not present(left), "a name that left cannot be listed: its entry would be refused"
+
+
 def test_the_list_is_empty_on_1_0() -> None:
     if version() >= (1, 0, 0):
         assert not WINDOW, "1.0 freezes the surfaces (ADR 0168): no former name may be kept on them"
 
 
 def test_the_locator_finds_a_name_and_misses_one_that_left() -> None:
-    there = FormerName("links", "links", "rest", "openapi:/components/schemas/WorkItem/properties/links", C1)
+    there = FormerName(
+        "links", "links", "rest", "openapi:/components/schemas/WorkItem/properties/links", SAMPLE
+    )
     gone = FormerName(
-        "pr_number", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_number", C1
+        "pr_number", "links", "rest", "openapi:/components/schemas/WorkItem/properties/pr_number", SAMPLE
     )
-    value = FormerName("viewer", "reader", "rest", "openapi:/components/schemas/Role/enum", C1, "viewer")
+    value = FormerName("viewer", "reader", "rest", "openapi:/components/schemas/Role/enum", SAMPLE, "viewer")
     missing = FormerName(
-        "captain", "approver", "rest", "openapi:/components/schemas/Role/enum", C1, "captain"
+        "captain", "approver", "rest", "openapi:/components/schemas/Role/enum", SAMPLE, "captain"
     )
-    module = FormerName("X", "Y", "python", "py:tranibor_contracts.enums:Role.DEVELOPER", C1)
+    module = FormerName("X", "Y", "python", "py:tranibor_contracts.enums:Role.DEVELOPER", SAMPLE)
     assert present(there) and present(value)
     assert not present(gone) and not present(missing) and not present(module)

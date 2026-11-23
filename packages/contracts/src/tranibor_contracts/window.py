@@ -1,21 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The window list: every former name a round keeps beside its successor, and the release that removes it.
+"""The window list: every former name a rename keeps beside its successor, and the release that removes it.
 
-ADR 0181 renames the core's own concepts in rounds, before the 1.0 freeze. A round adds the neutral
-name beside the former one: a response carries both, a request accepts either, a reader of a stored
-value takes both spellings (ADR 0098 §4). The former name then stays for one window and leaves in its
-own pull request, at least two weeks after the round's release (ADR 0181, Decision (2026-11-19) point
-6). There is no alias policy any more (ADR 0098): this list is the only place a former name may be
-kept, and `tests/architecture/test_the_window_list.py` holds it both ways:
+ADR 0181 renamed the core's own concepts in rounds, before the 1.0 freeze. Each round was to keep the
+former name beside the neutral one for one window, keyed on the release ledger (`tools/releases.json`).
+On 2026-11-23 the project lead closed every window early (ADR 0181, "Decision (2026-11-23): windows
+closed early"): all former names left in 0.29.0, and `WINDOW` is empty. What the platform still reads
+from documents it recorded or stored and cannot rewrite is in `tranibor_contracts.recorded`, never here.
 
-- every entry names a place where its former name is today, so an entry whose name already left is
-  refused, and the list shrinks with the names;
-- in the release that removes an entry's window, the name must be gone from that place: the release
-  that should remove it cannot ship with it;
+The machinery stays for any later rename before 1.0, and `tests/architecture/test_the_window_list.py`
+holds it both ways:
+
+- every entry names a place where its former name is today, and a window with its three days (opened,
+  writers switched, removed), so an entry whose name already left is refused;
+- in the release that removes an entry's window, the name must be gone from that place;
 - the list is empty on 1.0, so the frozen surfaces carry no former name (ADR 0168).
-
-The vocabulary guard (`tests/architecture/test_contracts_speak_no_trade.py`) does not read this file:
-it names each former name once, on purpose, and its own test removes them.
 """
 
 from __future__ import annotations
@@ -26,7 +24,6 @@ from datetime import date, timedelta
 from typing import Literal
 
 __all__ = [
-    "C1",
     "WINDOW",
     "FormerName",
     "Window",
@@ -110,15 +107,6 @@ def removal_due(window: Window, releases: Mapping[str, date], version: str) -> b
     return _due(window, releases, version, window.removed_on, GRACE)
 
 
-#: Round C1 of ADR 0181: neutral names for concepts the core owns. Merged on 2026-11-19, so served from
-#: 0.27.17 (2026-11-20).
-C1 = Window(
-    round="C1",
-    opened_on=date(2026, 11, 19),
-    writers_switch_on=date(2026, 11, 30),
-    removed_on=date(2026, 12, 7),
-)
-
 Surface = Literal["python", "rest", "dsl", "stage-result", "sign-in"]
 
 
@@ -142,5 +130,6 @@ class FormerName:
     value: str | None = None
 
 
-#: Every former name kept for a window, with its successor and its window.
+#: Every former name kept for a window, with its successor and its window. Empty since 2026-11-23, when
+#: every window of ADR 0181 closed early.
 WINDOW: tuple[FormerName, ...] = ()
