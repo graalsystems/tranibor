@@ -320,7 +320,7 @@ async def test_the_rest_page_s_requests_work_with_a_full_access_token(
     assert re.match(r"^[A-Z][A-Z0-9-]*-\d+$", key), key
     read = await client.get(f"/api/v1/work-items/{key}", headers=auth)
     assert read.status_code == 200 and read.json()["id"] == created.json()["id"]
-    for field in ("state", "state_display", "pending_request", "pr_url", "failure", "totals"):
+    for field in ("state", "state_display", "pending_request", "links", "failure", "totals"):
         assert field in read.json(), field
     listed = (
         await client.get("/api/v1/projects/northwind:billing-api/work-items?limit=20", headers=auth)

@@ -157,7 +157,7 @@ async def test_a_step_of_a_project_the_person_cannot_read_is_not_listed(
     await _request(client, other["id"], "Payroll step", user=LEA)
     person = await _session(app, LEA)  # a sign-in makes them a member; then only billing-api is theirs
     try:
-        await _only(LEA, "developer", "billing-api")
+        await _only(LEA, "contributor", "billing-api")
         response = await person.get(PENDING)
     finally:
         await person.aclose()

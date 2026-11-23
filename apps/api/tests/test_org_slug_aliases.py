@@ -58,16 +58,16 @@ async def test_an_old_idp_group_still_maps_and_the_current_one_too(client: Async
         user = User(email="nouvelle@idp.test", display_name="n")
         session.add(user)
         await session.flush()
-        await _map_groups_to_roles(session, user, ["choregos:northwind:developers"], Settings())
+        await _map_groups_to_roles(session, user, ["choregos:northwind:contributors"], Settings())
         await session.flush()
         org = (await session.execute(select(Organization))).scalar_one()
         rows = (
             (await session.execute(select(Membership).where(Membership.user_id == user.id))).scalars().all()
         )
-        assert [(m.org_id, m.role) for m in rows] == [(org.id, "developer")]
+        assert [(m.org_id, m.role) for m in rows] == [(org.id, "contributor")]
         # the old and the new group name of one organisation: the higher role wins, one membership
         await _map_groups_to_roles(
-            session, user, ["choregos:northwind:developers", "choregos:fondation:org-admins"], Settings()
+            session, user, ["choregos:northwind:contributors", "choregos:fondation:org-admins"], Settings()
         )
         await session.flush()
         rows = (

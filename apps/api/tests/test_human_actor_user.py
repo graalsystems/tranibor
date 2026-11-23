@@ -226,7 +226,7 @@ async def test_a_request_reassigned_to_a_group_is_answered_by_its_members(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     item_id, request_id = await _waiting_ticket(client, project["id"], PERSON_ONLY)
-    await _member(client, "cap@northwind.dev", "developer", [f"{project['slug']}-captains"])
+    await _member(client, "cap@northwind.dev", "contributor", [f"{project['slug']}-captains"])
     moved = await client.post(
         f"/api/v1/work-items/{item_id}/human-requests/{request_id}/assignee",
         json={"group": "{project}-captains", "reason": "the captains take it"},

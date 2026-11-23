@@ -34,7 +34,7 @@ async def test_a_group_lists_who_carries_it_and_who_may_answer_here(
         "northwind", "max@northwind.dev", ["choregos:northwind:product-owners"], "viewer", project["id"]
     )
     await _member(
-        "northwind", "sam@northwind.dev", ["choregos:other:product-owners"], "developer", project["id"]
+        "northwind", "sam@northwind.dev", ["choregos:other:product-owners"], "contributor", project["id"]
     )
     await _member("northwind", "noa@northwind.dev", ["architects"], "contributor", project["id"])
     answer = await client.get(f"/api/v1/projects/{project['id']}/groups/product-owners/members")

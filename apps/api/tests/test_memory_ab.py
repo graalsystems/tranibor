@@ -83,8 +83,8 @@ async def test_memory_pays_off_when_it_improves_the_first_pass(client: AsyncClie
 
     assert report["with_memory"]["projects"] == ["with-memory"]
     assert report["without_memory"]["projects"] == ["without-memory"]
-    assert report["with_memory"]["first_pass_merge_rate"] == 1.0
-    assert report["without_memory"]["first_pass_merge_rate"] == 0.0
+    assert report["with_memory"]["first_pass_acceptance_rate"] == 1.0
+    assert report["without_memory"]["first_pass_acceptance_rate"] == 0.0
     assert report["verdict"] == "memory pays off"
     assert "first pass" in report["detail"]
 

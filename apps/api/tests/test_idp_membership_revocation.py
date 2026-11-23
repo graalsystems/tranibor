@@ -130,7 +130,7 @@ async def test_a_role_moved_to_another_org_at_the_idp_moves(
         session.add(Organization(slug="autre", name="Autre"))
     await _sign_in(client, idp, ["choregos:northwind:contributors"])
     assert await _memberships(client) == {("northwind", "contributor")}
-    await _sign_in(client, idp, ["choregos:autre:developers"])
+    await _sign_in(client, idp, ["choregos:autre:contributors"])
     assert await _memberships(client) == {("autre", "contributor")}
 
 

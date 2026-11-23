@@ -108,7 +108,7 @@ async def test_a_member_of_one_project_only_reads_that_projects_alerts(
     await _set_daily_budget(client, project, 10)
     await _spend(project["id"], 5.0, run_id="r-project")  # 3.5 + 5.0 = 85 %
     assert len(await _alerts(client)) == 2, "the administrator reads both"
-    await _member("hakim@northwind.dev", "developer", project["slug"])
+    await _member("hakim@northwind.dev", "contributor", project["slug"])
     async with _as(client, "hakim@northwind.dev") as member:
         await _drop_organisation_role("hakim@northwind.dev")
         response = await member.get("/api/v1/orgs/northwind/budget-alerts")
