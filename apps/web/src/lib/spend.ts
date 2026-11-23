@@ -5,16 +5,53 @@
  */
 import type { CostReport } from "./types";
 
-export type Currency = "EUR" | "USD";
-type Row = Pick<CostReport["rows"][number], "key" | "cost_usd" | "cost_eur">;
+/**
+ * The currency an organisation reads its spend in: an ISO 4217 code (ADR 0213). `EUR` and `USD` come from the
+ * ledger's own columns; any other code is USD converted at the rate the organisation declared.
+ */
+export type Currency = string;
+type Row = Pick<CostReport["rows"][number], "key" | "cost_usd" | "cost_eur" | "cost_display">;
 
-export function amount(row: Pick<Row, "cost_usd" | "cost_eur">, currency: Currency): number {
-  return currency === "USD" ? row.cost_usd : row.cost_eur;
+/** The organisation's display currency (`EUR` when the session does not know it yet). */
+export function orgCurrency(orgs: ReadonlyArray<{ slug: string; currency?: string }>, slug: string): Currency {
+  return orgs.find((o) => o.slug === slug)?.currency ?? "EUR";
 }
 
+/** A row in `currency`: the ledger's column, or the API's conversion at the declared rate (`cost_display`). */
+export function amount(row: { cost_usd?: number; cost_eur?: number; cost_display?: number }, currency: Currency): number {
+  if (currency === "USD") return row.cost_usd ?? 0;
+  if (currency === "EUR") return row.cost_eur ?? 0;
+  return row.cost_display ?? 0;
+}
+
+/**
+ * An amount in `currency`, with the currency's own symbol or code (`€1.00`, `US$1.00`, `MX$1.00`), never a bare
+ * `$` that could be read as dollars. An unknown code is shown as `CODE 1.00` rather than thrown.
+ */
 export function money(value: number | null | undefined, currency: Currency): string {
   if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(value);
+  try {
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
+/**
+ * What the report says about how its `cost_display` was obtained: the declared rate and the day it was set,
+ * or `null` when the figures are the ledger's own (EUR, USD).
+ */
+export function declaredRate(
+  report: { fx?: { declared: boolean; rate?: number | null; set_on?: string | null } } | undefined,
+): { rate: number; setOn: string | null } | null {
+  const fx = report?.fx;
+  return fx?.declared && fx.rate ? { rate: fx.rate, setOn: fx.set_on ?? null } : null;
+}
+
+/** The sentence every converted figure carries (ADR 0213): what it is, at which rate, and that it is declared. */
+export function fxNote(currency: Currency, rate: number, setOn: string | null): string {
+  const when = setOn ? `, set on ${setOn}` : "";
+  return `Amounts are USD as measured, converted to ${currency} at the organisation's declared rate (1 USD = ${rate} ${currency}${when}). The ledger and the budgets stay in USD.`;
 }
 
 /** The first day of `now`'s month, UTC, as `YYYY-MM-DD` — the ledger counts days in UTC. */
@@ -74,6 +111,17 @@ export function monthForecast(
 export function usdToCurrency(total: Pick<CostReport["total"], "cost_usd" | "cost_eur">): number | null {
   const usd = total.cost_usd ?? 0;
   return usd > 0 ? (total.cost_eur ?? 0) / usd : null;
+}
+
+/**
+ * The units of the display currency per USD for a whole report (ADR 0213): the organisation's declared rate
+ * when the report carries one, otherwise the ledger's own EUR ratio (`usdToCurrency`).
+ */
+export function reportRate(report: {
+  total: Pick<CostReport["total"], "cost_usd" | "cost_eur">;
+  fx?: { declared: boolean; rate?: number | null };
+}): number | null {
+  return declaredRate(report)?.rate ?? usdToCurrency(report.total);
 }
 
 /** The `n` most expensive rows, with each one's share of the total. */

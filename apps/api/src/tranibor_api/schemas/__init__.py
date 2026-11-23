@@ -258,6 +258,7 @@ from .mcp_gateway import (
 from .measures import (
     BudgetAlertDto,
     BudgetAlertPage,
+    CostFx,
     CostReport,
     CostRow,
     CostTotal,
@@ -529,6 +530,7 @@ __all__ = [
     "ConnectorUpsert",
     "ContextBreakdownDto",
     "CostEstimate",
+    "CostFx",
     "CostReport",
     "CostRow",
     "CostTotal",

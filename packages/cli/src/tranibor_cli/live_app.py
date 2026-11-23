@@ -200,6 +200,7 @@ class LiveFlowPane(Vertical, can_focus=True):
         self.drawing: live_view.Drawing | None = None
         self.currency: str | None = None  # unknown: each amount in its own symbol, never relabelled
         self.spend: str | None = None
+        self.declared: float | None = None  # the rate the organisation declared per dollar (ADR 0213)
         self.connection = "reconnecting"
         self.error: str | None = None
         self.selected: str | None = None
@@ -261,7 +262,9 @@ class LiveFlowPane(Vertical, can_focus=True):
             self.spend = None  # unreadable is a dash, never 0 (ADR 0141 §2)
             return
         total = report.get("total") or {}
-        self.spend = money.Amount(usd=total.get("cost_usd"), eur=total.get("cost_eur")).text(self.currency)
+        self.spend = money.Amount(usd=total.get("cost_usd"), eur=total.get("cost_eur")).text(
+            self.currency, rate=self.declared
+        )
 
     async def load(self) -> None:
         """The first read: the workflow's graph, the organisation's currency, the items, the day's spend."""
@@ -273,6 +276,7 @@ class LiveFlowPane(Vertical, can_focus=True):
             # the server finds the organisation by its slug (ADR 0206): no list is read to look it up
             orgs = (await self.api.get("/orgs", params={"slug": self.organisation, "limit": 1}))["items"]
             self.currency = next((o.get("currency") or "EUR" for o in orgs), None)
+            self.declared = next((money.declared_rate(o) for o in orgs), None)
         except ApiError:
             self.currency = None
         items = await self.read_items()

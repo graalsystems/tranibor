@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import Field, model_validator
@@ -96,6 +96,9 @@ class CostRow(Dto):
     key: str
     cost_usd: float = 0.0
     cost_eur: float = 0.0
+    #: The line in the report's `currency` (ADR 0213): the ledger's EUR or USD column, or USD times the
+    #: organisation's declared rate.
+    cost_display: float = 0.0
     tokens_in: int = 0
     tokens_out: int = 0
     tokens_cached: int = 0
@@ -108,6 +111,9 @@ class CostRow(Dto):
 class CostTotal(Dto):
     cost_usd: float = 0.0
     cost_eur: float = 0.0
+    #: The total in the report's `currency` (ADR 0213).
+    cost_display: float = 0.0
+    #: Always USD: budgets are set, enforced and alerted in USD (ADR 0213).
     budget_usd: float | None = None
     #: The report's tokens, its rows' summed (ADR 0141 §1); `tokens_cached` is part of `tokens_in`.
     tokens_in: int = 0
@@ -118,9 +124,21 @@ class CostTotal(Dto):
     tokens_cache_write_1h: int = 0
 
 
+class CostFx(Dto):
+    """How a report's `cost_display` was obtained (ADR 0213)."""
+
+    #: True when it is USD converted at the organisation's declared rate; False for the ledger's own column.
+    declared: bool = False
+    #: The declared units of `currency` per 1 USD.
+    rate: float | None = None
+    #: The UTC date the organisation set that rate.
+    set_on: date | None = None
+
+
 class CostReport(Dto):
     group_by: str
-    currency: str = "EUR"
+    currency: str = Field(default="EUR", pattern=r"^[A-Z]{3}$")
+    fx: CostFx = Field(default_factory=CostFx)
     rows: list[CostRow] = Field(default_factory=list)
     total: CostTotal = Field(default_factory=CostTotal)
 

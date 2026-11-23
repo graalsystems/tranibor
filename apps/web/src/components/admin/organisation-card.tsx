@@ -9,6 +9,14 @@ import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
+/** The currencies the ledger holds itself: they need no declared rate (ADR 0213). */
+const LEDGER = ["EUR", "USD"];
+
+/** Every currency this browser knows, the ledger's two first; the API is the judge of a code (ISO 4217). */
+function currencyCodes(selected: string): string[] {
+  const known = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("currency") : [];
+  return [...new Set([...LEDGER, selected, ...known])];
+}
 
 /**
  * The organisation itself (S40-24): its display name and cost currency, which its administrator
@@ -24,19 +32,30 @@ export function OrganisationCard({ org, canEdit }: { org: string; canEdit: boole
   const platform = useQuery({ queryKey: ["platform-identity"], queryFn: () => api.platformIdentity(), retry: false });
   const [name, setName] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string | null>(null);
+  const [rate, setRate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const shownName = name ?? current?.name ?? "";
   const shownCurrency = currency ?? current?.currency ?? "EUR";
+  // Spend is measured in USD: any other currency is shown at the rate the organisation declares (ADR 0213).
+  const declares = !LEDGER.includes(shownCurrency);
+  const shownRate = rate ?? (current?.currency === shownCurrency && current?.fx_rate ? String(current.fx_rate) : "");
+  const rateValue = Number(shownRate);
+  const rateValid = !declares || (shownRate.trim() !== "" && Number.isFinite(rateValue) && rateValue > 0);
 
   async function save() {
     setError(null);
     setSaved(false);
     try {
-      await api.updateOrg(org, { name: shownName.trim(), currency: shownCurrency as "EUR" | "USD" });
+      await api.updateOrg(org, {
+        name: shownName.trim(),
+        currency: shownCurrency,
+        ...(declares ? { fx_rate: rateValue } : {}),
+      });
       await client.invalidateQueries({ queryKey: ["orgs"] });
       setName(null);
       setCurrency(null);
+      setRate(null);
       setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "refused");
@@ -53,7 +72,7 @@ export function OrganisationCard({ org, canEdit }: { org: string; canEdit: boole
     window.location.assign(new URL("/admin", window.location.origin).toString());
   }
 
-  const valid = shownName.trim().length >= 1 && shownName.trim().length <= 200;
+  const valid = shownName.trim().length >= 1 && shownName.trim().length <= 200 && rateValid;
   return (
     <Card title="Organisation" className="lg:col-span-2">
       <form
@@ -76,16 +95,39 @@ export function OrganisationCard({ org, canEdit }: { org: string; canEdit: boole
         <label className="flex flex-col gap-1">
           <span className="text-xs text-ink-muted">Currency</span>
           <Select value={shownCurrency} disabled={!canEdit} onChange={(event) => setCurrency(event.target.value)}>
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
+            {currencyCodes(shownCurrency).map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
           </Select>
         </label>
+        {declares && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-ink-muted">Declared rate (1 USD = … {shownCurrency})</span>
+            <Input
+              inputMode="decimal"
+              value={shownRate}
+              disabled={!canEdit}
+              onChange={(event) => setRate(event.target.value)}
+              className="w-40"
+            />
+          </label>
+        )}
         {canEdit && (
           <Button size="sm" tone="primary" type="submit" disabled={!valid}>
             Save the organisation
           </Button>
         )}
       </form>
+      {declares && (
+        <p className="mt-2 text-xs text-ink-muted" data-testid="rate-note">
+          Spend is measured in USD and stays in USD in the ledger. In {shownCurrency} it is shown converted at this rate, which
+          the organisation declares
+          {current?.currency === shownCurrency && current?.fx_rate_set_on ? ` (set on ${current.fx_rate_set_on})` : ""}; budgets
+          stay in USD.
+        </p>
+      )}
       {saved && <p className="mt-2 text-xs text-ink-muted">Organisation saved</p>}
       {error && <ErrorNote>{error}</ErrorNote>}
       <p className="mt-3 text-xs text-ink-muted">

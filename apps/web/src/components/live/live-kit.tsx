@@ -41,8 +41,8 @@ export const ARRIVED_MS = 2500;
 
 /**
  * An amount in the organisation's currency, the symbol only (`€0.02`, `$0.02`). The stream carries dollars;
- * `usdTo` is the ledger's own rate (the cost report's `cost_eur` over its `cost_usd`), `null` when it has
- * none yet, and the amount is then told in dollars rather than converted with a guess.
+ * `usdTo` is the units of the currency per dollar: the organisation's declared rate (ADR 0213) or the
+ * ledger's own (the cost report's `cost_eur` over its `cost_usd`), `null` when it has none yet, and the amount is then told in dollars rather than converted with a guess.
  */
 export function liveMoney(
   usd: number | null | undefined,
@@ -50,14 +50,23 @@ export function liveMoney(
   usdTo: number | null,
 ): string {
   if (usd === null || usd === undefined) return "—";
-  const inEuro = currency === "EUR" && usdTo !== null;
-  return new Intl.NumberFormat("en-GB", {
+  // Any currency but USD needs a rate (the ledger's EUR ratio, or the organisation's declared one, ADR 0213).
+  const converted = currency !== "USD" && usdTo !== null;
+  const code = converted ? currency : "USD";
+  const options = {
     style: "currency",
-    currency: inEuro ? "EUR" : "USD",
-    currencyDisplay: "narrowSymbol",
+    currency: code,
+    // `$` alone is read as dollars: only the euro and the dollar keep their narrow symbol, the rest their code
+    currencyDisplay: code === "EUR" || code === "USD" ? "narrowSymbol" : "code",
     minimumFractionDigits: 2,
     maximumFractionDigits: usd !== 0 && Math.abs(usd) < 0.01 ? 4 : 2,
-  }).format(inEuro ? usd * (usdTo ?? 1) : usd);
+  } as const;
+  const value = converted ? usd * (usdTo ?? 1) : usd;
+  try {
+    return new Intl.NumberFormat("en-GB", options).format(value);
+  } catch {
+    return `${code} ${value.toFixed(2)}`;
+  }
 }
 
 /** The start of the local day: what "left today" and "closed today" count from. */

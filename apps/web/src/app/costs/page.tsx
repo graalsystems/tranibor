@@ -13,7 +13,7 @@ import { OrgPageHeader } from "@/components/org-page-header";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { CostReport } from "@/lib/types";
-import { type Currency, type Measure, money, monthStart, tokenCount, tokenTotals } from "@/lib/spend";
+import { amount, type Currency, declaredRate, fxNote, type Measure, money, monthStart, orgCurrency, tokenCount, tokenTotals } from "@/lib/spend";
 
 const PERIODES = [
   { id: "month", label: "This month" },
@@ -41,7 +41,7 @@ function Spend() {
   const params = useSearchParams();
   const project = params.get("project");
   const scope: Scope = { org, project: project };
-  const currency: Currency = orgs.find((o) => o.slug === org)?.currency === "USD" ? "USD" : "EUR";
+  const currency: Currency = orgCurrency(orgs, org);
   const [periode, setPeriode] = useState<Periode>("30");
   // The breakdowns in money or in tokens (S64-07): the same reports, another column read.
   const [measure, setMeasure] = useState<Measure>("cost");
@@ -62,7 +62,8 @@ function Spend() {
           description={
             <>
               Read from the cost ledger, which the gateway&apos;s spend feeds. Shown in {currency}, the
-              organisation&apos;s currency; the CSV of each breakdown carries both.
+              organisation&apos;s currency; the CSV of each breakdown carries the USD and EUR figures as measured
+              (and the converted column when the currency is declared).
             </>
           }
         />
@@ -123,8 +124,9 @@ function Spend() {
           <>
             <CostGraph rows={byDay.data.rows} currency={currency} />
             <p className="mt-3 text-sm" data-testid="period-total">
-              Total {money(byDay.data.rows.reduce((s, r) => s + (currency === "USD" ? r.cost_usd : r.cost_eur), 0), currency)}
+              Total {money(byDay.data.rows.reduce((s, r) => s + amount(r, currency), 0), currency)}
             </p>
+            <FxNote report={byDay.data} currency={currency} />
             <PeriodTokens total={byDay.data.total} />
           </>
         )}
@@ -144,6 +146,17 @@ function Spend() {
         <BreakdownCard scope={scope} currency={currency} measure={measure} title="Knowledge distillations" group="model" filtre={{ ...filtre, kind: "distill" }} />
       </div>
     </div>
+  );
+}
+
+/** Said wherever a figure was converted (ADR 0213): at which rate, set when, and that the USD is the ledger's. */
+function FxNote({ report, currency }: { report: CostReport; currency: Currency }) {
+  const declared = declaredRate(report);
+  if (!declared) return null;
+  return (
+    <p className="mt-1 text-xs text-ink-muted" data-testid="fx-note">
+      {fxNote(currency, declared.rate, declared.setOn)}
+    </p>
   );
 }
 

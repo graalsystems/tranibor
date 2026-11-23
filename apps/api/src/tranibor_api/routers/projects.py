@@ -22,6 +22,8 @@ from ..db.models import Membership, Organization, OrgSlugAlias, Project
 from ..db.org_aliases import aliases_by_org, aliases_of, holder_of_slug, keep_old_slug, release
 from ..db.session import ALL_ORGS, limit_to_organisations, release_connection
 from ..deps import Db, Me, Pagination, ProjectCtx, require_platform_admin
+from ..display_currency import CURRENCY_SETTING, ISO_4217, LEDGER_CURRENCIES, RATE_DATE_SETTING, RATE_SETTING
+from ..display_currency import read as read_display_currency
 from ..edition import is_enterprise
 from ..errors import conflict, forbidden, not_found, unprocessable
 from ..extensions import GestureRequest, check_gesture
@@ -89,7 +91,7 @@ async def list_orgs(
                 slug=o.slug,
                 name=o.name,
                 role=principal.org_roles.get(o.slug),
-                currency=moneta(o),
+                **_display_fields(o),
                 aliases=aliases[o.id],
                 tool_scripts=org_tool_scripts(o.settings),
                 complete_agents="required" if org_requires_complete(o.settings) else None,
@@ -145,12 +147,46 @@ async def create_org(body: OrgCreate, session: Db, principal: Me) -> OrgDto:
     from ..services.plugin_defaults import reconcile_org
 
     await reconcile_org(session, org.id)
-    return OrgDto(slug=org.slug, name=org.name, role=Role.ORG_ADMIN, currency=moneta(org))
+    return OrgDto(slug=org.slug, name=org.name, role=Role.ORG_ADMIN, **_display_fields(org))
 
 
-def moneta(organisation: Organization) -> Any:
-    """The organisation's currency (S29-03): its `currency` setting, EUR when it has none."""
-    return "USD" if (organisation.settings or {}).get("currency") == "USD" else "EUR"
+def moneta(organisation: Organization) -> str:
+    """The organisation's currency (S29-03, ADR 0213): its `currency` setting, EUR when it has none."""
+    return read_display_currency(organisation.settings).code
+
+
+def _display_fields(organisation: Organization) -> dict[str, Any]:
+    """The organisation's display currency and, for a non-ledger one, the rate it declared (ADR 0213)."""
+    display = read_display_currency(organisation.settings)
+    return {"currency": display.code, "fx_rate": display.rate, "fx_rate_set_on": display.set_on}
+
+
+def _display_currency_change(settings: dict[str, Any] | None, body: OrgUpdate) -> dict[str, Any]:
+    """The settings keys a currency change sets, or a 422 saying why it cannot be made (ADR 0213).
+
+    Nothing in the request: no key. A code must be an ISO 4217 one. EUR and USD come from the ledger and
+    take no rate; any other code needs the rate the organisation declares, in the same request, since
+    spend is measured in USD and there is no default: a rate declared for another currency is never
+    carried over. Declaring a rate stamps its date; the same code with no new rate keeps both."""
+    if body.currency is None and body.fx_rate is None:
+        return {}
+    current = read_display_currency(settings)
+    code = body.currency or current.code
+    if code not in ISO_4217:
+        raise unprocessable(f"`{code}` is not an ISO 4217 currency code")
+    rate, set_on = body.fx_rate, utcnow().date().isoformat()
+    if code in LEDGER_CURRENCIES:
+        if rate is not None:
+            raise unprocessable(f"{code} is read from the ledger and takes no declared rate")
+        return {CURRENCY_SETTING: code, RATE_SETTING: None, RATE_DATE_SETTING: None}
+    if rate is None and code == current.code:
+        rate, set_on = current.rate, current.set_on.isoformat() if current.set_on else set_on
+    if rate is None:
+        raise unprocessable(
+            f"{code} needs `fx_rate`, the units of {code} per 1 USD the organisation declares: "
+            "spend is measured in USD and there is no default rate"
+        )
+    return {CURRENCY_SETTING: code, RATE_SETTING: rate, RATE_DATE_SETTING: set_on}
 
 
 def _audited(organisation: Organization) -> dict[str, Any]:
@@ -159,6 +195,7 @@ def _audited(organisation: Organization) -> dict[str, Any]:
         "slug": organisation.slug,
         "name": organisation.name,
         "currency": moneta(organisation),
+        "fx_rate": read_display_currency(organisation.settings).rate,
         "tool_scripts": org_tool_scripts(organisation.settings),
         "complete_agents": "required" if org_requires_complete(organisation.settings) else None,
     }
@@ -210,6 +247,7 @@ async def update_org(org: str, body: OrgUpdate, session: Db, principal: Me) -> O
         await limit_to_organisations(session, ALL_ORGS)
     organisation = await organisation_by_slug(session, org)
     org_before = _audited(organisation)
+    display_change = _display_currency_change(organisation.settings, body)  # refused before anything changes
     if body.slug is not None and body.slug != organisation.slug:
         await require_platform_admin(session, principal)
         # The RLS compares SLUGS (`slug = ANY(choregos_current_orgs())`): bounded to the old one, the
@@ -245,8 +283,7 @@ async def update_org(org: str, body: OrgUpdate, session: Db, principal: Me) -> O
                 project_row.config = {**project_row.config, "org": body.slug}
     if body.name is not None:
         organisation.name = body.name
-    if body.currency is not None:
-        organisation.settings = {**(organisation.settings or {}), "currency": body.currency}
+    organisation.settings = {**(organisation.settings or {}), **display_change}
     # `null` takes the organisation back to no choice: the key is removed, so the orchestrator reads none
     # (`tranibor_core.tool_scripts_switch`), and nor does publication (`tranibor_core.agent_completeness`).
     for field, key in (("tool_scripts", TOOL_SCRIPTS_SETTING), ("complete_agents", COMPLETE_AGENTS_SETTING)):
@@ -271,7 +308,7 @@ async def update_org(org: str, body: OrgUpdate, session: Db, principal: Me) -> O
         slug=organisation.slug,
         name=organisation.name,
         role=Role.ORG_ADMIN if is_admin else None,  # a non-member platform admin has no role here
-        currency=moneta(organisation),
+        **_display_fields(organisation),
         aliases=await aliases_of(session, organisation.id),
         tool_scripts=org_tool_scripts(organisation.settings),
         complete_agents="required" if org_requires_complete(organisation.settings) else None,

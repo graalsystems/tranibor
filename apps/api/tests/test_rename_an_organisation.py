@@ -32,6 +32,8 @@ async def test_the_slug_changes_and_the_projects_follow(
         "name": "Northwind Trust",
         "role": "org_admin",
         "currency": "EUR",
+        "fx_rate": None,
+        "fx_rate_set_on": None,
         "aliases": ["northwind"],
         "tool_scripts": None,
         "complete_agents": None,
@@ -48,6 +50,7 @@ async def test_the_slug_changes_and_the_projects_follow(
         "slug": "northwind",
         "name": "Northwind",
         "currency": "EUR",
+        "fx_rate": None,
         "tool_scripts": None,
         "complete_agents": None,
     }
@@ -55,6 +58,7 @@ async def test_the_slug_changes_and_the_projects_follow(
         "slug": "trust",
         "name": "Northwind Trust",
         "currency": "EUR",
+        "fx_rate": None,
         "tool_scripts": None,
         "complete_agents": None,
     }
@@ -145,6 +149,8 @@ async def test_a_platform_administrator_who_is_not_a_member_renames_name_and_slu
             "name": "Globex",
             "role": None,
             "currency": "EUR",
+            "fx_rate": None,
+            "fx_rate_set_on": None,
             "aliases": ["northwind"],
             "tool_scripts": None,
             "complete_agents": None,
@@ -161,6 +167,7 @@ async def test_a_platform_administrator_who_is_not_a_member_renames_name_and_slu
             "slug": "globex",
             "name": "Globex",
             "currency": "EUR",
+            "fx_rate": None,
             "tool_scripts": None,
             "complete_agents": None,
         }

@@ -124,3 +124,29 @@ describe("the Organisation card", () => {
     });
   });
 });
+
+describe("the Organisation card: a display currency with a declared rate (ADR 0213)", () => {
+  it("asks for the rate when the currency is not one the ledger holds, and saves it with the currency", async () => {
+    wrap();
+    await screen.findByLabelText("Display name");
+    expect(screen.queryByLabelText(/Declared rate/)).toBeNull();
+    await user.selectOptions(screen.getByLabelText("Currency"), "MXN");
+    const save = screen.getByRole("button", { name: "Save the organisation" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true); // no default rate: the organisation declares one
+    await user.type(screen.getByLabelText(/Declared rate/), "17.5");
+    expect(save.disabled).toBe(false);
+    expect(screen.getByTestId("rate-note").textContent).toMatch(/stays in USD in the ledger.*budgets\s+stay in USD/s);
+    await user.click(save);
+    await waitFor(() =>
+      expect(api.updateOrg).toHaveBeenCalledWith("northwind", { name: "Northwind", currency: "MXN", fx_rate: 17.5 }),
+    );
+  });
+
+  it("refuses a rate that is not a positive number", async () => {
+    wrap();
+    await screen.findByLabelText("Display name");
+    await user.selectOptions(screen.getByLabelText("Currency"), "MXN");
+    await user.type(screen.getByLabelText(/Declared rate/), "0");
+    expect((screen.getByRole("button", { name: "Save the organisation" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

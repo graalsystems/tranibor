@@ -22,7 +22,7 @@ import { useWorkflow } from "@/components/workflows/use-workflow";
 import { api, IS_MOCK } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
-import { type Currency, monthStart, usdToCurrency } from "@/lib/spend";
+import { type Currency, monthStart, orgCurrency, reportRate } from "@/lib/spend";
 import type { WorkflowGraph } from "@/lib/types";
 import { FlowView } from "./flow-view";
 
@@ -64,7 +64,7 @@ export function FlowScreen({
   const items = useQuery({ queryKey: ["items", slug], queryFn: () => api.allWorkItems(slug) });
   const project = useQuery({ queryKey: ["project", slug], queryFn: () => api.project(slug) });
   const { org, orgs } = useSession();
-  const currency: Currency = orgs.find((o) => o.slug === org)?.currency === "USD" ? "USD" : "EUR";
+  const currency: Currency = orgCurrency(orgs, org);
   const today = new Date().toISOString().slice(0, 10);
   const spendReport = useQuery({
     queryKey: ["live-spend", slug, today],
@@ -72,7 +72,7 @@ export function FlowScreen({
     refetchInterval: 60_000,
   });
   const spent = spendReport.data?.rows.find((r) => r.key === today)?.cost_usd ?? (spendReport.data ? 0 : null);
-  const usdTo = spendReport.data ? usdToCurrency(spendReport.data.total) : null;
+  const usdTo = spendReport.data ? reportRate(spendReport.data) : null;
   const format = (usd: number | null | undefined) => liveMoney(usd, currency, usdTo);
 
   const demo = useDemoGraph();

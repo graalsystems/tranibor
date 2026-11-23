@@ -38,12 +38,14 @@ class Platform:
     def __init__(self, router: respx.Router, contract: Any) -> None:
         self.router, self.contract = router, contract
 
-    def org(self, currency: str | None, status: int = 200) -> respx.Route:
+    def org(self, currency: str | None, status: int = 200, fx_rate: float | None = None) -> respx.Route:
         body: Any = {"title": "Unauthorized"}
         if status == 200:
             org = {"slug": "acme", "name": "Acme", "aliases": ["old-acme"]}
             if currency:
                 org["currency"] = currency
+            if fx_rate:
+                org["fx_rate"] = fx_rate
             body = {"items": [self.contract("Org", org)], "meta": {"next_cursor": None, "has_more": False}}
         self.orgs = self.router.get(f"{V1}/orgs").mock(return_value=Response(status, json=body))
         return self.orgs
@@ -130,6 +132,22 @@ def test_a_dollar_organisation_reads_dollars_where_the_api_gives_them(platform: 
     _serve_items(platform, cost_usd=3.0, cost_eur=2.5)
     said = _run("items", "list", "billing")
     assert "$3.00" in said and "€" not in said
+
+
+def test_a_declared_currency_prints_the_dollars_times_the_organisations_rate(platform: Platform) -> None:
+    platform.org("MXN", fx_rate=17.5)
+    ledger = _ledger(platform, 10.0, 8.0)
+    _serve_items(platform, cost_usd=3.0, cost_eur=2.5)
+    said = _run("items", "list", "billing")
+    assert "MXN 52.50" in said and "$" not in said and "€" not in said
+    assert not ledger.called, "the ledger's euro ratio plays no part: the rate is the organisation's own"
+
+
+def test_a_declared_currency_with_no_rate_keeps_each_amounts_own_symbol(platform: Platform) -> None:
+    platform.org("MXN")
+    _serve_items(platform, cost_usd=3.0, cost_eur=2.5)
+    said = _run("items", "list", "billing")
+    assert "MXN" not in said and "€2.50" in said, "never a converted amount without the organisation's rate"
 
 
 def test_the_work_item_detail_and_the_runs_follow_the_currency(platform: Platform) -> None:
