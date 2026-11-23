@@ -69,13 +69,13 @@ def test_a_guarantee_says_its_thresholds_and_how_long_it_waits() -> None:
 
 def test_a_step_that_carries_a_diff_gate_writes_the_branch() -> None:
     steps = _steps(DEV_COMPLEX.read_text("utf-8"))
-    assert steps["t-implement"]["writes_branch"] is True and steps["t-implement"]["outputs"] == []
-    assert steps["t-review"]["writes_branch"] is False
-    assert steps["t-approve-spec"]["writes_branch"] is False, "a person does not write the branch"
+    assert steps["t-implement"]["writes_workspace"] is True and steps["t-implement"]["outputs"] == []
+    assert steps["t-review"]["writes_workspace"] is False
+    assert steps["t-approve-spec"]["writes_workspace"] is False, "a person does not write the branch"
 
 
 def test_a_job_that_carries_a_diff_gate_writes_the_branch() -> None:
     steps = _steps(INLINE)
     assert steps["t-run"]["command"] == ["python", "run.py", "--fast"]
-    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_branch"] is True
+    assert steps["t-run"]["image"] == "quant-tools" and steps["t-run"]["writes_workspace"] is True
     assert steps["t-make"]["output_types"] == {"deck": "pptx"} and steps["t-make"]["agent"] is None
