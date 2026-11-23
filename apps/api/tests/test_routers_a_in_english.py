@@ -106,9 +106,34 @@ def _served(app: Any) -> set[tuple[str, str, str]]:
     }
 
 
+#: The recorded routes the `software-delivery` plugin serves since round D of ADR 0181 (the release train,
+#: the releases, a run's diff, the DORA metrics, the Tekton and Argo CD webhooks): served where its
+#: extension is installed, and only there.
+SERVED_BY_SOFTWARE_DELIVERY = {
+    ("GET", "/api/v1/projects/{id}/metrics/dora", "getProjectDora"),
+    ("GET", "/api/v1/projects/{id}/releases", "listReleases"),
+    ("GET", "/api/v1/projects/{id}/trains/{env}", "getTrainStatus"),
+    ("GET", "/api/v1/releases/{id}", "getRelease"),
+    ("GET", "/api/v1/runs/{id}/diff", "getRunDiff"),
+    ("POST", "/api/v1/projects/{id}/trains/{env}/depart", "departTrain"),
+    ("POST", "/api/v1/projects/{id}/trains/{env}/freeze", "freezeTrain"),
+    ("POST", "/api/v1/projects/{id}/trains/{env}/unfreeze", "unfreezeTrain"),
+    ("POST", "/api/v1/releases/{id}/abort", "abortRelease"),
+    ("POST", "/api/v1/releases/{id}/approve", "approveRelease"),
+    ("POST", "/api/v1/webhooks/argocd", "argocdWebhook"),
+    ("POST", "/api/v1/webhooks/tekton", "tektonWebhook"),
+}
+
+
 async def test_routes_unchanged(app: Any) -> None:
-    """Every (method, path, operationId) served before the translation is still served."""
+    """Every (method, path, operationId) served before the translation is still served: by the core, or by
+    the `software-delivery` plugin where it is installed (the core alone serves none of the plugin's)."""
     recorded = {(m, p, o) for m, p, o in json.loads(RECORDED.read_text())}
     assert len(recorded) > 300, "the recorded set is the whole API, not a sample"
-    missing = recorded - _served(app)
+    assert recorded >= SERVED_BY_SOFTWARE_DELIVERY
+    served = _served(app)
+    if importlib.util.find_spec("tranibor_software_delivery") is None:
+        assert sorted(SERVED_BY_SOFTWARE_DELIVERY & served) == [], "the plugin's routes without the plugin"
+        recorded -= SERVED_BY_SOFTWARE_DELIVERY
+    missing = recorded - served
     assert sorted(missing) == []

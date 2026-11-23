@@ -5,9 +5,6 @@ each scenario of the tool-script matrix grades what its fakes really hold."""
 from __future__ import annotations
 
 import asyncio
-import itertools
-import math
-import statistics
 from collections import Counter
 from typing import Any
 
@@ -266,28 +263,9 @@ def test_e2_s_top_five_is_what_the_trace_holds() -> None:
     assert sum(pairs.values()) == 132
 
 
-def test_e6_s_volatilities_are_what_the_bars_give() -> None:
-    from tranibor_adapters.fakes.scenes import scene
-
-    case = load_case(AGENT_CASES_DIR / "marketdata-volatility.yaml")
-    # The scene's fake, declared by the `investment-research` extension (ADR 0181 O4-4).
-    market = scene("marketdata").fake
-
-    async def volatility(symbol: str) -> float:
-        bars = (
-            await market.execute("get_bars", {"symbol": symbol, "start": "2026-07-01", "end": "2026-10-30"})
-        )["bars"]
-        closes = [bar["adj_close"] for bar in bars][-31:]
-        returns = [math.log(b / a) for a, b in itertools.pairwise(closes)]
-        return statistics.stdev(returns) * math.sqrt(252) * 100
-
-    symbols = [call["arguments"]["symbol"] for call in case["evidence"]]
-    found = {symbol: asyncio.run(volatility(symbol)) for symbol in symbols}
-    ranked = sorted(found.items(), key=lambda item: -item[1])
-    assert [[s, f"{v:.1f}"] for s, v in ranked[:5]] == [
-        fact["tokens"] for fact in case["answer_must_contain"]
-    ]
-    assert f"{ranked[4][1]:.1f}" != f"{ranked[5][1]:.1f}", "no tie at the fifth place"
+# E6's volatilities are what the `marketdata` scene's bars give: the scene is the `investment-research`
+# plugin's, and so is that check (`plugins/investment-research/tests/orchestrator/
+# test_marketdata_eval_case.py`, ADR 0181 round D).
 
 
 @pytest.mark.parametrize(

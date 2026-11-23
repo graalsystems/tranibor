@@ -76,7 +76,8 @@ async def _both_doors(name: str, workdir: Path) -> tuple[list[str], list[Any], d
     [
         ("netops-ssh-exposure", 1),  # E1: `pfsense__list_firewall_rules(interface=lan)`
         ("netops-dropped-flows-top", 9),  # E2: nine of the twelve namespaces' `cilium__get_flows`
-        ("marketdata-volatility", 20),  # E6: all twenty `marketdata__get_bars`
+        # E6, all twenty `marketdata__get_bars`, plays on the `investment-research` plugin's scene: its suite
+        # checks it (`plugins/investment-research/tests/orchestrator/test_marketdata_eval_case.py`).
     ],
 )
 async def test_the_model_reads_what_the_script_gets_on_each_scene(

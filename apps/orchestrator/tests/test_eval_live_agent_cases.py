@@ -240,14 +240,15 @@ async def test_a_case_whose_spec_or_policy_changed_is_brought_up_to_date(
         (E1, "pfsense", "ssh-exposure", "netops"),
         ("netops-dropped-flows-top", "cilium", "dropped-flows", "netops"),
         (E4, "entra", "offboarding", "identity-operator"),
-        ("marketdata-volatility", "marketdata", "default", "analyst"),
     ],
 )
 async def test_every_case_of_the_live_matrix_seeds_and_its_stage_is_prepared(
     eval_project: Fixture, scripts_on: None, case: str, connector: str, scene: str, agent: str
 ) -> None:
-    """The four cases the runbook's launch names: their connectors on their scenes, their agent resolved
-    by `prepare_stage` as for any run, the cell's door in the stage input, no repository."""
+    """The cases the runbook's launch names: their connectors on their scenes, their agent resolved by
+    `prepare_stage` as for any run, the cell's door in the stage input, no repository. The fourth, E6
+    (`marketdata-volatility`), plays on the `investment-research` plugin's scene: its suite checks it
+    (`plugins/investment-research/tests/orchestrator/test_marketdata_eval_case.py`, ADR 0181 round D)."""
     await _install_netops(eval_project)
     seeded = await evals.seed_eval_ticket(_cell("scripts", case=case))
     assert not seeded["skipped"], seeded["reason"]
