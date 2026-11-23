@@ -78,6 +78,10 @@ data:
       master_key: os.environ/LITELLM_MASTER_KEY
       database_url: os.environ/DATABASE_URL
       store_model_in_db: false
+      {{- if not .Values.budgetReservation }}
+      # #2181: a call's worst case is not reserved against a run key's small budget (values.yaml).
+      disable_budget_reservation: true
+      {{- end }}
     {{- if .Values.guardrail.enabled }}
     # ADR 0084: secrets masked before the provider call and in its answer. On for every request,
     # it acts only for a key whose metadata the platform marked (`sandbox.llm_security_analyzer`).
@@ -112,7 +116,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: gateway
       annotations:
-        checksum/config: {{ print (toJson $models) (toJson .Values.upstream) (toJson .Values.guardrail) (toJson .Values.spans) $guard $spans $otlp | sha256sum }}
+        checksum/config: {{ print (toJson $models) (toJson .Values.upstream) (toJson .Values.guardrail) (toJson .Values.spans) (toJson .Values.budgetReservation) $guard $spans $otlp | sha256sum }}
     spec:
       enableServiceLinks: false
       {{- include "choregos.imagePullSecrets" $ | nindent 6 }}

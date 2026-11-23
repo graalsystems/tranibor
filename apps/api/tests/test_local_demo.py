@@ -158,6 +158,13 @@ def test_fakes_mode_mocks_every_alias() -> None:
     assert read_provider(pathlib.Path("/nonexistent/provider")) is None
 
 
+def test_the_local_gateway_reserves_no_call_s_worst_case_against_a_run_key() -> None:
+    """#2181, as the chart: LiteLLM's reservation of a call's worst case takes a run key's whole
+    budget on a pricey model, and the agent's overlapping calls are refused with nothing spent."""
+    for provider in (None, "anthropic", "openai"):
+        assert litellm_config(provider)["general_settings"]["disable_budget_reservation"] is True
+
+
 async def test_adding_a_key_switches_the_demo_project_to_a_real_agent(app: Any) -> None:
     from sqlalchemy import select
     from tranibor_api.db.models import Connector, Project

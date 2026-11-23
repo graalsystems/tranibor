@@ -42,6 +42,16 @@ database:
 extraSecretEnv: []
 # Read the image's price sheet instead of fetching the upstream one at each start.
 localModelCostMap: false
+# #2181: LiteLLM (1.108.12 here) reserves a call's worst case against the key's budget while the call
+# runs: its input plus `max_tokens` (16,384 output tokens when the call sets none) at the model's price,
+# cut down to what the budget has left. A run key holds a few cents to a few dollars; at a price like
+# $30 per million output tokens one call's worst case is the whole budget, and while that call runs
+# every other call on the key (opencode's title, Claude Code's side calls) is refused "Budget has been
+# exceeded! ... Current cost: <the budget>" although the key has spent almost nothing. Off (the
+# default), the key's budget is checked against its recorded spend, as before the reservations: a run
+# can pass its budget by the calls in flight when it is reached. `true` turns the reservation back on,
+# for a gateway whose budgets sit far above one call's worst case.
+budgetReservation: false
 # ADR 0084: the secrets-masking guard, loaded on every request, fails closed. On by default; an
 # operator that has not yet decided to load it on its gateway switches it off here and nothing changes
 # for it. It acts only for a key the platform marked (`sandbox.llm_security_analyzer`).

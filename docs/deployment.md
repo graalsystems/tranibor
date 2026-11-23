@@ -3379,6 +3379,22 @@ Without it, a key the platform marked `choregos_llm_guard: redact` reaches the p
 and nothing fails to say so. `GET /guardrails/list` with the master key shows `choregos-secrets`
 when the guard is loaded. LiteLLM reads its config only at start: restart it after the change.
 
+Turn LiteLLM's budget reservation off in the same config, as the embedded gateway does
+(`choregos-litellm.budgetReservation: false`, #2181):
+
+```yaml
+general_settings:
+  disable_budget_reservation: true
+```
+
+From 1.10x on, LiteLLM reserves a call's worst case against the key's budget while the call runs:
+its input plus `max_tokens` (16,384 output tokens when the call sets none) at the model's price, cut
+down to what is left. A run key holds a few cents to a few dollars, so on a model priced around $30
+per million output tokens one call reserves the whole budget, and every call the agent makes beside
+it is refused `Budget has been exceeded! ... Current cost: <the budget>` with almost nothing spent
+(opencode titles its session while it answers; Claude Code makes side calls). Off, the key is
+refused once its recorded spend reaches the budget: a run can pass it by the calls in flight then.
+
 ## The decision model (Laya behind LiteLLM)
 
 A workflow's `decision` step (ADR 0121, decided in PR #1183)
