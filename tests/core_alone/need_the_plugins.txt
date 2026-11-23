@@ -1,48 +1,4 @@
 # The files of the core suite that still need a first-party plugin extension (ADR 0181, round D).
 # The nightly core-without-plugins job ignores them; tests/core_alone/test_need_the_plugins_list.py
 # holds the ceiling. A file leaves the list once it passes without the plugins; none is added.
-apps/api/tests/test_agent_catalogue_service.py
-apps/api/tests/test_agent_complete_publication.py
-apps/api/tests/test_api_flows.py
-apps/api/tests/test_bare_routers.py
-apps/api/tests/test_connectors_by_capability.py
-apps/api/tests/test_decision_names_this_item_request.py
-apps/api/tests/test_decisions_need_a_session.py
-apps/api/tests/test_external_agent_carries_no_step.py
-apps/api/tests/test_gesture_checks.py
-apps/api/tests/test_in_memory_pages_are_gone.py
-apps/api/tests/test_memory_disabled_by_policy.py
-apps/api/tests/test_multi_workflow_template.py
-apps/api/tests/test_multiple_workflows.py
-apps/api/tests/test_neutral_names.py
-apps/api/tests/test_onboarding_flow.py
-apps/api/tests/test_pinned_work_item.py
-apps/api/tests/test_plugin_installer.py
-apps/api/tests/test_plugin_sources.py
-apps/api/tests/test_plugin_tracker.py
-apps/api/tests/test_rbac_matrix.py
-apps/api/tests/test_readiness_endpoint.py
-apps/api/tests/test_source_lists_pages.py
-apps/api/tests/test_template_extensions.py
-apps/api/tests/test_template_knowledge.py
-apps/api/tests/test_webhook_to_an_ended_interpreter.py
-apps/api/tests/test_work_item_journey.py
-apps/api/tests/test_workflow_catalogue.py
-apps/api/tests/test_workflow_editing.py
-apps/api/tests/test_workflow_names_scoped_agent.py
-packages/cli/tests/test_validate_offline.py
-packages/contracts/tests/test_open_lists.py
-packages/core/tests/test_artifact_declarations.py
-packages/core/tests/test_artifact_flow.py
-packages/core/tests/test_core_workflow_catalogue.py
-packages/core/tests/test_demo_map.py
-packages/core/tests/test_dsl_validation.py
-packages/core/tests/test_edition.py
-packages/core/tests/test_gate_seam.py
-packages/core/tests/test_legacy_declarations.py
-packages/core/tests/test_process.py
-packages/core/tests/test_process_view_names_the_agent.py
-packages/core/tests/test_requirements.py
-packages/core/tests/test_step_effects.py
-packages/core/tests/test_unenforced_governance.py
-packages/core/tests/test_workflow_budget.py
+# Empty since S83-05n (2026-11-23): every file of the core's suite passes without the plugins' extensions.

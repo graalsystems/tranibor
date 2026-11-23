@@ -36,8 +36,8 @@ PRINCIPALS: dict[str, Principal] = {
     "admin": _who("u-admin", Role.ORG_ADMIN),
     "owner_dev": _who("u-owner-dev", dev=Role.PROJECT_OWNER),
     "owner_ops": _who("u-owner-ops", ops=Role.PROJECT_OWNER),
-    "developer": _who("u-dev", Role.DEVELOPER),
-    "project_developer": _who("u-pdev", dev=Role.DEVELOPER),
+    "developer": _who("u-dev", Role.CONTRIBUTOR),
+    "project_developer": _who("u-pdev", dev=Role.CONTRIBUTOR),
     "viewer": _who("u-viewer", Role.VIEWER),
     "outsider": _who("u-outsider"),
 }
@@ -89,7 +89,7 @@ async def _world(client: AsyncClient, org: str) -> None:
     await make_project(client, "billing")
     await make_project(client, "checkout")
     await add_member(client, "owner@northwind.dev", "project_owner", "billing")
-    await add_member(client, "dev@northwind.dev", "developer", "billing")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing")
     await project_only(client, "owner@northwind.dev")
     await project_only(client, "dev@northwind.dev")
 

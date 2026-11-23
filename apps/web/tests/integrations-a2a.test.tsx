@@ -107,7 +107,7 @@ const ADMIN = { id: "u1", email: "ada@northwind.dev", memberships: [{ org: "nort
 const DEVELOPER = {
   id: "u2",
   email: "dev@northwind.dev",
-  memberships: [{ org: "northwind", role: "developer" }],
+  memberships: [{ org: "northwind", role: "contributor" }],
 } as unknown as MeDto;
 
 const ACCOUNT: MachineAccount = {

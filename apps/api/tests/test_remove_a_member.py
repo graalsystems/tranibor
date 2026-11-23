@@ -27,10 +27,10 @@ async def _members_of(client: AsyncClient) -> set[tuple[str | None, str | None, 
 
 
 async def test_a_member_is_removed_and_the_audit_says_so(client: AsyncClient, admin: str) -> None:
-    dev = await _member(client, "dev@northwind.dev", "developer")
+    dev = await _member(client, "dev@northwind.dev", "contributor")
     removed = await client.delete(f"/api/v1/orgs/northwind/members/{dev['user_id']}")
     assert removed.status_code == 204, removed.text
-    assert ("dev@northwind.dev", None, "developer") not in await _members_of(client)
+    assert ("dev@northwind.dev", None, "contributor") not in await _members_of(client)
     audit = (await client.get("/api/v1/audit")).json()["items"]
     assert any(a["action"] == "member.remove" and a["target_id"] == dev["user_id"] for a in audit)
 
@@ -48,19 +48,19 @@ async def test_the_last_administrator_is_not_removed(client: AsyncClient, admin:
 async def test_removing_from_a_project_leaves_the_organisation(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    dev = await _member(client, "dev@northwind.dev", "developer")
+    dev = await _member(client, "dev@northwind.dev", "contributor")
     await _member(client, "dev@northwind.dev", "project_owner", project="billing-api")
     removed = await client.delete(
         f"/api/v1/orgs/northwind/members/{dev['user_id']}", params={"project": "billing-api"}
     )
     assert removed.status_code == 204, removed.text
     remaining = await _members_of(client)
-    assert ("dev@northwind.dev", None, "developer") in remaining
+    assert ("dev@northwind.dev", None, "contributor") in remaining
     assert ("dev@northwind.dev", "billing-api", "project_owner") not in remaining
 
 
 async def test_a_developer_removes_nobody(client: AsyncClient, admin: str) -> None:
     other = await _member(client, "other@northwind.dev", "viewer")
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     await login(client, "dev@northwind.dev")
     assert (await client.delete(f"/api/v1/orgs/northwind/members/{other['user_id']}")).status_code == 403

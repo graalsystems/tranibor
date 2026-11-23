@@ -289,7 +289,7 @@ async def test_a_stopped_replica_leaves_nothing_behind(client: AsyncClient, admi
 async def test_only_an_org_admin_curates(client: AsyncClient, admin: str) -> None:
     await _base(client)
     await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     await login(client, "dev@northwind.dev")
     assert (await client.post(BASE, json={"slug": "mine", "name": "Mine"})).status_code == 403
@@ -325,7 +325,7 @@ def test_scope_decides_who_reads_and_which_runs_are_served() -> None:
     projects = SimpleNamespace(scope="projects", projects=["billing-api"], groups=[], status="active")
     groups = SimpleNamespace(scope="groups", projects=[], groups=["auditors"], status="active")
     org = SimpleNamespace(scope="org", projects=[], groups=[], status="active")
-    web_only = Principal(user_id="u", email="w@x", project_roles={"northwind/web": Role.DEVELOPER})
+    web_only = Principal(user_id="u", email="w@x", project_roles={"northwind/web": Role.CONTRIBUTOR})
     billing_only = Principal(user_id="u", email="b@x", project_roles={"northwind/billing-api": Role.VIEWER})
     auditor = Principal(user_id="u", email="a@x", org_roles={"northwind": Role.VIEWER}, groups=["auditors"])
     other_org = Principal(user_id="u", email="o@x", org_roles={"other": Role.ORG_ADMIN})

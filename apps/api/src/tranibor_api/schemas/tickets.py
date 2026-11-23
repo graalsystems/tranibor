@@ -6,8 +6,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, model_validator
-from tranibor_contracts import CHANGE_REQUEST, Artifact, StageResult
+from pydantic import ConfigDict, Field
+from tranibor_contracts import Artifact, StageResult
 
 from .base import Dto, PageMeta
 
@@ -187,11 +187,6 @@ class WorkItemDto(Dto):
     workspace: str | None = None
     #: Whether a step touched its workspace, so `fields.repository` may no longer name another one.
     workspace_fixed: bool = False
-    #: The former names of the `change_request` link, `workspace` and `workspace_fixed`, served beside
-    #: them until the release `tranibor_contracts.window` names (ADR 0181 C1).
-    pr_url: str | None = None
-    repository: str | None = None
-    repository_fixed: bool = False
     totals: Totals = Field(default_factory=Totals)
     #: The budget given at launch (or by the workflow), if any; the policy's applies otherwise.
     budget_usd: float | None = None
@@ -207,19 +202,6 @@ class WorkItemDto(Dto):
     redacted: bool = False
     created_at: datetime
     closed_at: datetime | None = None
-
-    @model_validator(mode="after")
-    def _both_names(self) -> WorkItemDto:
-        """A response carries the neutral names and their former ones, whichever was given (ADR 0181 C1)."""
-        change = next((link.url for link in self.links if link.rel == CHANGE_REQUEST), None)
-        if change is None and self.pr_url:
-            self.links = [*self.links, LinkDto(rel=CHANGE_REQUEST, url=self.pr_url)]
-        elif self.pr_url is None:
-            self.pr_url = change
-        self.workspace = self.workspace or self.repository
-        self.repository = self.repository or self.workspace
-        self.workspace_fixed = self.repository_fixed = self.workspace_fixed or self.repository_fixed
-        return self
 
 
 class WorkItemPage(Dto):

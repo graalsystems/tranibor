@@ -61,17 +61,13 @@ logger = get_logger("choregos.auth")
 OIDC_COOKIE = "choregos_oidc"
 OIDC_HANDSHAKE_S = 600
 
-#: The role groups an identity provider sends, bare or as `choregos:<org>:<group>`. `approvers` and
-#: `contributors` are the neutral names (ADR 0181 C1); `release-captains` and `developers` give the same
-#: roles until the release `tranibor_contracts.window` names, so a deployment renames its groups inside
-#: the window.
+#: The role groups an identity provider sends, bare or as `choregos:<org>:<group>` (ADR 0181 C1 named
+#: `approvers` and `contributors`; their former names left on 2026-11-23).
 GROUP_ROLES: dict[str, Role] = {
     "org-admins": Role.ORG_ADMIN,
     "product-owners": Role.PROJECT_OWNER,
     "approvers": Role.APPROVER,
-    "release-captains": Role.APPROVER,
     "contributors": Role.CONTRIBUTOR,
-    "developers": Role.CONTRIBUTOR,
     "viewers": Role.VIEWER,
 }
 
@@ -656,8 +652,7 @@ async def _relink_in_window(
 def roles_from_groups(groups: list[str], default_org: str) -> dict[str, Role]:
     """`choregos:<org>:<group>` → role on that org. A bare group only counts for `default_org`.
 
-    When several groups target the same organisation, the highest wins. The roles come back under
-    their neutral names; a membership row is written with `Role.stored`.
+    When several groups target the same organisation, the highest wins.
     """
     roles: dict[str, Role] = {}
     for group in groups:
@@ -707,12 +702,11 @@ async def _map_groups_to_roles(
     # A group that names a FORMER slug (`choregos:<old>:<group>`, or `TRANIBOR_OIDC_DEFAULT_ORG` left at
     # the old slug) grants its role on the renamed organisation (ADR 0090). When a current slug and an
     # alias of the same organisation both appear, the higher role wins, as for two groups of one slug.
-    # A mapper an extension declared may answer either spelling of a renamed role (ADR 0181 C1).
     resolu: dict[str, Role] = {}
     for name, role in roles.items():
         actuel = (await current_slugs(session, [name]))[name]
         if actuel not in resolu or rank_of(role) > rank_of(resolu[actuel]):
-            resolu[actuel] = role.neutral
+            resolu[actuel] = Role(role)
     roles = resolu
     if only_org is not None:
         roles = {slug: role for slug, role in roles.items() if slug == only_org.slug}
@@ -736,14 +730,13 @@ async def _map_groups_to_roles(
                 Membership(
                     user_id=user.id,
                     org_id=org.id,
-                    role=str(roles[org.slug].stored),
+                    role=str(roles[org.slug]),
                     source="idp" if ecraser else "manual",
                 )
             )
-        elif ecraser and Role(existing.role).neutral is not roles[org.slug]:
-            # The role follows the provider, the provenance does not: a manual row stays manual. The
-            # same role under its other spelling is no change: the row keeps what it holds.
-            existing.role = str(roles[org.slug].stored)
+        elif ecraser and existing.role != roles[org.slug]:
+            # The role follows the provider, the provenance does not: a manual row stays manual.
+            existing.role = str(roles[org.slug])
     if ecraser:
         await _revoke_unmapped_memberships(session, user, set(roles), only_org=only_org)
 

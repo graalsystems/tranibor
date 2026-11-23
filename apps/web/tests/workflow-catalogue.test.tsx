@@ -11,16 +11,16 @@ const { workflowCatalogue } = vi.hoisted(() => {
   const need = (capability: string) => ({ capability, reasons: [`needs ${capability}`] });
   const base = { version: 1, tags: [] as string[], groups: [] as string[], agents: [] as WorkflowCatalogueEntry["agents"], yaml: "" };
   const entries: WorkflowCatalogueEntry[] = [
-    { ...base, source: "core", name: "default-request", title: "default-request", summary: "", needs_repository: false, requires: [need("tracker"), need("runtime"), need("gateway")] },
-    { ...base, source: "core", name: "default-simple", title: "default-simple", summary: "", needs_repository: true, requires: [need("tracker"), need("scm"), need("cd")] },
-    { ...base, source: "template:joiners-leavers", name: "onboarding", title: "Onboarding", summary: "", needs_repository: false, tags: ["hr"], requires: [need("tracker")] },
+    { ...base, source: "core", name: "default-request", title: "default-request", summary: "", needs_workspace: false, requires: [need("tracker"), need("runtime"), need("gateway")] },
+    { ...base, source: "core", name: "default-simple", title: "default-simple", summary: "", needs_workspace: true, requires: [need("tracker"), need("scm"), need("cd")] },
+    { ...base, source: "template:joiners-leavers", name: "onboarding", title: "Onboarding", summary: "", needs_workspace: false, tags: ["hr"], requires: [need("tracker")] },
     {
       ...base,
       source: "plugin:servicenow",
       name: "incident-intake",
       title: "Incident intake",
       summary: "",
-      needs_repository: false,
+      needs_workspace: false,
       requires: [need("tracker")],
       agents: [{ actor: "triager", slug: "snow-triager", version: null, resolution: "unresolved", plugin: null, display_name: null }],
     },
@@ -43,7 +43,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
           const q = (params.q ?? "").toLowerCase();
           const kept = workflowCatalogue.filter(
             (e) =>
-              (params.needsWorkspace === undefined || e.needs_repository === params.needsWorkspace) &&
+              (params.needsWorkspace === undefined || e.needs_workspace === params.needsWorkspace) &&
               (!q || [e.name, e.title, e.summary, e.source, ...e.tags].some((t) => t.toLowerCase().includes(q))),
           );
           const start = params.cursor ? Number(params.cursor) : 0;

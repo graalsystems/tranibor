@@ -372,7 +372,7 @@ async def test_a_developer_cannot_set_a_project_secret(
     await client.put(f"/api/v1/projects/{pid}/connectors/tracker", json={"type": "probe", "config": {}})
     await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        json={"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
     )
     client.cookies.clear()
     await login(client, "dev@northwind.dev")

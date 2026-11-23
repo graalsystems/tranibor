@@ -32,7 +32,7 @@ async def _put(
     return response.status_code, body
 
 
-async def _member(client: AsyncClient, email: str, role: str = "developer") -> str:
+async def _member(client: AsyncClient, email: str, role: str = "contributor") -> str:
     added = await client.post(f"{ORG}/members", json={"email": email, "role": role})
     assert added.status_code == 201, added.text
     return str(added.json()["user_id"])

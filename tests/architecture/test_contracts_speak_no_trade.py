@@ -78,6 +78,10 @@ EXCLUDED: dict[str, str] = {
         "the `delivery` sections are the software-delivery plugin's (ADR 0181 C2), each model says so "
         "(`__plugin__`) and its schema node is marked `x-plugin`: outside the frozen surfaces"
     ),
+    "packages/contracts/src/tranibor_contracts/recorded.py": (
+        "the former spellings the platform still reads from documents it recorded or stored and cannot "
+        "rewrite (ADR 0098 §4, ADR 0181 Decision (2026-11-23)): read only, never written or served"
+    ),
     "packages/contracts/src/tranibor_contracts/window.py": (
         "the window list names each former name once, with the release that removes it; "
         "tests/architecture/test_the_window_list.py removes them (ADR 0181 C1)"
@@ -134,19 +138,14 @@ VOCABULARY: dict[str, str] = {
 #: hit, and drop the entry at zero; never raise one (ADR 0181 C0, ADR 0099).
 ALLOWED: dict[str, dict[str, int]] = {
     "packages/contracts/openapi.yaml": {
-        "branch": 3,
+        "branch": 2,
         "ci": 2,
         "coverage": 1,
-        "developer": 2,
         "max_diff": 2,
-        "merge_rate": 2,
-        "pr": 1,
-        "pull_request": 1,
-        "release_captain": 2,
         "release_train": 1,
         "repo": 16,
         "repositories": 2,
-        "repository": 11,
+        "repository": 7,
     },
     "packages/contracts/schemas/policy.schema.json": {"max_diff": 2, "release_train": 1, "train": 4},
     "packages/contracts/schemas/project.schema.json": {
@@ -180,13 +179,7 @@ ALLOWED: dict[str, dict[str, int]] = {
         "typecheck": 1,
     },
     "packages/contracts/schemas/template.schema.json": {"repo": 1},
-    "packages/contracts/schemas/workflow.schema.json": {
-        "developer": 1,
-        "pull_request": 1,
-        "release_captain": 1,
-        "release_train": 1,
-        "train": 2,
-    },
+    "packages/contracts/schemas/workflow.schema.json": {"pull_request": 1, "release_train": 1, "train": 2},
     "packages/contracts/src/tranibor_contracts/__init__.py": {
         "pull_request": 2,
         "repo": 4,
@@ -197,12 +190,10 @@ ALLOWED: dict[str, dict[str, int]] = {
         "address_review": 2,
         "cd": 8,
         "ci": 8,
-        "developer": 2,
         "fix_ci": 2,
         "flaky": 4,
         "hotspot": 2,
         "pr": 10,
-        "release_captain": 2,
         "release_notes": 2,
         "scm": 8,
         "tech_debt": 2,
@@ -235,10 +226,8 @@ ALLOWED: dict[str, dict[str, int]] = {
         "typecheck": 2,
     },
     "packages/contracts/src/tranibor_contracts/workflow.py": {
-        "developer": 1,
         "pr": 9,
         "pull_request": 3,
-        "release_captain": 1,
         "release_train": 2,
         "train": 5,
     },

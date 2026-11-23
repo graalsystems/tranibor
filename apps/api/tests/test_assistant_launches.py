@@ -99,7 +99,7 @@ async def test_binding_needs_the_right_to_create_work_items_in_the_project(
     assert after["launches"][0]["project"] is None and after["status"] == "incomplete"
 
     # The same owner, now a developer of the project: the binding is theirs to make.
-    await add_member(client, "owner@northwind.dev", "developer", project="billing-api")
+    await add_member(client, "owner@northwind.dev", "contributor", project="billing-api")
     await as_user(client, "owner@northwind.dev")
     accepted = await bind_launch(client)
     assert accepted.status_code == 200, accepted.text
@@ -111,7 +111,7 @@ async def test_a_developer_of_the_project_who_does_not_manage_the_assistant_cann
 ) -> None:
     await install(client, offline)
     await publish_review(client, project["id"])
-    await add_member(client, "dev@northwind.dev", "developer", project="billing-api")
+    await add_member(client, "dev@northwind.dev", "contributor", project="billing-api")
     await as_user(client, "dev@northwind.dev")
     assert (await bind_launch(client)).status_code == 403
 

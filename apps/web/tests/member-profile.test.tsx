@@ -31,7 +31,7 @@ const BASIC: MemberProfile = {
   department: "Payments",
   email: "lea@acme.dev",
   avatar_url: "/api/v1/users/u2/avatar?v=3f2a",
-  org_role: "developer",
+  org_role: "contributor",
   project_roles: [{ project_slug: "billing-api", project_name: "Billing API", role: "project_owner" }],
   groups: [
     { slug: "platform-team", name: "Platform team", source: "internal" },

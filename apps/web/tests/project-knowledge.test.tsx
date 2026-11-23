@@ -114,7 +114,7 @@ describe("the project's Knowledge page (S39-14)", () => {
   });
 
   it.each([
-    ["a developer of the project", { org: "acme", role: "developer", project_slug: "billing-api" }],
+    ["a developer of the project", { org: "acme", role: "contributor", project_slug: "billing-api" }],
     ["the owner of another project", { org: "acme", role: "project_owner", project_slug: "checkout-web" }],
   ])("offers no creation to %s", async (_who, membership) => {
     session.me = { memberships: [membership] };

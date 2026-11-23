@@ -14,13 +14,13 @@ from .agent_scopes_kit import ADMIN, as_user, create_agent, install_common, make
 async def _publish(client: AsyncClient, project_id: str, agent: str) -> tuple[int, str]:
     from tranibor_core.dsl import template_yaml
 
-    yaml = template_yaml("default-simple").replace(
-        'dev: { type: agent, role: implement, model: "profile:by_size", needs: [scm] }',
-        f'dev: {{ type: agent, role: implement, model: "profile:by_size", needs: [scm], agent: {agent} }}',
+    yaml = template_yaml("default-request").replace(
+        'assistant: { type: agent, role: deliver, model: "profile:by_size" }',
+        f'assistant: {{ type: agent, role: deliver, model: "profile:by_size", agent: {agent} }}',
     )
     assert f"agent: {agent}" in yaml
     response = await client.put(
-        f"/api/v1/projects/{project_id}/workflows/default-simple", json={"yaml": yaml}
+        f"/api/v1/projects/{project_id}/workflows/default-request", json={"yaml": yaml}
     )
     return response.status_code, response.text
 

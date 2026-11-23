@@ -21,9 +21,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
         .mockResolvedValue({}),
       provision: vi.fn(),
       workflowCatalogue: vi.fn().mockResolvedValue([
-        { source: "core", name: "default-request", version: 1, title: "default-request", needs_repository: false, agents: [] },
-        { source: "core", name: "default-simple", version: 1, title: "default-simple", needs_repository: true, agents: [] },
-        { source: "template:joiners-leavers", name: "onboarding", version: 1, title: "Onboarding", needs_repository: false, agents: [] },
+        { source: "core", name: "default-request", version: 1, title: "default-request", needs_workspace: false, agents: [] },
+        { source: "core", name: "default-simple", version: 1, title: "default-simple", needs_workspace: true, agents: [] },
+        { source: "template:joiners-leavers", name: "onboarding", version: 1, title: "Onboarding", needs_workspace: false, agents: [] },
       ]),
       adoptWorkflow: vi.fn().mockResolvedValue({}),
     },

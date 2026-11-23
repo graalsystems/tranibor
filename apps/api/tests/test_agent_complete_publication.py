@@ -158,7 +158,7 @@ async def test_a_workflow_naming_catalogue_agents_already_installed_is_published
 
     _incomplete_in_catalogue(monkeypatch, "developer", "tester")
     url = f"/api/v1/projects/{project['id']}/workflow"
-    source = _naming(template_yaml("default-simple"), "dev", "developer")
+    source = _naming(template_yaml("default-request"), "assistant", "developer")
     first = await client.put(url, json={"yaml": source})
     assert first.status_code == 200, first.text
     await _require(client, "required")
@@ -166,6 +166,6 @@ async def test_a_workflow_naming_catalogue_agents_already_installed_is_published
     again = await client.put(url, json={"yaml": source.rstrip("\n") + "\n# a new version, the same agents\n"})
     assert again.status_code == 200, again.text
 
-    refused = await client.put(url, json={"yaml": _naming(source, "checker", "tester")})
+    refused = await client.put(url, json={"yaml": _naming(source, "writer", "tester")})
     assert refused.status_code == 422, refused.text
     assert refused.json()["detail"].startswith("the agent `tester` of the catalogue entry `tester` leaves ")

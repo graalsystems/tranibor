@@ -1,7 +1,9 @@
 """Seven lists used to read up to a cap and cut the page in Python (`Page.slice`, ADR 0206): whatever lay
 beyond the cap was unreachable. They read one page from SQL now. Each test seeds MORE rows than the old cap
 (1 000 for the audit, 2 000 for the received events, everything else was unbounded in memory), among
-them rows sharing one instant, and walks the pages: every row once, the last one reachable.
+them rows sharing one instant, and walks the pages: every row once, the last one reachable. The releases'
+list is the `software-delivery` plugin's route since round D of ADR 0181: its test is the plugin's
+(`plugins/software-delivery/tests/api/test_releases_reachable.py`).
 """
 
 from __future__ import annotations
@@ -104,31 +106,6 @@ async def test_the_work_items_are_reachable_and_the_search_runs_in_sql(
     assert await _walk(client, url, q="billing-1030") == []
     sevens = await _walk(client, url, q="BILLING-7", limit=2)
     assert len(sevens) == len(set(sevens)) == 111, "BILLING-7, -70..-79 and -700..-799"
-
-
-async def test_the_releases_are_reachable(client: AsyncClient, project: dict[str, Any]) -> None:
-    from tranibor_api.db.models import Release
-    from tranibor_api.db.session import session_scope
-
-    async with session_scope() as session:
-        rows = [
-            Release(
-                project_id=project["id"],
-                env="prod" if i % 2 else "staging",
-                batch_no=i,
-                status="verified",
-                items=[],
-                created_at=ts,
-            )
-            for i, ts in enumerate(_instants(ROWS))
-        ]
-        session.add_all(rows)
-        await session.flush()
-        ids = {row.id for row in rows}
-        prod = {row.id for row in rows if row.env == "prod"}
-    url = f"{API}/projects/{project['id']}/releases"
-    _once(await _walk(client, url), ids)
-    _once(await _walk(client, url, env="prod"), prod)
 
 
 async def test_the_received_events_are_reachable_beyond_two_thousand(

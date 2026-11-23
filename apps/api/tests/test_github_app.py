@@ -184,7 +184,7 @@ async def test_the_listing_is_for_people_who_manage_connectors(
     from .conftest import login
 
     for body in (
-        {"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        {"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
         {"email": "po@northwind.dev", "role": "project_owner", "project_slug": "billing-api"},
     ):
         assert (await client.post("/api/v1/orgs/northwind/members", json=body)).status_code == 201

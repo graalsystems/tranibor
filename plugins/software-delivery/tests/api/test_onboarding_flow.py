@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
 """The GitHub webhook boards a merged work item into the train of ITS workflow (ADR 0041, S21-21).
 
 It used to board every merged work item into the prod train: a study that merges an ADR went to
 production, a careful delivery skipped its staging, and the approval the workflow requires never
-reached the train.
+reached the train. The merge, the train and the workflows that board it are the `software-delivery`
+plugin's since round D of ADR 0181: this test moved from `apps/api/tests/` to the plugin's suite.
 """
 
 from __future__ import annotations

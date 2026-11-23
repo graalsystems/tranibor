@@ -104,7 +104,7 @@ def _tool_results(upstream: Upstream) -> list[str]:
 
 async def _reader(client: AsyncClient) -> dict[str, Any]:
     await _agent(client)
-    await add_member(client, READER, "developer")
+    await add_member(client, READER, "contributor")
     ids = await _setup()
     await as_user(client, READER)
     return ids

@@ -10,7 +10,7 @@ describe("who may give an application its account (member:manage, S62-11)", () =
   });
 
   it("not a developer, not a project owner elsewhere, not another organisation's administrator", () => {
-    expect(canManageMembers([{ org: "acme", role: "developer" }], "acme", "billing-api")).toBe(false);
+    expect(canManageMembers([{ org: "acme", role: "contributor" }], "acme", "billing-api")).toBe(false);
     expect(canManageMembers([{ org: "acme", role: "project_owner", project_slug: "checkout" }], "acme", "billing-api")).toBe(false);
     expect(canManageMembers([{ org: "other", role: "org_admin" }], "acme", "billing-api")).toBe(false);
   });

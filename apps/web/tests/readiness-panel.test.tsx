@@ -86,7 +86,7 @@ describe("the readiness panel (S40-06c)", () => {
   });
 
   it("tells a viewer who cannot fix an item whom to ask, instead of a link", async () => {
-    session.current = { org: "acme", me: { memberships: [{ org: "acme", role: "developer", project_slug: "dev" }] } };
+    session.current = { org: "acme", me: { memberships: [{ org: "acme", role: "contributor", project_slug: "dev" }] } };
     api.projectReadiness.mockResolvedValue(
       readiness([
         item("a", "general", "todo", "project_owner", "/p/dev/settings#general"),

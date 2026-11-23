@@ -2,7 +2,9 @@
 """Can an INSTALLED extension refusede a human gesture (one project too many, an approval without a
 fresh authentication) without the route acting?
 
-The extension is a real module with its `.dist-info`, loaded by `load_extensions()`.
+The extension is a real module with its `.dist-info`, loaded by `load_extensions()`. A release's approval,
+the `software-delivery` plugin's route since round D of ADR 0181, goes through the same check with the plugin
+(`plugins/software-delivery/tests/api/test_release_decisions.py`).
 """
 
 from __future__ import annotations
@@ -44,7 +46,6 @@ def fresh_authentication(session, request):
 def plug_in():
     declare_gesture_check("project.create", "cap", project_cap)
     declare_gesture_check("workitem.decision", "freshness", fresh_authentication)
-    declare_gesture_check("release.approve", "freshness", fresh_authentication)
 """
 
 
@@ -166,25 +167,6 @@ async def test_an_approval_without_a_fresh_authentication_is_refused_with_401(
     extension["freshness_s"] = 300
     approved = await client.post(f"/api/v1/work-items/{item}/decisions", json={"kind": "approve"})
     assert approved.status_code == 202, approved.text
-
-
-async def test_a_release_approval_goes_through_the_same_check(
-    client: AsyncClient, project: dict[str, Any], extension: dict[str, Any]
-) -> None:
-    from tranibor_api.db.models import Release
-    from tranibor_api.db.session import session_scope
-
-    async with session_scope(orgs="*") as session:
-        release = Release(project_id=project["id"], env="prod", status="awaiting_approval", items=[])
-        session.add(release)
-        await session.flush()
-        release_id = str(release.id)
-    extension["freshness_s"] = -1  # no session is fresh enough any more
-    refused = await client.post(f"/api/v1/releases/{release_id}/approve", json={"note": "go"})
-    assert refused.status_code == 401, refused.text
-    assert extension["seen"][-1].target == {"project": "billing-api", "release": release_id, "env": "prod"}
-    async with session_scope(orgs="*") as session:
-        assert (await session.get(Release, release_id)).approved_by is None  # type: ignore[union-attr]
 
 
 async def test_an_unknown_gesture_is_refused_at_declaration() -> None:

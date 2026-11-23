@@ -1,11 +1,18 @@
-"""The artifact flow: who produces each document and who reads it (S39-13a)."""
+"""The artifact flow: who produces each document and who reads it (S39-13a).
+
+`dev-complex` (the `github-software-delivery` template) is read as the platform reads a template: where the
+`software-delivery` extension is absent it is refused for that plugin's gates, effects and train alone, at
+publication (ADR 0181, round D); who produces and reads its documents is the core's to say, the same.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
+from tranibor_contracts import Workflow
 from tranibor_core import artifact_flow, parse_workflow, to_graph
+from tranibor_core.dsl.validator import deployment_issues
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_COMPLEX = ROOT / "templates/github-software-delivery/workflows/dev-complex.yaml"
@@ -27,13 +34,20 @@ states:
 """
 
 
+def _dev_complex() -> Workflow:
+    workflow, report = parse_workflow(DEV_COMPLEX.read_text("utf-8"), strict=False)
+    refused = deployment_issues(workflow, report)[1]
+    assert refused == [], [issue.format() for issue in refused]
+    return workflow
+
+
 def _flow(text: str) -> dict[str, dict[str, Any]]:
     workflow, _ = parse_workflow(text)
     return {a["name"]: a for a in artifact_flow(workflow)}
 
 
 def test_dev_complex_flow() -> None:
-    workflow, _ = parse_workflow(DEV_COMPLEX.read_text("utf-8"))
+    workflow = _dev_complex()
     flow = {a["name"]: a for a in artifact_flow(workflow)}
     assert (flow["test_report"]["produced_by"], flow["test_report"]["read_by"]) == (
         ["t-test"],
@@ -41,16 +55,16 @@ def test_dev_complex_flow() -> None:
     )
     review = flow["review_markdown"]
     assert review["produced_by"] == ["t-review", "t-address-review"]
-    assert review["read_by"] == ["t-address-review"] and review["in_pull_request"] is True
+    assert review["read_by"] == ["t-address-review"] and review["in_change_request"] is True
     feedback = flow["human_feedback"]
     assert feedback["origin"] == "feedback" and feedback["produced_by"] == ["t-approve-spec", "t-approve-pr"]
     spec = flow["spec_markdown"]
-    assert spec["context"] is True and spec["in_pull_request"] is True and spec["origin"] == "step"
-    assert flow["verdict"]["context"] is False and flow["verdict"]["in_pull_request"] is False
+    assert spec["context"] is True and spec["in_change_request"] is True and spec["origin"] == "step"
+    assert flow["verdict"]["context"] is False and flow["verdict"]["in_change_request"] is False
 
 
 def test_the_graph_carries_the_flow_and_it_is_deterministic() -> None:
-    workflow, _ = parse_workflow(DEV_COMPLEX.read_text("utf-8"))
+    workflow = _dev_complex()
     assert to_graph(workflow)["artifacts"] == artifact_flow(workflow) == artifact_flow(workflow)
 
 

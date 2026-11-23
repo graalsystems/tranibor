@@ -97,8 +97,6 @@ def artifact_flow(wf: Workflow) -> list[dict[str, Any]]:
                 "origin": origin,
                 "context": name in CONTEXT_DOCUMENTS,
                 "in_change_request": name in pull_request,
-                # The former name, served beside it until the release the window list names (ADR 0181 C1).
-                "in_pull_request": name in pull_request,
             }
         )
     horizon = len(wf.transitions)

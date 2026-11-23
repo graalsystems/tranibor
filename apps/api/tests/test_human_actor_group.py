@@ -64,7 +64,7 @@ async def test_a_project_owner_outside_the_group_cannot_answer_its_step(
 ) -> None:
     item_id = await _waiting_ticket(client, project["id"])
     await _member(client, "owner@northwind.dev", "project_owner", ["platform-team"])
-    await _member(client, "dev@northwind.dev", "developer", [])
+    await _member(client, "dev@northwind.dev", "contributor", [])
     for outsider in ("owner@northwind.dev", "dev@northwind.dev"):
         refused = await _decide(app, outsider, item_id)
         assert refused.status_code == 403 and GROUP in refused.text, (outsider, refused.text)
@@ -88,7 +88,7 @@ async def test_a_member_answers_and_an_administrator_overrides_with_an_audit_tra
     from tranibor_api.db.session import session_scope
 
     item_id = await _waiting_ticket(client, project["id"])
-    await _member(client, "cap@northwind.dev", "developer", [GROUP])
+    await _member(client, "cap@northwind.dev", "contributor", [GROUP])
     answered = await _decide(app, "cap@northwind.dev", item_id)
     assert answered.status_code == 202, answered.text
     async with session_scope() as session:
@@ -148,7 +148,7 @@ async def test_a_group_nobody_carries_is_warned_about_at_validation(
         and unknown["warnings"][0]["path"] == "/actors/captain/group"
     )
 
-    await _member(client, "cap@northwind.dev", "developer", [GROUP])
+    await _member(client, "cap@northwind.dev", "contributor", [GROUP])
     known = (await client.post(path, json={"yaml": WORKFLOW})).json()
     assert known["warnings"] == []
 
@@ -171,11 +171,11 @@ async def test_a_group_namespaced_for_the_organisation_counts_as_its_bare_name(
     from tranibor_api.services.human_groups import groups_known_in
 
     path = f"/api/v1/projects/{project['id']}/workflows/validate"
-    await _member(client, "other@northwind.dev", "developer", [f"choregos:other-org:{GROUP}"])
+    await _member(client, "other@northwind.dev", "contributor", [f"choregos:other-org:{GROUP}"])
     other = (await client.post(path, json={"yaml": WORKFLOW})).json()
     assert [w["code"] for w in other["warnings"]] == ["actor.group_unknown"], "another org's group"
 
-    await _member(client, "cap@northwind.dev", "developer", [f"choregos:northwind:{GROUP}"])
+    await _member(client, "cap@northwind.dev", "contributor", [f"choregos:northwind:{GROUP}"])
     ours = (await client.post(path, json={"yaml": WORKFLOW})).json()
     assert ours["warnings"] == []
     async with session_scope() as session:
@@ -189,10 +189,10 @@ async def test_a_namespaced_group_answers_the_step_only_for_its_own_organisation
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     item_id = await _waiting_ticket(client, project["id"])
-    await _member(client, "foreign@northwind.dev", "developer", [f"choregos:other:{GROUP}"])
+    await _member(client, "foreign@northwind.dev", "contributor", [f"choregos:other:{GROUP}"])
     refused = await _decide(app, "foreign@northwind.dev", item_id)
     assert refused.status_code == 403, refused.text
-    await _member(client, "cap@northwind.dev", "developer", [f"choregos:northwind:{GROUP}"])
+    await _member(client, "cap@northwind.dev", "contributor", [f"choregos:northwind:{GROUP}"])
     answered = await _decide(app, "cap@northwind.dev", item_id)
     assert answered.status_code == 202, answered.text
 
@@ -217,7 +217,7 @@ def test_knowledge_group_scope_and_grants_read_namespaced_groups_for_their_org()
 
     def person(group: str) -> Principal:
         return Principal(
-            user_id="u", email="u@x.dev", org_roles={"northwind": Role.DEVELOPER}, groups=[group]
+            user_id="u", email="u@x.dev", org_roles={"northwind": Role.CONTRIBUTOR}, groups=[group]
         )
 
     assert access._reaches(person("choregos:northwind:architects"), "northwind", base)

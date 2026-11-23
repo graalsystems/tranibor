@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 import type { Org } from "@/lib/types";
 import { SessionProvider, useSession } from "@/lib/session";
 
-const org = (slug: string): Org => ({ slug, name: slug, role: "developer", currency: "EUR", aliases: [] }) as Org;
+const org = (slug: string): Org => ({ slug, name: slug, role: "contributor", currency: "EUR", aliases: [] }) as Org;
 
 function Probe() {
   const { org: current, orgs, moreOrgs } = useSession();

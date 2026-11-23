@@ -2028,15 +2028,13 @@ Roles come from **groups**, and a group names its organisation:
 |---|---|
 | `choregos:<org>:org-admins` | `org_admin` on `<org>` |
 | `choregos:<org>:product-owners` | `project_owner` |
-| `choregos:<org>:approvers` (formerly `release-captains`) | `approver` (formerly `release_captain`) |
-| `choregos:<org>:contributors` (formerly `developers`) | `contributor` (formerly `developer`) |
+| `choregos:<org>:approvers` | `approver` |
+| `choregos:<org>:contributors` | `contributor` |
 | `choregos:<org>:viewers` | `viewer` |
 
-`approvers` and `contributors` are the neutral names of `release-captains` and `developers`
-([ADR 0181](adr/0181-the-contracts-speak-no-trade.md) round C1). Until 0.30.0 both spellings give
-the same role, and the API may answer either `approver` or `release_captain`, `contributor` or
-`developer`; rename the groups at the identity provider before upgrading to 0.30.0, which reads only
-the new ones.
+`approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
+([ADR 0181](adr/0181-the-contracts-speak-no-trade.md) round C1), which give no role since the release
+after 0.28.1.
 
 The same claim carries an organisation's **human groups** (ADR 0052): a workflow's
 `group: architects` is matched by a member carrying `architects` or `choregos:<org>:architects`
@@ -2490,6 +2488,17 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.28.1: the roles and fields of round C1 have only their neutral names
+
+**ADR 0181 round C1's window closed early** (the project lead's decision of 2026-11-23, recorded in
+[ADR 0181](adr/0181-the-contracts-speak-no-trade.md)). Old clients break; there is no window left.
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| The roles `developer`, `release_captain` | Gone. A request naming one is refused (422). The migration `c1a3e5f7b9d2` rewrites `memberships.role` and the approver roles of the proposed actions to `contributor` and `approver`. A stored workflow version still reads an action approver's former role as its successor; publishing a new version with it is refused. | A script or a values file that names a role: switch it. |
+| The role groups `developers`, `release-captains` | Give no role any more. A member who signs in with only these groups loses the role the provider granted (`memberships.source = idp`). | **Before upgrading**, make the identity provider send `choregos:<org>:contributors` and `choregos:<org>:approvers`. Keep sending `release-captains` if a workflow addresses `group: release-captains` (a human group, not a role). |
+| `WorkItem.pr_url`, `repository`, `repository_fixed`; `ProcessStep.writes_branch`; `WorkflowCatalogueEntry.needs_repository`; `ArtifactFlow.in_pull_request`; `ProjectStats` and `MemoryAbGroup` `first_pass_merge_rate` | No longer served. | Read `links` (`rel: change_request`), `workspace`, `workspace_fixed`, `writes_workspace`, `needs_workspace`, `in_change_request`, `first_pass_acceptance_rate`. |
+
 ## Upgrading past 0.28.1: the offline software-delivery plugin is 1.3.0
 
 **The core ships `software-delivery` 1.3.0 offline, instead of 1.1.1** (S83-04o). It is the first version
@@ -2655,8 +2664,8 @@ the `ontology:` extension of the `joiners-leavers` template are gone. It was off
 The downgrade of `b4d6f8a0c2e5` does not create the tables again.
 
 **Neutral names beside the former ones** ([ADR 0181](adr/0181-the-contracts-speak-no-trade.md), round C1).
-Every former name is listed, with the release that removes it, in `tranibor_contracts.window`: those of C1
-leave in **0.30.0** (not before 2026-12-07).
+The former names left in the release after 0.28.1, earlier than planned: see "Upgrading past 0.28.1: the
+roles and fields of round C1 have only their neutral names".
 
 | What | What happens | What to do |
 | :-- | :-- | :-- |

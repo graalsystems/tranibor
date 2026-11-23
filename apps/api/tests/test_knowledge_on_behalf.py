@@ -92,7 +92,7 @@ async def test_the_initiator_reads_through_a_user_a_group_or_a_project_grant(
     await _grant_to(client, {"subject_type": "project", "subject": project["slug"], "role": "viewer"})
     with pytest.raises(KnowledgeRefusedError):
         await _pinned(project, READER)
-    await _uid(client, "member@northwind.dev", projects={project["slug"]: "developer"})
+    await _uid(client, "member@northwind.dev", projects={project["slug"]: "contributor"})
     assert await _pinned(project, "mcp:member@northwind.dev")
 
 

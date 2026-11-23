@@ -59,19 +59,34 @@ transitions:
 
 @pytest.fixture
 def registries() -> Iterator[None]:
-    """Whatever a test registers is removed after it, as if the extension had never been installed."""
+    """Whatever a test registers is removed after it, as if the extension had never been installed; what
+    a test forgets (an installed extension's gates) is put back."""
     from tranibor_core import gates
 
-    tables = ("_REGISTRY", "_NEEDS", "_READS", "_PLUGIN_OF", "_PROVIDERS", "_PROVIDER_PLUGIN")
+    tables = (
+        "_REGISTRY",
+        "_NEEDS",
+        "_READS",
+        "_PLUGIN_OF",
+        "_SUMMARY",
+        "_DETAIL",
+        "_REQUIRES",
+        "_PROVIDERS",
+        "_PROVIDER_PLUGIN",
+        "_JUDGED",
+    )
+    sets = ("_ASYNC_GATES", "_WORKSPACE", "_RUN_SCOPED")
     saved = {name: dict(getattr(gates, name)) for name in tables}
-    asynchronous = set(gates._ASYNC_GATES)
+    saved_sets = {name: set(getattr(gates, name)) for name in sets}
     yield
     for name, content in saved.items():
         table = getattr(gates, name)
         table.clear()
         table.update(content)
-    gates._ASYNC_GATES.clear()
-    gates._ASYNC_GATES.update(asynchronous)
+    for name, members in saved_sets.items():
+        registry = getattr(gates, name)
+        registry.clear()
+        registry.update(members)
 
 
 def _register_ticket_gate(*, provider: bool = True) -> list[ProviderRequest]:
@@ -167,12 +182,15 @@ def test_a_gate_nobody_provides_is_refused_at_publication() -> None:
 
 def test_a_plugin_s_gate_without_its_extension_is_refused_naming_the_plugin(registries: None) -> None:
     """What a stored software-delivery workflow meets once the twelve gates have moved (C2) on a
-    deployment without the plugin's extension: here simulated by unregistering `ci_green`."""
+    deployment without the plugin's extension: here whether this process installed it or not, its gates
+    forgotten (that the extension serves `ci_green` is pinned in its suite,
+    `tests/core/test_core_seams.py`)."""
     from tranibor_core import gates
 
     assert PLUGIN_GATES["ci_green"] == "software-delivery"
-    assert unavailable("ci_green") is None, "in C0 the core still serves it"
-    del gates._REGISTRY["ci_green"]
+    gates.forget("software-delivery")
+    assert "plugin `software-delivery`" in str(unavailable("ci_green"))
+    assert gate_plugin("ci_green") == "software-delivery"
     [(code, message)] = _publish("ci_green")
     assert code == "gate.unknown"
     assert "served by the plugin `software-delivery`, whose extension is not installed" in message
@@ -180,8 +198,10 @@ def test_a_plugin_s_gate_without_its_extension_is_refused_naming_the_plugin(regi
         evaluate("ci_green", GateContext())
 
 
-def test_the_twelve_plugin_gates_are_the_ones_that_need_the_scm() -> None:
+def test_the_twelve_plugin_gates_are_the_only_ones_that_may_need_the_scm() -> None:
+    """The core's own gates read no repository: a gate that needs one is one of the twelve the
+    `software-delivery` plugin serves (that its extension registers exactly those is pinned in its suite)."""
     from tranibor_core.gates import _NEEDS
 
-    assert set(PLUGIN_GATES) == {name for name, needs in _NEEDS.items() if "scm" in needs}
+    assert {name for name, needs in _NEEDS.items() if "scm" in needs} <= set(PLUGIN_GATES)
     assert len(PLUGIN_GATES) == 12
