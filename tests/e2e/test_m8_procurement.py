@@ -2,7 +2,7 @@
 
 The plugins are the archives the core ships offline, installed through the API like an organisation installs
 them (`plugins/procurement/tests` read the same bytes): `procurement` 0.3.0 (the comparison of offers, no
-server) for S85-10, `procurement-operations` 0.3.0 (onboarding, requests, renewals and the `purchasing`
+server) for S85-10, `procurement-operations` 0.3.1 (onboarding, requests, renewals and the `purchasing`
 server) for S85-13. The trade was one plugin until 0.2.1 (split in pull request 27 of the plugin
 repository, #2134).
 
@@ -184,10 +184,14 @@ async def api_url(platform: Platform, monkeypatch: pytest.MonkeyPatch) -> AsyncI
 # -- the organisation ---------------------------------------------------------------------------------------
 
 
+#: The versions `plugins/offline/plugins.lock` holds; operations moved to 0.3.1 after the first night.
+VERSIONS = {"procurement": "0.3.0", "procurement-operations": "0.3.1"}
+
+
 async def _install(client: AsyncClient, plugin: str = "procurement") -> None:
     """Two administrators install the plugin (ADR 0050); `procurement-operations` brings a server."""
     asked = await client.post(
-        f"{ORG}/plugins/install", json={"source": "offline", "name": plugin, "version": "0.3.0"}
+        f"{ORG}/plugins/install", json={"source": "offline", "name": plugin, "version": VERSIONS[plugin]}
     )
     assert asked.status_code == 202, asked.text
     added = await client.post(f"{ORG}/members", json={"email": SECOND, "role": "org_admin"})
