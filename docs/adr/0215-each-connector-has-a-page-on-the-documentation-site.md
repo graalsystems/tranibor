@@ -1,6 +1,6 @@
 # 0215 — Each connector has a page on the documentation site, the platform's and the plugins'
 
-- **Status**: proposed, 2026-11-23 (story S84-06)
+- **Status**: accepted, 2026-11-23 (decided by the project lead at merge; story S84-06)
 - **Concerns**: `tools/procedures/export_docs.py` (`--site`), `docs/site/connectors/`,
   `.github/workflows/docs-site.yml`, the console's setup panel (`apps/web/src/components/procedures/`,
   `lib/procedures.ts`) and Library → Plugins; builds on [ADR 0067](0067-a-procedure-per-connector-and-agent-type.md),
