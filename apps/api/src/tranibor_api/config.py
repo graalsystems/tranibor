@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     #: in-memory Temporal test server, so that a decision posted to the API alone advances the work item.
     #: Refused unless the fakes are on and `TRANIBOR_ENV` is `dev` or `test`.
     demo_inline_worker: bool = Field(default=False, validation_alias="TRANIBOR_DEMO_INLINE_WORKER")
+    #: Opt-in presentation aid (ADR 0213): a file of tools the fakes' MCP server serves, to demonstrate
+    #: a governed write. Refused unless the fakes are on and `TRANIBOR_ENV` is `dev` or `test`.
+    demo_mcp_tools: str = Field(default="", validation_alias="TRANIBOR_DEMO_MCP_TOOLS")
     #: The edition that the DEPLOYMENT announces (ADR 0024). It is not the same thing as the edition
     #: that runs: that one is declared by the enterprise extension when it loads. The two are
     #: compared at startup, because a gap is silent otherwise: the chart would announce
