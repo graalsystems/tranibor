@@ -1,20 +1,6 @@
 # The files of the core suite that still need a first-party plugin extension (ADR 0181, round D).
 # The nightly core-without-plugins job ignores them; tests/core_alone/test_need_the_plugins_list.py
 # holds the ceiling. A file leaves the list once it passes without the plugins; none is added.
-apps/api/tests/test_api_flows.py
-apps/api/tests/test_bare_routers.py
-apps/api/tests/test_connectors_by_capability.py
-apps/api/tests/test_decision_names_this_item_request.py
-apps/api/tests/test_decisions_need_a_session.py
-apps/api/tests/test_gesture_checks.py
-apps/api/tests/test_in_memory_pages_are_gone.py
-apps/api/tests/test_neutral_names.py
-apps/api/tests/test_onboarding_flow.py
-apps/api/tests/test_pinned_work_item.py
-apps/api/tests/test_rbac_matrix.py
-apps/api/tests/test_readiness_endpoint.py
-apps/api/tests/test_webhook_to_an_ended_interpreter.py
-apps/api/tests/test_work_item_journey.py
 packages/cli/tests/test_validate_offline.py
 packages/contracts/tests/test_open_lists.py
 packages/core/tests/test_artifact_declarations.py

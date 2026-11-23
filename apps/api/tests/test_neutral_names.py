@@ -77,7 +77,9 @@ async def test_a_member_given_a_neutral_role_is_stored_under_the_former_spelling
 async def test_a_row_under_the_neutral_spelling_holds_its_permissions(
     client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A row written by 0.29.0 or by the enterprise edition's SCIM: `approver` approves releases."""
+    """A row written by 0.29.0 or by the enterprise edition's SCIM is read as the role it spells. That
+    `approver` approves releases (the train's routes, the `software-delivery` plugin's since round D of
+    ADR 0181) is checked with the plugin (its `tests/api/test_delivery_neutral_names.py`)."""
     from tranibor_api.config import reset_settings_cache
 
     monkeypatch.setenv("TRANIBOR_DEV_ADMIN_EMAILS", "admin@northwind.dev")
@@ -87,10 +89,8 @@ async def test_a_row_under_the_neutral_spelling_holds_its_permissions(
         await login(c, "neutral@northwind.dev")
         me = (await c.get("/api/v1/me")).json()
         assert {m["role"] for m in me["memberships"]} == {"approver"}, "the dev sign-in left the row alone"
-        frozen = await c.post(
-            f"/api/v1/projects/{project['id']}/trains/prod/freeze", json={"reason": "round C1"}
-        )
-        assert frozen.status_code not in (403, 422), frozen.text
+        read = await c.get(f"/api/v1/projects/{project['id']}")
+        assert read.status_code == 200, read.text
     reset_settings_cache()
 
 
@@ -138,25 +138,58 @@ def test_the_dtos_fill_each_name_from_the_other() -> None:
 
 
 async def test_the_catalogue_and_the_process_view_carry_both_names(
-    client: AsyncClient, project: dict[str, Any]
+    client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The kinds that need a workspace are declared by a plugin (the `software-delivery` plugin's `scm`, `ci`
+    and `cd`, checked with it in `plugins/software-delivery/tests/api/test_delivery_neutral_names.py`):
+    here the agents' runtime stands in for one, so some shipped workflows need a workspace and some do
+    not, whichever plugins are installed."""
+    from tranibor_api.services import workflow_catalogue
+
+    monkeypatch.setattr(workflow_catalogue, "workspace_kinds", lambda: frozenset({"runtime"}))
     entries = (await client.get("/api/v1/orgs/northwind/workflow-catalogue?limit=200")).json()["items"]
     assert entries, "the catalogue lists the shipped workflows"
     assert all(e["needs_workspace"] == e["needs_repository"] for e in entries)
     assert any(e["needs_workspace"] for e in entries) and not all(e["needs_workspace"] for e in entries)
 
 
+WRITES = """\
+apiVersion: choregos/v1
+kind: Workflow
+metadata: { name: writes, version: 1 }
+actors:
+  dev: { type: agent, role: implement, model: "profile:standard" }
+  owner: { type: human, group: product-owners, sla_hours: 24 }
+states:
+  inbox: { display: To do, kind: wait }
+  written: { display: Written }
+  done: { display: Done, terminal: true }
+transitions:
+  - { id: t-write, from: inbox, to: written, by: dev, outputs: [report], gates: [GATE] }
+  - { id: t-accept, from: written, to: done, by: owner, inputs: [report] }
+"""
+
+
 def test_the_core_views_carry_both_names() -> None:
+    """A step writes the workspace when it carries a gate that reads it, which a plugin registers (the
+    `software-delivery` plugin's diff gates, checked with it in `plugins/software-delivery/tests/api/
+    test_delivery_neutral_names.py`): here a test plugin registers one, and forgets it after."""
     import yaml
     from tranibor_contracts import Workflow
-    from tranibor_core.dsl import template_yaml
     from tranibor_core.dsl.flow import artifact_flow
     from tranibor_core.dsl.process import to_process
+    from tranibor_core.gates import GateOutcome, forget, gate
 
-    workflow = Workflow.model_validate(yaml.safe_load(template_yaml("dev-feature")))
-    steps = to_process(workflow)
+    gate("probe_workspace", plugin="test-neutral-names", workspace=True)(
+        lambda context: GateOutcome("probe_workspace", passed=True)
+    )
+    try:
+        workflow = Workflow.model_validate(yaml.safe_load(WRITES.replace("GATE", "probe_workspace")))
+        steps = to_process(workflow)
+    finally:
+        forget("test-neutral-names")
     assert all(s["writes_workspace"] == s["writes_branch"] for s in steps)
-    assert any(s["writes_workspace"] for s in steps)
+    assert any(s["writes_workspace"] for s in steps) and not all(s["writes_workspace"] for s in steps)
     flows = artifact_flow(workflow)
     assert flows and all(a["in_change_request"] == a["in_pull_request"] for a in flows)
 

@@ -28,9 +28,15 @@ async def test_login_and_me(client: AsyncClient, org: str) -> None:
 
 
 async def test_project_creation_sets_defaults(client: AsyncClient, project: dict[str, Any]) -> None:
+    """A project with a repository and no template gets the workflow `workflow_without_template` names:
+    `default-simple` where the `software-delivery` plugin's extension is installed (pinned with the plugin,
+    `plugins/software-delivery/tests/api/test_delivery_routers.py`), `default-request` without it."""
+    from tranibor_api.services.templates import workflow_without_template
+
     assert project["status"] == "draft"
+    expected = workflow_without_template(has_repository=True).removeprefix("template:").partition("@")[0]
     workflow = (await client.get(f"/api/v1/projects/{project['id']}/workflow")).json()
-    assert workflow["name"] == "default-simple"
+    assert workflow["name"] == expected
     policy = (await client.get(f"/api/v1/projects/{project['id']}/policy")).json()
     assert policy["name"] == "solo"
 
@@ -68,12 +74,12 @@ async def test_put_valid_workflow_bumps_version(client: AsyncClient, project: di
     from tranibor_core.dsl import template_yaml
 
     response = await client.put(
-        f"/api/v1/projects/{project['id']}/workflow", json={"yaml": template_yaml("advanced")}
+        f"/api/v1/projects/{project['id']}/workflow", json={"yaml": template_yaml("blank")}
     )
     assert response.status_code == 200, response.text
-    assert response.json()["name"] == "advanced"
+    assert response.json()["name"] == "blank"
     current = (await client.get(f"/api/v1/projects/{project['id']}/workflow")).json()
-    assert current["name"] == "advanced"
+    assert current["name"] == "blank"
 
 
 async def test_rbac_developer_cannot_write_workflow(client: AsyncClient, project: dict[str, Any]) -> None:
