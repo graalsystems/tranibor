@@ -1,6 +1,6 @@
 # 0195 — The core ships the generic deployment; an operator's repository keeps its values
 
-- **Status**: accepted, 2026-11-19 (decided by the product owner on 2026-11-19; implemented by S80-12 and S80-14 to S80-17)
+- **Status**: accepted, 2026-11-19 (decided by the product owner on 2026-11-19; implemented by S80-12 and S80-14 to S80-17); amended 2026-11-23 (#2150, S80-25)
 - **Concerns**: `charts/choregos` and its subcharts (`temporal`, `litellm`, `ecphoria`, a new `websearch`),
   `docs/deployment.md`, and the first operator's deployment repository (DiametralGroup/choregos-deploy,
   a French-language repository outside this one)
@@ -70,3 +70,22 @@ ConfigMap that any operator of Tranibor needs and would write again. Three costs
 - A deployment that turns the chart's LiteLLM on gets the secrets guardrail (ADR 0084) it did not have
   when it ran its own copy: a behaviour change an operator decides, noted in the upgrade notes.
 - Nothing here changes a default: every new value is off or equals what the chart rendered before.
+
+## Amendment, 2026-11-23: the embedded gateway and memory are a production tier (#2150)
+
+The render guard (`charts/choregos/templates/guard.yaml`) still refused `global.gateway.embedded` and
+`global.memory.embedded` in `staging` and `prod` outside the single-node profile, as bench pieces. After
+S80-14 to S80-16 they are not: the embedded LiteLLM runs the `litellm-database` image with the operator's
+price sheets on a database of the operator's PostgreSQL, the embedded Ecphoria keeps its files on a claim it
+renders or adopts, and both take over a site's existing Service, volume and labels. The first operator's
+prod runs exactly that shape from its own manifests. Decided by the coordinator on the owner's behalf:
+
+6. **The guard judges what a piece rests on, not that it is embedded.** As for the embedded Temporal in
+   `server` mode, a serious environment admits the embedded gateway when `global.database.embedded` is
+   false (its database is the operator's) and the embedded memory when
+   `choregos-ecphoria.persistence.enabled` is true (a claim, never an emptyDir). On the embedded PostgreSQL
+   or on an emptyDir the render is refused and names that reason. The other refusals (the embedded
+   PostgreSQL, the Temporal's `dev` mode, `devSecrets`, `devLogin`, `demoFakes`, the fakes) are unchanged,
+   and so is the single-node exception (ADR 0184). On a multi-node cluster the memory's volume is backed
+   up by the operator (volume snapshots): the chart's scheduled backup mounts it beside its owner, which
+   only a single node guarantees, and does not follow an adopted claim yet (#2153).

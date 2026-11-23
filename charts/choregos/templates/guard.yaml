@@ -58,8 +58,14 @@ and sign-in, the demonstration fakes) stay refused whatever the profile.
 {{- /* S80-14: the embedded Temporal in `server` mode (auto-setup on PostgreSQL, ADR 0195) is the production
        tier, not the SQLite bench: it is the one the serious environments may use. */}}
 {{- if and $g.temporal.embedded (ne (toString ((index .Values "choregos-temporal" | default dict).mode | default "dev")) "server") }}{{ $fautes = append $fautes "global.temporal.embedded (choregos-temporal.mode=dev, the SQLite bench)" }}{{ end }}
-{{- if $g.gateway.embedded }}{{ $fautes = append $fautes "global.gateway.embedded" }}{{ end }}
-{{- if $g.memory.embedded }}{{ $fautes = append $fautes "global.memory.embedded" }}{{ end }}
+{{- /* #2150: the embedded LiteLLM is a production tier too (S80-14/15: the `litellm-database` image, the price
+       sheets, a database on the operator's PostgreSQL through `global.database`), as long as that
+       database is the operator's: on the embedded PostgreSQL it rests on the bench (ADR 0195). */}}
+{{- if and $g.gateway.embedded $g.database.embedded }}{{ $fautes = append $fautes "global.gateway.embedded (on global.database.embedded, the bench PostgreSQL)" }}{{ end }}
+{{- /* #2150: the embedded Ecphoria keeps its DuckDB and SQLite files under /data: a production tier on a
+       volume (its own claim or an adopted `existingClaim`), the bench on an emptyDir that a restart wipes. */}}
+{{- $memoryPersistence := (index .Values "choregos-ecphoria" | default dict).persistence | default dict }}
+{{- if and $g.memory.embedded (not $memoryPersistence.enabled) }}{{ $fautes = append $fautes "global.memory.embedded (choregos-ecphoria.persistence.enabled=false, an emptyDir that a restart wipes)" }}{{ end }}
 {{- end }}
 {{- if $g.devSecrets }}{{ $fautes = append $fautes "global.devSecrets" }}{{ end }}
 {{- if ($g.devLogin | default dict).enabled }}{{ $fautes = append $fautes "global.devLogin.enabled" }}{{ end }}
