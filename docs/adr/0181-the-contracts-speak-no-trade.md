@@ -616,11 +616,19 @@ Started on 2026-11-21 (planned 2027-04-19), split into sub-stories of stream S83
   mechanisms (the interpreter's budgets, escalations, resumptions, the catalogues, the readiness, the
   site's pages) that a test drives on `default-simple` or a delivery template, to be driven on a workflow
   of the core's instead; each such rewrite takes a file off the list.
+- **S83-05n.** The 91 files left: the core's tests of its own mechanisms run on the core's workflows
+  (`tranibor_testkit.workflows.CORE_SIMPLE`, `default-simple`'s front half on the core's gates, given to the
+  orchestrator's project by `use_workflow`; `default-request`, `blank`, a workflow written in the test) or on a
+  stand-in plugin a fixture registers and removes; what a pull request, a merge, the CI, the train or a diff gate
+  does moved to the plugin's suite, and the marketdata cases to `investment-research`'s. A check over every
+  shipped template is split in two halves that each assert they cover every template together.
+  `tests/core_alone/need_the_plugins.txt` is empty (2026-11-23) and its ceiling is 0: the nightly job runs
+  the core's whole suite without the plugins.
 - **Round D is complete** (2026-11-22). The core runs without the `software-delivery` plugin's extension:
   the API starts and serves no route of the plugin's, the worker carries none of its workflows or
   activities (a stand-in answers the one the interpreter calls after every step), every archived history
-  replays with and without it, and the core's whole suite runs without it, less the 91 files
-  `tests/core_alone/need_the_plugins.txt` lists (435 when round D began), whose ceiling only falls. The
+  replays with and without it, and the core's whole suite runs without it (less the 91 files
+  `tests/core_alone/need_the_plugins.txt` listed then, 435 when round D began; none since S83-05n). The
   seams the round added belong to the fifth surface and are frozen with it: the worker seam (with its
   provisioning steps), the carrier seam (with its needs), the project-figure, series, readiness-item and
   inbound-hook seams, and the adapter slot. What remains of software delivery in the core is named above,
