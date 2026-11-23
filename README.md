@@ -16,8 +16,11 @@ repository's About panel).
 
 ## Principles
 
-1. **The tracker is the human interface.** GitHub Issues/Projects, Jira or GitLab stays where
-   decisions are made; Tranibor writes the state, the cost and the evidence there.
+1. **The tracker stays a first-class surface; decisions are taken in the console.** GitHub
+   Issues/Projects, Jira or GitLab is where work is filed and followed, and Tranibor writes the
+   state, the cost and the evidence there. An approval, a rejection or an answer is made in the
+   console (the inbox, `POST /work-items/{id}/decisions`) after a fresh sign-in, never from a
+   tracker comment (ADR 0102).
 2. **The orchestrator plans, it never calls a model.** Temporal workflows decide which stage to
    launch; only the runners talk to the agents.
 3. **The runner is disposable; memory and results are durable.**
