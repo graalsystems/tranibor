@@ -3,7 +3,9 @@
 A single test covered 18 permissions x 5 roles x ~60 routes (state of play of 2026-09-24). Here
 the expectation is not written by hand: it is DEDUCED from `ROLE_PERMISSIONS` and from the
 permission each route declares. A route that changed permission, or a role that gained one, shows
-up here, in both directions.
+up here, in both directions. The release train's routes (`train:operate`, `train:approve`) are the
+`software-delivery` plugin's since round D of ADR 0181: their rows of the matrix run with the plugin
+(`plugins/software-delivery/tests/api/test_train_rbac_matrix.py`).
 """
 
 from __future__ import annotations
@@ -50,7 +52,6 @@ def _routes(project_id: str, workflow_yaml: str, policy_yaml: str) -> list[tuple
             {"profiles": {}, "allow_unvalidated": True, "inherited": {}},
         ),
         ("item:control", "POST", f"/api/v1/projects/{project_id}/work-items", {"title": "T", "start": False}),
-        ("train:operate", "POST", f"/api/v1/projects/{project_id}/trains/prod/freeze", {"reason": "test"}),
         ("memory:write", "POST", f"/api/v1/projects/{project_id}/memory/reimport", {}),
         (
             "member:manage",

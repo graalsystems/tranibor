@@ -7,14 +7,43 @@ back, so the same delivery was processed again and again.
 from __future__ import annotations
 
 import json
+import shutil
+from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
+from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
+from tranibor_adapters.plugin_servers import PluginServerRuntime
 
-from . import test_plugin_tracker as plugin_tracker
-from .test_plugin_tracker import HOOK, SECRET, _ready
+from .test_plugin_tracker import DESK, HOOK, SECRET, _ready
 
-kube = plugin_tracker.kube  # the fake plugin tracker's fixture, reused
+
+@pytest.fixture
+def kube(tmp_path: Path) -> Iterator[FakeKubernetesApi]:
+    """The fake plugin tracker's scene (`test_plugin_tracker.kube`), its `desk-flow` template giving its
+    projects `default-request`, a workflow of the core's, instead of `default-simple`, the `software-delivery`
+    plugin's: what is under test is the tracker's delivery, which runs with or without the plugins."""
+    from tranibor_api.services.plugin_servers import use_plugin_runtime, use_plugin_transport
+    from tranibor_api.services.plugin_supply import OfflineDirectory, use_plugin_supply
+
+    root = tmp_path / "plugins"
+    shutil.copytree(DESK, root / "desk" / "1.0.0")
+    manifest = root / "desk" / "1.0.0" / "templates" / "desk-flow" / "manifest.yaml"
+    text = manifest.read_text(encoding="utf-8").replace(
+        "template:default-simple@1", "template:default-request@1"
+    )
+    assert "template:default-request@1" in text
+    manifest.write_text(text, encoding="utf-8")
+    use_plugin_supply(OfflineDirectory(root))
+    api = FakeKubernetesApi()
+    use_plugin_runtime(PluginServerRuntime(api, "choregos-plugins"))
+    yield api
+    use_plugin_runtime(None)
+    use_plugin_transport(None)
+    use_plugin_supply(None)
+
 
 REPO = {"full_name": "northwind/billing-api"}
 
