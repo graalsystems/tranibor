@@ -80,10 +80,16 @@ DERIVED: tuple[str, ...] = (
     # Where the images are pushed and signed, and the upstream-only jobs.
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
+    ".github/workflows/code-agent-examples.yml",
     ".github/workflows/live-model.yml",
     ".github/workflows/nightly.yml",
     ".github/workflows/release.yml",
     ".github/workflows/single-node-proof.yml",
+    # The example agents are built FROM the runner image of the registry.
+    "examples/agents/langgraph/Dockerfile",
+    "examples/agents/openai-agents/Dockerfile",
+    "examples/agents/plain/Dockerfile",
+    "examples/agents/pydantic-ai/Dockerfile",
     # The charts' defaults: registry, memory image, plugin source, runbook links, chart sources.
     "charts/choregos-outpost/Chart.yaml",
     "charts/choregos-outpost/README.md",

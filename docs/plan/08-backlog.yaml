@@ -5822,6 +5822,14 @@ stories:
     size: S
     depends_on: [S80-10]
     notes: "Packages deleted 2026-11-21. Left: infra/bootstrap/gvisor.yaml installer image (no graalsystems equivalent, not built here), example Dockerfiles and code-agent-examples.yml runner 0.17.15."
+  - id: S80-23
+    title: "chore(infra,examples): the example images build from the published runner, the gVisor installer is operator-supplied, and a test keeps ghcr.io/vargafoundation out"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-22]
+    notes: "Left of S80-22: the four example Dockerfiles and code-agent-examples.yml (ghcr.io/graalsystems/tranibor-runner:0.27.17), infra/bootstrap/gvisor.yaml (no source ever existed here: operator-supplied image), tests/licences/test_no_varga.py. Not done: plugins/offline/plugins.lock still records the deleted index and its signer (the graalsystems index only offers newer plugin versions; moving the lock moves agent versions and 22 catalogue digests)."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

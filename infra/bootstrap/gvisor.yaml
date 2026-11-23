@@ -1,5 +1,13 @@
 # gVisor on the `runners` pool: the shim is installed by a DaemonSet, the RuntimeClass
 # is declared so that the projects' PipelineRuns can require it.
+#
+# The installer image is NOT published by this repository: its former home, in the frozen
+# namespace deleted on 2026-11-21, is gone, and no Dockerfile or workflow for it was ever committed here. The operator supplies it (an image that copies runsc and
+# containerd-shim-runsc-v1 into the node's /host/usr/local/bin, then registers the `runsc` runtime in
+# containerd), with a kustomize `images:` override of `gvisor-installer`, or by editing this field:
+#   images: [{name: gvisor-installer, newName: registry.example.org/ops/gvisor-installer, newTag: "1.0.0"}]
+# Left as is, the pod stays in ImagePullBackOff and the RuntimeClass has no shim: nothing runs
+# unsandboxed by accident. `dev/scripts/gvisor.sh kind` is the local path and needs no image.
 apiVersion: node.k8s.io/v1
 kind: RuntimeClass
 metadata:
@@ -33,7 +41,7 @@ spec:
       hostPID: true
       initContainers:
         - name: install
-          image: ghcr.io/vargafoundation/gvisor-installer:1.0.0
+          image: gvisor-installer:operator-supplied
           securityContext: { privileged: true }
           volumeMounts:
             - { name: host, mountPath: /host }
