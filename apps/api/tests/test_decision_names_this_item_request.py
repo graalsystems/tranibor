@@ -83,7 +83,9 @@ async def test_an_outposts_signature_decides_nothing_on_any_decision_route(
 ) -> None:
     """Outposts (ADR 0147 §3): a request carrying an instance's signature is refused before any session is
     read, on every route that decides or settles, whoever the session is (here the organisation's
-    administrator), and the request it aimed at keeps waiting."""
+    administrator), and the request it aimed at keeps waiting. A release's approval, the `software-delivery`
+    plugin's route since round D of ADR 0181, is checked with the plugin
+    (`plugins/software-delivery/tests/api/test_release_decisions.py`)."""
     from tranibor_contracts import SIGNATURE_HEADER
 
     ticket = await _waiting_work_item(client, project["id"], kind="approval")
@@ -93,7 +95,6 @@ async def test_an_outposts_signature_decides_nothing_on_any_decision_route(
         (f"/api/v1/work-items/{ticket['id']}/decisions", {"kind": "approve"}),
         (f"/api/v1/projects/{pid}/actions/a1/decision", {"decision": "approve"}),
         (f"/api/v1/projects/{pid}/actions/a1/settlement", {"outcome": "made", "note": "found it"}),
-        ("/api/v1/releases/r1/approve", {"note": ""}),
         ("/api/v1/me/conversations/c1/actions/a1/confirm", None),
         ("/api/v1/me/conversations/c1/actions/a1/refuse", {"reason": "no"}),
     ]

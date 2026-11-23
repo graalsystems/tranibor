@@ -4,7 +4,9 @@ The console animated the life of a work item by rereading the titles of its time
 nothing said by which transition it had gone, nor whether a review had sent it back or a person
 refused it. The route `/work-items/{id}/journey` returns the map of the version it is pinned to,
 its moves attached to their edge, and the steps of each actor: runs, requests, actions, train
-departures.
+departures. A train departure needs a transition `via: release_train`, the `software-delivery` plugin's
+carrier since round D of ADR 0181: that step is checked with the plugin
+(`plugins/software-delivery/tests/api/test_journey_train_step.py`); here `t-stage` is a system step.
 """
 
 from __future__ import annotations
@@ -24,8 +26,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 @pytest.fixture(scope="module")
 def dev_complex() -> Any:
+    """`dev-complex`'s map, read without judging it: its gates (`ci_green`…) and its carrier are the
+    `software-delivery` plugin's (ADR 0181, round D), and `move_edge` reads the edges, not the guarantees, so
+    the classification is checked the same with or without the plugin's extension."""
     text = (ROOT / "templates/github-software-delivery/workflows/dev-complex.yaml").read_text()
-    workflow, _ = parse_workflow(text)
+    workflow, _ = parse_workflow(text, strict=False)
     return workflow
 
 
@@ -109,7 +114,7 @@ transitions:
     by: responder
     on_fail: {to: addressing, max_attempts: 2, escalate_to: needs_human}
   - {id: t-approve, from: reviewed, to: approved, by: maintainers, on_reject: addressing}
-  - {id: t-stage, from: approved, to: staged, via: release_train, train: {env: staging}}
+  - {id: t-stage, from: approved, to: staged, by: platform}
   - {id: t-close, from: staged, to: done, by: platform}
 defaults:
   from_any_agent_state: {on_question: needs_human}
@@ -129,8 +134,8 @@ async def _work_item(client: AsyncClient, pid: str) -> dict[str, Any]:
 
 async def _life_of_the_work_item(project: dict[str, Any], item: dict[str, Any]) -> dict[str, str]:
     """A complete life, written as the orchestrator writes it: a review that sends back once, a human
-    approval, a train departure, and the platform action that is still waiting."""
-    from tranibor_api.db.models import Action, Event, HumanRequest, Project, Release, Run
+    approval, a system step, and the platform action that is still waiting."""
+    from tranibor_api.db.models import Action, Event, HumanRequest, Project, Run
     from tranibor_api.db.session import session_scope
 
     begin = utcnow() - timedelta(hours=3)
@@ -198,27 +203,6 @@ async def _life_of_the_work_item(project: dict[str, Any], item: dict[str, Any]) 
         )
         session.add(request)
         move("reviewed", "approved", "human decision: approved")
-        release = Release(
-            project_id=project["id"],
-            env="staging",
-            batch_no=7,
-            status="verified",
-            items=[{"work_item_key": item["tracker_key"], "title": item["title"]}],
-            started_at=next(instant),
-            ended_at=next(instant),
-        )
-        session.add(release)
-        # A release that does not carry it is not a step of this work item.
-        session.add(
-            Release(
-                project_id=project["id"],
-                env="staging",
-                batch_no=8,
-                status="verified",
-                items=[{"work_item_key": "OTHER-9"}],
-                started_at=next(instant),
-            )
-        )
         move("approved", "staged", "deployment verified")
         action = Action(
             org_id=project_row.org_id,
@@ -232,12 +216,7 @@ async def _life_of_the_work_item(project: dict[str, Any], item: dict[str, Any]) 
         )
         session.add(action)
         await session.flush()
-        ids["review-1"], ids["request"], ids["release"], ids["action"] = (
-            review_run.id,
-            request.id,
-            release.id,
-            action.id,
-        )
+        ids["review-1"], ids["request"], ids["action"] = review_run.id, request.id, action.id
     return ids
 
 
@@ -275,9 +254,8 @@ async def test_the_journey_attaches_each_move_and_each_step_to_its_transition(
         ("agent", "t-address", 1),
         ("agent", "t-review", 2),
         ("human", "t-approve", 1),
-        ("action", "t-stage", 1),
         ("action", "t-close", 1),
-    ], "in time order, minus the release that does not carry it"
+    ], "in time order"
     reviews = [p for p in steps if p["transition_id"] == "t-review"]
     assert [r["verdict"] for r in reviews] == ["changes_requested", "approve"]
     assert reviews[0]["id"] == ids["review-1"] and reviews[1]["summary"] == "review, round 2"
@@ -291,8 +269,6 @@ async def test_the_journey_attaches_each_move_and_each_step_to_its_transition(
         "approved",
         "marie@northwind.dev",
     )
-    train = next(p for p in steps if p["transition_id"] == "t-stage")
-    assert (train["id"], train["status"], train["actor"]) == (ids["release"], "verified", "release_train")
     waiting = steps[-1]
     assert (waiting["id"], waiting["status"], waiting["actor"]) == (
         ids["action"],
@@ -309,9 +285,10 @@ async def test_the_journey_keeps_the_map_where_the_work_item_is_pinned(
     from tranibor_core import template_yaml
 
     other = await client.put(
-        f"/api/v1/projects/{project['id']}/workflow", json={"yaml": template_yaml("default-simple")}
+        f"/api/v1/projects/{project['id']}/workflow", json={"yaml": template_yaml("blank")}
     )
     assert other.status_code == 200, other.text
+    assert other.json()["name"] == "blank"
     journey = (await client.get(f"/api/v1/work-items/{item['id']}/journey")).json()
     assert journey["workflow_name"] == "delivery"
     assert "addressing" in {n["id"] for n in journey["graph"]["nodes"]}, (

@@ -97,11 +97,12 @@ async def test_a_token_does_not_confirm_or_refuse_an_assistants_write(client: As
     assert kept.status_code == 404, "the legacy setting lets the token through to the lookup"
 
 
-async def test_a_token_does_not_approve_a_release_nor_decide_an_action(
+async def test_a_token_does_not_decide_nor_settle_an_action(
     client: AsyncClient, app: Any, project: dict[str, Any]
 ) -> None:
+    """A release's approval, the `software-delivery` plugin's route since round D of ADR 0181, is checked
+    with the plugin (`plugins/software-delivery/tests/api/test_release_decisions.py`)."""
     async with await token_client(app, client) as machine:
-        release = await machine.post("/api/v1/releases/r1/approve", json={"note": ""})
         action = await machine.post(
             f"/api/v1/projects/{project['id']}/actions/a1/decision", json={"decision": "approve"}
         )
@@ -109,7 +110,7 @@ async def test_a_token_does_not_approve_a_release_nor_decide_an_action(
             f"/api/v1/projects/{project['id']}/actions/a1/settlement",
             json={"outcome": "made", "note": "found it"},
         )
-    for refused in (release, action, settled):
+    for refused in (action, settled):
         assert refused.status_code == 403 and refused.json()["code"] == CODE, refused.text
 
 

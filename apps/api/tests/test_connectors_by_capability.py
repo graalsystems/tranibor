@@ -40,18 +40,17 @@ async def test_the_types_come_from_the_registry(client: AsyncClient, admin: str)
 async def test_an_hr_project_shows_neither_repository_nor_ci_nor_train(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
+    """The default workflow's own requirements (`default-simple`'s repository and train, with the
+    `software-delivery` plugin) are pinned in the plugin's `tests/api/test_delivery_requirements.py`;
+    here the project's default, whichever it is, is deactivated for an HR workflow."""
     pid = project["id"]
-    software = [r["capability"] for r in (await client.get(f"/api/v1/projects/{pid}/requirements")).json()]
-    assert {"scm", "cd"} <= set(software), "the default template delivers software"
-    assert "ci" not in software, "the PR checks are read through the repository (S21-23)"
-
     assert (
         await client.put(f"/api/v1/projects/{pid}/workflows/arrival", json={"yaml": ARRIVAL})
     ).status_code in {200, 201}
     routing = {"default": "arrival", "rules": []}
     assert (await client.put(f"/api/v1/projects/{pid}/workflow-routing", json=routing)).status_code == 200
     assert (
-        await client.post(f"/api/v1/projects/{pid}/workflows/default-simple/deactivate")
+        await client.post(f"/api/v1/projects/{pid}/workflows/{project['workflow_name']}/deactivate")
     ).status_code == 204
 
     requirements = (await client.get(f"/api/v1/projects/{pid}/requirements")).json()
@@ -65,12 +64,13 @@ async def test_an_hr_project_shows_neither_repository_nor_ci_nor_train(
 async def test_only_what_the_deployment_provides_is_a_platform_default(
     client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """S40-05: `cd` said "Platform default: argocd" and `ci` "tekton" with nothing behind them."""
+    """S40-05: `cd` said "Platform default: argocd" and `ci` "tekton" with nothing behind them. `scm` and
+    `cd` are the `software-delivery` plugin's (`plugins/software-delivery/tests/api/
+    test_delivery_requirements.py`); the runtime is the deployment's."""
     monkeypatch.setenv("TRANIBOR_EXECUTOR_KIND", "k8s_job")
     pid = project["id"]
     items = {r["capability"]: r for r in (await client.get(f"/api/v1/projects/{pid}/requirements")).json()}
-    assert {"scm", "cd", "runtime"} <= set(items)
-    assert items["cd"]["default_type"] is None and items["scm"]["default_type"] is None
+    assert "runtime" in items
     assert items["runtime"]["default_type"] == "k8s_job"
 
 
