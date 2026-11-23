@@ -447,13 +447,30 @@ async def test_a_plugin_needing_an_extension_the_deployment_lacks_is_refused_nam
     assert refusal.check == "extension" and "`itsm-desk`" in refusal.message
 
 
+def _an_extension_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """A distribution on the path that declares the extension `name` (a `choregos.plugins` entry point), as
+    an installed plugin package does: whichever first-party extensions this deployment holds."""
+    site = tmp_path / "site"
+    info = site / "tranibor_test_extension-1.0.0.dist-info"
+    info.mkdir(parents=True)
+    (info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: tranibor-test-extension\nVersion: 1.0.0\n", encoding="utf-8"
+    )
+    (info / "entry_points.txt").write_text(
+        f"[choregos.plugins]\n{name} = tranibor_test_extension:register\n", encoding="utf-8"
+    )
+    monkeypatch.syspath_prepend(str(site))
+
+
 async def test_a_plugin_needing_an_installed_extension_is_fetched(
-    fake: FakePluginSource, tmp_path: Path
+    fake: FakePluginSource, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from tranibor_api.services.plugin_sources import installed_extensions
 
-    assert "software-delivery" in installed_extensions(), "the workspace installs the first-party extension"
-    _needing(tmp_path, fake, ["software-delivery"])
+    assert "itsm-desk" not in installed_extensions()
+    _an_extension_installed(tmp_path, monkeypatch, "itsm-desk")
+    assert "itsm-desk" in installed_extensions(), "the deployment's extensions are its entry points"
+    _needing(tmp_path, fake, ["itsm-desk"])
     config = _config("https://acme.example/index.yaml")
     async with fetch_plugin("acme", "hello", "^1", config=config, core=CORE) as fetched:
-        assert fetched.plugin.extensions == ("software-delivery",)
+        assert fetched.plugin.extensions == ("itsm-desk",)
