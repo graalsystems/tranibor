@@ -47,7 +47,7 @@ async def _persisted_elsewhere(task_id: str) -> None:
     async with session_scope(orgs="*") as session:
         item = await session.get(WorkItem, task_id)
         assert item is not None
-        item.state = "deployed_prod"
+        item.state = "done"
         await persist_event(
             session,
             EventType.WORKITEM_STATE_CHANGED,
@@ -228,7 +228,7 @@ async def test_a_stream_reads_the_task_again_when_no_event_comes(
         async with session_scope() as session:
             item = await session.get(WorkItem, task["id"])
             assert item is not None
-            item.state = "deployed_prod"  # no event: only the fallback read can see it
+            item.state = "done"  # no event: only the fallback read can see it
 
     frames, _ = await asyncio.gather(
         _stream(client, token, "tasks/resubscribe", {"id": task["id"]}), _when_followed(finish_silently)
