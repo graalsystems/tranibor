@@ -16,6 +16,29 @@ export function connectorTarget(kind: string, type: string): string {
   return `connector:${kind}/${type}`;
 }
 
+/** The installer's mark on a plugin server's connector: `plugin:<plugin>/<server>@<version>`. */
+const PLUGIN_ENTRY = /^plugin:([^/@]+)\/([^/@]+)@/;
+
+/**
+ * What a connector's setup panel looks up, in order (ADR 0213). A plugin's server is an `mcp/mcp`
+ * connector: its plugin's own procedure applies to `mcp/<plugin>` or `mcp/<server>`, and the generic MCP
+ * server procedure stands in when the plugin ships none. Any other connector asks its own type.
+ */
+export function connectorTargets(connector: {
+  kind: string;
+  type: string;
+  server?: { plugin: string; server: string } | null;
+  catalogue_entry?: string | null;
+}): string[] {
+  const own = connectorTarget(connector.kind, connector.type);
+  const entry = PLUGIN_ENTRY.exec(connector.catalogue_entry ?? "");
+  const plugin = connector.server?.plugin ?? entry?.[1];
+  const server = connector.server?.server ?? entry?.[2];
+  if (!plugin || connector.kind !== "mcp") return [own];
+  const candidates = [connectorTarget("mcp", plugin), ...(server ? [connectorTarget("mcp", server)] : []), own];
+  return [...new Set(candidates)];
+}
+
 export function sourceTarget(kind: string): string {
   return `source:${kind}`;
 }

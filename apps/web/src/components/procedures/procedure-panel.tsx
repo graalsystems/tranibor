@@ -3,7 +3,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { MarkdownView } from "@/components/markdown-view";
 import { buttonClasses } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -37,8 +37,11 @@ function subscribe(listener: () => void) {
  * value, how to test it and what the usual failures mean — this platform's own URLs filled in by the
  * API. It opens by itself the first time a person meets a given procedure (the seen flag is per user
  * and per procedure, kept in the browser; nothing is stored on the server) and stays reachable from
- * the button. Where no procedure exists, or the API cannot be reached, it renders nothing: a missing
- * help never blocks the form.
+ * the button. Where no procedure exists, or the API cannot be reached, it renders nothing (or its
+ * `fallback`): a missing help never blocks the form.
+ *
+ * `target` may be a list of candidates, looked up in order: the first that has a procedure wins (a plugin
+ * server's connector asks its plugin's procedure before the generic MCP one, ADR 0213).
  */
 export function ProcedurePanel({
   target,
@@ -48,9 +51,13 @@ export function ProcedurePanel({
   label = "How to set this up",
   autoOpen = true,
   inline = false,
+  fallback = null,
 }: {
-  /** What the form adds: `connector:documents/sharepoint`, `source:web`, `agent:remote.a2a`. */
-  target: string;
+  /**
+   * What the form adds: `connector:documents/sharepoint`, `source:web`, `agent:remote.a2a`; or candidates
+   * in order, the first with a procedure winning. Not needed with `procedure`.
+   */
+  target?: string | readonly string[];
   /** The host of an agent card: selects a preset (`a2a.atlassian.com`) before the generic procedure. */
   cardHost?: string;
   /** A catalogue preset (`atlassian-rovo`). */
@@ -61,16 +68,19 @@ export function ProcedurePanel({
   autoOpen?: boolean;
   /** Draw the procedure in the page's flow under the button, not as a panel beside it: for a modal drawer. */
   inline?: boolean;
+  /** What stands in its place while there is no procedure to open (none found, not loaded yet, refused). */
+  fallback?: ReactNode;
 }) {
   const key = useId();
+  const targets = (typeof target === "string" ? [target] : [...(target ?? [])]).filter(Boolean);
   const found = useQuery({
-    queryKey: ["procedure-for", target, cardHost ?? "", preset ?? ""],
-    queryFn: () => api.listProcedures({ for: target, card_host: cardHost, preset }),
-    enabled: !procedure && Boolean(target),
+    queryKey: ["procedure-for", ...targets, cardHost ?? "", preset ?? ""],
+    queryFn: () => firstProcedure(targets, cardHost, preset),
+    enabled: !procedure && targets.length > 0,
     staleTime: Infinity,
     retry: false,
   });
-  const id = procedure ?? found.data?.[0]?.id;
+  const id = procedure ?? found.data?.id;
   const detail = useQuery({
     queryKey: ["procedure", id],
     queryFn: () => api.getProcedure(id!),
@@ -100,7 +110,7 @@ export function ProcedurePanel({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, inline]);
   useEffect(() => () => setActiveIfMine(key), [key]);
-  if (!detail.data) return null;
+  if (!detail.data) return <>{fallback}</>;
   return (
     <>
       <button
@@ -115,6 +125,22 @@ export function ProcedurePanel({
       {open && <Panel procedure={detail.data} onClose={() => setActive(null)} inline={inline} />}
     </>
   );
+}
+
+/**
+ * The first candidate `GET /procedures?for=` has a procedure for: it answers an empty list when it has none,
+ * which moves on to the next. An error stops the lookup, and the panel stays away.
+ */
+async function firstProcedure(
+  targets: readonly string[],
+  cardHost: string | undefined,
+  preset: string | undefined,
+): Promise<{ id: string } | null> {
+  for (const candidate of targets) {
+    const [found] = await api.listProcedures({ for: candidate, card_host: cardHost, preset });
+    if (found) return found;
+  }
+  return null;
 }
 
 function setActiveIfMine(key: string) {

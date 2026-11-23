@@ -38,7 +38,7 @@ import {
   type DeliveryDraft,
   type OutpostRefusal,
 } from "@/lib/outposts";
-import { connectorTarget, presetOfMcpUrl } from "@/lib/procedures";
+import { connectorTarget, connectorTargets, presetOfMcpUrl } from "@/lib/procedures";
 import { useSession } from "@/lib/session";
 import { kindLabel, isOrgDeclarable } from "@/lib/connector-kinds";
 import type { ConnectorOperation, ConnectorSecretState, OperationPatch, OrgConnector } from "@/lib/types";
@@ -433,8 +433,9 @@ function Secrets({
         <Button size="sm" onClick={() => setEditing(!editing)}>
           {editing ? "Close settings" : "Edit settings"}
         </Button>
+        {/* A plugin's server shows its plugin's procedure, the generic MCP one when it ships none (ADR 0213). */}
         <ProcedurePanel
-          target={connectorTarget(instance.kind, instance.type)}
+          target={connectorTargets(instance)}
           preset={instance.kind === "mcp" ? presetOfMcpUrl(config.url) : undefined}
           autoOpen={false}
         />

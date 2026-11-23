@@ -5,6 +5,7 @@ import PluginsPage from "@/app/library/plugins/page";
 import { ApiError } from "@/lib/api";
 import { isPending, shortDigest, trustLabel } from "@/lib/plugins";
 import type { InstalledPlugin, MeDto, OrgConnector, PluginApproval, PluginSource } from "@/lib/types";
+import { proceduresApi } from "@/mocks/procedures";
 import { pageOf } from "./page";
 
 /**
@@ -22,6 +23,7 @@ const { api, session } = vi.hoisted(() => ({
     upgradePlugin: vi.fn(),
     uninstallPlugin: vi.fn(),
     approvePlugin: vi.fn(),
+    getProcedure: vi.fn(),
   },
   session: { me: null as MeDto | null },
 }));
@@ -138,6 +140,7 @@ beforeEach(() => {
   api.pluginSources.mockResolvedValue({ sources: SOURCES });
   api.pluginApprovals.mockResolvedValue({ items: [WAITING] });
   api.orgConnectors.mockResolvedValue(pageOf([CONNECTOR]));
+  api.getProcedure.mockImplementation(async (id: string) => proceduresApi("GET", `/procedures/${id}`));
 });
 
 function page() {
@@ -282,5 +285,32 @@ describe("Catalogue → Plugins", () => {
     expect(screen.queryByRole("link", { name: "Configure" })).toBeNull();
     expect(screen.getByRole("link", { name: "View its connector" })).toBeInTheDocument();
     expect(api.installPlugin).not.toHaveBeenCalled();
+  });
+});
+
+describe("an installed plugin's procedures (S84-06, ADR 0213)", () => {
+  it("open in the setup panel by their id, with the procedure's own text", async () => {
+    window.localStorage.clear();
+    page();
+    const card = await screen.findByTestId("installed-servicenow");
+    const open = await within(within(card).getByTestId("contents-procedures")).findByRole("button", {
+      name: "connector.mcp.servicenow",
+    });
+    expect(api.getProcedure).toHaveBeenCalledWith("connector.mcp.servicenow");
+    expect(screen.queryByTestId("procedure-panel")).toBeNull();
+    fireEvent.click(open);
+    const panel = screen.getByTestId("procedure-panel");
+    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent("Connect a ServiceNow instance");
+    expect(within(panel).getByTestId("procedure-section-at")).toHaveTextContent("The integration user");
+  });
+
+  it("an id the API does not serve stays plain text", async () => {
+    api.getProcedure.mockRejectedValue(new ApiError(404, { title: "Not found" }));
+    page();
+    const card = await screen.findByTestId("installed-servicenow");
+    const line = within(card).getByTestId("contents-procedures");
+    await waitFor(() => expect(api.getProcedure).toHaveBeenCalled());
+    expect(line).toHaveTextContent("connector.mcp.servicenow");
+    expect(within(line).queryByRole("button")).toBeNull();
   });
 });
