@@ -572,7 +572,7 @@ class Workspace(App[None]):
         #: The organisation's currency and its ledger's ratio (S67-25): every amount goes through `price`.
         self.currency: str | None = None
         self.rate: float | None = None
-        #: The rate the organisation declared for a currency the ledger does not hold (ADR 0213), per dollar.
+        #: The rate the organisation declared for a currency the ledger does not hold (ADR 0214), per dollar.
         self.declared: float | None = None
         self.assistants: list[dict[str, Any]] = []
         #: The organisations the person may switch to (`GET /orgs`), by slug.

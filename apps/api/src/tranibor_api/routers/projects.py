@@ -151,18 +151,18 @@ async def create_org(body: OrgCreate, session: Db, principal: Me) -> OrgDto:
 
 
 def moneta(organisation: Organization) -> str:
-    """The organisation's currency (S29-03, ADR 0213): its `currency` setting, EUR when it has none."""
+    """The organisation's currency (S29-03, ADR 0214): its `currency` setting, EUR when it has none."""
     return read_display_currency(organisation.settings).code
 
 
 def _display_fields(organisation: Organization) -> dict[str, Any]:
-    """The organisation's display currency and, for a non-ledger one, the rate it declared (ADR 0213)."""
+    """The organisation's display currency and, for a non-ledger one, the rate it declared (ADR 0214)."""
     display = read_display_currency(organisation.settings)
     return {"currency": display.code, "fx_rate": display.rate, "fx_rate_set_on": display.set_on}
 
 
 def _display_currency_change(settings: dict[str, Any] | None, body: OrgUpdate) -> dict[str, Any]:
-    """The settings keys a currency change sets, or a 422 saying why it cannot be made (ADR 0213).
+    """The settings keys a currency change sets, or a 422 saying why it cannot be made (ADR 0214).
 
     Nothing in the request: no key. A code must be an ISO 4217 one. EUR and USD come from the ledger and
     take no rate; any other code needs the rate the organisation declares, in the same request, since

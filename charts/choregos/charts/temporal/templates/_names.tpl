@@ -8,5 +8,5 @@
 {{- .Values.tls.clientSecretName | default (printf "%s-client-tls" (include "choregos-temporal.name" .)) -}}
 {{- end -}}
 {{- define "choregos-temporal.claim" -}}
-{{- .Values.persistence.existingClaim | default (include "choregos-temporal.name" .) -}}
+{{- include "choregos.temporalClaim" (dict "root" . "persistence" .Values.persistence) -}}
 {{- end -}}

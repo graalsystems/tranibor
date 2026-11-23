@@ -41,7 +41,7 @@ export const ARRIVED_MS = 2500;
 
 /**
  * An amount in the organisation's currency, the symbol only (`€0.02`, `$0.02`). The stream carries dollars;
- * `usdTo` is the units of the currency per dollar: the organisation's declared rate (ADR 0213) or the
+ * `usdTo` is the units of the currency per dollar: the organisation's declared rate (ADR 0214) or the
  * ledger's own (the cost report's `cost_eur` over its `cost_usd`), `null` when it has none yet, and the amount is then told in dollars rather than converted with a guess.
  */
 export function liveMoney(
@@ -50,7 +50,7 @@ export function liveMoney(
   usdTo: number | null,
 ): string {
   if (usd === null || usd === undefined) return "—";
-  // Any currency but USD needs a rate (the ledger's EUR ratio, or the organisation's declared one, ADR 0213).
+  // Any currency but USD needs a rate (the ledger's EUR ratio, or the organisation's declared one, ADR 0214).
   const converted = currency !== "USD" && usdTo !== null;
   const code = converted ? currency : "USD";
   const options = {

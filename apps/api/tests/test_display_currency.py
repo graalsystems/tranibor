@@ -1,4 +1,4 @@
-"""An organisation reads its spend in any ISO 4217 currency, at the rate it declares (ADR 0213).
+"""An organisation reads its spend in any ISO 4217 currency, at the rate it declares (ADR 0214).
 
 The ledger stays as measured: the USD and EUR figures never move, `cost_display` is the extra column,
 and every surface that shows it says it is converted at the organisation's declared rate."""

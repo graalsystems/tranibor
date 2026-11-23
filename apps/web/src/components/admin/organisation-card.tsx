@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
-/** The currencies the ledger holds itself: they need no declared rate (ADR 0213). */
+/** The currencies the ledger holds itself: they need no declared rate (ADR 0214). */
 const LEDGER = ["EUR", "USD"];
 
 /** Every currency this browser knows, the ledger's two first; the API is the judge of a code (ISO 4217). */
@@ -37,7 +37,7 @@ export function OrganisationCard({ org, canEdit }: { org: string; canEdit: boole
   const [saved, setSaved] = useState(false);
   const shownName = name ?? current?.name ?? "";
   const shownCurrency = currency ?? current?.currency ?? "EUR";
-  // Spend is measured in USD: any other currency is shown at the rate the organisation declares (ADR 0213).
+  // Spend is measured in USD: any other currency is shown at the rate the organisation declares (ADR 0214).
   const declares = !LEDGER.includes(shownCurrency);
   const shownRate = rate ?? (current?.currency === shownCurrency && current?.fx_rate ? String(current.fx_rate) : "");
   const rateValue = Number(shownRate);

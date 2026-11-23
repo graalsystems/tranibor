@@ -159,7 +159,7 @@ class OrgDto(Dto):
     slug: str
     name: str
     role: Role | None = None
-    #: The currency the console shows spend in (S29-03, decision D4, ADR 0213): an organisation setting,
+    #: The currency the console shows spend in (S29-03, decision D4, ADR 0214): an organisation setting,
     #: EUR by default, any ISO 4217 code. The ledger stays in USD (and EUR); another code is USD converted
     #: at `fx_rate`, the organisation's own declaration.
     currency: str = Field(default="EUR", pattern=r"^[A-Z]{3}$")

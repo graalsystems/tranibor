@@ -90,6 +90,29 @@ def deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]
     reset_settings_cache()
 
 
+@pytest.fixture
+def delivery_offline(tmp_path: Path) -> Path:
+    """An offline directory holding `software-delivery` 1.3.0 without the extension it names.
+
+    These tests drive the default plugins' gate (a second administrator, the configuration's
+    pre-approval), whose high-risk finding is the plugin's `madr-4` skill. Since 1.3.0 the plugin also
+    names the `software-delivery` extension, which the core alone has not installed (ADR 0181, round D):
+    the `extension` check would refuse it before the gate is reached. The copy keeps every agent and
+    skill, so the gate finds the same risk wherever the suite runs; the extension check is the plugin's
+    own suite's (`plugins/software-delivery/tests/test_extension.py`).
+    """
+    offline = tmp_path / "delivery-offline"
+    offline.mkdir()
+    with tarfile.open(OFFLINE / "software-delivery-1.3.0.tar.gz") as source:
+        source.extractall(offline / "software-delivery", filter="data")
+    manifest = offline / "software-delivery" / "plugin.yaml"
+    document = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    assert document["requires"]["extensions"] == ["software-delivery"], "the copy drops what the plugin names"
+    document["requires"]["extensions"] = []
+    manifest.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return offline
+
+
 async def _rows() -> dict[str, Any]:
     from tranibor_api.db.models import OrgPlugin
     from tranibor_api.db.session import session_scope
@@ -107,11 +130,11 @@ async def _audit(action: str) -> list[Any]:
 
 
 async def test_software_delivery_waits_for_a_second_administrator_without_preapproval(
-    client: AsyncClient, admin: str, deployment: Any
+    client: AsyncClient, admin: str, deployment: Any, delivery_offline: Path
 ) -> None:
     from tranibor_api.services import plugin_defaults
 
-    deployment([{"source": "tranibor", "name": "software-delivery", "version": "^1.0"}])
+    deployment([{"source": "tranibor", "name": "software-delivery", "version": "^1.0"}], delivery_offline)
     outcomes = await plugin_defaults.reconcile_all()
     assert [(o.plugin, o.outcome) for o in outcomes] == [("software-delivery", "pending_approval")]
     assert "madr-4" in outcomes[0].detail and "high risk" in outcomes[0].detail
@@ -120,12 +143,13 @@ async def test_software_delivery_waits_for_a_second_administrator_without_preapp
 
 
 async def test_a_preapproved_default_is_installed_and_the_configuration_is_the_approver(
-    client: AsyncClient, admin: str, deployment: Any
+    client: AsyncClient, admin: str, deployment: Any, delivery_offline: Path
 ) -> None:
     from tranibor_api.services import plugin_defaults
 
     fake = deployment(
-        [{"source": "tranibor", "name": "software-delivery", "version": "^1.0", "preapproved": True}]
+        [{"source": "tranibor", "name": "software-delivery", "version": "^1.0", "preapproved": True}],
+        delivery_offline,
     )
     outcomes = await plugin_defaults.reconcile_all()
     assert [(o.plugin, o.outcome) for o in outcomes] == [("software-delivery", "installed")]
@@ -158,8 +182,10 @@ async def test_requests_is_installed_without_a_second_administrator(
         assert agent["versions"][0]["created_by"] == f"plugin:requests/{slug}@2", agent
 
 
-async def test_the_api_never_takes_a_preapproval(client: AsyncClient, admin: str, deployment: Any) -> None:
-    deployment([])
+async def test_the_api_never_takes_a_preapproval(
+    client: AsyncClient, admin: str, deployment: Any, delivery_offline: Path
+) -> None:
+    deployment([], delivery_offline)
     refused = await client.post(
         f"{ORG}/plugins/install",
         json={"source": "offline", "name": "software-delivery", "version": "1.3.0", "preapproved": True},

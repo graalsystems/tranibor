@@ -1,4 +1,4 @@
-# 0213 — An organisation may read its spend in any currency, at a rate it declares
+# 0214 — An organisation may read its spend in any currency, at a rate it declares
 
 - **Status**: accepted, 2026-11-23
 - **Concerns**: `apps/api` (`display_currency.py`, `routers/costs.py`, `routers/projects.py`, `schemas/`),

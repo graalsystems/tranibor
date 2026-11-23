@@ -37,6 +37,9 @@ single node allows and a multi-node cluster does not guarantee. That is the prof
 {{- $tools := include "choregos.image" (dict "global" $g "image" (index .Values "choregos-api").image) }}
 {{- $temporalVolume := and $g.temporal.embedded (ne ((index .Values "choregos-temporal" | default dict).persistence | default dict).enabled false) }}
 {{- $memoryVolume := and $g.memory.embedded (ne ((index .Values "choregos-ecphoria" | default dict).persistence | default dict).enabled false) }}
+{{- /* The claims the owners mount, from the helpers their own templates call (#2153). */ -}}
+{{- $temporalClaim := include "choregos.temporalClaim" (dict "root" . "persistence" ((index .Values "choregos-temporal" | default dict).persistence)) }}
+{{- $memoryClaim := include "choregos.memoryClaim" (dict "root" . "persistence" ((index .Values "choregos-ecphoria" | default dict).persistence)) }}
 {{- $env := list (dict "name" "HOME" "value" "/tmp") (dict "name" "RCLONE_CONFIG" "value" "/tmp/rclone.conf") }}
 apiVersion: v1
 kind: ConfigMap
@@ -299,6 +302,8 @@ spec:
                 - { name: temporal, mountPath: /temporal }
                 {{- end }}
                 {{- if $memoryVolume }}
+                # Read-write for `state.db` (SQLite's shared lock, as above). The DuckDB files are
+                # only copied, never opened: Ecphoria stays their single writer.
                 - { name: memory, mountPath: /memory }
                 {{- end }}
             {{- end }}
@@ -351,11 +356,11 @@ spec:
               {{- end }}
             {{- if $temporalVolume }}
             - name: temporal
-              persistentVolumeClaim: { claimName: {{ printf "%s-temporal" .Release.Name }} }
+              persistentVolumeClaim: { claimName: {{ $temporalClaim }} }
             {{- end }}
             {{- if $memoryVolume }}
             - name: memory
-              persistentVolumeClaim: { claimName: {{ printf "%s-ecphoria" .Release.Name }} }
+              persistentVolumeClaim: { claimName: {{ $memoryClaim }} }
             {{- end }}
 ---
 # The restore, as a job to start by hand and never on a schedule (`suspend: true`):
@@ -495,10 +500,10 @@ spec:
             {{- end }}
             {{- if $temporalVolume }}
             - name: temporal
-              persistentVolumeClaim: { claimName: {{ printf "%s-temporal" .Release.Name }} }
+              persistentVolumeClaim: { claimName: {{ $temporalClaim }} }
             {{- end }}
             {{- if $memoryVolume }}
             - name: memory
-              persistentVolumeClaim: { claimName: {{ printf "%s-ecphoria" .Release.Name }} }
+              persistentVolumeClaim: { claimName: {{ $memoryClaim }} }
             {{- end }}
 {{- end }}

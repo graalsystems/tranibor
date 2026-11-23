@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The currency an organisation reads its spend in (S29-03, ADR 0213).
+"""The currency an organisation reads its spend in (S29-03, ADR 0214).
 
 The ledger stays in USD as the gateway measured it (and, beside it, in EUR at the rate of the day of
 each write). An organisation may choose any ISO 4217 currency to read it in. `EUR` and `USD` come from

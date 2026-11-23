@@ -2,7 +2,7 @@
 """Every amount in the organisation's currency (ADR 0187 §1, S67-25).
 
 The organisation's `currency` setting (`EUR`, `USD`, or any other ISO 4217 code with the rate the organisation
-declared, S29-03, ADR 0213) is read once per process and organisation (`GET /orgs`), then every amount is
+declared, S29-03, ADR 0214) is read once per process and organisation (`GET /orgs`), then every amount is
 printed with its symbol (a code with no symbol of ours is printed with the code: `MXN 87.50`). A declared
 currency is USD as measured times the organisation's declared rate; without that rate, never a guess.
 
@@ -40,7 +40,7 @@ def currency_code(org: dict[str, Any]) -> str | None:
 
 
 def declared_rate(org: dict[str, Any]) -> float | None:
-    """The units of the organisation's currency per dollar it declared (ADR 0213); `None` when none
+    """The units of the organisation's currency per dollar it declared (ADR 0214); `None` when none
     (EUR and USD need none: the ledger holds them)."""
     value = org.get("fx_rate")
     return (

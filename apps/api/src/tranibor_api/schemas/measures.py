@@ -96,7 +96,7 @@ class CostRow(Dto):
     key: str
     cost_usd: float = 0.0
     cost_eur: float = 0.0
-    #: The line in the report's `currency` (ADR 0213): the ledger's EUR or USD column, or USD times the
+    #: The line in the report's `currency` (ADR 0214): the ledger's EUR or USD column, or USD times the
     #: organisation's declared rate.
     cost_display: float = 0.0
     tokens_in: int = 0
@@ -111,9 +111,9 @@ class CostRow(Dto):
 class CostTotal(Dto):
     cost_usd: float = 0.0
     cost_eur: float = 0.0
-    #: The total in the report's `currency` (ADR 0213).
+    #: The total in the report's `currency` (ADR 0214).
     cost_display: float = 0.0
-    #: Always USD: budgets are set, enforced and alerted in USD (ADR 0213).
+    #: Always USD: budgets are set, enforced and alerted in USD (ADR 0214).
     budget_usd: float | None = None
     #: The report's tokens, its rows' summed (ADR 0141 §1); `tokens_cached` is part of `tokens_in`.
     tokens_in: int = 0
@@ -125,7 +125,7 @@ class CostTotal(Dto):
 
 
 class CostFx(Dto):
-    """How a report's `cost_display` was obtained (ADR 0213)."""
+    """How a report's `cost_display` was obtained (ADR 0214)."""
 
     #: True when it is USD converted at the organisation's declared rate; False for the ledger's own column.
     declared: bool = False

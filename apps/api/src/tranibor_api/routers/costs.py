@@ -220,7 +220,7 @@ async def _readable_keys(session: Db, report: CostReport, org_id: str | None) ->
 
 
 def _show_in(report: CostReport, display: DisplayCurrency) -> None:
-    """Say which currency the report is read in and fill `cost_display` (ADR 0213). The USD and EUR
+    """Say which currency the report is read in and fill `cost_display` (ADR 0214). The USD and EUR
     figures stay as measured; a declared rate only ever produces the extra column, and the report says so."""
     report.currency = display.code
     if display.declared:
@@ -417,7 +417,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
         ]
     )
     if report.fx.declared:
-        # Said in the file itself, so a figure pasted into a spreadsheet keeps its provenance (ADR 0213).
+        # Said in the file itself, so a figure pasted into a spreadsheet keeps its provenance (ADR 0214).
         writer.writerow(["declared_rate", f"1 USD = {report.fx.rate} {report.currency}", report.fx.set_on])
         writer.writerow(
             [

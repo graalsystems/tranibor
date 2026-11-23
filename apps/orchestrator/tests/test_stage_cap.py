@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history
 from .test_budget_reservation import _plan
@@ -102,6 +103,7 @@ async def test_the_policy_ceiling_lowers_the_workflow_attempts(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """`t-refine` allows 2 attempts; `by_role: {refine: 1}` escalates after the first failure."""
+    await use_workflow(setup)
     await _attempts(setup, by_role={"refine": 1})
     scripted(setup.adapters, FAILURE, FAILURE)
     async with worker_factory():

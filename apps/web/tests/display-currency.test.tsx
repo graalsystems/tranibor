@@ -8,7 +8,7 @@ import { amount, declaredRate, fxNote, money, orgCurrency, reportRate, usdToCurr
 import type { CostReport } from "@/lib/types";
 
 /**
- * An organisation may read its spend in any ISO 4217 currency, at the rate it declares (ADR 0213): the
+ * An organisation may read its spend in any ISO 4217 currency, at the rate it declares (ADR 0214): the
  * ledger stays in USD, the figure shown is labelled with its currency and says it is converted.
  */
 const fx = { declared: true, rate: 17.5, set_on: "2026-11-20" };

@@ -125,7 +125,7 @@ describe("the Organisation card", () => {
   });
 });
 
-describe("the Organisation card: a display currency with a declared rate (ADR 0213)", () => {
+describe("the Organisation card: a display currency with a declared rate (ADR 0214)", () => {
   it("asks for the rate when the currency is not one the ledger holds, and saves it with the currency", async () => {
     wrap();
     await screen.findByLabelText("Display name");

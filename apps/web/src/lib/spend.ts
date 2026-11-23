@@ -6,7 +6,7 @@
 import type { CostReport } from "./types";
 
 /**
- * The currency an organisation reads its spend in: an ISO 4217 code (ADR 0213). `EUR` and `USD` come from the
+ * The currency an organisation reads its spend in: an ISO 4217 code (ADR 0214). `EUR` and `USD` come from the
  * ledger's own columns; any other code is USD converted at the rate the organisation declared.
  */
 export type Currency = string;
@@ -48,7 +48,7 @@ export function declaredRate(
   return fx?.declared && fx.rate ? { rate: fx.rate, setOn: fx.set_on ?? null } : null;
 }
 
-/** The sentence every converted figure carries (ADR 0213): what it is, at which rate, and that it is declared. */
+/** The sentence every converted figure carries (ADR 0214): what it is, at which rate, and that it is declared. */
 export function fxNote(currency: Currency, rate: number, setOn: string | null): string {
   const when = setOn ? `, set on ${setOn}` : "";
   return `Amounts are USD as measured, converted to ${currency} at the organisation's declared rate (1 USD = ${rate} ${currency}${when}). The ledger and the budgets stay in USD.`;
@@ -114,7 +114,7 @@ export function usdToCurrency(total: Pick<CostReport["total"], "cost_usd" | "cos
 }
 
 /**
- * The units of the display currency per USD for a whole report (ADR 0213): the organisation's declared rate
+ * The units of the display currency per USD for a whole report (ADR 0214): the organisation's declared rate
  * when the report carries one, otherwise the ledger's own EUR ratio (`usdToCurrency`).
  */
 export function reportRate(report: {

@@ -149,7 +149,7 @@ function Spend() {
   );
 }
 
-/** Said wherever a figure was converted (ADR 0213): at which rate, set when, and that the USD is the ledger's. */
+/** Said wherever a figure was converted (ADR 0214): at which rate, set when, and that the USD is the ledger's. */
 function FxNote({ report, currency }: { report: CostReport; currency: Currency }) {
   const declared = declaredRate(report);
   if (!declared) return null;

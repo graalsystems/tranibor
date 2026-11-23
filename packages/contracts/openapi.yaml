@@ -11512,8 +11512,8 @@ components:
         slug: { type: string }
         name: { type: string }
         role: { oneOf: [{ $ref: "#/components/schemas/Role" }, { type: "null" }] }
-        currency: { type: string, pattern: "^[A-Z]{3}$", default: EUR, description: "the currency the console shows spend in (S29-03, ADR 0213): an organisation setting, any ISO 4217 code. The ledger stays in USD as measured; `EUR` and `USD` are read from the ledger's own columns, every other code is USD converted at `fx_rate`." }
-        fx_rate: { type: [number, "null"], exclusiveMinimum: 0, default: null, description: "units of `currency` per 1 USD, as the organisation declared it (ADR 0213); null for `EUR` and `USD`, which need none" }
+        currency: { type: string, pattern: "^[A-Z]{3}$", default: EUR, description: "the currency the console shows spend in (S29-03, ADR 0214): an organisation setting, any ISO 4217 code. The ledger stays in USD as measured; `EUR` and `USD` are read from the ledger's own columns, every other code is USD converted at `fx_rate`." }
+        fx_rate: { type: [number, "null"], exclusiveMinimum: 0, default: null, description: "units of `currency` per 1 USD, as the organisation declared it (ADR 0214); null for `EUR` and `USD`, which need none" }
         fx_rate_set_on: { type: [string, "null"], format: date, default: null, description: "the UTC date the declared rate was set; null when there is none" }
         aliases: { type: array, items: { type: string }, default: [], description: "the slugs the organisation had before; they still resolve to it (ADR 0090). The organisation's id never changes, its slug is an address." }
         tool_scripts: { type: [string, "null"], enum: [enabled, disabled, null], default: null, description: "whether the organisation's runs may be offered tool scripts (S57-05b, ADR 0122 §6): `enabled`, `disabled`, or null to follow the deployment's default (`CHOREGOS_TOOL_SCRIPTS`). Past it, the organisation's ceiling and each project's policy (`tools.scripts: offer`) decide; the deployment's brake (`CHOREGOS_TOOL_SCRIPTS_ALLOWED`) wins over it." }
@@ -11530,8 +11530,8 @@ components:
       properties:
         slug: { type: [string, "null"], pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
         name: { type: [string, "null"], minLength: 1, maxLength: 200 }
-        currency: { type: [string, "null"], pattern: "^[A-Z]{3}$", description: "the currency spend is shown in, an ISO 4217 code (422 when it is not one); org_admin. A code other than `EUR` and `USD` needs `fx_rate` in the same request (422 otherwise): there is no default rate (ADR 0213)." }
-        fx_rate: { type: [number, "null"], exclusiveMinimum: 0, description: "units of `currency` per 1 USD, declared by the organisation; the server stamps the date (`fx_rate_set_on`). Refused (422) with `EUR` or `USD`. Absent or null: unchanged, and dropped when the currency changes (ADR 0213)." }
+        currency: { type: [string, "null"], pattern: "^[A-Z]{3}$", description: "the currency spend is shown in, an ISO 4217 code (422 when it is not one); org_admin. A code other than `EUR` and `USD` needs `fx_rate` in the same request (422 otherwise): there is no default rate (ADR 0214)." }
+        fx_rate: { type: [number, "null"], exclusiveMinimum: 0, description: "units of `currency` per 1 USD, declared by the organisation; the server stamps the date (`fx_rate_set_on`). Refused (422) with `EUR` or `USD`. Absent or null: unchanged, and dropped when the currency changes (ADR 0214)." }
         tool_scripts: { type: [string, "null"], enum: [enabled, disabled, null], description: "the organisation's switch for tool scripts (S57-05b); org_admin only, a platform administrator who is not one is refused (403). Absent: unchanged; `enabled` or `disabled`: the organisation's choice; null: back to the deployment's default. Audited in `org.update`." }
         complete_agents: { type: [string, "null"], enum: [required, null], description: "require complete agents (S60-05, ADR 0127 §8); org_admin only (403 otherwise). Absent: unchanged; `required`: required; null: no longer required. Audited in `org.update`." }
     WorkItemCreate:
@@ -13410,7 +13410,7 @@ components:
         currency: { type: string, pattern: "^[A-Z]{3}$", default: EUR, description: "the organisation's display currency (ISO 4217); `cost_display` is in it" }
         fx:
           type: object
-          description: "how `cost_display` was obtained (ADR 0213)"
+          description: "how `cost_display` was obtained (ADR 0214)"
           required: [declared]
           properties:
             declared: { type: boolean, description: "true when `cost_display` is USD converted at the organisation's declared rate; false when it is the ledger's own EUR or USD column" }
@@ -13425,7 +13425,7 @@ components:
               key: { type: string }
               cost_usd: { type: number }
               cost_eur: { type: number }
-              cost_display: { type: number, default: 0, description: "the line in `currency`: the ledger's EUR or USD column, or `cost_usd` times the declared rate (ADR 0213)" }
+              cost_display: { type: number, default: 0, description: "the line in `currency`: the ledger's EUR or USD column, or `cost_usd` times the declared rate (ADR 0214)" }
               tokens_in: { type: integer, default: 0 }
               tokens_out: { type: integer, default: 0 }
               tokens_cached: { type: integer, default: 0 }
@@ -13437,8 +13437,8 @@ components:
           properties:
             cost_usd: { type: number }
             cost_eur: { type: number }
-            cost_display: { type: number, default: 0, description: "the total in `currency` (ADR 0213)" }
-            budget_usd: { type: [number, "null"], description: "always USD: budgets are set, enforced and alerted in USD (ADR 0213)" }
+            cost_display: { type: number, default: 0, description: "the total in `currency` (ADR 0214)" }
+            budget_usd: { type: [number, "null"], description: "always USD: budgets are set, enforced and alerted in USD (ADR 0214)" }
             tokens_in: { type: integer, default: 0, description: "the input tokens of the report's lines, summed (ADR 0141 §1)" }
             tokens_out: { type: integer, default: 0 }
             tokens_cached: { type: integer, default: 0, description: "the input tokens the model read from its cache, part of tokens_in" }
