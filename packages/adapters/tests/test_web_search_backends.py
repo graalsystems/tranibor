@@ -85,6 +85,23 @@ async def test_firecrawl_never_scrapes_and_runs_self_hosted_without_a_key() -> N
     assert "Authorization" not in seen[0].headers, "a self-hosted instance may run without a key"
 
 
+async def test_a_hit_whose_link_names_no_host_is_no_result() -> None:
+    """S80-31: SearXNG's Brave engine (2026.10.19) hands Firecrawl Brave's cloaked links as
+    `http:///go/v1/<token>` (seen on dev: 19 of 25 Brave hits). An agent can neither open nor cite
+    them: they are dropped, the hits around them are kept."""
+    seen: list[httpx.Request] = []
+    body = {
+        "data": [
+            {"title": "cloaked", "url": "http:///go/v1/AVUkoEey", "description": "c"},
+            {"title": "F", "url": "https://f.example.org/", "description": "d"},
+            {"title": "port only", "url": "https://:443/x", "description": "p"},
+            {"title": "bad", "url": "http://[::1/x", "description": "b"},
+        ]
+    }
+    firecrawl = FirecrawlSearch(base_url="http://firecrawl.internal:3002/", transport=_wire(200, body, seen))
+    assert await firecrawl.search("q") == [{"title": "F", "url": "https://f.example.org/", "snippet": "d"}]
+
+
 @pytest.mark.parametrize(
     "cloud",
     [

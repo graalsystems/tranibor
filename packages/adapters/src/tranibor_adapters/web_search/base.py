@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, ClassVar, Literal
+from urllib.parse import urlsplit
 
 import httpx
 from tranibor_core.publishing import PUBLISHING
@@ -49,8 +50,18 @@ class SearchKeyRefused(SearchError):  # noqa: N818 - a named refusal
 
 
 def result(title: Any, url: Any, snippet: Any, published_at: Any = None) -> dict[str, Any] | None:
-    """One normalised result, or None when the backend gave no usable `http(s)` link."""
+    """One normalised result, or None when the backend gave no usable `http(s)` link.
+
+    A link must name a host: SearXNG's Brave engine (2026.10.19) turns Brave's cloaked result links
+    (`/go/v1/<token>`, Brave's anti-scraping redirect) into `http:///go/v1/<token>`, which an agent
+    can neither open nor cite (searxng/searxng#6967)."""
     if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+        return None
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        return None
+    if not host:
         return None
     found: dict[str, Any] = {
         "title": str(title or "")[:300],
