@@ -2711,8 +2711,9 @@ Batch mode (S4-09, ADR 0190, off by default): with `CHOREGOS_KNOWLEDGE_DISTILL_B
 through the gateway's OpenAI-compatible batch API (same gateway URL, key and alias as the synchronous call) as one
 batch at half the price, and the run ends within a day (polled every `..._BATCH_POLL_SECONDS`, 120). No LiteLLM
 enterprise licence is needed: the adapter uses the open `model=` path (ADR 0190, S4-11 amendment). The alias must
-be a single OpenAI deployment (`platform/standard` is) that the key can list in `/v1/model/info`, and the gateway
-must not set `litellm_settings.require_managed_files`. The estimate is halved and each part is booked at half its
+be a single OpenAI deployment that the key can list in `/v1/model/info`, and the gateway
+must not set `litellm_settings.require_managed_files`. A gateway whose alias points at another LiteLLM (a platform's shared gateway) has no batch
+path: the run stays synchronous (ADR 0190, finding of 2026-11-23). The estimate is halved and each part is booked at half its
 price; that `kind=distill` ledger line is the cost of record (the gateway's own spend for the key is not read). A
 part the batch cannot answer, or a gateway or upstream that refuses it, falls back to the synchronous call.
 
