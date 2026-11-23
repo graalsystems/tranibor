@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -27,16 +28,53 @@ transitions:
 
 
 @pytest.fixture
-def without_the_plugin() -> Iterator[None]:
+def registries() -> Iterator[None]:
+    """The gates and context providers registered when the test starts are those after it: a test forgets
+    or registers some."""
+    from tranibor_core import gates
+
+    tables = (
+        "_REGISTRY",
+        "_NEEDS",
+        "_READS",
+        "_PLUGIN_OF",
+        "_SUMMARY",
+        "_DETAIL",
+        "_REQUIRES",
+        "_PROVIDERS",
+        "_PROVIDER_PLUGIN",
+        "_JUDGED",
+    )
+    sets = ("_ASYNC_GATES", "_WORKSPACE", "_RUN_SCOPED")
+    saved = {name: dict(getattr(gates, name)) for name in tables}
+    saved_sets = {name: set(getattr(gates, name)) for name in sets}
+    yield
+    for name, content in saved.items():
+        getattr(gates, name).clear()
+        getattr(gates, name).update(content)
+    for name, members in saved_sets.items():
+        getattr(gates, name).clear()
+        getattr(gates, name).update(members)
+
+
+@pytest.fixture
+def without_the_plugin(registries: None) -> None:
+    """The CLI without the `software-delivery` extension beside it, whether this process installed it or
+    not."""
     from tranibor_core.gates import forget
 
     forget("software-delivery")
-    try:
-        yield
-    finally:
-        from tranibor_software_delivery.extension import register
 
-        register()
+
+@pytest.fixture
+def with_the_plugin_s_gate(without_the_plugin: None) -> None:
+    """`ci_green` served beside the CLI, as the `software-delivery` extension serves it (here a stand-in of
+    its registration; the extension itself: `plugins/software-delivery/tests/test_validate_offline.py`)."""
+    from tranibor_core.gates import GateContext, GateOutcome, gate
+
+    @gate("ci_green", asynchronous=True, needs=("scm",), plugin="software-delivery")
+    def _ci_green(ctx: GateContext, params: dict[str, Any]) -> GateOutcome:
+        return GateOutcome("ci_green", True)
 
 
 def _validate(tmp_path: Path, gate: str) -> tuple[int, str]:
@@ -60,6 +98,6 @@ def test_a_gate_nobody_serves_is_still_refused(tmp_path: Path, without_the_plugi
     assert "unknown gate" in output
 
 
-def test_with_the_plugin_installed_nothing_is_said(tmp_path: Path) -> None:
+def test_with_the_plugin_installed_nothing_is_said(tmp_path: Path, with_the_plugin_s_gate: None) -> None:
     code, output = _validate(tmp_path, "ci_green")
     assert code == 0 and "checked offline" not in output, output

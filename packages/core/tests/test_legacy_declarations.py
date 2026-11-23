@@ -3,6 +3,10 @@
 The core templates declared outputs nothing produces (`spec`, `plan`, `branch`, `commits`,
 `duplicate_of`, `allowed_paths`). Every declared output being required now, an untouched copy is
 upgraded to the fixed declarations, and a modified copy keeps those legacy outputs not required.
+
+Those templates name the `software-delivery` plugin's gates, step effects and train: where its extension is
+absent, a copy is refused for those alone, at publication, as the template is (ADR 0181, round D); valid
+reads "valid in this deployment" (`_refused`), which once the extension is installed is valid outright.
 """
 
 from __future__ import annotations
@@ -10,13 +14,14 @@ from __future__ import annotations
 import pytest
 from tranibor_contracts import StageResult, StageStatus, Workflow
 from tranibor_core import WorkflowEngine, parse_workflow
-from tranibor_core.dsl import template_yaml
+from tranibor_core.dsl import ValidationReport, template_yaml
 from tranibor_core.dsl.legacy import (
     OLD_DECLARATIONS,
     legacy_declarations,
     old_template,
     upgrade_core_copy,
 )
+from tranibor_core.dsl.validator import deployment_issues
 
 #: How the old `default-simple` was written, line by line: what the fix replaced.
 OLD_LINES = [
@@ -26,6 +31,12 @@ OLD_LINES = [
         "    inputs: [spec, allowed_paths]\n    outputs: [branch, commits]\n",
     ),
 ]
+
+
+def _refused(workflow: Workflow, report: ValidationReport) -> list[str]:
+    """The errors of `report` but those this deployment's missing plugin extensions explain (none once
+    they are installed: the workflow is then valid)."""
+    return [issue.format() for issue in deployment_issues(workflow, report)[1]]
 
 
 def _old_default_simple_yaml() -> str:
@@ -59,7 +70,8 @@ def test_an_untouched_copy_is_upgraded_to_the_fixed_declarations(name: str) -> N
     assert legacy_declarations(new) == []
     # The YAML could not be patched line by line (none was given): it is regenerated, and parses.
     parsed, report = parse_workflow(text, strict=False)
-    assert report.valid and parsed.model_dump(mode="json", by_alias=True, exclude_none=True) == new
+    assert _refused(parsed, report) == []
+    assert parsed.model_dump(mode="json", by_alias=True, exclude_none=True) == new
 
 
 def test_the_yaml_of_an_untouched_copy_keeps_its_comments() -> None:
@@ -98,8 +110,8 @@ def test_a_modified_old_copy_does_not_start_failing_its_refine_step() -> None:
 
 
 def test_the_validator_warns_about_a_legacy_declaration() -> None:
-    _, report = parse_workflow(_old_default_simple_yaml(), strict=False)
-    assert report.valid
+    workflow, report = parse_workflow(_old_default_simple_yaml(), strict=False)
+    assert _refused(workflow, report) == []
     codes = [
         (issue.code, issue.message.split("`")[1])
         for issue in report.warnings
