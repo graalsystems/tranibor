@@ -36,7 +36,11 @@ def _no_spend_remembered() -> Iterator[None]:
 
 
 async def _project(client: AsyncClient, slug: str) -> dict[str, Any]:
-    config = {"slug": slug, "org": "northwind", "repo": {"url": f"https://github.com/northwind/{slug}.git"}}
+    config = {
+        "slug": slug,
+        "org": "northwind",
+        "delivery": {"repo": {"url": f"https://github.com/northwind/{slug}.git"}},
+    }
     response = await client.post(
         "/api/v1/orgs/northwind/projects", json={"slug": slug, "name": slug, "config": config}
     )

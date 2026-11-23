@@ -50,24 +50,26 @@ def birth_fields(project: Project, fields: Mapping[str, Any], labels: Iterable[s
     if fields.get(REPOSITORY_FIELD) is None and (labelled := from_labels(labels)) is not None:
         # A project without a repository has nothing to choose: its label is a tag like any other.
         config = config_of(project)
-        if config is not None and config.repo is not None:
+        if config is not None and config.delivery_section.has_repo:
             return {**fields, REPOSITORY_FIELD: labelled}
     return dict(fields)
 
 
 async def _cloned(session: AsyncSession, item: WorkItem) -> bool:
-    """Whether one of the work item's runs cloned a repository (its recorded `StageInput.repo`)."""
+    """Whether one of the work item's runs cloned a repository (its recorded `StageInput.delivery.repo`)."""
     inputs = (await session.execute(select(Run.stage_input).where(Run.work_item_id == item.id))).scalars()
-    return any(isinstance(recorded, dict) and recorded.get("repo") for recorded in inputs)
+    return any(
+        isinstance(recorded, dict) and (recorded.get("delivery") or {}).get("repo") for recorded in inputs
+    )
 
 
 async def fixed_repository(session: AsyncSession, config: ProjectConfig, item: WorkItem) -> str | None:
     """The repository the work item can no longer leave (ADR 0124 §3), `None` while it may change."""
-    if (kept := fixed(item.documents)) is not None or config.repo is None:
+    if (kept := fixed(item.documents)) is not None or not config.delivery_section.has_repo:
         return kept
     # A run that cloned before its project held a second repository fixes it too; asked only where a
     # choice exists and nothing else said it.
-    cloned = bool(config.repositories) and not item.pr_url and await _cloned(session, item)
+    cloned = bool(config.delivery_section.repositories) and not item.pr_url and await _cloned(session, item)
     return fixed_name(config, item.fields, item.documents, has_pull_request=bool(item.pr_url), cloned=cloned)
 
 
@@ -80,10 +82,10 @@ async def refuse_repository_change(
         return
     refuse_unknown_repository(project, change)
     config = config_of(project)
-    if config is None or config.repo is None:
+    if config is None or not config.delivery_section.has_repo:
         return
     kept = await fixed_repository(session, config, item)
-    wanted = change[REPOSITORY_FIELD] or config.primary_name
+    wanted = change[REPOSITORY_FIELD] or config.delivery_section.primary_name
     if kept is not None and wanted != kept:
         raise conflict(
             f"the work item works on `{kept}` since its first step on a repository: one work item works on "
@@ -94,10 +96,10 @@ async def refuse_repository_change(
 async def repository_view(session: AsyncSession, project: Project, item: WorkItem) -> tuple[str | None, bool]:
     """What the work item's page says: the repository it works on, and whether that is fixed."""
     config = config_of(project)
-    if config is None or config.repo is None:
+    if config is None or not config.delivery_section.has_repo:
         return None, False
     kept = await fixed_repository(session, config, item)
-    return kept or asked(item.fields) or config.primary_name, kept is not None
+    return kept or asked(item.fields) or config.delivery_section.primary_name, kept is not None
 
 
 __all__ = [

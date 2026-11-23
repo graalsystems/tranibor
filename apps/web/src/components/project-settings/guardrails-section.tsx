@@ -16,11 +16,14 @@ const YamlEditor = dynamic(() => import("@/components/yaml-editor").then((m) => 
 
 /** A sentence about a policy, read from its JSON: what a person looks for before opening the YAML. */
 export function policySummary(json: unknown): string {
-  const policy = (json ?? {}) as { budgets?: Record<string, unknown>; release_train?: Record<string, { mode?: string }> };
+  const policy = (json ?? {}) as {
+    budgets?: Record<string, unknown>;
+    delivery?: { release_train?: Record<string, { mode?: string }> } | null;
+  };
   const parts: string[] = [];
   const budget = policy.budgets?.per_ticket_usd;
   if (typeof budget === "number") parts.push(`budget $${budget} per ticket`);
-  const trains = Object.entries(policy.release_train ?? {}).map(([env, value]) => `${env}: ${value?.mode ?? "direct"}`);
+  const trains = Object.entries(policy.delivery?.release_train ?? {}).map(([env, value]) => `${env}: ${value?.mode ?? "direct"}`);
   if (trains.length > 0) parts.push(`release ${trains.join(", ")}`);
   return parts.join(" · ") || "defaults of the organisation";
 }
@@ -83,7 +86,7 @@ function PolicyEditor({ yaml, onSave }: { yaml: string; onSave: (yaml: string) =
       <p className="text-xs text-ink-muted" data-testid="policy-without-guards">
         <code>approvals</code> and <code>review.require_human_for_risk</code> are accepted but not enforced: no one
         is asked. To make a person approve or review, declare a human transition in the workflow — a human actor, or{" "}
-        <code>train.approval</code>. A release train&apos;s departure is approved through <code>release_train.&lt;env&gt;.approval</code>.
+        <code>train.approval</code>. A release train&apos;s departure is approved through <code>delivery.release_train.&lt;env&gt;.approval</code>.
       </p>
     </div>
   );

@@ -54,7 +54,7 @@ def _bundle(adapters: Any, org: str = "small") -> Any:
         {
             "slug": "billing",
             "org": org,
-            "repo": {"url": "https://github.com/x/billing.git", "default_branch": "main"},
+            "delivery": {"repo": {"url": "https://github.com/x/billing.git", "default_branch": "main"}},
         }
     )
     return SimpleNamespace(

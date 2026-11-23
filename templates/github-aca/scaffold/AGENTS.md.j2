@@ -4,14 +4,14 @@
 {{ project.description | default("This repository is driven by Choregos: an `agent-ready` work item starts a workflow, an agent works on a branch, a pull request is opened and reviewed.") }}
 
 ## Commands
-- Tests: `{{ project.repo.test_command or "make test" }}`
-- Lint: `{{ project.repo.lint_command or "make lint" }}`
-- Type check: `{{ project.repo.typecheck_command or "make typecheck" }}`
+- Tests: `{{ project.delivery.repo.test_command or "make test" }}`
+- Lint: `{{ project.delivery.repo.lint_command or "make lint" }}`
+- Type check: `{{ project.delivery.repo.typecheck_command or "make typecheck" }}`
 
 ## Conventions
-- Main language: {{ project.repo.language or "to be stated" }}
+- Main language: {{ project.delivery.repo.language or "to be stated" }}
 - Conventional commits (`fix(scope): …`), one intent per commit.
-- Work branch: `{{ project.repo.branch_prefix }}<work-item-number>`.
+- Work branch: `{{ project.delivery.repo.branch_prefix }}<work-item-number>`.
 - The platform refuses any write outside the work item's allowed paths.
 
 ## Definition of done

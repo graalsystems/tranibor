@@ -68,7 +68,7 @@ async def check_agent_network(session: AsyncSession, org_id: str, spec: AgentSpe
 
 
 def project_repo_host(project: Project) -> str | None:
-    repo = ((project.config or {}).get("repo") or {}).get("url")
+    repo = (((project.config or {}).get("delivery") or {}).get("repo") or {}).get("url")
     return repo_host(repo if isinstance(repo, str) else None)
 
 
@@ -123,10 +123,10 @@ async def _agent_network_of(session: AsyncSession, run: Run) -> AgentNetwork | N
 
 
 def run_clones_the_repository(run: Run) -> bool:
-    """Whether the run's `StageInput` carries a `repo` (ADR 0119). A run not prepared yet is assumed
-    to, as before the field existed: only a recorded `repo: null` takes the repository host away."""
+    """Whether the run's `StageInput` carries a repository (`delivery.repo`, ADR 0119, ADR 0181 C2). A
+    run not prepared yet is assumed to: only a recorded input without one takes the repository host away."""
     stage_input = run.stage_input or {}
-    return "repo" not in stage_input or stage_input["repo"] is not None
+    return not stage_input or (stage_input.get("delivery") or {}).get("repo") is not None
 
 
 async def run_network(session: AsyncSession, run: Run) -> RunNetwork:
@@ -135,7 +135,7 @@ async def run_network(session: AsyncSession, run: Run) -> RunNetwork:
     organisation = await session.get(Organization, project.org_id)
     # The host of the repository the run clones, as its `StageInput` recorded it: the work item's
     # target (ADR 0124), never another repository of the project.
-    cloned = ((run.stage_input or {}).get("repo") or {}).get("url")
+    cloned = (((run.stage_input or {}).get("delivery") or {}).get("repo") or {}).get("url")
     effective, _ = await project_effective_network(
         session,
         project,

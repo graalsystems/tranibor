@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * A project's repositories (ADR 0124): the primary `repo` and the named `repositories` beside it. The
+ * A project's repositories (ADR 0124): the primary `delivery.repo` and the named `delivery.repositories`
+ * beside it, in the software-delivery section of its configuration (ADR 0181 C2). The
  * names are what a work item's `fields.repository` holds; the primary without a `name` is named after
  * its URL's last segment, as the API names it (`ProjectConfig.primary_name`).
  */
@@ -23,7 +24,7 @@ export function nameOfUrl(url: string): string {
 
 /** The primary's name, `null` for a project without a repository. */
 export function primaryName(config: Config | undefined): string | null {
-  const repo = config?.repo;
+  const repo = config?.delivery?.repo;
   if (!repo?.url) return null;
   return repo.name || nameOfUrl(repo.url);
 }
@@ -32,5 +33,5 @@ export function primaryName(config: Config | undefined): string | null {
 export function repositoryNames(config: Config | undefined): string[] {
   const primary = primaryName(config);
   if (primary === null) return [];
-  return [primary, ...(config?.repositories ?? []).map((r) => r.name)];
+  return [primary, ...(config?.delivery?.repositories ?? []).map((r) => r.name)];
 }

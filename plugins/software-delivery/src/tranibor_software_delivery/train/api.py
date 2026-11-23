@@ -88,7 +88,7 @@ async def train_status(ctx: ProjectCtx, env: Annotated[str, Path()], session: Db
         )
     ).scalar_one_or_none()
     policy = await effective_policy(session, ctx.id)
-    env_policy = policy.release_train.get(env)
+    env_policy = policy.delivery.release_train.get(env)
     if isinstance(live, dict):
         return TrainStatusDto(
             env=env,

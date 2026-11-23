@@ -44,9 +44,12 @@ async def _enable_atlantis(project_id: str) -> None:
         row = await active_policy(session, project_id)
         assert row is not None
         model = policy_model(row)
-        assert model.release_train.get("prod") is not None, "the test preset has a prod train"
+        assert model.delivery.release_train.get("prod") is not None, "the test preset has a prod train"
         doc = model.model_dump(mode="json", exclude_none=True)
-        doc["release_train"]["prod"]["terraform"] = {"via": "atlantis", "apply_requires_approval": True}
+        doc["delivery"]["release_train"]["prod"]["terraform"] = {
+            "via": "atlantis",
+            "apply_requires_approval": True,
+        }
         row.json_doc = doc
 
 
@@ -110,7 +113,7 @@ async def test_without_atlantis_configured_nothing_happens(setup: Fixture) -> No
         row = await active_policy(session, setup.project_id)
         assert row is not None
         doc = policy_model(row).model_dump(mode="json", exclude_none=True)
-        doc["release_train"]["prod"]["terraform"] = {"via": "none"}
+        doc["delivery"]["release_train"]["prod"]["terraform"] = {"via": "none"}
         row.json_doc = doc
 
     _seed_pr(setup)

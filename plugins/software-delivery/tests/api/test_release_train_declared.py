@@ -15,7 +15,9 @@ ORG = "/api/v1/orgs/northwind"
 async def _project(client: AsyncClient, slug: str, template: str) -> dict[str, Any]:
     config: dict[str, Any] = {"slug": slug, "org": "northwind"}
     if template.startswith("github-"):
-        config["repo"] = {"url": "https://github.com/northwind/sandbox.git", "default_branch": "main"}
+        config["delivery"] = {
+            "repo": {"url": "https://github.com/northwind/sandbox.git", "default_branch": "main"}
+        }
     created = await client.post(
         f"{ORG}/projects", json={"slug": slug, "name": slug, "template_ref": template, "config": config}
     )

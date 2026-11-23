@@ -6,13 +6,13 @@ import { declaredEnd, evidenceProvenance } from "@/lib/provenance";
 
 describe("where evidence comes from (ADR 0045, S25-03)", () => {
   it("observed if the platform measured it, declared otherwise; unknown when the runner does not say", () => {
-    const evidence = { measured: ["tests_passed", "facts.smoke_ok"] };
-    expect(evidenceProvenance(evidence, "tests_passed")).toBe("observed");
+    const evidence = { measured: ["facts.tests_passed", "facts.smoke_ok"] };
+    expect(evidenceProvenance(evidence, "facts.tests_passed")).toBe("observed");
     expect(evidenceProvenance(evidence, "facts.smoke_ok")).toBe("observed");
-    expect(evidenceProvenance(evidence, "coverage_delta")).toBe("declared");
-    expect(evidenceProvenance({ measured: [] }, "tests_passed")).toBe("declared");
-    expect(evidenceProvenance({ measured: null }, "tests_passed")).toBe("unknown");
-    expect(evidenceProvenance(undefined, "tests_passed")).toBe("unknown");
+    expect(evidenceProvenance(evidence, "facts.coverage_delta")).toBe("declared");
+    expect(evidenceProvenance({ measured: [] }, "facts.tests_passed")).toBe("declared");
+    expect(evidenceProvenance({ measured: null }, "facts.tests_passed")).toBe("unknown");
+    expect(evidenceProvenance(undefined, "facts.tests_passed")).toBe("unknown");
   });
 
   it("a run the agent says is done but with a failing guarantee is \"declared done, not observed\"", () => {
@@ -32,7 +32,10 @@ describe("a run's evidence", () => {
   it("each line says whether the platform observed it or the agent declared it", () => {
     render(
       <EvidencePanel
-        evidence={{ tests_passed: true, tests_run: 412, coverage_delta: 1.2, lint: "ok", measured: ["lint", "tests_passed", "tests_run"] }}
+        evidence={{
+          facts: { tests_passed: true, tests_run: 412, coverage_delta: 1.2, lint: "ok" },
+          measured: ["facts.lint", "facts.tests_passed", "facts.tests_run"],
+        }}
       />,
     );
     const rows = screen.getAllByRole("listitem");

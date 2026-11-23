@@ -72,8 +72,8 @@ async def test_the_registry_publishes_the_workspace_and_refuses_a_bad_one(
 @pytest.mark.parametrize(
     ("stage_input", "implied"),
     [
-        ({"repo": None}, []),
-        ({"repo": REPO}, ["github.com"]),
+        ({"delivery": None}, []),
+        ({"delivery": {"repo": REPO}}, ["github.com"]),
         (None, ["github.com"]),
     ],
     ids=["never-cloned", "cloned", "not-prepared-yet"],

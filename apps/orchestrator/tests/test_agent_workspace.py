@@ -93,7 +93,7 @@ async def test_an_agent_that_declares_no_workspace_clones_nothing_and_reaches_no
     await _network(setup, project={"allow_domains": ["pypi.org"]})
     await _agent(setup, workspace="none")
     stage_input = await _prepared(setup, agent="analyst")
-    assert stage_input["repo"] is None, "nothing to clone, nothing to push"
+    assert (stage_input.get("delivery") or {}).get("repo") is None, "nothing to clone, nothing to push"
     assert stage_input["permissions"]["allow_domains"] == ["pypi.org"], "no github.com without a clone"
 
 
@@ -112,7 +112,9 @@ async def test_an_agent_that_reads_clones_the_repository_but_writes_none_of_it(s
     await _network(setup, project={"allow_domains": ["pypi.org"]})
     await _agent(setup, workspace="read")
     stage_input = await _prepared(setup, agent="analyst")
-    assert stage_input["repo"] is not None and stage_input["repo"]["url"].startswith("https://github.com/")
+    assert (stage_input.get("delivery") or {}).get("repo") is not None and stage_input["delivery"]["repo"][
+        "url"
+    ].startswith("https://github.com/")
     assert "github.com" in stage_input["permissions"]["allow_domains"], "a clone reaches its host"
     # Never `[]`: an empty scope is "no scope declared, write allowed" to the runner's guards.
     assert stage_input["allowed_paths"] == [".choregos/outputs/**"]
@@ -127,7 +129,7 @@ async def test_an_agent_that_writes_or_says_nothing_runs_as_before(
     await _network(setup, project={"allow_domains": ["pypi.org"]})
     await _agent(setup, **({"workspace": declared} if declared else {}))
     stage_input = await _prepared(setup, agent="analyst")
-    assert stage_input["repo"] is not None
+    assert (stage_input.get("delivery") or {}).get("repo") is not None
     assert stage_input["permissions"]["allow_domains"] == ["pypi.org", "github.com"]
     assert stage_input["allowed_paths"] == ITEM_SCOPE
     assert stage_input["permissions"]["write_paths"] == ITEM_SCOPE
@@ -137,5 +139,5 @@ async def test_a_trial_runs_with_the_drafts_workspace(setup: Fixture) -> None:
     await _network(setup, project={"allow_domains": ["pypi.org"]})
     draft = {"instructions": "Try me.", "workspace": "none"}
     stage_input = await _prepared(setup, trial_spec=draft, trial_budget_usd=0.5)
-    assert stage_input["repo"] is None
+    assert (stage_input.get("delivery") or {}).get("repo") is None
     assert stage_input["permissions"]["allow_domains"] == ["pypi.org"]

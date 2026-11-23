@@ -21,6 +21,7 @@ from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import (
     ARTIFACT_TYPES,
     ATTACHMENTS_INPUT,
+    CHANGE_REQUEST,
     ActionStatus,
     Artifact,
     ContextPack,
@@ -320,8 +321,8 @@ async def post_result(id: str, body: StageResult, session: Db, claims: RunAuth) 
     run.ended_at = utcnow()
     if body.artifacts.transcript_url:
         run.transcript_url = body.artifacts.transcript_url
-    if body.artifacts.pr_url:
-        item.pr_url = body.artifacts.pr_url
+    if change_request := body.artifacts.link(CHANGE_REQUEST):
+        item.pr_url = change_request
     outputs = body.outputs
     if outputs.size:
         item.size = str(outputs.size)
@@ -948,7 +949,7 @@ async def post_git_token(id: str, session: Db, claims: OpenRunAuth) -> GitToken:
     from ..services.github_app import claimed_installation_for, implicit_claim_enabled
 
     run, _item, project_row = await _run_and_item(session, id)
-    url = str(((run.stage_input or {}).get("repo") or {}).get("url") or "")
+    url = str((((run.stage_input or {}).get("delivery") or {}).get("repo") or {}).get("url") or "")
     repository = github_repository(url)
     # The deployment's App: its settings, else the one registered from a manifest (ADR 0167).
     app = await github_app_credentials.refresh(session)

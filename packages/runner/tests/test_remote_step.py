@@ -38,7 +38,7 @@ def _remote(
     card = parse_card(fake.card_document())
     return stage_input.model_copy(
         update={
-            "repo": None,
+            "delivery": None,
             "agent": AgentRef(backend="a2a"),
             "model": ModelRef(litellm_model="none", base_url=""),
             "gateway_key": None,
@@ -93,8 +93,8 @@ async def test_a_remote_agent_carries_the_step_and_its_answer_goes_through_the_p
     # Facts the remote agent states are DECLARED: kept, never listed as measured.
     facts = dict(result.evidence.facts or {})
     assert facts.pop("issues_found") == 3 and "nested" not in facts
-    # The rest is the runner's own evidence also written as named facts (ADR 0181 C2), field for field.
-    assert all(getattr(result.evidence, name) == value for name, value in facts.items())
+    # The rest is the runner's own evidence, as named facts (ADR 0181 C2), each measured.
+    assert all(f"facts.{name}" in (result.evidence.measured or []) for name in facts)
     assert "facts.issues_found" not in (result.evidence.measured or [])
     reports = result.artifacts.reports
     assert reports["remote_provenance"] == "remote:rovo"

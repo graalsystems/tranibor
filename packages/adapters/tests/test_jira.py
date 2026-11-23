@@ -16,6 +16,7 @@ from tranibor_adapters.tracker.adf import markdown_to_adf, text_of_adf
 from tranibor_adapters.tracker.jira import JiraTracker
 from tranibor_adapters.tracker.jira_events import parse_jira_event
 from tranibor_contracts import InboundEventType, Risk, Size
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 
 BASE = "https://northwind.atlassian.net"
@@ -69,9 +70,11 @@ async def test_the_candidates_go_through_a_jql_query() -> None:
         vu["jql"] = request.url.params.get("jql")
         return httpx.Response(200, json={"issues": [{"key": "BILL-7"}, {"key": "BILL-9"}]})
 
-    from tranibor_contracts import ProjectConfig, RepoConfig
+    from tranibor_contracts import ProjectConfig
 
-    config = ProjectConfig(slug="bill", org="northwind", repo=RepoConfig(url="https://x/y.git"))
+    config = ProjectConfig(
+        slug="bill", org="northwind", delivery=ProjectDelivery(repo=RepoConfig(url="https://x/y.git"))
+    )
     assert await tracker(handler).list_candidates(config) == ["BILL-7", "BILL-9"]
     assert 'project = "BILL"' in vu["jql"]
     assert 'labels = "agent-ready"' in vu["jql"]

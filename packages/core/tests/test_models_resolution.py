@@ -31,8 +31,8 @@ def project(**models: object) -> ProjectConfig:
         {
             "slug": "demo",
             "org": "northwind",
-            "repo": {"url": "https://github.com/northwind/demo.git", "default_branch": "main"},
             "models": models or {},
+            "delivery": {"repo": {"url": "https://github.com/northwind/demo.git", "default_branch": "main"}},
         }
     )
 

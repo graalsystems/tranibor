@@ -1,6 +1,6 @@
 """A run on a work item's target repository gets that repository's host and token (S58-02, ADR 0124).
 
-The orchestrator records the target in the run's `StageInput.repo`; the egress proxy's list and the
+The orchestrator records the target in the run's `StageInput.delivery.repo`; the egress proxy's list and the
 runner's git token are derived from it, never from the project's primary repository.
 """
 
@@ -27,7 +27,7 @@ async def test_the_proxy_opens_the_target_s_host_and_not_the_primary_s(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
     await client.put(f"/api/v1/projects/{project['id']}/policy", json={"yaml": _policy(["pypi.org"])})
-    headers = await _run(project, "run-diamctl", stage_input={"repo": DIAMCTL})
+    headers = await _run(project, "run-diamctl", stage_input={"delivery": {"repo": DIAMCTL}})
     body = (await client.get("/api/v1/internal/runs/run-diamctl/network", headers=headers)).json()
     assert body["implied"] == ["git.acme.example"], "the repository it cloned, not github.com (the primary)"
     assert body["allow"] == ["pypi.org"]

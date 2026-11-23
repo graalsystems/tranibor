@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import Policy, ProjectConfig, Size, Workflow
 from tranibor_contracts.open_lists import STORED
+from tranibor_contracts.recorded import fold_policy_text
 from tranibor_core import (
     PolicyEngine,
     checksum,
@@ -380,7 +381,7 @@ async def ensure_defaults(
     policy = await active_policy(session, project.id)
     delivered = None
     if workflow is None or policy is None:
-        repo = (project.config or {}).get("repo") or {}
+        repo = ((project.config or {}).get("delivery") or {}).get("repo") or {}
         delivered = delivery(
             *await template_manifest(session, project.template_ref, project.org_id),
             has_repository=bool(repo.get("url")),
@@ -403,7 +404,9 @@ async def ensure_defaults(
         project.default_workflow = workflow.name
     if policy is None:
         assert delivered is not None
-        parsed_policy = parse_policy(delivered.policy)
+        # A template's policy, which a published plugin may still write the former way (ADR 0181 C2): read
+        # as a recorded document, and stored with its former fields moved to the `delivery` section.
+        parsed_policy = parse_policy(delivered.policy, recorded=True)
         refused = unenforced_governance(parsed_policy) if refuse_unenforced else []
         if refused:
             raise unprocessable(
@@ -419,7 +422,7 @@ async def ensure_defaults(
             project_id=project.id,
             name=parsed_policy.metadata.name,
             version=parsed_policy.metadata.version,
-            yaml=delivered.policy,
+            yaml=fold_policy_text(delivered.policy),
             json_doc=parsed_policy.model_dump(mode="json", exclude_none=True),
             is_active=True,
         )

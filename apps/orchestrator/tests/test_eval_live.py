@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 import yaml
 from tranibor_contracts import Diagnostics, Evidence, StageInput, StageResult, StageStatus
+from tranibor_contracts.delivery import repository_of
 from tranibor_orchestrator.activities import evals
 from tranibor_orchestrator.activities import stage as stage_activities
 from tranibor_orchestrator.config import reset_settings_cache
@@ -263,7 +264,7 @@ async def test_the_runner_gets_the_toy_branch_the_facts_and_the_cell_s_reduction
 ) -> None:
     _, seen = await _live_case(eval_project, "py-rounding-bug", "rtk+headroom")
     stage_input: StageInput = seen["stage_input"]
-    assert stage_input.repo is not None and stage_input.repo.base_branch.startswith(
+    assert repository_of(stage_input) is not None and repository_of(stage_input).base_branch.startswith(
         "choregos-evals/python-toy-"
     )
     assert set(stage_input.project.fact_commands) == set(
@@ -315,7 +316,7 @@ async def test_the_kill_switch_still_wins_at_prepare_time(
         monkeypatch.delenv("TRANIBOR_CONTEXT_REDUCTION")
         reset_settings_cache()
     assert "context" not in prepared["stage_input"]
-    assert prepared["stage_input"]["repo"]["base_branch"].startswith("choregos-evals/")
+    assert prepared["stage_input"]["delivery"]["repo"]["base_branch"].startswith("choregos-evals/")
 
 
 @needs_the_plugin

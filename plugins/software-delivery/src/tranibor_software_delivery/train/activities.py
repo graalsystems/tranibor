@@ -69,7 +69,7 @@ async def _observe(seconds: float) -> None:
 async def load_train_config(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        env_policy = bundle.policy.release_train.get(payload["env"])
+        env_policy = bundle.policy.delivery.release_train.get(payload["env"])
         if env_policy is None:
             return {"mode": "auto_sync"}
         config = env_policy.model_dump(mode="json", exclude_none=True)
@@ -77,7 +77,11 @@ async def load_train_config(payload: dict[str, Any]) -> dict[str, Any]:
         if express is not None:
             config["express_soak_minutes"] = express.soak_minutes
         config["project_id"] = bundle.project.id
-        config["apps"] = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        config["apps"] = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         return config
 
 
@@ -171,7 +175,11 @@ async def promote(payload: dict[str, Any]) -> dict[str, Any]:
         release = await session.get(Release, payload["release_id"])
         if release is None:
             return {"ok": False, "reason": "unknown release"}
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         tag = f"R-{utcnow():%Y.%m.%d}-{release.batch_no}"
         changes = [Change(app=app, tag=tag) for app in apps]
         ref = await cd_of(bundle.adapters).promote(payload["env"], changes, tag)
@@ -226,7 +234,11 @@ async def _close_deployment(session: Any, release_id: str, status: str) -> None:
 async def run_smoke(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         for app in apps:
             health = await cd_of(bundle.adapters).health(app)
             if health.status in {"Degraded", "Missing"}:
@@ -240,7 +252,11 @@ async def soak(payload: dict[str, Any]) -> dict[str, Any]:
     minutes = int(payload.get("minutes", 10))
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
     checks = max(1, min(minutes, 6))
     interval = (minutes * 60) / checks if minutes else 0
     for _ in range(checks):
@@ -290,7 +306,11 @@ async def promote_canary_step(payload: dict[str, Any]) -> dict[str, Any]:
     """A canary step: raise the weight, look at the analysis, abandon if it fails."""
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         release = await session.get(Release, payload["release_id"])
         if release is not None:
             release.status = "promoting"
@@ -309,7 +329,11 @@ async def promote_canary_step(payload: dict[str, Any]) -> dict[str, Any]:
 async def verify_prod(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         for app in apps:
             health = await cd_of(bundle.adapters).health(app)
             if health.status not in {"Healthy", "Progressing"}:
@@ -391,7 +415,11 @@ async def confirm_auto_sync(payload: dict[str, Any]) -> dict[str, Any]:
     being healthy is a failure: the work item would otherwise wait 72 h with nobody knowing why."""
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         states = {app: (await cd_of(bundle.adapters).health(app)).status for app in apps}
         to_notify = _recipients(
             bundle.slug, await _work_items_by_key(session, bundle, list(payload["items"]))
@@ -460,7 +488,11 @@ async def rollback(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_slug"])
         release = await session.get(Release, payload["release_id"])
-        apps = list(bundle.config.gitops.apps) if bundle.config.gitops else [bundle.slug]
+        apps = (
+            list(bundle.config.delivery_section.gitops.apps)
+            if bundle.config.delivery_section.gitops
+            else [bundle.slug]
+        )
         for app in apps:
             await cd_of(bundle.adapters).abort_rollout(app)
         if release is not None:

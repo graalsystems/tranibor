@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AnyUrl, Field, field_validator, model_validator
 
 from . import delivery as _delivery
+from .delivery import ProjectDelivery
 from .workflow import Slug, Strict
 
 
@@ -16,42 +17,6 @@ class ModelProfile(Strict):
     litellm_model: str
     params: dict[str, Any] = Field(default_factory=dict)
     max_turns_factor: float = Field(default=1.0, gt=0)
-
-
-class RepoConfig(Strict):
-    #: The repository's name in its project (ADR 0124): what a work item's `fields.repository` names.
-    #: Optional on the primary `repo`, named after the last segment of its URL when absent.
-    name: Slug | None = None
-    url: str
-    default_branch: str = "main"
-    language: Literal["python", "node", "go", "java", "dotnet", "rust", "other"] | None = None
-    clone_depth: int = Field(default=50, ge=1)
-    branch_prefix: str = "choregos/"
-    test_command: str | None = None
-    lint_command: str | None = None
-    typecheck_command: str | None = None
-
-
-class NamedRepository(RepoConfig):
-    """Another repository of the project (ADR 0124): a work item works on it when its
-    `fields.repository` names it. The fields of `RepoConfig`, its `name` required.
-
-        repositories:
-          - name: diamctl
-            url: https://github.com/acme/diamctl.git
-            test_command: make test
-    """
-
-    name: Slug
-
-
-def name_of_url(url: str) -> str:
-    """The name a repository gets from its URL's last segment, as a slug: `.../Infra.git` → `infra`.
-
-    `primary` when nothing of the segment is left: a slug cannot be empty."""
-    last = url.strip().removesuffix("/").removesuffix(".git").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
-    slug = re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9-]", "-", last.lower())).strip("-")[:63].strip("-")
-    return slug or "primary"
 
 
 class DodConfig(Strict):
@@ -97,12 +62,6 @@ class ModelsConfig(Strict):
         if not isinstance(value, dict):
             return value
         return {k: ({"litellm_model": v} if isinstance(v, str) else v) for k, v in value.items()}
-
-
-class GitopsConfig(Strict):
-    repo_url: str | None = None
-    path_prefix: str = "apps"
-    apps: list[str] = Field(default_factory=list)
 
 
 class NotifyConfig(Strict):
@@ -283,20 +242,9 @@ class ProjectConfig(Strict):
     org: Slug
     display_name: str | None = None
     template_ref: str | None = Field(default=None, pattern=r"^[a-z0-9-]+@[0-9]+\.[0-9]+\.[0-9]+$")
-    #: The project's repository: **optional**. A trade that processes case files, qualifies
-    #: profiles or drafts letters has none, and until now had to declare one that served no
-    #: purpose (limit no. 1 of ADR 0012). Without a repository, the agent works in an empty
-    #: directory: nothing to clone, nothing to push, and the guarantees that read a diff
-    #: refuse, as they have nothing to read.
-    repo: RepoConfig | None = None
-    #: The project's other repositories (ADR 0124): `repo` stays the primary, the one a work item that
-    #: names none works on. Refused without `repo`, with two equal names (the primary's included) and
-    #: with two names for one URL.
-    repositories: list[NamedRepository] = Field(default_factory=list)
     envs: list[str] = Field(default_factory=lambda: ["dev", "staging", "prod"])
     agent: AgentConfig = Field(default_factory=AgentConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
-    gitops: GitopsConfig | None = None
     cluster: str | None = None
     notify: NotifyConfig = Field(default_factory=NotifyConfig)
     #: What the runner measures itself. At the root, not under `repo`: a project without a
@@ -331,18 +279,21 @@ class ProjectConfig(Strict):
     #: What the A2A door takes for this project's skills (ADR 0078 §6).
     a2a: A2aConfig = Field(default_factory=A2aConfig)
     labels: dict[str, str] = Field(default_factory=dict)
+    #: The `software-delivery` plugin's section (ADR 0181 C2): the repositories and the GitOps. **Absent**
+    #: for a project without software: a trade that processes case files, qualifies profiles or drafts
+    #: letters has no repository (limit no. 1 of ADR 0012).
+    delivery: ProjectDelivery | None = None
 
     @model_validator(mode="before")
     @classmethod
-    def _read_either_form(cls, data: Any) -> Any:
-        return _delivery.read_project(data)
+    def _sections_only(cls, data: Any) -> Any:
+        """A former field at the root is refused, naming the section that holds it."""
+        return _delivery.refuse_former_project(data)
 
     @property
-    def delivery(self) -> _delivery.ProjectDelivery | None:
-        """The `software-delivery` plugin's section (ADR 0181 C2): the repositories and the GitOps,
-        derived from the former fields during their window. Read, not written: a document may send it, and
-        the writers keep the former fields until the window's writers switch (ADR 0098 §4)."""
-        return _delivery.project_section(self)
+    def delivery_section(self) -> ProjectDelivery:
+        """The `delivery` section, empty for a project without one: what a reader asks."""
+        return self.delivery or ProjectDelivery()
 
     @field_validator("triggers")
     @classmethod
@@ -352,82 +303,6 @@ class ProjectConfig(Strict):
             raise ValueError(f"two triggers named {', '.join(f'`{n}`' for n in twice)}: a URL names one")
         return value
 
-    @model_validator(mode="after")
-    def _repositories_named_once(self) -> ProjectConfig:
-        """ADR 0124 §1: the primary is explicit, a name designates one repository, a URL has one name."""
-        if not self.repositories:
-            return self
-        if self.repo is None:
-            raise ValueError(
-                "`repositories` without `repo`: the primary repository is the one a work item that names "
-                "none works on, declare it in `repo`"
-            )
-        names = self.repository_names()
-        if twice := sorted({n for n in names if names.count(n) > 1}):
-            hint = (
-                f" (the primary is named `{self.primary_name}` after its URL: give `repo.name`)"
-                if self.repo.name is None and self.primary_name in twice
-                else ""
-            )
-            raise ValueError(f"two repositories named {', '.join(f'`{n}`' for n in twice)}{hint}")
-        urls = [_same_url(r.url) for r in (self.repo, *self.repositories)]
-        if twice_url := sorted({u for u in urls if urls.count(u) > 1}):
-            raise ValueError(f"one repository under two names: {', '.join(twice_url)}")
-        return self
-
-    @property
-    def primary_name(self) -> str | None:
-        """The primary repository's name (ADR 0124): `repo.name`, else its URL's last segment."""
-        if self.repo is None:
-            return None
-        return self.repo.name or name_of_url(self.repo.url)
-
-    def repository_names(self) -> list[str]:
-        """Every repository's name, the primary's first; empty for a project without a repository."""
-        if self.repo is None:
-            return []
-        return [str(self.primary_name), *(r.name for r in self.repositories)]
-
-    def repository_named(self, name: str | None) -> RepoConfig | None:
-        """The repository `name` designates, the primary for `None`; `None` when the project holds none
-        by that name."""
-        if self.repo is None:
-            return None
-        if name is None or name == self.primary_name:
-            return self.repo
-        return next((r for r in self.repositories if r.name == name), None)
-
-    @property
-    def has_repo(self) -> bool:
-        """Does this project have a repository? Everything that talks to git goes through here."""
-        return self.repo is not None
-
-    @property
-    def repo_url(self) -> str:
-        """The repository URL. Raises if the project has none: the caller must have checked.
-
-        Returning an empty string would clone "nothing" and fail three layers further on, on a
-        message that would not mention the missing repository.
-        """
-        if self.repo is None:
-            raise ValueError(f"the project {self.slug} has no repository")
-        return self.repo.url
-
-    def branch_for(self, key: str, slug_hint: str = "", repo: RepoConfig | None = None) -> str:
-        """Deterministic branch name for a work item, with the prefix of the repository it works on
-        (`repo`, ADR 0124; the primary when not given)."""
-        target = repo or self.repo
-        if target is None:
-            raise ValueError(f"the project {self.slug} has no repository")
-        number = key.rsplit("#", 1)[-1] if "#" in key else key.replace("/", "-")
-        suffix = f"-{slug_hint}" if slug_hint else ""
-        return f"{target.branch_prefix}{number}{suffix}"
-
-
-def _same_url(url: str) -> str:
-    """A URL as two declarations of the same repository compare: no `.git`, no trailing slash, no case."""
-    return url.strip().removesuffix("/").removesuffix(".git").lower()
-
 
 __all__ = [
     "A2A_MAX_FILE_BYTES_CEILING",
@@ -435,15 +310,11 @@ __all__ = [
     "A2aConfig",
     "AgentConfig",
     "AnyUrl",
-    "GitopsConfig",
     "ModelProfile",
     "ModelsConfig",
-    "NamedRepository",
     "NotifyConfig",
     "ProjectConfig",
-    "RepoConfig",
     "ScheduleConfig",
     "StartRule",
     "TriggerConfig",
-    "name_of_url",
 ]

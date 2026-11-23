@@ -211,14 +211,19 @@ async def platform(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
             config={
                 "slug": "billing-api",
                 "org": "northwind",
-                "repo": {
-                    "url": "https://github.com/northwind/billing-api.git",
-                    "default_branch": "main",
-                    "language": "python",
-                    "test_command": "make test",
-                },
-                "gitops": {"repo_url": "https://github.com/northwind/gitops.git", "apps": ["billing-api"]},
                 "notify": {"slack_channel": "#billing"},
+                "delivery": {
+                    "repo": {
+                        "url": "https://github.com/northwind/billing-api.git",
+                        "default_branch": "main",
+                        "language": "python",
+                        "test_command": "make test",
+                    },
+                    "gitops": {
+                        "repo_url": "https://github.com/northwind/gitops.git",
+                        "apps": ["billing-api"],
+                    },
+                },
             },
         )
         session.add(project)

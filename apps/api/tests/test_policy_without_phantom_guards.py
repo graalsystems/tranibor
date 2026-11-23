@@ -18,8 +18,10 @@ apiVersion: choregos/v1
 kind: Policy
 metadata: { name: promises, version: 1 }
 approvals:
-  merge: { required: always, group: maintainers }
   spec: { required: never }
+delivery:
+  approvals:
+    merge: { required: always, group: maintainers }
 review: { require_human_for_risk: [high] }
 """
 

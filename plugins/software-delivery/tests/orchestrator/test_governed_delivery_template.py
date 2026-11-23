@@ -56,8 +56,10 @@ async def _governed_project(setup: Fixture) -> str:
             config={
                 "slug": "dev",
                 "org": "northwind",
-                "repo": {"url": f"https://github.com/{REPOSITORY}.git", "default_branch": "main"},
                 "notify": {"slack_channel": "#dev"},
+                "delivery": {
+                    "repo": {"url": f"https://github.com/{REPOSITORY}.git", "default_branch": "main"}
+                },
             },
         )
         session.add(project)

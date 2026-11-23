@@ -31,7 +31,6 @@ from tranibor_contracts import (
     LaunchSpec,
     PlaybookRef,
     ProjectRef,
-    RepoRef,
     StageInput,
     StageMemory,
     StageRole,
@@ -40,6 +39,7 @@ from tranibor_contracts import (
     WorkItemLinks,
     WorkItemRef,
 )
+from tranibor_contracts.delivery import Repository, stage_section
 from tranibor_core import (
     ModelResolutionError,
     ModelResolver,
@@ -322,8 +322,6 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
             project=ProjectRef(
                 slug=bundle.slug,
                 org=bundle.org_slug,
-                # The DoD commands of the repository the work item works on (ADR 0124).
-                **_dod_commands(found.repo if found is not None else bundle.config.repo),
                 # The fact commands come from the ROOT of the configuration, not from `repo`: a
                 # project without a repository must be able to prove something (ADR 0012).
                 fact_commands=dict(bundle.config.dod.facts)
@@ -340,7 +338,7 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
                 links=WorkItemLinks(
                     spec_comment=(item.documents or {}).get("spec_comment"),
                     plan_comment=(item.documents or {}).get("plan_comment"),
-                    pr=item.pr_url,
+                    change_request=item.pr_url,
                 ),
             ),
             transition=TransitionRef(
@@ -353,7 +351,11 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
                 output_types=plan.output_types or {},
                 artifact_displays=await declared_artifact_displays(session, item, plan.outputs or []),
             ),
-            repo=repo,
+            # The repository and the DoD commands of the one the work item works on (ADR 0124): the
+            # software-delivery plugin's section (ADR 0181 C2).
+            delivery=stage_section(
+                repo, found.repo if found is not None else bundle.config.delivery_section.repo
+            ),
             agent=AgentRef(
                 backend=backend,
                 launch=LaunchSpec(command=list(code_runtime.command)) if code_runtime else LaunchSpec(),
@@ -497,7 +499,7 @@ def _repo_ref(
     remote: bool,
     hosted: HostedCall | None,
     found: Any = None,
-) -> RepoRef | None:
+) -> Repository | None:
     """What the runner clones, or `None`: it then prepares an empty directory. A dummy repository, as
     we used to send, faked a workspace that did not exist and promised a branch nobody would read.
 
@@ -514,12 +516,12 @@ def _repo_ref(
     ):
         return None
     fix(bundle, item, found, plan.outputs or [])
-    return RepoRef(
+    return Repository(
         url=repo_config.url,
         base_branch=repo_config.default_branch
         if plan.eval_cell is None
         else str(plan.eval_cell["base_branch"]),
-        work_branch=bundle.config.branch_for(item.tracker_key, repo=repo_config),
+        work_branch=bundle.config.delivery_section.branch_for(item.tracker_key, repo=repo_config),
         clone_depth=repo_config.clone_depth,
     )
 
@@ -529,12 +531,6 @@ def _workspace_and_target(bundle: Any, item: Any, agent: Any) -> tuple[str, Any]
     0124): `RepositoryRefused` for a target the project does not serve, unless nothing is cloned."""
     workspace = agent.spec.effective_workspace() if agent is not None else "write"
     return workspace, target_of(bundle, item) if workspace != "none" else target_or_none(bundle, item)
-
-
-def _dod_commands(repo: Any) -> dict[str, str]:
-    """The commands the runner measures after the stage, from the repository it works in."""
-    names = ("test_command", "lint_command", "typecheck_command")
-    return {name: (getattr(repo, name) or "") if repo is not None else "" for name in names}
 
 
 def _stage_budget(engine: Any, plan: StagePlan, item: Any, resolved: Any) -> Budget:

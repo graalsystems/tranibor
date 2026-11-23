@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageInput, StageStatus
+from tranibor_contracts.delivery import commits_of
 from tranibor_runner.exits import Exit
 from tranibor_runner.runner import Runner
 from tranibor_runner.workspace import git_dir_for
@@ -122,7 +123,7 @@ async def test_the_runners_git_runs_no_hook_the_agent_wrote(
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert outcome.result is not None and outcome.result.status is StageStatus.DONE
     # The run did commit and push: without the hooks disabled, pre-commit and pre-push WOULD fire.
-    assert outcome.result.artifacts.commits, "the run committed"
+    assert commits_of(outcome.result.artifacts), "the run committed"
     workspace = Path(runner_settings.workspace)
     assert _rev(toy_repo, "refs/heads/choregos/1-total") == _rev(git_dir_for(workspace), "HEAD"), (
         "the push reached the remote"
@@ -162,7 +163,7 @@ async def test_the_runners_git_runs_no_filter_or_fsmonitor_the_agent_set(
 
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert outcome.result is not None and outcome.result.status is StageStatus.DONE
-    assert outcome.result.artifacts.commits, "the run committed (the filter did not block it either)"
+    assert commits_of(outcome.result.artifacts), "the run committed (the filter did not block it either)"
     assert [e for e in client.events if e["type"] == "scope.reverted"], "the scope check ran its checkout"
     workspace = Path(runner_settings.workspace)
     assert (workspace / "src" / "billing.py").read_text(encoding="utf-8") == "RATE = 0.2\n"

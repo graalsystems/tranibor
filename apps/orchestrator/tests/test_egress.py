@@ -12,7 +12,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import yaml
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.activities.execution import runner_environment
 from tranibor_orchestrator.gitops import EGRESS_NAME, KUBE_NS, render_project_manifests, squid_config
@@ -20,7 +21,9 @@ from tranibor_orchestrator.gitops import EGRESS_NAME, KUBE_NS, render_project_ma
 
 def _config() -> ProjectConfig:
     return ProjectConfig(
-        slug="billing", org="northwind", repo=RepoConfig(url="https://github.com/northwind/billing.git")
+        slug="billing",
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/billing.git")),
     )
 
 

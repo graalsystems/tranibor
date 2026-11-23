@@ -3,19 +3,19 @@
   "run_id": "01J8ZQK4C9R7M3N2P5T6V7W8X9",
   "attempt": 1,
   "trace_parent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-  "project": { "slug": "billing-api", "org": "acme", "test_command": "make test" },
+  "project": { "slug": "billing-api", "org": "acme" },
   "work_item": {
     "key": "acme/billing-api#123",
     "title": "Les avoirs ne sont pas pris en compte dans le total de la facture",
     "body": "Quand une commande a un avoir, le total affiché ignore la remise.",
     "url": "https://github.com/acme/billing-api/issues/123",
     "size": "M", "risk": "low",
-    "links": { "spec_comment": "https://github.com/acme/billing-api/issues/123#issuecomment-1", "plan_comment": null, "pr": null }
+    "links": { "spec_comment": "https://github.com/acme/billing-api/issues/123#issuecomment-1", "plan_comment": null, "change_request": null }
   },
   "transition": { "id": "t-implement", "role": "implement", "from": "ready", "to": "in_progress",
     "outputs": ["branch", "commits"], "inputs": ["spec", "allowed_paths"] },
-  "repo": { "url": "https://github.com/acme/billing-api.git", "base_branch": "main",
-    "work_branch": "choregos/123-avoirs-total", "clone_depth": 50 },
+  "delivery": { "repo": { "url": "https://github.com/acme/billing-api.git", "base_branch": "main",
+    "work_branch": "choregos/123-avoirs-total", "clone_depth": 50 }, "commands": { "test": "make test" } },
   "agent": { "backend": "claude-code", "launch": { "command": ["claude-code-acp"], "env": {}, "files": {} } },
   "model": { "litellm_model": "anthropic/claude-sonnet-5", "base_url": "http://litellm.choregos-gateway:4000",
     "api_format": "openai", "params": { "temperature": 0 } },

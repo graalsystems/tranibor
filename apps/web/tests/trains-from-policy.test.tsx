@@ -23,7 +23,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 function policyWith(releaseTrain: Record<string, object> | undefined) {
-  return { name: "p", version: 1, yaml: "", is_active: true, json: releaseTrain ? { release_train: releaseTrain } : {} };
+  return { name: "p", version: 1, yaml: "", is_active: true, json: releaseTrain ? { delivery: { release_train: releaseTrain } } : {} };
 }
 
 async function renderPage() {

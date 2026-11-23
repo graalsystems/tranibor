@@ -32,6 +32,7 @@ from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.local_docker import LocalDockerExecutor
 from tranibor_adapters.executor.tekton import run_secret_data
 from tranibor_contracts import AgentRef, JobSpec, ModelRef, StageInput
+from tranibor_contracts.delivery import Commands, StageDelivery, repository_of
 from tranibor_core.domain import StageJobSpec
 from tranibor_runner import confine
 from tranibor_runner import runner as runner_module
@@ -296,11 +297,9 @@ async def test_the_checks_run_the_agents_code_without_the_run_secrets(
     """The project's test command runs the code the agent wrote, and a failing check's output is
     the next prompt: a test that prints the token would hand it to the agent."""
     await _as_the_executor_sets_them("k8s_job", monkeypatch)
-    project = stage_input.project.model_copy(
-        update={"test_command": shlex.join(_probe()), "lint_command": "", "typecheck_command": ""}
-    )
+    delivery = StageDelivery(repo=repository_of(stage_input), commands=Commands(test=shlex.join(_probe())))
 
-    report = await run_checks(stage_input.model_copy(update={"project": project}), tmp_path)
+    report = await run_checks(stage_input.model_copy(update={"delivery": delivery}), tmp_path)
 
     [tests] = [check for check in report.checks if check.name == "tests"]
     assert tests.ok, tests.output
@@ -320,14 +319,11 @@ async def test_a_job_still_gets_its_run_token_and_no_other_secret(
     await _as_the_executor_sets_them("k8s_job", monkeypatch)
     job = stage_input.model_copy(
         update={
-            "repo": None,
+            "delivery": None,
             "agent": AgentRef(backend="job"),
             "model": ModelRef(litellm_model="none", base_url=""),
             "gateway_key": None,
             "job": JobSpec(command=_probe()),
-            "project": stage_input.project.model_copy(
-                update={"test_command": "", "lint_command": "", "typecheck_command": ""}
-            ),
         }
     )
     client = FakeInternalClient(job)

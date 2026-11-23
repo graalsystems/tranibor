@@ -80,8 +80,8 @@ describe("a step's evidence", () => {
     expect(screen.queryByText(/tests/)).toBeNull();
   });
 
-  it("keeps the software's measures when those are what exist", () => {
-    render(<EvidencePanel evidence={{ tests_run: 6, tests_passed: true, lint: "ok" }} />);
+  it("keeps the software's measures, named facts since ADR 0181 C2, when those are what exist", () => {
+    render(<EvidencePanel evidence={{ facts: { tests_run: 6, tests_passed: true, lint: "ok" } }} />);
     expect(screen.getByText(/Tests: ✓ 6/)).toBeInTheDocument();
     expect(screen.getByText(/Lint: ok/)).toBeInTheDocument();
   });

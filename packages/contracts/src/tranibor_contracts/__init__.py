@@ -20,6 +20,7 @@ from typing import Any
 
 import yaml
 
+from .approval import ApprovalRule
 from .artifact import (
     ARTIFACT_NAME_PATTERN,
     ARTIFACT_TYPES,
@@ -145,7 +146,6 @@ from .outpost import (
     sealed_sha256,
 )
 from .policy import (
-    ApprovalRule,
     Approvals,
     Attempts,
     Budgets,
@@ -160,7 +160,6 @@ from .policy import (
     ScopePolicy,
     ToolsOverride,
     ToolsPolicy,
-    TrainEnvPolicy,
 )
 from .project import (
     A2A_MAX_FILE_BYTES_CEILING,
@@ -170,9 +169,7 @@ from .project import (
     DodConfig,
     ModelProfile,
     ModelsConfig,
-    NamedRepository,
     ProjectConfig,
-    RepoConfig,
     ScheduleConfig,
     StartRule,
     TriggerConfig,
@@ -214,7 +211,6 @@ from .stage import (
     Question,
     RelatedItem,
     RemoteCall,
-    RepoRef,
     ScopeChangeRequest,
     SkillRef,
     StageContext,
@@ -462,7 +458,6 @@ __all__ = [
     "ModelProfile",
     "ModelRef",
     "ModelsConfig",
-    "NamedRepository",
     "OpenList",
     "OutpostAnswer",
     "OutpostAnswerOutcome",
@@ -506,8 +501,6 @@ __all__ = [
     "Question",
     "RelatedItem",
     "RemoteCall",
-    "RepoConfig",
-    "RepoRef",
     "Retry",
     "ReviewPolicy",
     "Risk",
@@ -540,7 +533,6 @@ __all__ = [
     "ToolsOverride",
     "ToolsPolicy",
     "ToolsRef",
-    "TrainEnvPolicy",
     "Transition",
     "TransitionAction",
     "TransitionRef",

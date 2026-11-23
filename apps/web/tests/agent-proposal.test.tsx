@@ -44,7 +44,7 @@ describe("the decision card shows what the agent proposes (2026-11-02)", () => {
   it("does not say so once a pull request or a commit exists", () => {
     const { rerender } = render(<AgentProposal slug="fon" runs={[analysis]} prUrl="https://github.com/o/r/pull/1" />);
     expect(screen.queryByTestId("no-repository-change")).toBeNull();
-    const committed = { ...analysis, result: { ...analysis.result!, artifacts: { branch: "fon/FON-270", commits: ["abc"] } } };
+    const committed = { ...analysis, result: { ...analysis.result!, artifacts: { delivery: { branch: "fon/FON-270", commits: ["abc"] } } } };
     rerender(<AgentProposal slug="fon" runs={[committed]} />);
     expect(screen.queryByTestId("no-repository-change")).toBeNull();
   });

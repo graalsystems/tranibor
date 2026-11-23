@@ -50,10 +50,9 @@ async def _scene(
         project = await session.get(Project, setup.project_id)
         item = await session.get(WorkItem, setup.work_item_id)
         assert project is not None and item is not None
-        project.config = {
-            **project.config,
-            "repositories": [DIAMCTL] if repositories is None else repositories,
-        }
+        delivery = dict(project.config["delivery"])
+        delivery["repositories"] = [DIAMCTL] if repositories is None else repositories
+        project.config = {**project.config, "delivery": delivery}
         item.fields = dict(fields or {})
         item.documents = dict(documents or {})
 
@@ -239,7 +238,7 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
             run = (
                 await session.execute(select(Run).where(Run.work_item_id == setup.work_item_id))
             ).scalar_one()
-            assert run.stage_input["repo"]["url"] == DIAMCTL["url"]
+            assert run.stage_input["delivery"]["repo"]["url"] == DIAMCTL["url"]
         await handle.signal("control", {"action": "stop"})
         await handle.result()
         history = await handle.fetch_history()

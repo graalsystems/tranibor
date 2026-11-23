@@ -23,7 +23,7 @@ def item_repository(f: Any) -> list[Any]:
     if reasons is None:
         return []
     fix = settings_fix(f.slug, "general")
-    repo = f.config.repo
+    repo = f.config.delivery_section.repo
     if not has_repository(f):
         # Asked by a workflow, not by the project: one without a repository changes its workflow.
         return [

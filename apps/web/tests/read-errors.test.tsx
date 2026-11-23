@@ -27,7 +27,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       workflows: vi.fn(panne),
       train: vi.fn(panne),
       policy: vi.fn(() =>
-        Promise.resolve({ name: "p", version: 1, yaml: "", is_active: true, json: { release_train: { prod: {} } } }),
+        Promise.resolve({ name: "p", version: 1, yaml: "", is_active: true, json: { delivery: { release_train: { prod: {} } } } }),
       ),
       releases: vi.fn(panne),
       backends: vi.fn(panne),

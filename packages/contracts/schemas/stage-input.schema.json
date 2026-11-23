@@ -49,15 +49,6 @@
         "org": {
           "type": "string"
         },
-        "test_command": {
-          "type": "string"
-        },
-        "lint_command": {
-          "type": "string"
-        },
-        "typecheck_command": {
-          "type": "string"
-        },
         "fact_commands": {
           "type": "object",
           "additionalProperties": {
@@ -122,18 +113,12 @@
                 "null"
               ]
             },
-            "pr": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "change_request": {
               "type": [
                 "string",
                 "null"
               ],
-              "description": "The change request the work item is on: the successor of `pr`, which a reader takes as a fallback until the window list of ADR 0181 removes it."
+              "description": "The change request the work item is on (ADR 0181 C2)."
             }
           }
         }
@@ -188,31 +173,6 @@
           "description": "What the workflow's `artifacts:` block declares of the step's outputs, resolved (ADR 0129). See `#/$defs/display` of artifact.schema.json.",
           "additionalProperties": { "type": "object" },
           "default": {}
-        }
-      }
-    },
-    "repo": {
-      "type": "object",
-      "required": [
-        "url",
-        "base_branch",
-        "work_branch"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "type": "string"
-        },
-        "base_branch": {
-          "type": "string"
-        },
-        "work_branch": {
-          "type": "string"
-        },
-        "clone_depth": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 50
         }
       }
     },
@@ -865,7 +825,7 @@
     },
     "delivery": {
       "x-plugin": "software-delivery",
-      "description": "The software-delivery plugin's section (ADR 0181 C2): the repository and the project's commands. Read as one with the former `repo` and `project.*_command` until the window list removes them.",
+      "description": "The software-delivery plugin's section (ADR 0181 C2): the repository the stage works on and the project's commands. Absent for a project without a repository: the runner then prepares an empty directory, clones nothing, pushes nothing, and the guarantees that read a diff refuse for lack of matter (ADR 0012, limit no. 1).",
       "type": [
         "object",
         "null"

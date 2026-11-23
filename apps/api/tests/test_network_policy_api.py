@@ -235,11 +235,12 @@ async def test_a_trial_run_takes_the_network_the_orchestrator_wrote_into_its_per
         agent_slug="trial",
         agent_version=0,
         stage_input={
+            "delivery": {"repo": {"url": "https://github.com/northwind/billing-api.git"}},
             "permissions": {
                 "egress": "listed",
                 "allow_domains": ["pypi.org", "api.stripe.com", "github.com"],
                 "builtin_web_tools": False,
-            }
+            },
         },
     )
     body = (await client.get("/api/v1/internal/runs/run-trial-1/network", headers=headers)).json()

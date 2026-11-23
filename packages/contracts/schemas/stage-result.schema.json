@@ -99,27 +99,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "branch": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "commits": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": []
-        },
-        "pr_url": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "links": {
-          "description": "Where the step's work can be seen, by relation (ADR 0181 C1): `{rel: change_request, url}` for the change it proposes. It replaces `pr_url`, read until the release the window list names.",
+          "description": "Where the step's work can be seen, by relation (ADR 0181 C1): `{rel: change_request, url}` for the change it proposes.",
           "type": "array",
           "maxItems": 20,
           "items": {
@@ -181,7 +162,7 @@
         },
         "delivery": {
           "x-plugin": "software-delivery",
-          "description": "The software-delivery plugin's section (ADR 0181 C2): the branch and the commits. Read as one with the former `branch` and `commits` until the window list removes them.",
+          "description": "The software-delivery plugin's section (ADR 0181 C2): the branch the step pushed and its commits.",
           "type": [
             "object",
             "null"
@@ -224,84 +205,8 @@
             ]
           }
         },
-        "tests_passed": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "tests_run": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0
-        },
-        "tests_failed": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0
-        },
-        "coverage_delta": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "lint": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "enum": [
-            "ok",
-            "failed",
-            "skipped",
-            null
-          ]
-        },
-        "typecheck": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "enum": [
-            "ok",
-            "failed",
-            "skipped",
-            null
-          ]
-        },
-        "security_scan": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "enum": [
-            "ok",
-            "failed",
-            "skipped",
-            null
-          ]
-        },
-        "diff_files": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0
-        },
-        "diff_lines": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0
-        },
         "measured": {
-          "description": "What the platform measured itself (ADR 0045): the names of the fields above it ran or computed — tests, lint, typecheck, diff — and `facts.<name>` for a business fact a command measured. Written by the runner, never by the agent: an agent that sets it is overwritten. A field not listed comes from the agent's own account; null means a runner too old to say.",
+          "description": "What the platform measured itself (ADR 0045): `facts.<name>` for a fact it ran or computed (the software-delivery plugin's tests, lint, typecheck and diff are facts too, ADR 0181 C2). Written by the runner, never by the agent: an agent that sets it is overwritten. A fact not listed comes from the agent's own account; null means a runner too old to say.",
           "type": ["array", "null"],
           "items": { "type": "string" },
           "uniqueItems": true

@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageInput, StageStatus
+from tranibor_contracts.delivery import commits_of, repository_of
 from tranibor_runner.exits import Exit
 from tranibor_runner.runner import Runner
 
@@ -45,18 +46,17 @@ async def test_happy_path_commits_and_posts_result(stage_input: StageInput, runn
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert outcome.result is not None
     assert outcome.result.status is StageStatus.DONE
-    assert outcome.result.evidence.tests_passed is True
-    assert outcome.result.evidence.tests_run == 3
+    assert outcome.result.evidence.value("tests_passed") is True
+    assert outcome.result.evidence.value("tests_run") == 3
     # The runner ran the tests; git computed the diff: measured (ADR 0045).
     measured = set(outcome.result.evidence.measured or [])
-    assert {"tests_passed", "tests_run", "diff_files", "diff_lines"} <= measured
-    # Both forms for one window (ADR 0181 C2): each proof also as the named fact, measured as such.
+    # Each proof is a named fact (ADR 0181 C2), measured as such.
     facts = outcome.result.evidence.facts or {}
     assert facts["tests_run"] == 3 and facts["tests_passed"] is True and "diff_files" in facts
     assert {"facts.tests_passed", "facts.tests_run", "facts.diff_files", "facts.diff_lines"} <= measured
-    assert client.results[0].evidence.facts == facts, "what is posted carries both"
-    assert outcome.result.artifacts.commits, "a commit was created"
-    assert outcome.result.artifacts.commits[0].startswith("feat(1):")
+    assert client.results[0].evidence.facts == facts, "what is posted"
+    assert commits_of(outcome.result.artifacts), "a commit was created"
+    assert commits_of(outcome.result.artifacts)[0].startswith("feat(1):")
     assert client.results and client.results[0].summary == "fix applied"
     assert any(event["type"] == "session/update" for event in client.events)
 
@@ -128,7 +128,7 @@ async def test_the_work_of_the_previous_steps_is_not_charged_to_the_run(
     # The commit where this run started: the orchestrator's `scope_respected` guard measures from it.
     depart = outcome.result.artifacts.reports.get("start_commit")
     assert depart, outcome.result.artifacts.reports
-    assert outcome.result.artifacts.commits and depart not in outcome.result.artifacts.commits
+    assert commits_of(outcome.result.artifacts) and depart not in commits_of(outcome.result.artifacts)
 
 
 async def test_dangerous_command_is_refused(stage_input: StageInput, runner_settings: Any) -> None:
@@ -175,7 +175,7 @@ async def test_failing_tests_trigger_bounded_repair_loop(
     # `BROKEN` is out of scope: refused, so the tests pass from the first turn.
     assert outcome.exit_code is Exit.OK
     assert outcome.result is not None
-    assert outcome.result.evidence.tests_passed is True
+    assert outcome.result.evidence.value("tests_passed") is True
 
 
 async def test_tests_really_failing_are_reported(stage_input: StageInput, runner_settings: Any) -> None:
@@ -196,7 +196,7 @@ async def test_tests_really_failing_are_reported(stage_input: StageInput, runner
         },
     )
     assert outcome.result is not None
-    assert outcome.result.evidence.tests_passed is False
+    assert outcome.result.evidence.value("tests_passed") is False
     assert outcome.result.status is StageStatus.FAILED
     assert outcome.result.reason == "tests"
 
@@ -249,7 +249,7 @@ async def test_unreachable_backend_exits_30(stage_input: StageInput, runner_sett
 
 
 async def test_clone_failure_exits_20(stage_input: StageInput, runner_settings: Any) -> None:
-    stage_input.repo.url = "/depot/inexistant"
+    stage_input.delivery.repo.url = "/depot/inexistant"
     client = FakeInternalClient(stage_input)
     outcome = await Runner(runner_settings, client).execute(stage_input, client)  # type: ignore[arg-type]
     assert outcome.exit_code is Exit.CLONE_FAILED
@@ -260,7 +260,7 @@ async def test_a_run_that_ends_early_stops_its_tool_server(
 ) -> None:
     """A run that fails before its agent starts no longer leaves its tool server holding the port
     (#474): the next run on that port finds it free."""
-    stage_input.repo.url = "/depot/inexistant"
+    stage_input.delivery.repo.url = "/depot/inexistant"
     client = FakeInternalClient(stage_input)
     runner = Runner(runner_settings, client)
     outcome = await runner.execute(stage_input, client)  # type: ignore[arg-type]
@@ -394,7 +394,7 @@ async def test_the_work_committed_by_the_agent_is_pushed_anyway(
     )
     assert outcome.exit_code is Exit.OK
     assert outcome.result is not None
-    assert outcome.result.artifacts.commits, "the agent's commit counts as work"
+    assert commits_of(outcome.result.artifacts), "the agent's commit counts as work"
 
 
 async def test_the_run_git_token_serves_the_clone_and_is_written_nowhere(
@@ -466,20 +466,22 @@ async def test_a_step_that_changed_nothing_is_not_asked_to_repair_red_checks(
 ) -> None:
     """S59-05: the checks are red before the step (a baseline the step did not break) and the step writes
     nothing — a triage, a review. They are measured and reported, but no repair turn is spent on them."""
-    stage_input.project.test_command = "echo '0 passed, 1 failed'; exit 1"
+    stage_input.delivery.commands.test = "echo '0 passed, 1 failed'; exit 1"
     outcome, client = await execute(
         stage_input, runner_settings, {"turns": [{"messages": ["sized"], "result": valid_result("triaged")}]}
     )
     types = [event["type"] for event in client.events]
     assert "dod.retry" not in types, "nothing was written: nothing to repair"
     assert "dod.not_repaired" in types
-    assert outcome.result is not None and outcome.result.evidence.tests_passed is False, "still measured"
+    assert outcome.result is not None and outcome.result.evidence.value("tests_passed") is False, (
+        "still measured"
+    )
 
 
 async def test_a_step_that_wrote_a_file_is_still_asked_to_repair(
     stage_input: StageInput, runner_settings: Any
 ) -> None:
-    stage_input.project.test_command = "echo '0 passed, 1 failed'; exit 1"
+    stage_input.delivery.commands.test = "echo '0 passed, 1 failed'; exit 1"
     _, client = await execute(
         stage_input,
         runner_settings,
@@ -496,23 +498,21 @@ async def test_a_step_that_wrote_a_file_is_still_asked_to_repair(
     assert "dod.retry" in [event["type"] for event in client.events]
 
 
-async def test_a_stage_input_written_with_its_delivery_section_alone_runs_the_same(
+async def test_a_stage_input_recorded_with_the_former_fields_runs_the_same(
     stage_input: StageInput, runner_settings: Any
 ) -> None:
-    """ADR 0181 C2: a writer that switched sends the repository and the commands in `delivery` only. The
-    runner clones, checks and pushes the same, and its result carries the branch and the commits under
-    both forms."""
+    """ADR 0181 C2: a stage input written before the window closed (a recorded history, a workflow
+    running across the upgrade) has `repo` and the project's commands at their former places. The runner
+    reads them into the `delivery` section, clones, checks and pushes the same, and its result writes the
+    section only."""
     document = stage_input.model_dump(mode="json", by_alias=True)
-    assert document["delivery"]["repo"]["work_branch"] == stage_input.repo.work_branch  # type: ignore[union-attr]
-    document.pop("repo")
-    for former in ("test_command", "lint_command", "typecheck_command"):
-        document["project"].pop(former, None)
-    section_only = StageInput.model_validate(document)
-    assert section_only.repo == stage_input.repo and section_only.project.test_command == (
-        stage_input.project.test_command
-    )
+    section = document.pop("delivery")
+    document["repo"] = section["repo"]
+    document["project"].update({f"{name}_command": value for name, value in section["commands"].items()})
+    recorded = StageInput.model_validate(document)
+    assert recorded.delivery == stage_input.delivery
     outcome, client = await execute(
-        section_only,
+        recorded,
         runner_settings,
         {
             "turns": [
@@ -527,7 +527,9 @@ async def test_a_stage_input_written_with_its_delivery_section_alone_runs_the_sa
         },
     )
     assert outcome.exit_code is Exit.OK, outcome.detail
-    assert outcome.result is not None and outcome.result.evidence.tests_run == 3, "the commands ran"
-    posted = client.results[0].model_dump(mode="json", by_alias=True)["artifacts"]
-    assert posted["branch"] == posted["delivery"]["branch"] == stage_input.repo.work_branch  # type: ignore[union-attr]
-    assert posted["commits"] and posted["commits"] == posted["delivery"]["commits"]
+    assert outcome.result is not None and outcome.result.evidence.value("tests_run") == 3, "the commands ran"
+    posted = client.results[0].model_dump(mode="json", by_alias=True)
+    assert not {"branch", "commits", "pr_url"} & set(posted["artifacts"])
+    assert posted["artifacts"]["delivery"]["branch"] == repository_of(stage_input).work_branch  # type: ignore[union-attr]
+    assert posted["artifacts"]["delivery"]["commits"]
+    assert not {"tests_passed", "tests_run", "diff_files"} & set(posted["evidence"])

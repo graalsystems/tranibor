@@ -15,7 +15,9 @@ async def _project(client: AsyncClient, slug: str, *, memory: bool) -> str:
         "config": {
             "slug": slug,
             "org": "northwind",
-            "repo": {"url": f"https://github.com/northwind/{slug}.git", "default_branch": "main"},
+            "delivery": {
+                "repo": {"url": f"https://github.com/northwind/{slug}.git", "default_branch": "main"}
+            },
         },
     }
     response = await client.post("/api/v1/orgs/northwind/projects", json=payload)

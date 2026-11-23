@@ -5,15 +5,15 @@
   "summary": "Le total de facture tient compte des avoirs ; 3 tests ajoutés.",
   "outputs": { "size": "M", "risk": "low", "allowed_paths": ["src/orders/**", "tests/orders/**"] },
   "artifacts": {
-    "branch": "choregos/123-avoirs-total",
-    "commits": ["fix(orders): déduire les avoirs du total"],
-    "pr_url": null,
+    "delivery": { "branch": "choregos/123-avoirs-total", "commits": ["fix(orders): deduct the credits from the total"] },
     "transcript_url": "s3://choregos/runs/01J8ZQK4C9R7M3N2P5T6V7W8X9/transcript.jsonl",
     "context_pack_url": "s3://choregos/runs/01J8ZQK4C9R7M3N2P5T6V7W8X9/context.json",
     "reports": { "tests": "s3://choregos/runs/01J8.../tests.xml", "coverage": "s3://choregos/runs/01J8.../coverage.xml" }
   },
-  "evidence": { "tests_passed": true, "tests_run": 412, "tests_failed": 0, "coverage_delta": 1.2,
+  "evidence": { "facts": { "tests_passed": true, "tests_run": 412, "tests_failed": 0, "coverage_delta": 1.2,
     "lint": "ok", "typecheck": "ok", "security_scan": "ok", "diff_files": 4, "diff_lines": 118 },
+    "measured": ["facts.diff_files", "facts.diff_lines", "facts.lint", "facts.tests_failed", "facts.tests_passed",
+      "facts.tests_run", "facts.typecheck"] },
   "questions": [],
   "findings": [
     { "title": "N+1 sur le chargement des lignes de commande", "type": "perf", "severity": "medium",

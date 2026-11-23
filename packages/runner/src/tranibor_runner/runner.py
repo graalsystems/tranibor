@@ -32,7 +32,7 @@ from tranibor_contracts import (
     StageStatus,
     is_inert_binary_path,
 )
-from tranibor_contracts.delivery import commits_of, repository_of, without_commands
+from tranibor_contracts.delivery import ResultDelivery, branch_of, commits_of, repository_of, without_commands
 from tranibor_contracts.env import with_legacy
 from tranibor_core import telemetry
 from tranibor_core.context_breakdown import PARTS_EVENT, Hints, register
@@ -556,7 +556,7 @@ class Runner:
                     final = complete_result(
                         fallback_result(reason, detail),
                         measured=report.evidence(),
-                        artifacts=Artifacts(branch=_work_branch(stage_input)),
+                        artifacts=Artifacts(delivery=_work_branch(stage_input)),
                         diagnostics=diagnostics,
                     )
                     await self._publish(client, journal, workspace, stage_input, final, base, start_ref)
@@ -568,7 +568,7 @@ class Runner:
         final = complete_result(
             cast(StageResult, agent_result),  # `_stop` ended the run when there was none
             measured=report.evidence(),
-            artifacts=Artifacts(branch=_work_branch(stage_input)),
+            artifacts=Artifacts(delivery=_work_branch(stage_input)),
             diagnostics=diagnostics,
             scope_blocked=scope_result.remaining if scope_result else None,
         )
@@ -615,7 +615,7 @@ class Runner:
         result = complete_result(
             fallback_result(reason, f"the agent did not start ({phase}): {detail}"),
             measured=Evidence(),
-            artifacts=Artifacts(branch=_work_branch(stage_input)),
+            artifacts=Artifacts(delivery=_work_branch(stage_input)),
             diagnostics=Diagnostics(
                 duration_s=round(time.monotonic() - self.started, 2), agent_exit="crashed"
             ),
@@ -794,7 +794,7 @@ class Runner:
             result,
             measured=measured,
             artifacts=Artifacts(
-                branch=_work_branch(stage_input),
+                delivery=_work_branch(stage_input),
                 reports={REPORT_IMAGE: image, REPORT_COMMAND: command_digest(command)},
             ),
             diagnostics=Diagnostics(
@@ -1071,7 +1071,7 @@ class Runner:
             result,
             measured=report.evidence(),
             artifacts=Artifacts(
-                branch=_work_branch(stage_input),
+                delivery=_work_branch(stage_input),
                 reports={
                     REPORT_ENDPOINT: remote.endpoint,
                     REPORT_TASK: outcome.task_id,
@@ -1146,7 +1146,7 @@ class Runner:
         final = complete_result(
             result,
             measured=report.evidence(),
-            artifacts=Artifacts(branch=_work_branch(stage_input)),
+            artifacts=Artifacts(delivery=_work_branch(stage_input)),
             diagnostics=diagnostics,
         )
         final = await self._publish(client, journal, workspace, stage_input, final, base, start_ref)
@@ -1259,7 +1259,7 @@ class Runner:
         final = complete_result(
             result,
             measured=report.evidence(),
-            artifacts=Artifacts(branch=_work_branch(stage_input), reports=reports),
+            artifacts=Artifacts(delivery=_work_branch(stage_input), reports=reports),
             diagnostics=Diagnostics(
                 turns=model.turns,
                 tool_calls=mcp.calls,
@@ -1419,7 +1419,7 @@ class Runner:
         final = complete_result(
             fallback_result(str(outcome.guard), f"stopped by the runner: {outcome.guard_detail}"),
             measured=report.evidence(),
-            artifacts=Artifacts(branch=_work_branch(stage_input)),
+            artifacts=Artifacts(delivery=_work_branch(stage_input)),
             diagnostics=Diagnostics(
                 turns=outcome.turns,
                 tool_calls=outcome.tool_calls,
@@ -1545,20 +1545,24 @@ class Runner:
         commits = await workspace.commits_since(base)
         additions, deletions = await workspace.diff_stats(base)
         repository = repository_of(stage_input)
-        # The result's `delivery` section is derived from these, and written beside them (ADR 0181 C2).
-        result.artifacts.commits = commits or commits_of(result.artifacts)
-        if repository:
-            result.artifacts.branch = repository.work_branch
+        # The branch and the commits are the software-delivery plugin's section (ADR 0181 C2).
+        commits = commits or commits_of(result.artifacts)
+        branch = repository.work_branch if repository else branch_of(result.artifacts)
+        if branch is not None or commits:
+            result.artifacts.delivery = ResultDelivery(branch=branch, commits=commits)
         if repository and start_ref:
             # The commit where this run started: the scope guard measures from it (S22-11),
             # not from the base, which would count the work of the earlier steps.
             result.artifacts.reports[REPORT_START_COMMIT] = start_ref
-        result.evidence.diff_lines = additions + deletions
-        result.evidence.diff_files = len(await workspace.changed_files(base))
-        # The diff is what git says, not the agent: measured (ADR 0045).
-        result.evidence.measured = sorted({*(result.evidence.measured or []), "diff_files", "diff_lines"})
-        # Each proof of software delivery also as the named fact (ADR 0181 C2): both forms for one window.
-        result.evidence = result.evidence.with_facts()
+        # The diff is what git says, not the agent: measured facts (ADR 0045, ADR 0056).
+        result.evidence.facts = {
+            **(result.evidence.facts or {}),
+            "diff_lines": additions + deletions,
+            "diff_files": len(await workspace.changed_files(base)),
+        }
+        result.evidence.measured = sorted(
+            {*(result.evidence.measured or []), "facts.diff_files", "facts.diff_lines"}
+        )
 
         # We push as soon as there is SOMETHING to push, not only when we are the ones
         # who committed. The agent has git at hand: when it commits itself, the tree
@@ -1600,10 +1604,11 @@ class Runner:
         return result
 
 
-def _work_branch(stage_input: StageInput) -> str | None:
-    """The branch a step's work goes to, read from the `delivery` section first (ADR 0181 C2)."""
+def _work_branch(stage_input: StageInput) -> ResultDelivery | None:
+    """The branch a step's work goes to, as the result's `delivery` section (ADR 0181 C2); `None` without
+    a repository."""
     repository = repository_of(stage_input)
-    return repository.work_branch if repository else None
+    return ResultDelivery(branch=repository.work_branch) if repository else None
 
 
 def _materialize(plan: Any, workspace: Workspace, stage_input: StageInput) -> list[str]:

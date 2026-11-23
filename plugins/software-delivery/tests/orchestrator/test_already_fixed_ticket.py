@@ -171,13 +171,15 @@ async def test_a_ticket_with_changes_is_unaffected(
     project_id = await create_dev_project(setup)
     item_id, key = await create_ticket(setup, project_id, 7, "dev-simple")
     setup.adapters.scm.set_diff(REPOSITORY, "main", "choregos/7", [("src/billing/total.py", 12, 3)])
-    evidence = Evidence(tests_passed=True, tests_run=412, tests_failed=0, diff_files=1, diff_lines=15)
-    evidence.measured = ["diff_files", "diff_lines", "tests_failed", "tests_passed", "tests_run"]
+    facts = {"tests_passed": True, "tests_run": 412, "tests_failed": 0, "diff_files": 1, "diff_lines": 15}
+    evidence = Evidence(facts=facts, measured=sorted(f"facts.{name}" for name in facts))
     setup.adapters.executor.handler = scripted_agents(
         {
             "t-triage": _triage,
             "t-implement": lambda: stage_result(
-                "fixed", evidence=evidence, artifacts={"branch": "choregos/7", "commits": ["fix(billing)"]}
+                "fixed",
+                evidence=evidence,
+                artifacts={"delivery": {"branch": "choregos/7", "commits": ["fix(billing)"]}},
             ),
             "t-test": lambda: stage_result("tests pass", outputs={"test_report": "412 passed"}),
             "t-review": _approve,

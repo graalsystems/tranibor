@@ -36,7 +36,9 @@ async def _project(client: AsyncClient) -> dict[str, Any]:
             "config": {
                 "slug": "dev",
                 "org": "northwind",
-                "repo": {"url": "https://github.com/northwind/sandbox.git", "default_branch": "main"},
+                "delivery": {
+                    "repo": {"url": "https://github.com/northwind/sandbox.git", "default_branch": "main"}
+                },
             },
         },
     )

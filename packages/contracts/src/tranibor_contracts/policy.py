@@ -8,6 +8,8 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field, model_validator
 
 from . import delivery as _delivery
+from .approval import ApprovalRule
+from .delivery import PolicyDelivery
 from .enums import Risk, Severity, Size
 from .stage import (
     MAX_CONCURRENT_TOOL_CALLS,
@@ -34,17 +36,8 @@ class Budgets(Strict):
     alert_at_ratio: float = Field(default=0.8, ge=0, le=1)
 
 
-class ApprovalRule(Strict):
-    required: Literal["always", "never", "by_size", "by_risk"]
-    group: str | None = None
-    sizes: list[Size] = Field(default_factory=list)
-    risks: list[Risk] = Field(default_factory=list)
-    timeout_hours: int | None = Field(default=None, ge=1)
-
-
 class Approvals(Strict):
     spec: ApprovalRule | None = None
-    merge: ApprovalRule | None = None
     prod: ApprovalRule | None = None
     scope_change: ApprovalRule | None = None
 
@@ -67,8 +60,6 @@ class ScopePolicy(Strict):
     deny_paths: list[str] = Field(
         default_factory=lambda: [".choregos/**", ".github/workflows/**", "charts/**"]
     )
-    max_diff_files: int = Field(default=60, ge=1)
-    max_diff_lines: int = Field(default=3000, ge=1)
 
 
 class NetworkPolicy(Strict):
@@ -228,47 +219,6 @@ class ReviewPolicy(Strict):
     require_human_for_risk: list[Risk] = Field(default_factory=lambda: [Risk.HIGH])
 
 
-class TrainApproval(Strict):
-    group: str | None = None
-    required: bool = False
-    timeout_hours: int = Field(default=4, ge=1)
-
-
-class CanarySpec(Strict):
-    steps: list[int] = Field(default_factory=list)
-    analysis: str | None = None
-    step_minutes: list[int] = Field(default_factory=list)
-
-
-class ExpressLane(Strict):
-    label: str = "hotfix"
-    soak_minutes: int = Field(default=5, ge=0)
-    skip_schedule: bool = True
-    approval: TrainApproval | None = None
-
-
-class TerraformSpec(Strict):
-    via: Literal["atlantis", "none"] = "none"
-    apply_requires_approval: bool = True
-
-
-class TrainEnvPolicy(Strict):
-    mode: Literal["auto_sync", "train"] = "train"
-    schedule: str | None = None
-    timezone: str = "Europe/Paris"
-    windows: list[str] = Field(default_factory=list)
-    batch_min: int = Field(default=1, ge=1)
-    batch_max: int = Field(default=8, ge=1)
-    soak_minutes: int = Field(default=10, ge=0)
-    approval: TrainApproval | None = None
-    canary: CanarySpec | None = None
-    express_lane: ExpressLane | None = None
-    freeze: bool = False
-    auto_rollback: bool = True
-    freeze_on_rollback: bool = True
-    terraform: TerraformSpec | None = None
-
-
 class PolicyMetadata(Strict):
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")
     version: int = Field(ge=1)
@@ -290,17 +240,13 @@ class Policy(Strict):
     context: ContextPolicy = Field(default_factory=ContextPolicy)
     tools: ToolsPolicy = Field(default_factory=ToolsPolicy)
     review: ReviewPolicy = Field(default_factory=ReviewPolicy)
-    release_train: dict[str, TrainEnvPolicy] = Field(default_factory=dict)
     web_search: WebSearchPolicy = Field(default_factory=WebSearchPolicy)
+    #: The `software-delivery` plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a
+    #: merge and the release trains.
+    delivery: PolicyDelivery = Field(default_factory=PolicyDelivery)
 
     @model_validator(mode="before")
     @classmethod
-    def _read_either_form(cls, data: Any) -> Any:
-        return _delivery.read_policy(data)
-
-    @property
-    def delivery(self) -> _delivery.PolicyDelivery:
-        """The `software-delivery` plugin's section (ADR 0181 C2): the diff bounds, the merge approval
-        and the release trains, derived from the former fields during their window and written beside
-        them."""
-        return _delivery.policy_section(self)
+    def _sections_only(cls, data: Any) -> Any:
+        """A former field is refused, naming the section that holds it."""
+        return _delivery.refuse_former_policy(data)

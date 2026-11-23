@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from tranibor_contracts import Policy
@@ -180,9 +180,17 @@ def _set_in_table(section: str, name: str, role: str, cap: float) -> Callable[[P
     return lower
 
 
+def _section(p: Policy, section: str) -> Any:
+    """`attempts`, or a dotted path to a section of the policy (`delivery.scope`)."""
+    found: Any = p
+    for part in section.split("."):
+        found = getattr(found, part)
+    return found
+
+
 def _set_value(section: str, name: str, cap: float) -> Callable[[Policy], None]:
     def lower(p: Policy) -> None:
-        setattr(getattr(p, section), name, cap)
+        setattr(_section(p, section), name, cap)
 
     return lower
 
@@ -239,11 +247,12 @@ def _other_excesses(policy: Policy, ceiling: PolicyCeiling) -> Iterator[Excess]:
     for section, name, bound in (
         ("attempts", "dod_iterations", attempts.dod_iterations),
         ("scope", "auto_grant_max_files", ceiling.scope.auto_grant_max_files),
-        ("scope", "max_diff_files", ceiling.scope.max_diff_files),
-        ("scope", "max_diff_lines", ceiling.scope.max_diff_lines),
+        # The diff bounds are the software-delivery plugin's section of the policy (ADR 0181 C2).
+        ("delivery.scope", "max_diff_files", ceiling.scope.max_diff_files),
+        ("delivery.scope", "max_diff_lines", ceiling.scope.max_diff_lines),
         ("findings", "max_per_run", ceiling.findings.max_per_run),
     ):
-        if bound is not None and (value := getattr(getattr(policy, section), name)) > bound:
+        if bound is not None and (value := getattr(_section(policy, section), name)) > bound:
             yield Excess(f"{section}.{name}", value, bound, _set_value(section, name, bound))
 
 

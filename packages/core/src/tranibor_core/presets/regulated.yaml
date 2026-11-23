@@ -18,7 +18,7 @@ budgets:
   alert_at_ratio: 0.7
 # No `approvals` here: nobody applies them (ADR 0044). A human who approves is declared
 # in the WORKFLOW (a human actor on a transition, `train.approval`); staging and prod stay
-# approved by `release_train.<env>.approval`, which the train applies.
+# approved by `delivery.release_train.<env>.approval`, which the train applies.
 attempts:
   by_role: { implement: 2, fix_ci: 2 }
   dod_iterations: 2
@@ -26,8 +26,6 @@ scope:
   auto_grant_max_files: 0
   deny_paths:
     [".choregos/**", ".github/**", "charts/**", "infra/**", "deploy/**", "migrations/**", "**/secrets/**"]
-  max_diff_files: 40
-  max_diff_lines: 1500
 sandbox:
   runtime: gvisor
   deny_commands: [kubectl, terraform, sudo, docker, "git push --force", curl, wget]
@@ -52,28 +50,33 @@ memory:
   read_timeout_ms: 300
 review:
   cross_backend: true
-release_train:
-  dev: { mode: train, schedule: "0 * * * *", batch_max: 5, soak_minutes: 5 }
-  staging:
-    mode: train
-    schedule: "0 9,14 * * 1-5"
-    batch_max: 5
-    soak_minutes: 30
-    approval: { group: maintainers, required: true, timeout_hours: 8 }
-  prod:
-    mode: train
-    schedule: "0 10 * * 2,4"
-    timezone: Europe/Paris
-    windows: ["Tue,Thu 09:00-16:00"]
-    batch_min: 1
-    batch_max: 4
-    soak_minutes: 60
-    approval: { group: release-captains, required: true, timeout_hours: 8 }
-    canary: { steps: [5, 25, 50, 100], analysis: slo-strict, step_minutes: [15, 30, 30, 0] }
-    freeze: false
-    auto_rollback: true
-    freeze_on_rollback: true
-    terraform: { via: atlantis, apply_requires_approval: true }
 # The built-in web_search (ADR 0083): only a backend that keeps no query and reuses none. The
 # organisation's ceiling still has to open the tool.
 web_search: { max_query_retention_days: 0, allow_query_reuse: false }
+# The software-delivery plugin's section (ADR 0181 C2): diff bounds, merge approval, trains.
+delivery:
+  scope:
+    max_diff_files: 40
+    max_diff_lines: 1500
+  release_train:
+    dev: { mode: train, schedule: "0 * * * *", batch_max: 5, soak_minutes: 5 }
+    staging:
+      mode: train
+      schedule: "0 9,14 * * 1-5"
+      batch_max: 5
+      soak_minutes: 30
+      approval: { group: maintainers, required: true, timeout_hours: 8 }
+    prod:
+      mode: train
+      schedule: "0 10 * * 2,4"
+      timezone: Europe/Paris
+      windows: ["Tue,Thu 09:00-16:00"]
+      batch_min: 1
+      batch_max: 4
+      soak_minutes: 60
+      approval: { group: release-captains, required: true, timeout_hours: 8 }
+      canary: { steps: [5, 25, 50, 100], analysis: slo-strict, step_minutes: [15, 30, 30, 0] }
+      freeze: false
+      auto_rollback: true
+      freeze_on_rollback: true
+      terraform: { via: atlantis, apply_requires_approval: true }

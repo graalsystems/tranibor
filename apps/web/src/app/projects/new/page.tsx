@@ -76,12 +76,15 @@ export default function NewProjectPage() {
     try {
       const config: Record<string, unknown> = { slug: form.slug, org };
       if (!form.sansDepot) {
-        config.repo = {
-          url: form.repo.startsWith("http") ? form.repo : `https://github.com/${form.repo}.git`,
-          default_branch: "main",
-          language: form.language,
+        // The software-delivery section (ADR 0181 C2): the repository and the GitOps live in it only.
+        config.delivery = {
+          repo: {
+            url: form.repo.startsWith("http") ? form.repo : `https://github.com/${form.repo}.git`,
+            default_branch: "main",
+            language: form.language,
+          },
+          ...(form.gitops ? { gitops: { repo_url: form.gitops, apps: [form.slug] } } : {}),
         };
-        if (form.gitops) config.gitops = { repo_url: form.gitops, apps: [form.slug] };
       }
       if (form.channel) config.notify = { slack_channel: form.channel };
       if (!project) {

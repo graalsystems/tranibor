@@ -20,10 +20,22 @@ def test_the_merge_says_what_is_measured_field_by_field() -> None:
     )
     measured = Evidence(tests_passed=False, tests_run=3, lint="ok", facts={"finding_resolved": False})
     merged = merge_evidence(declared, measured)
-    assert merged.measured == ["facts.finding_resolved", "lint", "tests_passed", "tests_run"]
+    assert merged.measured == [
+        "facts.finding_resolved",
+        "facts.lint",
+        "facts.tests_passed",
+        "facts.tests_run",
+    ]
     # Coverage and the attached report come from the agent's account: they stay, unmeasured.
-    assert merged.coverage_delta == 1.5
-    assert merged.facts == {"report_attached": True, "finding_resolved": False}
+    assert merged.value("coverage_delta") == 1.5
+    assert merged.facts == {
+        "tests_passed": False,
+        "tests_run": 3,
+        "coverage_delta": 1.5,
+        "report_attached": True,
+        "finding_resolved": False,
+        "lint": "ok",
+    }
 
 
 def test_an_agent_cannot_call_itself_measured() -> None:

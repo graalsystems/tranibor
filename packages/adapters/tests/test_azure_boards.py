@@ -24,7 +24,8 @@ from tranibor_adapters.tracker.azure_boards import (
 )
 from tranibor_adapters.tracker.azure_boards_events import parse_azure_boards_event
 from tranibor_adapters.tracker.azure_html import html_to_text, markdown_to_html
-from tranibor_contracts import InboundEventType, ProjectConfig, RepoConfig, Risk, Size, StartRule
+from tranibor_contracts import InboundEventType, ProjectConfig, Risk, Size, StartRule
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 
 BASE = "https://dev.azure.com/northwind"
@@ -41,7 +42,12 @@ def build(server: FakeAzureBoardsServer, **options: Any) -> AzureBoardsTracker:
 
 
 def config(**fields: Any) -> ProjectConfig:
-    return ProjectConfig(slug="bill", org="northwind", repo=RepoConfig(url="https://x/y.git"), **fields)
+    return ProjectConfig(
+        slug="bill",
+        org="northwind",
+        **fields,
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://x/y.git")),
+    )
 
 
 # ───────────────────────────── reading ─────────────────────────────

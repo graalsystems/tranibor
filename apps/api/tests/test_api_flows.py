@@ -451,9 +451,9 @@ async def test_a_project_without_a_repository_is_created(client: AsyncClient, ad
     from tranibor_contracts import ProjectConfig
 
     config = ProjectConfig.model_validate(response.json()["config"])
-    assert not config.has_repo
+    assert not config.delivery_section.has_repo
     with pytest.raises(ValueError, match="has no repository"):
-        _ = config.repo_url
+        _ = config.delivery_section.repo_url
 
 
 async def test_the_access_sheet_folds_the_log(

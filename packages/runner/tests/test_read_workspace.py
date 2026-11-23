@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from tranibor_contracts import Permissions, StageInput
+from tranibor_contracts.delivery import commits_of
 from tranibor_core.workspace import READ_ONLY_WRITE_PATHS
 from tranibor_runner.exits import Exit
 from tranibor_runner.guardrails import GuardRails
@@ -62,5 +63,5 @@ async def test_a_read_run_changes_nothing_of_the_repository_and_pushes_nothing(
     workspace = Path(runner_settings.workspace)
     assert "return 0" not in (workspace / "src" / "orders.py").read_text(), "the repository file is intact"
     assert outcome.result is not None
-    assert outcome.result.artifacts.commits == [], "nothing committed, so nothing pushed"
-    assert outcome.result.evidence.diff_files == 0
+    assert commits_of(outcome.result.artifacts) == [], "nothing committed, so nothing pushed"
+    assert outcome.result.evidence.value("diff_files") == 0

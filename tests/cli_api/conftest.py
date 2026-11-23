@@ -160,7 +160,7 @@ def project(console: httpx.Client, slug: str = "billing-api") -> str:
     repo = {"url": f"https://github.com/{ORG}/{slug}.git", "default_branch": "main", "language": "python"}
     made = console.post(
         f"/api/v1/orgs/{ORG}/projects",
-        json={"slug": slug, "name": slug, "config": {"slug": slug, "org": ORG, "repo": repo}},
+        json={"slug": slug, "name": slug, "config": {"slug": slug, "org": ORG, "delivery": {"repo": repo}}},
     )
     assert made.status_code == 201, made.text
     return str(made.json()["id"])

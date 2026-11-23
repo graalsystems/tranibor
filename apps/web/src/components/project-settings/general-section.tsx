@@ -34,7 +34,19 @@ const fromRows = (rows: Row[]): Record<string, string> =>
   Object.fromEntries(rows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]));
 const blank = (value: string): string | undefined => (value.trim() === "" ? undefined : value.trim());
 
-type NamedRepository = NonNullable<ProjectConfigValue["repositories"]>[number];
+/** The software-delivery section of the configuration (ADR 0181 C2): the repositories and the GitOps. */
+type Delivery = NonNullable<ProjectConfigValue["delivery"]>;
+type NamedRepository = NonNullable<Delivery["repositories"]>[number];
+
+/**
+ * The latest `delivery` section with the primary and the other repositories the form holds; what the
+ * form does not edit (the GitOps) is kept. `undefined` when nothing is left: a project without a repository.
+ */
+function deliveryWith(latest: Delivery | null | undefined, own: Pick<Delivery, "repo" | "repositories">): Delivery | undefined {
+  const section: Record<string, unknown> = { ...latest, ...own };
+  for (const [key, value] of Object.entries(section)) if (value === undefined || value === null) delete section[key];
+  return Object.keys(section).length > 0 ? (section as Delivery) : undefined;
+}
 /** Another repository of the project (ADR 0124), as the card edits it; the fields it does not show are kept. */
 type RepoRow = {
   name: string;
@@ -114,7 +126,7 @@ export function activationGesture(project: Pick<ProjectDto, "status" | "template
   if (status === "active" || status === "archived") return null;
   if (status === "provisioning") return "Provisioning…";
   if (status === "suspended") return "Resume";
-  const repo = (project.config as ProjectConfigValue | undefined)?.repo?.url;
+  const repo = (project.config as ProjectConfigValue | undefined)?.delivery?.repo?.url;
   // Without a template or a repository, there is nothing to provision: the API activates it at once.
   return project.template_ref || repo ? "Provision" : "Activate";
 }
@@ -173,16 +185,17 @@ function GeneralForm({
   const [envs, setEnvs] = useState<string[]>(config.envs ?? []);
   const [newEnv, setNewEnv] = useState("");
   const [labels, setLabels] = useState<Row[]>(toRows(config.labels));
-  const [url, setUrl] = useState(config.repo?.url ?? "");
-  const [branch, setBranch] = useState(config.repo?.default_branch ?? "main");
-  const [language, setLanguage] = useState<string>(config.repo?.language ?? "");
-  const [prefix, setPrefix] = useState(config.repo?.branch_prefix ?? "");
-  const [depth, setDepth] = useState(config.repo?.clone_depth ? String(config.repo.clone_depth) : "");
-  const [testCommand, setTestCommand] = useState(config.repo?.test_command ?? "");
-  const [lintCommand, setLintCommand] = useState(config.repo?.lint_command ?? "");
-  const [typecheckCommand, setTypecheckCommand] = useState(config.repo?.typecheck_command ?? "");
-  const [repoName, setRepoName] = useState(config.repo?.name ?? "");
-  const [others, setOthers] = useState<RepoRow[]>(toRepoRows(config.repositories));
+  const primaryRepo = config.delivery?.repo;
+  const [url, setUrl] = useState(primaryRepo?.url ?? "");
+  const [branch, setBranch] = useState(primaryRepo?.default_branch ?? "main");
+  const [language, setLanguage] = useState<string>(primaryRepo?.language ?? "");
+  const [prefix, setPrefix] = useState(primaryRepo?.branch_prefix ?? "");
+  const [depth, setDepth] = useState(primaryRepo?.clone_depth ? String(primaryRepo.clone_depth) : "");
+  const [testCommand, setTestCommand] = useState(primaryRepo?.test_command ?? "");
+  const [lintCommand, setLintCommand] = useState(primaryRepo?.lint_command ?? "");
+  const [typecheckCommand, setTypecheckCommand] = useState(primaryRepo?.typecheck_command ?? "");
+  const [repoName, setRepoName] = useState(primaryRepo?.name ?? "");
+  const [others, setOthers] = useState<RepoRow[]>(toRepoRows(config.delivery?.repositories));
   const [facts, setFacts] = useState<Row[]>(toRows(config.dod?.facts));
   const newer = newerTemplateVersion(project.template_ref ?? config.template_ref, templates);
   const hasRepo = url.trim() !== "";
@@ -230,21 +243,23 @@ function GeneralForm({
       (latest) => ({
         envs: envs.length > 0 ? envs : undefined,
         labels: Object.keys(fromRows(labels)).length > 0 ? fromRows(labels) : undefined,
-        repo: hasRepo
-          ? {
-              ...latest.repo,
-              name: blank(repoName),
-              url: url.trim(),
-              default_branch: blank(branch) ?? "main",
-              language: (blank(language) as Language | undefined) ?? undefined,
-              branch_prefix: blank(prefix),
-              clone_depth: depth.trim() ? Number.parseInt(depth, 10) : undefined,
-              test_command: blank(testCommand),
-              lint_command: blank(lintCommand),
-              typecheck_command: blank(typecheckCommand),
-            }
-          : undefined,
-        repositories: others.length > 0 ? fromRepoRows(others) : undefined,
+        delivery: deliveryWith(latest.delivery, {
+          repo: hasRepo
+            ? {
+                ...latest.delivery?.repo,
+                name: blank(repoName),
+                url: url.trim(),
+                default_branch: blank(branch) ?? "main",
+                language: (blank(language) as Language | undefined) ?? undefined,
+                branch_prefix: blank(prefix),
+                clone_depth: depth.trim() ? Number.parseInt(depth, 10) : undefined,
+                test_command: blank(testCommand),
+                lint_command: blank(lintCommand),
+                typecheck_command: blank(typecheckCommand),
+              }
+            : undefined,
+          repositories: others.length > 0 ? fromRepoRows(others) : undefined,
+        }),
         dod:
           Object.keys(fromRows(facts)).length > 0 || Object.keys(latest.dod ?? {}).some((k) => k !== "facts")
             ? { ...latest.dod, facts: fromRows(facts) }

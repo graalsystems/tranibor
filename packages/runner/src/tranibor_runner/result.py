@@ -187,7 +187,7 @@ def repair_prompt(load: ResultLoad, path: Path) -> str:
                     "schema": "choregos/StageResult/v1",
                     "status": "done",
                     "summary": "what you did, in one sentence",
-                    "evidence": {"tests_passed": True, "tests_run": 0},
+                    "evidence": {"facts": {"tests_passed": True, "tests_run": 0}},
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -221,8 +221,12 @@ def complete_result(
     for key, value in artifacts.model_dump().items():
         if value in (None, [], {}):
             continue
-        if key == "reports":
-            merged_artifacts["reports"] = {**merged_artifacts.get("reports", {}), **value}
+        if key in ("reports", "delivery"):
+            # The runner's branch wins over the agent's, whose commits stay when the runner has none.
+            found = (
+                {k: v for k, v in value.items() if v not in (None, [], {})} if key == "delivery" else value
+            )
+            merged_artifacts[key] = {**(merged_artifacts.get(key) or {}), **found}
         else:
             merged_artifacts[key] = value
     data["artifacts"] = merged_artifacts
@@ -236,7 +240,7 @@ def complete_result(
             f"{completed.summary} — {len(scope_blocked)} out-of-scope file(s) "
             f"that could not be reverted: {', '.join(scope_blocked[:5])}"
         )
-    elif completed.status is StageStatus.DONE and completed.evidence.tests_passed is False:
+    elif completed.status is StageStatus.DONE and completed.evidence.value("tests_passed") is False:
         completed.status = StageStatus.FAILED
         completed.reason = "tests"
         completed.summary = f"{completed.summary} — the repository's tests fail"

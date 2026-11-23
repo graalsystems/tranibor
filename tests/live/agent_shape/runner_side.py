@@ -49,12 +49,12 @@ from tranibor_contracts import (
     Permissions,
     PlaybookRef,
     ProjectRef,
-    RepoRef,
     StageInput,
     StageResult,
     TransitionRef,
     WorkItemRef,
 )
+from tranibor_contracts.delivery import Commands, Repository, StageDelivery
 from tranibor_contracts.stage import ToolsRef
 from tranibor_core.hosted import LOOPBACK_KEY
 from tranibor_runner import runner as runner_module
@@ -337,17 +337,14 @@ def step(backend: str, origin: Path, crm_token: str) -> StageInput:
     return StageInput(
         run_id=f"s65a-{backend}",
         attempt=1,
-        project=ProjectRef(
-            slug="shape",
-            org="s65a",
-            test_command="make test",
-            lint_command="make deps",
-            typecheck_command="make probe",
-        ),
+        project=ProjectRef(slug="shape", org="s65a"),
         work_item=WorkItemRef(key="s65a/shape#1", title="Fix add() and record the CRM code word", body=TASK),
         transition=TransitionRef(id="t-implement", role="implement", **{"from": "ready"}, to="in_progress"),
-        repo=RepoRef(
-            url=str(origin), base_branch="main", work_branch=f"choregos/s65a-{backend}", clone_depth=10
+        delivery=StageDelivery(
+            repo=Repository(
+                url=str(origin), base_branch="main", work_branch=f"choregos/s65a-{backend}", clone_depth=10
+            ),
+            commands=Commands(test="make test", lint="make deps", typecheck="make probe"),
         ),
         agent=AgentRef(
             backend=backend, launch=LaunchSpec(env=json.loads(os.environ.get("S65A_LAUNCH_ENV", "{}")))

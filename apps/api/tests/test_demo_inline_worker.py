@@ -72,7 +72,9 @@ async def test_a_decision_advances_the_work_item_with_the_api_alone(
             "config": {
                 "slug": "demo",
                 "org": "northwind",
-                "repo": {"url": "https://github.com/northwind/demo.git", "default_branch": "main"},
+                "delivery": {
+                    "repo": {"url": "https://github.com/northwind/demo.git", "default_branch": "main"}
+                },
             },
         },
     )

@@ -93,13 +93,18 @@ async def setup(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator
             config={
                 "slug": "billing-api",
                 "org": "northwind",
-                "repo": {
-                    "url": "https://github.com/northwind/billing-api.git",
-                    "default_branch": "main",
-                    "language": "python",
-                    "test_command": "make test",
+                "delivery": {
+                    "repo": {
+                        "url": "https://github.com/northwind/billing-api.git",
+                        "default_branch": "main",
+                        "language": "python",
+                        "test_command": "make test",
+                    },
+                    "gitops": {
+                        "repo_url": "https://github.com/northwind/gitops.git",
+                        "apps": ["billing-api"],
+                    },
                 },
-                "gitops": {"repo_url": "https://github.com/northwind/gitops.git", "apps": ["billing-api"]},
                 "notify": {"slack_channel": "#billing"},
             },
         )
@@ -196,13 +201,15 @@ def stage_result(summary: str = "done", **kwargs: Any) -> Any:
         "status": StageStatus.DONE,
         "summary": summary,
         "evidence": Evidence(
-            tests_passed=True,
-            tests_run=412,
-            tests_failed=0,
-            coverage_delta=1.2,
-            lint="ok",
-            typecheck="ok",
-            security_scan="ok",
+            facts={
+                "tests_passed": True,
+                "tests_run": 412,
+                "tests_failed": 0,
+                "coverage_delta": 1.2,
+                "lint": "ok",
+                "typecheck": "ok",
+                "security_scan": "ok",
+            }
         ),
     }
     payload.update(kwargs)

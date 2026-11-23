@@ -85,13 +85,15 @@ attempts:
 scope:
   auto_grant_max_files: 3
   deny_paths: [".choregos/**", ".github/workflows/**", "deploy/**"]
-  max_diff_files: 60
-  max_diff_lines: 3000
 sandbox:
   deny_commands: [kubectl, "terraform apply", "git push --force", sudo]
   network:
     allow_domains: [github.com, pypi.org, files.pythonhosted.org]
     deny_by_default: true
+delivery:            # the software-delivery plugin's section: diff bounds, merge rule, release trains
+  scope:
+    max_diff_files: 60
+    max_diff_lines: 3000
 ```
 
 What each part does:

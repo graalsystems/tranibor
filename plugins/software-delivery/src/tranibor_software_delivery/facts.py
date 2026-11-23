@@ -73,7 +73,9 @@ async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
         else scm_of(bundle.adapters)
     )
     branch = (branch_of(result.artifacts) if result else None) or (
-        bundle.config.branch_for(item.tracker_key, repo=repo_config) if repo_config is not None else ""
+        bundle.config.delivery_section.branch_for(item.tracker_key, repo=repo_config)
+        if repo_config is not None
+        else ""
     )
     # The commit this evaluation judges (ADR 0171): the head of the branch, read once. Every read of
     # the branch below is a read of THAT commit, never of what the name designates by then.
@@ -177,9 +179,9 @@ async def judged(judgment: JudgedRequest) -> Mapping[str, Any] | None:
         head, branch = facts.head_sha, facts.branch or ""
     else:
         result = request.result
-        branch = (branch_of(result.artifacts) if result else None) or bundle.config.branch_for(
-            item.tracker_key, repo=repo_config
-        )
+        branch = (
+            branch_of(result.artifacts) if result else None
+        ) or bundle.config.delivery_section.branch_for(item.tracker_key, repo=repo_config)
         head, _ = await head_of(scm, repo_config, branch)
     if head is None:
         return None
@@ -217,13 +219,13 @@ async def _pull_request_state(
 
 
 def _run_cloned(run: Any) -> bool:
-    """Whether the run cloned the repository: `False` only for a recorded `repo: null` (ADR 0119)."""
+    """Whether the run cloned the repository: its stage input's `delivery.repo` (ADR 0119, ADR 0181 C2).
+    A run not prepared yet is assumed to."""
     stage_input = (run.stage_input if run is not None else None) or {}
-    if "repo" in stage_input:
-        return stage_input["repo"] is not None
-    # A stage input written with its `delivery` section alone (ADR 0181 C2).
+    if not stage_input:
+        return True
     section = stage_input.get("delivery")
-    return not isinstance(section, dict) or section.get("repo") is not None
+    return isinstance(section, dict) and section.get("repo") is not None
 
 
 def empty_diff_of_unchanged_run(

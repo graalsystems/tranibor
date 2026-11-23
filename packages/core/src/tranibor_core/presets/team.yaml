@@ -22,15 +22,13 @@ budgets:
   alert_at_ratio: 0.8
 # No `approvals` here: nobody applies them (ADR 0044). A human who approves is declared
 # in the WORKFLOW (a human actor on a transition, `train.approval`); prod stays approved
-# by `release_train.prod.approval`, which the train applies.
+# by `delivery.release_train.prod.approval`, which the train applies.
 attempts:
   by_role: { implement: 3, fix_ci: 3, address_review: 3 }
   dod_iterations: 3
 scope:
   auto_grant_max_files: 2
   deny_paths: [".choregos/**", ".github/workflows/**", "charts/**", "infra/**", "deploy/**"]
-  max_diff_files: 60
-  max_diff_lines: 3000
 sandbox:
   runtime: gvisor
   deny_commands: [kubectl, "terraform apply", "git push --force", sudo, "helm upgrade"]
@@ -53,29 +51,34 @@ memory:
   read_timeout_ms: 300
 review:
   cross_backend: true
-release_train:
-  dev: { mode: auto_sync }
-  staging:
-    mode: train
-    schedule: "*/30 9-19 * * 1-5"
-    batch_max: 10
-    soak_minutes: 10
-  prod:
-    mode: train
-    schedule: "0 10,14,17 * * 1-4"
-    timezone: Europe/Paris
-    windows: ["Mon-Thu 09:00-18:00"]
-    batch_min: 1
-    batch_max: 8
-    soak_minutes: 20
-    approval: { group: release-captains, required: true, timeout_hours: 4 }
-    canary: { steps: [10, 50, 100], analysis: slo-default, step_minutes: [10, 15, 0] }
-    express_lane:
-      label: hotfix
-      soak_minutes: 5
-      skip_schedule: true
-      approval: { group: release-captains, required: true }
-    freeze: false
-    auto_rollback: true
-    freeze_on_rollback: true
-    terraform: { via: atlantis, apply_requires_approval: true }
+# The software-delivery plugin's section (ADR 0181 C2): diff bounds, merge approval, trains.
+delivery:
+  scope:
+    max_diff_files: 60
+    max_diff_lines: 3000
+  release_train:
+    dev: { mode: auto_sync }
+    staging:
+      mode: train
+      schedule: "*/30 9-19 * * 1-5"
+      batch_max: 10
+      soak_minutes: 10
+    prod:
+      mode: train
+      schedule: "0 10,14,17 * * 1-4"
+      timezone: Europe/Paris
+      windows: ["Mon-Thu 09:00-18:00"]
+      batch_min: 1
+      batch_max: 8
+      soak_minutes: 20
+      approval: { group: release-captains, required: true, timeout_hours: 4 }
+      canary: { steps: [10, 50, 100], analysis: slo-default, step_minutes: [10, 15, 0] }
+      express_lane:
+        label: hotfix
+        soak_minutes: 5
+        skip_schedule: true
+        approval: { group: release-captains, required: true }
+      freeze: false
+      auto_rollback: true
+      freeze_on_rollback: true
+      terraform: { via: atlantis, apply_requires_approval: true }

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def no_repository(stage_input: StageInput) -> StageInput:
-    return stage_input.model_copy(update={"repo": None})
+    return stage_input.model_copy(update={"delivery": None})
 
 
 async def test_the_workspace_is_an_empty_versioned_directory(
@@ -55,7 +55,7 @@ async def test_what_the_agent_writes_is_seen_as_added(no_repository: StageInput,
 
 
 async def test_the_contract_accepts_a_step_without_a_repository(no_repository: StageInput) -> None:
-    """And the contract says so: `repo` is absent, not filled with a fake repository."""
+    """And the contract says so: the `delivery` section is absent, not filled with a fake repository."""
     dump = no_repository.model_dump(mode="json", by_alias=True, exclude_none=True)
-    assert "repo" not in dump
-    assert StageInput.model_validate(dump).repo is None
+    assert "delivery" not in dump and "repo" not in dump
+    assert StageInput.model_validate(dump).delivery is None

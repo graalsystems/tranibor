@@ -304,8 +304,7 @@ OUTPUT_CONTRACT = """Write `.choregos/result.json` — exactly this shape (the r
   "summary": "one sentence that says what was done",
   "outputs": { "<output name declared by the transition>": "text (Markdown)" },
   "evidence": {
-    "tests_passed": true, "tests_run": 0,
-    "facts": { "<fact named by the playbook>": 3, "<another>": true }
+    "facts": { "tests_passed": true, "tests_run": 0, "<fact named by the playbook>": 3, "<another>": true }
   },
   "findings": [
     { "title": "…", "type": "bug | perf | security | tech-debt | docs | flaky-test | ux",

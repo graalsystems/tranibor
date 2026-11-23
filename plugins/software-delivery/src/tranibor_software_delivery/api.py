@@ -66,7 +66,7 @@ async def diff(id: str, session: Db, principal: Me) -> DiffSummaryDto:
     ]
     return DiffSummaryDto(
         base=reports.get("base"),
-        head=(result.get("artifacts") or {}).get("branch"),
+        head=(((result.get("artifacts") or {}).get("delivery")) or {}).get("branch"),
         files=files,
         additions=sum(f.additions for f in files),
         deletions=sum(f.deletions for f in files),

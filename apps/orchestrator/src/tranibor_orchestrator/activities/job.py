@@ -25,12 +25,12 @@ from tranibor_contracts import (
     ModelRef,
     PlaybookRef,
     ProjectRef,
-    RepoRef,
     StageInput,
     TransitionRef,
     WorkItemLinks,
     WorkItemRef,
 )
+from tranibor_contracts.delivery import Repository, stage_section
 from tranibor_core import telemetry, utcnow
 from tranibor_core.redaction import REDACTED
 
@@ -94,9 +94,6 @@ async def prepare_job(
         project=ProjectRef(
             slug=bundle.slug,
             org=bundle.org_slug,
-            test_command=depot.test_command if depot else "",
-            lint_command=depot.lint_command if depot else "",
-            typecheck_command=depot.typecheck_command if depot else "",
             fact_commands=dict(bundle.config.dod.facts),
         ),
         work_item=WorkItemRef(
@@ -109,7 +106,7 @@ async def prepare_job(
             links=WorkItemLinks(
                 spec_comment=documents.get("spec_comment"),
                 plan_comment=documents.get("plan_comment"),
-                pr=item.pr_url,
+                change_request=item.pr_url,
             ),
         ),
         transition=TransitionRef(
@@ -122,14 +119,18 @@ async def prepare_job(
             output_types=plan.output_types or {},
             artifact_displays=await declared_artifact_displays(session, item, plan.outputs or []),
         ),
-        repo=RepoRef(
-            url=depot.url,
-            base_branch=depot.default_branch,
-            work_branch=bundle.config.branch_for(item.tracker_key, repo=depot),
-            clone_depth=depot.clone_depth,
-        )
-        if depot
-        else None,
+        # The repository and its commands: the software-delivery plugin's section (ADR 0181 C2).
+        delivery=stage_section(
+            Repository(
+                url=depot.url,
+                base_branch=depot.default_branch,
+                work_branch=bundle.config.delivery_section.branch_for(item.tracker_key, repo=depot),
+                clone_depth=depot.clone_depth,
+            )
+            if depot
+            else None,
+            depot,
+        ),
         agent=AgentRef(backend=JOB_BACKEND),
         model=NO_MODEL,
         gateway_key=None,

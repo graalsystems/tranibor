@@ -5,13 +5,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, computed_field, field_validator, model_validator
+from pydantic import AfterValidator, Field, field_validator, model_validator
 
-from . import delivery as _delivery
+from . import recorded as _recorded
 from .artifact import ARTIFACT_TYPES, ArtifactDisplay
+from .delivery import ResultDelivery, StageDelivery
 from .enums import ApiFormat, Severity, StageStatus
 from .open_lists import FINDING_TYPES
-from .window import DELIVERY_EVIDENCE, FORMER_CHANGE_REQUEST_LINK
 from .workflow import Strict
 
 STAGE_INPUT_SCHEMA = "choregos/StageInput/v1"
@@ -48,9 +48,6 @@ def missing_outputs(
 class ProjectRef(Strict):
     slug: str
     org: str
-    test_command: str | None = None
-    lint_command: str | None = None
-    typecheck_command: str | None = None
     #: {fact name: command}. Exit code 0 = true. The runner executes them and the MEASURED fact
     #: overwrites the one the agent declared: this is what separates a guarantee from a story.
     fact_commands: dict[str, str] = Field(default_factory=dict)
@@ -59,15 +56,18 @@ class ProjectRef(Strict):
 class WorkItemLinks(Strict):
     spec_comment: str | None = None
     plan_comment: str | None = None
-    pr: str | None = None
-    #: The change request the work item is on (ADR 0181 C2): the successor of `pr`, which a reader takes
-    #: as a fallback until the window list removes it (`change_request_url()`).
+    #: The change request the work item is on (ADR 0181 C2).
     change_request: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _recorded(cls, data: Any) -> Any:
+        """A recorded stage input's former link (`tranibor_contracts.recorded`)."""
+        return _recorded.fold_work_item_links(data)
+
     def change_request_url(self) -> str | None:
-        """The change request's link, under either name."""
-        former = getattr(self, FORMER_CHANGE_REQUEST_LINK)
-        return self.change_request or (str(former) if former else None)
+        """The change request's link."""
+        return self.change_request
 
 
 class WorkItemRef(Strict):
@@ -98,13 +98,6 @@ class TransitionRef(Strict):
     def file_outputs(self) -> list[str]:
         """The declared outputs that are files, not values of `outputs`."""
         return file_outputs(self.outputs, self.output_types)
-
-
-class RepoRef(Strict):
-    url: str
-    base_branch: str
-    work_branch: str
-    clone_depth: int = Field(default=50, ge=1)
 
 
 class LaunchSpec(Strict):
@@ -401,10 +394,9 @@ class StageInput(Strict):
     project: ProjectRef
     work_item: WorkItemRef
     transition: TransitionRef
-    #: The repository the stage works on. **Absent** for a project without a repository: the
-    #: runner then prepares an empty directory, clones nothing, pushes nothing, and the
-    #: guarantees that read a diff refuse for lack of matter (ADR 0012, limit no. 1).
-    repo: RepoRef | None = None
+    #: The `software-delivery` plugin's section (ADR 0181 C2): the repository the stage works on and the
+    #: project's commands. **Absent** for a project without software.
+    delivery: StageDelivery | None = None
     agent: AgentRef
     model: ModelRef
     gateway_key: str | None = None
@@ -438,15 +430,9 @@ class StageInput(Strict):
 
     @model_validator(mode="before")
     @classmethod
-    def _read_either_form(cls, data: Any) -> Any:
-        return _delivery.read_stage_input(data)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def delivery(self) -> _delivery.StageDelivery | None:
-        """The `software-delivery` plugin's section (ADR 0181 C2): the repository and the project's
-        commands, derived from the former fields during their window and written beside them."""
-        return _delivery.stage_section(self)
+    def _recorded(cls, data: Any) -> Any:
+        """A recorded stage input's former fields (`tranibor_contracts.recorded`)."""
+        return _recorded.fold_stage_input(data)
 
     @model_validator(mode="after")
     def _one_kind_of_step(self) -> StageInput:
@@ -503,10 +489,8 @@ class Link(Strict):
 
 
 class Artifacts(Strict):
-    branch: str | None = None
-    commits: list[str] = Field(default_factory=list)
-    #: The former name of the `change_request` link, read until the release `window.WINDOW` names.
-    pr_url: str | None = None
+    #: The `software-delivery` plugin's section (ADR 0181 C2): the branch the step pushed, its commits.
+    delivery: ResultDelivery | None = None
     #: Where the step's work can be seen, by relation (ADR 0181 C1).
     links: list[Link] = Field(default_factory=list, max_length=20)
     transcript_url: str | None = None
@@ -517,15 +501,9 @@ class Artifacts(Strict):
 
     @model_validator(mode="before")
     @classmethod
-    def _read_either_form(cls, data: Any) -> Any:
-        return _delivery.read_artifacts(data)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def delivery(self) -> _delivery.ResultDelivery | None:
-        """The `software-delivery` plugin's section (ADR 0181 C2): the branch and the commits, derived
-        from the former fields during their window and written beside them."""
-        return _delivery.result_section(self)
+    def _recorded(cls, data: Any) -> Any:
+        """A recorded stage result's former fields (`tranibor_contracts.recorded`)."""
+        return _recorded.fold_artifacts(data)
 
     def link(self, rel: str) -> str | None:
         """The URL of the first link of this relation, if any."""
@@ -533,70 +511,35 @@ class Artifacts(Strict):
 
 
 class Evidence(Strict):
-    """The proofs of a stage. The named fields speak of software; `facts` does not.
+    """The proofs of a stage, as named facts.
 
-    `Evidence` refuses unknown fields: a typo in `tests_run` must show. But a processed case file,
-    a profile shortlist or a letter have neither tests nor coverage, and until 2026-09-24 had
-    **nowhere** to record anything: the contract rejected their proofs. `facts` is that place,
-    a dictionary of simple values, named by the trade, that the `evidence_facts` guarantee
-    reads. Simple on purpose: a number, a boolean, a date or a word can be checked; a free
-    object would become prose again.
+    A processed case file, a profile shortlist, a letter or a change to a repository each have their
+    own proofs: `facts` is where they go, a dictionary of simple values, named by the trade, that the
+    `evidence_facts` guarantee reads. Simple on purpose: a number, a boolean, a date or a word can be
+    checked; a free object would become prose again. The software-delivery plugin's are named facts too
+    (`tranibor_contracts.delivery.EVIDENCE_FACTS`, ADR 0181 C2).
     """
 
     facts: dict[str, str | int | float | bool] | None = None
-    tests_passed: bool | None = None
-    tests_run: int | None = None
-    tests_failed: int | None = None
-    coverage_delta: float | None = None
-    lint: Literal["ok", "failed", "skipped"] | None = None
-    typecheck: Literal["ok", "failed", "skipped"] | None = None
-    security_scan: Literal["ok", "failed", "skipped"] | None = None
-    diff_files: int | None = None
-    diff_lines: int | None = None
-    #: What the platform measured itself (ADR 0045): the names of the fields it executed or
-    #: computed, and `facts.<name>` for a fact a command measured. The runner writes it, never
-    #: the agent: `merge_evidence` overwrites what an agent would put there. A field absent from
-    #: the list comes from the agent's story; `None`: a runner too old to say.
+    #: What the platform measured itself (ADR 0045): `facts.<name>` for a fact a command measured. The
+    #: runner writes it, never the agent: `merge_evidence` overwrites what an agent would put there. A
+    #: fact absent from the list comes from the agent's story; `None`: a runner too old to say.
     measured: list[str] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _recorded(cls, data: Any) -> Any:
+        """A recorded or an agent's evidence written with the former fields
+        (`tranibor_contracts.recorded`)."""
+        return _recorded.fold_evidence(data)
+
     def value(self, name: str) -> str | int | float | bool | None:
-        """A proof by name: the named fact first, else the field of the same name (ADR 0181 C2, where a
-        stage result's software evidence becomes named facts; the runner writes both for one window)."""
-        if self.facts and name in self.facts:
-            return self.facts[name]
-        found = getattr(self, name, None) if name in DELIVERY_EVIDENCE else None
-        return found if isinstance(found, str | int | float | bool) else None
+        """A proof by name: the named fact."""
+        return self.facts.get(name) if self.facts else None
 
     def is_measured(self, name: str) -> bool:
-        """Whether the platform measured that proof, under either form (`measured`, ADR 0045)."""
-        measured = set(self.measured or [])
-        return name in measured or f"facts.{name}" in measured
-
-    def with_facts(self) -> Evidence:
-        """The same evidence, each field of `DELIVERY_EVIDENCE` that holds a value also written as the
-        named fact (and `facts.<name>` measured when the field is): what the runner returns during the
-        window (ADR 0181 C2). The field wins over a fact of the same name the agent wrote."""
-        data = self.model_dump()
-        facts = dict(data.get("facts") or {})
-        measured = set(data.get("measured") or []) if data.get("measured") is not None else None
-        for name in DELIVERY_EVIDENCE:
-            found = data.get(name)
-            if found is None:
-                continue
-            facts[name] = found
-            if measured is not None:
-                if name in measured:
-                    measured.add(f"facts.{name}")
-                else:
-                    measured.discard(f"facts.{name}")
-        data["facts"] = facts or None
-        if measured is not None:
-            data["measured"] = sorted(measured)
-        return Evidence.model_validate(data)
-
-    def is_complete(self) -> bool:
-        """Minimal proofs expected by the `evidence_present` gate."""
-        return self.value("tests_passed") is not None and self.value("tests_run") is not None
+        """Whether the platform measured that proof (`facts.<name>` in `measured`, ADR 0045)."""
+        return f"facts.{name}" in (self.measured or [])
 
 
 class Diagnostics(Strict):

@@ -28,11 +28,13 @@ async def make_project(client: AsyncClient, slug: str) -> dict[str, Any]:
             "config": {
                 "slug": slug,
                 "org": "northwind",
-                "repo": {
-                    "url": f"https://github.com/northwind/{slug}.git",
-                    "default_branch": "main",
-                    "language": "python",
-                    "test_command": "make test",
+                "delivery": {
+                    "repo": {
+                        "url": f"https://github.com/northwind/{slug}.git",
+                        "default_branch": "main",
+                        "language": "python",
+                        "test_command": "make test",
+                    }
                 },
             },
         },

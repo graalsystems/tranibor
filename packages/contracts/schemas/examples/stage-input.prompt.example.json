@@ -5,8 +5,7 @@
   "trace_parent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
   "project": {
     "slug": "billing-api",
-    "org": "acme",
-    "test_command": "make test"
+    "org": "acme"
   },
   "work_item": {
     "key": "acme/billing-api#123",
@@ -18,7 +17,7 @@
     "links": {
       "spec_comment": "https://github.com/acme/billing-api/issues/123#issuecomment-1",
       "plan_comment": null,
-      "pr": null
+      "change_request": null
     }
   },
   "transition": {
@@ -35,11 +34,16 @@
       "allowed_paths"
     ]
   },
-  "repo": {
-    "url": "https://github.com/acme/billing-api.git",
-    "base_branch": "main",
-    "work_branch": "choregos/123-avoirs-total",
-    "clone_depth": 50
+  "delivery": {
+    "repo": {
+      "url": "https://github.com/acme/billing-api.git",
+      "base_branch": "main",
+      "work_branch": "choregos/123-avoirs-total",
+      "clone_depth": 50
+    },
+    "commands": {
+      "test": "make test"
+    }
   },
   "agent": {
     "backend": "prompt",
