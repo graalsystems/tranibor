@@ -23,21 +23,24 @@ HISTORY = (
     "plugins/offline/",  # the archives and the lock record the index and identity that signed them
 )
 
-#: Files: the old source name, and the references to the frozen namespace `ghcr.io/vargafoundation`
-#: (its packages were deleted on 2026-11-21) that have no graalsystems equivalent yet.
+#: Files that still spell the name: the old source name, and the guards of the deleted frozen namespace.
 ALLOWED = {
     "tests/licences/test_no_varga.py": "this guard",
     "packages/core/src/tranibor_core/plugins/sources.py": "resolves the old default source name",
     "packages/core/tests/test_plugin_sources.py": "tests that the old default source name resolves",
     "apps/api/tests/test_default_plugin_source_migration.py": "tests the rename of the old source name",
-    "infra/bootstrap/gvisor.yaml": "the gVisor installer has no graalsystems equivalent; nothing builds it",
-    ".github/workflows/code-agent-examples.yml": "pins a runner image of the deleted namespace, to repoint",
-    "examples/agents/langgraph/Dockerfile": "pins a runner image of the deleted namespace, to repoint",
-    "examples/agents/openai-agents/Dockerfile": "pins a runner image of the deleted namespace, to repoint",
-    "examples/agents/plain/Dockerfile": "pins a runner image of the deleted namespace, to repoint",
-    "examples/agents/pydantic-ai/Dockerfile": "pins a runner image of the deleted namespace, to repoint",
     "tests/charts/test_no_frozen_namespace_in_policies.py": "guards: no policy names the deleted namespace",
     "apps/api/tests/test_catalogue_provenance_migration.py": "an old migration records the old source name",
+}
+
+
+#: The registry namespace deleted on 2026-11-21: no manifest, workflow, Dockerfile or chart may pull from it.
+FROZEN_NAMESPACE = re.compile(r"ghcr\.io/vargafoundation", re.IGNORECASE)
+
+#: Files that name the namespace on purpose: the guards that keep it out.
+NAMES_THE_NAMESPACE = {
+    "tests/licences/test_no_varga.py",
+    "tests/charts/test_no_frozen_namespace_in_policies.py",
 }
 
 
@@ -80,3 +83,34 @@ def test_the_guard_sees_a_file_that_names_the_foundation(tmp_path: pathlib.Path)
     """Red without the check: the pattern matches the spellings the product used."""
     for text in ("Varga Foundation", "VargaFoundation/choregos", "docs.varga.foundation", "@varga.dev"):
         assert VARGA.search(text), text
+
+
+def test_nothing_pulls_from_the_deleted_registry_namespace() -> None:
+    """Red when a manifest, workflow, Dockerfile, chart or policy points at `ghcr.io/vargafoundation` again:
+    every package there was deleted on 2026-11-21 (only the ADRs and the plan, which are history, say so)."""
+    offenders = []
+    for name in _tracked():
+        if name.startswith(HISTORY) or name in NAMES_THE_NAMESPACE:
+            continue
+        try:
+            text = (ROOT / name).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+            continue
+        if FROZEN_NAMESPACE.search(text):
+            offenders.append(name)
+    assert offenders == [], "points at the deleted ghcr.io/vargafoundation namespace: " + ", ".join(offenders)
+
+
+def test_the_guard_of_the_namespace_matches_its_spellings() -> None:
+    for text in ("ghcr.io/vargafoundation/choregos-runner:0.17.15", "GHCR.IO/VargaFoundation/x"):
+        assert FROZEN_NAMESPACE.search(text), text
+    assert not FROZEN_NAMESPACE.search("registry.example.org/exampleorg/runner:1")
+
+
+def test_the_gvisor_installer_image_is_supplied_by_the_operator() -> None:
+    """No image of the installer is built here: the manifest names a placeholder the operator overrides
+    (kustomize `images:`), and says so, rather than pointing at a registry nobody publishes to."""
+    manifest = (ROOT / "infra/bootstrap/gvisor.yaml").read_text(encoding="utf-8")
+    assert "image: gvisor-installer:operator-supplied" in manifest
+    assert "kustomize `images:` override" in manifest
+    assert "ghcr.io/" not in manifest.replace("registry.k8s.io", "")
