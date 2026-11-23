@@ -330,13 +330,17 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
     now = utcnow()
     if not await _take_the_slot(session, caller, body, holder, now):
         raise await _conflict(session, caller, now)
-    # From here the request holds nothing: no transaction, no pooled connection (ADR 0148 §7).
-    await release_connection(session)
-    loop = asyncio.get_running_loop()
-    until = loop.time() + body.wait_s * (1 - random.uniform(0, JITTER))  # noqa: S311 - jitter, not a secret
     found = _Look()
-    gone = asyncio.ensure_future(_gone(request))
+    gone: asyncio.Future[None] | None = None
+    # The slot is taken from here: whatever cuts the request short from now on, the commit that
+    # makes the slot visible included (a cut during the pool's reset of the connection left it to
+    # lapse, and the instance's next polls were refused until it did), gives it back.
     try:
+        # From here the request holds nothing: no transaction, no pooled connection (ADR 0148 §7).
+        await release_connection(session)
+        loop = asyncio.get_running_loop()
+        until = loop.time() + body.wait_s * (1 - random.uniform(0, JITTER))  # noqa: S311 - jitter, not a secret
+        gone = asyncio.ensure_future(_gone(request))
         with rendezvous.waiters().on(rendezvous.calls_key(caller.outpost.id)) as woken:
             first = True
             while not gone.done():
@@ -348,7 +352,8 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
                     break
                 await _pause(woken, gone, min(remaining, random.uniform(*rendezvous.LOOK_S)))  # noqa: S311
     finally:
-        gone.cancel()
+        if gone is not None:
+            gone.cancel()
         # Whatever ends the poll, an answer, a client that went away or a request cut short, the slot is
         # given back; shielded, so that a cancellation does not leave it to lapse.
         with contextlib.suppress(Exception):
