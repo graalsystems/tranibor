@@ -133,14 +133,16 @@ def test_a_value_is_one_plugin_s_and_matches_the_pattern(plugin: str) -> None:
         MEMORY_KINDS.declare("runbook", plugin="other")
     with pytest.raises(ValueError, match="must match"):
         INBOUND_EVENT_TYPES.declare("Incident Opened", plugin=plugin)
-    # A plugin may take over a value of the core (what C2 does with `scm.pr.opened`): still valid. The
-    # suite registers `software-delivery`, which took that one over: another plugin cannot.
+    # A plugin may take over a value of the core (what C2 does with `scm.pr.opened`, pinned in the
+    # `software-delivery` plugin's suite, `tests/core/test_core_seams.py`): still valid. Another plugin
+    # cannot take it from it.
     INBOUND_EVENT_TYPES.declare("alert.fired", plugin=plugin)
-    with pytest.raises(ValueError, match="already declared by the plugin `software-delivery`"):
-        INBOUND_EVENT_TYPES.declare("scm.pr.opened", plugin=plugin)
+    assert INBOUND_EVENT_TYPES.plugin_of("alert.fired") == plugin
+    with pytest.raises(ValueError, match="already declared by the plugin `itsm`"):
+        INBOUND_EVENT_TYPES.declare("alert.fired", plugin="other")
     assert (
-        InboundEvent(type="scm.pr.opened", source="github", delivery_id="d").type
-        is InboundEventType.PR_OPENED
+        InboundEvent(type="alert.fired", source="alertmanager", delivery_id="d").type
+        is InboundEventType.ALERT_FIRED
     )
 
 
