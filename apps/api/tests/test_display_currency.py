@@ -14,7 +14,7 @@ import pytest
 from httpx import AsyncClient
 from tranibor_api.display_currency import ISO_4217, read
 
-from .test_cost_groupings import _seed
+from .kits.cost_ledger import seed_cost_ledger
 
 ORG = "/api/v1/orgs/northwind"
 
@@ -29,7 +29,7 @@ async def _declare(client: AsyncClient, code: str = "MXN", rate: float = 17.5) -
 async def test_an_organisation_in_pesos_gets_converted_amounts_and_the_usd_ones_unchanged(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    await _seed(project["id"])
+    await seed_cost_ledger(project["id"])
     before = (await client.get(f"{ORG}/costs", params={"group_by": "agent"})).json()
     declared = await _declare(client)
     assert (declared["currency"], declared["fx_rate"]) == ("MXN", 17.5)
@@ -60,7 +60,7 @@ async def test_an_organisation_in_pesos_gets_converted_amounts_and_the_usd_ones_
 async def test_the_csv_carries_the_converted_column_and_says_how_it_was_converted(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    await _seed(project["id"])
+    await seed_cost_ledger(project["id"])
     declared = await _declare(client)
     text = (await client.get(f"{ORG}/costs.csv", params={"group_by": "agent"})).text.lstrip("﻿")
     rows = list(csv.reader(io.StringIO(text), delimiter=";"))
@@ -73,7 +73,7 @@ async def test_the_csv_carries_the_converted_column_and_says_how_it_was_converte
 
 
 async def test_a_ledger_currency_has_no_converted_note(client: AsyncClient, project: dict[str, Any]) -> None:
-    await _seed(project["id"])
+    await seed_cost_ledger(project["id"])
     report = (await client.get(f"{ORG}/costs")).json()
     assert report["currency"] == "EUR" and report["fx"] == {"declared": False, "rate": None, "set_on": None}
     assert report["total"]["cost_display"] == report["total"]["cost_eur"] == 3.5

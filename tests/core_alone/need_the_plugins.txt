@@ -1,3 +1,4 @@
 # The files of the core suite that still need a first-party plugin extension (ADR 0181, round D).
 # The nightly core-without-plugins job ignores them; tests/core_alone/test_need_the_plugins_list.py
 # holds the ceiling. A file leaves the list once it passes without the plugins; none is added.
+# Empty since S83-05n (2026-11-23): every file of the core's suite passes without the plugins' extensions.
