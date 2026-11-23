@@ -4,10 +4,19 @@
     uv run python tools/procedures/export_docs.py            # writes docs/procedures/
     uv run python tools/procedures/export_docs.py --check    # fails if docs/procedures/ diverges
     uv run python tools/procedures/export_docs.py --mocks apps/web/src/mocks/procedures.json
+    uv run python tools/procedures/export_docs.py --site website/docs/connectors \
+        [--plugins <checkout of the plugins repository>/plugins] [--plugins-ref <commit>]
 
 The app serves the same files with this deployment's URLs filled in; here the placeholders are
 shown as `<api_url>`, `<public_url>` and `<org>`, so the documentation cannot drift from the app.
 `--mocks` writes the console's mock data (the API's `Procedure` shape, example URLs).
+
+`--site` writes the documentation site's connector pages (ADR 0213): one page per procedure, the
+platform's grouped by connector kind (then knowledge sources, MCP-door clients and external agents),
+and, with `--plugins`, one group per plugin of that directory (`<plugin>/plugin.yaml` and the files its
+`contents.procedures` patterns match), each page naming its plugin and linking its source at
+`--plugins-ref`. Those pages are built, never committed: `docs/site/connectors/index.md` is the
+section's hand-written page, and the build writes the rest beside it.
 """
 
 from __future__ import annotations
@@ -15,10 +24,14 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
+from dataclasses import dataclass
 from typing import Any
 
+import yaml
 from tranibor_core import procedures as core
+from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TARGET = ROOT / "docs" / "procedures"
@@ -167,13 +180,343 @@ def write(target: pathlib.Path = TARGET) -> int:
     return len(wanted)
 
 
+# ───────────────────────────── the documentation site (ADR 0213) ─────────────────────────────
+
+#: Where the platform's procedures live in its repository, for a page's "Edit this page".
+SHIPPED_IN_REPOSITORY = "packages/core/src/tranibor_core/procedures"
+#: The sidebar label of each connector kind, plural, as a person names the systems.
+KIND_LABELS = {
+    "access_control": "Physical access",
+    "cd": "Deployment (CD)",
+    "ci": "CI pipelines",
+    "documents": "Documents",
+    "firewall": "Firewalls",
+    "forge_account": "Forge accounts",
+    "gateway": "Model gateways",
+    "identity": "Directories (identity)",
+    "marketdata": "Market data",
+    "mcp": "MCP servers",
+    "mdm": "Device fleets (MDM)",
+    "memory": "Memory",
+    "network_policy": "Network policies",
+    "notify": "Notifications",
+    "runtime": "Agent runtimes",
+    "scm": "Source code",
+    "shipping": "Carriers (shipping)",
+    "tracker": "Work trackers",
+    "web_search": "Web search",
+    "web_server": "Web servers",
+}
+#: The groups of what is not a connector: folder, sidebar label, what the target names.
+OTHER_AREAS = {
+    "source": ("knowledge-sources", "Knowledge sources", "the knowledge source kind"),
+    "door_client": ("mcp-door-clients", "Clients of the MCP door", "the MCP-door client"),
+    "agent": ("external-agents", "External agents", "the external agent kind"),
+}
+#: What a page's file prefix drops: `connector.ci.gitlab` is `ci/gitlab.md`, `agent.door.cursor` is
+#: `mcp-door-clients/cursor.md`.
+_ID_PREFIXES = {"source": ("source.",), "door_client": ("agent.door.", "door_client."), "agent": ("agent.",)}
+#: A git ref as `--plugins-ref` takes it (the import of the pages takes the same, `import-docs.mjs`).
+_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+_FENCE_LINE = re.compile(r"^\s*(```|~~~)")
+
+
+@dataclass(frozen=True, slots=True)
+class PluginProcedure:
+    """A procedure a plugin ships, with where it comes from."""
+
+    plugin: str
+    version: str
+    #: the plugin's folder in the plugins' repository, e.g. `servicenow`
+    folder: str
+    #: the file, relative to the plugin, e.g. `procedures/connector.mcp.servicenow.md`
+    ref: str
+    procedure: core.Procedure
+
+
+def plugin_procedures(plugins: pathlib.Path) -> list[PluginProcedure]:
+    """The procedures of every plugin under `plugins` (`<plugin>/plugin.yaml`), parsed by the ADR 0067
+    parser: what its `contents.procedures` patterns match, never a file that leaves the plugin."""
+    if not plugins.is_dir():
+        raise core.ProcedureError(f"{plugins}: not a directory of plugins")
+    found: list[PluginProcedure] = []
+    for root in sorted(p for p in plugins.iterdir() if (p / "plugin.yaml").is_file()):
+        manifest = yaml.safe_load((root / "plugin.yaml").read_text(encoding="utf-8")) or {}
+        metadata = manifest.get("metadata") or {}
+        name, version = str(metadata.get("name") or root.name), str(metadata.get("version") or "")
+        patterns = (manifest.get("contents") or {}).get("procedures") or []
+        inside = root.resolve()
+        files = sorted({path for pattern in patterns for path in root.glob(str(pattern)) if path.is_file()})
+        for path in files:
+            ref = path.relative_to(root).as_posix()
+            if path.is_symlink() or not path.resolve().is_relative_to(inside):
+                raise core.ProcedureError(f"{name}/{ref}: a procedure is a file of its plugin, not a link")
+            proc = core.parse(path.read_text(encoding="utf-8"), f"{name}/{ref}", origin=f"plugin:{name}")
+            found.append(PluginProcedure(name, version, root.name, ref, proc))
+    return found
+
+
+#: A bare address holding a placeholder (`https://<instance>.example.com`): Markdown makes the address a
+#: link up to the `<`, backslash included, so the `<` cannot be escaped there. It is written as code.
+_PLACEHOLDER_URL = re.compile(r"https?://[^\s`|]*<[^\s`|]*")
+_URL_TAIL = ".,;:!?)'\"*_"
+
+
+def _escape_plain(text: str) -> str:
+    """Prose without code: an address holding a placeholder becomes code, `<`, `{` and `}` are escaped."""
+    out: list[str] = []
+    at = 0
+    for match in _PLACEHOLDER_URL.finditer(text):
+        address = match.group(0).rstrip(_URL_TAIL)
+        out.append(re.sub(r"([<{}])", r"\\\1", text[at : match.start()]))
+        out.append(f"`{address}`")
+        at = match.start() + len(address)
+    out.append(re.sub(r"([<{}])", r"\\\1", text[at:]))
+    return "".join(out)
+
+
+def _escape_prose(text: str) -> str:
+    """`<`, `{` and `}` outside code, escaped: the site reads every page as MDX, where a bare `<` opens
+    a JSX tag and a bare `{` an expression (`<api_url>` would break the build). Code spans stay as
+    they are."""
+    out: list[str] = []
+    plain = 0
+    at = 0
+    while at < len(text):
+        if text[at] != "`":
+            at += 1
+            continue
+        run = len(text[at:]) - len(text[at:].lstrip("`"))
+        close = text.find("`" * run, at + run)
+        while close != -1 and text[close + run : close + run + 1] == "`":
+            close = text.find("`" * run, close + run + 1)
+        if close == -1:
+            at += run
+            continue
+        out.append(_escape_plain(text[plain:at]))
+        out.append(text[at : close + run])
+        at = plain = close + run
+    out.append(_escape_plain(text[plain:]))
+    return "".join(out)
+
+
+def mdx_safe(markdown: str) -> str:
+    """The Markdown of a procedure with its prose made safe for MDX; fenced code is left as it is."""
+    lines: list[str] = []
+    prose: list[str] = []
+    fence: str | None = None
+    for line in markdown.split("\n"):
+        marker = _FENCE_LINE.match(line)
+        if fence is None and marker:
+            if prose:
+                lines.append(_escape_prose("\n".join(prose)))
+            prose = []
+            fence = marker.group(1)
+            lines.append(line)
+        elif fence is not None:
+            lines.append(line)
+            if marker and marker.group(1) == fence:
+                fence = None
+        else:
+            prose.append(line)
+    if prose:
+        lines.append(_escape_prose("\n".join(prose)))
+    return "\n".join(lines)
+
+
+def _cell(text: str) -> str:
+    return mdx_safe(" ".join(text.split())).replace("|", "\\|")
+
+
+def _label(text: str) -> str:
+    """A link's text: a table cell's escaping, and its brackets."""
+    return _cell(text).replace("[", "\\[").replace("]", "\\]")
+
+
+def _page_name(proc: core.Procedure) -> str:
+    """A procedure's file on the site, without dots (a dot in a URL reads as a file extension)."""
+    area, value = proc.target
+    prefixes = (
+        (f"connector.{value.split('/', 1)[0]}.",) if area == "connector" else _ID_PREFIXES.get(area, ())
+    )
+    name = next(
+        (proc.id[len(p) :] for p in prefixes if proc.id.startswith(p) and len(proc.id) > len(p)), proc.id
+    )
+    return name.replace(".", "-")
+
+
+def _group_of(proc: core.Procedure) -> tuple[str, str]:
+    """The platform's group of a procedure: its folder and its sidebar label."""
+    area, value = proc.target
+    if area == "connector":
+        kind = value.split("/", 1)[0]
+        return kind.replace("_", "-"), KIND_LABELS.get(kind, kind.replace("_", " ").capitalize())
+    folder, label, _what = OTHER_AREAS[area]
+    return folder, label
+
+
+def _applies_to(proc: core.Procedure) -> str:
+    area, value = proc.target
+    what = "the connector type" if area == "connector" else OTHER_AREAS[area][2]
+    qualifiers = proc.qualifiers
+    extra = ""
+    if "preset" in qualifiers:
+        extra = f", for the catalogue preset `{qualifiers['preset']}`"
+    if "card_host" in qualifiers:
+        extra += f", for an agent card served by `{qualifiers['card_host']}`"
+    return f"It applies to {what} `{value}`{extra}."
+
+
+def _front_matter(values: dict[str, str]) -> str:
+    """YAML front matter; each value a JSON string, which YAML reads as it is."""
+    return (
+        "---\n" + "".join(f"{k}: {json.dumps(v, ensure_ascii=False)}\n" for k, v in values.items()) + "---\n"
+    )
+
+
+def render_site_page(
+    proc: core.Procedure, source: PluginProcedure | None = None, plugins_ref: str = "main"
+) -> str:
+    """One page of the site's connector section: Docusaurus front matter, then the procedure."""
+    front = proc.front
+    if source is None:
+        edit = f"{PUBLISHING.source_repository}/edit/main/{SHIPPED_IN_REPOSITORY}/{proc.id}.md"
+        origin = (
+            "It ships with the platform. In the console it opens with **How to set this up**, beside the "
+            "form that adds the connector and on the connector's settings."
+        )
+        what = "the platform's setup procedure"
+    else:
+        path = f"plugins/{source.folder}/{source.ref}"
+        edit = f"{PUBLISHING.plugin_repository}/edit/main/{path}"
+        origin = (
+            f"It ships with the plugin `{source.plugin}`"
+            + (f" {source.version}" if source.version else "")
+            + f": [its source]({PUBLISHING.plugin_repository}/blob/{plugins_ref}/{path}). "
+            "In the console, once the plugin is installed, it opens with **How to set this up** on the "
+            "connector of the plugin's server, and on Catalogue, **Plugins**."
+        )
+        what = f"the setup procedure of the plugin {source.plugin}"
+    description = (
+        f"{front.title}: {what}, with what to do at the vendor and in Tranibor, the permissions, "
+        "how to test it and what its failures mean."
+    )
+    lines = [_front_matter({"title": front.title, "description": description, "custom_edit_url": edit})]
+    lines.append(
+        f"For {AUDIENCE[front.audience]}. Procedure `{front.id}`, version {front.version}, reviewed "
+        f"{front.reviewed.isoformat()} against the vendor's own pages. {_applies_to(proc)}"
+    )
+    lines += ["", origin, ""]
+    lines.append(
+        "Addresses are written `<api_url>`, `<public_url>` and `<org>` here: the console shows the same text "
+        "with your deployment's own."
+    )
+    if front.link:
+        lines += ["", f"In the console this procedure is the page `{front.link}`."]
+    lines.append("")
+    for section in core.render(proc, DOCS_CONTEXT):
+        lines += [f"## {_escape_prose(section.title)}", "", mdx_safe(section.markdown), ""]
+    if front.fields:
+        lines += ["## Fields", "", "| Field | What to put in it |", "| :-- | :-- |"]
+        lines += [f"| `{name}` | {_cell(text)} |" for name, text in sorted(front.fields.items())]
+        lines.append("")
+    if front.egress:
+        lines += ["## Network egress", "", "Hosts the platform must be allowed to reach:", ""]
+        lines += [f"- `{host}`" for host in front.egress]
+        lines.append("")
+    if front.vendor_docs:
+        lines += ["## Vendor documentation", ""]
+        lines += [f"- [{_label(d.title)}]({d.url})" for d in front.vendor_docs]
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _category(label: str, position: int, folder: str, description: str) -> str:
+    data = {
+        "label": label,
+        "position": position,
+        "link": {"type": "generated-index", "slug": f"/connectors/{folder}", "description": description},
+    }
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_site(plugins: pathlib.Path | None = None, plugins_ref: str = "main") -> dict[str, str]:
+    """Relative path to content: every page of the site's connector section, and each group's
+    `_category_.json`. The platform's procedures only, never a deployment's additions; with `plugins`,
+    each plugin's too."""
+    if not _REF.match(plugins_ref):
+        raise ValueError(f"not a git ref: {plugins_ref}")
+    files: dict[str, str] = {}
+    groups: dict[str, tuple[str, str]] = {}
+    for proc in sorted(core.load().procedures.values(), key=lambda p: p.id):
+        folder, label = _group_of(proc)
+        groups[folder] = (label, "Setup procedures shipped with the platform.")
+        _add(files, f"{folder}/{_page_name(proc)}.md", render_site_page(proc))
+    others = [area[0] for area in OTHER_AREAS.values()]
+    ordered = sorted(
+        groups, key=lambda f: (1, others.index(f), "") if f in others else (0, 0, groups[f][0].lower())
+    )
+    shipped = list(plugin_procedures(plugins)) if plugins is not None else []
+    for source in shipped:
+        folder = f"plugin-{source.plugin}"
+        if folder not in groups:
+            groups[folder] = (f"Plugin {source.plugin}", f"Setup procedures of the plugin {source.plugin}.")
+            ordered.append(folder)
+        _add(
+            files,
+            f"{folder}/{_page_name(source.procedure)}.md",
+            render_site_page(source.procedure, source, plugins_ref),
+        )
+    for position, folder in enumerate(ordered, 1):
+        label, description = groups[folder]
+        files[f"{folder}/_category_.json"] = _category(label, position, folder, description)
+    return files
+
+
+def _add(files: dict[str, str], name: str, content: str) -> None:
+    if name in files:
+        raise core.ProcedureError(f"two procedures would be the same page of the site: {name}")
+    files[name] = content
+
+
+def write_site(target: pathlib.Path, plugins: pathlib.Path | None = None, plugins_ref: str = "main") -> int:
+    """Write the section's generated pages under `target`, beside its hand-written `index.md`, which it
+    never touches. Returns the number of pages written."""
+    files = render_site(plugins, plugins_ref)
+    for name, content in files.items():
+        path = target / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    return sum(name.endswith(".md") for name in files)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--check", action="store_true", help="fail if docs/procedures/ diverges")
     parser.add_argument("--mocks", metavar="PATH", help="write the console's mock data to PATH")
+    parser.add_argument("--site", metavar="DIR", help="write the documentation site's connector pages to DIR")
+    parser.add_argument(
+        "--plugins",
+        metavar="DIR",
+        help="with --site: the `plugins/` folder of a checkout of the plugins' repository",
+    )
+    parser.add_argument(
+        "--plugins-ref", metavar="REF", default="main", help="with --site: the ref its source links name"
+    )
     args = parser.parse_args(argv)
+    if args.plugins and not args.site:
+        parser.error("--plugins goes with --site")
+    if args.site:
+        plugins = pathlib.Path(args.plugins) if args.plugins else None
+        try:
+            count = write_site(pathlib.Path(args.site), plugins, args.plugins_ref)
+        except (core.ProcedureError, ValueError) as exc:
+            print(f"[procedures] {exc}", file=sys.stderr)
+            return 1
+        print(f"[procedures] wrote {count} pages in {args.site}")
+        return 0
     if args.mocks:
         path = pathlib.Path(args.mocks)
         path.parent.mkdir(parents=True, exist_ok=True)

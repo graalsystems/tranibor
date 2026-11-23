@@ -51,6 +51,7 @@ CONTRACT = [
     "use/knowledge",
     "use/connectors",
     "use/budgets-and-policies",
+    "connectors",
     "build/skills",
     "build/agents",
     "build/plugins",
@@ -65,7 +66,7 @@ CONTRACT = [
     "reference",
 ]
 #: The top-level sections, in sidebar order: a page (concepts, get-started) or a folder.
-SECTIONS = ["concepts", "get-started", "use", "build", "integrate", "cli", "host", "reference"]
+SECTIONS = ["concepts", "get-started", "use", "connectors", "build", "integrate", "cli", "host", "reference"]
 #: The sections S62-09b writes: tolerated while their folder holds no page.
 SECOND_HALF = {"build", "integrate", "cli", "host", "reference"}
 
