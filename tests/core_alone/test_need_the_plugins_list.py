@@ -17,7 +17,9 @@ LIST = pathlib.Path(__file__).with_name("need_the_plugins.txt")
 #: it was written (S83-05a, 2026-11-21: 2,632 tests); 116 since a project without a template gets a workflow
 #: the core runs (S83-05d: 469 tests); 115 once `make demo` is the plugin's (S83-05i); 91 once the
 #: software delivery tests run on the shared test kit in the plugin's own suite (S83-05l); 88 once core tests
-#: run on a workflow of the core's (`tranibor_testkit.workflows`, S83-05n).
+#: run on a workflow of the core's (`tranibor_testkit.workflows`, S83-05n); 0 once every file of the core's
+#: suite runs without the plugins, rewritten onto the core's workflows or moved to the plugins' suites
+#: (S83-05n, 2026-11-23). It stays 0: the nightly job runs the core's whole suite without the plugins.
 CEILING = 0
 
 
