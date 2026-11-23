@@ -62,7 +62,7 @@ spec:
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}
-          persistentVolumeClaim: { claimName: {{ .Values.persistence.existingClaim | default $name }} }
+          persistentVolumeClaim: { claimName: {{ include "choregos.memoryClaim" (dict "root" . "persistence" .Values.persistence) }} }
           {{- else }}
           emptyDir: {}
           {{- end }}
@@ -81,7 +81,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ $name }}
+  name: {{ include "choregos.memoryClaim" (dict "root" . "persistence" .Values.persistence) }}
   labels: {{- include "choregos.labels" . | nindent 4 }}
 spec:
   accessModes: [ReadWriteOnce]

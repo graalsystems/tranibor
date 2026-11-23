@@ -115,7 +115,7 @@ choregos-temporal:
 - A serious environment (`staging`, `prod`) refuses the embedded Temporal in `dev` mode only.
 - **Adopting what already runs.** `global.temporal.serviceName` keeps the Service name clients dial;
   `persistence.existingClaim` keeps the SQLite volume (the chart then renders no claim and never touches
-  it); `tls.serverSecretName`, `tls.clientSecretName` and `tls.certManager.namePrefix` keep the Secret and
+  it, and the scheduled backup and restore mount that claim too); `tls.serverSecretName`, `tls.clientSecretName` and `tls.certManager.namePrefix` keep the Secret and
   issuer names an earlier deployment created. Switching a running Temporal onto the chart is one
   Deployment replaced, never a database or a volume recreated: remove the old Deployment first (two
   SQLite writers corrupt the file), then let the chart's Deployment start on the same claim.
@@ -145,9 +145,9 @@ dependency, as they admit the embedded Temporal in `server` mode:
 - **The memory** needs `choregos-ecphoria.persistence.enabled=true` (the default): its DuckDB and SQLite
   files live on the chart's claim `<release>-ecphoria` or on the adopted `persistence.existingClaim`. Without
   it the pod writes to an emptyDir that a restart wipes, and the render is refused. The chart's scheduled
-  backup (`backup.enabled`) mounts the claim beside its owner, which only a single node guarantees, and
-  does not follow `persistence.existingClaim` yet (#2153): on a multi-node cluster, the operator's volume
-  snapshots back the memory up.
+  backup (`backup.enabled`) mounts the claim Ecphoria mounts, the adopted one included (S80-27), beside its
+  owner, which only a single node guarantees: on a multi-node cluster, the operator's volume snapshots back
+  the memory up.
 - Every other refusal stands: the embedded PostgreSQL, the Temporal in `dev` mode, `global.devSecrets`,
   `global.devLogin.enabled`, `demoFakes.enabled` and the fakes.
 
