@@ -7539,7 +7539,7 @@ components:
       required: [kind, type, status]
       properties:
         id: { type: string }
-        kind: { type: string, description: "a capability (ADR 0034): tracker, scm, ci, cd, runtime, memory, notify, gateway — or one a plugin type declares (identity, mcp…)" }
+        kind: { type: string, description: "a capability (ADR 0034): tracker, runtime, memory, notify, gateway — or one a plugin declares (scm, ci, cd, identity, mcp…)" }
         type: { type: string }
         config: { type: object, additionalProperties: true }
         secret_ref: { type: [string, "null"] }

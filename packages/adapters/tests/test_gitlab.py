@@ -214,6 +214,7 @@ def test_an_added_label_is_recognised() -> None:
     assert events[0].payload["label"] == "agent-ready"
 
 
+@pytest.mark.usefixtures("forge_types")
 def test_a_merged_merge_request_comes_up() -> None:
     events = parse_gitlab_event(
         "Merge Request Hook",
@@ -231,11 +232,12 @@ def test_a_merged_merge_request_comes_up() -> None:
             },
         ),
     )
-    assert events[0].type is InboundEventType.PR_MERGED
+    assert events[0].type == "scm.pr.merged"
     assert events[0].work_item_key == f"{PROJECT}#12", "the branch designates the ticket"
     assert events[0].payload["sha"] == "abc123"
 
 
+@pytest.mark.usefixtures("forge_types")
 def test_a_failed_pipeline_comes_up_as_ci() -> None:
     events = parse_gitlab_event(
         "Pipeline Hook",
@@ -250,8 +252,18 @@ def test_a_failed_pipeline_comes_up_as_ci() -> None:
             },
         ),
     )
-    assert events[0].type is InboundEventType.CI_FAILED
+    assert events[0].type == "ci.run.failed"
     assert events[0].payload["pipeline_id"] == 77
+
+
+@pytest.mark.usefixtures("no_forge_types")
+def test_without_the_software_delivery_plugin_a_merge_request_or_a_pipeline_is_not_delivered() -> None:
+    merged = {"iid": 4, "action": "merge", "state": "merged", "source_branch": "choregos/12-avoirs"}
+    request = _payload(object_kind="merge_request", object_attributes=merged)
+    assert parse_gitlab_event("Merge Request Hook", "u", request) == []
+    failed = {"id": 77, "status": "failed", "ref": "choregos/12-avoirs", "sha": "abc123"}
+    pipeline = _payload(object_kind="pipeline", object_attributes=failed)
+    assert parse_gitlab_event("Pipeline Hook", "u", pipeline) == []
 
 
 def test_a_command_in_a_note_becomes_a_decision() -> None:

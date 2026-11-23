@@ -608,8 +608,14 @@ class AdapterSet:
         )
 
 
+#: The connector kinds a first-party plugin declares once its extension is installed, by name: what the core
+#: can say of a slot it does not hold, naming the plugin to install (ADR 0181, round D), as
+#: `gates.PLUGIN_GATES` does for gates. Stored connectors keep these kinds, installed or not.
+PLUGIN_KINDS: Mapping[str, str] = dict.fromkeys(("scm", "ci", "cd"), "software-delivery")
+
+
 def _no_slot(kind: str) -> str:
-    plugin = CONNECTOR_KINDS.plugin_of(kind)
+    plugin = CONNECTOR_KINDS.plugin_of(kind) or PLUGIN_KINDS.get(kind)
     if plugin is not None:
         return (
             f"no `{kind}` adapter: the kind is the plugin `{plugin}`'s, whose extension is not installed in "

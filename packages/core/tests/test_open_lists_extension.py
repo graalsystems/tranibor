@@ -146,6 +146,9 @@ def test_a_memory_read_back_keeps_a_kind_nobody_declares_any_more() -> None:
     from tranibor_core.domain import Memory
 
     assert Memory(id="m", kind="runbook", subject="s", content="c").kind == "runbook"
-    assert Memory(id="m", kind="hotspot", subject="s", content="c").kind is MemoryKind.HOTSPOT
+    # The software-delivery plugin's kind (the core's until ADR 0181 closed the window C2): read whether or
+    # not its extension is installed, as a string; a kind of the core comes back as its member.
+    assert Memory(id="m", kind="hotspot", subject="s", content="c").kind == "hotspot"
+    assert Memory(id="m", kind="decision", subject="s", content="c").kind is MemoryKind.DECISION
     with pytest.raises(ValidationError):
         Memory(id="m", kind="Run Book", subject="s", content="c")

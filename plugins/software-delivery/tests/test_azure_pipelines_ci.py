@@ -194,7 +194,7 @@ def build_complete(**resource: object) -> bytes:
 
 def test_build_complete_becomes_a_ci_event_for_the_work_item(server: FakeAzureDevOpsServer) -> None:
     events = adapter(server).parse_event({}, build_complete())
-    assert [e.type.value for e in events] == ["ci.run.succeeded"]
+    assert [e.type for e in events] == ["ci.run.succeeded"]
     event = events[0]
     assert (event.work_item_key, event.project_slug, event.delivery_id) == ("12", "billing", "4")
     assert event.payload["sha"] == SHA and event.payload["branch"] == "choregos/12-fix"
@@ -208,7 +208,7 @@ def test_build_complete_becomes_a_ci_event_for_the_work_item(server: FakeAzureDe
 def test_a_build_that_did_not_succeed_is_never_a_success(
     server: FakeAzureDevOpsServer, result: str, kind: str
 ) -> None:
-    assert [e.type.value for e in adapter(server).parse_event({}, build_complete(result=result))] == [kind]
+    assert [e.type for e in adapter(server).parse_event({}, build_complete(result=result))] == [kind]
 
 
 def test_a_build_with_no_result_and_unknown_events_are_ignored(server: FakeAzureDevOpsServer) -> None:
@@ -241,11 +241,9 @@ def run_state(state: str, result: str | None = None) -> bytes:
 
 def test_run_state_changes_become_started_and_finished_events(server: FakeAzureDevOpsServer) -> None:
     ci = adapter(server)
-    assert [e.type.value for e in ci.parse_event({}, run_state("inProgress"))] == ["ci.run.started"]
-    assert [e.type.value for e in ci.parse_event({}, run_state("completed", "succeeded"))] == [
-        "ci.run.succeeded"
-    ]
+    assert [e.type for e in ci.parse_event({}, run_state("inProgress"))] == ["ci.run.started"]
+    assert [e.type for e in ci.parse_event({}, run_state("completed", "succeeded"))] == ["ci.run.succeeded"]
     failed = ci.parse_event({}, run_state("completed", "failed"))
-    assert failed[0].type.value == "ci.run.failed" and failed[0].payload["sha"] == SHA
+    assert failed[0].type == "ci.run.failed" and failed[0].payload["sha"] == SHA
     assert failed[0].work_item_key == "12" and failed[0].payload["run_id"] == 61
     assert ci.parse_event({}, run_state("canceling")) == []

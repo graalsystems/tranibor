@@ -6,8 +6,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
+
+from ...names import DeliveryEvent
 
 
 class FakeCi:
@@ -44,13 +46,13 @@ class FakeCi:
         payload = json.loads(body.decode("utf-8"))
         kind = payload.get("state", "succeeded")
         mapping = {
-            "succeeded": InboundEventType.CI_SUCCEEDED,
-            "failed": InboundEventType.CI_FAILED,
-            "started": InboundEventType.CI_STARTED,
+            "succeeded": DeliveryEvent.CI_SUCCEEDED,
+            "failed": DeliveryEvent.CI_FAILED,
+            "started": DeliveryEvent.CI_STARTED,
         }
         return [
             InboundEvent(
-                type=mapping.get(kind, InboundEventType.CI_SUCCEEDED),
+                type=mapping.get(kind, DeliveryEvent.CI_SUCCEEDED),
                 source="fake",
                 delivery_id=headers.get("ce-id", "ce-1"),
                 payload=payload,

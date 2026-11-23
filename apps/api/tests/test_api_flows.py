@@ -241,7 +241,7 @@ async def test_internal_run_api(client: AsyncClient, project: dict[str, Any]) ->
     finding = await client.post(
         f"/api/v1/internal/runs/{run_id}/findings",
         headers=headers,
-        json={"title": "N+1 on the lines", "type": "perf", "severity": "medium", "evidence": "repo.py:88"},
+        json={"title": "N+1 on the lines", "type": "docs", "severity": "medium", "evidence": "repo.py:88"},
     )
     assert finding.status_code == 201
     assert finding.json()["accepted"] is True

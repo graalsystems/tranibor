@@ -23,8 +23,10 @@ from urllib.parse import quote, urlsplit
 from tranibor_adapters.errors import ConfigurationError, UpstreamError
 from tranibor_adapters.http import RestClient
 from tranibor_adapters.tracker.github_events import BRANCH_KEY_RE
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
+
+from ...names import DeliveryEvent
 
 State = Literal["pending", "running", "success", "failure", "error", "unknown"]
 Progress = Literal["queued", "in_progress", "completed"]
@@ -291,9 +293,9 @@ def parse_jenkins_event(payload: dict[str, Any]) -> list[InboundEvent]:
             "work_item": params.get("CHOREGOS_WORK_ITEM"),
         }
         if phase == "STARTED":
-            kind = InboundEventType.CI_STARTED
+            kind = DeliveryEvent.CI_STARTED
         elif phase == "COMPLETED":
-            kind = InboundEventType.CI_SUCCEEDED if result == "SUCCESS" else InboundEventType.CI_FAILED
+            kind = DeliveryEvent.CI_SUCCEEDED if result == "SUCCESS" else DeliveryEvent.CI_FAILED
         else:
             return []
     else:
@@ -310,9 +312,9 @@ def parse_jenkins_event(payload: dict[str, Any]) -> list[InboundEvent]:
             "work_item": payload.get("work_item"),
         }
         if phase == "STARTED" or not result:
-            kind = InboundEventType.CI_STARTED
+            kind = DeliveryEvent.CI_STARTED
         else:
-            kind = InboundEventType.CI_SUCCEEDED if result == "SUCCESS" else InboundEventType.CI_FAILED
+            kind = DeliveryEvent.CI_SUCCEEDED if result == "SUCCESS" else DeliveryEvent.CI_FAILED
     repo = flat["repo"]
     key = flat["work_item"]
     if not key and repo:
@@ -338,7 +340,7 @@ def parse_jenkins_event(payload: dict[str, Any]) -> list[InboundEvent]:
     ]
 
 
-def _delivery_id(flat: dict[str, Any], kind: InboundEventType) -> str:
+def _delivery_id(flat: dict[str, Any], kind: DeliveryEvent) -> str:
     """The id a redelivery of this build event shares, and no other controller's build does.
 
     A job name and a build number repeat across controllers (two organisations each run `app` #7), and

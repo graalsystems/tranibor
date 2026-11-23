@@ -41,7 +41,7 @@ REFUSED: list[tuple[str, str, str, Any]] = [
         "POST",
         "/findings",
         "/findings",
-        {"title": "N+1 on the lines", "type": "perf", "severity": "medium", "evidence": "repo.py:88"},
+        {"title": "N+1 on the lines", "type": "security", "severity": "medium", "evidence": "repo.py:88"},
     ),
     (
         "POST",

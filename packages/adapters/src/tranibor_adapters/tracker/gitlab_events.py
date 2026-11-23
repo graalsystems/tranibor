@@ -12,6 +12,16 @@ from typing import Any
 
 from tranibor_contracts import InboundEvent, InboundEventType
 
+from ..forge_events import (
+    CI_FAILED,
+    CI_STARTED,
+    CI_SUCCEEDED,
+    PR_CLOSED,
+    PR_MERGED,
+    PR_OPENED,
+    PR_SYNCHRONIZED,
+    forge_events,
+)
 from .github_events import parse_command
 
 
@@ -140,13 +150,13 @@ def _merge_request(delivery_id: str, payload: dict[str, Any]) -> list[InboundEve
     }
     action = attributes.get("action")
     if action == "open":
-        return [InboundEvent(type=InboundEventType.PR_OPENED, payload=body, **common)]
+        return forge_events(PR_OPENED, payload=body, **common)
     if action == "update":
-        return [InboundEvent(type=InboundEventType.PR_SYNCHRONIZED, payload=body, **common)]
+        return forge_events(PR_SYNCHRONIZED, payload=body, **common)
     if action == "merge":
-        return [InboundEvent(type=InboundEventType.PR_MERGED, payload=body, **common)]
+        return forge_events(PR_MERGED, payload=body, **common)
     if action == "close":
-        return [InboundEvent(type=InboundEventType.PR_CLOSED, payload=body, **common)]
+        return forge_events(PR_CLOSED, payload=body, **common)
     return []
 
 
@@ -158,23 +168,21 @@ def _pipeline(delivery_id: str, payload: dict[str, Any]) -> list[InboundEvent]:
     key = _work_item_from_branch(attributes.get("ref", ""), payload)
     common = _base(delivery_id, payload, key)
     kind = {
-        "success": InboundEventType.CI_SUCCEEDED,
-        "failed": InboundEventType.CI_FAILED,
-        "running": InboundEventType.CI_STARTED,
+        "success": CI_SUCCEEDED,
+        "failed": CI_FAILED,
+        "running": CI_STARTED,
     }[status]
-    return [
-        InboundEvent(
-            type=kind,
-            payload={
-                "conclusion": status,
-                "sha": attributes.get("sha"),
-                "branch": attributes.get("ref"),
-                "url": (payload.get("project") or {}).get("web_url"),
-                "pipeline_id": attributes.get("id"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        kind,
+        payload={
+            "conclusion": status,
+            "sha": attributes.get("sha"),
+            "branch": attributes.get("ref"),
+            "url": (payload.get("project") or {}).get("web_url"),
+            "pipeline_id": attributes.get("id"),
+        },
+        **common,
+    )
 
 
 def _work_item_from_branch(branch: str, payload: dict[str, Any]) -> str | None:

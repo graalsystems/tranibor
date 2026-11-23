@@ -17,6 +17,19 @@ from typing import Any
 
 from tranibor_contracts import InboundEvent, InboundEventType
 
+from ..forge_events import (
+    CHECK_COMPLETED,
+    CI_FAILED,
+    CI_STARTED,
+    CI_SUCCEEDED,
+    PR_CLOSED,
+    PR_MERGED,
+    PR_OPENED,
+    PR_REVIEW_SUBMITTED,
+    PR_SYNCHRONIZED,
+    forge_events,
+)
+
 COMMAND_RE = re.compile(
     r"^\s*/choregos\s+(?P<verb>approve|reject|answer|scope|pause|resume|stop)\b(?P<rest>.*)$", re.I | re.M
 )
@@ -179,12 +192,12 @@ def _pull_request(delivery_id: str, payload: dict[str, Any]) -> list[InboundEven
         "merged": pr.get("merged", False),
     }
     if action == "opened":
-        return [InboundEvent(type=InboundEventType.PR_OPENED, payload=body, **common)]
+        return forge_events(PR_OPENED, payload=body, **common)
     if action == "synchronize":
-        return [InboundEvent(type=InboundEventType.PR_SYNCHRONIZED, payload=body, **common)]
+        return forge_events(PR_SYNCHRONIZED, payload=body, **common)
     if action == "closed":
-        kind = InboundEventType.PR_MERGED if pr.get("merged") else InboundEventType.PR_CLOSED
-        return [InboundEvent(type=kind, payload=body, **common)]
+        kind = PR_MERGED if pr.get("merged") else PR_CLOSED
+        return forge_events(kind, payload=body, **common)
     return []
 
 
@@ -193,19 +206,17 @@ def _pull_request_review(delivery_id: str, payload: dict[str, Any]) -> list[Inbo
     pr = payload.get("pull_request", {}) or {}
     key = _work_item_from_branch((pr.get("head") or {}).get("ref", ""), payload)
     common = _base(delivery_id, payload, key)
-    return [
-        InboundEvent(
-            type=InboundEventType.PR_REVIEW_SUBMITTED,
-            payload={
-                "state": (review.get("state") or "").lower(),
-                "reviewer": (review.get("user") or {}).get("login"),
-                "body": review.get("body") or "",
-                "pr_url": pr.get("html_url"),
-                "number": pr.get("number"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        PR_REVIEW_SUBMITTED,
+        payload={
+            "state": (review.get("state") or "").lower(),
+            "reviewer": (review.get("user") or {}).get("login"),
+            "body": review.get("body") or "",
+            "pr_url": pr.get("html_url"),
+            "number": pr.get("number"),
+        },
+        **common,
+    )
 
 
 def _check_suite(delivery_id: str, payload: dict[str, Any]) -> list[InboundEvent]:
@@ -216,19 +227,17 @@ def _check_suite(delivery_id: str, payload: dict[str, Any]) -> list[InboundEvent
     head_branch = suite.get("head_branch", "")
     key = _work_item_from_branch(head_branch, payload)
     common = _base(delivery_id, payload, key)
-    return [
-        InboundEvent(
-            type=InboundEventType.CHECK_COMPLETED,
-            payload={
-                "conclusion": suite.get("conclusion"),
-                "sha": suite.get("head_sha"),
-                "branch": head_branch,
-                "pr_numbers": [pr.get("number") for pr in prs],
-                "url": suite.get("html_url"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        CHECK_COMPLETED,
+        payload={
+            "conclusion": suite.get("conclusion"),
+            "sha": suite.get("head_sha"),
+            "branch": head_branch,
+            "pr_numbers": [pr.get("number") for pr in prs],
+            "url": suite.get("html_url"),
+        },
+        **common,
+    )
 
 
 #: A workflow run's `conclusion`s that do not block a merge: GitHub treats `neutral` and `skipped` as passing.
@@ -242,35 +251,29 @@ def _workflow_run(delivery_id: str, payload: dict[str, Any]) -> list[InboundEven
     run = payload.get("workflow_run", {}) or {}
     action = payload.get("action")
     if action == "completed":
-        kind = (
-            InboundEventType.CI_SUCCEEDED
-            if run.get("conclusion") in PASSING_CONCLUSIONS
-            else InboundEventType.CI_FAILED
-        )
+        kind = CI_SUCCEEDED if run.get("conclusion") in PASSING_CONCLUSIONS else CI_FAILED
     elif action in {"requested", "in_progress"}:
-        kind = InboundEventType.CI_STARTED
+        kind = CI_STARTED
     else:
         return []
     head_branch = run.get("head_branch") or ""
     key = _work_item_from_branch(head_branch, payload)
     common = _base(delivery_id, payload, key)
-    return [
-        InboundEvent(
-            type=kind,
-            payload={
-                "run_id": run.get("id"),
-                "run_attempt": run.get("run_attempt"),
-                "workflow": run.get("name"),
-                "conclusion": run.get("conclusion"),
-                "sha": run.get("head_sha"),
-                "branch": head_branch,
-                "event": run.get("event"),
-                "pr_numbers": [pr.get("number") for pr in run.get("pull_requests", []) or []],
-                "url": run.get("html_url"),
-            },
-            **common,
-        )
-    ]
+    return forge_events(
+        kind,
+        payload={
+            "run_id": run.get("id"),
+            "run_attempt": run.get("run_attempt"),
+            "workflow": run.get("name"),
+            "conclusion": run.get("conclusion"),
+            "sha": run.get("head_sha"),
+            "branch": head_branch,
+            "event": run.get("event"),
+            "pr_numbers": [pr.get("number") for pr in run.get("pull_requests", []) or []],
+            "url": run.get("html_url"),
+        },
+        **common,
+    )
 
 
 BRANCH_KEY_RE = re.compile(r"choregos/(?P<number>\d+)")

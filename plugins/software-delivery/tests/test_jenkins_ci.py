@@ -290,13 +290,13 @@ def test_a_notification_plugin_payload_becomes_a_ci_event() -> None:
         },
     }
     (done,) = parse_jenkins_event(base)
-    assert done.type.value == "ci.run.succeeded" and done.source == "jenkins"
+    assert done.type == "ci.run.succeeded" and done.source == "jenkins"
     assert done.project_slug == "app" and done.work_item_key == "northwind/app#12"
     assert done.payload["sha"] == SHA and done.delivery_id == f"jenkins:{BASE}/job/app/7:ci.run.succeeded"
     base["build"] = {**base["build"], "status": "FAILURE"}  # type: ignore[dict-item]
-    assert parse_jenkins_event(base)[0].type.value == "ci.run.failed"
+    assert parse_jenkins_event(base)[0].type == "ci.run.failed"
     base["build"] = {**base["build"], "phase": "STARTED", "status": ""}  # type: ignore[dict-item]
-    assert parse_jenkins_event(base)[0].type.value == "ci.run.started"
+    assert parse_jenkins_event(base)[0].type == "ci.run.started"
     for ignored in ("QUEUED", "FINALIZED"):
         base["build"] = {**base["build"], "phase": ignored}  # type: ignore[dict-item]
         assert parse_jenkins_event(base) == []
@@ -324,7 +324,7 @@ def test_the_flat_payload_names_its_project_and_work_item() -> None:
         b' "project": "billing-api", "work_item": "northwind/app#4"}'
     )
     (event,) = adapter().parse_event({}, body)
-    assert event.type.value == "ci.run.failed"
+    assert event.type == "ci.run.failed"
     assert (event.project_slug, event.work_item_key) == ("billing-api", "northwind/app#4")
 
 

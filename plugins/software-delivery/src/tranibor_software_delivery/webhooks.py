@@ -24,7 +24,9 @@ from tranibor_api.schemas import WebhookAck
 from tranibor_api.security import body_digest, verify_shared_secret
 from tranibor_api.services import received_events
 from tranibor_api.temporal import get_temporal, train_id
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
+
+from .names import DeliveryEvent
 
 router = APIRouter(tags=["webhooks"], prefix="/webhooks")
 
@@ -66,12 +68,12 @@ async def tekton_webhook(
     run = payload.get("pipelineRun", payload)
     labels = (run.get("metadata", {}) or {}).get("labels", {})
     mapping = {
-        "dev.tekton.event.pipelinerun.successful.v1": InboundEventType.CI_SUCCEEDED,
-        "dev.tekton.event.pipelinerun.failed.v1": InboundEventType.CI_FAILED,
-        "dev.tekton.event.pipelinerun.started.v1": InboundEventType.CI_STARTED,
+        "dev.tekton.event.pipelinerun.successful.v1": DeliveryEvent.CI_SUCCEEDED,
+        "dev.tekton.event.pipelinerun.failed.v1": DeliveryEvent.CI_FAILED,
+        "dev.tekton.event.pipelinerun.started.v1": DeliveryEvent.CI_STARTED,
     }
     event = InboundEvent(
-        type=mapping.get(ce_type, InboundEventType.CI_STARTED),
+        type=mapping.get(ce_type, DeliveryEvent.CI_STARTED),
         source="tekton",
         delivery_id=ce_id or body_digest(body),
         project_slug=labels.get("choregos/project"),
@@ -174,15 +176,15 @@ async def argocd_webhook(
     return WebhookAck(accepted=True, events=1)
 
 
-def _argocd_kind(health: str, rollout: Any) -> InboundEventType | None:
+def _argocd_kind(health: str, rollout: Any) -> DeliveryEvent | None:
     """What an Argo CD notification announces: delivered, degraded, rollout finished or aborted, or
     nothing, for a transient health. Only `degraded` is an alert (#349)."""
     if rollout == "aborted":
-        return InboundEventType.ROLLOUT_ABORTED
+        return DeliveryEvent.ROLLOUT_ABORTED
     if rollout == "completed":
-        return InboundEventType.ROLLOUT_COMPLETED
+        return DeliveryEvent.ROLLOUT_COMPLETED
     if health in {"healthy", "synced"}:
-        return InboundEventType.CD_SYNCED
+        return DeliveryEvent.CD_SYNCED
     if health == "degraded":
-        return InboundEventType.CD_DEGRADED
+        return DeliveryEvent.CD_DEGRADED
     return None

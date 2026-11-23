@@ -7,14 +7,16 @@ from collections.abc import Mapping
 from typing import Any
 
 from tranibor_adapters.executor.tekton import CORE_API, TEKTON_API, KubernetesClient
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, CiStatus
 
+from ...names import DeliveryEvent
+
 CLOUD_EVENT_MAP = {
-    "dev.tekton.event.pipelinerun.started.v1": InboundEventType.CI_STARTED,
-    "dev.tekton.event.pipelinerun.successful.v1": InboundEventType.CI_SUCCEEDED,
-    "dev.tekton.event.pipelinerun.failed.v1": InboundEventType.CI_FAILED,
-    "dev.tekton.event.pipelinerun.unknown.v1": InboundEventType.CI_STARTED,
+    "dev.tekton.event.pipelinerun.started.v1": DeliveryEvent.CI_STARTED,
+    "dev.tekton.event.pipelinerun.successful.v1": DeliveryEvent.CI_SUCCEEDED,
+    "dev.tekton.event.pipelinerun.failed.v1": DeliveryEvent.CI_FAILED,
+    "dev.tekton.event.pipelinerun.unknown.v1": DeliveryEvent.CI_STARTED,
 }
 
 
@@ -100,7 +102,7 @@ class TektonCi:
         ce_type = headers.get("ce-type", headers.get("Ce-Type", ""))
         return [
             InboundEvent(
-                type=CLOUD_EVENT_MAP.get(ce_type, InboundEventType.CI_STARTED),
+                type=CLOUD_EVENT_MAP.get(ce_type, DeliveryEvent.CI_STARTED),
                 source="tekton",
                 delivery_id=headers.get("ce-id", headers.get("Ce-Id", "")),
                 project_slug=labels.get("choregos/project"),
