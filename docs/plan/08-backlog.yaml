@@ -5814,6 +5814,14 @@ stories:
     size: S
     depends_on: []
     notes: "Before, a project created without a template got default-request and another default needed a separate PUT /workflow-routing. The creation request takes an optional default_workflow, validated by the routing endpoint's own helper (require_active_workflows). Not done: the console's create form (its workflow picker adopts a catalogue workflow, a different path), rules/strategy at creation."
+  - id: S80-22
+    title: "chore(policies): the deleted frozen ghcr.io/vargafoundation namespace leaves the Kyverno policies"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-10]
+    notes: "Packages deleted 2026-11-21. Left: infra/bootstrap/gvisor.yaml installer image (no graalsystems equivalent, not built here), example Dockerfiles and code-agent-examples.yml runner 0.17.15."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
