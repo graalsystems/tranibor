@@ -22,6 +22,7 @@ from tranibor_api.services import (
 )
 from tranibor_api.services.initiator import initiator
 from tranibor_contracts import EventType, HumanActor, HumanRequestKind, StageResult
+from tranibor_contracts.open_lists import STORED
 from tranibor_core import Message, MessageAction, TrackerStateMapping, elapsed_seconds, utcnow
 from tranibor_core.domain import TRACKER_FIELD, TRIAL_STATE
 from tranibor_core.gates import ALREADY_FIXED_GATE
@@ -555,7 +556,9 @@ async def _close_already_fixed_item(session: Any, bundle: Any, item: WorkItem) -
         .scalars()
         .first()
     )
-    evidence = StageResult.model_validate(run.result).evidence if run is not None else None
+    evidence = (
+        StageResult.model_validate(run.result, context={STORED: True}).evidence if run is not None else None
+    )
     tests = (
         f"- tests on the default branch: {evidence.value('tests_run')} run, "
         f"{evidence.value('tests_failed') or 0} failed;\n"

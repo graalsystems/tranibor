@@ -224,11 +224,17 @@ def test_without_the_extension_does_naming_one_is_refused_naming_the_plugin(
 
 
 def test_the_plugin_declares_its_values_in_the_contracts_open_lists() -> None:
-    """The `scm.*`, `ci.*`, `cd.*` event types, four finding types and two memory kinds (S83-04c)."""
-    from tranibor_contracts import CONNECTOR_KINDS, FINDING_TYPES, INBOUND_EVENT_TYPES, MEMORY_KINDS
+    """The `scm.*`, `ci.*`, `cd.*` event types, four finding types, two memory kinds, three connector kinds
+    (S83-04c, S83-04f) and the release train's event types: only the plugin declares them since the windows
+    C2, D-train and D closed (S83-04r), and none is the core's any more."""
+    from tranibor_software_delivery.lists import DECLARED
 
-    for open_list in (INBOUND_EVENT_TYPES, FINDING_TYPES, MEMORY_KINDS, CONNECTOR_KINDS):
-        assert open_list.declared_by(NAME) == frozenset(open_list.kept), open_list.what
+    for open_list, values in DECLARED:
+        assert open_list.declared_by(NAME) == values, open_list.what
+        assert not values & open_list.core, open_list.what
+        assert {open_list.plugin_of(value) for value in values} == {NAME}, open_list.what
+    from tranibor_contracts import CONNECTOR_KINDS, FINDING_TYPES, INBOUND_EVENT_TYPES
+
     assert "scm.pr.merged" in INBOUND_EVENT_TYPES.declared_by(NAME)
     assert "flaky-test" in FINDING_TYPES.declared_by(NAME)
     assert (

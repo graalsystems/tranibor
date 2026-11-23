@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from enum import StrEnum
+from typing import Any, ClassVar
 
 import pytest
 import tranibor_contracts as contracts
@@ -133,8 +134,7 @@ def test_a_value_is_one_plugin_s_and_matches_the_pattern(plugin: str) -> None:
         MEMORY_KINDS.declare("runbook", plugin="other")
     with pytest.raises(ValueError, match="must match"):
         INBOUND_EVENT_TYPES.declare("Incident Opened", plugin=plugin)
-    # A plugin may take over a value of the core (what C2 does with `scm.pr.opened`, pinned in the
-    # `software-delivery` plugin's suite, `tests/core/test_core_seams.py`): still valid. Another plugin
+    # A plugin may take over a value of the core: still valid, and still the core's member. Another plugin
     # cannot take it from it.
     INBOUND_EVENT_TYPES.declare("alert.fired", plugin=plugin)
     assert INBOUND_EVENT_TYPES.plugin_of("alert.fired") == plugin
@@ -163,54 +163,80 @@ def test_a_stored_document_reads_a_value_nobody_declares_any_more() -> None:
     with pytest.raises(ValidationError, match="unknown step effect"):
         Transition.model_validate({**does, "does": "Close Incident"}, context={STORED: True})
     stored = InboundEvent.model_validate(
-        {"type": "scm.pr.opened", "source": "github", "delivery_id": "d"}, context={STORED: True}
+        {"type": "itsm.incident.opened", "source": "servicenow", "delivery_id": "d"}, context={STORED: True}
     )
-    assert stored.type is InboundEventType.PR_OPENED
+    assert stored.type == "itsm.incident.opened"
 
 
-def test_the_values_of_software_delivery_are_kept_for_its_plugin_for_one_window() -> None:
-    """Round C2 (ADR 0181): the `scm.*`, `ci.*` and `cd.*` event types, four finding types and two memory
-    kinds are the `software-delivery` plugin's. The core's lists keep them for one window, each enum
-    member on the window list with the release that removes it, and name the plugin for them."""
-    from tranibor_contracts import FINDING_TYPES, INBOUND_EVENT_TYPES, MEMORY_KINDS
-    from tranibor_contracts.window import C2, WINDOW
+#: Software delivery's values, which the core's lists held until ADR 0181 closed the windows C2, D-train and
+#: D (2026-11-23): only the `software-delivery` plugin's extension declares them now, under these strings.
+DELIVERY: dict[str, tuple[OpenList, type[StrEnum], frozenset[str]]] = {
+    "inbound event types": (
+        INBOUND_EVENT_TYPES,
+        InboundEventType,
+        frozenset(
+            {
+                "scm.pr.opened",
+                "scm.pr.synchronized",
+                "scm.pr.review_submitted",
+                "scm.pr.merged",
+                "scm.pr.closed",
+                "scm.check.completed",
+                "ci.run.started",
+                "ci.run.succeeded",
+                "ci.run.failed",
+                "cd.app.synced",
+                "cd.app.degraded",
+                "cd.rollout.completed",
+                "cd.rollout.aborted",
+            }
+        ),
+    ),
+    "finding types": (FINDING_TYPES, FindingType, frozenset({"bug", "perf", "tech-debt", "flaky-test"})),
+    "memory kinds": (MEMORY_KINDS, MemoryKind, frozenset({"flaky_test", "hotspot"})),
+    "connector kinds": (CONNECTOR_KINDS, ConnectorKind, frozenset({"scm", "ci", "cd"})),
+    "event types": (
+        EVENT_TYPES,
+        EventType,
+        frozenset(
+            f"choregos.release.{name}"
+            for name in (
+                "collected",
+                "departed",
+                "staged",
+                "approval_requested",
+                "promoted",
+                "verified",
+                "rolled_back",
+                "frozen",
+            )
+        ),
+    ),
+}
 
-    expected = {
-        INBOUND_EVENT_TYPES: {
-            v.value for v in InboundEventType if v.value.split(".")[0] in {"scm", "ci", "cd"}
-        },
-        FINDING_TYPES: {"bug", "perf", "tech-debt", "flaky-test"},
-        MEMORY_KINDS: {"flaky_test", "hotspot"},
-    }
-    windowed = {entry.where.rsplit(":", 1)[-1] for entry in WINDOW if entry.window is C2}
-    for open_list, values in expected.items():
-        assert set(open_list.kept) == values and set(open_list.kept.values()) == {"software-delivery"}
-        assert open_list.own() == open_list.core - values
-        for value in values:
-            assert open_list.plugin_of(value) == "software-delivery"
-            assert open_list.check(value) == value, "still read during the window"
-        enum = type(open_list.check(next(iter(values))))
-        assert {f"{enum.__name__}.{m.name}" for m in enum if m.value in values} <= windowed
-    assert len(windowed) == 13 + 4 + 2
-    assert INBOUND_EVENT_TYPES.plugin_of("tracker.item.created") is None
+
+@pytest.mark.parametrize("name", list(DELIVERY))
+def test_software_delivery_s_values_are_no_longer_the_core_s(name: str) -> None:
+    """The windows C2, D-train and D closed (ADR 0181, 2026-11-23): the members left the enumerations and the
+    values the core's lists. A stored document still reads each one, installed or not (ADR 0098 §4)."""
+    open_list, enum, values = DELIVERY[name]
+    assert not values & open_list.core
+    assert not values & {member.value for member in enum}
+    for value in values:
+        assert open_list.check(value, _stored()) == value, "a stored value is read whatever is installed"
+        assert open_list.plugin_of(value) in {None, "software-delivery"}
 
 
-def test_the_connector_kinds_of_software_delivery_wait_for_round_d() -> None:
-    """`scm`, `ci` and `cd` are the plugin's, kept in the core's list until the connector types the core
-    still registers under them move (window `D`)."""
-    from tranibor_contracts.window import WINDOW, D
-
-    assert set(CONNECTOR_KINDS.kept) == {"scm", "ci", "cd"}
-    assert {CONNECTOR_KINDS.plugin_of(kind) for kind in ("scm", "ci", "cd")} == {"software-delivery"}
-    assert CONNECTOR_KINDS.plugin_of("tracker") is None and "tracker" in CONNECTOR_KINDS.own()
-    assert {e.name for e in WINDOW if e.window is D} == {
-        "ConnectorKind.SCM",
-        "ConnectorKind.CI",
-        "ConnectorKind.CD",
-    }
-    assert CONNECTOR_KINDS.check("scm") is ConnectorKind.SCM
+def test_the_release_train_s_statuses_left_the_contracts() -> None:
+    assert not hasattr(contracts, "ReleaseStatus")
+    assert not hasattr(contracts.enums, "ReleaseStatus")
 
 
-def test_a_kept_value_must_be_the_core_s() -> None:
-    with pytest.raises(ValueError, match="not in the core's list"):
-        OpenList("thing", r"^[a-z]+$", ["a"], kept={"b": "plugin"})
+def _stored() -> Any:
+    return _Stored()
+
+
+class _Stored:
+    """A `ValidationInfo` as pydantic hands it to a validator reading a stored document."""
+
+    context: ClassVar[dict[str, bool]] = {"stored": True}

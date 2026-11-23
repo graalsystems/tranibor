@@ -25,6 +25,7 @@ from tranibor_api.db.session import limit_to_organisations
 from tranibor_api.security import mint_run_token
 from tranibor_api.services import persist_event
 from tranibor_contracts import EventType, StageInput, StageResult, StageStatus
+from tranibor_contracts.open_lists import STORED
 from tranibor_core import ExecRef, ExecStatus, StageJobSpec, telemetry, utcnow
 from tranibor_core.hosted import agent_container
 from tranibor_core.production import ENVIRONMENT_VARIABLE
@@ -172,7 +173,7 @@ async def result_from_journal(session: Any, run_id: str) -> StageResult | None:
         payload = (row.payload or {}).get("stage_result")
         if isinstance(payload, dict):
             with contextlib.suppress(ValueError):
-                return StageResult.model_validate(payload)
+                return StageResult.model_validate(payload, context={STORED: True})
     return None
 
 

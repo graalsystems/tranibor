@@ -111,11 +111,11 @@ def declare_api_parts() -> None:
         declare_router,
     )
     from tranibor_api.metric_series import declare_series
-    from tranibor_contracts import InboundEventType
 
     from . import figures
     from .api import router as delivery_router
     from .merged import board_merged_item
+    from .names import DeliveryEvent
     from .readiness import item_repository
     from .train import metrics
     from .train.api import router
@@ -128,7 +128,7 @@ def declare_api_parts() -> None:
     declare_project_figure("ProjectStats", "trains_pending", figures.trains_pending, plugin=NAME)
     declare_series(NAME, metrics.NAMES, metrics.refresh)
     declare_readiness_item("repository", item_repository, plugin=NAME)
-    declare_inbound_hook(str(InboundEventType.PR_MERGED), board_merged_item, plugin=NAME)
+    declare_inbound_hook(str(DeliveryEvent.PR_MERGED), board_merged_item, plugin=NAME)
 
 
 def register() -> None:

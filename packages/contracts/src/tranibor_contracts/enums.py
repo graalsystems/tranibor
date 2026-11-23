@@ -85,12 +85,8 @@ class RunStatus(StrEnum):
 
 
 class FindingType(StrEnum):
-    PERF = "perf"
-    BUG = "bug"
     SECURITY = "security"
-    TECH_DEBT = "tech-debt"
     DOCS = "docs"
-    FLAKY_TEST = "flaky-test"
     UX = "ux"
 
 
@@ -108,18 +104,6 @@ class FindingStatus(StrEnum):
     DISMISSED = "dismissed"
 
 
-class ReleaseStatus(StrEnum):
-    COLLECTING = "collecting"
-    DEPARTING = "departing"
-    STAGING = "staging"
-    AWAITING_APPROVAL = "awaiting_approval"
-    PROMOTING = "promoting"
-    VERIFYING = "verifying"
-    DONE = "done"
-    ROLLED_BACK = "rolled_back"
-    FROZEN = "frozen"
-
-
 class ProjectStatus(StrEnum):
     DRAFT = "draft"
     PROVISIONING = "provisioning"
@@ -130,9 +114,6 @@ class ProjectStatus(StrEnum):
 
 class ConnectorKind(StrEnum):
     TRACKER = "tracker"
-    SCM = "scm"
-    CI = "ci"
-    CD = "cd"
     RUNTIME = "runtime"
     MEMORY = "memory"
     NOTIFY = "notify"
@@ -170,8 +151,6 @@ class MemoryKind(StrEnum):
     INCIDENT = "incident"
     TICKET_SUMMARY = "ticket_summary"
     RUN_LESSON = "run_lesson"
-    FLAKY_TEST = "flaky_test"
-    HOTSPOT = "hotspot"
     FINDING = "finding"
     OTHER = "other"
 
@@ -218,14 +197,6 @@ class EventType(StrEnum):
     FINDING_CREATED = "choregos.finding.created"
     FINDING_DUPLICATE = "choregos.finding.duplicate"
     FINDING_DISMISSED = "choregos.finding.dismissed"
-    RELEASE_COLLECTED = "choregos.release.collected"
-    RELEASE_DEPARTED = "choregos.release.departed"
-    RELEASE_STAGED = "choregos.release.staged"
-    RELEASE_APPROVAL_REQUESTED = "choregos.release.approval_requested"
-    RELEASE_PROMOTED = "choregos.release.promoted"
-    RELEASE_VERIFIED = "choregos.release.verified"
-    RELEASE_ROLLED_BACK = "choregos.release.rolled_back"
-    RELEASE_FROZEN = "choregos.release.frozen"
     TOOL_CALLED = "choregos.tool.called"
     NETWORK_DENIED = "choregos.network.denied"
     #: Prompt-injection patterns in what the agent was about to read (ticket, documents,
@@ -299,19 +270,6 @@ class InboundEventType(StrEnum):
     ITEM_COMMENTED = "tracker.item.commented"
     ITEM_LABELED = "tracker.item.labeled"
     ITEM_CLOSED = "tracker.item.closed"
-    PR_OPENED = "scm.pr.opened"
-    PR_SYNCHRONIZED = "scm.pr.synchronized"
-    PR_REVIEW_SUBMITTED = "scm.pr.review_submitted"
-    PR_MERGED = "scm.pr.merged"
-    PR_CLOSED = "scm.pr.closed"
-    CHECK_COMPLETED = "scm.check.completed"
-    CI_STARTED = "ci.run.started"
-    CI_SUCCEEDED = "ci.run.succeeded"
-    CI_FAILED = "ci.run.failed"
-    CD_SYNCED = "cd.app.synced"
-    CD_DEGRADED = "cd.app.degraded"
-    ROLLOUT_COMPLETED = "cd.rollout.completed"
-    ROLLOUT_ABORTED = "cd.rollout.aborted"
     ALERT_FIRED = "alert.fired"
     ALERT_RESOLVED = "alert.resolved"
     HUMAN_DECISION = "human.decision"

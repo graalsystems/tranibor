@@ -9,8 +9,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from tranibor_adapters.errors import HeadMovedError
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState, ReviewState
+
+from ...names import DeliveryEvent
 
 
 class FakeScm:
@@ -243,7 +245,7 @@ class FakeScm:
             return [InboundEvent.model_validate(payload)]
         return [
             InboundEvent(
-                type=InboundEventType.PR_OPENED,
+                type=DeliveryEvent.PR_OPENED,
                 source="fake",
                 delivery_id=headers.get("X-Delivery", "d1"),
                 payload=payload,

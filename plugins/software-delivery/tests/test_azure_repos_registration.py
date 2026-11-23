@@ -167,7 +167,7 @@ def scm() -> AzureReposScm:
 
 def test_a_created_pull_request_opens_one_for_the_work_item() -> None:
     (event,) = scm().parse_webhook({}, pr_event("git.pullrequest.created"))
-    assert event.type.value == "scm.pr.opened"
+    assert event.type == "scm.pr.opened"
     assert (event.work_item_key, event.project_slug, event.actor) == ("12", "billing", "bot@northwind.test")
     assert event.payload["sha"] == "a" * 40 and event.payload["head"] == "choregos/12-fix"
     assert event.payload["pr_url"] == "https://dev.azure.com/northwind/Billing/_git/billing-api/pullrequest/5"
@@ -182,7 +182,7 @@ def test_an_update_synchronizes_a_completion_merges_and_an_abandon_closes() -> N
         ("git.pullrequest.updated", "abandoned"): "scm.pr.closed",
     }
     for (event_type, status), expected in kinds.items():
-        assert [e.type.value for e in scm().parse_webhook({}, pr_event(event_type, status))] == [expected]
+        assert [e.type for e in scm().parse_webhook({}, pr_event(event_type, status))] == [expected]
     # A merge attempt of an active pull request is not a merge.
     assert scm().parse_webhook({}, pr_event("git.pullrequest.merged", "active")) == []
 

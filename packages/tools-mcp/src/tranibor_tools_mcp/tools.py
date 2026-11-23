@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from tranibor_contracts import Finding
+from tranibor_contracts.open_lists import STORED
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -235,6 +236,12 @@ def text_result(text: str, *, is_error: bool = False) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": is_error}
 
 
+#: The tools load none of the deployment's extensions, so they cannot know the values those declare in the
+#: contracts' open lists (a finding's `type`, ADR 0181): they read one that matches the list's pattern, as a
+#: stored document's, and the platform, which loads them, judges it when the finding reaches it.
+UNJUDGED = {STORED: True}
+
+
 def finding_from(arguments: dict[str, Any]) -> Finding:
     return Finding.model_validate(
         {
@@ -245,5 +252,6 @@ def finding_from(arguments: dict[str, Any]) -> Finding:
             "suggested_fix": arguments.get("suggested_fix"),
             "estimate": arguments.get("estimate"),
             "out_of_scope_reason": arguments.get("out_of_scope_reason"),
-        }
+        },
+        context=UNJUDGED,
     )

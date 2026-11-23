@@ -25,20 +25,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Literal
 
-from .enums import ConnectorKind, EventType, FindingType, InboundEventType, MemoryKind
-
 __all__ = [
     "C1",
-    "C2",
-    "DELIVERY_CONNECTOR_KINDS",
-    "DELIVERY_EVENT_TYPES",
-    "DELIVERY_FINDING_TYPES",
-    "DELIVERY_MEMORY_KINDS",
-    "D_TRAIN",
-    "RELEASE_EVENT_TYPES",
-    "SOFTWARE_DELIVERY",
     "WINDOW",
-    "D",
     "FormerName",
     "Window",
     "opening_release",
@@ -130,60 +119,6 @@ C1 = Window(
     removed_on=date(2026, 12, 7),
 )
 
-#: Round C2 of ADR 0181: what is the `software-delivery` plugin's leaves the core under the same strings.
-#: The core keeps the plugin's values of its open lists for one window (`OpenList.kept`): their
-#: enumeration members leave the contracts, and the values the core's list, in the release that removes
-#: the window; the plugin's extension declares them from the release after 2026-11-21.
-C2 = Window(
-    round="C2",
-    opened_on=date(2026, 11, 21),
-    writers_switch_on=date(2026, 12, 7),
-    removed_on=date(2026, 12, 14),
-)
-
-#: The first-party plugin whose values the core's open lists keep for the window of round C2.
-SOFTWARE_DELIVERY = "software-delivery"
-#: The inbound event types of a source control, a pipeline and a deployment (`scm.*`, `ci.*`, `cd.*`):
-#: the plugin's since round C2, under the same strings (they are stored in `received_events`).
-DELIVERY_EVENT_TYPES: frozenset[str] = frozenset(
-    member.value for member in InboundEventType if member.value.split(".", 1)[0] in {"scm", "ci", "cd"}
-)
-#: The finding types and memory kinds of software delivery (ADR 0181 inventory, class (b)).
-DELIVERY_FINDING_TYPES: frozenset[str] = frozenset(
-    {FindingType.BUG, FindingType.PERF, FindingType.TECH_DEBT, FindingType.FLAKY_TEST}
-)
-DELIVERY_MEMORY_KINDS: frozenset[str] = frozenset({MemoryKind.FLAKY_TEST, MemoryKind.HOTSPOT})
-#: The connector kinds of software delivery: a source control, a pipeline, a deployment.
-DELIVERY_CONNECTOR_KINDS: frozenset[str] = frozenset({ConnectorKind.SCM, ConnectorKind.CI, ConnectorKind.CD})
-
-#: Round D of ADR 0181: what leaves the core with the code of software delivery (its connectors, the
-#: release train), not before that code moves (S83-05, 2027-04-19 → 2027-05-28). The connector kinds
-#: `scm`, `ci` and `cd` wait for it: the core's adapters still register the `github`, `gitlab`, `tekton`
-#: and `argocd` types under them. The list is empty by 2027-06-11 (ADR 0181, 2026-11-19, point 6).
-D = Window(
-    round="D",
-    opened_on=date(2026, 11, 21),
-    writers_switch_on=date(2027, 4, 19),
-    removed_on=date(2027, 5, 28),
-)
-
-#: Round D of ADR 0181, its release train part: the train's event types (`choregos.release.*`) and its
-#: `ReleaseStatus` are the `software-delivery` plugin's, whose extension declares the types (the strings do
-#: not change: subscribers and the `events` rows key on them) and holds its own statuses. The core keeps
-#: them for one window keyed on the release ledger, as round C2 did: served from the first release cut
-#: after 2026-11-21, removed in the first release cut on or after 2026-12-14 and two weeks after it.
-D_TRAIN = Window(
-    round="D-train",
-    opened_on=date(2026, 11, 21),
-    writers_switch_on=date(2026, 12, 7),
-    removed_on=date(2026, 12, 14),
-)
-
-#: The release train's event types: the plugin's since round D, under the same strings.
-RELEASE_EVENT_TYPES: frozenset[str] = frozenset(
-    member.value for member in EventType if member.value.startswith("choregos.release.")
-)
-
 #: Round C2 of ADR 0181, its `delivery` part: the software fields of the stage, project and policy
 #: contracts become the plugin's (named measured facts, `delivery` sections), read under both forms. The
 #: readers move first (the console, the gates, the train), so its window is the round's own: closed
@@ -236,56 +171,8 @@ class FormerName:
     value: str | None = None
 
 
-def _kept(
-    enum: type[InboundEventType | FindingType | MemoryKind | ConnectorKind | EventType],
-    values: frozenset[str],
-    window: Window | None = None,
-) -> tuple[FormerName, ...]:
-    """The members of a contract's enumeration whose value the `software-delivery` plugin declares."""
-    return tuple(
-        FormerName(
-            f"{enum.__name__}.{member.name}",
-            f"`{member.value}`, declared by the software-delivery plugin",
-            "python",
-            f"py:tranibor_contracts.enums:{enum.__name__}.{member.name}",
-            window or C2,
-        )
-        for member in enum
-        if member.value in values
-    )
-
-
 #: Every former name kept for a window, with its successor and its window.
 WINDOW: tuple[FormerName, ...] = (
-    # Round C2: the open lists' values of software delivery (ADR 0181 inventory, class (b)).
-    *_kept(InboundEventType, DELIVERY_EVENT_TYPES),
-    *_kept(FindingType, DELIVERY_FINDING_TYPES),
-    *_kept(MemoryKind, DELIVERY_MEMORY_KINDS),
-    # Round D: the connector kinds leave with the connector types the core still registers under them.
-    *_kept(ConnectorKind, DELIVERY_CONNECTOR_KINDS, D),
-    # The release train's (round D, S83-05g): its event types, its statuses and the core's unused models.
-    *_kept(EventType, RELEASE_EVENT_TYPES, D_TRAIN),
-    FormerName(
-        "ReleaseStatus",
-        "the software-delivery plugin's `tranibor_software_delivery.names.ReleaseStatus`",
-        "python",
-        "py:tranibor_contracts.enums:ReleaseStatus",
-        D_TRAIN,
-    ),
-    FormerName(
-        "ReleaseRecord",
-        "the release rows the software-delivery plugin reads (`releases`)",
-        "python",
-        "py:tranibor_core.domain:ReleaseRecord",
-        D_TRAIN,
-    ),
-    FormerName(
-        "ReleaseItem",
-        "the release rows the software-delivery plugin reads (`releases.items`)",
-        "python",
-        "py:tranibor_core.domain:ReleaseItem",
-        D_TRAIN,
-    ),
     # Round C2, the `delivery` part: a stage result's software evidence becomes named measured facts.
     *(
         FormerName(

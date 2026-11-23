@@ -16,7 +16,6 @@ from tranibor_contracts import (
     MEMORY_KINDS,
     ExecutorKind,
     MemoryKind,
-    ReleaseStatus,
     Risk,
     RunStatus,
     Size,
@@ -531,30 +530,6 @@ class RunRecord(Model):
     context_pack_url: str | None = None
     playbook_checksum: str | None = None
     allowed_paths: list[str] = Field(default_factory=list)
-
-
-class ReleaseItem(Model):
-    work_item_key: str
-    title: str | None = None
-    sha: str
-    pr_url: str | None = None
-    risk: Risk | None = None
-    labels: list[str] = Field(default_factory=list)
-
-
-class ReleaseRecord(Model):
-    id: str
-    project_slug: str
-    env: str
-    batch_no: int
-    status: ReleaseStatus = ReleaseStatus.COLLECTING
-    items: list[ReleaseItem] = Field(default_factory=list)
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
-    approved_by: str | None = None
-    verdict: dict[str, Any] = Field(default_factory=dict)
-    notes: str | None = None
-    promotion_url: str | None = None
 
 
 class FindingRecord(Model):

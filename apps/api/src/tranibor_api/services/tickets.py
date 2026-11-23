@@ -13,6 +13,7 @@ from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
 from tranibor_contracts import CHANGE_REQUEST, EventType
+from tranibor_contracts.open_lists import STORED
 from tranibor_core.domain import NewItem
 from tranibor_core.restricted import RESTRICTED_TITLE, WITHHELD, mark
 from tranibor_core.secrets import SecretNotFound
@@ -110,7 +111,7 @@ def run_dto(run: Run, project_slug: str, tool_connectors: list[ToolConnector] | 
     result = None
     if run.result:
         try:
-            result = StageResult.model_validate(run.result)
+            result = StageResult.model_validate(run.result, context={STORED: True})
         except ValidationError as error:
             # One run whose stored result no longer matches its schema must not make the whole page of
             # runs unreadable: it is served without its result, and the row says why in the log.

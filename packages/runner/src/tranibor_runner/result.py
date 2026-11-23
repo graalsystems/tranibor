@@ -23,9 +23,15 @@ from tranibor_contracts import (
     StageStatus,
     coerce_value,
 )
+from tranibor_contracts.open_lists import STORED
 
 from . import safe_files
 from .dod import merge_evidence
+
+#: The runner loads none of the deployment's extensions, so it cannot know the values they declare in the
+#: contracts' open lists (a finding's `type`, ADR 0181): it reads one that matches the list's pattern, as a
+#: stored document's, and the platform, which loads them, judges it.
+UNJUDGED = {STORED: True}
 
 
 @dataclass(slots=True)
@@ -77,7 +83,7 @@ def load_result(
     payload.setdefault("schema", "choregos/StageResult/v1")
     _drop_empty_facts(payload)
     try:
-        parsed = StageResult.model_validate(payload)
+        parsed = StageResult.model_validate(payload, context=UNJUDGED)
     except ValidationError as exc:
         return ResultLoad(None, error=_explain(exc), raw=raw)
     missing = _missing_outputs(parsed, declared or [])
@@ -222,7 +228,7 @@ def complete_result(
     data["artifacts"] = merged_artifacts
     data["diagnostics"] = diagnostics.model_dump()
 
-    completed = StageResult.model_validate(data)
+    completed = StageResult.model_validate(data, context=UNJUDGED)
     if scope_blocked:
         completed.status = StageStatus.BLOCKED
         completed.reason = "scope"

@@ -144,7 +144,7 @@ export type Assistant = unknown;
 
 export type ContextPackMemory = {
   id?: string;
-  /** An open list (ADR 0181): the core's kinds, decision, convention, incident, ticket_summary, run_lesson, flaky_test, hotspot, finding, other, and the kinds an installed extension declares. */
+  /** An open list (ADR 0181): the core's kinds, decision, convention, incident, ticket_summary, run_lesson, finding, other, and the kinds an installed extension declares. */
   kind: string;
   subject: string;
   content: string;
@@ -304,7 +304,7 @@ export type Event = {
   id: string;
   /** /choregos/orchestrator, /choregos/api, /choregos/runner/<run_id>… */
   source: string;
-  /** An open list (ADR 0181): the core's types, choregos.workitem.created, choregos.workitem.state_changed, choregos.workitem.closed, choregos.workitem.human_requested, choregos.workitem.human_decided, choregos.workitem.workflow_failed, choregos.workitem.migrated, choregos.workitem.migration_refused, choregos.workitem.status_comment_missed, choregos.run.queued, choregos.run.started, choregos.run.progress, choregos.run.finished, choregos.finding.reported, choregos.finding.created, choregos.finding.duplicate, choregos.finding.dismissed, choregos.release.collected, choregos.release.departed, choregos.release.staged, choregos.release.approval_requested, choregos.release.promoted, choregos.release.verified, choregos.release.rolled_back, choregos.release.frozen, choregos.cost.recorded, choregos.cost.alert, choregos.project.provisioning.step, choregos.project.provisioning.completed, choregos.project.provisioning.failed, choregos.security.injection_suspected, choregos.tool.called, choregos.network.denied, choregos.action.proposed, choregos.action.decided, choregos.action.effect_done, choregos.action.effect_compensated, choregos.action.succeeded, choregos.action.failed, choregos.action.settled, and the types an installed extension declares (the release train's `choregos.release.*` are the software-delivery plugin's since round D, kept in the core's list for one window). The platform refuses any other. */
+  /** An open list (ADR 0181): the core's types, choregos.workitem.created, choregos.workitem.state_changed, choregos.workitem.closed, choregos.workitem.human_requested, choregos.workitem.human_decided, choregos.workitem.workflow_failed, choregos.workitem.migrated, choregos.workitem.migration_refused, choregos.workitem.status_comment_missed, choregos.run.queued, choregos.run.started, choregos.run.progress, choregos.run.finished, choregos.finding.reported, choregos.finding.created, choregos.finding.duplicate, choregos.finding.dismissed, choregos.cost.recorded, choregos.cost.alert, choregos.project.provisioning.step, choregos.project.provisioning.completed, choregos.project.provisioning.failed, choregos.security.injection_suspected, choregos.tool.called, choregos.network.denied, choregos.action.proposed, choregos.action.decided, choregos.action.effect_done, choregos.action.effect_compensated, choregos.action.succeeded, choregos.action.failed, choregos.action.settled, and the types an installed extension declares (the release train's `choregos.release.*` are the software-delivery plugin's since round D). The platform refuses any other. */
   type: string;
   subject?: string | null;
   time: string;
@@ -318,7 +318,7 @@ export type Event = {
 /** A problem an agent found outside its scope. */
 export type Finding = {
   title: string;
-  /** An open list (ADR 0181): the core's types, perf, bug, security, tech-debt, docs, flaky-test, ux, and the types an installed extension declares. The platform refuses any other. */
+  /** An open list (ADR 0181): the core's types, security, docs, ux, and the types an installed extension declares. The platform refuses any other. */
   type: string;
   severity: "low" | "medium" | "high" | "critical";
   /** path:line, test output, query… */
@@ -349,7 +349,7 @@ export type HumanDecision = {
 
 /** An external event, normalised by an adapter (docs/plan/01 §1.7). */
 export type InboundEvent = {
-  /** An open list (ADR 0181): the core's types, tracker.item.created, tracker.item.updated, tracker.item.moved, tracker.item.commented, tracker.item.labeled, tracker.item.closed, scm.pr.opened, scm.pr.synchronized, scm.pr.review_submitted, scm.pr.merged, scm.pr.closed, scm.check.completed, ci.run.started, ci.run.succeeded, ci.run.failed, cd.app.synced, cd.app.degraded, cd.rollout.completed, cd.rollout.aborted, alert.fired, alert.resolved, human.decision, and the types an installed extension declares. The platform refuses any other. */
+  /** An open list (ADR 0181): the core's types, tracker.item.created, tracker.item.updated, tracker.item.moved, tracker.item.commented, tracker.item.labeled, tracker.item.closed, alert.fired, alert.resolved, human.decision, and the types an installed extension declares. The platform refuses any other. */
   type: string;
   /** github, jira, gitlab, tekton, argocd, alertmanager, slack, web, cli */
   source: string;

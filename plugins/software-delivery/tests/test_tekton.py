@@ -10,9 +10,9 @@ from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.executor.tekton import CORE_API, TEKTON_API, KubernetesClient, TektonExecutor
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_adapters.fakes.wire import Wire
-from tranibor_contracts import InboundEventType
 from tranibor_core.domain import ExecRef, StageJobSpec
 from tranibor_software_delivery.connectors.ci.tekton import TektonCi
+from tranibor_software_delivery.names import DeliveryEvent
 
 K8S = "https://k8s.test"
 NS = "proj-billing-runners"
@@ -214,7 +214,7 @@ def test_a_tekton_cloudevent_becomes_a_ci_event() -> None:
     (event,) = TektonCi(k8s(Wire())).parse_event(
         {"ce-type": "dev.tekton.event.pipelinerun.failed.v1", "ce-id": "ev-1"}, json.dumps(body).encode()
     )
-    assert event.type == InboundEventType.CI_FAILED and event.delivery_id == "ev-1"
+    assert event.type == DeliveryEvent.CI_FAILED and event.delivery_id == "ev-1"
     assert event.project_slug == "billing" and event.work_item_key == "billing-12"
     assert event.payload == {"pipeline_run": "run-1", "sha": "abc", "run_id": "r-1"}
 

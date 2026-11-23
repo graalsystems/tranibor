@@ -9,6 +9,7 @@ from typing import Any
 from temporalio import activity
 from tranibor_api.db.models import CostLedger, Run
 from tranibor_contracts import StageResult
+from tranibor_contracts.open_lists import STORED
 from tranibor_core import GateContext, GateOutcome, evaluate
 from tranibor_core.gates import ProviderRequest, after_judgment, provide_facts
 from tranibor_core.run_journal import GATE_OUTCOME
@@ -33,7 +34,9 @@ async def evaluate_gates(payload: dict[str, Any]) -> list[dict[str, Any]]:
         bundle = await project_bundle(session, payload["project_id"])
         item = await load_work_item(session, payload["work_item_id"])
         run = await session.get(Run, payload["run_id"]) if payload.get("run_id") else None
-        result = StageResult.model_validate(run.result) if run and run.result else None
+        result = (
+            StageResult.model_validate(run.result, context={STORED: True}) if run and run.result else None
+        )
 
         # What the run really called in the catalogue: the registry, not the result. A place held under
         # the tool-call cap is not a call (S57-03): one whose request died never answered.
