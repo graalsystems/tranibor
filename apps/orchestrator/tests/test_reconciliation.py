@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from tranibor_orchestrator.activities import tracker as tracker_activities
 from tranibor_orchestrator.train_client import clear_fake_signals, fake_starts
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture
 
@@ -66,6 +67,7 @@ async def test_an_already_known_ticket_is_not_restarted(setup: Fixture) -> None:
 
 
 async def test_a_finished_or_paused_ticket_is_left_alone(setup: Fixture) -> None:
+    await use_workflow(setup)
     clear_fake_signals()
     setup.adapters.tracker.items[setup.tracker_key].labels = ["agent-ready"]
     finished = _seed_candidate(setup, "Already delivered")
@@ -86,7 +88,7 @@ async def test_a_finished_or_paused_ticket_is_left_alone(setup: Fixture) -> None
 
     async with session_scope() as session:
         row = (await session.execute(select(WorkItem).where(WorkItem.tracker_key == finished))).scalar_one()
-        row.state = "deployed_prod"
+        row.state = "done"  # `CORE_SIMPLE`'s terminal state
     clear_fake_signals()
     again = await tracker_activities.reconcile_tracker({"project_slug": setup.project_slug})
     assert again["started"] == [], "a terminal state is not restarted"

@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageResult, StageStatus
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .test_interpreter import _runs, _wait_state, _wait_until, scripted, start
@@ -109,6 +110,7 @@ async def _escalate_then_restart(temporal_env: Any, setup: Fixture, *, legacy: b
 async def test_the_escalation_records_where_the_work_item_resumes(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -134,6 +136,7 @@ async def test_a_restarted_interpreter_replays_the_escalated_stage(
     """`rerun_stage` on a restarted interpreter replays `t-refine` with a NEW run number — attempt
     1 again would name the failed run, and `prepare_stage` would hand it back — and reaches its
     target."""
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -160,6 +163,7 @@ async def test_a_work_item_parked_before_the_change_is_derived(
 ) -> None:
     """Escalated before S22-41 (dev #4 and #6): no `parked` stored. The stage is derived from the
     state it came from — the transition out of it whose escalation leads to `needs_human`."""
+    await use_workflow(setup)
     scripted(setup.adapters, FAILURE, FAILURE, refine_result("spec"))
     async with worker_factory():
         handle = await _escalate_then_restart(temporal_env, setup, legacy=True)
@@ -175,6 +179,7 @@ async def test_a_replay_the_old_code_dropped_does_not_block_the_next(
 ) -> None:
     """Dev #4 received `rerun_stage` before the change, and dropped it: replayed, that request
     answers no to `patched`. The next request must still play — hence one patch id per request."""
+    await use_workflow(setup)
     from tranibor_orchestrator.workflows import interpreter
 
     dropped = f"{interpreter.ESCALATION_CONTEXT_AFTER_RESTART}-1"
@@ -201,6 +206,7 @@ async def test_an_answer_resumes_a_restarted_interpreter(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
     """`on_answer: resume` on a restarted interpreter: the answer brings the stage back."""
+    await use_workflow(setup)
     from .kits.escalation import requests_of
 
     question = StageResult(
@@ -240,6 +246,7 @@ async def test_a_replay_on_a_work_item_that_did_not_escalate_is_still_dropped(
 ) -> None:
     """Reading the database does not invent an escalation: on an ordinary approval, `rerun_stage`
     moves nothing (S22-08), and the wait does not spin."""
+    await use_workflow(setup)
     scripted(setup.adapters, refine_result("spec"))
     async with worker_factory():
         first = await start(temporal_env, setup)

@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 from tranibor_adapters.fakes.tracker import FakeTracker
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .test_interpreter import _wait_state, scripted, start
@@ -86,6 +87,7 @@ async def _the_miss_is_on_the_timeline(setup: Fixture) -> None:
 async def test_a_refused_status_comment_does_not_stop_the_work_item(
     setup: Fixture, temporal_env: Any, worker_factory: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 

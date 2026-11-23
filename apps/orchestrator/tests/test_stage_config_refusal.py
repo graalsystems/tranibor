@@ -15,6 +15,7 @@ import pathlib
 from typing import Any
 
 import pytest
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .kits.escalation import requests_of
@@ -47,6 +48,7 @@ async def _refused_then_parked(temporal_env: Any, setup: Fixture) -> Any:
 async def test_a_refused_model_escalates_and_the_stage_replays_once_fixed(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from temporalio.worker import Replayer
     from tranibor_orchestrator.extension_parts import all_workflows
 
@@ -82,6 +84,7 @@ async def test_a_restarted_interpreter_replays_the_refused_stage(
 ) -> None:
     """The escalation context is stored: an interpreter started again from the database (#497)
     replays the refused stage too."""
+    await use_workflow(setup)
     catalogue = _without_tool_calling(setup.adapters.gateway)
     scripted(setup.adapters, refine_result("spec"))
     async with worker_factory():
