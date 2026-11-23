@@ -8,7 +8,7 @@ PostgreSQL dump when they are on the embedded PostgreSQL, and the backup mounts 
 The memory's DuckDB files are copied as they are, WAL aside: they are consistent only when Ecphoria is
 stopped (`kubectl -n choregos scale deploy/choregos-ecphoria --replicas=0`, then the backup, then back
 to 1). Taken while it runs, the copy does not replay and the restored Ecphoria **silently runs empty, in
-memory** ([#2185](https://github.com/graalsystems/tranibor/issues/2185)). Its `vectors/` directory is not
+memory** (issue #2185). Its `vectors/` directory is not
 copied at all.
 What it does not hold: the site's secrets (`choregos-api-secrets`, `choregos-oidc`, the object store's
 and the backup target's keys). Those come from the site's vault.
