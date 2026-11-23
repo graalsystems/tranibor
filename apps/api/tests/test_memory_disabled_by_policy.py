@@ -25,9 +25,9 @@ memory: { enabled: false }
 def _workflow(agent: str) -> str:
     from tranibor_core.dsl import template_yaml
 
-    yaml = template_yaml("default-simple").replace(
-        'dev: { type: agent, role: implement, model: "profile:by_size", needs: [scm] }',
-        f'dev: {{ type: agent, role: implement, model: "profile:by_size", needs: [scm], agent: {agent} }}',
+    yaml = template_yaml("default-request").replace(
+        'assistant: { type: agent, role: deliver, model: "profile:by_size" }',
+        f'assistant: {{ type: agent, role: deliver, model: "profile:by_size", agent: {agent} }}',
     )
     assert f"agent: {agent}" in yaml
     return yaml
@@ -62,12 +62,13 @@ async def test_a_workflow_naming_an_agent_with_memory_under_a_policy_without_is_
     validation = (await client.post(validate, json={"yaml": _workflow("fon-access-analyst")})).json()
     assert validation["valid"] is True
     (warning,) = [w for w in validation["warnings"] if w["code"] == "agent.memory_disabled_by_policy"]
-    assert warning["path"] == "/actors/dev/agent"
+    assert warning["path"] == "/actors/assistant/agent"
     assert "fon-access-analyst" in warning["message"] and "it will get none" in warning["message"]
 
     with structlog.testing.capture_logs() as events:
         published = await client.put(
-            f"/api/v1/projects/{pid}/workflows/default-simple", json={"yaml": _workflow("fon-access-analyst")}
+            f"/api/v1/projects/{pid}/workflows/default-request",
+            json={"yaml": _workflow("fon-access-analyst")},
         )
     assert published.status_code == 200, published.text
     (logged,) = _logged(events)
@@ -86,12 +87,12 @@ async def test_a_policy_that_turns_memory_off_under_a_named_agent_is_logged(
     pid = project["id"]
     await _agent(client, "fon-access-analyst", "project")
     published = await client.put(
-        f"/api/v1/projects/{pid}/workflows/default-simple", json={"yaml": _workflow("fon-access-analyst")}
+        f"/api/v1/projects/{pid}/workflows/default-request", json={"yaml": _workflow("fon-access-analyst")}
     )
     assert published.status_code == 200, published.text
     with structlog.testing.capture_logs() as events:
         put = await client.put(f"/api/v1/projects/{pid}/policy", json={"yaml": POLICY_WITHOUT_MEMORY})
     assert put.status_code == 200, put.text
     (logged,) = _logged(events)
-    assert logged["agent"] == "fon-access-analyst" and logged["workflow"] == "default-simple"
+    assert logged["agent"] == "fon-access-analyst" and logged["workflow"] == "default-request"
     assert "memory.enabled: false" in logged["message"]

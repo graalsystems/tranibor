@@ -9,6 +9,6 @@ requires:
   connectors:
     tracker: plugin:desk/desk
 defaults:
-  workflow: template:default-simple@1
+  workflow: template:default-request@1
 inputs: []
 steps: []
