@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from tranibor_adapters.errors import ConfigurationError
 from tranibor_adapters.fakes.executor import FakeExecutor
+from tranibor_testkit.workflows import use_workflow
 
 from .conftest import Fixture, recording_history, refine_result
 from .kits.escalation import requests_of
@@ -41,6 +42,7 @@ def _refusing(setup: Fixture) -> FakeExecutor:
 async def test_a_refused_start_escalates_and_the_stage_replays_once_fixed(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    await use_workflow(setup)
     from sqlalchemy import select
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Run
