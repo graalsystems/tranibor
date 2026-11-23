@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
-from tranibor_contracts import EventType
+from tranibor_contracts import CHANGE_REQUEST, EventType
 from tranibor_core.domain import NewItem
 from tranibor_core.restricted import RESTRICTED_TITLE, WITHHELD, mark
 from tranibor_core.secrets import SecretNotFound
@@ -49,6 +49,7 @@ from ..schemas import (
     WorkItemCreate,
     WorkItemDto,
 )
+from ..schemas.tickets import LinkDto
 from ..secret_store import SecretStoreUnavailable, resolved_configuration
 from ..temporal import get_temporal, interpreter_id
 from .costs import estimate_cost
@@ -257,7 +258,7 @@ async def work_item_dto(
             if pending
             else None
         ),
-        pr_url=item.pr_url,
+        links=[LinkDto(rel=CHANGE_REQUEST, url=item.pr_url)] if item.pr_url else [],
         workspace=repository,
         workspace_fixed=repository_fixed,
         totals=totals,

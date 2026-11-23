@@ -278,7 +278,7 @@ async def test_a_member_signs_in_on_the_host_and_the_cookie_stays_on_it(
     client: AsyncClient, claims: Claims
 ) -> None:
     _, done, token = await _sign_in(
-        client, login_on=ACME_HOST, groups=["choregos:acme:developers"], redirect_to="/projects"
+        client, login_on=ACME_HOST, groups=["choregos:acme:contributors"], redirect_to="/projects"
     )
     assert done.status_code == 307, done.text
     assert done.headers["location"] == "/projects"
@@ -294,7 +294,7 @@ async def test_a_member_signs_in_on_the_host_and_the_cookie_stays_on_it(
 async def test_a_sign_in_without_target_lands_on_the_host_not_the_instance(
     client: AsyncClient, claims: Claims
 ) -> None:
-    _, done, _ = await _sign_in(client, login_on=ACME_HOST, groups=["choregos:acme:developers"])
+    _, done, _ = await _sign_in(client, login_on=ACME_HOST, groups=["choregos:acme:contributors"])
     assert done.headers["location"] == f"https://{ACME_HOST}/"
 
 
@@ -302,7 +302,7 @@ async def test_a_member_of_another_organisation_only_is_refused_and_stored_nowhe
     client: AsyncClient, claims: Claims
 ) -> None:
     _, done, _ = await _sign_in(
-        client, login_on=ACME_HOST, groups=["choregos:globex:developers"], email="eve@globex.example"
+        client, login_on=ACME_HOST, groups=["choregos:globex:contributors"], email="eve@globex.example"
     )
     assert done.status_code == 403
     assert "not a member" in done.json()["detail"]
@@ -316,7 +316,7 @@ async def test_the_same_person_signs_in_on_the_instance_with_no_such_rule(
     client: AsyncClient, claims: Claims
 ) -> None:
     _, done, token = await _sign_in(
-        client, login_on=None, groups=["choregos:globex:developers"], email="eve@globex.example"
+        client, login_on=None, groups=["choregos:globex:contributors"], email="eve@globex.example"
     )
     assert done.status_code == 307
     assert [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
@@ -330,7 +330,7 @@ async def test_a_member_of_several_organisations_lands_on_the_hosts(
     client: AsyncClient, claims: Claims
 ) -> None:
     _, done, _ = await _sign_in(
-        client, login_on=ACME_HOST, groups=["choregos:globex:developers", "choregos:acme:viewers"]
+        client, login_on=ACME_HOST, groups=["choregos:globex:contributors", "choregos:acme:viewers"]
     )
     assert done.status_code == 307
 
@@ -348,7 +348,7 @@ async def test_a_sign_in_must_come_back_to_the_host_it_began_on(
     client: AsyncClient, claims: Claims, login_on: str | None, callback_on: str | None
 ) -> None:
     _, done, token = await _sign_in(
-        client, login_on=login_on, callback_on=callback_on, groups=["choregos:acme:developers"]
+        client, login_on=login_on, callback_on=callback_on, groups=["choregos:acme:contributors"]
     )
     assert done.status_code == 401
     assert not [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
@@ -393,7 +393,7 @@ async def test_a_redirect_target_off_the_host_is_never_followed(
     client: AsyncClient, claims: Claims, target: str
 ) -> None:
     _, done, _ = await _sign_in(
-        client, login_on=ACME_HOST, groups=["choregos:acme:developers"], redirect_to=target
+        client, login_on=ACME_HOST, groups=["choregos:acme:contributors"], redirect_to=target
     )
     assert done.status_code == 307
     assert done.headers["location"] == f"https://{ACME_HOST}/"
@@ -404,7 +404,7 @@ async def test_a_target_on_the_host_or_relative_is_followed(
     client: AsyncClient, claims: Claims, target: str
 ) -> None:
     _, done, _ = await _sign_in(
-        client, login_on=ACME_HOST, groups=["choregos:acme:developers"], redirect_to=target
+        client, login_on=ACME_HOST, groups=["choregos:acme:contributors"], redirect_to=target
     )
     assert done.headers["location"] == target
 
@@ -415,7 +415,7 @@ async def test_a_tenant_host_is_no_redirect_target_for_the_instances_sign_in(
     _, done, _ = await _sign_in(
         client,
         login_on=None,
-        groups=["choregos:acme:developers"],
+        groups=["choregos:acme:contributors"],
         redirect_to=f"https://{ACME_HOST}/projects",
     )
     assert done.headers["location"] == CONSOLE  # the session cookie would not be valid there

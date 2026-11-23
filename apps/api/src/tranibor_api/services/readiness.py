@@ -1026,7 +1026,7 @@ async def template_workflow_facts(
         if row.source != "template" or row.name not in shipped or not row.yaml:
             continue
         try:
-            stored = checksum(parse_workflow(row.yaml, strict=False)[0])
+            stored = checksum(parse_workflow(row.yaml, strict=False, stored=True)[0])
         except (WorkflowInvalid, yaml.YAMLError):
             continue
         ref, shipped_checksum = shipped[row.name]
@@ -1153,7 +1153,7 @@ async def load_facts(session: AsyncSession, project: Project, org_slug: str) -> 
         daily_budget_set=policy.budgets.daily_project_usd is not None,
         has_owner="project_owner" in memberships,
         # Either spelling of the role (ADR 0181 C1).
-        has_release_captain=bool({"approver", "release_captain"} & set(memberships)),
+        has_release_captain="approver" in set(memberships),
         unknown_groups=tuple(unknown_groups),
         # The `software-delivery` plugin's figure (ADR 0181 round D): `False` without its extension.
         has_release_train=bool(

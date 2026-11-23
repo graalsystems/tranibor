@@ -222,7 +222,7 @@ async def test_a_person_who_cannot_read_a_project_sees_none_of_its_runs(
 
 
 async def test_a_session_is_listed_to_its_opener_only(client: AsyncClient, project: dict[str, Any]) -> None:
-    async with _as(client, "dev@northwind.dev", "developer", "billing-api") as dev:
+    async with _as(client, "dev@northwind.dev", "contributor", "billing-api") as dev:
         await _session(project, await _user_id("admin@northwind.dev"), "s-admin")
         await _session(project, await _user_id("dev@northwind.dev"), "s-dev")
         assert _ids((await client.get(ACTIVITY)).json()) == {"s-admin"}

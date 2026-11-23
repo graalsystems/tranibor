@@ -134,7 +134,7 @@ async def test_a_linked_developer_pauses_from_a_signed_comment(
     client: AsyncClient, project: dict[str, Any], tracker: FakeTracker, signed: None
 ) -> None:
     await _routed_item(client, project)
-    await _link(client, "dev@northwind.dev", "developer", "1001", "devon")
+    await _link(client, "dev@northwind.dev", "contributor", "1001", "devon")
 
     answered = await _comment(client, "c1", "/choregos pause", {"login": "devon", "id": 1001})
     assert answered.status_code == 202, answered.text
@@ -153,7 +153,7 @@ async def test_a_renamed_github_login_does_not_inherit_the_link(
     client: AsyncClient, project: dict[str, Any], tracker: FakeTracker, signed: None
 ) -> None:
     await _routed_item(client, project)
-    await _link(client, "dev@northwind.dev", "developer", "1001", "mallory")
+    await _link(client, "dev@northwind.dev", "contributor", "1001", "mallory")
 
     await _comment(client, "c2", "/choregos pause", {"login": "mallory", "id": 2002})
 
@@ -169,7 +169,7 @@ async def test_an_unsigned_delivery_honours_nothing(
 
     assert not get_settings().github_webhook_secret
     await _routed_item(client, project, secret=None)
-    await _link(client, "dev@northwind.dev", "developer", "1001", "devon")
+    await _link(client, "dev@northwind.dev", "contributor", "1001", "devon")
 
     answered = await _comment(client, "c3", "/choregos pause", {"login": "devon", "id": 1001}, secret=None)
     assert answered.status_code == 202, answered.text
@@ -202,7 +202,7 @@ async def test_a_jira_display_name_is_not_an_identity(
         },
     )
     assert put.status_code == 200, put.text
-    await _link(client, "dev@northwind.dev", "developer", "1001", "devon")
+    await _link(client, "dev@northwind.dev", "contributor", "1001", "devon")
     tracker.items["BILL-7"] = tracker.items[KEY].model_copy(update={"key": "BILL-7"})
     issue = {
         "key": "BILL-7",
@@ -275,8 +275,8 @@ async def test_two_commands_in_one_delivery_keep_their_own_members(
     from tranibor_contracts import InboundEvent, InboundEventType
 
     await _routed_item(client, project)
-    await _link(client, "alice@northwind.dev", "developer", "1001", "alice")
-    await _link(client, "bob@northwind.dev", "developer", "1002", "bob")
+    await _link(client, "alice@northwind.dev", "contributor", "1001", "alice")
+    await _link(client, "bob@northwind.dev", "contributor", "1002", "bob")
 
     def command(delivery: str, verb: str, by_id: str) -> InboundEvent:
         return InboundEvent(
@@ -315,7 +315,7 @@ async def test_a_principal_for_a_webhook_leaves_the_session_unnarrowed(
     from tranibor_api.db.models import User
     from tranibor_api.db.session import session_scope
 
-    await _link(client, "alice@northwind.dev", "developer", "1001", "alice")
+    await _link(client, "alice@northwind.dev", "contributor", "1001", "alice")
     scopes: list[Any] = []
     named: list[str] = []
 
@@ -345,7 +345,7 @@ async def test_a_link_as_the_migration_left_it_still_pauses_from_a_signed_commen
 
     await _routed_item(client, project)
     added = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     async with session_scope() as session:
         org_id = (await session.execute(select(Organization.id))).scalar_one()
@@ -374,7 +374,7 @@ async def test_a_link_on_another_forge_instance_is_not_a_github_com_identity(
     """The same numeric id on a GitLab or a GitHub Enterprise instance is another person's account."""
     await _routed_item(client, project)
     added = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     for provider, base_url in (("gitlab", None), ("github", "https://ghe.corp.example")):
         declared = await client.post(

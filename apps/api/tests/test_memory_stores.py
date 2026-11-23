@@ -18,7 +18,7 @@ async def _two_projects(client: AsyncClient) -> tuple[dict[str, Any], dict[str, 
     billing = await make_project(client, "billing-api")
     checkout = await make_project(client, "checkout-web")
     await add_member(client, "owner@northwind.dev", "project_owner", "billing-api")
-    await add_member(client, "dev@northwind.dev", "developer", "billing-api")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing-api")
     await add_member(client, "other@northwind.dev", "project_owner", "checkout-web")
     return billing, checkout
 
@@ -40,7 +40,7 @@ async def test_an_org_admin_creates_a_global_memory_and_a_developer_cannot(
     assert (
         await client.post(MEM, json={"slug": "security-lessons", "display_name": "Again"})
     ).status_code == 409
-    await add_member(client, "dev@northwind.dev", "developer")
+    await add_member(client, "dev@northwind.dev", "contributor")
     await as_user(client, "dev@northwind.dev")
     refused = await client.post(MEM, json={"slug": "other-one", "display_name": "x"})
     assert refused.status_code == 403, refused.text
@@ -175,8 +175,8 @@ def test_visibility_follows_the_reach() -> None:
     scoped = _store("global", "projects", ["billing-api"])
     mine = _store("project", None, ["billing-api"])
     admin = _principal(Role.ORG_ADMIN)
-    billing_dev = _principal(None, **{"billing-api": Role.DEVELOPER})
-    checkout_dev = _principal(None, **{"checkout-web": Role.DEVELOPER})
+    billing_dev = _principal(None, **{"billing-api": Role.CONTRIBUTOR})
+    checkout_dev = _principal(None, **{"checkout-web": Role.CONTRIBUTOR})
     nobody = _principal()
     assert all(visible_to(admin, "northwind", s) for s in (org_wide, scoped, mine))
     assert visible_to(billing_dev, "northwind", scoped) and visible_to(billing_dev, "northwind", mine)

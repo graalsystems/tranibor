@@ -90,7 +90,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       members: vi.fn(async () => ({
         items: [
           { org: "acme", role: "project_owner", user_id: "u2", email: "lea@acme.dev", project_slug: "dev" },
-          { org: "acme", role: "developer", user_id: "u3", email: "marc@acme.dev", project_slug: "dev" },
+          { org: "acme", role: "contributor", user_id: "u3", email: "marc@acme.dev", project_slug: "dev" },
         ],
         meta: { next_cursor: null, has_more: false },
       })),
@@ -202,7 +202,7 @@ describe("the project settings page (S40-03b)", () => {
 
   it("shows the people of the project on their own page", async () => {
     await renderPage("people");
-    expect((await screen.findByTestId("people-count")).textContent).toContain("2 on this project: 1 project owner, 1 developer");
+    expect((await screen.findByTestId("people-count")).textContent).toContain("2 on this project: 1 project owner, 1 contributor");
   });
 
   it("the general form saves repo.test_command and keeps the rest of the configuration", async () => {

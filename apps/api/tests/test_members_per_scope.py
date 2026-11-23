@@ -33,7 +33,7 @@ async def test_a_project_member_reads_the_project_s_members_and_not_the_organisa
 ) -> None:
     for body in (
         {"email": "po@northwind.dev", "role": "project_owner", "project_slug": "billing-api"},
-        {"email": "dev@northwind.dev", "role": "developer", "project_slug": "billing-api"},
+        {"email": "dev@northwind.dev", "role": "contributor", "project_slug": "billing-api"},
         {"email": "orga@northwind.dev", "role": "viewer"},
     ):
         assert (await client.post(MEMBERS, json=body)).status_code == 201
@@ -42,12 +42,12 @@ async def test_a_project_member_reads_the_project_s_members_and_not_the_organisa
     of_the_project = await client.get(MEMBERS, params={"project": "billing-api"})
     assert of_the_project.status_code == 200, of_the_project.text
     read = {(m["email"], m["role"]) for m in of_the_project.json()["items"]}
-    assert {("po@northwind.dev", "project_owner"), ("dev@northwind.dev", "developer")} <= read
+    assert {("po@northwind.dev", "project_owner"), ("dev@northwind.dev", "contributor")} <= read
     assert all(m["project_slug"] == "billing-api" for m in of_the_project.json()["items"])
     assert "orga@northwind.dev" not in {m["email"] for m in of_the_project.json()["items"]}
     # The project owner manages the project's members.
     added = await client.post(
-        MEMBERS, json={"email": "rc@northwind.dev", "role": "release_captain", "project_slug": "billing-api"}
+        MEMBERS, json={"email": "rc@northwind.dev", "role": "approver", "project_slug": "billing-api"}
     )
     assert added.status_code == 201, added.text
 

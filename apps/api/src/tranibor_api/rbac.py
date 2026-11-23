@@ -1,10 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""RBAC: five roles, an explicit permission matrix.
-
-The roles `contributor` and `approver` are the neutral names of `developer` and `release_captain`
-(ADR 0181 C1): a row may hold either spelling until the release `tranibor_contracts.window` names, and
-both hold the same permissions and rank.
-"""
+"""RBAC: five roles, an explicit permission matrix (`contributor` and `approver` since ADR 0181 C1)."""
 
 from __future__ import annotations
 
@@ -69,7 +64,7 @@ class Permission(StrEnum):
     GROUP_MANAGE = "group:manage"
 
 
-_PERMISSIONS: dict[Role, frozenset[Permission]] = {
+ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.VIEWER: frozenset({Permission.PROJECT_READ, Permission.MEMBER_READ}),
     Role.CONTRIBUTOR: frozenset(
         {
@@ -119,20 +114,17 @@ _PERMISSIONS: dict[Role, frozenset[Permission]] = {
     ),
     Role.ORG_ADMIN: frozenset(Permission) - {Permission.ASSISTANT_USE},
 }
-#: The permissions of every role, under each of its spellings: a former name (`developer`,
-#: `release_captain`, until the release `tranibor_contracts.window` names) holds what its successor holds.
-ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {role: _PERMISSIONS[role.neutral] for role in Role}
 
-#: How much a role may decide, from the narrowest: a former name ranks as its successor.
+#: How much a role may decide, from the narrowest.
 _RANK = {Role.VIEWER: 0, Role.CONTRIBUTOR: 1, Role.APPROVER: 2, Role.PROJECT_OWNER: 3, Role.ORG_ADMIN: 4}
 
 
 def rank_of(role: Role | str | None) -> int:
-    """The rank of a role under either spelling; -1 for none or an unknown value."""
+    """The rank of a role; -1 for none or an unknown value."""
     if role is None:
         return -1
     try:
-        return _RANK[Role(role).neutral]
+        return _RANK[Role(role)]
     except ValueError:
         return -1
 

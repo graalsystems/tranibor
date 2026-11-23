@@ -27,7 +27,7 @@ from .kits.outposts import BASE
 SLUG = "factory-floor"
 ONE = f"{BASE}/{SLUG}"
 FINGERPRINT = {"fingerprint": "SHA256:" + "a" * 43}
-NOT_ADMINISTRATORS = [Role.VIEWER, Role.DEVELOPER, Role.RELEASE_CAPTAIN, Role.PROJECT_OWNER]
+NOT_ADMINISTRATORS = [Role.VIEWER, Role.CONTRIBUTOR, Role.APPROVER, Role.PROJECT_OWNER]
 
 
 def _routes(instance: str) -> list[tuple[str, str, str, Any]]:

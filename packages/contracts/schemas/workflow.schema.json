@@ -747,11 +747,9 @@
                   "contributor",
                   "approver",
                   "project_owner",
-                  "org_admin",
-                  "developer",
-                  "release_captain"
+                  "org_admin"
                 ],
-                "description": "the least rank an approver holds: `contributor`, `approver`, `project_owner` or `org_admin`. `developer` and `release_captain` are their former names, read until the release the window list names (ADR 0181 C1)"
+                "description": "the least rank an approver holds: `contributor`, `approver`, `project_owner` or `org_admin` (ADR 0181 C1)"
               },
               "group": {
                 "type": "string",

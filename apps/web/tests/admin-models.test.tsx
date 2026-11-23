@@ -232,7 +232,7 @@ describe("the Models page", () => {
   });
 
   it("is read-only for someone who is not an organisation administrator", async () => {
-    session.role = "developer";
+    session.role = "contributor";
     show();
     await screen.findByTestId("model-platform/standard");
     expect(screen.getByLabelText("Enable platform/standard")).toBeDisabled();

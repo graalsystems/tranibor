@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError as PydanticValidationError
 from tranibor_contracts import Workflow
+from tranibor_contracts.open_lists import STORED
 
 from ..errors import Issue, ValidationError
 from .validator import ValidationReport, validate_workflow
@@ -48,11 +49,15 @@ def _pydantic_issues(exc: PydanticValidationError, source: Any) -> list[Issue]:
     return issues
 
 
-def parse_workflow(text: str, *, strict: bool = True) -> tuple[Workflow, ValidationReport]:
+def parse_workflow(
+    text: str, *, strict: bool = True, stored: bool = False
+) -> tuple[Workflow, ValidationReport]:
     """Parse a YAML/JSON workflow and apply the static rules.
 
     `strict=True` raises `ValidationError` if the document is invalid; otherwise the
-    function returns the report and the workflow is guaranteed syntactically valid.
+    function returns the report and the workflow is guaranteed syntactically valid. `stored=True` reads
+    a version the platform stored, with the context `{"stored": True}`: a former spelling no stored
+    version can be rewritten from is read (`tranibor_contracts.recorded`, ADR 0098 §4).
     """
     try:
         source = load_yaml(text)
@@ -81,7 +86,7 @@ def parse_workflow(text: str, *, strict: bool = True) -> tuple[Workflow, Validat
         document["initial"] = next(iter(states))
 
     try:
-        workflow = Workflow.model_validate(document)
+        workflow = Workflow.model_validate(document, context={STORED: True} if stored else None)
     except PydanticValidationError as exc:
         raise ValidationError(_pydantic_issues(exc, source), subject="workflow") from exc
 

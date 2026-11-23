@@ -93,7 +93,7 @@ async def test_the_administrator_sees_the_sections_the_developer_does_not(
     assert sections[0]["blocks"][2]["secret_field"] == "token"
 
     member = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     assert member.status_code in {200, 201}, member.text
     await login(client, "dev@northwind.dev")

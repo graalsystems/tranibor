@@ -34,7 +34,7 @@ def noop_effect() -> Iterator[None]:
 async def _proposed(client: AsyncClient, app: Any, pid: str, count: int = 1) -> list[str]:
     """Actions proposed by a developer: who proposes does not decide."""
     member = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     assert member.status_code in {200, 201}, member.text
     dev = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

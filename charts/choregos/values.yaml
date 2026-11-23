@@ -550,7 +550,7 @@ global:
     issuer: https://keycloak.choregos.local/realms/choregos
     clientId: choregos
     secretRef: choregos-oidc
-    # Organization to attach the NON-prefixed OIDC groups to (`developers`,
+    # Organization to attach the NON-prefixed OIDC groups to (`contributors`,
     # `org-admins`…). Empty: only `choregos:<org>:<group>` groups give a role.
     defaultOrg: ""
     # ADR 0208. `true`: the chart deploys one Keycloak with a realm (`choregos-keycloak.realm`), a client

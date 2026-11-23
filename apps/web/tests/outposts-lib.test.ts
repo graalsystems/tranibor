@@ -72,7 +72,7 @@ describe("who manages outposts (`outpost:manage`)", () => {
     expect(canManageOutposts(of("org_admin"), "acme")).toBe(true);
     expect(canManageOutposts(of("org_admin", "globex"), "acme")).toBe(false);
     expect(canManageOutposts(of("org_admin", "acme", "billing-api"), "acme")).toBe(false);
-    for (const role of ["project_owner", "release_captain", "developer", "viewer"] as const) {
+    for (const role of ["project_owner", "approver", "contributor", "viewer"] as const) {
       expect(canManageOutposts(of(role), "acme")).toBe(false);
     }
     expect(canManageOutposts([], "acme")).toBe(false);

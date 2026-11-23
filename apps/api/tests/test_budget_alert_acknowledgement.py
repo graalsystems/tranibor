@@ -49,7 +49,7 @@ async def _drop_organisation_role(email: str) -> None:
         )
 
 
-@pytest.mark.parametrize("role", ["developer", "release_captain", "viewer"])
+@pytest.mark.parametrize("role", ["contributor", "approver", "viewer"])
 async def test_an_organisation_role_below_project_owner_cannot_acknowledge(
     client: AsyncClient, project: dict[str, Any], role: str
 ) -> None:
@@ -68,7 +68,7 @@ async def test_the_owner_of_the_project_acknowledges_its_alert(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
     alert = await _project_alert(client, project)
-    await _member("lea@northwind.dev", "developer")
+    await _member("lea@northwind.dev", "contributor")
     await _member("lea@northwind.dev", "project_owner", project["slug"])
     async with _as(client, "lea@northwind.dev") as owner:
         offered = (await owner.get("/api/v1/orgs/northwind/budget-alerts")).json()["items"]
@@ -83,7 +83,7 @@ async def test_owning_one_project_does_not_acknowledge_an_agents_alert(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
     alert = await _agent_alert(client, project)
-    await _member("lea@northwind.dev", "developer")
+    await _member("lea@northwind.dev", "contributor")
     await _member("lea@northwind.dev", "project_owner", project["slug"])
     async with _as(client, "lea@northwind.dev") as owner:
         assert [
@@ -108,7 +108,7 @@ async def test_a_member_of_one_project_only_reads_that_projects_alerts(
     await _set_daily_budget(client, project, 10)
     await _spend(project["id"], 5.0, run_id="r-project")  # 3.5 + 5.0 = 85 %
     assert len(await _alerts(client)) == 2, "the administrator reads both"
-    await _member("hakim@northwind.dev", "developer", project["slug"])
+    await _member("hakim@northwind.dev", "contributor", project["slug"])
     async with _as(client, "hakim@northwind.dev") as member:
         await _drop_organisation_role("hakim@northwind.dev")
         response = await member.get("/api/v1/orgs/northwind/budget-alerts")

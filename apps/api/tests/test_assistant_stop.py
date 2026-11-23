@@ -554,7 +554,7 @@ async def test_the_stream_sends_a_turn_to_whoever_may_see_it(
         users = dict((await session.execute(select(User.email, User.id))).all())
 
     def reader(email: str, **filters: Any) -> ActivityReader:
-        principal = Principal(user_id=users[email], email=email, org_roles={"northwind": Role.DEVELOPER})
+        principal = Principal(user_id=users[email], email=email, org_roles={"northwind": Role.CONTRIBUTOR})
         return ActivityReader(
             principal=principal, org_id=org_id, org_slug="northwind", filters=ActivityFilters(**filters)
         )

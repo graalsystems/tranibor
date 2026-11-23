@@ -127,7 +127,7 @@ async def test_an_organisations_own_agent_of_the_same_name_is_never_touched(
 async def test_only_an_administrator_installs(client: AsyncClient, admin: str) -> None:
     from .conftest import login
 
-    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     assert member.status_code in {200, 201}
     await login(client, "dev@northwind.dev")
     assert (await client.get(f"{ORG}/agent-catalogue")).status_code == 200, "a member reads the catalogue"
@@ -221,7 +221,7 @@ async def test_connecting_claude_code_creates_the_agent_mints_an_mcp_token_and_a
 async def test_a_member_joins_a_clients_agent_but_does_not_create_it(client: AsyncClient, admin: str) -> None:
     from .conftest import login
 
-    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     assert member.status_code in {200, 201}
     await login(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/agent-catalogue/cursor/connect")).status_code == 403, (

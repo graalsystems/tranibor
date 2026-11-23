@@ -275,7 +275,7 @@ async def test_a_viewer_is_refused_and_a_session_is_its_openers_alone(
         assert refused.status_code == 403, refused.text
     assert upstream.gateway.keys == {}, "no key for a refused caller"
     session_id = (await _ask(client, "Hi")).json()["session_id"]
-    async with as_person(client, "dev@northwind.dev", "developer") as other:
+    async with as_person(client, "dev@northwind.dev", "contributor") as other:
         assert (await other.get(f"{ORG}/agent-sessions/{session_id}")).status_code == 404
         assert (await other.delete(f"{ORG}/agent-sessions/{session_id}")).status_code == 404
         hijack = await other.post(

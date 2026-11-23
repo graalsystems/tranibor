@@ -567,7 +567,7 @@ async def test_only_the_administrator_installs_and_members_read(
     client: AsyncClient, org: str, offline: Path
 ) -> None:
     await make_project(client, "billing")
-    await add_member(client, "dev@northwind.dev", "developer", "billing")
+    await add_member(client, "dev@northwind.dev", "contributor", "billing")
     await project_only(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/plugins/install", json=INSTALL)).status_code == 403
     assert (await client.get(f"{ORG}/plugins")).status_code == 200
@@ -592,7 +592,7 @@ async def test_a_plugin_s_template_workflows_join_the_workflow_catalogue(
     await _install(client)
     entries = (await client.get(f"{ORG}/workflow-catalogue?limit=200")).json()["items"]
     (entry,) = [e for e in entries if e["source"] == "plugin:hello"]
-    assert entry["name"] == "hello-request" and entry["needs_repository"] is False
+    assert entry["name"] == "hello-request" and entry["needs_workspace"] is False
     assert [r["capability"] for r in entry["requires"]] == ["tracker", "runtime", "gateway"]
     async with session_scope() as session:
         org_id = (

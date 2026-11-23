@@ -353,7 +353,7 @@ async def test_network_activity_groups_by_host_and_is_refused_without_audit_read
     ).json() == {"rows": []}
 
     added = await client.post(
-        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "developer"}
+        "/api/v1/orgs/northwind/members", json={"email": "dev@northwind.dev", "role": "contributor"}
     )
     assert added.status_code in (200, 201), added.text
     await login(client, "dev@northwind.dev")
