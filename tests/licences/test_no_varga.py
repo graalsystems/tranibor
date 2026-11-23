@@ -20,7 +20,6 @@ HISTORY = (
     "docs/plan/",  # the plan's rows say what was done when
     "apps/api/src/tranibor_api/migrations/versions/",  # a migration means what it meant when it ran
     "trials/",  # dated reports
-    "plugins/offline/",  # the archives and the lock record the index and identity that signed them
 )
 
 #: Files that still spell the name: the old source name, and the guards of the deleted frozen namespace.

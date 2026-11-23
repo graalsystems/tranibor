@@ -5830,6 +5830,14 @@ stories:
     size: S
     depends_on: [S80-22]
     notes: "Left of S80-22: the four example Dockerfiles and code-agent-examples.yml (ghcr.io/graalsystems/tranibor-runner:0.27.17), infra/bootstrap/gvisor.yaml (no source ever existed here: operator-supplied image), tests/licences/test_no_varga.py. Not done: plugins/offline/plugins.lock still records the deleted index and its signer (the graalsystems index only offers newer plugin versions; moving the lock moves agent versions and 22 catalogue digests)."
+  - id: S80-24
+    title: "test(licences): plugins/offline/ leaves the Varga allowlist, its lock and archives name only the publishing source"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-23]
+    notes: "Left of S80-23: the lock's move to the graalsystems index was done by S83-04o (#2147); only the history exemption of plugins/offline/ in tests/licences/test_no_varga.py remained."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
