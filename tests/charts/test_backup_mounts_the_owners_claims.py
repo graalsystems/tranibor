@@ -9,6 +9,11 @@ exist, or copied a stale one. The claim names now come from one helper per owner
 The memory's DuckDB files have a single writer, Ecphoria: one replica, recreated rather than rolled,
 and the backup copies the files without opening them. The SQLite copies need a read-write mount (the
 online backup takes its shared lock through `-shm`, ADR 0184), so the mount is not read-only.
+
+Temporal has a claim only in `dev` mode (SQLite). In `server` mode (ADR 0195) its state is two
+databases on `global.database`, the chart renders no claim, and the backup used to wait on one that
+did not exist (#2156): it now mounts none, and the `database` step's `pg_dump` covers Temporal when
+it is on the embedded PostgreSQL.
 """
 
 from __future__ import annotations
@@ -131,3 +136,62 @@ def test_the_memory_has_one_writer_and_the_backup_never_opens_its_duckdb_files()
     # Read-write by design: `state.db`'s online SQLite copy takes its shared lock through `-shm`.
     assert mount["mountPath"] == "/memory"
     assert not mount.get("readOnly", False)
+
+
+def _temporal_mounts(pod: dict[str, Any]) -> list[str]:
+    containers = [*pod.get("initContainers", []), *pod["containers"]]
+    return [c["name"] for c in containers for m in c.get("volumeMounts", []) if m["name"] == "temporal"]
+
+
+def test_only_a_dev_mode_temporal_has_a_claim_the_backup_mounts() -> None:
+    """`dev` keeps Temporal in a SQLite file on its claim; `server` keeps it in PostgreSQL (#2156)."""
+    dev = _docs("choregos-temporal.mode=dev")
+    server = _docs("choregos-temporal.mode=server")
+    for job in JOBS:
+        dev_pod = _job_pod(_one(dev, "CronJob", job))
+        assert _claims(dev_pod)["temporal"] == "c-temporal", job
+        assert _temporal_mounts(dev_pod) == ["files"], job
+        server_pod = _job_pod(_one(server, "CronJob", job))
+        assert "temporal" not in _claims(server_pod), job
+        assert "temporal" not in {v["name"] for v in server_pod["volumes"]}, job
+        assert _temporal_mounts(server_pod) == [], job
+        # The memory's files are still copied, through the same step.
+        assert _claims(server_pod)["memory"] == "c-ecphoria", job
+
+
+def test_in_server_mode_the_backup_pod_spec_holds_and_the_database_step_dumps_temporal() -> None:
+    docs = _docs("choregos-temporal.mode=server")
+    rendered = {d["metadata"]["name"] for d in docs if d["kind"] == "PersistentVolumeClaim"}
+    assert "c-temporal" not in rendered
+    for job in JOBS:
+        pod = _job_pod(_one(docs, "CronJob", job))
+        names = [v["name"] for v in pod["volumes"]]
+        assert len(names) == len(set(names)), job
+        # Every claim the pod waits on exists: otherwise it stays Pending for ever.
+        assert set(_claims(pod).values()) <= rendered, job
+        for container in [*pod["initContainers"], *pod["containers"]]:
+            for mount in container.get("volumeMounts", []):
+                assert mount["name"] in names, f"{job}/{container['name']}: {mount['name']}"
+    # Temporal's state is on the embedded PostgreSQL, whose every database the backup dumps.
+    (temporal,) = [d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "c-temporal"]
+    env = {e["name"]: e.get("value") for e in temporal["spec"]["template"]["spec"]["containers"][0]["env"]}
+    backup = _job_pod(_one(docs, "CronJob", "c-backup"))
+    (database,) = [c for c in backup["initContainers"] if c["name"] == "database"]
+    pg = {e["name"]: e.get("value") for e in database["env"]}
+    assert env["POSTGRES_SEEDS"] == pg["PGHOST"] == "c-postgresql"
+    dump = _one(docs, "ConfigMap", "c-backup")["data"]["database.sh"]
+    assert "FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres'" in dump
+
+
+def test_a_server_mode_temporal_alone_is_nothing_for_the_backup_to_back_up() -> None:
+    command = ["helm", "template", "c", str(CHART), "-n", "choregos", "-f", str(PROFILE)]
+    for value in (
+        *SITE,
+        "choregos-temporal.mode=server",
+        "global.database.embedded=false",
+        "global.memory.embedded=false",
+    ):
+        command += ["--set", value]
+    out = subprocess.run(command, check=False, capture_output=True, text=True, timeout=120)
+    assert out.returncode != 0
+    assert "backup.enabled=true with nothing to back up" in out.stderr

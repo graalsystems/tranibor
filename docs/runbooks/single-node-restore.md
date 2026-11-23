@@ -2,7 +2,9 @@
 
 For an installation made with `charts/choregos/values/single-node.yaml` ([ADR 0184](../adr/0184-a-supported-single-node-installation.md)).
 What the backup holds: every database of the embedded PostgreSQL (`pg_dump -Fc --create`), Temporal's
-SQLite file (an online copy), the memory's files, and the object store when `backup.objectStore` is on.
+SQLite file (an online copy) in `dev` mode, the memory's files, and the object store when `backup.objectStore` is on.
+A `server` mode Temporal (`choregos-temporal.mode: server`) has no file: its two databases are in the
+PostgreSQL dump when they are on the embedded PostgreSQL, and the backup mounts no Temporal volume (#2156).
 What it does not hold: the site's secrets (`choregos-api-secrets`, `choregos-oidc`, the object store's
 and the backup target's keys). Those come from the site's vault.
 
@@ -54,7 +56,7 @@ Without a stamp the restore takes the newest complete one.
    It stops every writer (API, console, workers, Temporal, gateway, memory), runs the chart's restore
    job (`kubectl create job --from=cronjob/choregos-restore …`), prints its log, and starts the
    writers again with the replica counts they had. The job drops and re-creates each database from its
-   dump, puts Temporal's and the memory's files back, and copies the object store back when the
+   dump, puts Temporal's (`dev` mode) and the memory's files back, and copies the object store back when the
    backup holds it.
 
 ## Restore in place (same machine, data back to last night)
