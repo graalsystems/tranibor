@@ -156,7 +156,9 @@ def test_mdx_safe_escapes_prose_and_leaves_code_alone() -> None:
 
 def test_an_address_holding_a_placeholder_becomes_code() -> None:
     """Markdown links a bare address up to the `<`, backslash included: escaping cannot work there."""
-    text = "Paste https://dev.azure.com/<organisation>, or (https://<server>/<path>). See https://example.com."
+    text = (
+        "Paste https://dev.azure.com/<organisation>, or (https://<server>/<path>). See https://example.com."
+    )
     assert export_docs.mdx_safe(text) == (
         "Paste `https://dev.azure.com/<organisation>`, or (`https://<server>/<path>`). See https://example.com."
     )
@@ -227,3 +229,44 @@ def test_the_command_refuses_a_bad_ref_and_plugins_without_site(tmp_path: pathli
     assert export_docs.main(["--site", str(tmp_path), "--plugins-ref", "bad ref"]) == 1
     with pytest.raises(SystemExit):
         export_docs.main(["--plugins", str(FIXTURE_PLUGINS)])
+
+
+def test_a_plugin_that_does_not_parse_is_left_out_of_a_lenient_export(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ADR 0213: a publish leaves a plugin out, with a warning, rather than stop the platform's pages."""
+    plugins = _plugin(tmp_path, "## Before you start\n\nOnly one section.\n")
+    good = tmp_path / "plugins" / "hello"
+    good.mkdir()
+    for path in (FIXTURE_PLUGINS / "hello").rglob("*"):
+        if path.is_file():
+            target = good / path.relative_to(FIXTURE_PLUGINS / "hello")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(path.read_bytes())
+    pages = export_docs.render_site(plugins, lenient=True)
+    assert "plugin-hello/hello.md" in pages, "the other plugins are still published"
+    assert not any(name.startswith("plugin-acme-desk/") for name in pages)
+    assert "the plugin acme-desk is left out of the site" in capsys.readouterr().err
+    out = tmp_path / "out"
+    assert export_docs.main(["--site", str(out), "--plugins", str(plugins), "--plugins-lenient"]) == 0
+    assert (out / "plugin-hello" / "hello.md").is_file()
+
+
+def test_no_page_takes_its_group_s_index(site: dict[str, str]) -> None:
+    """Docusaurus makes `<folder>/<folder>.md`, `index.md` or `readme.md` the group's own page, which
+    clashes with the generated index: the generic MCP procedure was unreachable (`mcp/mcp.md`)."""
+    for name in _pages(site):
+        folder, _, file = name.rpartition("/")
+        stem = file.removesuffix(".md").lower()
+        assert stem not in {"index", "readme", folder.rpartition("/")[2].lower()}, name
+    assert "mcp/mcp-setup.md" in site
+
+
+def test_a_page_name_has_neither_dot_nor_underscore(site: dict[str, str]) -> None:
+    for name in _pages(site):
+        assert "." not in name.removesuffix(".md") and "_" not in name, name
+    assert "runtime/agent-sandbox.md" in site
+
+
+def test_a_plugin_page_names_the_console_screen_that_lists_it(site: dict[str, str]) -> None:
+    assert "and on **Library › Plugins**." in site["plugin-hello/hello.md"]

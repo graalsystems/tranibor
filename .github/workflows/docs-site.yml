@@ -67,11 +67,16 @@ jobs:
         run: node scripts/import-docs.mjs --source .. --ref "$REF"
       # After the import, which empties website/docs/ first: the generated pages land beside the
       # hand-written connectors/index.md, never in docs/site/.
+      # A pull request of this repository fails on a plugin procedure this parser refuses; a publish
+      # (main, release, the daily run) leaves that plugin out with a warning, so one plugin never stops
+      # the platform's pages from being published (ADR 0213).
       - name: Write a page per setup procedure, the platform's and the plugins'
+        env:
+          LENIENT: ${{ github.event_name != 'pull_request' && '--plugins-lenient' || '' }}
         run: |
           PLUGINS_REF="$(git -C ../.plugins-checkout rev-parse HEAD)"
           uv run --frozen python ../tools/procedures/export_docs.py --site docs/connectors \
-            --plugins ../.plugins-checkout/plugins --plugins-ref "$PLUGINS_REF"
+            --plugins ../.plugins-checkout/plugins --plugins-ref "$PLUGINS_REF" $LENIENT
       - name: Build
         run: npm run build
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

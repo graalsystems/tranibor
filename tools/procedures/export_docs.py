@@ -234,9 +234,13 @@ class PluginProcedure:
     procedure: core.Procedure
 
 
-def plugin_procedures(plugins: pathlib.Path) -> list[PluginProcedure]:
+def plugin_procedures(plugins: pathlib.Path, lenient: bool = False) -> list[PluginProcedure]:
     """The procedures of every plugin under `plugins` (`<plugin>/plugin.yaml`), parsed by the ADR 0067
-    parser: what its `contents.procedures` patterns match, never a file that leaves the plugin."""
+    parser: what its `contents.procedures` patterns match, never a file that leaves the plugin.
+
+    `lenient`: a plugin one of whose procedures this parser refuses is left out whole, with a warning on
+    stderr, instead of failing the export; one plugin, or a newer procedure format, never stops the
+    platform's own pages from being published (ADR 0213)."""
     if not plugins.is_dir():
         raise core.ProcedureError(f"{plugins}: not a directory of plugins")
     found: list[PluginProcedure] = []
@@ -247,12 +251,23 @@ def plugin_procedures(plugins: pathlib.Path) -> list[PluginProcedure]:
         patterns = (manifest.get("contents") or {}).get("procedures") or []
         inside = root.resolve()
         files = sorted({path for pattern in patterns for path in root.glob(str(pattern)) if path.is_file()})
-        for path in files:
-            ref = path.relative_to(root).as_posix()
-            if path.is_symlink() or not path.resolve().is_relative_to(inside):
-                raise core.ProcedureError(f"{name}/{ref}: a procedure is a file of its plugin, not a link")
-            proc = core.parse(path.read_text(encoding="utf-8"), f"{name}/{ref}", origin=f"plugin:{name}")
-            found.append(PluginProcedure(name, version, root.name, ref, proc))
+        mine: list[PluginProcedure] = []
+        try:
+            for path in files:
+                ref = path.relative_to(root).as_posix()
+                if path.is_symlink() or not path.resolve().is_relative_to(inside):
+                    raise core.ProcedureError(
+                        f"{name}/{ref}: a procedure is a file of its plugin, not a link"
+                    )
+                text = path.read_text(encoding="utf-8")
+                proc = core.parse(text, f"{name}/{ref}", origin=f"plugin:{name}")
+                mine.append(PluginProcedure(name, version, root.name, ref, proc))
+        except core.ProcedureError as exc:
+            if not lenient:
+                raise
+            print(f"[procedures] warning: the plugin {name} is left out of the site: {exc}", file=sys.stderr)
+            continue
+        found.extend(mine)
     return found
 
 
@@ -342,7 +357,16 @@ def _page_name(proc: core.Procedure) -> str:
     name = next(
         (proc.id[len(p) :] for p in prefixes if proc.id.startswith(p) and len(proc.id) > len(p)), proc.id
     )
-    return name.replace(".", "-")
+    return name.replace(".", "-").replace("_", "-")
+
+
+#: Stems Docusaurus takes for a folder's own index (`index`, `readme`, or the folder's name): a page
+#: named so would become the group's page and clash with its generated index (`mcp/mcp`).
+_INDEX_STEMS = frozenset({"index", "readme"})
+
+
+def _stem_in(folder: str, stem: str) -> str:
+    return f"{stem}-setup" if stem.lower() in _INDEX_STEMS | {folder.lower()} else stem
 
 
 def _group_of(proc: core.Procedure) -> tuple[str, str]:
@@ -394,7 +418,7 @@ def render_site_page(
             + (f" {source.version}" if source.version else "")
             + f": [its source]({PUBLISHING.plugin_repository}/blob/{plugins_ref}/{path}). "
             "In the console, once the plugin is installed, it opens with **How to set this up** on the "
-            "connector of the plugin's server, and on Catalogue, **Plugins**."
+            "connector of the plugin's server, and on **Library › Plugins**."
         )
         what = f"the setup procedure of the plugin {source.plugin}"
     description = (
@@ -440,7 +464,9 @@ def _category(label: str, position: int, folder: str, description: str) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def render_site(plugins: pathlib.Path | None = None, plugins_ref: str = "main") -> dict[str, str]:
+def render_site(
+    plugins: pathlib.Path | None = None, plugins_ref: str = "main", lenient: bool = False
+) -> dict[str, str]:
     """Relative path to content: every page of the site's connector section, and each group's
     `_category_.json`. The platform's procedures only, never a deployment's additions; with `plugins`,
     each plugin's too."""
@@ -451,12 +477,12 @@ def render_site(plugins: pathlib.Path | None = None, plugins_ref: str = "main") 
     for proc in sorted(core.load().procedures.values(), key=lambda p: p.id):
         folder, label = _group_of(proc)
         groups[folder] = (label, "Setup procedures shipped with the platform.")
-        _add(files, f"{folder}/{_page_name(proc)}.md", render_site_page(proc))
+        _add(files, f"{folder}/{_stem_in(folder, _page_name(proc))}.md", render_site_page(proc))
     others = [area[0] for area in OTHER_AREAS.values()]
     ordered = sorted(
         groups, key=lambda f: (1, others.index(f), "") if f in others else (0, 0, groups[f][0].lower())
     )
-    shipped = list(plugin_procedures(plugins)) if plugins is not None else []
+    shipped = list(plugin_procedures(plugins, lenient)) if plugins is not None else []
     for source in shipped:
         folder = f"plugin-{source.plugin}"
         if folder not in groups:
@@ -464,7 +490,7 @@ def render_site(plugins: pathlib.Path | None = None, plugins_ref: str = "main") 
             ordered.append(folder)
         _add(
             files,
-            f"{folder}/{_page_name(source.procedure)}.md",
+            f"{folder}/{_stem_in(folder, _page_name(source.procedure))}.md",
             render_site_page(source.procedure, source, plugins_ref),
         )
     for position, folder in enumerate(ordered, 1):
@@ -479,10 +505,15 @@ def _add(files: dict[str, str], name: str, content: str) -> None:
     files[name] = content
 
 
-def write_site(target: pathlib.Path, plugins: pathlib.Path | None = None, plugins_ref: str = "main") -> int:
+def write_site(
+    target: pathlib.Path,
+    plugins: pathlib.Path | None = None,
+    plugins_ref: str = "main",
+    lenient: bool = False,
+) -> int:
     """Write the section's generated pages under `target`, beside its hand-written `index.md`, which it
     never touches. Returns the number of pages written."""
-    files = render_site(plugins, plugins_ref)
+    files = render_site(plugins, plugins_ref, lenient)
     for name, content in files.items():
         path = target / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -505,13 +536,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--plugins-ref", metavar="REF", default="main", help="with --site: the ref its source links name"
     )
+    parser.add_argument(
+        "--plugins-lenient",
+        action="store_true",
+        help="with --plugins: leave out, with a warning, a plugin whose procedure does not parse",
+    )
     args = parser.parse_args(argv)
     if args.plugins and not args.site:
         parser.error("--plugins goes with --site")
     if args.site:
         plugins = pathlib.Path(args.plugins) if args.plugins else None
         try:
-            count = write_site(pathlib.Path(args.site), plugins, args.plugins_ref)
+            count = write_site(pathlib.Path(args.site), plugins, args.plugins_ref, args.plugins_lenient)
         except (core.ProcedureError, ValueError) as exc:
             print(f"[procedures] {exc}", file=sys.stderr)
             return 1

@@ -43,9 +43,13 @@ lists the installed plugins' procedures beside the platform's. Three gaps:
    page naming its plugin and version and linking its source file at `--plugins-ref`. A page has a
    Docusaurus `title` and `description`, no `slug` or `id`, the sections as the console renders them with
    the placeholders written `<api_url>`, `<public_url>` and `<org>` (as `docs/procedures/`), the fields as
-   a table, the egress hosts and the vendor's documents as lists, and its prose escaped for MDX. Every
-   procedure goes through the ADR 0067 parser; one that does not parse fails the build. The source
-   links derive from the publishing identity (ADR 0156), never a literal.
+   a table, the egress hosts and the vendor's documents as lists, and its prose escaped for MDX. A page
+   never takes its group's index name (`index`, `readme`, the group's own name: `mcp/mcp` is written
+   `mcp/mcp-setup.md`). Every procedure goes through the ADR 0067 parser. A platform procedure that does
+   not parse fails the build, always. A plugin's fails it on a pull request of this repository; a publish
+   (`--plugins-lenient`: a push to `main`, a release, the daily run) leaves that plugin out with a
+   warning, so one plugin never stops the platform's pages from being published. The source links derive
+   from the publishing identity (ADR 0156), never a literal.
 4. **The site's workflow builds them.** After `import-docs.mjs` copies `docs/site/` (which it empties
    first), the workflow checks out the plugins' repository at `main`, runs the export into
    `website/docs/connectors/`, then builds. It runs on a daily schedule too, so a plugin's new or changed
@@ -62,6 +66,8 @@ lists the installed plugins' procedures beside the platform's. Three gaps:
   the site says which version it rendered. A deployment's own notes and procedures
   (`TRANIBOR_PROCEDURES_EXTRA`) never reach the public site.
 - The daily build publishes whatever `main` of the core holds, like a push to `main` does.
+- A plugin left out of a publish is visible only in the workflow's log, until a pull request here (which
+  is strict) or the plugins' repository's own check (`tests/test_procedures.py` there) catches it.
 
 ## What this does not prove
 

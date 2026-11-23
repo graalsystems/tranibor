@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcedurePanel } from "@/components/procedures/procedure-panel";
 import { api } from "@/lib/api";
 import { connectorTargets, markSeen, presetOfMcpUrl, hostOf, wasSeen } from "@/lib/procedures";
-import { serverConnectorOf } from "@/mocks/plugins";
+import { installedPlugins, serverConnectorOf } from "@/mocks/plugins";
 import { proceduresApi } from "@/mocks/procedures";
 import type { Procedure } from "@/lib/types";
 
@@ -251,8 +251,10 @@ describe("the procedure of a plugin's server (S84-06, ADR 0213)", () => {
   it("stops at an error rather than show a procedure for something else", async () => {
     vi.mocked(api.listProcedures).mockRejectedValueOnce(new Error("down"));
     const { container } = view(<ProcedurePanel target={connectorTargets(servicenow)} fallback={<span>no help</span>} />);
-    await waitFor(() => expect(api.listProcedures).toHaveBeenCalledTimes(1));
-    expect(container).toHaveTextContent("no help");
+    await waitFor(() => expect(container).toHaveTextContent("no help"));
+    // The error stops the walk: no second target is asked, and nothing is opened.
+    expect(api.listProcedures).toHaveBeenCalledTimes(1);
+    expect(api.getProcedure).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "How to set this up" })).toBeNull();
   });
 
@@ -261,5 +263,12 @@ describe("the procedure of a plugin's server (S84-06, ADR 0213)", () => {
       expect.objectContaining({ id: "connector.mcp.servicenow" }),
     ]);
     expect(proceduresApi("GET", "/procedures?for=connector%3Amcp%2Fhello")).toEqual([]);
+    const at = installedPlugins.findIndex((p) => p.name === "servicenow");
+    const [servicenowPlugin] = installedPlugins.splice(at, 1);
+    try {
+      expect(proceduresApi("GET", "/procedures?for=connector%3Amcp%2Fservicenow")).toEqual([]);
+    } finally {
+      installedPlugins.splice(at, 0, servicenowPlugin!);
+    }
   });
 });
