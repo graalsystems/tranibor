@@ -119,7 +119,7 @@ async def test_configuring_cd_and_notify_moves_the_items(client: AsyncClient, ad
     assert "notifications" not in _by_state(body, "todo")
     members = await client.post(
         "/api/v1/orgs/northwind/members",
-        json={"email": "rc@northwind.dev", "role": "release_captain", "project_slug": "dev"},
+        json={"email": "rc@northwind.dev", "role": "approver", "project_slug": "dev"},
     )
     assert members.status_code == 201, members.text
     body = await _readiness(client, pid)

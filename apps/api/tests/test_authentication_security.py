@@ -167,10 +167,10 @@ async def test_the_oidc_groups_are_attached_to_their_organisation() -> None:
     from tranibor_contracts import Role
 
     roles = roles_from_groups(
-        ["choregos:northwind:contributors", "choregos:other:org-admins", "developers", "unrelated"],
+        ["choregos:northwind:contributors", "choregos:other:org-admins", "contributors", "unrelated"],
         default_org="",
     )
-    # `developers` gives the neutral role (ADR 0181 C1); the row is written with `Role.stored`.
+    # a bare group without a default organisation gives nothing
     assert roles == {"northwind": Role.CONTRIBUTOR, "other": Role.ORG_ADMIN}
     # a bare group holds only for the default organisation, and the highest one wins
     roles = roles_from_groups(["contributors", "choregos:northwind:product-owners"], default_org="northwind")

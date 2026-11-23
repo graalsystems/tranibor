@@ -94,8 +94,9 @@ def test_the_former_roles_are_rewritten_idempotently(
                 )
             connection.execute(
                 text(
-                    "INSERT INTO org_saml_idps (id, org_id, idp_entity_id, sso_url, certificate_pem, group_map, "
-                    "domains, created_at, updated_at) VALUES ('s1', 'o1', 'e', 'u', 'c', :g, '[]', :n, :n)"
+                    "INSERT INTO org_saml_idps (id, org_id, idp_entity_id, sso_url, certificate_pem, "
+                    "group_map, domains, created_at, updated_at) "
+                    "VALUES ('s1', 'o1', 'e', 'u', 'c', :g, '[]', :n, :n)"
                 ),
                 {
                     "g": json.dumps({"Devs": "developers", "Caps": "release-captains", "Ops": "org-admins"}),
