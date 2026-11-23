@@ -84,7 +84,11 @@ async def test_submit_uploads_the_upstream_rows_then_creates_the_batch_with_the_
     rows = [json.loads(line) for line in content.splitlines() if line.startswith('{"custom_id"')]
     assert [r["custom_id"] for r in rows] == ["part-0", "part-1"]
     assert rows[0]["method"] == "POST" and rows[0]["url"] == "/v1/chat/completions"
-    assert rows[0]["body"]["model"] == "gpt-5.5" and rows[0]["body"]["max_tokens"] == 100
+    assert (
+        rows[0]["body"]["model"] == "gpt-5.5"
+        and rows[0]["body"]["max_completion_tokens"] == 100
+        and "max_tokens" not in rows[0]["body"]
+    )
     assert rows[0]["body"]["messages"][0] == {"role": "system", "content": "sys"}
     assert json.loads(create.content) == {
         "input_file_id": "file_in",

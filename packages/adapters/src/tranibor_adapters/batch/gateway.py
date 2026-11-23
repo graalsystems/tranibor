@@ -111,7 +111,9 @@ class GatewayBatches:
                         {"role": "system", "content": r.system},
                         {"role": "user", "content": r.user},
                     ],
-                    "max_tokens": r.max_tokens,
+                    # Not `max_tokens`: OpenAI's reasoning models (gpt-5.x) refuse it, and a batch row is
+                    # passed on as written, with none of the parameter mapping of a synchronous call (S4-14).
+                    "max_completion_tokens": r.max_tokens,
                     "response_format": {"type": "json_object"},
                 },
             }
