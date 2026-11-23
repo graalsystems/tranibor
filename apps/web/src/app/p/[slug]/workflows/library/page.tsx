@@ -31,7 +31,7 @@ export default function WorkflowCataloguePage({ params }: { params: Promise<{ sl
   const project = useQuery({ queryKey: ["project", slug], queryFn: () => api.project(slug) });
   const org = project.data?.org;
   const connectors = useQuery({ queryKey: ["connectors", slug], queryFn: () => api.connectors(slug) });
-  const hasRepository = !!project.data?.config?.repo?.url;
+  const hasRepository = !!project.data?.config?.delivery?.repo?.url;
   const [query, setQuery] = useState("");
   const [repository, setRepository] = useState<RepositoryFilter | null>(null);
   // Without a repository, the catalogue opens on what such a project can run (ADR 0110).

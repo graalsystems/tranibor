@@ -28,8 +28,9 @@ describe("the project's network, written into its policy YAML (S41-22)", () => {
       "    deny_by_default: true",
       "  # the rest is the default",
       "  prompt_injection: block",
-      "release_train:",
-      "  prod: {mode: train}",
+      "delivery:",
+      "  release_train:",
+      "    prod: {mode: train}",
       "",
     ].join("\n");
     const out = written(yaml, { ...NETWORK, deny_by_default: true });
@@ -50,8 +51,9 @@ describe("the project's network, written into its policy YAML (S41-22)", () => {
         "    deny_by_default: true",
         "  # the rest is the default",
         "  prompt_injection: block",
-        "release_train:",
-        "  prod: {mode: train}",
+        "delivery:",
+        "  release_train:",
+        "    prod: {mode: train}",
         "",
       ].join("\n"),
     );

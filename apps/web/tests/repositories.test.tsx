@@ -15,9 +15,13 @@ import { nameOfUrl, primaryName, repositoryNames } from "@/lib/repositories";
 const config = {
   slug: "platform",
   org: "acme",
-  repo: { url: "https://github.com/acme/infra.git", default_branch: "main", test_command: "make test" },
-  repositories: [{ name: "diamctl", url: "https://github.com/acme/diamctl.git", default_branch: "main", branch_prefix: "fix/" }],
+  delivery: {
+    repo: { url: "https://github.com/acme/infra.git", default_branch: "main", test_command: "make test" },
+    repositories: [{ name: "diamctl", url: "https://github.com/acme/diamctl.git", default_branch: "main", branch_prefix: "fix/" }],
+    gitops: { repo_url: "https://github.com/acme/gitops.git" },
+  },
 };
+type Delivery = typeof config.delivery;
 const project = { id: "p", slug: "platform", org: "acme", name: "Platform", status: "active", template_ref: null, config };
 const developer = { id: "u1", email: "lea@acme.dev", display_name: "Léa", memberships: [{ org: "acme", role: "contributor" }] };
 
@@ -56,6 +60,8 @@ describe("a repository's name", () => {
     expect(primaryName(config as never)).toBe("infra");
     expect(repositoryNames(config as never)).toEqual(["infra", "diamctl"]);
     expect(repositoryNames({ slug: "x", org: "y" } as never)).toEqual([]);
+    // The former top-level fields left the contract with the C2-delivery window (ADR 0181): not read.
+    expect(repositoryNames({ slug: "x", org: "y", repo: { url: "https://github.com/acme/infra.git" } } as never)).toEqual([]);
   });
 
   it("is refused before the save when the API would refuse it", () => {
@@ -80,8 +86,12 @@ describe("the project's repositories in its settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save general settings" }));
     await waitFor(() => expect(api.updateProject).toHaveBeenCalled());
     const sent = vi.mocked(api.updateProject).mock.calls[0]![1].config as typeof config;
-    expect(sent.repo.url).toBe("https://github.com/acme/infra.git");
-    expect(sent.repositories).toEqual([
+    expect(sent).not.toHaveProperty("repo");
+    expect(sent).not.toHaveProperty("repositories");
+    expect(sent.delivery.repo.url).toBe("https://github.com/acme/infra.git");
+    // The GitOps the form does not edit is kept in the section.
+    expect(sent.delivery.gitops).toEqual({ repo_url: "https://github.com/acme/gitops.git" });
+    expect(sent.delivery.repositories).toEqual([
       expect.objectContaining({ name: "diamctl", url: "https://github.com/acme/diamctl.git", branch_prefix: "fix/" }),
       expect.objectContaining({ name: "fondation", url: "https://github.com/acme/fondation.git", test_command: "make check" }),
     ]);
@@ -95,7 +105,7 @@ describe("the project's repositories in its settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove infra" }));
     fireEvent.click(screen.getByRole("button", { name: "Save general settings" }));
     await waitFor(() => expect(api.updateProject).toHaveBeenCalled());
-    expect(vi.mocked(api.updateProject).mock.calls[0]![1].config).not.toHaveProperty("repositories");
+    expect(vi.mocked(api.updateProject).mock.calls[0]![1].config?.delivery).not.toHaveProperty("repositories");
   });
 
   it("makes another repository the primary, and the primary joins the list under its name", async () => {
@@ -106,7 +116,9 @@ describe("the project's repositories in its settings", () => {
     expect(screen.getByLabelText("Repository name 1")).toHaveValue("infra");
     fireEvent.click(screen.getByRole("button", { name: "Save general settings" }));
     await waitFor(() => expect(api.updateProject).toHaveBeenCalled());
-    const sent = vi.mocked(api.updateProject).mock.calls[0]![1].config as typeof config & { repo: { name?: string; branch_prefix?: string } };
+    const sent = (vi.mocked(api.updateProject).mock.calls[0]![1].config as typeof config).delivery as Delivery & {
+      repo: { name?: string; branch_prefix?: string };
+    };
     expect(sent.repo).toEqual(expect.objectContaining({ name: "diamctl", url: "https://github.com/acme/diamctl.git", branch_prefix: "fix/" }));
     expect(sent.repositories).toEqual([
       expect.objectContaining({ name: "infra", url: "https://github.com/acme/infra.git", test_command: "make test" }),

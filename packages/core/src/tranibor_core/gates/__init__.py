@@ -27,6 +27,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 from tranibor_contracts import StageResult
+from tranibor_contracts.delivery import commits_of
 
 from ..errors import GateError
 
@@ -1042,7 +1043,7 @@ def unchanged_run(result: StageResult | None) -> bool:
     evidence = result.evidence
     if not (evidence.is_measured("diff_files") and evidence.is_measured("diff_lines")):
         return False
-    return not (evidence.value("diff_files") or evidence.value("diff_lines") or result.artifacts.commits)
+    return not (evidence.value("diff_files") or evidence.value("diff_lines") or commits_of(result.artifacts))
 
 
 __all__ = [

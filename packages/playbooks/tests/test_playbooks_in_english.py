@@ -33,11 +33,11 @@ from tranibor_contracts import (
     PlaybookRef,
     ProjectRef,
     RelatedItem,
-    RepoRef,
     StageInput,
     TransitionRef,
     WorkItemRef,
 )
+from tranibor_contracts.delivery import Repository, StageDelivery
 from tranibor_playbooks import INVARIANTS, KNOWN_ROLES, OUTPUT_CONTRACT, frame, render_playbook
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -91,7 +91,11 @@ def _stage_input() -> StageInput:
             body="When an order has a credit note, the displayed total ignores it.",
         ),
         transition=TransitionRef(id="t-implement", role="implement", **{"from": "ready"}, to="implemented"),
-        repo=RepoRef(url="https://example.com/acme/billing.git", base_branch="main", work_branch="w/123"),
+        delivery=StageDelivery(
+            repo=Repository(
+                url="https://example.com/acme/billing.git", base_branch="main", work_branch="w/123"
+            )
+        ),
         agent=AgentRef(backend="claude-code"),
         model=ModelRef(
             litellm_model="platform/standard", base_url="http://gateway:4000", api_format="openai"

@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { duration, relative, shortDate, usd } from "@/lib/format";
 import { agentPlan } from "@/lib/agent-plan";
-import { evidenceValue } from "@/lib/neutral-names";
+import { DELIVERY_FACTS, evidenceValue } from "@/lib/neutral-names";
 import { evidenceProvenance } from "@/lib/provenance";
 import { useEventStream } from "@/lib/sse";
 import type { JourneyStep, ProcessStep, RunEventDto } from "@/lib/types";
@@ -198,33 +198,35 @@ function Facts({ attempt }: { attempt: JourneyStep }) {
 }
 
 function EvidenceList({ evidence }: { evidence: Record<string, unknown> }) {
-  const factEntries = Object.entries((evidence.facts ?? {}) as Record<string, unknown>);
+  const factEntries = Object.entries((evidence.facts ?? {}) as Record<string, unknown>).filter(([k]) => !DELIVERY_FACTS.has(k));
   // [label, value, contract field]: the field says, through `measured`, who established it (ADR 0045).
-  const rows: [string, string, string][] = factEntries.length
-    ? factEntries.map(([k, v]) => [k.replace(/_/g, " "), typeof v === "boolean" ? (v ? "✓" : "✗") : String(v), `facts.${k}`])
-    : [
-        ...(typeof evidenceValue(evidence, "tests_run") === "number"
-          ? [
-              [
-                "tests",
-                `${Number(evidenceValue(evidence, "tests_failed") ?? 0) > 0 ? "✗" : "✓"} ${evidenceValue(evidence, "tests_run")} run, ${evidenceValue(evidence, "tests_failed") ?? 0} failed`,
-                "tests_run",
-              ] as [string, string, string],
-            ]
-          : []),
-        ...(["lint", "typecheck", "security_scan"] as const)
-          .filter((k) => evidenceValue(evidence, k))
-          .map((k) => [k.replace(/_/g, " "), String(evidenceValue(evidence, k)), k] as [string, string, string]),
-        ...(typeof evidenceValue(evidence, "coverage_delta") === "number"
-          ? [
-              [
-                "coverage",
-                `${Number(evidenceValue(evidence, "coverage_delta")) > 0 ? "+" : ""}${evidenceValue(evidence, "coverage_delta")}`,
-                "coverage_delta",
-              ] as [string, string, string],
-            ]
-          : []),
-      ];
+  // The software's measures are named facts too (ADR 0181 C2), shown after the trade's own.
+  const rows: [string, string, string][] = [
+    ...factEntries.map(
+      ([k, v]) => [k.replace(/_/g, " "), typeof v === "boolean" ? (v ? "✓" : "✗") : String(v), `facts.${k}`] as [string, string, string],
+    ),
+    ...(typeof evidenceValue(evidence, "tests_run") === "number"
+      ? [
+          [
+            "tests",
+            `${Number(evidenceValue(evidence, "tests_failed") ?? 0) > 0 ? "✗" : "✓"} ${evidenceValue(evidence, "tests_run")} run, ${evidenceValue(evidence, "tests_failed") ?? 0} failed`,
+            "facts.tests_run",
+          ] as [string, string, string],
+        ]
+      : []),
+    ...(["lint", "typecheck", "security_scan"] as const)
+      .filter((k) => evidenceValue(evidence, k))
+      .map((k) => [k.replace(/_/g, " "), String(evidenceValue(evidence, k)), `facts.${k}`] as [string, string, string]),
+    ...(typeof evidenceValue(evidence, "coverage_delta") === "number"
+      ? [
+          [
+            "coverage",
+            `${Number(evidenceValue(evidence, "coverage_delta")) > 0 ? "+" : ""}${evidenceValue(evidence, "coverage_delta")}`,
+            "facts.coverage_delta",
+          ] as [string, string, string],
+        ]
+      : []),
+  ];
   if (rows.length === 0) return null;
   const measured = Array.isArray(evidence.measured) ? { measured: evidence.measured.map(String) } : undefined;
   return (

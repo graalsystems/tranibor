@@ -138,24 +138,11 @@ function life(start: number) {
 }
 
 // What the runner measured; the coverage, when present, comes from the agent's account (ADR 0045).
-const MEASURED = ["lint", "tests_failed", "tests_passed", "tests_run", "typecheck"];
-const FAILING_TESTS = {
-  tests_run: 412,
-  tests_failed: 2,
-  tests_passed: false,
-  lint: "ok",
-  typecheck: "ok",
-  measured: MEASURED,
-};
-const PASSING_TESTS = {
-  tests_run: 418,
-  tests_failed: 0,
-  tests_passed: true,
-  lint: "ok",
-  typecheck: "ok",
-  coverage_delta: 1.2,
-  measured: MEASURED,
-};
+const MEASURED = ["facts.lint", "facts.tests_failed", "facts.tests_passed", "facts.tests_run", "facts.typecheck"];
+const FAILING_FACTS = { tests_run: 412, tests_failed: 2, tests_passed: false, lint: "ok", typecheck: "ok" };
+const PASSING_FACTS = { tests_run: 418, tests_failed: 0, tests_passed: true, lint: "ok", typecheck: "ok", coverage_delta: 1.2 };
+const FAILING_TESTS = { facts: FAILING_FACTS, measured: MEASURED };
+const PASSING_TESTS = { facts: PASSING_FACTS, measured: MEASURED };
 
 /** The common part: from triage to the approved review, with a refusal, a failure and a request for changes. */
 function untilReview(v: ReturnType<typeof life>) {
@@ -233,7 +220,7 @@ function untilReview(v: ReturnType<typeof life>) {
   v.move(160, "addressing_review", "implemented", "nominal", "t-address-review");
   v.agent("t-test", 161, 168, {
     summary: "420 tests pass.",
-    evidence: { ...PASSING_TESTS, tests_run: 420 },
+    evidence: { facts: { ...PASSING_FACTS, tests_run: 420 }, measured: MEASURED },
     cost: 0.55,
   });
   v.move(168, "implemented", "tested", "nominal", "t-test");

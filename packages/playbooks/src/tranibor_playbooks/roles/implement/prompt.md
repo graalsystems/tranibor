@@ -15,5 +15,5 @@ Out of scope, it is only reported.
 
 {{ output_contract }}
 
-`evidence` must reflect reality: `tests_passed`, `tests_run`, `tests_failed`, `coverage_delta`.
+`evidence.facts` must reflect reality: `tests_passed`, `tests_run`, `tests_failed`, `coverage_delta`.
 Lying about evidence is the only unforgivable fault: the platform checks it again.

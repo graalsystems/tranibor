@@ -62,7 +62,6 @@
       "additionalProperties": false,
       "properties": {
         "spec": { "$ref": "#/$defs/approvalRule" },
-        "merge": { "$ref": "#/$defs/approvalRule" },
         "prod": { "$ref": "#/$defs/approvalRule" },
         "scope_change": { "$ref": "#/$defs/approvalRule" }
       }
@@ -83,9 +82,7 @@
       "properties": {
         "auto_grant_max_files": { "type": "integer", "minimum": 0, "default": 3 },
         "deny_paths": { "type": "array", "items": { "type": "string" },
-          "default": [".choregos/**", ".github/workflows/**", "charts/**"] },
-        "max_diff_files": { "type": "integer", "minimum": 1, "default": 60 },
-        "max_diff_lines": { "type": "integer", "minimum": 1, "default": 3000 }
+          "default": [".choregos/**", ".github/workflows/**", "charts/**"] }
       }
     },
     "sandbox": {
@@ -211,11 +208,6 @@
           "default": ["high"] }
       }
     },
-    "release_train": {
-      "type": "object",
-      "description": "Configuration per environment (docs/plan/05 §5.2).",
-      "additionalProperties": { "$ref": "#/$defs/trainEnv" }
-    },
     "web_search": {
       "type": "object",
       "description": "The built-in web_search tool (ADR 0083): a project can only narrow the organisation's ceiling, which opens it.",
@@ -230,7 +222,7 @@
     },
     "delivery": {
       "x-plugin": "software-delivery",
-      "description": "The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains. Read as one with the former `scope.max_diff_*`, `approvals.merge` and `release_train` until the window list removes them.",
+      "description": "The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains (configuration per environment, docs/plan/05 §5.2).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -238,20 +230,8 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "max_diff_files": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "minimum": 1
-            },
-            "max_diff_lines": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "minimum": 1
-            }
+            "max_diff_files": { "type": "integer", "minimum": 1, "default": 60 },
+            "max_diff_lines": { "type": "integer", "minimum": 1, "default": 3000 }
           }
         },
         "approvals": {
@@ -293,6 +273,7 @@
       }
     },
     "trainEnv": {
+      "x-plugin": "software-delivery",
       "type": "object",
       "additionalProperties": false,
       "properties": {

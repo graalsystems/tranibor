@@ -81,7 +81,7 @@ async def _born(
 ) -> Any:
     config: dict[str, Any] = {"slug": slug, "org": "northwind"}
     if repo:
-        config["repo"] = {"url": repo, "default_branch": "main", "language": "python"}
+        config["delivery"] = {"repo": {"url": repo, "default_branch": "main", "language": "python"}}
     body: dict[str, Any] = {"slug": slug, "name": slug, "template_ref": "kb-flow", "config": config}
     if inputs is not None:
         body["inputs"] = inputs

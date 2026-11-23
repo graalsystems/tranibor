@@ -26,6 +26,10 @@ from tranibor_runner.dod import merge_evidence, run_checks
 pytestmark = pytest.mark.asyncio
 
 
+#: A workspace with no language and no command: the checks are skipped, and say so (ADR 0045).
+SKIPPED = {"lint": "skipped", "typecheck": "skipped"}
+
+
 @pytest.fixture
 def make_input(stage_input: StageInput):
     """The shared fixture, of which we change ONLY the fact commands, and we switch off the
@@ -35,12 +39,9 @@ def make_input(stage_input: StageInput):
         project = stage_input.project.model_copy(
             update={
                 "fact_commands": facts,
-                "test_command": "",
-                "lint_command": "",
-                "typecheck_command": "",
             }
         )
-        return stage_input.model_copy(update={"project": project})
+        return stage_input.model_copy(update={"project": project, "delivery": None})
 
     return _with
 
@@ -48,14 +49,14 @@ def make_input(stage_input: StageInput):
 async def test_a_command_that_succeeds_yields_a_true_fact(make_input, tmp_path: pathlib.Path) -> None:
     report = await run_checks(make_input({"finding_resolved": "true"}), tmp_path, timeout=30)
     assert report.facts == {"finding_resolved": True}
-    assert report.evidence().facts == {"finding_resolved": True}
+    assert report.evidence().facts == {"finding_resolved": True, **SKIPPED}
 
 
 async def test_a_command_that_fails_yields_false_and_not_unknown(make_input, tmp_path: pathlib.Path) -> None:
     """No "we do not know": it is the same choice as a guarantee without substance, which refuses."""
     report = await run_checks(make_input({"finding_resolved": "false"}), tmp_path, timeout=30)
     assert report.facts == {"finding_resolved": False}
-    assert report.evidence().facts == {"finding_resolved": False}
+    assert report.evidence().facts == {"finding_resolved": False, **SKIPPED}
 
 
 async def test_the_command_is_really_executed(make_input, tmp_path: pathlib.Path) -> None:
@@ -67,10 +68,13 @@ async def test_the_command_is_really_executed(make_input, tmp_path: pathlib.Path
 
 
 async def test_without_a_command_no_fact_is_measured(make_input, tmp_path: pathlib.Path) -> None:
-    """And above all: `facts` must stay `None`, otherwise the merge erases the agent's."""
+    """No fact of the project's is measured: only the checks' statuses, which the merge writes key by key,
+    so the agent's facts survive."""
     report = await run_checks(make_input({}), tmp_path, timeout=30)
     assert report.facts == {}
-    assert report.evidence().facts is None
+    assert report.evidence().facts == SKIPPED
+    merged = merge_evidence(Evidence(facts={"profiles_kept": 3}), report.evidence())
+    assert merged.facts == {"profiles_kept": 3, **SKIPPED}
 
 
 async def test_an_empty_command_is_ignored(make_input, tmp_path: pathlib.Path) -> None:
@@ -89,9 +93,9 @@ def test_the_measured_fact_overwrites_the_agents() -> None:
 
 def test_without_a_measured_fact_the_agents_survive() -> None:
     declared = Evidence(facts={"profiles_kept": 3})
-    merged = merge_evidence(declared, Evidence(tests_passed=True))
-    assert merged.facts == {"profiles_kept": 3}
-    assert merged.tests_passed is True
+    merged = merge_evidence(declared, Evidence(facts={"tests_passed": True}))
+    assert merged.facts == {"profiles_kept": 3, "tests_passed": True}
+    assert merged.measured == ["facts.tests_passed"]
 
 
 @pytest.mark.parametrize("value", (True, False))

@@ -36,7 +36,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...real,
     api: {
       ...real.api,
-      project: vi.fn(async () => ({ id: "p", slug: "f4f", org: "acme", status: "active", config: { slug: "f4f", org: "acme", repo } })),
+      project: vi.fn(async () => ({ id: "p", slug: "f4f", org: "acme", status: "active", config: { slug: "f4f", org: "acme", delivery: repo ? { repo } : null } })),
       // The server's page (ADR 0206): it searches, keeps what needs a workspace, and cuts three rows at a time.
       workflowCataloguePage: vi.fn(
         async (_org: string, params: { q?: string; needsWorkspace?: boolean; cursor?: string } = {}) => {

@@ -128,7 +128,7 @@ const iso = (minutesAgo: number) => new Date(now.getTime() - minutesAgo * 60_000
 const projectConfig = (slug: string) => ({
   slug,
   org: "acme",
-  repo: { url: `https://github.com/acme/${slug}.git`, default_branch: "main", language: "python" as const },
+  delivery: { repo: { url: `https://github.com/acme/${slug}.git`, default_branch: "main", language: "python" as const } },
 });
 
 export const me: MeDto = {
@@ -593,12 +593,8 @@ function run(id: string, role: string, status: string, cost: number, summary: st
       summary,
       // The coverage comes from the agent's own account; the rest, the runner measured (ADR 0045).
       evidence: {
-        tests_passed: true,
-        tests_run: 412,
-        tests_failed: 0,
-        coverage_delta: 1.2,
-        lint: "ok",
-        measured: ["lint", "tests_failed", "tests_passed", "tests_run"],
+        facts: { tests_passed: true, tests_run: 412, tests_failed: 0, coverage_delta: 1.2, lint: "ok" },
+        measured: ["facts.lint", "facts.tests_failed", "facts.tests_passed", "facts.tests_run"],
       },
     },
   } as Run;
@@ -2984,7 +2980,7 @@ const devProject = (): ProjectDto => ({
     slug: "dev",
     org: "acme",
     template_ref: "github-tekton-argo-k8s@1.0.0",
-    repo: { url: "https://github.com/globex/choregos-sandbox-dev.git", default_branch: "main", language: "python" },
+    delivery: { repo: { url: "https://github.com/globex/choregos-sandbox-dev.git", default_branch: "main", language: "python" } },
     envs: ["dev", "staging", "prod"],
     agent: { default_backend: "claude-code", allowed_backends: [] },
     notify: {},
@@ -3014,9 +3010,9 @@ const mockReadiness = (slug: string): ProjectReadiness => {
   const items: ReadinessItem[] = [
     { id: "provisioned", section: "general", title: "Project provisioned", state: "done", detail: "Its repository, tracker and pipelines are in place.", fix: { by: "project_owner" } },
     { id: "workflow", section: "general", title: "A workflow published", state: "done", detail: "2 workflows, default-simple by default.", fix: { by: "project_owner" } },
-    !config.repo?.url
+    !config.delivery?.repo?.url
       ? { id: "repository", section: "general", title: "Repository", state: "todo", detail: "No repository URL: a run has nothing to clone.", fix: { href: `${settings}#general`, by: "project_owner" } }
-      : !config.repo.test_command
+      : !config.delivery.repo.test_command
         ? { id: "repository-checks", section: "general", title: "Measured checks", state: "check", detail: "No test command: the runner does not measure the tests.", fix: { href: `${settings}#general`, by: "project_owner" } }
         : { id: "repository-checks", section: "general", title: "Measured checks", state: "done", detail: "The runner runs the test command itself.", fix: { by: "project_owner" } },
     { id: "connector-tracker", section: "connections", title: "Work tracker", state: "done", detail: "github-issues, connected.", fix: { by: "project_owner" } },
@@ -3306,11 +3302,12 @@ const mockOrg: { slug: string; name: string; role: string; currency: string } = 
 let mockPolicyYaml = [
   "budgets:",
   "  per_ticket_usd: 25",
-  "release_train:",
-  "  prod:",
-  "    mode: train",
-  "  staging:",
-  "    mode: train",
+  "delivery:",
+  "  release_train:",
+  "    prod:",
+  "      mode: train",
+  "    staging:",
+  "      mode: train",
   "sandbox:",
   "  network:",
   "    allow_domains:",
@@ -4770,7 +4767,7 @@ export async function mockApi<T>(path: string, init: RequestInit = {}): Promise<
           kind: "Policy",
           metadata: { name: "solo", version: 1 },
           budgets: { per_ticket_usd: 25 },
-          release_train: { prod: { mode: "train" }, staging: { mode: "train" } },
+          delivery: { release_train: { prod: { mode: "train" }, staging: { mode: "train" } } },
         },
         is_active: true,
       },

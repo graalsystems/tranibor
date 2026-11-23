@@ -124,6 +124,29 @@ describe("the project creation wizard (S23-06)", () => {
     const body = vi.mocked(api.createProject).mock.calls.at(-1)![1] as { config: Record<string, unknown> };
     expect(body.config).not.toHaveProperty("notify");
     expect(body.config).not.toHaveProperty("repo");
+    expect(body.config).not.toHaveProperty("delivery");
+  });
+
+  it("writes a software project's repository and GitOps in its delivery section only (ADR 0181 C2)", async () => {
+    ouvrir();
+    fireEvent.click(screen.getByLabelText(/^Software, from a code repository/));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Identifier (slug)"), { target: { value: "billing-api" } });
+    fireEvent.change(screen.getByLabelText("Repository"), { target: { value: "acme/billing-api" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("GitOps repository (environments)"), {
+      target: { value: "https://github.com/acme/gitops.git" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(api.createProject).toHaveBeenCalled());
+    const body = vi.mocked(api.createProject).mock.calls.at(-1)![1] as { config: Record<string, unknown> };
+    expect(body.config.delivery).toEqual({
+      repo: { url: "https://github.com/acme/billing-api.git", default_branch: "main", language: "python" },
+      gitops: { repo_url: "https://github.com/acme/gitops.git", apps: ["billing-api"] },
+    });
+    expect(body.config).not.toHaveProperty("repo");
+    expect(body.config).not.toHaveProperty("gitops");
   });
 
   it("a software project is asked for its repository and language", () => {

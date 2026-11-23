@@ -139,8 +139,8 @@ async def test_the_bridge_opens_no_port_the_agent_did_not_already_have(
 
     offered = stage_input.model_copy(deep=True)
     offered.tools.scripts = ToolScripts()
-    assert offered.repo is not None
-    offered.repo.work_branch = "choregos/1-total-scripts"
+    assert offered.delivery is not None and offered.delivery.repo is not None
+    offered.delivery.repo.work_branch = "choregos/1-total-scripts"
     again = settings.model_copy(update={"workspace": tmp_path / "workspace-scripts"})
     _, with_scripts, seen = await _run(offered, again)
 

@@ -382,9 +382,10 @@ def render_project_manifests(
         ]
     )
 
-    apps = config.gitops.apps if config.gitops else [slug]
-    repo_url = config.gitops.repo_url if config.gitops else ""
-    path_prefix = config.gitops.path_prefix if config.gitops else "apps"
+    gitops = config.delivery_section.gitops
+    apps = gitops.apps if gitops else [slug]
+    repo_url = gitops.repo_url if gitops else ""
+    path_prefix = gitops.path_prefix if gitops else "apps"
     argocd = _dump(
         [
             {

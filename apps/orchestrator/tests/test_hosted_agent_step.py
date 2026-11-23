@@ -45,7 +45,9 @@ async def test_a_hosted_agent_is_sent_the_step_in_its_pinned_image(setup: Fixtur
     assert hosted["agent_slug"] == "triager" and hosted["agent_version"] == 1
     assert hosted["env"] == {"LOG_LEVEL": "debug"}
     assert hosted["socket"] is False, "a step has no caller's socket to relay (S41-21)"
-    assert stage_input["repo"] is None, "the container never sees a workspace (`workspace: none`)"
+    assert (stage_input.get("delivery") or {}).get("repo") is None, (
+        "the container never sees a workspace (`workspace: none`)"
+    )
     assert stage_input["skills"] == []
     assert stage_input["budget"]["max_turns"] == 9
 
@@ -76,7 +78,9 @@ async def test_a_hosted_agent_that_asks_for_the_workspace_gets_the_repository(
     spec = await _start(setup, prepared := await stage_activities.prepare_stage(_plan(setup)))
     stage_input = prepared["stage_input"]
     assert stage_input["hosted"]["workspace"] == workspace
-    assert stage_input["repo"] is not None and stage_input["repo"]["work_branch"]
+    assert (stage_input.get("delivery") or {}).get("repo") is not None and stage_input["delivery"]["repo"][
+        "work_branch"
+    ]
     assert spec.agent_container is not None and spec.agent_container.workspace == workspace
     assert spec.agent_container.env["TRANIBOR_WORKSPACE"] == "/workspace"
 

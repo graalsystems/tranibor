@@ -50,13 +50,13 @@ def test_the_extension_declares_the_repository_item_and_the_core_evaluates_it() 
 def test_no_test_command_is_to_check() -> None:
     required = (("scm", ("an agent works in a repository",)),)
     bare = ProjectConfig.model_validate(
-        {"slug": "dev", "org": "northwind", "repo": {"url": "https://github.com/a/b"}}
+        {"slug": "dev", "org": "northwind", "delivery": {"repo": {"url": "https://github.com/a/b"}}}
     )
     measured = ProjectConfig.model_validate(
         {
             "slug": "dev",
             "org": "northwind",
-            "repo": {"url": "https://github.com/a/b", "test_command": "pytest -q"},
+            "delivery": {"repo": {"url": "https://github.com/a/b", "test_command": "pytest -q"}},
         }
     )
     assert states(item_repository(facts(requirements=required, config=bare))) == {
@@ -85,7 +85,11 @@ def test_without_a_repository_the_workflow_that_asks_for_one_is_named_and_can_be
     published = facts(requirements=required, workflows=("default-simple", "default-request"))
     assert item_repository(published)[0].fix.href == "/p/dev/workflows", "published: make it the default"
     with_repo = ProjectConfig.model_validate(
-        {"slug": "dev", "org": "northwind", "repo": {"url": "https://github.com/northwind/dev.git"}}
+        {
+            "slug": "dev",
+            "org": "northwind",
+            "delivery": {"repo": {"url": "https://github.com/northwind/dev.git"}},
+        }
     )
     (scm,) = item_connectors(facts(requirements=required[:1], config=with_repo))
     assert scm.fix.href == "/p/dev/settings#connections", "a project with a repository connects it"
@@ -96,8 +100,8 @@ def test_the_dod_facts_count_as_measured_checks() -> None:
         {
             "slug": "dev",
             "org": "northwind",
-            "repo": {"url": "https://github.com/a/b"},
             "dod": {"facts": {"ok": "true"}},
+            "delivery": {"repo": {"url": "https://github.com/a/b"}},
         }
     )
     got = states(item_repository(facts(requirements=(("scm", ("x",)),), config=config)))

@@ -1008,7 +1008,6 @@ export type Policy = {
   /** Human approval rules, by kind of decision. */
   approvals?: {
     spec?: PolicyApprovalRule;
-    merge?: PolicyApprovalRule;
     prod?: PolicyApprovalRule;
     scope_change?: PolicyApprovalRule;
   };
@@ -1026,8 +1025,6 @@ export type Policy = {
   scope?: {
     auto_grant_max_files?: number;
     deny_paths?: Array<string>;
-    max_diff_files?: number;
-    max_diff_lines?: number;
   };
   sandbox?: {
     runtime?: "default" | "gvisor" | "kata";
@@ -1100,10 +1097,6 @@ export type Policy = {
     cross_backend?: boolean;
     require_human_for_risk?: Array<"low" | "medium" | "high" | "critical">;
   };
-  /** Configuration per environment (docs/plan/05 §5.2). */
-  release_train?: {
-    [key: string]: PolicyTrainEnv;
-  };
   /** The built-in web_search tool (ADR 0083): a project can only narrow the organisation's ceiling, which opens it. */
   web_search?: {
     mode?: "allow" | "deny";
@@ -1112,11 +1105,11 @@ export type Policy = {
     /** Whether a backend may reuse queries (train, rank, re-index). */
     allow_query_reuse?: boolean;
   };
-  /** The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains. Read as one with the former `scope.max_diff_*`, `approvals.merge` and `release_train` until the window list removes them. */
+  /** The software-delivery plugin's section (ADR 0181 C2): the bounds on a diff, the approval of a merge and the release trains (configuration per environment, docs/plan/05 §5.2). */
   delivery?: {
     scope?: {
-      max_diff_files?: number | null;
-      max_diff_lines?: number | null;
+      max_diff_files?: number;
+      max_diff_lines?: number;
     };
     approvals?: {
       merge?: PolicyApprovalRule | null;
@@ -1141,31 +1134,6 @@ export type Project = {
   org: string;
   display_name?: string;
   template_ref?: string;
-  repo?: {
-    /** The repository's name in its project, what a work item's `fields.repository` names (ADR 0124); the primary is named after its URL's last segment when absent. */
-    name?: string;
-    url: string;
-    default_branch: string;
-    language?: "python" | "node" | "go" | "java" | "dotnet" | "rust" | "other";
-    clone_depth?: number;
-    branch_prefix?: string;
-    test_command?: string;
-    lint_command?: string;
-    typecheck_command?: string;
-  };
-  /** The project's other repositories (ADR 0124): `repo` stays the primary, the one a work item that names none works on. Refused without `repo`, with two equal names and with two names for one URL. */
-  repositories?: Array<{
-    /** The repository's name in its project, what a work item's `fields.repository` names (ADR 0124). */
-    name: string;
-    url: string;
-    default_branch?: string;
-    language?: "python" | "node" | "go" | "java" | "dotnet" | "rust" | "other";
-    clone_depth?: number;
-    branch_prefix?: string;
-    test_command?: string;
-    lint_command?: string;
-    typecheck_command?: string;
-  }>;
   envs?: Array<string>;
   agent?: {
     default_backend?: string;
@@ -1177,11 +1145,6 @@ export type Project = {
       [key: string]: ProjectProfile;
     };
     allow_unvalidated?: boolean;
-  };
-  gitops?: {
-    repo_url?: string;
-    path_prefix?: string;
-    apps?: Array<string>;
   };
   /** Cluster reference (executor). */
   cluster?: string;
@@ -1250,7 +1213,7 @@ export type Project = {
   labels?: {
     [key: string]: string;
   };
-  /** The software-delivery plugin's section (ADR 0181 C2): the repositories and the GitOps. Read as one with the former `repo`, `repositories` and `gitops` until the window list removes them. */
+  /** The software-delivery plugin's section (ADR 0181 C2): the repositories and the GitOps. Absent for a project without a repository (ADR 0012, limit no. 1). */
   delivery?: {
     repo?: {
       /** The repository's name in its project, what a work item's `fields.repository` names (ADR 0124); the primary is named after its URL's last segment when absent. */
@@ -1295,9 +1258,6 @@ export type StageInput = {
   project: {
     slug: string;
     org: string;
-    test_command?: string;
-    lint_command?: string;
-    typecheck_command?: string;
     /** Commands that MEASURE a boolean fact: fact name → command, exit code 0 = true. The runner runs them after the step, and the measured fact overrides the one the agent declared, as the tests override tests_passed. At the root of the project's configuration (dod.facts), not under repo: a project without a repository must be able to prove something. */
     fact_commands?: {
       [key: string]: string;
@@ -1313,8 +1273,7 @@ export type StageInput = {
     links?: {
       spec_comment?: string | null;
       plan_comment?: string | null;
-      pr?: string | null;
-      /** The change request the work item is on: the successor of `pr`, which a reader takes as a fallback until the window list of ADR 0181 removes it. */
+      /** The change request the work item is on (ADR 0181 C2). */
       change_request?: string | null;
     };
   };
@@ -1335,12 +1294,6 @@ export type StageInput = {
         [key: string]: unknown;
       };
     };
-  };
-  repo?: {
-    url: string;
-    base_branch: string;
-    work_branch: string;
-    clone_depth?: number;
   };
   agent: {
     backend: string;
@@ -1503,7 +1456,7 @@ export type StageInput = {
     tool_choice?: "auto" | "required" | "none";
     response_format?: "text" | "json_object";
   } | null;
-  /** The software-delivery plugin's section (ADR 0181 C2): the repository and the project's commands. Read as one with the former `repo` and `project.*_command` until the window list removes them. */
+  /** The software-delivery plugin's section (ADR 0181 C2): the repository the stage works on and the project's commands. Absent for a project without a repository: the runner then prepares an empty directory, clones nothing, pushes nothing, and the guarantees that read a diff refuse for lack of matter (ADR 0012, limit no. 1). */
   delivery?: {
     repo?: {
       url: string;
@@ -1540,10 +1493,7 @@ export type StageResult = {
     [key: string]: unknown;
   };
   artifacts?: {
-    branch?: string | null;
-    commits?: Array<string>;
-    pr_url?: string | null;
-    /** Where the step's work can be seen, by relation (ADR 0181 C1): `{rel: change_request, url}` for the change it proposes. It replaces `pr_url`, read until the release the window list names. */
+    /** Where the step's work can be seen, by relation (ADR 0181 C1): `{rel: change_request, url}` for the change it proposes. */
     links?: Array<{
       rel: string;
       url: string;
@@ -1563,7 +1513,7 @@ export type StageResult = {
         size: number;
       };
     };
-    /** The software-delivery plugin's section (ADR 0181 C2): the branch and the commits. Read as one with the former `branch` and `commits` until the window list removes them. */
+    /** The software-delivery plugin's section (ADR 0181 C2): the branch the step pushed and its commits. */
     delivery?: {
       branch?: string | null;
       commits?: Array<string>;
@@ -1574,16 +1524,7 @@ export type StageResult = {
     facts?: {
       [key: string]: string | number | number | boolean;
     } | null;
-    tests_passed?: boolean | null;
-    tests_run?: number | null;
-    tests_failed?: number | null;
-    coverage_delta?: number | null;
-    lint?: "ok" | "failed" | "skipped" | null;
-    typecheck?: "ok" | "failed" | "skipped" | null;
-    security_scan?: "ok" | "failed" | "skipped" | null;
-    diff_files?: number | null;
-    diff_lines?: number | null;
-    /** What the platform measured itself (ADR 0045): the names of the fields above it ran or computed — tests, lint, typecheck, diff — and `facts.<name>` for a business fact a command measured. Written by the runner, never by the agent: an agent that sets it is overwritten. A field not listed comes from the agent's own account; null means a runner too old to say. */
+    /** What the platform measured itself (ADR 0045): `facts.<name>` for a fact it ran or computed (the software-delivery plugin's tests, lint, typecheck and diff are facts too, ADR 0181 C2). Written by the runner, never by the agent: an agent that sets it is overwritten. A fact not listed comes from the agent's own account; null means a runner too old to say. */
     measured?: Array<string> | null;
   };
   questions?: Array<{

@@ -11,7 +11,8 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.gitops import render_project_manifests
 
@@ -24,7 +25,9 @@ SLUG = "manifests-test"
 
 def manifests(preset: str = "team") -> dict[str, str]:
     config = ProjectConfig(
-        slug=SLUG, org="northwind", repo=RepoConfig(url="https://github.com/northwind/demo.git")
+        slug=SLUG,
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/demo.git")),
     )
     return render_project_manifests(SLUG, config, load_preset(preset))
 

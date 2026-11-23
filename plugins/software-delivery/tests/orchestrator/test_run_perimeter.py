@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from tranibor_contracts.delivery import ResultDelivery
 
 pytestmark = pytest.mark.asyncio
 
@@ -24,7 +25,7 @@ async def _run_starting_at(setup: Any, start: str | None) -> str:
     from tranibor_contracts import StageResult, StageStatus
 
     result = StageResult(status=StageStatus.DONE, summary="ADR written")
-    result.artifacts.branch = BRANCH
+    result.artifacts.delivery = ResultDelivery(branch=BRANCH)
     if start:
         result.artifacts.reports["start_commit"] = start
     async with session_scope() as session:

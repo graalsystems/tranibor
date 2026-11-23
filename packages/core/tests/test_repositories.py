@@ -19,29 +19,31 @@ PLATFORM = ProjectConfig.model_validate(
     {
         "slug": "platform",
         "org": "acme",
-        "repo": {"url": "https://github.com/acme/infra.git", "test_command": "make test"},
-        "repositories": [
-            {
-                "name": "diamctl",
-                "url": "https://github.com/acme/diamctl.git",
-                "test_command": "go test ./...",
-            },
-            {"name": "fondation", "url": "https://github.com/acme/fondation.git"},
-        ],
+        "delivery": {
+            "repo": {"url": "https://github.com/acme/infra.git", "test_command": "make test"},
+            "repositories": [
+                {
+                    "name": "diamctl",
+                    "url": "https://github.com/acme/diamctl.git",
+                    "test_command": "go test ./...",
+                },
+                {"name": "fondation", "url": "https://github.com/acme/fondation.git"},
+            ],
+        },
     }
 )
 SINGLE = ProjectConfig.model_validate(
-    {"slug": "billing", "org": "acme", "repo": {"url": "https://github.com/acme/billing.git"}}
+    {"slug": "billing", "org": "acme", "delivery": {"repo": {"url": "https://github.com/acme/billing.git"}}}
 )
 NONE = ProjectConfig.model_validate({"slug": "hr", "org": "acme"})
 
 
 def test_a_work_item_that_names_no_repository_works_on_the_primary() -> None:
     found = target(PLATFORM, {}, {})
-    assert found is not None and found.name == "infra" and found.repo is PLATFORM.repo
+    assert found is not None and found.name == "infra" and found.repo is PLATFORM.delivery_section.repo
     assert target(PLATFORM, {"repository": None}, None) == found
     single = target(SINGLE, None, None)
-    assert single is not None and single.repo is SINGLE.repo, "one repository: unchanged"
+    assert single is not None and single.repo is SINGLE.delivery_section.repo, "one repository: unchanged"
     assert target(NONE, {}, {}) is None, "a project without a repository: nothing to clone"
 
 
@@ -51,7 +53,9 @@ def test_a_work_item_works_on_the_repository_its_field_names() -> None:
     assert found.repo.url == "https://github.com/acme/diamctl.git"
     assert found.repo.test_command == "go test ./...", "the DoD commands are the target's"
     primary = target(PLATFORM, {"repository": "infra"}, {})
-    assert primary is not None and primary.repo is PLATFORM.repo, "the primary is named by its name too"
+    assert primary is not None and primary.repo is PLATFORM.delivery_section.repo, (
+        "the primary is named by its name too"
+    )
 
 
 def test_an_unknown_name_is_refused_with_the_names_the_project_holds() -> None:
@@ -77,7 +81,8 @@ def test_a_fixed_work_item_keeps_its_repository() -> None:
     assert same is not None and same.name == "diamctl"
     with pytest.raises(RepositoryRefusedError, match="works on `diamctl` since its first step"):
         target(PLATFORM, {"repository": "fondation"}, documents)
-    gone = ProjectConfig.model_validate(PLATFORM.model_dump() | {"repositories": []})
+    dump = PLATFORM.model_dump()
+    gone = ProjectConfig.model_validate(dump | {"delivery": dump["delivery"] | {"repositories": []}})
     with pytest.raises(RepositoryRefusedError, match="`diamctl` is not a repository"):
         target(gone, {}, documents)
 

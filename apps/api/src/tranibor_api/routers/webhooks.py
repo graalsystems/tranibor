@@ -107,7 +107,7 @@ async def project_for(session: Any, slug_or_repo: str | None) -> Project | None:
         rows = [
             r
             for r in rows
-            if str((r.config or {}).get("repo", {}).get("url", ""))
+            if str(((r.config or {}).get("delivery") or {}).get("repo", {}).get("url", ""))
             .removesuffix(".git")
             .endswith(slug_or_repo)
         ]

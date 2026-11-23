@@ -34,7 +34,7 @@ def test_each_widened_field_is_named() -> None:
     assert "budgets.tool_calls_per_run: unlimited exceeds the organisation's ceiling of 50" in found
     assert "budgets.daily_project_usd: 150 exceeds the organisation's ceiling of 100" in found
     assert "attempts.by_role.implement: 3 exceeds the organisation's ceiling of 2" in found
-    assert "scope.max_diff_lines: 3000 exceeds the organisation's ceiling of 2000" in found
+    assert "delivery.scope.max_diff_lines: 3000 exceeds the organisation's ceiling of 2000" in found
     assert "findings.max_per_run: 5 exceeds the organisation's ceiling of 3" in found
 
 

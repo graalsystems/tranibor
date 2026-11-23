@@ -7,7 +7,8 @@ from typing import Any
 
 import pytest
 import yaml
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.activities import stage as stage_activities
 from tranibor_orchestrator.gitops import EGRESS_NAME, render_project_manifests
@@ -85,7 +86,9 @@ async def test_the_union_reads_only_the_organisations_own_rules(setup: Fixture) 
 
 def test_the_proxy_and_the_network_policy_render_the_union() -> None:
     config = ProjectConfig(
-        slug="billing", org="northwind", repo=RepoConfig(url="https://github.com/northwind/b.git")
+        slug="billing",
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/b.git")),
     )
     policy = load_preset("team")
     plain = render_project_manifests("billing", config, policy)

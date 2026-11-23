@@ -28,10 +28,12 @@ async def _checkout(client: AsyncClient) -> None:
         "config": {
             "slug": "checkout-web",
             "org": "northwind",
-            "repo": {
-                "url": "https://github.com/northwind/checkout-web.git",
-                "default_branch": "main",
-                "language": "python",
+            "delivery": {
+                "repo": {
+                    "url": "https://github.com/northwind/checkout-web.git",
+                    "default_branch": "main",
+                    "language": "python",
+                }
             },
         },
     }

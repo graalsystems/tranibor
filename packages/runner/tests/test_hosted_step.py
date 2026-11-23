@@ -27,6 +27,7 @@ from tranibor_contracts import (
     StageStatus,
     ToolsRef,
 )
+from tranibor_contracts.delivery import StageDelivery
 from tranibor_core.hosted import sidecar_env
 from tranibor_runner.exits import Exit
 from tranibor_runner.loopback.connect import ConnectProxy
@@ -44,14 +45,10 @@ IMAGE = "registry.example/acme/triage@sha256:" + "a" * 64
 
 
 def _hosted(stage_input: StageInput, *, outputs: list[str] | None = None, **update: Any) -> StageInput:
-    no_repo = stage_input.project.model_copy(
-        update={"test_command": "", "lint_command": "", "typecheck_command": ""}
-    )
     hosted = update.pop("hosted", None) or HostedCall(image=IMAGE, agent_slug="triage", agent_version=3)
     return stage_input.model_copy(
         update={
-            "repo": None,
-            "project": no_repo,
+            "delivery": StageDelivery(repo=update.pop("repo")) if update.get("repo") else None,
             "agent": AgentRef(backend="hosted"),
             "model": ModelRef(litellm_model="platform/standard", base_url="http://gateway:4000/v1"),
             "gateway_key": KEY,

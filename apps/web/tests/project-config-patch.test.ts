@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const config = {
   slug: "dev",
   org: "acme",
-  repo: { url: "https://github.com/acme/dev.git", default_branch: "main", clone_depth: 20 },
+  delivery: { repo: { url: "https://github.com/acme/dev.git", default_branch: "main", clone_depth: 20 } },
   envs: ["dev", "prod"],
   agent: { default_backend: "claude-code", allowed_backends: ["claude-code"] },
   notify: { emails: ["po@acme.dev"] },
@@ -41,8 +41,10 @@ describe("a section's change to the project configuration (S40-06c)", () => {
   });
 
   it("takes a function of the LATEST configuration, so a nested change keeps its siblings", () => {
-    const merged = mergeConfig(config, (latest) => ({ repo: { ...latest.repo!, test_command: "pytest -q" } }));
-    expect(merged.repo).toEqual({ ...config.repo, test_command: "pytest -q" });
+    const merged = mergeConfig(config, (latest) => ({
+      delivery: { ...latest.delivery, repo: { ...latest.delivery!.repo!, test_command: "pytest -q" } },
+    }));
+    expect(merged.delivery?.repo).toEqual({ ...config.delivery!.repo, test_command: "pytest -q" });
   });
 });
 

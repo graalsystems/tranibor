@@ -68,20 +68,26 @@ class DodReport:
     facts: dict[str, bool] = field(default_factory=dict)
 
     def evidence(self) -> Evidence:
+        """What this pass measured, as named facts (ADR 0056): the tests, lint and typecheck of the
+        software-delivery plugin's `EVIDENCE_FACTS` (ADR 0181 C2), and the project's `dod.facts`."""
         tests = self.get("tests")
         lint = self.get("lint")
         typecheck = self.get("typecheck")
         counts = _parse_test_counts(tests.output if tests else "")
-        return Evidence(
-            tests_passed=(None if tests is None or tests.skipped else tests.ok),
-            tests_run=counts.get("run"),
-            tests_failed=counts.get("failed"),
-            lint=(lint.status if lint else None),
-            typecheck=(typecheck.status if typecheck else None),
-            # `None` and not `{}` when nothing is measured: `merge_evidence` only overwrites the
-            # non-`None`, so an empty dictionary would erase the agent's facts.
-            facts=(dict(self.facts) or None),
-        )
+        checked: dict[str, str | int | bool | None] = {
+            "tests_passed": None if tests is None or tests.skipped else tests.ok,
+            "tests_run": counts.get("run"),
+            "tests_failed": counts.get("failed"),
+            "lint": lint.status if lint else None,
+            "typecheck": typecheck.status if typecheck else None,
+        }
+        facts: dict[str, str | int | float | bool] = {
+            name: value for name, value in checked.items() if value is not None
+        }
+        facts.update(self.facts)
+        # `None` and not `{}` when nothing is measured: `merge_evidence` only overwrites the
+        # non-`None`, so an empty dictionary would erase the agent's facts.
+        return Evidence(facts=facts or None)
 
     def prompt_for_repair(self) -> str:
         """Message sent to the agent when the verifications fail."""
@@ -103,7 +109,7 @@ class DodReport:
 
 def commands_for(stage_input: StageInput, workspace: Path) -> dict[str, str]:
     """Repository commands: the project's first, otherwise the language's conventions."""
-    # The `delivery` section's commands first, the former fields as a fallback (ADR 0181 C2).
+    # The software-delivery plugin's `delivery` section (ADR 0181 C2).
     commands = commands_of(stage_input)
     defaults = LANGUAGE_DEFAULTS.get(_detect_language(workspace), {})
     return {
@@ -237,7 +243,7 @@ def merge_evidence(base: Evidence, measured: Evidence) -> Evidence:
     loss would be silent, which is the worse of the two.
     """
     data: dict[str, Any] = base.model_dump()
-    # What the platform measured, field by field (ADR 0045): the console says "observed" for
+    # What the platform measured, fact by fact (ADR 0045): the console says "observed" for
     # those, "declared" for the rest. The agent's list is ignored: it cannot call itself
     # measured.
     measured_fields: set[str] = set()

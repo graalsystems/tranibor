@@ -132,7 +132,9 @@ async def create_dev_project(setup: Fixture) -> str:
             config={
                 "slug": "dev",
                 "org": "northwind",
-                "repo": {"url": f"https://github.com/{REPOSITORY}.git", "default_branch": "main"},
+                "delivery": {
+                    "repo": {"url": f"https://github.com/{REPOSITORY}.git", "default_branch": "main"}
+                },
                 "notify": {"slack_channel": "#dev"},
             },
         )
@@ -224,5 +226,5 @@ def verdict_result(name: str, verdict: str = "approve", **outputs_extra: Any) ->
 def prod_verifier_result() -> Any:
     from tranibor_contracts import Evidence
 
-    proof = Evidence(tests_passed=True, tests_run=3, facts={"smoke_ok": True})
+    proof = Evidence(facts={"tests_passed": True, "tests_run": 3, "smoke_ok": True})
     return stage_result("go: error rate unchanged", outputs={"verdict": "approve"}, evidence=proof)

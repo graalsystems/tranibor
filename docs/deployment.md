@@ -2488,6 +2488,25 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.28.2: software delivery lives in the `delivery` sections only
+
+The window `C2-delivery` of [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) closed early (2026-11-23):
+the project, the policy and the stage contracts no longer carry the former software-delivery fields beside
+their `delivery` section. The migration `13e34c50cb88` rewrites what the platform stored; its downgrade does
+nothing, as the previous release reads the sections.
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A project's `repo`, `repositories`, `gitops` | Only `config.delivery.{repo, repositories, gitops}`. `projects.config` is rewritten; a request that writes a former field is refused (`422`), naming the section. | A script, a values file or a client that writes a project's configuration writes the section. |
+| A policy's `scope.max_diff_files`, `scope.max_diff_lines`, `approvals.merge`, `release_train` | Only `delivery.scope.*`, `delivery.approvals.merge`, `delivery.release_train`. `policies.json` and the policy's text are rewritten: a policy written in block style keeps its comments, its former lines moved under `delivery:`; any other text is rendered again from its data, without its comments. A policy that writes a former field is refused (`422`). | A template's or a content plugin's `policy.yaml` that still writes them is read into the section when a project is born from it, and stored moved: move its lines under `delivery:` at its next release. A policy sent to `PUT /projects/{id}/policy` writes the section. The organisation's ceiling keeps its own `scope.max_diff_*`. |
+| A step's `artifacts.branch`, `artifacts.commits`, `artifacts.pr_url`; `evidence.tests_passed` ... `diff_lines` | Only `artifacts.delivery.{branch, commits}`, the `change_request` link and the named facts (`evidence.facts.<name>`, measured as `facts.<name>`). `runs.result` is rewritten. | A reader of `GET /runs/{id}` reads the new form. |
+| A stage input's `repo`, `project.*_command`, `work_item.links.pr` | Only `delivery.repo`, `delivery.commands`, `work_item.links.change_request`. `runs.stage_input` and `agent_sessions.stage_input` are rewritten. A runner of the previous release reads the section, and the former fields it still writes are read. | Nothing. |
+
+The stage contracts still read the former spellings of a stage input or a stage result
+(`tranibor_contracts.recorded`): the recorded Temporal histories, and the workflows running when the
+deployment upgrades, carry them, and the agents of the published `software-delivery` plugin write
+`evidence.tests_passed`. A template's policy is read the same way (`fold_policy`). They are never written.
+
 ## Upgrading past 0.28.1: the roles and fields of round C1 have only their neutral names
 
 **ADR 0181 round C1's window closed early** (the project lead's decision of 2026-11-23, recorded in
@@ -2672,7 +2691,6 @@ roles and fields of round C1 have only their neutral names".
 | The roles `developer`, `release_captain` | `contributor` and `approver` are their neutral names: a request may send either, both hold the same permissions, and a membership keeps the spelling its row holds. Writers switch to the new spelling in 0.29.0; 0.30.0 rewrites the remaining rows. | A script or a values file that names a role: switch it before 0.30.0. |
 | The role groups `developers`, `release-captains` | `contributors` and `approvers` give the same roles. | Rename the groups at the identity provider before 0.30.0. |
 | `WorkItem.pr_url`, `repository`, `repository_fixed`; `ProcessStep.writes_branch`; `WorkflowCatalogueEntry.needs_repository`; `ArtifactFlow.in_pull_request`; `first_pass_merge_rate` | Served beside `links` (`rel: change_request`), `workspace`, `workspace_fixed`, `writes_workspace`, `needs_workspace`, `in_change_request`, `first_pass_acceptance_rate`. | A client of the REST API reads the new names before 0.30.0. |
-| A step result's `artifacts.pr_url` | Read beside `artifacts.links`. | Nothing. |
 | The OpenAPI title | "Tranibor API". | Nothing. |
 
 **The agent runs in a container of its own by default** (S65-04m, [ADR 0146](adr/0146-the-runner-and-the-agent-do-not-share-a-container.md)).

@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """The repository a work item works on (ADR 0124): its target.
 
-A project holds a primary repository (`repo`) and may hold others (`repositories`). A work item names
+A project holds a primary repository (`delivery.repo`) and may hold others (`delivery.repositories`,
+the software-delivery plugin's section, ADR 0181 C2). A work item names
 one by its reserved field `fields.repository`; absent, it works on the primary. The target is fixed at
 the first activity that touches git (`documents.repository_fixed`): one work item, one repository, one
-branch. Everything that talks to git asks `target`, never `config.repo`.
+branch. Everything that talks to git asks `target`, never `config.delivery.repo`.
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import RepoConfig
 
 from .domain import REPOSITORY_FIELD
 
@@ -48,7 +50,7 @@ def fixed(documents: Mapping[str, Any] | None) -> str | None:
 
 
 def _holds(config: ProjectConfig) -> str:
-    names = config.repository_names()
+    names = config.delivery_section.repository_names()
     return ", ".join(f"`{n}`" for n in names) if names else "none"
 
 
@@ -59,9 +61,10 @@ def unknown(config: ProjectConfig, value: Any) -> str | None:
         return None
     if not isinstance(value, str):
         return "`fields.repository` is the name of one of the project's repositories, a string"
-    if config.repo is None:
+    repos = config.delivery_section
+    if repos.repo is None:
         return f"`fields.repository` names `{value}`, and the project {config.slug} holds no repository"
-    if config.repository_named(value) is None:
+    if repos.repository_named(value) is None:
         return f"`{value}` is not a repository of the project {config.slug}: it holds {_holds(config)}"
     return None
 
@@ -76,7 +79,8 @@ def target(
     `fields.repository` names another repository than the fixed one (an output or a label written
     after the first git activity)."""
     wanted, kept = asked(fields), fixed(documents)
-    if config.repo is None:
+    repos = config.delivery_section
+    if repos.repo is None:
         if wanted is None and kept is None:
             return None
         raise RepositoryRefusedError(
@@ -88,8 +92,8 @@ def target(
             f"`fields.repository` now says `{wanted}`: one work item works on one repository; set it back "
             "to the first, or open one work item per repository (a fan-out, ADR 0057)"
         )
-    name = kept or wanted or str(config.primary_name)
-    repo = config.repository_named(name)
+    name = kept or wanted or str(repos.primary_name)
+    repo = repos.repository_named(name)
     if repo is None:
         raise RepositoryRefusedError(
             f"`{name}` is not a repository of the project {config.slug}: it holds {_holds(config)}. "
@@ -103,7 +107,7 @@ def fixing(
 ) -> dict[str, Any] | None:
     """The work item's documents with its target fixed, or `None` when there is nothing to record: a
     project with one repository has nothing to choose, and a fixed work item stays as it is."""
-    if not config.repositories or fixed(documents) is not None:
+    if not config.delivery_section.repositories or fixed(documents) is not None:
         return None
     return {**(documents or {}), FIXED_KEY: found.name}
 
@@ -123,9 +127,10 @@ def fixed_name(
     kept = fixed(documents)
     if kept is not None:
         return kept
-    if config.repo is None or not (has_pull_request or cloned):
+    repos = config.delivery_section
+    if repos.repo is None or not (has_pull_request or cloned):
         return None
-    return asked(fields) or config.primary_name
+    return asked(fields) or repos.primary_name
 
 
 def from_labels(labels: Any) -> str | None:

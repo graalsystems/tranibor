@@ -93,7 +93,7 @@ async def test_the_pod_runs_the_runner_serving_the_session_beside_the_pinned_ima
     record = await _record(session_id)
     assert record.pod == pod and pod["state"] == "running" and pod["name"] == f"fake-session-{session_id}"
     stored = record.stage_input
-    assert stored["hosted"]["image"] == PINNED and stored["repo"] is None
+    assert stored["hosted"]["image"] == PINNED and (stored.get("delivery") or {}).get("repo") is None
     assert stored["budget"]["max_turns"] == 9, "the agent's `limits.max_turns`, per response"
     assert stored["gateway_key"] is None and stored["callbacks"]["run_token"] != spec.run_token
     assert KEY not in str(stored) and spec.run_token not in str(stored)

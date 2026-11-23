@@ -288,9 +288,8 @@ async def record_run_outcome(payload: dict[str, Any]) -> dict[str, Any]:
                 outputs=outputs_to_store(outputs, declared_outputs),
                 types=dict(((run.stage_input or {}).get("transition") or {}).get("output_types") or {}),
             )
-        # The change the step proposes: a `change_request` link, or `pr_url`, its former name, which a
-        # runner of the previous release still writes (ADR 0181 C1).
-        change_request = result.artifacts.link(CHANGE_REQUEST) or result.artifacts.pr_url
+        # The change the step proposes: its `change_request` link (ADR 0181 C1).
+        change_request = result.artifacts.link(CHANGE_REQUEST)
         if change_request:
             item.pr_url = change_request
         if result.status == StageStatus.DONE and project is not None and run.backend != JOB_BACKEND:

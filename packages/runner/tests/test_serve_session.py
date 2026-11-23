@@ -79,7 +79,7 @@ def _session_input(stage_input: StageInput, **hosted: Any) -> StageInput:
     return stage_input.model_copy(
         update={
             "run_id": f"session-{SESSION}",
-            "repo": None,
+            "delivery": None,
             "agent": AgentRef(backend="hosted"),
             "model": ModelRef(litellm_model="platform/standard", base_url="http://gateway:4000/v1"),
             "gateway_key": None,

@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import Evidence, StageResult, StageStatus
+from tranibor_contracts.delivery import ResultDelivery
 from tranibor_core import WorkflowEngine, evaluate
 from tranibor_core.dsl.parser import parse_workflow
 from tranibor_core.gates import ALREADY_FIXED_GATE, ALREADY_FIXED_UNPROVEN, GateOutcome, unchanged_run
@@ -39,7 +40,7 @@ def _result(
     result = StageResult(
         status=StageStatus.DONE, summary="Already fixed on main", evidence=Evidence(**values)
     )
-    result.artifacts.commits = list(commits or [])
+    result.artifacts.delivery = ResultDelivery(commits=list(commits or []))
     return result
 
 

@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageInput
+from tranibor_contracts.delivery import Repository, StageDelivery
 from tranibor_runner.acp import AcpClient, AgentUnreachableError
 from tranibor_runner.backends import BACKEND_BINARIES, get_backend, known_backends
 from tranibor_runner.result import load_result
@@ -72,7 +73,6 @@ def stage_input(tmp_path: Path) -> StageInput:
         Permissions,
         PlaybookRef,
         ProjectRef,
-        RepoRef,
         TransitionRef,
         WorkItemRef,
     )
@@ -83,7 +83,9 @@ def stage_input(tmp_path: Path) -> StageInput:
         project=ProjectRef(slug="conformance", org="northwind"),
         work_item=WorkItemRef(key="northwind/conformance#1", title="create hello.py and its test"),
         transition=TransitionRef(id="t-implement", role="implement", **{"from": "ready"}, to="in_progress"),
-        repo=RepoRef(url=str(tmp_path), base_branch="main", work_branch="choregos/1"),
+        delivery=StageDelivery(
+            repo=Repository(url=str(tmp_path), base_branch="main", work_branch="choregos/1")
+        ),
         agent=AgentRef(backend="claude-code", launch=LaunchSpec(command=[sys.executable, str(FAKE_AGENT)])),
         model=ModelRef(
             litellm_model="platform/standard", base_url="http://localhost:4000", api_format="openai"

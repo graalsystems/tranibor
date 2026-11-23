@@ -24,6 +24,7 @@ from tranibor_contracts import (
     Policy,
     Size,
 )
+from tranibor_contracts.recorded import fold_policy
 
 from .errors import Issue, ValidationError
 from .gates import matches_any
@@ -140,7 +141,7 @@ class PolicyEngine:
     def max_diff(self) -> tuple[int, int]:
         """The bounds on a diff, read through the `delivery` section (ADR 0181 C2)."""
         bounds = self.policy.delivery.scope
-        return int(bounds.max_diff_files or 60), int(bounds.max_diff_lines or 3000)
+        return bounds.max_diff_files, bounds.max_diff_lines
 
     # ───────────────────────── findings & memory ─────────────────────────
 
@@ -175,14 +176,19 @@ class PolicyEngine:
     # ───────────────────────── train ─────────────────────────
 
     def train(self, env: str) -> Any:
-        return self.policy.release_train.get(env)
+        """The release train of an environment: the `delivery` section's (ADR 0181 C2)."""
+        return self.policy.delivery.release_train.get(env)
 
     def train_envs(self) -> list[str]:
-        return list(self.policy.release_train)
+        return list(self.policy.delivery.release_train)
 
 
-def parse_policy(text: str) -> Policy:
-    """Parse a YAML/JSON policy with readable errors."""
+def parse_policy(text: str, *, recorded: bool = False) -> Policy:
+    """Parse a YAML/JSON policy with readable errors.
+
+    `recorded`: the policy of a template or a content plugin, written before ADR 0181 C2's window closed
+    (its former fields are folded into the `delivery` section, `tranibor_contracts.recorded`). A policy a
+    person sends is not one: a former field there is refused, naming the section."""
     try:
         raw = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -190,7 +196,7 @@ def parse_policy(text: str) -> Policy:
     if not isinstance(raw, dict):
         raise ValidationError([Issue("yaml.not_a_mapping", "the policy must be an object")], subject="policy")
     try:
-        return Policy.model_validate(raw)
+        return Policy.model_validate(fold_policy(raw) if recorded else raw)
     except PydanticValidationError as exc:
         issues = [
             Issue(f"schema.{e['type']}", e["msg"], ".".join(str(p) for p in e["loc"])) for e in exc.errors()
@@ -198,8 +204,10 @@ def parse_policy(text: str) -> Policy:
         raise ValidationError(issues, subject="policy") from exc
 
 
-#: The approval rules the schema still accepts, and that nobody applies.
-APPROVAL_KEYS = ("spec", "merge", "prod", "scope_change")
+#: The approval rules the schema still accepts, and that nobody applies: the core's, and the merge's of
+#: the software-delivery plugin's section (`delivery.approvals.merge`, ADR 0181 C2).
+APPROVAL_KEYS = ("spec", "prod", "scope_change")
+DELIVERY_APPROVAL_KEYS = ("merge",)
 
 
 def policy_warnings(policy: Policy) -> list[Issue]:
@@ -212,15 +220,18 @@ def policy_warnings(policy: Policy) -> list[Issue]:
     `[high]` the contract sets by default.
     """
     issues: list[Issue] = []
-    for key in APPROVAL_KEYS:
-        rule = getattr(policy.approvals, key)
+    rules = [(f"approvals.{key}", getattr(policy.approvals, key)) for key in APPROVAL_KEYS] + [
+        (f"delivery.approvals.{key}", getattr(policy.delivery.approvals, key))
+        for key in DELIVERY_APPROVAL_KEYS
+    ]
+    for path, rule in rules:
         if rule is not None and rule.required != "never":
             issues.append(
                 Issue(
                     "policy.approval_not_enforced",
-                    f"`approvals.{key}` is not enforced: Tranibor asks no one for this approval. "
+                    f"`{path}` is not enforced: Tranibor asks no one for this approval. "
                     "Declare a human transition in the workflow (a human actor, or `train.approval`).",
-                    f"approvals.{key}",
+                    path,
                 )
             )
     if "default_max" in policy.attempts.model_fields_set:

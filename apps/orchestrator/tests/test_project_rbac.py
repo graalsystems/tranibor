@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core import load_preset
 from tranibor_orchestrator.gitops import render_project_manifests
 
@@ -32,7 +33,9 @@ def _uses() -> set[tuple[str, str]]:
 
 def _project_role() -> dict[str, set[str]]:
     config = ProjectConfig(
-        slug="billing", org="northwind", repo=RepoConfig(url="https://github.com/northwind/billing.git")
+        slug="billing",
+        org="northwind",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://github.com/northwind/billing.git")),
     )
     files = render_project_manifests("billing", config, load_preset("team"))
     roles = [

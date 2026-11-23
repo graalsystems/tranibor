@@ -31,7 +31,8 @@ import pytest
 from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.plugin_servers import PluginServerClient
 from tranibor_adapters.tracker.plugin import PluginTracker
-from tranibor_contracts import ProjectConfig, RepoConfig
+from tranibor_contracts import ProjectConfig
+from tranibor_contracts.delivery import ProjectDelivery, RepoConfig
 from tranibor_core.domain import NewItem, TrackerStateMapping
 from tranibor_core.plugins import TRACKER_PROFILE
 
@@ -118,7 +119,11 @@ async def test_a_work_item_carried_on_a_real_instance(
     again = await tracker.comment(key, text)
     assert first == again
 
-    config = ProjectConfig(slug="itsm", org="acme", repo=RepoConfig(url="https://example.invalid/x/y.git"))
+    config = ProjectConfig(
+        slug="itsm",
+        org="acme",
+        delivery=ProjectDelivery(repo=RepoConfig(url="https://example.invalid/x/y.git")),
+    )
     assert key in await tracker.list_candidates(config)
 
     item = await tracker.fetch_item(key)

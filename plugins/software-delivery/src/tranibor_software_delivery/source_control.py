@@ -113,7 +113,7 @@ async def open_pull_request(payload: dict[str, Any]) -> dict[str, Any]:
         found = _target(bundle, item)
         scm = await scm_for(session, bundle, found.repo.url)
         repo = repo_slug(found.repo.url)
-        branch = bundle.config.branch_for(item.tracker_key, repo=found.repo)
+        branch = bundle.config.delivery_section.branch_for(item.tracker_key, repo=found.repo)
         base = found.repo.default_branch
         fix(bundle, item, found)
         documents = item.documents or {}
@@ -228,7 +228,7 @@ async def ensure_branch(payload: dict[str, Any]) -> dict[str, str]:
         bundle = await project_bundle(session, payload["project_id"])
         item = await load_work_item(session, payload["work_item_id"])
         found = _target(bundle, item)
-        branch = bundle.config.branch_for(item.tracker_key, repo=found.repo)
+        branch = bundle.config.delivery_section.branch_for(item.tracker_key, repo=found.repo)
         scm = await scm_for(session, bundle, found.repo.url)
         await scm.ensure_branch(repo_slug(found.repo.url), branch, found.repo.default_branch)
         fix(bundle, item, found)
@@ -253,7 +253,7 @@ async def collect_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
             # A target the project does not serve has no diff either; the next stage says why.
             return {"files": 0}
         repo = repo_slug(found.repo.url)
-        branch = bundle.config.branch_for(item.tracker_key, repo=found.repo)
+        branch = bundle.config.delivery_section.branch_for(item.tracker_key, repo=found.repo)
         try:
             scm = await scm_for(session, bundle, found.repo.url)
             # The diff of the commit at the head of the branch, read once (ADR 0171); a branch that
@@ -271,10 +271,12 @@ async def collect_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
             ]
         )
         result.artifacts.reports["base"] = found.repo.default_branch
-        result.evidence.diff_files = len(diff.files)
-        result.evidence.diff_lines = diff.additions + diff.deletions
-        # Both forms for one window (ADR 0181 C2): the fields and the named facts agree.
-        result.evidence = result.evidence.with_facts()
+        # The diff as named facts (ADR 0181 C2): the source control's count replaces the runner's.
+        result.evidence.facts = {
+            **(result.evidence.facts or {}),
+            "diff_files": len(diff.files),
+            "diff_lines": diff.additions + diff.deletions,
+        }
         run.result = result.model_dump(mode="json", by_alias=True)
         await record_the_diff(session, item, run, diff)
         return {"files": len(diff.files)}
@@ -307,7 +309,7 @@ async def check_scope_violations(payload: dict[str, Any]) -> list[str]:
             # guarantee refuses (`diff_available`).
             return []
         repo = repo_slug(repo_config.url)
-        branch = bundle.config.branch_for(item.tracker_key, repo=repo_config)
+        branch = bundle.config.delivery_section.branch_for(item.tracker_key, repo=repo_config)
         scm = await scm_for(session, bundle, repo_config.url)
         # The commit at the head of the branch, read once (ADR 0171); a branch that is not there is
         # compared by its name, and the SCM answers as it did.

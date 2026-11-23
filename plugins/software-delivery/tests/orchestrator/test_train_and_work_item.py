@@ -240,7 +240,7 @@ async def _express_lane(setup: Fixture, *, approval_required: bool, lane: dict[s
             )
         ).scalar_one()
         document = copy.deepcopy(row.json_doc)
-        prod = document["release_train"]["prod"]
+        prod = document["delivery"]["release_train"]["prod"]
         prod["approval"]["required"] = approval_required
         if lane is None:
             prod["express_lane"].pop("approval", None)
@@ -393,7 +393,7 @@ async def _prod_policy(setup: Fixture, **changes: Any) -> None:
             )
         ).scalar_one()
         document = copy.deepcopy(row.json_doc)
-        prod = document["release_train"]["prod"]
+        prod = document["delivery"]["release_train"]["prod"]
         changes.setdefault("schedule", f"0 {(datetime.now(UTC).hour + 12) % 24} * * *")
         for key, value in changes.items():
             target, _, field = key.rpartition("__")

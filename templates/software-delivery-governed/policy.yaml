@@ -27,8 +27,6 @@ attempts:
 scope:
   auto_grant_max_files: 3
   deny_paths: [".choregos/**", ".github/workflows/**", "deploy/**"]
-  max_diff_files: 60
-  max_diff_lines: 3000
 sandbox:
   runtime: default
   deny_commands: [kubectl, terraform apply, git push --force, sudo]
@@ -49,23 +47,28 @@ memory:
   read_timeout_ms: 300
 review:
   cross_backend: false
-release_train:
-  staging:
-    mode: train
-    schedule: "*/15 8-19 * * 1-5"
-    timezone: Europe/Paris
-    batch_max: 10
-    soak_minutes: 5
-  prod:
-    mode: train
-    schedule: "0,30 9-17 * * 1-5"
-    timezone: Europe/Paris
-    windows: ["Mon-Fri 09:00-18:00"]
-    batch_min: 1
-    batch_max: 8
-    soak_minutes: 10
-    approval: { required: false, group: release-captains, timeout_hours: 8 }
-    canary: { steps: [100], step_minutes: [0] }
-    freeze: false
-    auto_rollback: true
-    freeze_on_rollback: true
+# The software-delivery plugin's section (ADR 0181 C2): diff bounds, merge approval, trains.
+delivery:
+  scope:
+    max_diff_files: 60
+    max_diff_lines: 3000
+  release_train:
+    staging:
+      mode: train
+      schedule: "*/15 8-19 * * 1-5"
+      timezone: Europe/Paris
+      batch_max: 10
+      soak_minutes: 5
+    prod:
+      mode: train
+      schedule: "0,30 9-17 * * 1-5"
+      timezone: Europe/Paris
+      windows: ["Mon-Fri 09:00-18:00"]
+      batch_min: 1
+      batch_max: 8
+      soak_minutes: 10
+      approval: { required: false, group: release-captains, timeout_hours: 8 }
+      canary: { steps: [100], step_minutes: [0] }
+      freeze: false
+      auto_rollback: true
+      freeze_on_rollback: true

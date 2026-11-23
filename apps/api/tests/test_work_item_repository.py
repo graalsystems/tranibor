@@ -38,10 +38,10 @@ transitions:
 
 async def _two_repositories(client: AsyncClient, project: dict[str, Any]) -> str:
     pid = project["id"]
-    config = {**project["config"], "repositories": [DIAMCTL]}
+    config = {**project["config"], "delivery": {**project["config"]["delivery"], "repositories": [DIAMCTL]}}
     saved = await client.patch(f"/api/v1/projects/{pid}", json={"config": config})
     assert saved.status_code == 200, saved.text
-    assert saved.json()["config"]["repositories"][0]["name"] == "diamctl"
+    assert saved.json()["config"]["delivery"]["repositories"][0]["name"] == "diamctl"
     workflow = await client.put(f"/api/v1/projects/{pid}/workflows/fix", json={"yaml": STRICT})
     assert workflow.status_code == 200, workflow.text
     return str(pid)
@@ -69,11 +69,15 @@ async def test_the_project_config_takes_its_repositories_and_refuses_them_withou
 ) -> None:
     await _two_repositories(client, project)
     pid = project["id"]
-    orphan = {k: v for k, v in project["config"].items() if k != "repo"} | {"repositories": [DIAMCTL]}
+    orphan = {**project["config"], "delivery": {"repositories": [DIAMCTL]}}
     refused = await client.patch(f"/api/v1/projects/{pid}", json={"config": orphan})
     assert refused.status_code == 422, refused.text
-    assert "without `repo`" in refused.text
-    twice = {**project["config"], "repositories": [DIAMCTL | {"name": "billing-api"}]}
+    assert "without `delivery.repo`" in refused.text
+    primary = project["config"]["delivery"]["repo"]
+    twice = {
+        **project["config"],
+        "delivery": {"repo": primary, "repositories": [DIAMCTL | {"name": "billing-api"}]},
+    }
     assert (await client.patch(f"/api/v1/projects/{pid}", json={"config": twice})).status_code == 422
 
 
@@ -144,7 +148,7 @@ async def test_a_work_item_that_ran_on_a_repository_is_fixed_to_it(
                 stage_role="implement",
                 attempt=1,
                 status="succeeded",
-                stage_input={"repo": {"url": "https://github.com/northwind/billing-api.git"}},
+                stage_input={"delivery": {"repo": {"url": "https://github.com/northwind/billing-api.git"}}},
             )
         )
     url = f"/api/v1/work-items/{item['id']}"

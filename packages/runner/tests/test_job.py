@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import AgentRef, JobSpec, ModelRef, StageInput, StageStatus
+from tranibor_contracts.delivery import repository_of
 from tranibor_core.redaction import REDACTED
 from tranibor_runner.exits import Exit
 from tranibor_runner.runner import Runner
@@ -51,7 +52,7 @@ def _job(stage_input: StageInput, tmp_path: Path, code: str = JOB, **transition:
     script.write_text(code, encoding="utf-8")
     return stage_input.model_copy(
         update={
-            "repo": None,
+            "delivery": None,
             "agent": AgentRef(backend="job"),
             "model": ModelRef(litellm_model="none", base_url=""),
             "gateway_key": None,
@@ -63,9 +64,6 @@ def _job(stage_input: StageInput, tmp_path: Path, code: str = JOB, **transition:
                     "output_types": {"results": "csv"},
                     **transition,
                 }
-            ),
-            "project": stage_input.project.model_copy(
-                update={"test_command": "", "lint_command": "", "typecheck_command": ""}
             ),
         }
     )
@@ -225,15 +223,15 @@ async def test_only_the_jobs_own_files_are_committed_and_pushed(
     """S51-08: the runner's scratch files (`fields.json`, `task.md`, `job.json`…) stayed in the
     commit the job's branch carried to its pull request; only what the job changed is pushed."""
     job = _job(stage_input, tmp_path, code=REPO_JOB, outputs=[], output_types={})
-    job = job.model_copy(update={"repo": stage_input.repo})
+    job = job.model_copy(update={"delivery": stage_input.delivery})
     client = _client(job)
     outcome = await Runner(runner_settings, client).execute(job, client)  # type: ignore[arg-type]
 
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert client.results[-1].status is StageStatus.DONE, client.results[-1].summary
-    assert stage_input.repo is not None
+    assert repository_of(stage_input) is not None
     pushed = subprocess.run(
-        ["git", "diff", "--name-only", "main", stage_input.repo.work_branch],
+        ["git", "diff", "--name-only", "main", repository_of(stage_input).work_branch],
         cwd=toy_repo,
         check=True,
         capture_output=True,

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-/** The neutral names of ADR 0181 C1 (their former names left on 2026-11-23), and the C2 readers. */
+/**
+ * The neutral names of ADR 0181 C1 (their former names left on 2026-11-23), and C2's readers: the delivery
+ * sections and the named facts, with no fallback (the C2-delivery window closed the same day).
+ */
 
 /** The relation of the link to the change a step proposes for review (`rel: change_request`). */
 export const CHANGE_REQUEST = "change_request";
@@ -44,28 +47,42 @@ export function acceptanceRate(
 }
 
 /**
- * A step's proof by name (ADR 0181 C2): the named fact first (`evidence.facts`, what the runner writes
- * beside each field during the window), the field of the same name as a fallback.
+ * A step's proof by name (ADR 0181 C2): the named fact `evidence.facts[name]`. The former fields of the
+ * same name left the contract with the C2-delivery window; one alone is no longer read.
  */
 export function evidenceValue(
   evidence: Record<string, unknown> | null | undefined,
   name: string,
 ): string | number | boolean | null {
-  if (!evidence) return null;
-  const facts = (evidence.facts ?? {}) as Record<string, unknown>;
-  const found = name in facts ? facts[name] : evidence[name];
+  const facts = (evidence?.facts ?? {}) as Record<string, unknown>;
+  const found = facts[name];
   return typeof found === "string" || typeof found === "number" || typeof found === "boolean" ? found : null;
 }
 
-type Delivered = { branch?: string | null; commits?: string[] | null; delivery?: { branch?: string | null; commits?: string[] | null } | null };
+/**
+ * The software-delivery plugin's facts (ADR 0181 C2): the runner writes them in `evidence.facts` beside the
+ * trade's own. A panel shows them as the software's measures, the other facts as the trade named them.
+ */
+export const DELIVERY_FACTS: ReadonlySet<string> = new Set([
+  "tests_passed",
+  "tests_run",
+  "tests_failed",
+  "coverage_delta",
+  "lint",
+  "typecheck",
+  "security_scan",
+  "diff_files",
+  "diff_lines",
+]);
 
-/** A step's branch: its `delivery` section first, the former field as a fallback (ADR 0181 C2). */
+type Delivered = { delivery?: { branch?: string | null; commits?: string[] | null } | null };
+
+/** A step's branch: its `delivery` section (ADR 0181 C2). */
 export function branchOf(artifacts: Delivered | null | undefined): string | null {
-  return artifacts?.delivery?.branch ?? artifacts?.branch ?? null;
+  return artifacts?.delivery?.branch ?? null;
 }
 
-/** A step's commits: its `delivery` section first, the former field as a fallback. */
+/** A step's commits: its `delivery` section (ADR 0181 C2). */
 export function commitsOf(artifacts: Delivered | null | undefined): string[] {
-  const section = artifacts?.delivery?.commits;
-  return section && section.length > 0 ? section : (artifacts?.commits ?? []);
+  return artifacts?.delivery?.commits ?? [];
 }

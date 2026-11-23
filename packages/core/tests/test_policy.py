@@ -119,7 +119,8 @@ def test_review_policy() -> None:
 
 # ───────────── approvals and human review: declared in the workflow (ADR 0044) ─────────────
 
-#: A policy from before ADR 0044, as the presets wrote it: it stays valid.
+#: A policy from before ADR 0044, as the presets wrote it: it stays valid, read as the recorded document it is
+#: (its `approvals.merge` is the software-delivery section's since ADR 0181 C2).
 POLICY_BEFORE_ADR_0044 = """
 apiVersion: choregos/v1
 kind: Policy
@@ -160,7 +161,7 @@ def test_the_template_policies_are_found() -> None:
 def test_a_policy_that_fills_them_in_stays_valid_and_warns() -> None:
     """The contract does not change (ADR 0001): the policy loads, and each key that promises a
     guard is named, in English, with what to do instead."""
-    policy = parse_policy(POLICY_BEFORE_ADR_0044)
+    policy = parse_policy(POLICY_BEFORE_ADR_0044, recorded=True)
     issues = policy_warnings(policy)
     assert [i.path for i in issues] == [
         "approvals.spec",
@@ -172,8 +173,8 @@ def test_a_policy_that_fills_them_in_stays_valid_and_warns() -> None:
     for issue in issues:
         assert "is not enforced" in issue.message
         assert "Declare a human transition in the workflow" in issue.message
-    # `required: never` promises nothing: no warning for `approvals.merge`.
-    assert "approvals.merge" not in {i.path for i in issues}
+    # `required: never` promises nothing: no warning for `delivery.approvals.merge`.
+    assert "delivery.approvals.merge" not in {i.path for i in issues}
 
 
 def test_the_contract_default_does_not_warn() -> None:

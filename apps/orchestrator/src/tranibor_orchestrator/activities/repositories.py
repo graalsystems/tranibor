@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The repository an activity talks to: the work item's target (ADR 0124), never `config.repo`.
+"""The repository an activity talks to: the work item's target (ADR 0124), never `delivery.repo` as such.
 
 `tranibor_core.repositories.target` decides; this module turns its refusal into what the workflow
 reads — a non-retryable `RepositoryRefused` the interpreter escalates like any configuration refusal —
