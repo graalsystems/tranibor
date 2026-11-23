@@ -5846,6 +5846,14 @@ stories:
     size: S
     depends_on: [S80-14, S80-15, S80-16]
     notes: "Finding #2150 point 2 and the doc gaps. The guard admits global.gateway.embedded on the operator's PostgreSQL and global.memory.embedded on a persistent volume in staging/prod (ADR 0195 amended); Prune=false on adoption documented; the S80-17 row corrected; modelInfo prices rendered as floats. Not done: a prod switch; the backup of an adopted memory claim (#2153)."
+  - id: S80-26
+    title: "feat(charts): the embedded Ecphoria and web-search pieces adopt a Deployment name and the pod labels"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-16, S80-17]
+    notes: "Finding #2150. choregos-ecphoria.deploymentName, per-piece selectorLabels (replace) and podLabels (add), the chart's NetworkPolicy follows. Not done: Temporal and LiteLLM Deployment names; a live switch."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

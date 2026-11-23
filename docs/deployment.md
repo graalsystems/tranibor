@@ -121,6 +121,16 @@ choregos-temporal:
   SQLite writers corrupt the file), then let the chart's Deployment start on the same claim.
 - `choregos-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
   clients would speak clear.
+- **Adopting a Deployment and its labels** (#2150). The embedded Ecphoria and the web-search pieces take
+  what a site's own manifests already name: `choregos-ecphoria.deploymentName` (the volume keeps
+  `persistence.existingClaim` and the Service `global.memory.serviceName`; Deployments of the web-search
+  pieces follow `choregos-websearch.names.*`), and, per piece (`choregos-ecphoria`,
+  `choregos-websearch.searxng|firecrawl|redis|relay`), `selectorLabels` and `podLabels`. `selectorLabels`
+  **replaces** the default `app.kubernetes.io/name: choregos-<piece>` + `app.kubernetes.io/instance` in the
+  pods, the Deployment's selector and the Service's selector, so a site's NetworkPolicy keeps matching; a
+  selector is immutable, so it must equal the live Deployment's. `podLabels` only adds labels to the pods.
+  The chart's own NetworkPolicy towards an embedded Ecphoria follows its `app.kubernetes.io/name`.
+  Unset, the render is what it always was.
 
 ### The embedded LiteLLM and Ecphoria in a serious environment ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
 

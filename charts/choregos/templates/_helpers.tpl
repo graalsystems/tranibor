@@ -831,7 +831,7 @@ its own namespace on a cluster, or, embedded (ADR 0184), as the chart's pods in 
 - { name: database, port: 5432, namespace: choregos-data, pod: choregos-postgresql, embedded: {{ $g.database.embedded | default false }} }
 - { name: temporal, port: 7233, namespace: choregos-temporal, pod: choregos-temporal, embedded: {{ $g.temporal.embedded | default false }} }
 - { name: gateway, port: 4000, namespace: choregos-gateway, pod: choregos-litellm, embedded: {{ $g.gateway.embedded | default false }} }
-- { name: memory, port: 8432, namespace: choregos-memory, pod: choregos-ecphoria, embedded: {{ $g.memory.embedded | default false }} }
+- { name: memory, port: 8432, namespace: choregos-memory, pod: {{ ((index .Values "choregos-ecphoria" | default dict).selectorLabels | default dict) | dig "app.kubernetes.io/name" "choregos-ecphoria" }}, embedded: {{ $g.memory.embedded | default false }} }
 {{- /* ADR 0208: listed only when embedded, so an install that does not embed them renders what it always did. */}}
 {{- if ($g.objectStore).embedded }}
 - { name: objectstore, port: 9000, namespace: choregos-objectstore, pod: choregos-objectstore, embedded: true }
@@ -894,4 +894,19 @@ http://{{ include "choregos.objectStoreServiceName" . }}.{{ .Release.Namespace }
 {{- else if .Values.global.oidc.embedded -}}
 {{ ternary "https" "http" (hasPrefix "https://" (.Values.global.publicUrl | default "")) }}://{{ include "choregos.oidcHost" . }}/realms/{{ ((index .Values "choregos-keycloak" | default dict).realm | default dict).name | default "choregos" }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+The labels an adopted piece keeps (#2150): what its pods carry and what its selector and Service match.
+`.override` (the piece's `selectorLabels`) replaces `.default` whole when set, because a Deployment's
+selector is immutable and an operator's network policies select on it; `choregos.podLabels` adds the
+component label and the operator's extra `podLabels` (never in a selector) to it. Empty overrides render
+what the chart always rendered.
+*/}}
+{{- define "choregos.selectorLabels" -}}
+{{- if .override -}}{{- toYaml .override -}}{{- else -}}{{- toYaml .default -}}{{- end -}}
+{{- end -}}
+
+{{- define "choregos.podLabels" -}}
+{{- toYaml (merge (dict) .selector (dict "app.kubernetes.io/component" .component) (.extra | default dict)) -}}
 {{- end -}}
