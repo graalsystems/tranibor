@@ -32,9 +32,9 @@ const M = (email: string, role: string, project_slug?: string): Membership =>
 
 const MEMBERSHIPS = [
   M("augustin@acme.dev", "org_admin"),
-  M("lea@acme.dev", "developer"),
+  M("lea@acme.dev", "contributor"),
   M("lea@acme.dev", "project_owner", "billing-api"),
-  M("marc@acme.dev", "developer", "checkout-web"),
+  M("marc@acme.dev", "contributor", "checkout-web"),
 ];
 
 function wrap(project?: string) {
@@ -89,7 +89,7 @@ describe("members, a page at a time (ADR 0206)", () => {
   it("reads the next page on More, and shows people from both pages", async () => {
     vi.mocked(api.members).mockReset();
     vi.mocked(api.members)
-      .mockResolvedValueOnce({ items: [M("ana@acme.dev", "developer")], meta: { has_more: true, next_cursor: "c1" } })
+      .mockResolvedValueOnce({ items: [M("ana@acme.dev", "contributor")], meta: { has_more: true, next_cursor: "c1" } })
       .mockResolvedValueOnce({ items: [M("zoe@acme.dev", "viewer")], meta: { has_more: false, next_cursor: null } });
     wrap();
     expect(await screen.findByTestId("member-ana@acme.dev")).toBeInTheDocument();

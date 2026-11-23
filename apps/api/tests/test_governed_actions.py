@@ -63,7 +63,7 @@ async def test_an_approved_action_goes_to_temporal_with_no_effect_in_the_request
     from tranibor_api.temporal import FakeTemporal, get_temporal
 
     pid = project["id"]
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid)
@@ -99,7 +99,7 @@ async def test_a_rejection_says_why_and_a_decided_action_is_not_decided_again(
     client: AsyncClient, project: dict[str, Any], app: Any
 ) -> None:
     pid = project["id"]
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid)
@@ -117,7 +117,7 @@ async def test_a_developer_does_not_decide_and_neither_does_an_api_token(
 ) -> None:
     pid = project["id"]
     action = await _propose(client, pid)
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     token = (await client.post("/api/v1/me/tokens", json={"name": "ci", "scopes": ["*"]})).json()["token"]
     dev = await _open_session(app, "dev@northwind.dev")
     try:
@@ -143,7 +143,7 @@ async def test_a_session_that_is_too_old_must_authenticate_again(
     from tranibor_api import freshness
 
     pid = project["id"]
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid)
@@ -168,7 +168,7 @@ async def test_two_are_needed_when_the_rule_asks_for_two(
 
     pid = project["id"]
     await _member(client, "po@northwind.dev", "project_owner")
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid, approval={"approvers": [{"role": "project_owner", "min": 2}]})
@@ -197,7 +197,7 @@ async def test_of_two_simultaneous_approvals_only_one_starts_the_action(
 
     pid = project["id"]
     await _member(client, "po@northwind.dev", "project_owner")
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid)
@@ -250,7 +250,7 @@ async def test_a_rule_without_step_up_does_not_demand_a_recent_authentication(
     from tranibor_api.db.session import session_scope
 
     pid = project["id"]
-    await _member(client, "dev@northwind.dev", "developer")
+    await _member(client, "dev@northwind.dev", "contributor")
     dev = await _open_session(app, "dev@northwind.dev")
     try:
         action = await _propose(dev, pid)

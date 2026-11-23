@@ -37,10 +37,10 @@ PRINCIPALS: dict[str, Principal] = {
     "owner_dev": _who("u-owner-dev", dev=Role.PROJECT_OWNER),
     "owner_ops": _who("u-owner-ops", ops=Role.PROJECT_OWNER),
     # the owner of the personal agent below: an organisation developer
-    "developer": _who("u-dev", Role.DEVELOPER),
+    "developer": _who("u-dev", Role.CONTRIBUTOR),
     # the same person, who also owns `dev`
-    "self_owner_dev": _who("u-dev", Role.DEVELOPER, dev=Role.PROJECT_OWNER),
-    "other_dev": _who("u-other", Role.DEVELOPER),
+    "self_owner_dev": _who("u-dev", Role.CONTRIBUTOR, dev=Role.PROJECT_OWNER),
+    "other_dev": _who("u-other", Role.CONTRIBUTOR),
     "viewer": _who("u-viewer", Role.VIEWER),
     "outsider": _who("u-outsider"),
 }
@@ -231,9 +231,9 @@ def test_the_new_permissions_follow_the_roles() -> None:
     # Each renamed role under both spellings (ADR 0181 C1).
     assert personal == {
         Role.CONTRIBUTOR,
-        Role.DEVELOPER,
+        Role.CONTRIBUTOR,
         Role.APPROVER,
-        Role.RELEASE_CAPTAIN,
+        Role.APPROVER,
         Role.PROJECT_OWNER,
         Role.ORG_ADMIN,
     }

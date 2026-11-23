@@ -89,8 +89,8 @@ async def _decided_events() -> int:
 async def _setup(client: AsyncClient, project: dict[str, Any]) -> dict[str, Any]:
     mine = await _request(client, project["id"], "Ship 1.2", user=PERSON)
     theirs = await _request(client, project["id"], "Ship 2.0", user=OTHER)
-    await _member(client, PERSON, "developer", [])
-    await _member(client, OTHER, "developer", [])
+    await _member(client, PERSON, "contributor", [])
+    await _member(client, OTHER, "contributor", [])
     return {"mine": mine, "theirs": theirs}
 
 

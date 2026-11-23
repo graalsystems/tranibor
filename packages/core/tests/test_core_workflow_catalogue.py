@@ -1,14 +1,17 @@
 """The core's workflow catalogue (S59-02, ADR 0111): each catalogue workflow is presented (title, summary,
 tags), and every agent it names is an agent of the built-in catalogue the core ships (its offline
-plugins, ADR 0093), so adopting it never asks for an agent the deployment cannot install."""
+plugins, ADR 0093), so adopting it never asks for an agent the deployment cannot install.
+
+Each is read as the platform loads a template (`load_template`): a delivery workflow names the
+`software-delivery` plugin's gates, which a deployment without that extension refuses at publication, not
+when it reads the catalogue (ADR 0181, round D). Its validity is `test_dsl_validation`'s."""
 
 from __future__ import annotations
 
 import pytest
 from tranibor_contracts import AgentActor
-from tranibor_core import parse_workflow
 from tranibor_core.agent_catalogue import entries
-from tranibor_core.dsl import NOT_DEPLOYED, TEMPLATE_NAMES, template_yaml
+from tranibor_core.dsl import NOT_DEPLOYED, TEMPLATE_NAMES, load_template
 
 #: The catalogue of S59-02; the six earlier workflows are presented by their description only.
 CATALOGUE = TEMPLATE_NAMES[TEMPLATE_NAMES.index("dev-feature") :]
@@ -16,15 +19,13 @@ CATALOGUE = TEMPLATE_NAMES[TEMPLATE_NAMES.index("dev-feature") :]
 
 def test_the_catalogue_covers_development_audit_and_more() -> None:
     assert len(CATALOGUE) == 13
-    tags = {
-        tag for name in CATALOGUE for tag in parse_workflow(template_yaml(name))[0].metadata.catalogue.tags
-    }
+    tags = {tag for name in CATALOGUE for tag in load_template(name).metadata.catalogue.tags}
     assert {"development", "audit", "security", "documentation", "incident", "architecture"} <= tags
 
 
 @pytest.mark.parametrize("name", CATALOGUE)
 def test_a_catalogue_workflow_is_presented(name: str) -> None:
-    workflow = parse_workflow(template_yaml(name))[0]
+    workflow = load_template(name)
     presented = workflow.metadata.catalogue
     assert presented is not None and presented.title and presented.summary and presented.tags
     assert ("production" in presented.tags) == (name not in NOT_DEPLOYED), "the tag says whether it deploys"
@@ -33,6 +34,6 @@ def test_a_catalogue_workflow_is_presented(name: str) -> None:
 @pytest.mark.parametrize("name", TEMPLATE_NAMES)
 def test_every_agent_a_core_workflow_names_is_in_the_built_in_catalogue(name: str) -> None:
     shipped = {entry.slug for entry in entries()}
-    workflow = parse_workflow(template_yaml(name))[0]
+    workflow = load_template(name)
     named = {a.agent.split("@")[0] for a in workflow.actors.values() if isinstance(a, AgentActor) and a.agent}
     assert named <= shipped, f"{name} names agents the core does not ship: {sorted(named - shipped)}"

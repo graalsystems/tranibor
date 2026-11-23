@@ -6,10 +6,19 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from .enums import ActorType, StateKind, StateOutcome
-from .open_lists import CONNECTOR_KIND_PATTERN, OpenList
+from .open_lists import CONNECTOR_KIND_PATTERN, STORED, OpenList
+from .recorded import FORMER_APPROVER_ROLES
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,62}$")]
 Slug = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")]
@@ -352,17 +361,23 @@ class ActionEffectSpec(Strict):
 
 
 class ActionApprover(Strict):
-    #: The least rank an approver holds. `developer` and `release_captain` are the former names of
-    #: `contributor` and `approver`, read until the release `window.WINDOW` names (ADR 0181 C1).
-    role: Literal["contributor", "approver", "project_owner", "org_admin", "developer", "release_captain"] = (
-        "project_owner"
-    )
+    #: The least rank an approver holds (ADR 0181 C1).
+    role: Literal["contributor", "approver", "project_owner", "org_admin"] = "project_owner"
     #: An identity-provider group the approver must ALSO belong to (ADR 0052): a rank says how
     #: much someone may decide, a group says who is competent to — `netops-approvers` for a firewall.
     #: In a workflow's action it may be ONE field of the work item, `{{ fields.approver_group }}`,
     #: rendered when the action is proposed (ADR 0196): a field absent or empty refuses the proposal.
     group: str | None = Field(default=None, min_length=1, max_length=200)
     min: int = Field(default=1, ge=1, le=5)
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _stored_spelling(cls, value: Any, info: ValidationInfo) -> Any:
+        """A workflow read back from storage, or from a running workflow's history, reads a former role
+        as its successor (`tranibor_contracts.recorded`); a document sent to the API is refused with it."""
+        if isinstance(value, str) and (info.context or {}).get(STORED):
+            return FORMER_APPROVER_ROLES.get(value, value)
+        return value
 
 
 class ActionApprovalSpec(Strict):

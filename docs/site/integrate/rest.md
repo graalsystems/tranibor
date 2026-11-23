@@ -98,7 +98,7 @@ curl -s "$TRANIBOR_API_URL/api/v1/projects/acme:billing-api/work-items?limit=20"
 ```
 
 A work item is named by its `id` or its key. The answer carries `state`, `state_display`,
-`pending_request` (a decision waiting for a person), `pr_url` once a pull request is open,
+`pending_request` (a decision waiting for a person), `links` (`rel: change_request`) once a change request is open,
 `failure` when it failed, and `totals` (what it spent).
 
 Lists are paged with a cursor. The answer is `{"items": [...], "meta": {...}}`, where `meta` holds

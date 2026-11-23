@@ -62,7 +62,7 @@ test("changing a role leaves only once confirmed", async ({ page }) => {
   await page.goto("/admin/members");
   const role = page.getByRole("combobox", { name: /^Role of / }).first();
   const avant = await role.inputValue();
-  await role.selectOption("viewer" === avant ? "developer" : "viewer");
+  await role.selectOption("viewer" === avant ? "contributor" : "viewer");
   await expect(page.getByTestId("confirmation")).toBeVisible();
   await page.getByTestId("confirmation").getByRole("button", { name: "Cancel" }).click();
   await expect(role).toHaveValue(avant);

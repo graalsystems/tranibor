@@ -250,7 +250,7 @@ async def test_a_project_owner_imports_new_skills_from_the_allowlist_only(
     client: AsyncClient, admin: str, fake: Any
 ) -> None:
     await _member("owner@northwind.dev", "project_owner")
-    await _member("dev@northwind.dev", "developer")
+    await _member("dev@northwind.dev", "contributor")
     async with AsyncClient(
         transport=ASGITransport(app=client._transport.app), base_url="http://test"
     ) as owner:  # type: ignore[attr-defined]

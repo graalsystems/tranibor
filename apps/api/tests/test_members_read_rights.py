@@ -82,7 +82,7 @@ async def test_a_viewer_of_the_organisation_reads_every_member(client: AsyncClie
 
 @pytest.mark.usefixtures("land_in_acme")
 async def test_a_project_member_reads_only_the_members_of_its_project(client: AsyncClient) -> None:
-    await _member("dev@northwind.dev", "northwind", Role.DEVELOPER, "billing-api")
+    await _member("dev@northwind.dev", "northwind", Role.CONTRIBUTOR, "billing-api")
     response = await _members_as(client, "dev@northwind.dev")
     assert response.status_code == 200, response.text
     rows = response.json()["items"]

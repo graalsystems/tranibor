@@ -119,7 +119,7 @@ async def test_a_fork_whose_source_is_gone_says_so(client: AsyncClient, org: str
 
 async def test_who_may_fork_where(client: AsyncClient, org: str) -> None:
     await make_project(client, "dev")
-    await add_member(client, OTHER, "developer")
+    await add_member(client, OTHER, "contributor")
     await install_common(client)
     await as_user(client, DEV)
     assert (await create_agent(client, "mine", scope="personal")).status_code == 201

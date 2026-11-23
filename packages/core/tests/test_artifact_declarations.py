@@ -114,11 +114,14 @@ def test_the_scale_of_a_result_field_cannot_be_replaced(name: str) -> None:
 
 def test_every_shipped_workflow_that_writes_code_shows_its_changes() -> None:
     from tranibor_core.dsl import TEMPLATE_NAMES, template_yaml
+    from tranibor_core.dsl.validator import deployment_issues
 
     writing = 0
     for name in TEMPLATE_NAMES:
         workflow, report = parse_workflow(template_yaml(name), strict=False)
-        assert report.valid, (name, report.errors)
+        # Valid in this deployment: the `software-delivery` plugin's gates, effects and train apart where its
+        # extension is absent (refused at publication, ADR 0181 round D); with it, valid outright.
+        assert deployment_issues(workflow, report)[1] == [], (name, report.errors)
         gates = {gate for t in workflow.transitions for gate in t.gate_names()}
         if gates & {"scope_respected", "diff_size_max", "no_secrets"}:
             writing += 1

@@ -364,10 +364,10 @@ async def _roles_of(email: str) -> set[tuple[str, str]]:
 
 async def test_a_saml_sign_in_is_confined_like_an_oidc_one(client: AsyncClient, directory: Directory) -> None:
     status = await _finish(
-        "globex", "ann@globex.example", "saml-1", ["developers", "choregos:acme:org-admins"]
+        "globex", "ann@globex.example", "saml-1", ["contributors", "choregos:acme:org-admins"]
     )
     assert status == 307
-    assert await _roles_of("ann@globex.example") == {("globex", "developer")}
+    assert await _roles_of("ann@globex.example") == {("globex", "contributor")}
 
     assert await _finish("globex", "bob@acme.example", "saml-2", ["org-admins"]) == 401
     assert await _roles_of("bob@acme.example") == set()
@@ -383,15 +383,15 @@ async def test_an_extension_sign_in_keeps_its_identity_handling(
 
     async with session_scope(orgs="*") as session:
         session.add(User(email="ann@globex.example", display_name="Ann", oidc_sub="instance-uuid-2"))
-    assert await _finish("globex", "ann@globex.example", "saml-1", ["developers"]) == 307
+    assert await _finish("globex", "ann@globex.example", "saml-1", ["contributors"]) == 307
     async with session_scope(orgs="*") as session:
         ann = (await session.execute(select(User).where(User.email == "ann@globex.example"))).scalar_one()
     assert ann.oidc_sub == "instance-uuid-2", "the extension path must not re-bind the account"
 
 
 async def test_two_tenants_may_issue_the_same_subject(client: AsyncClient, directory: Directory) -> None:
-    assert await _finish("globex", "ann@globex.example", "same", ["developers"]) == 307
-    assert await _finish("acme", "bob@acme.example", "same", ["developers"]) == 307
+    assert await _finish("globex", "ann@globex.example", "same", ["contributors"]) == 307
+    assert await _finish("acme", "bob@acme.example", "same", ["contributors"]) == 307
 
 
 async def test_without_an_organisation_the_finish_is_unchanged(client: AsyncClient) -> None:

@@ -417,7 +417,7 @@ async def test_a_personal_agent_is_released_without_a_step_up(
 ) -> None:
     from tranibor_api import freshness
 
-    await add_member(client, "dev@northwind.dev", "developer")
+    await add_member(client, "dev@northwind.dev", "contributor")
     await as_user(client, "dev@northwind.dev")
     await new_agent(client, "mine", policy={"on_publish": "candidate"}, scope="personal")
     await save(client, "mine", 2)
@@ -433,7 +433,7 @@ async def test_a_personal_agent_is_released_without_a_step_up(
 async def test_who_may_release(client: AsyncClient) -> None:
     await make_project(client, "dev")
     await add_member(client, "owner@northwind.dev", "project_owner", project="dev")
-    await add_member(client, "dev@northwind.dev", "developer")
+    await add_member(client, "dev@northwind.dev", "contributor")
     await as_user(client, ADMIN)
     await new_agent(client, "shared")
     await save(client, "shared", 2)

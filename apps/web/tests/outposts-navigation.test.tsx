@@ -52,7 +52,7 @@ describe("Outposts in the administration", () => {
 
   it.each([
     ["an owner of the organisation's projects", [{ org: "acme", role: "project_owner", project_slug: null }]],
-    ["a developer", [{ org: "acme", role: "developer", project_slug: null }]],
+    ["a developer", [{ org: "acme", role: "contributor", project_slug: null }]],
     ["the administrator of another organisation", [{ org: "globex", role: "org_admin", project_slug: null }]],
     ["nobody yet", []],
   ])("is not listed for %s", (_who, memberships) => {

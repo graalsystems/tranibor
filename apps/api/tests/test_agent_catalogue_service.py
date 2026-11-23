@@ -127,7 +127,7 @@ async def test_an_organisations_own_agent_of_the_same_name_is_never_touched(
 async def test_only_an_administrator_installs(client: AsyncClient, admin: str) -> None:
     from .conftest import login
 
-    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     assert member.status_code in {200, 201}
     await login(client, "dev@northwind.dev")
     assert (await client.get(f"{ORG}/agent-catalogue")).status_code == 200, "a member reads the catalogue"
@@ -144,13 +144,13 @@ async def test_publishing_a_workflow_that_names_a_catalogue_agent_installs_it(
 ) -> None:
     from tranibor_core.dsl import template_yaml
 
-    yaml = template_yaml("default-simple").replace(
-        'dev: { type: agent, role: implement, model: "profile:by_size", needs: [scm] }',
-        'dev: { type: agent, role: implement, model: "profile:by_size", needs: [scm], agent: developer }',
+    yaml = template_yaml("default-request").replace(
+        'assistant: { type: agent, role: deliver, model: "profile:by_size" }',
+        'assistant: { type: agent, role: deliver, model: "profile:by_size", agent: developer }',
     )
     assert "agent: developer" in yaml
     published = await client.put(
-        f"/api/v1/projects/{project['id']}/workflows/default-simple", json={"yaml": yaml}
+        f"/api/v1/projects/{project['id']}/workflows/default-request", json={"yaml": yaml}
     )
     assert published.status_code == 200, published.text
     agent = (await client.get(f"{ORG}/agents/developer")).json()
@@ -165,7 +165,7 @@ def templates(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathli
     folder.mkdir(parents=True)
     (folder / "manifest.yaml").write_text(
         "apiVersion: choregos/v1\nkind: Template\nmetadata: {name: catalogue-trial, version: 1.0.0}\n"
-        "defaults:\n  workflows: ['template:default-simple@1']\n"
+        "defaults:\n  workflows: ['template:default-request@1']\n"
         "  skills: [catalogue:madr-4]\n  agents: [catalogue:reviewer, catalogue:nobody-knows]\n",
         encoding="utf-8",
     )
@@ -221,7 +221,7 @@ async def test_connecting_claude_code_creates_the_agent_mints_an_mcp_token_and_a
 async def test_a_member_joins_a_clients_agent_but_does_not_create_it(client: AsyncClient, admin: str) -> None:
     from .conftest import login
 
-    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "developer"})
+    member = await client.post(f"{ORG}/members", json={"email": "dev@northwind.dev", "role": "contributor"})
     assert member.status_code in {200, 201}
     await login(client, "dev@northwind.dev")
     assert (await client.post(f"{ORG}/agent-catalogue/cursor/connect")).status_code == 403, (

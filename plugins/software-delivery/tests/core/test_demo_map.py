@@ -1,8 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
 """The demo mode's map is the one the API renders for the `dev-complex` template (S22-02).
 
 The console animates two demonstration journeys on `apps/web/src/mocks/dev-complex.json`. Written by
 hand, this map would have diverged from the template at the first change: it is the exact imprint of
 `to_graph` and `to_process`, and this test refuses to let it drift.
+
+The map is that of a delivery template, its steps described by the `software-delivery` plugin's gates (their
+summaries, their details, the branch a diff gate makes a step write): it is drawn with the plugin's
+extension installed, so the test is the plugin's (moved from the core's suite, S83-05n).
 """
 
 from __future__ import annotations
@@ -12,7 +17,7 @@ from pathlib import Path
 
 from tranibor_core import parse_workflow, to_graph, to_process
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 
 
 def test_the_demo_mode_map_is_the_templates() -> None:

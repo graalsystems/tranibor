@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isMultiOrg, membershipGroups } from "@/lib/memberships";
 
-const row = (org: string, role: "org_admin" | "project_owner" | "developer", project_slug?: string) =>
+const row = (org: string, role: "org_admin" | "project_owner" | "contributor", project_slug?: string) =>
   ({ org, role, project_slug: project_slug ?? null }) as never;
 
 describe("membershipGroups (S40-07)", () => {
@@ -22,7 +22,7 @@ describe("membershipGroups (S40-07)", () => {
 
   it("multi-organisation: one group per organisation, the current first, never 'platform'", () => {
     const groups = membershipGroups(
-      [row("acme", "developer"), row("northwind", "org_admin"), row("northwind", "developer", "billing")],
+      [row("acme", "contributor"), row("northwind", "org_admin"), row("northwind", "contributor", "billing")],
       { multiOrg: true, currentOrg: "northwind" },
     );
     expect(groups.map((group) => group.org)).toEqual(["northwind", "acme"]);
@@ -40,7 +40,7 @@ describe("membershipGroups (S40-07)", () => {
   });
 
   it("project roles only: no platform line", () => {
-    const groups = membershipGroups([row("northwind", "developer", "billing")], { multiOrg: false, currentOrg: "northwind" });
+    const groups = membershipGroups([row("northwind", "contributor", "billing")], { multiOrg: false, currentOrg: "northwind" });
     expect(groups[0]!.lines.map((line) => line.scope)).toEqual(["project/billing"]);
   });
 });

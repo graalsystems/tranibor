@@ -42,15 +42,13 @@ URI to register, whether the secret is set), never a secret's value.
 | --- | --- |
 | `choregos:<org>:org-admins` | `org_admin` of the organisation |
 | `choregos:<org>:product-owners` | `project_owner` |
-| `choregos:<org>:approvers` (formerly `release-captains`) | `approver` (formerly `release_captain`) |
-| `choregos:<org>:contributors` (formerly `developers`) | `contributor` (formerly `developer`) |
+| `choregos:<org>:approvers` | `approver` |
+| `choregos:<org>:contributors` | `contributor` |
 | `choregos:<org>:viewers` | `viewer` |
 
-`approvers` and `contributors` are the neutral names of `release-captains` and `developers`
-([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md) round C1). Until 0.30.0 both spellings give
-the same role, and the API may answer either `approver` or `release_captain`, `contributor` or
-`developer`; rename the groups at the identity provider before upgrading to 0.30.0, which reads only
-the new ones.
+`approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
+([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md) round C1). The former groups give no role
+since the release after 0.28.1: make the identity provider send the new ones before upgrading.
 
 The same claim carries the human groups workflows name: a step for `group: architects` is offered to
 members carrying `architects` or `choregos:acme:architects`. Groups without the `choregos:<org>:`

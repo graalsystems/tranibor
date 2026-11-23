@@ -18,6 +18,7 @@ import yaml
 from tranibor_core import parse_workflow
 from tranibor_core.dsl import TEMPLATE_NAMES, template_yaml
 from tranibor_core.dsl.edition import EditRefused, edit
+from tranibor_core.dsl.validator import deployment_issues
 
 MIXED = """apiVersion: choregos/v1
 kind: Workflow
@@ -220,12 +221,13 @@ def test_renaming_a_state_follows_each_reference() -> None:
 
 
 def test_an_added_guarantee_keeps_the_style_of_its_list() -> None:
-    flow = edit(MIXED, [{"op": "add_gate", "transition": "t-prepare", "gate": "scope_respected"}]).yaml
-    assert "gates: [outputs_present, scope_respected]" in flow
-    block = edit(MIXED, [{"op": "add_gate", "transition": "t-validate", "gate": "scope_respected"}]).yaml
-    assert "      - {name: evidence_present, params: {kind: photo}}\n      - scope_respected\n" in block
-    bare = edit(MIXED, [{"op": "add_gate", "transition": "t-badge", "gate": "ci_green"}]).yaml
-    assert "{id: t-badge, from: badge_wait, to: done, by: platform, gates: [ci_green]}" in bare
+    """Core gates (`flag_present`, `external`), so the edit adds no error with or without a plugin."""
+    flow = edit(MIXED, [{"op": "add_gate", "transition": "t-prepare", "gate": "flag_present"}]).yaml
+    assert "gates: [outputs_present, flag_present]" in flow
+    block = edit(MIXED, [{"op": "add_gate", "transition": "t-validate", "gate": "flag_present"}]).yaml
+    assert "      - {name: evidence_present, params: {kind: photo}}\n      - flag_present\n" in block
+    bare = edit(MIXED, [{"op": "add_gate", "transition": "t-badge", "gate": "external"}]).yaml
+    assert "{id: t-badge, from: badge_wait, to: done, by: platform, gates: [external]}" in bare
     for text in (flow, block, bare):
         assert _errors(text) == _errors(MIXED)
 
@@ -340,7 +342,10 @@ def test_renaming_production_does_not_lift_the_lock() -> None:
     edition = edit(FORMER, [{"op": "rename_state", "from": "deployed_prod", "to": "in_service"}])
     after, report = parse_workflow(edition.yaml, strict=False)
     assert after.states["in_service"].production is True
-    assert report.valid, [e.message for e in report.errors]
+    # Valid in this deployment: where the `software-delivery` extension is absent, `via: release_train`
+    # is refused for that alone, at publication (ADR 0181, round D); with it, valid outright.
+    refused = deployment_issues(after, report)[1]
+    assert refused == [], [e.message for e in refused]
     # The lock holds: a transition that leads there without a train is refused, whatever the name.
     without_train = edition.yaml.replace(
         "    via: release_train\n    train: { env: prod, approval: captain }\n", "    by: captain\n"

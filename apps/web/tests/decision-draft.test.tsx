@@ -58,7 +58,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
           user_id: "u2",
           email: "max@acme.dev",
           org: "acme",
-          role: "developer",
+          role: "contributor",
         },
         {
           user_id: "u2",
@@ -71,7 +71,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
           user_id: "u1",
           email: "lea@acme.dev",
           org: "acme",
-          role: "developer",
+          role: "contributor",
         },
       ] }),
       reassign: vi.fn(),
@@ -87,7 +87,7 @@ vi.mock("@/lib/sse", () => ({
 const developer = {
   id: "u1",
   email: "lea@acme.dev",
-  memberships: [{ org: "acme", role: "developer" }],
+  memberships: [{ org: "acme", role: "contributor" }],
 };
 
 const draft: DecisionDraft = {

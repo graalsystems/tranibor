@@ -149,7 +149,7 @@ EXPECTED: dict[str, dict[str, bool]] = {
 
 PEOPLE: dict[str, dict[str, Any]] = {
     "project owner": {"projects": {"billing-api": "project_owner"}},
-    "project developer": {"projects": {"billing-api": "developer"}},
+    "project developer": {"projects": {"billing-api": "contributor"}},
     "project viewer": {"projects": {"billing-api": "viewer"}},
     "user editor grant": {"projects": {"checkout-web": "viewer"}},
     "user viewer grant": {"projects": {"checkout-web": "viewer"}},

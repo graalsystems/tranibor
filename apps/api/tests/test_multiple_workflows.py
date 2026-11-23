@@ -36,6 +36,10 @@ async def test_arrival_and_departure_are_active_together(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
     pid = project["id"]
+    # The project is born with its default (`default-simple` with the `software-delivery` plugin,
+    # `default-request` without it, S83-05d).
+    born = (await client.get(f"/api/v1/projects/{pid}/workflow")).json()
+    assert born["name"] not in {"onboarding", "offboarding"} and born["is_default"] is True
     for name in ("onboarding", "offboarding"):
         response = await _publish(client, pid, name)
         assert response.status_code == 200, response.text
@@ -44,7 +48,7 @@ async def test_arrival_and_departure_are_active_together(
     assert {"onboarding", "offboarding"} <= names, listing
     # The default did not move: publishing by name does not make it the default.
     default = (await client.get(f"/api/v1/projects/{pid}/workflow")).json()
-    assert default["name"] == "default-simple" and default["is_default"] is True
+    assert default["name"] == born["name"] and default["is_default"] is True
 
 
 async def test_the_route_name_and_the_yaml_name_match(client: AsyncClient, project: dict[str, Any]) -> None:
@@ -99,11 +103,13 @@ async def test_the_default_and_a_routing_target_cannot_be_deactivated(
 async def test_a_routing_to_an_unknown_workflow_is_refused(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
+    born = (await client.get(f"/api/v1/projects/{project['id']}/workflow")).json()["name"]
     response = await client.put(
         f"/api/v1/projects/{project['id']}/workflow-routing",
-        json={"default": "default-simple", "rules": [{"when": {"item_type": "Bug"}, "workflow": "phantom"}]},
+        json={"default": born, "rules": [{"when": {"item_type": "Bug"}, "workflow": "phantom"}]},
     )
     assert response.status_code == 422, response.text
+    assert "phantom" in response.text
 
 
 # ───────────────────────────── the birth of a work item (S16-03) ─────────────────────────────

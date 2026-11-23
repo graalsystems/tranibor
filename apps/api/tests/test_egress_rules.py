@@ -43,7 +43,7 @@ async def test_a_developer_cannot_open_a_host_and_a_duplicate_is_refused(
 ) -> None:
     assert (await _create(client)).status_code == 201
     assert (await _create(client)).status_code == 409, "one live rule per host"
-    async with as_person(client, "dev@northwind.dev", "developer") as dev:
+    async with as_person(client, "dev@northwind.dev", "contributor") as dev:
         assert (await _create(dev, "other.example.test")).status_code == 403
         assert (await dev.get(f"{ORG}/egress")).status_code == 200, "members read the list"
     assert (await _create(client, "bad host")).status_code == 422
@@ -52,7 +52,7 @@ async def test_a_developer_cannot_open_a_host_and_a_duplicate_is_refused(
 async def test_a_request_is_approved_or_refused_and_the_decision_is_remembered(
     client: AsyncClient, admin: str
 ) -> None:
-    async with as_person(client, "dev@northwind.dev", "developer") as dev:
+    async with as_person(client, "dev@northwind.dev", "contributor") as dev:
         asked = await dev.post(
             f"{ORG}/egress/requests",
             json={"host": "mcp.example.test", "reason": "need it", "origin": "org-connector:x"},
@@ -84,7 +84,7 @@ async def test_a_host_already_allowed_cannot_be_requested_and_requests_are_cappe
     from tranibor_api.services.egress import MAX_OPEN_REQUESTS
 
     assert (await _create(client)).status_code == 201
-    async with as_person(client, "dev@northwind.dev", "developer") as dev:
+    async with as_person(client, "dev@northwind.dev", "contributor") as dev:
         assert (
             await dev.post(f"{ORG}/egress/requests", json={"host": "mcp.example.test"})
         ).status_code == 409
