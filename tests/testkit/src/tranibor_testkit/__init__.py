@@ -15,7 +15,10 @@ kit is that scene, in a package both import:
 - `tranibor_testkit.sqlite` and `tranibor_testkit.postgres`: a database per test;
 - `tranibor_testkit.workflows`: `CORE_SIMPLE`, `default-simple`'s front half on the core's gates, and
   `use_workflow`, which gives it (or any workflow) to the orchestrator's `setup` project, so a test of a
-  core mechanism runs the same with or without the plugins' extensions (S83-05n).
+  core mechanism runs the same with or without the plugins' extensions (S83-05n);
+- `tranibor_testkit.templates`: the conformance checks of a shipped template, which the core's suite holds
+  every template to but the software delivery ones, and the `software-delivery` plugin's suite holds those
+  to (S83-05n).
 
 A suite's `conftest.py` makes the fixtures its own with `from tranibor_testkit.api import *`. The kit is a
 development dependency of the workspace, never one of the published images.
