@@ -5854,6 +5854,14 @@ stories:
     size: S
     depends_on: [S80-16, S80-17]
     notes: "Finding #2150. choregos-ecphoria.deploymentName, per-piece selectorLabels (replace) and podLabels (add), the chart's NetworkPolicy follows. Not done: Temporal and LiteLLM Deployment names; a live switch."
+  - id: S80-27
+    title: "fix(charts): the backup and the restore mount the claims the embedded Temporal and memory write"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-16, S80-25]
+    notes: "Finding #2153. One claim helper per owner (choregos.temporalClaim, choregos.memoryClaim) called by the owner's template and by the backup and restore CronJobs, so an adopted claim or a kept Temporal Service name is the one backed up. Not done: a run on a cluster; the Temporal claim mounted in server mode (#2156)."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
