@@ -122,6 +122,43 @@ choregos-temporal:
 - `choregos-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
   clients would speak clear.
 
+### The embedded LiteLLM and Ecphoria in a serious environment ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
+
+`staging` and `prod` admit `global.gateway.embedded` and `global.memory.embedded` when they rest on no bench
+dependency, as they admit the embedded Temporal in `server` mode:
+
+- **The gateway** needs `global.database.embedded=false`: its database (`choregos-litellm.database.name`,
+  default `litellm`) is on the operator's PostgreSQL, the `global.database` server or
+  `choregos-litellm.database.host`. The operator creates that database; only the embedded PostgreSQL creates
+  it at initdb. On the embedded PostgreSQL the render is refused and says
+  `global.gateway.embedded (on global.database.embedded, the bench PostgreSQL)`.
+- **The memory** needs `choregos-ecphoria.persistence.enabled=true` (the default): its DuckDB and SQLite
+  files live on the chart's claim `<release>-ecphoria` or on the adopted `persistence.existingClaim`. Without
+  it the pod writes to an emptyDir that a restart wipes, and the render is refused. The chart's scheduled
+  backup (`backup.enabled`) mounts the claim beside its owner, which only a single node guarantees, and
+  does not follow `persistence.existingClaim` yet (#2153): on a multi-node cluster, the operator's volume
+  snapshots back the memory up.
+- Every other refusal stands: the embedded PostgreSQL, the Temporal in `dev` mode, `global.devSecrets`,
+  `global.devLogin.enabled`, `demoFakes.enabled` and the fakes.
+
+**Moving a running piece from your own Argo application to the chart's.** The Service, Certificate, Issuer
+and PersistentVolumeClaim the chart adopts (`serviceName`, `tls.*SecretName`, `tls.certManager.namePrefix`,
+`persistence.existingClaim`) are still owned by your application until you remove them from it, and a sync
+of that application with pruning deletes them: the PVC with the Temporal history or the memory's files.
+Before the switch, annotate each live object your application will stop rendering:
+
+```bash
+kubectl -n <namespace> annotate pvc/<claim> service/<name> argocd.argoproj.io/sync-options=Prune=false
+kubectl -n <namespace> annotate certificate/<name> issuer/<name> argocd.argoproj.io/sync-options=Prune=false
+```
+
+then remove them from your application, let the chart's application take them over, and drop the
+annotation once the chart's application is their only owner.
+
+**Price sheets.** `choregos-litellm.models[].modelInfo` is rendered as written, with one change: a price
+`toYaml` would write as `1e-08`, which LiteLLM's YAML 1.1 reader takes for a string, is written `1.0e-08`,
+so every price of a sheet, `tiered_pricing` included, is a float.
+
 
 ### Self-hosted web search ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
 
