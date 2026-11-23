@@ -12,7 +12,10 @@ kit is that scene, in a package both import:
 - `tranibor_testkit.orchestrator`: the orchestrator suite's (`setup`, `temporal_env`, `worker_factory`,
   `stage_result`, `refine_result`), which `apps/orchestrator/tests/conftest.py` re-exports, and the
   interpreter's helpers (`scripted`, `start`, `wait_state`, `wait_until`, `runs`);
-- `tranibor_testkit.sqlite` and `tranibor_testkit.postgres`: a database per test.
+- `tranibor_testkit.sqlite` and `tranibor_testkit.postgres`: a database per test;
+- `tranibor_testkit.workflows`: `CORE_SIMPLE`, `default-simple`'s front half on the core's gates, and
+  `use_workflow`, which gives it (or any workflow) to the orchestrator's `setup` project, so a test of a
+  core mechanism runs the same with or without the plugins' extensions (S83-05n).
 
 A suite's `conftest.py` makes the fixtures its own with `from tranibor_testkit.api import *`. The kit is a
 development dependency of the workspace, never one of the published images.
