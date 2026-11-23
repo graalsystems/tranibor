@@ -9,6 +9,7 @@ build, the payload is one page.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -81,9 +82,46 @@ async def test_the_triggers_are_paged_in_the_order_the_configuration_declares_th
     await _refuses_a_bad_page(client, url)
 
 
+#: A workflow whose agent needs the test's workspace kind, shared to the organisation's catalogue.
+BENCHED = """apiVersion: choregos/v1
+kind: Workflow
+metadata: { name: benched, version: 1 }
+actors:
+  maker: { type: agent, role: implement, model: "profile:standard", needs: [workbench] }
+states:
+  inbox: { display: Inbox, kind: wait }
+  done: { display: Done, terminal: true }
+transitions:
+  - { id: t-make, from: inbox, to: done, by: maker, outputs: [spec_markdown], gates: [outputs_present] }
+"""
+
+
+@pytest.fixture
+def workbench() -> Iterator[str]:
+    """A project's workspace kind, declared by a test extension (the `software-delivery` plugin's `scm` is
+    one): the library's `needs_workspace` reads the declared slots, whichever plugins are installed."""
+    from tranibor_adapters.registry import declare_adapter_slot, forget_adapter_slots
+    from tranibor_contracts import CONNECTOR_KINDS
+
+    declare_adapter_slot(
+        "workbench", plugin="test-workbench", default_type="fake", fake=object, workspace=True
+    )
+    try:
+        yield "workbench"
+    finally:
+        forget_adapter_slots("test-workbench")
+        CONNECTOR_KINDS.forget("test-workbench")
+
+
 async def test_the_workflow_library_is_paged_and_searched_by_the_server(
-    client: AsyncClient, admin: str
+    client: AsyncClient, project: dict[str, Any], workbench: str
 ) -> None:
+    put = await client.put(f"/api/v1/projects/{project['id']}/workflows/benched", json={"yaml": BENCHED})
+    assert put.status_code == 200, put.text
+    shared = await client.post(
+        f"{ORG}/workflow-catalogue", json={"project": project["slug"], "name": "benched"}
+    )
+    assert shared.status_code == 201, shared.text
     url = f"{ORG}/workflow-catalogue"
     whole = (await client.get(url, params={"limit": 200})).json()["items"]
     keys = [(e["source"], e["name"]) for e in whole]
@@ -109,6 +147,7 @@ async def test_the_workflow_library_is_paged_and_searched_by_the_server(
     without = await _pages(client, url, lambda e: (e["source"], e["name"]), needs_workspace="false", limit=3)
     with_ws = await _pages(client, url, lambda e: (e["source"], e["name"]), needs_workspace="true", limit=3)
     assert without and with_ws and not set(without) & set(with_ws)
+    assert ("org", "benched") in with_ws, "a workflow needing a workspace kind needs a workspace"
     assert set(without) | set(with_ws) == set(keys)
     assert without == [k for k, e in zip(keys, whole, strict=True) if not e["needs_workspace"]]
     await _refuses_a_bad_page(client, url)

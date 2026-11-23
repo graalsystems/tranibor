@@ -18,7 +18,7 @@ LIST = pathlib.Path(__file__).with_name("need_the_plugins.txt")
 #: the core runs (S83-05d: 469 tests); 115 once `make demo` is the plugin's (S83-05i); 91 once the
 #: software delivery tests run on the shared test kit in the plugin's own suite (S83-05l); 88 once core tests
 #: run on a workflow of the core's (`tranibor_testkit.workflows`, S83-05n).
-CEILING = 45
+CEILING = 30
 
 
 def listed() -> list[str]:

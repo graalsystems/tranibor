@@ -26,7 +26,7 @@ MANIFEST: dict[str, Any] = {
     "metadata": {"name": "kb-flow", "version": "1.0.0", "display": "KB flow"},
     "requires": {"connectors": {}},
     "defaults": {
-        "workflows": ["template:default-simple@1"],
+        "workflows": ["template:default-request@1"],
         "knowledge": [
             {
                 "slug": "product-docs",
