@@ -1,6 +1,7 @@
 # 0014 — A platform-held tool catalogue
 
 - **Status**: accepted, 2026-09-24; amended by [ADR 0074](0074-catalogue-rights.md) (an organisation connector's project lock is its enablement)
+- **Superseded in part by [0115](0115-the-agent-never-holds-the-run-token.md)**: the agent no longer carries its run token; the proxy variables it inherits hold an egress token, and the run token stays with the runner.
 - **Concerns**: the internal API, the MCP sidecar, the policy, the cost ledger
 
 ## Context

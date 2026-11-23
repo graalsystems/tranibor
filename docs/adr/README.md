@@ -30,7 +30,7 @@ nine records did not exist.
 | [0011](0011-openhands-removed.md) | OpenHands removed; `claude-code` becomes the default | accepted |
 | [0012](0012-the-engine-is-not-tied-to-software.md) | The engine is not tied to software | accepted |
 | [0013](0013-agent-task-density.md) | Agent task density, and what we take from AX | accepted |
-| [0014](0014-a-platform-held-tool-catalogue.md) | A platform-held tool catalogue | accepted |
+| [0014](0014-a-platform-held-tool-catalogue.md) | A platform-held tool catalogue; the agent carrying its run token is superseded in part by 0115 | accepted |
 | [0015](0015-ai-authorship-attestation.md) | A signed "AI authorship" attestation per merged change | proposed |
 | [0016](0016-agent-sandbox-executor.md) | An `agent-sandbox` executor: warm pools, suspend across a human gate, snapshots | accepted |
 | [0017](0017-mcp-2026-07-28-conformance.md) | MCP 2026-07-28: stateless tools, tasks, elicitation, resource-bound OAuth | proposed |
