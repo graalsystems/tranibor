@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tranibor_core import parse_policy, parse_workflow
 from tranibor_core.dsl import TEMPLATE_NAMES, load_template
-from tranibor_core.dsl.validator import validate_workflow
+from tranibor_core.dsl.validator import deployment_issues, validate_workflow
 from tranibor_core.policy import UNENFORCED_GOVERNANCE_CODES, unenforced_governance
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -67,14 +67,19 @@ def test_review_agents_no_longer_hide_an_unused_actor() -> None:
 
 
 def test_the_shipped_templates_validate() -> None:
+    """Valid in this deployment: where a plugin's extension is absent, a workflow naming its gates, effects
+    or carrier is refused for those alone, at publication (ADR 0181, round D); with the extensions, valid
+    outright (`plugins/software-delivery/tests/core/test_shipped_templates_validate.py` pins it)."""
     for name in TEMPLATE_NAMES:
-        report = validate_workflow(load_template(name))
-        assert report.errors == [], (name, [i.code for i in report.errors])
+        workflow = load_template(name)
+        refused = deployment_issues(workflow, validate_workflow(workflow))[1]
+        assert refused == [], (name, [i.code for i in refused])
     files = sorted((ROOT / "templates").glob("*/workflows/*.yaml"))
     assert files
     for path in files:
-        _, report = parse_workflow(path.read_text(encoding="utf-8"), strict=False)
-        assert report.errors == [], (path.name, [i.code for i in report.errors])
+        workflow, report = parse_workflow(path.read_text(encoding="utf-8"), strict=False)
+        refused = deployment_issues(workflow, report)[1]
+        assert refused == [], (path.name, [i.code for i in refused])
 
 
 def test_advanced_is_version_4_and_promises_no_human_review() -> None:

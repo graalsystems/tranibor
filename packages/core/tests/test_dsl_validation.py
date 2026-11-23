@@ -5,8 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tranibor_contracts.workflow import transition_effect
 from tranibor_core import ValidationError, parse_workflow
+from tranibor_core.carriers import PLUGIN_CARRIERS, carrier_of
 from tranibor_core.dsl import TEMPLATE_NAMES, template_yaml
+from tranibor_core.dsl.validator import deployment_issues
+from tranibor_core.gates import PLUGIN_GATES
+from tranibor_core.step_effects import PLUGIN_EFFECTS
 
 BASE = """
 apiVersion: choregos/v1
@@ -37,12 +42,35 @@ def wf_text(transitions: str = OK_TRANSITIONS, **kwargs: str) -> str:
     return BASE.format(transitions=transitions, **kwargs)
 
 
+#: The core's templates that name nothing of a plugin (no plugin's gate, step effect or carrier): they are
+#: published, and run, in a deployment without any plugin's extension (ADR 0181, round D).
+CORE_OWN = ("default-request", "blank", "decision-triage")
+
+
 @pytest.mark.parametrize("name", TEMPLATE_NAMES)
 def test_templates_are_valid(name: str) -> None:
+    """Valid in this deployment: a template that names a plugin's gate, step effect or carrier is refused
+    for that alone where the plugin's extension is absent (the deployment's refusal at publication), and for
+    nothing else. Where everything it names is served (always, once the extensions are installed) it is
+    valid and warns of nothing; `plugins/software-delivery/tests/core/test_shipped_templates_validate.py`
+    pins every template valid with the `software-delivery` extension."""
     workflow, report = parse_workflow(template_yaml(name), strict=False)
-    assert report.valid, [i.format() for i in report.errors]
-    assert report.warnings == [], [i.format() for i in report.warnings]
+    elsewhere, others = deployment_issues(workflow, report)
+    assert others == [], [i.format() for i in others]
+    if not elsewhere:
+        assert report.valid, [i.format() for i in report.errors]
+        assert report.warnings == [], [i.format() for i in report.warnings]
     assert workflow.metadata.name == name
+
+
+@pytest.mark.parametrize("name", CORE_OWN)
+def test_the_core_s_own_templates_need_no_plugin(name: str) -> None:
+    """What makes them valid without any plugin above: they name no gate, effect or carrier of one."""
+    workflow, _ = parse_workflow(template_yaml(name), strict=False)
+    gates = {gate for t in workflow.transitions for gate in t.gate_names()}
+    assert not gates & set(PLUGIN_GATES), sorted(gates & set(PLUGIN_GATES))
+    assert not {transition_effect(t) for t in workflow.transitions} & set(PLUGIN_EFFECTS)
+    assert not {carrier_of(t) for t in workflow.transitions} & set(PLUGIN_CARRIERS)
 
 
 def test_base_fixture_is_valid() -> None:
@@ -377,13 +405,6 @@ def test_outputs_in_without_values_is_refused() -> None:
         _with_guarantee("outputs_in", "{ values: { verdict: [approve] } }"), strict=False
     )
     assert "gate.nothing_to_check" not in {e.code for e in report.errors}
-
-
-def test_markdown_sections_without_paths_is_refused() -> None:
-    from tranibor_core.dsl import parse_workflow
-
-    _, report = parse_workflow(_with_guarantee("markdown_sections"), strict=False)
-    assert "gate.nothing_to_check" in {e.code for e in report.errors}
 
 
 def test_without_an_agent_that_writes_code_a_pr_requires_no_verify() -> None:
