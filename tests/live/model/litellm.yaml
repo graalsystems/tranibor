@@ -1,4 +1,4 @@
-# The aliases `tests/live/test_litellm_live.py` calls, both on the cheapest current Claude model:
+# The aliases `tests/live/test_litellm_live.py` calls, all on the cheapest current Claude model:
 # the suite proves the gateway (virtual keys, scope, budget, cost, the Anthropic format), not the
 # model's quality, so a night costs a fraction of a cent (S80-13). LiteLLM 1.105.5's own price list
 # knows `claude-haiku-5-5` ($0.10 / $0.50 per million tokens), which the cost test needs: an alias
@@ -14,6 +14,17 @@ model_list:
       model: anthropic/claude-haiku-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
       max_tokens: 1024
+  # Priced like a frontier model (#2181): one call that sets no `max_tokens` is worth more than a
+  # trial's budget at worst, so the night proves that overlapping calls on a run key both pass.
+  # The price is only the gateway's bookkeeping: the call still goes to Claude Haiku 5.5.
+  - model_name: platform/strong
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      max_tokens: 1024
+    model_info:
+      input_cost_per_token: 5.0e-06
+      output_cost_per_token: 3.0e-05
 litellm_settings:
   drop_params: true
   callbacks: ["choregos_llm_spans.handler"]
@@ -26,6 +37,8 @@ general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
   store_model_in_db: false
+  # As the chart renders it (`budgetReservation: false`, #2181).
+  disable_budget_reservation: true
 guardrails:
   - guardrail_name: choregos-secrets
     litellm_params:

@@ -166,3 +166,21 @@ def test_the_local_price_sheet_the_image_digest_and_a_relaxed_pod_context() -> N
     assert _container(docs)["image"].endswith(digest)
     pod = docs["Deployment"]["spec"]["template"]["spec"]["securityContext"]
     assert pod["runAsNonRoot"] is False and pod["runAsUser"] == 0
+
+
+def test_a_run_key_s_budget_holds_no_reservation_of_a_call_s_worst_case() -> None:
+    """#2181: LiteLLM reserves a call's worst case (its input plus `max_tokens`, 16,384 output tokens
+    when it sets none) against the key's budget while the call runs. On a run key's budget, one call
+    on a model priced like `platform/standard` takes it all and every call alongside it is refused.
+    The embedded gateway turns that reservation off; the key's recorded spend still bounds it."""
+    cfg = _config(_render())
+    assert cfg["general_settings"]["disable_budget_reservation"] is True
+    # The rest of the settings is untouched.
+    assert cfg["general_settings"]["store_model_in_db"] is False
+
+
+def test_an_operator_can_turn_the_reservation_back_on_and_the_gateway_rolls() -> None:
+    off = _render()["Deployment"]["spec"]["template"]["metadata"]["annotations"]["checksum/config"]
+    docs = _render(f"{L}.budgetReservation=true")
+    assert "disable_budget_reservation" not in _config(docs)["general_settings"]
+    assert docs["Deployment"]["spec"]["template"]["metadata"]["annotations"]["checksum/config"] != off
