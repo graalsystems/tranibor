@@ -3,26 +3,26 @@
 The project of the scene holds its primary, `billing-api` on github.com, and a second repository,
 `diamctl`, on another host with its own default branch, branch prefix and test command: what a run
 clones, the branch and pull request, the guarantees that read a diff or the checks, the run's network
-and the SCM installation must all come from the one the work item names.
+and the SCM installation must all come from the one the work item names. What the `software-delivery`
+plugin does with it (the branch, the pull request, the diff and CI guarantees, the GitHub App
+installation of another owner) is in its suite: `plugins/software-delivery/tests/orchestrator/
+test_several_repositories_delivery.py` (ADR 0181, round D).
 """
 
 from __future__ import annotations
 
-import json
-import pathlib
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from temporalio.exceptions import ApplicationError
+from tranibor_testkit.workflows import use_workflow
 
-from .conftest import Fixture, recording_history, refine_result
+from .conftest import Fixture, refine_result
 from .kits.escalation import requests_of
 from .test_interpreter import _runs, _wait_state, _wait_until, scripted, start
 
 pytestmark = pytest.mark.asyncio
 
-HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "histories"
 PRIMARY_URL = "https://github.com/northwind/billing-api.git"
 DIAMCTL = {
     "name": "diamctl",
@@ -180,69 +180,6 @@ async def test_a_job_step_clones_the_target_too(setup: Fixture) -> None:
 # ───────────────────────── branch, pull request, guarantees ─────────────────────────
 
 
-async def test_the_branch_the_pull_request_and_the_guarantees_are_diamctl_s(setup: Fixture) -> None:
-    from tranibor_orchestrator.activities.gates import evaluate_gates
-    from tranibor_software_delivery.source_control import (
-        check_scope_violations,
-        ensure_branch,
-        open_pull_request,
-    )
-
-    await _scene(setup, fields={"repository": "diamctl"})
-    ids = {"project_id": setup.project_id, "work_item_id": setup.work_item_id}
-    scm = setup.adapters.scm
-
-    assert await ensure_branch(ids) == {"branch": "fix/123"}
-    assert scm.branches["northwind/diamctl"] == {"fix/123": "trunk"}
-    assert "northwind/billing-api" not in scm.branches
-    assert (await _item(setup)).documents["repository_fixed"] == "diamctl"
-
-    await open_pull_request(ids)
-    (pr,) = scm.prs.values()
-    assert (pr.ref.repo, pr.ref.head, pr.ref.base) == ("northwind/diamctl", "fix/123", "trunk")
-
-    # The diff guarantees read diamctl's branch: a file outside the item's scope there is seen.
-    scm.set_diff("northwind/diamctl", "trunk", "fix/123", [("cmd/root.go", 3, 1)])
-    [scope] = await evaluate_gates({**ids, "gates": [{"name": "scope_respected", "params": {}}]})
-    assert scope["passed"] is False and "cmd/root.go" in scope["annotations"], scope
-    assert await check_scope_violations(ids) == ["cmd/root.go"]
-
-    # `ci_green` reads diamctl's pull request.
-    scm.set_checks(pr.ref, "success")
-    [ci] = await evaluate_gates({**ids, "gates": [{"name": "ci_green", "params": {}}]})
-    assert ci["passed"] is True and not ci["pending"], ci
-
-    assert scm.check_runs == [] or all(c["repo"] == "northwind/diamctl" for c in scm.check_runs)
-
-
-async def test_the_diff_shown_for_a_run_is_the_target_s(setup: Fixture) -> None:
-    from tranibor_api.db.models import Run
-    from tranibor_api.db.session import session_scope
-    from tranibor_software_delivery.source_control import collect_run_artifacts
-
-    from .conftest import stage_result
-
-    await _scene(setup, fields={"repository": "diamctl"})
-    setup.adapters.scm.set_diff("northwind/diamctl", "trunk", "fix/123", [("cmd/root.go", 3, 1)])
-    async with session_scope() as session:
-        session.add(
-            Run(
-                id="run-diff",
-                work_item_id=setup.work_item_id,
-                project_id=setup.project_id,
-                stage_role="implement",
-                status="succeeded",
-                result=stage_result().model_dump(mode="json", by_alias=True),
-            )
-        )
-    ids = {"project_id": setup.project_id, "work_item_id": setup.work_item_id, "run_id": "run-diff"}
-    assert await collect_run_artifacts(ids) == {"files": 1}
-    async with session_scope() as session:
-        run = await session.get(Run, "run-diff")
-        assert run is not None
-        assert run.result["artifacts"]["reports"]["base"] == "trunk"
-
-
 # ───────────────────────── a step names the repository ─────────────────────────
 
 
@@ -357,95 +294,22 @@ def test_only_a_declared_repository_output_is_adopted() -> None:
     assert adopted({"repository": "diamctl"}, ["severity"]) is None
 
 
-# ───────────────────────── the App token of another owner ─────────────────────────
-
-
-#: The other kinds a project's bundle builds, answered by a probe so nothing real is reached.
-KINDS = ("tracker", "ci", "cd", "runtime", "memory", "gateway", "notify")
-
-
-@pytest.fixture
-def built(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[dict[str, Any]]]:
-    """What the GitHub SCM is built with, once fakes are off (as in production)."""
-    from tranibor_adapters import ConnectorTypeSpec, register
-    from tranibor_adapters.registry import _REGISTRY, _SPECS
-
-    received: list[dict[str, Any]] = []
-    spec = ConnectorTypeSpec("probe", KINDS, {"type": "object", "properties": {}})
-    for kind in KINDS:
-        register(kind, "probe", spec)(lambda cfg: object())
-    monkeypatch.setitem(_REGISTRY, ("scm", "github"), lambda cfg: received.append(cfg) or object())
-    monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
-    try:
-        yield received
-    finally:
-        for kind in KINDS:
-            _REGISTRY.pop((kind, "probe"), None)
-            _SPECS.pop((kind, "probe"), None)
-
-
-async def test_a_target_of_another_owner_gets_that_owner_s_installation(
-    setup: Fixture, built: list[dict[str, Any]]
-) -> None:
-    from tranibor_api.db.models import Connector, GitHubInstallation, Project
-    from tranibor_api.db.session import session_scope
-    from tranibor_orchestrator.activities.base import (
-        adapters_override,
-        load_project,
-        set_adapters_override,
-    )
-    from tranibor_software_delivery.source_control import scm_for
-
-    async with session_scope(orgs="*") as session:
-        project = await session.get(Project, setup.project_id)
-        assert project is not None
-        session.add(
-            Connector(
-                project_id=project.id, kind="scm", type="github", config={"repo": "northwind/billing-api"}
-            )
-        )
-        for kind in KINDS:
-            session.add(Connector(project_id=project.id, kind=kind, type="probe", config={}))
-        for installation, owner in ((55, "northwind"), (77, "acme-tools")):
-            session.add(
-                GitHubInstallation(
-                    id=installation,
-                    account_login=owner,
-                    account_key=owner,
-                    account_id=installation * 10,
-                    account_type="Organization",
-                    org_id=project.org_id,
-                )
-            )
-    shared = adapters_override()
-    set_adapters_override(None)
-    try:
-        async with session_scope(orgs="*") as session:
-            bundle = await load_project(session, setup.project_id)
-            assert built[-1]["installation_id"] == 55, "the project's adapter: its connector's owner"
-            same_owner = await scm_for(session, bundle, "https://github.com/northwind/diamctl.git")
-            assert same_owner is bundle.adapters.scm, "one owner, one installation: the same adapter"
-            count = len(built)
-            await scm_for(session, bundle, "https://github.com/acme-tools/diamctl.git")
-        assert len(built) == count + 1
-        assert built[-1]["repo"] == "acme-tools/diamctl"
-        assert built[-1]["installation_id"] == 77, "the installation claimed on the target's owner"
-    finally:
-        set_adapters_override(shared)
-
-
 # ───────────────────────── the interpreter escalates, then runs on the target ─────────────────────────
 
 
 async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_repository_set(
     setup: Fixture, temporal_env: Any, worker_factory: Any
 ) -> None:
+    """On a workflow of the core's (ADR 0181, round D). The same walk on `default-simple`, the walk that
+    records `wi-repository-refused-S58-02` for `tests/replay`, is in the `software-delivery` plugin's
+    suite (`test_several_repositories_delivery.py`), so the history keeps being recorded as it was."""
     from sqlalchemy import select
     from temporalio.worker import Replayer
     from tranibor_api.db.models import Run, WorkItem
     from tranibor_api.db.session import session_scope
     from tranibor_orchestrator.extension_parts import all_workflows
 
+    await use_workflow(setup)  # the core's refinement: `default-simple` is the plugin's
     await _scene(setup, fields={"repository": "diamclt"})  # a label typed in the tracker
     scripted(setup.adapters, refine_result("spec"))
     async with worker_factory():
@@ -472,6 +336,3 @@ async def test_an_unknown_repository_escalates_then_the_stage_runs_on_the_reposi
         history = await handle.fetch_history()
 
     await Replayer(workflows=all_workflows()).replay_workflow(history)
-    if recording_history():
-        target = HISTORIES / "wi-repository-refused-S58-02.json"
-        target.write_text(json.dumps(json.loads(history.to_json()), indent=1) + "\n", encoding="utf-8")
