@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: Apache-2.0
+# The ServiceNow nightly (S80-46, runbook docs/runbooks/servicenow-nightly.md): a project with an internal
+# tracker opens one work item a night (`schedules:`), whose only step is this job. The job runs in the runner
+# image (python3, standard library only) and reaches the instance only through the organisation's
+# `servicenow` connector, with the run's token: the instance's credentials stay in the connector's sealed
+# secrets. It files an incident in the Service Desk queue, then reads it back until the triage project's
+# queue poll opened it, its agent triaged it, the platform set it In Progress and asked for the review.
+# `tracker_create_item` must be `allowed` for this project's group (a write, `approval` by default).
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: servicenow-nightly
+  version: 1
+  description: Each night a job files an incident in the triage queue and checks, through the connector, that the triage project's
+    poll opened it, its agent triaged it and the platform wrote back.
+  inputs:
+    type: object
+    properties:
+      window:
+        type: string
+actors:
+  probe:
+    type: job
+    role: probe
+    command:
+    - python3
+    - -c
+    - |
+      import json,os,time,urllib.request as U,urllib.error as E
+      A,R,T=(os.environ[k] for k in("TRANIBOR_API_URL","TRANIBOR_RUN_ID","TRANIBOR_RUN_TOKEN"))
+      F={"run":R};t0=time.time()
+      def out(ok,s):
+       os.makedirs(".choregos",exist_ok=True);json.dump({"summary":s,"facts":F},open(".choregos/job.json","w"));print(s);raise SystemExit(0 if ok else 1)
+      def call(n,a):
+       q=U.Request(f"{A}/runs/{R}/tools/servicenow__{n}",json.dumps(a).encode(),{"Authorization":"Bearer "+T,"Content-Type":"application/json"})
+       try:b=json.load(U.urlopen(q,timeout=180))
+       except E.HTTPError as e:out(0,f"RED: {n} answered {e.code}: {e.read()[:300]!r}")
+       except Exception as e:out(0,f"RED: {n} failed: {e!r}"[:400])
+       r=b.get("result");c=b.get("status_code",200)
+       if c>=300 or not isinstance(r,dict) or r.get("isError"):out(0,f"RED: {n} answered {c}: {str(r)[:300]}")
+       return r.get("structuredContent",r)
+      g=call("search_records",{"table":"sys_user_group","filters":[{"field":"name","value":"Service Desk"}],"fields":["sys_id","name"],"limit":1})["records"]
+      if not g:out(0,"RED: no Service Desk group on the instance")
+      w=json.load(open(".choregos/fields.json")).get("window","manual") if os.path.exists(".choregos/fields.json") else "manual"
+      c=call("tracker_create_item",{"title":f"Nightly probe {w}: Outlook cannot reach the mail server ({R[-12:]})","body":"Filed by the Tranibor nightly to prove the queue poll, the triage and the platform's write-back. Outlook shows Disconnected since this morning; webmail works.","fields":{"assignment_group":g[0]["sys_id"],"impact":"3","urgency":"3","category":"inquiry"}})
+      k=c.get("key");F.update(incident=k,created=bool(c.get("created")))
+      if not k:out(0,f"RED: no key in {str(c)[:200]}")
+      seen={}
+      while time.time()-t0<int(os.environ.get("PROBE_MINUTES","30"))*60:
+       time.sleep(45);i=call("tracker_fetch_item",{"key":k});b=" ".join(x.get("body") or "" for x in i.get("comments") or[])
+       for m,ok in(("opened","choregos:status" in b),("in_progress",i.get("state")=="In Progress"),("triaged","Triage to review" in b),("review_asked","approval requested" in b)):
+        if ok and m not in seen:seen[m]=round(time.time()-t0)
+       F.update({f"s_{m}":v for m,v in seen.items()});F["state"]=i.get("state")
+       if len(seen)==4:out(1,f"GREEN: {k} filed, opened by the poll after {seen['opened']} s, triaged and set In Progress after {seen['triaged']} s, review asked")
+      out(0,f"RED: {k} after {round(time.time()-t0)} s, reached only {sorted(seen)}, state {F.get('state')}")
+    max_minutes: 40
+    tools:
+    - connector: servicenow
+      tools:
+      - search_records
+      - tracker_create_item
+      - tracker_fetch_item
+states:
+  scheduled:
+    display: Scheduled
+  green:
+    display: Green
+    terminal: true
+  red:
+    display: Red
+    terminal: true
+    outcome: declined
+transitions:
+- id: t-probe
+  from: scheduled
+  to: green
+  by: probe
+  on_fail:
+    to: scheduled
+    max_attempts: 1
+    escalate_to: red

@@ -28,4 +28,5 @@ removed in 0.24.0 (S45-49).
 | `refresh-catalogues.md` | refreshing the shipped MCP server and skills catalogues from their sources |
 | `mcp-gateway-down.md` | the organisation's MCP gateway is down, or refuses tool calls |
 | `purchasing-live.md` | the nightly proof of the purchasing server against a real Odoo is red |
+| `servicenow-nightly.md` | the ServiceNow nightly on a deployment is red, or its instance hibernated |
 | `single-node-restore.md` | a single-node installation (ADR 0184) is lost, or must go back to last night's backup |
