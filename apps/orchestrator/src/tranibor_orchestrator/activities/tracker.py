@@ -405,6 +405,13 @@ async def _keep_the_reason(session: Any, request: HumanRequest, decision: dict[s
         # settles the question that had stopped it, and used to be lost.
         question = str((request.payload or {}).get("question") or "").strip()
         documents["human_answer"] = f"Question: {question}\n\nAnswer: {answer}" if question else answer
+        # Who answered and when (ADR 0223): the agent that resumes reads it with the answer.
+        who = str(request.decided_by or "").strip()
+        when = request.decided_at.isoformat(timespec="seconds") if request.decided_at else ""
+        if who or when:
+            documents["human_answer_by"] = f"Answered by {who or 'a person'}" + (
+                f" at {when}" if when else ""
+            )
         item.documents = documents
         return
     reason = str(decision.get("reason") or "").strip()
