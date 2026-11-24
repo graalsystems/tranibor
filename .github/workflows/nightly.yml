@@ -201,10 +201,10 @@ jobs:
             image: odoo:20.0@sha256:c7352c766b245b3c0e5c7b7a57e7660dde3265872be9566870d44bdb974f44cf
             registry: "false"
     env:
-      # The image the agents repository published with procurement-operations 0.3.1 (publish.yml, graalsystems/tranibor-agents#31,
-      # the idempotency key no longer read for an IBAN shape: the first night's refusal);
+      # The image the agents repository published with procurement-operations 0.3.3 (publish.yml, graalsystems/tranibor-agents#48:
+      # every order line carries the reference unit, which Odoo 20 refused without; #31 before it, the idempotency key);
       # its digest, read from the registry, is the one tested (tests/architecture/test_supply_chain_pinned.py).
-      PURCHASING_IMAGE: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.3.1@sha256:c3ff223147092f24a264387f0f58105e06c2975322f2f13e3750f86b39ce1228
+      PURCHASING_IMAGE: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp:0.3.3@sha256:563def33acae32177f6d3398997f5dc38228045ca1ee306a0bc5b574d7029f5e
       # The TLS terminator (the server only talks to https): its image is pinned too.
       TLS_IMAGE: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
       ODOO_DATABASE: ci

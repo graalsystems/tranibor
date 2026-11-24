@@ -2,7 +2,7 @@
 
 The plugins are the archives the core ships offline, installed through the API like an organisation installs
 them (`plugins/procurement/tests` read the same bytes): `procurement` 0.3.0 (the comparison of offers, no
-server) for S85-10, `procurement-operations` 0.3.1 (onboarding, requests, renewals and the `purchasing`
+server) for S85-10, `procurement-operations` 0.3.3 (onboarding, requests, renewals and the `purchasing`
 server) for S85-13. The trade was one plugin until 0.2.1 (split in pull request 27 of the plugin
 repository, #2134).
 
@@ -184,8 +184,8 @@ async def api_url(platform: Platform, monkeypatch: pytest.MonkeyPatch) -> AsyncI
 # -- the organisation ---------------------------------------------------------------------------------------
 
 
-#: The versions `plugins/offline/plugins.lock` holds; operations moved to 0.3.1 after the first night.
-VERSIONS = {"procurement": "0.3.0", "procurement-operations": "0.3.1"}
+#: The versions `plugins/offline/plugins.lock` holds; operations moved to 0.3.3 after two nights.
+VERSIONS = {"procurement": "0.3.0", "procurement-operations": "0.3.3"}
 
 
 async def _install(client: AsyncClient, plugin: str = "procurement") -> None:
@@ -219,8 +219,8 @@ async def _project(
     return project
 
 
-async def _group(client: AsyncClient, slug: str, *members: str, role: str = "developer") -> None:
-    """An organisation group and its members, each a developer of the organisation (it may decide)."""
+async def _group(client: AsyncClient, slug: str, *members: str, role: str = "contributor") -> None:
+    """An organisation group and its members, each a contributor of the organisation (it may decide)."""
     created = await client.post(f"{ORG}/groups", json={"slug": slug, "name": slug})
     assert created.status_code in {200, 201}, created.text
     for email in members:
