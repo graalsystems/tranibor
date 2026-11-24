@@ -13,8 +13,12 @@ deployment**, with the platform's own scheduler and secret storage:
   `servicenow` connector with the run's token (`search_records`, `tracker_create_item`, `tracker_fetch_item`);
 - the connector of the `servicenow` plugin, configured as its procedure says: the integration user's password
   (or the OAuth client secret) is sealed in the organisation's store and never leaves it;
-- a triage project created from the plugin's template (`itsm-incident-triage`), whose queue poll picks the
-  incident up.
+- a triage project created from the plugin's template (`itsm-incident-triage`), which the procedure's
+  Business Rule tells of the incident as soon as it is filed (its echo guard must let an insert by the
+  integration user through:
+  `current.operation() == 'insert' || gs.getUserName() != 'choregos.integration'`), and whose queue poll
+  picks it up anyway if the delivery is lost. The job cannot tell the two apart: the triage project's work
+  item says it (`initiated_by: tracker:plugin:…` or `tracker:sync`).
 
 Each night the job files an incident in the Service Desk queue, then reads it back every 45 s for at most
 30 minutes, and is **green** when the platform's write-back is on the incident: its status note (the poll opened

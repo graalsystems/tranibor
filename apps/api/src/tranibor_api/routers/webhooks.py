@@ -932,11 +932,17 @@ async def _tracker_servers(session: Any, org: str, plugin: str, server: str) -> 
 
 
 async def _projects_on(session: Any, org_id: str, plugin: str, server: str) -> list[Project]:
-    """The organisation's projects whose tracker is this plugin server."""
+    """The organisation's projects whose tracker is this plugin server. An archived one is not: it would
+    take a new item's routing from the only live project, as the other trackers' webhooks already know."""
     rows = await session.execute(
         select(Project, Connector)
         .join(Connector, Connector.project_id == Project.id)
-        .where(Project.org_id == org_id, Connector.kind == "tracker", Connector.type == "plugin")
+        .where(
+            Project.org_id == org_id,
+            Connector.kind == "tracker",
+            Connector.type == "plugin",
+            Project.status != "archived",
+        )
         .order_by(Project.slug)
     )
     return [
