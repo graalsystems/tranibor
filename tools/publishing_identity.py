@@ -137,6 +137,9 @@ DERIVED: tuple[str, ...] = (
     "tests/fixtures/plugins/desk/plugin.yaml",
     "tests/fixtures/plugins/hello/plugin.yaml",
     "tests/fixtures/plugins/servicenow/plugin.yaml",
+    "tests/fixtures/plugins/demo-itsm/plugin.yaml",
+    # The in-process plugin servers of a demonstration (ADR 0218): its sample names the agents repository.
+    "examples/demo-plugin-servers/servicenow.yaml",
     # The contract's description of the documentation address, and the code generated from it.
     "packages/contracts/openapi.yaml",
     "packages/contracts/ts/api.ts",
@@ -168,6 +171,7 @@ DERIVED: tuple[str, ...] = (
     "tests/fixtures/plugins/desk/servers/desk.yaml",
     "tests/fixtures/plugins/hello/servers/hello.yaml",
     "tests/fixtures/plugins/servicenow/servers/servicenow.yaml",
+    "tests/fixtures/plugins/demo-itsm/servers/demo-itsm.yaml",
 )
 
 #: A character that continues a name: an occurrence is not matched inside a longer word.
