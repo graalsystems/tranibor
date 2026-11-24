@@ -5950,6 +5950,14 @@ stories:
     size: S
     depends_on: [S80-41]
     notes: "Audit of docs/deployment.md, the runbooks, the docs site and the chart's comments against the templates (S80-14 to S80-17, S80-25 to S80-32, S80-40, S80-41). Fixed: runbooks/temporal-backup.md said the embedded Temporal is start-dev on SQLite and refused in staging and prod (server mode, on PostgreSQL, is the production tier: #2156, #2179); runbooks/ecphoria-quorum.md described a three-replica Raft StatefulSet and a restore CronJob the chart does not render (the embedded Ecphoria is one replica on one volume: it now says so and points to single-node-restore.md); docs/site/host (index, install, backups) said any embedded dependency is refused in a serious environment and had no memory row in the backups; docs/deployment.md gains the budget reservation switch (#2181, #2182) and why Brave is not a default SearXNG engine and a host-less hit is dropped (#2183, #2184); templates/guard.yaml's header and one French comment of the litellm values are corrected. Guard: tests/docs/test_deployment_pages_agree.py."
+  - id: S80-44
+    title: "docs(servicenow): what is proven on a real instance and what is not, in the core's pages"
+    stream: S80
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: [S80-20]
+    notes: "The pages that say what is proven of ServiceNow and what is not (S80-20 and its follow-ups, tranibor-agents 0.2.12 and 0.2.13). docs/plugins.md gains the paragraph: the two live suites and how to run them, the governed path run on the dev cluster on 2026-11-24, what stays unproven. docs/runbooks/live-eval-matrix.md: the plugin repository's name (tranibor-agents), and the fixture paragraph no longer says 0.1.1 is the latest release (0.1.2 and later declare the matrix cases and the fake; none is in the offline lock). The live test's docstring names TRANIBOR_SERVER_TOKEN. The plugin side: tranibor-agents PR for 0.2.13."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

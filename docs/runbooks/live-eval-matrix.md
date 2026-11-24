@@ -66,7 +66,7 @@ as many model calls as its `requests`.
 | `plugin:servicenow/itsm-triage-vague-incident` | C1, the ITSM control: nothing is resolved | no script: the MCP door |
 | `py-rounding-bug`, `py-volume-discount` | C2, the coding control | the ticket's scripted change |
 
-E3 and C1 are the servicenow plugin's matrix cases (#1372, choregos-agents#8); their connector is the
+E3 and C1 are the servicenow plugin's matrix cases (#1372, tranibor-agents#8); their connector is the
 plugin's server ([A plugin's cases](#a-plugins-cases-1372)). E5's script (#1378) searches, reads each page through the bridge
 (`platform.web_fetch(url=…)["text"]`, #1373) and keeps the ones the platform did not flag: it catches
 `Withheld` (`block`) and reads the guard's flag from what the client writes on standard error (`warn`).
@@ -180,11 +180,11 @@ installed, when its server declares no fake of the case's scene, when the eval i
 tools were never discovered (a model would call them without their schemas: the first seeding binds the
 connector and asks for the discovery).
 
-**Until servicenow is published with them.** The servicenow release of choregos-agents#8 (0.1.1) does not
-declare `contents.matrix_cases` nor its server's `fake` (choregos-agents#9 asks for both), and it is not
-in `plugins/offline/`. The core's tests read a fixture copy instead (`tests/fixtures/plugins/servicenow`,
-mirrored from that PR's commit with both declarations added), and the recording of its server's fake.
-Once a release declares both, a maintainer moves the lock to it with the network
+**Until servicenow is in the offline lock.** The servicenow release of tranibor-agents#8 (0.1.1) declared
+neither `contents.matrix_cases` nor its server's `fake`; since 0.1.2 (tranibor-agents#9) every release
+declares both, but none is in `plugins/offline/`. The core's tests read a fixture copy instead
+(`tests/fixtures/plugins/servicenow`, still 0.1.1 with both declarations added), and the recording of its
+server's fake. When a maintainer decides to ship a release, they move the lock to it with the network
 (`uv run python -m tools.plugins.update_lock --plugin servicenow@<version>`, which adds it to
 `plugins/offline/plugins.lock` and commits its signed archive), points the tests at `plugins/offline/`,
 and deletes the fixture plugin. The recording stays: a published plugin holds no server code, so the
@@ -327,8 +327,8 @@ network policy refused has an event and no ledger line (ADR 0070) and reads as a
 scenes reach no network.
 
 **What a live cell does not play.** A case with no connector and no `web:` (`netops-dropped-flow`, the
-netops agent's own eval). E3 and C1 need a servicenow release whose server declares its `fake`: the one of
-choregos-agents#8 (0.1.1) does not yet, so their live cells skip with that reason (#1372).
+netops agent's own eval). E3 and C1 need a servicenow release whose server declares its `fake` (0.1.2 and later; the 0.1.1 of
+tranibor-agents#8 does not, and their live cells skip with that reason, #1372).
 
 ### What the operator provides, on dev
 

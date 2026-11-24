@@ -944,7 +944,21 @@ arguments and answers are normative: `packages/contracts/schemas/plugin-tracker-
 (`$defs/<tool>_input`, `$defs/<tool>_output`); the adapter checks every answer against it and refuses
 one that does not match. Each answer is a JSON object (MCP `structuredContent`, or a text part holding
 it); a refusal is an MCP error (`isError: true`) whose text starts with `refused:`. The first server
-written against it is ServiceNow's (`choregos-agents`, `plugins/servicenow/server/TRACKER_PROFILE.md`).
+written against it is ServiceNow's (`tranibor-agents`, `plugins/servicenow/server/TRACKER_PROFILE.md`).
+
+**What is proven on a real instance (S80-20).** The `servicenow` plugin's server runs against a real
+ServiceNow instance in two live suites. The plugin's own (`plugins/servicenow/server/tests/live` in
+`tranibor-agents`, its README says how to run it) drives the server through MCP. The core's
+(`tests/live/test_servicenow_live.py`, `make test-live` with `TRANIBOR_LIVE_SERVICENOW_MCP_URL`,
+`_MCP_TOKEN` and `_WEBHOOK_SECRET`, the server started by hand) drives `PluginTracker` through the server
+and checks every answer against the profile's schema. On 2026-11-24 the governed path ran end to end on
+an operator's dev cluster (core 0.29.0, plugin 0.2.9): installation approved by a second administrator, a
+work item opened by the queue poll, the agent's triage, the review, and an apply step approved by a second
+person and written once. Not proven: the Business Rule's delivery to the webhook route, OAuth client
+credentials on a cluster, a nightly run, a human's governance (test accounts gave the approvals), and the
+plugin's 0.2.12 fixes (a change request moves along its change model, the queue poll pages and says what
+it left out; findings tranibor-agents#24 and #25) on a cluster or an instance. No ServiceNow finding is
+open in either repository.
 
 | `TrackerAdapter` | Tool | Declared access |
 |:--|:--|:--|
