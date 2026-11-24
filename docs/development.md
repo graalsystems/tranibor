@@ -73,7 +73,7 @@ TRANIBOR_FAKES=1 uv run uvicorn tranibor_api.main:app --port 8001
 PORT=3001 pnpm -C apps/web dev
 ```
 
-The Ecphoria image is pulled from `ghcr.io/graalsystems/ecphoria`. The `graalsystems` packages on GHCR are
+The Ecphoria image is pulled from `ghcr.io/graalsystems/ecphoria`. The packages on GHCR are
 public: no login is needed.
 
 Development accounts (Keycloak, realm `choregos`): `augustin` / `choregos` (owner),

@@ -1,7 +1,7 @@
 """The reference pages name what a reader must type today (S80-42, ADR 0176 R4, ADR 0186).
 
 A page that tells a reader which variable to set, or which repository to add, must name the current one:
-``TRANIBOR_*`` (the ``CHOREGOS_*`` name is a fallback of the window), ``graalsystems/tranibor``. The old
+``TRANIBOR_*`` (the ``CHOREGOS_*`` name is a fallback of the window), the core repository. The old
 names that stay on a page are listed, each with its reason. History (ADRs, plan, changelogs) is not read.
 """
 
@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pathlib
 import re
+
+from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HISTORY = ("docs/adr/", "docs/plan/", "docs/site/node_modules/")
@@ -42,9 +44,9 @@ def test_the_plugin_marketplace_is_added_from_the_core_repository() -> None:
     offenders = [
         str(page.relative_to(ROOT))
         for page in _pages()
-        if "marketplace add graalsystems/choregos" in page.read_text(encoding="utf-8")
+        if f"marketplace add {PUBLISHING.owner}/choregos" in page.read_text(encoding="utf-8")
     ]
-    assert not offenders, f"the repository is graalsystems/tranibor: {offenders}"
+    assert not offenders, f"the marketplace is the core repository: {offenders}"
 
 
 def test_no_page_says_the_graalsystems_packages_are_private() -> None:
@@ -53,4 +55,4 @@ def test_no_page_says_the_graalsystems_packages_are_private() -> None:
         for page in _pages()
         if re.search(r"While that package is private", page.read_text(encoding="utf-8"))
     ]
-    assert not offenders, f"the graalsystems GHCR packages are public: {offenders}"
+    assert not offenders, f"the published packages are public: {offenders}"

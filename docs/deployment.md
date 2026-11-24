@@ -34,7 +34,7 @@ helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
 Images are published under `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`,
 multi-arch and signed; the chart is also published as `oci://ghcr.io/graalsystems/charts/tranibor`, with the same content as `…/charts/choregos`. The former names,
 `choregos-*`, carry the same digests for the ADR 0176 window and are still the chart's defaults (see "Upgrading
-past 0.27.13"). The `graalsystems` packages are public: pulls are anonymous. The chart's `global.imageTag`
+past 0.27.13"). The published packages are public: pulls are anonymous. The chart's `global.imageTag`
 follows the chart version.
 
 ## Dependencies: embedded or external
