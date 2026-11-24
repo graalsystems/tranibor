@@ -287,7 +287,7 @@ async def organisation_of_workflow(client: Client, workflow_id: str) -> str | No
     A workflow without one is the platform's, and that answer is remembered. No codec, no organisation,
     no call.
     """
-    codec: Any = client.data_converter.payload_codec
+    codec: Any = getattr(getattr(client, "data_converter", None), "payload_codec", None)
     if not isinstance(codec, AesGcmCodec):
         return None
     known = codec.directory.get(workflow_id)
