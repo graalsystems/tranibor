@@ -10,8 +10,8 @@ from pydantic import AfterValidator, Field, field_validator, model_validator
 from . import recorded as _recorded
 from .artifact import ARTIFACT_TYPES, ArtifactDisplay
 from .delivery import ResultDelivery, StageDelivery
-from .enums import ApiFormat, Severity, StageStatus
-from .open_lists import FINDING_TYPES
+from .enums import ApiFormat, FindingType, Severity, StageStatus
+from .open_lists import FINDING_TYPE_PATTERN
 from .workflow import Strict
 
 STAGE_INPUT_SCHEMA = "choregos/StageInput/v1"
@@ -444,11 +444,17 @@ class StageInput(Strict):
         return self
 
 
+def _core_finding_type(value: str) -> str:
+    """A core type comes back as its enumeration's member, as before; any other name as the string."""
+    return FindingType(value) if value in FindingType else value
+
+
 class Finding(Strict):
     title: str = Field(min_length=3, max_length=200)
-    #: One of the core's `FindingType` (returned as the member), or a type an extension declared
-    #: (`FINDING_TYPES.declare`, ADR 0181); any other is refused.
-    type: Annotated[str, AfterValidator(FINDING_TYPES.validate)]
+    #: The shape of a name only (ADR 0217): the platform judges it where it knows the work item's workflow,
+    #: against the core's and the plugins' types (`FINDING_TYPES`, ADR 0181) and the ones the workflow
+    #: declares (`metadata.finding_types`). A contract that judged it here could not read the second.
+    type: Annotated[str, Field(pattern=FINDING_TYPE_PATTERN), AfterValidator(_core_finding_type)]
     severity: Severity
     evidence: str = Field(min_length=1)
     suggested_fix: str | None = None

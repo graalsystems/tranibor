@@ -104,8 +104,10 @@ def test_every_current_value_still_validates_in_the_models() -> None:
 def test_an_unknown_value_is_refused_naming_the_list() -> None:
     with pytest.raises(ValidationError, match=r"unknown inbound event type: 'itsm\.incident\.opened'"):
         InboundEvent(type="itsm.incident.opened", source="test", delivery_id="d")
-    with pytest.raises(ValidationError, match="unknown finding type"):
-        Finding(title="a finding", type="sla-breach", severity="low", evidence="x")
+    # A finding's type is read as a name: the platform judges it against the work item's workflow (ADR 0217).
+    with pytest.raises(ValidationError):
+        Finding(title="a finding", type="Not A Name", severity="low", evidence="x")
+    assert FINDING_TYPES.known() >= {"security", "docs", "ux"} and "sla-breach" not in FINDING_TYPES.known()
     with pytest.raises(ValidationError, match="unknown step effect"):
         Transition.model_validate({"id": "t", "from": "a", "to": "b", "by": "ci", "does": "close_incident"})
 

@@ -113,22 +113,23 @@ def extension(tmp_path: pathlib.Path) -> Iterator[None]:
 
 def test_without_the_extension_each_value_is_refused() -> None:
     from tranibor_adapters import available
-    from tranibor_contracts import CONNECTOR_KINDS
+    from tranibor_contracts import CONNECTOR_KINDS, FINDING_TYPES
 
-    for build in (_event, _finding, _fact):
+    for build in (_event, _fact):
         with pytest.raises(ValidationError):
             build()
+    assert "sla-breach" not in FINDING_TYPES.known()
     assert available("service_desk") == [] and "service_desk" not in CONNECTOR_KINDS.known()
     assert _role_warnings() == ["role.playbook_not_found"]
 
 
 def test_with_the_extension_the_platform_takes_what_it_declares(extension: None) -> None:
     from tranibor_adapters import available, spec_of
-    from tranibor_contracts import CONNECTOR_KINDS, STAGE_ROLES
+    from tranibor_contracts import CONNECTOR_KINDS, FINDING_TYPES, STAGE_ROLES
     from tranibor_playbooks import playbook_path, render_playbook
 
     assert _event().type == "itsm.incident.opened"
-    assert _finding().type == "sla-breach"
+    assert _finding().type == "sla-breach" and "sla-breach" in FINDING_TYPES.known()
     assert _fact().kind == "runbook"
     assert available("service_desk") == ["servicenow"]
     spec = spec_of("service_desk", "servicenow")

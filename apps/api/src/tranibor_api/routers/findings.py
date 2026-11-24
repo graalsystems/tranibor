@@ -18,13 +18,18 @@ from ..knowledge.marked import readable
 from ..rbac import Permission
 from ..schemas import FindingAction, FindingDto, FindingPage
 from ..services import persist_event
+from ..services.finding_types import titles_for
 from ..temporal import get_temporal, interpreter_id
 
 router = APIRouter(tags=["findings"])
 
 
-async def _dto(session: Db, row: Finding, project_slug: str) -> FindingDto:
+async def _dto(
+    session: Db, row: Finding, project_slug: str, titles: dict[tuple[str, str], str | None] | None = None
+) -> FindingDto:
     origin = await session.get(WorkItem, row.origin_work_item_id) if row.origin_work_item_id else None
+    if titles is None:
+        titles = await titles_for(session, {origin.id: origin} if origin else {}, _pairs([row]))
     created = await session.get(WorkItem, row.created_work_item_id) if row.created_work_item_id else None
     return FindingDto(
         id=row.id,
@@ -33,6 +38,7 @@ async def _dto(session: Db, row: Finding, project_slug: str) -> FindingDto:
         origin_run_id=row.origin_run_id,
         title=row.title,
         type=row.type,
+        type_title=titles.get((row.origin_work_item_id or "", row.type)),
         severity=row.severity,
         evidence=row.evidence,
         suggested_fix=row.suggested_fix,
@@ -44,6 +50,10 @@ async def _dto(session: Db, row: Finding, project_slug: str) -> FindingDto:
         relevant=row.relevant,
         created_at=row.created_at,
     )
+
+
+def _pairs(rows: list[Finding]) -> list[tuple[str, str]]:
+    return [(row.origin_work_item_id, row.type) for row in rows if row.origin_work_item_id]
 
 
 async def _readable(session: Db, principal: Any, row: Finding, org_id: str) -> bool:
@@ -90,7 +100,21 @@ async def list_findings(
             or_(Finding.origin_work_item_id.is_(None), Finding.origin_work_item_id.not_in(hidden))
         )
     window, meta = await keyset_page(session, query, sort=Finding.created_at, tiebreak=Finding.id, page=page)
-    return FindingPage(items=[await _dto(session, row, ctx.slug) for row in window], meta=meta)
+    # The title a workflow gives a type: one workflow load per version, not one per finding (ADR 0217).
+    origins = {
+        item.id: item
+        for item in (
+            await session.execute(
+                select(WorkItem).where(
+                    WorkItem.id.in_({r.origin_work_item_id for r in window if r.origin_work_item_id})
+                )
+            )
+        )
+        .scalars()
+        .all()
+    }
+    titles = await titles_for(session, origins, _pairs(list(window)))
+    return FindingPage(items=[await _dto(session, row, ctx.slug, titles) for row in window], meta=meta)
 
 
 @router.post("/findings/{id}/actions", response_model=FindingDto, operation_id="postFindingAction")

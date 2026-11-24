@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "title": { "type": "string", "minLength": 3, "maxLength": 200 },
-    "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "An open list (ADR 0181): the core's types, security, docs, ux, and the types an installed extension declares. The platform refuses any other." },
+    "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "An open list (ADR 0181): the core's types, security, docs, ux, the types an installed extension declares, and the types the work item's workflow declares (`metadata.finding_types`, ADR 0217). The platform refuses any other, naming the workflow." },
     "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
     "evidence": { "type": "string", "minLength": 1, "description": "path:line, test output, query…" },
     "suggested_fix": { "type": "string" },

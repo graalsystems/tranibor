@@ -6375,6 +6375,7 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Finding" } } } }
       responses:
         "201": { description: Finding recorded, content: { application/json: { schema: { $ref: "#/components/schemas/FindingAck" } } } }
+        "422": { description: "The type is not one the core, a plugin or the work item's workflow declares, or its severity is not one the type allows (ADR 0217)", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
         "429": { description: Findings cap reached, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
   /projects/{id}/tools:
     parameters: [{ $ref: "#/components/parameters/Id" }]
@@ -12964,6 +12965,7 @@ components:
         origin_run_id: { type: [string, "null"] }
         title: { type: string }
         type: { type: string }
+        type_title: { type: [string, "null"], description: "The title the finding's workflow gives its type (`metadata.finding_types`, ADR 0217); null for a type the core or a plugin declares, and for one its workflow no longer declares." }
         severity: { type: string, enum: [low, medium, high, critical] }
         evidence: { type: string }
         suggested_fix: { type: [string, "null"] }

@@ -318,7 +318,7 @@ export type Event = {
 /** A problem an agent found outside its scope. */
 export type Finding = {
   title: string;
-  /** An open list (ADR 0181): the core's types, security, docs, ux, and the types an installed extension declares. The platform refuses any other. */
+  /** An open list (ADR 0181): the core's types, security, docs, ux, the types an installed extension declares, and the types the work item's workflow declares (`metadata.finding_types`, ADR 0217). The platform refuses any other, naming the workflow. */
   type: string;
   severity: "low" | "medium" | "high" | "critical";
   /** path:line, test output, query… */
@@ -1987,6 +1987,14 @@ export type Workflow = {
     inputs?: {
       [key: string]: unknown;
     };
+    /** The finding types of this workflow, beside the core's and the plugins' (ADR 0217): valid for this workflow's work items alone, shown with their title. Absent: none. */
+    finding_types?: Array<{
+      name: string;
+      title: string;
+      /** The severities a finding of this type may carry. Absent: every severity. */
+      severities?: Array<"low" | "medium" | "high" | "critical">;
+      description?: string;
+    }>;
     /** The files a person may hand to a work item of this workflow (ADR 0201 §1). Absent: the workflow takes no file from a person. A step reads them through the reserved input `attachments`. */
     attachments?: {
       /** The artifact types a handed file may have (ADR 0201 §1, §3). */
