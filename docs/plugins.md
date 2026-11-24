@@ -956,9 +956,11 @@ an operator's dev cluster (core 0.29.0, plugin 0.2.9): installation approved by 
 work item opened by the queue poll, the agent's triage, the review, and an apply step approved by a second
 person and written once. Not proven: the Business Rule's delivery to the webhook route, OAuth client
 credentials on a cluster, a nightly run, a human's governance (test accounts gave the approvals), and the
-plugin's 0.2.12 fixes (a change request moves along its change model, the queue poll pages and says what
-it left out; findings tranibor-agents#24 and #25) on a cluster or an instance. No ServiceNow finding is
-open in either repository.
+plugin's 0.2.12 fixes on a cluster. Those fixes (a change request moves along its change model, the queue
+poll pages and says what it left out; findings tranibor-agents#24 and #25) passed the plugin's live suite
+on the instance on 2026-11-24 (9 tests, basic authentication, as the instance's admin); what is not proven
+is OAuth client credentials and the Change Management roles for a non-admin integration user. No
+ServiceNow finding is open in either repository.
 
 | `TrackerAdapter` | Tool | Declared access |
 |:--|:--|:--|
