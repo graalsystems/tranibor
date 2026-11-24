@@ -49,6 +49,7 @@ async def _dto(
         occurrences=row.occurrences,
         relevant=row.relevant,
         created_at=row.created_at,
+        imported=row.imported,
     )
 
 

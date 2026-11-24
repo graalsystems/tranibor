@@ -111,7 +111,7 @@ async def ticket_spent(session: AsyncSession, work_item_id: str, since: datetime
     start of its current pass (`work_items.recurred_at`, C1), so a ticket that came back spends a
     budget of its own; the work item's totals keep every pass."""
     query = select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0)).where(
-        CostLedger.work_item_id == work_item_id
+        CostLedger.work_item_id == work_item_id, CostLedger.imported.is_(False)
     )
     if since is not None:
         query = query.where(CostLedger.ts >= since)
@@ -122,7 +122,9 @@ async def project_spent_since(session: AsyncSession, project_id: str, since: dat
     total = (
         await session.execute(
             select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0)).where(
-                CostLedger.project_id == project_id, CostLedger.ts >= since
+                CostLedger.project_id == project_id,
+                CostLedger.ts >= since,
+                CostLedger.imported.is_(False),
             )
         )
     ).scalar_one()
@@ -168,7 +170,7 @@ async def org_spent_since(session: AsyncSession, org_id: str, since: datetime) -
         await session.execute(
             select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0))
             .join(Project, Project.id == CostLedger.project_id)
-            .where(Project.org_id == org_id, CostLedger.ts >= since)
+            .where(Project.org_id == org_id, CostLedger.ts >= since, CostLedger.imported.is_(False))
         )
     ).scalar_one()
     return float(total)

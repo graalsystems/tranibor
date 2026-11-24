@@ -172,6 +172,7 @@ def generate_api_ts() -> str:
         "InboundEvent": "S.InboundEvent",
         "ChoregosEvent": "S.Event",
         "HumanDecision": "S.HumanDecision",
+        "DemoHistory": "S.DemoHistory",
     }
     for name, schema in schemas.items():
         ts_name = pascal(name)

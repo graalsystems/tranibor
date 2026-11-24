@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# A test plugin that brings one server declaring its fake, run in-process by the API under the
+# demonstration switch (ADR 0218). Its server's code is `tests/fixtures/plugin_servers/demo_itsm_server`.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: demo-itsm
+  version: 1.0.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: A test plugin whose server runs in-process on its fake.
+  homepage: https://github.com/graalsystems/tranibor
+  core: ">=0.20.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  servers: [servers/demo-itsm.yaml]

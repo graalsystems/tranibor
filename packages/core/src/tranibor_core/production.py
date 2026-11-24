@@ -124,3 +124,78 @@ def refuse_demo_mcp_tools(*, environment: str | None, fakes: str | bool | None) 
             f"server is the fakes' (ADR 0005, ADR 0213); set {FAKES_VARIABLE}=1, or unset "
             f"{DEMO_MCP_TOOLS_VARIABLE} and connect a real MCP server."
         )
+
+
+#: The variable that lets the API take in a demonstration history (ADR 0216).
+DEMO_HISTORY_IMPORT_VARIABLE = "TRANIBOR_DEMO_HISTORY_IMPORT"
+
+
+class DemoHistoryImportRefusedError(RuntimeError):
+    """The API was asked to take in a demonstration history where it must not."""
+
+
+def demo_history_import_refusal(*, environment: str | None, enabled: str | bool | None) -> str | None:
+    """Why this instance takes no demonstration history, or `None` when it does (ADR 0216).
+
+    The import writes runs, costs and decisions that nothing measured, so it is an explicit opt-in
+    (`TRANIBOR_DEMO_HISTORY_IMPORT`, never implied by the fakes or by a role) and it is never on in
+    production, whatever the variable says: `staging` and `prod` refuse it, as they refuse the fakes.
+    A deployed demonstration instance runs with `TRANIBOR_ENV=dev` (its default) or any name that is not
+    production.
+    """
+    env = (environment or "").strip().lower()
+    if is_production(env):
+        return (
+            f"a demonstration history cannot be imported where {ENVIRONMENT_VARIABLE}={env}: it writes "
+            "runs and costs that nothing measured, so staging and prod refuse it. Use a demonstration "
+            f"instance ({ENVIRONMENT_VARIABLE}=dev)."
+        )
+    if not fakes_on(enabled):
+        return (
+            "this instance does not import a demonstration history: it is an explicit opt-in. Set "
+            f"{DEMO_HISTORY_IMPORT_VARIABLE}=1 on a demonstration instance (ADR 0216)."
+        )
+    return None
+
+
+def refuse_demo_history_import(*, environment: str | None, enabled: str | bool | None) -> None:
+    """Stop a process that has `TRANIBOR_DEMO_HISTORY_IMPORT` on in production, naming the setting."""
+    if fakes_on(enabled) and is_production(environment):
+        raise DemoHistoryImportRefusedError(
+            f"{DEMO_HISTORY_IMPORT_VARIABLE} is on and {ENVIRONMENT_VARIABLE}={(environment or '').strip()}: "
+            "the API refuses to start. A demonstration history (ADR 0216) writes runs and costs that "
+            f"nothing measured and is for a demonstration instance only: unset "
+            f"{DEMO_HISTORY_IMPORT_VARIABLE}, or run with {ENVIRONMENT_VARIABLE}=dev."
+        )
+
+
+#: The variable that names the file of plugin servers the API runs in its own process (ADR 0218).
+DEMO_PLUGIN_SERVERS_VARIABLE = "TRANIBOR_DEMO_PLUGIN_SERVERS"
+
+
+class DemoPluginServersRefusedError(RuntimeError):
+    """In-process plugin servers were asked for where they must not run."""
+
+
+def refuse_demo_plugin_servers(*, environment: str | None, fakes: str | bool | None) -> None:
+    """Stop a process when `TRANIBOR_DEMO_PLUGIN_SERVERS` is set outside development under the fakes.
+
+    A plugin server run in-process (ADR 0218) is the plugin's own code, on its own fake instance, inside
+    the API's process: no container, no signature check on an image, no network listener. It needs the
+    fakes (so that nothing real is reached) and a `dev` or `test` environment; anything else is refused,
+    naming the setting to change.
+    """
+    env = (environment or "").strip().lower()
+    if env not in DEMO_INLINE_WORKER_ENVIRONMENTS:
+        raise DemoPluginServersRefusedError(
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} is set and {ENVIRONMENT_VARIABLE}={env or '(unset)'}: refused. "
+            "A plugin server run in-process (ADR 0218) skips the image checks of a deployment and is for a "
+            f"development machine only: unset {DEMO_PLUGIN_SERVERS_VARIABLE}, or run with "
+            f"{ENVIRONMENT_VARIABLE}=dev."
+        )
+    if not fakes_on(fakes):
+        raise DemoPluginServersRefusedError(
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} is set and {FAKES_VARIABLE} is off: refused. A plugin server "
+            f"in-process runs on its fake instance (ADR 0005, ADR 0218); set {FAKES_VARIABLE}=1, or unset "
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} and run the server on a cluster."
+        )

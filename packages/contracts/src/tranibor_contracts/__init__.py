@@ -48,6 +48,16 @@ from .artifact import (
     type_of_value,
 )
 from .decision import ROUTING_QUESTION, ROUTING_STEP, DecisionOutcome, DecisionRecord, DecisionSource
+from .demo_history import (
+    DemoDecision,
+    DemoFinding,
+    DemoHistory,
+    DemoPrice,
+    DemoRun,
+    DemoStateEntry,
+    DemoTokens,
+    DemoWorkItem,
+)
 from .enums import (
     ActionOrigin,
     ActionStatus,
@@ -294,6 +304,7 @@ SCHEMA_FILES = (
     "outpost-audit-line.schema.json",
     "outpost-enrolment-request.schema.json",
     "outpost-enrolment-answer.schema.json",
+    "demo-history.schema.json",
 )
 
 
@@ -429,6 +440,14 @@ __all__ = [
     "DecisionRecord",
     "DecisionSource",
     "DeclaredCost",
+    "DemoDecision",
+    "DemoFinding",
+    "DemoHistory",
+    "DemoPrice",
+    "DemoRun",
+    "DemoStateEntry",
+    "DemoTokens",
+    "DemoWorkItem",
     "DeployResult",
     "Diagnostics",
     "DodConfig",

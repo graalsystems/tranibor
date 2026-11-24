@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -84,6 +86,9 @@ class CostLedger(Base, PkMixin):
     #: summed on them, and they survive the deletion of the conversation, which detaches `session_id`.
     installation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    #: A line a demonstration history import wrote (ADR 0216): no model call measured it. Reports show it
+    #: apart (`imported_usd`) and no budget counts it.
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), index=True)
 
 
 class BudgetAlert(Base, PkMixin, TimestampMixin):

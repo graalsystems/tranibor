@@ -19,8 +19,10 @@ from fastapi.responses import JSONResponse
 from tranibor_adapters import fake_mcp_server, load_extensions
 from tranibor_core import telemetry
 from tranibor_core.production import (
+    refuse_demo_history_import,
     refuse_demo_inline_worker,
     refuse_demo_mcp_tools,
+    refuse_demo_plugin_servers,
     refuse_fakes_in_production,
 )
 
@@ -68,6 +70,7 @@ from .routers import (
     conversations,
     costs,
     delegations,
+    demo_history,
     device_sign_in,
     egress,
     embed_token,
@@ -147,10 +150,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:
         refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)
+    # The demonstration history import (ADR 0216): never on in staging or prod.
+    refuse_demo_history_import(environment=settings.env, enabled=settings.demo_history_import)
     # The demonstration MCP server (ADR 0213): refused elsewhere; its file is read now.
     if settings.demo_mcp_tools:
         refuse_demo_mcp_tools(environment=settings.env, fakes=settings.fakes)
         fake_mcp_server()
+    # Plugin servers run in-process (ADR 0218): refused elsewhere; its file is read now.
+    if settings.demo_plugin_servers:
+        refuse_demo_plugin_servers(environment=settings.env, fakes=settings.fakes)
+        from .services.plugin_servers import in_process_servers
+
+        in_process_servers(settings)
     if not settings.is_sqlite:
         await _refuse_the_superuser()
     _warn_without_secrets_key(settings.fakes)
@@ -206,6 +217,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Calls through an outpost that ran out of time where nobody polls or calls any more (ADR 0149 §5).
     background = [asyncio.create_task(outpost_rendezvous.sweep_loop())] if settings.outposts else []
     yield
+    if settings.demo_plugin_servers:
+        from .services.plugin_servers import stop_in_process_servers
+
+        await stop_in_process_servers()
     if inline_worker is not None:
         from .demo_inline import stop_inline_worker
 
@@ -509,6 +524,7 @@ def create_app() -> FastAPI:
         memories.router,
         costs.router,
         budget_alerts.router,
+        demo_history.router,
         egress.router,
         outbound_proxy.router,
         mcp_gateway.router,

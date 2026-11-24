@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -81,6 +82,8 @@ class WorkItem(Base, PkMixin, TimestampMixin):
     #: The budget given at launch, or by the workflow's `budget.ticket_usd` (S27-06, ADR 0047). It
     #: only tightens the policy's ticket budget; `None`: the policy's applies.
     budget_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    #: Written by a demonstration history import (ADR 0216), never by a run: nothing measured it.
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     runs: Mapped[list[Run]] = relationship(back_populates="work_item", cascade="all, delete-orphan")
 
@@ -135,6 +138,8 @@ class Run(Base, PkMixin, TimestampMixin):
     #: latest `produced` receipt of each). `None` on both for a run started before S40-22.
     initiated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     inputs_from: Mapped[list[str] | None] = mapped_column(Json, nullable=True)
+    #: Written by a demonstration history import (ADR 0216), never by a run: nothing measured it.
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     work_item: Mapped[WorkItem] = relationship(back_populates="runs")
     events: Mapped[list[RunEvent]] = relationship(back_populates="run", cascade="all, delete-orphan")
@@ -214,3 +219,5 @@ class Finding(Base, PkMixin, TimestampMixin):
     occurrences: Mapped[int] = mapped_column(Integer, default=1)
     relevant: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     embedding: Mapped[list[str] | None] = mapped_column(Json, nullable=True)
+    #: Written by a demonstration history import (ADR 0216), never by a run: nothing measured it.
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())

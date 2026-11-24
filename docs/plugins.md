@@ -933,6 +933,40 @@ switch the field is ignored and the connector is the server's own instance. The 
 server's connector nobody configured, available to the selected projects and turned on for its eval
 projects.
 
+### On a laptop: a server in the API's process
+
+A server normally runs as a Kubernetes Deployment, which a laptop does not have (`TRANIBOR_FAKES=1`'s
+Kubernetes API is in memory and runs nothing). For a demonstration, the API can instead run the server
+of a plugin **in its own process, from the plugin's own Python package, on the fake it declares**
+(ADR 0218): no container, no Docker socket, no network listener.
+
+```bash
+TRANIBOR_FAKES=1 TRANIBOR_ENV=dev TRANIBOR_PLUGINS_OFFLINE=./my-plugins \
+TRANIBOR_DEMO_PLUGIN_SERVERS=examples/demo-plugin-servers/servicenow.yaml \
+  uv run uvicorn tranibor_api.main:app --port 8000
+```
+
+- **Where the code is.** The core ships no plugin. The file names, for each `plugin`/`server`, the package
+  that serves it: `path` (a source directory put on `sys.path`; omit it for an installed wheel), `app` (a
+  `module:callable` that builds the ASGI application), `settings` (a `module:callable(env)` whose result
+  `app` takes; without it `app` takes the environment) and `fake_env` (variables added to the declaration's
+  `fake.env`, such as a seed file: `SERVICENOW_FAKE_SEED`). The package's dependencies (`mcp`, `httpx`...)
+  must be importable by the API: install the server package in the API's environment.
+- **What runs.** The environment is the declaration's `fake.env`, the file's `fake_env` and the platform's
+  token (`TRANIBOR_SERVER_TOKEN`), which the application checks on every call as it does behind a Service.
+  The connector's configuration is not read (the fake needs none). The broker, discovery, the operation
+  policies and the approvals are the product's own.
+- **Installing.** The plugin comes from the offline directory (`TRANIBOR_PLUGINS_OFFLINE`, a directory or
+  `.tar.gz` of your own, with **no** `plugins.lock`: a lock is checked against its digests). In this mode only,
+  the server's image is neither checked (digest, registry, signature) nor pulled. A plugin whose server
+  declares no `fake`, or is not in the file, is a 422.
+- **Refused elsewhere.** The variable is refused at the API's start, and by the install, unless
+  `TRANIBOR_FAKES` is on and `TRANIBOR_ENV` is `dev` or `test`.
+- **Limits.** In memory: the fake's state (and the token it was started with) lives with the process, and a
+  restart starts it again from its seed; the API and the workers that play a governed action must be one
+  process (`TRANIBOR_DEMO_INLINE_WORKER=1`, ADR 0212); a person's exchanged token (ADR 0135) is not accepted
+  by the fake; no eval instance is run.
+
 ### Images
 
 A server's image is pinned by digest (the contract), comes from a registry prefix the operator lists in
