@@ -1,7 +1,7 @@
 # The development project on the dev tenant
 
 `scenario_dev.py` plays the `github-software-delivery` template on the dev tenant, with a real repository
-([DiametralGroup/choregos-sandbox-dev](https://github.com/DiametralGroup/choregos-sandbox-dev): a
+([example-org/choregos-sandbox-dev](https://github.com/example-org/choregos-sandbox-dev): a
 small invoicing library, its tests, GitHub Actions), real agents of the catalog and real
 decisions. The same course, on fakes and in accelerated time, is
 `apps/orchestrator/tests/test_software_delivery_template.py`.

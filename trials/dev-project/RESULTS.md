@@ -3,7 +3,7 @@
 ## 2026-10-07 - prepared, not yet played
 
 **Ready:**
-- the sandbox repository `DiametralGroup/choregos-sandbox-dev` (private): `invoices` (a `compute_total`
+- the sandbox repository `example-org/choregos-sandbox-dev` (private): `invoices` (a `compute_total`
   that ignores credits - the bug of the first work item), three tests, `python -m invoices.smoke`, an ADR
   0000 in MADR 4 format, GitHub Actions - **green** on `main` at the first push;
 - `scenario_dev.py` (prepare, requirements, open, follow, verify).

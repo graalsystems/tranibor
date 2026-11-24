@@ -530,7 +530,7 @@ token exchange enabled, permission to exchange towards each source's audience, a
 through a client scope that carries it: either a default scope of the exchange client (then every token
 that client is issued carries the source's audience), or an optional one that the request names. Prefer the
 second: set `TRANIBOR_TOKEN_EXCHANGE_SCOPES` (a JSON object, audience to scope) and the exchange sends it. Sources must accept
-tokens of their audience (`iris-mcp`, `insights360-mcp`, ...). Through an MCP gateway the mode is refused.
+tokens of their audience (`iris-mcp`, `analytics-mcp`, ...). Through an MCP gateway the mode is refused.
 
 The dedicated security review of this exchange (ADR 0135) was done on 2026-11-11: see
 [Review of the person's identity](#review-of-the-persons-identity-s63-07-s63-08-s63-14-2026-11-11). Set

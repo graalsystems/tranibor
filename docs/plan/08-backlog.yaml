@@ -3977,7 +3977,7 @@ stories:
     priority: 2
     size: S
     depends_on: [S55-01]
-    notes: "ADR 0120 consequences. Lets a brand theme (the Diametral plugin) recolour them."
+    notes: "ADR 0120 consequences. Lets a brand theme (the first operator's plugin) recolour them."
   - id: S55-02
     title: "feat(web): a page header with a tinted icon and the workflow's chip; human breadcrumb labels"
     stream: S55
@@ -5488,7 +5488,7 @@ stories:
     priority: 4
     size: M
     depends_on: [S74-02]
-    notes: "ADR 0175 amendment S74-04. The hosts also go to CHOREGOS_PUBLIC_HOSTS (a routed host is public before its proof). Operator side: infra#1595 (namespaced HTTP-01 Issuer choregos-issuer, solver image exception; its solver Ingress probably needs ingressTemplate nginx.org/mergeable-ingress-type minion for NGINX Inc.), then DiametralGroup/choregos-deploy values once a chart release carries the value. Not proved without a cluster."
+    notes: "ADR 0175 amendment S74-04. The hosts also go to CHOREGOS_PUBLIC_HOSTS (a routed host is public before its proof). Operator side: infra#1595 (namespaced HTTP-01 Issuer choregos-issuer, solver image exception; its solver Ingress probably needs ingressTemplate nginx.org/mergeable-ingress-type minion for NGINX Inc.), then the operator's deployment repository values once a chart release carries the value. Not proved without a cluster."
 
   # ───────────── S75 — the core is named Tranibor (ADR 0176) ─────────────
   - id: S75-00
@@ -5573,7 +5573,7 @@ stories:
     priority: 3
     size: XS
     depends_on: [S80-03]
-    notes: "Plan workstream S2, second part. The switch exists (CHOREGOS_INTERNAL_API_GUARD, choregos-api.internalApiGuard, ADR 0144); values/staging.yaml and values/prod.yaml now default to enforce. Planned for mid-December after two to four weeks in warn; done on 2026-11-18 by the owner's decision, with only the Diametral dev and prod deployments (enforce since 2026-11-14, little traffic) behind it."
+    notes: "Plan workstream S2, second part. The switch exists (CHOREGOS_INTERNAL_API_GUARD, choregos-api.internalApiGuard, ADR 0144); values/staging.yaml and values/prod.yaml now default to enforce. Planned for mid-December after two to four weeks in warn; done on 2026-11-18 by the owner's decision, with only the first operator's dev and prod deployments (enforce since 2026-11-14, little traffic) behind it."
   - id: S80-07a
     title: "feat(orchestrator,charts): the worker's concurrency is a setting (activities, workflow tasks, local activities, sticky cache), chart values per queue"
     stream: S80
@@ -5925,7 +5925,7 @@ stories:
     priority: 2
     size: S
     depends_on: [S80-31]
-    notes: "Finding #2183. Measured from dev's SearXNG pod through the relay on 2026-11-24: DuckDuckGo CAPTCHA, Brave 429 or host-less links, Google, Qwant and Dogpile access denied, Wikipedia nothing; Bing, Startpage, Mojeek and PrivacyWall 10 linked results on 5 of 5 queries. keep_only alone kept a listed engine that upstream ships disabled or inactive silent; the chart now renders an engines entry enabling each one. Not done: Diametral's egress and values follow the release that carries it (chart 0.29.1 can list an engine but not enable it)."
+    notes: "Finding #2183. Measured from dev's SearXNG pod through the relay on 2026-11-24: DuckDuckGo CAPTCHA, Brave 429 or host-less links, Google, Qwant and Dogpile access denied, Wikipedia nothing; Bing, Startpage, Mojeek and PrivacyWall 10 linked results on 5 of 5 queries. keep_only alone kept a listed engine that upstream ships disabled or inactive silent; the chart now renders an engines entry enabling each one. Not done: the first operator's egress and values follow the release that carries it (chart 0.29.1 can list an engine but not enable it)."
   - id: S80-41
     title: "fix(charts): the memory is backed up and restored by Ecphoria itself, while it runs"
     stream: S80
@@ -5989,7 +5989,7 @@ stories:
     priority: 2
     size: S
     depends_on: [S80-06]
-    notes: "Finding DiametralGroup/choregos-deploy#326 (origin #2082): the clients could present a certificate (global.temporal.tls.mutual) but the embedded Temporal never asked for one, and the dev UI served write actions with no login. choregos-temporal.tls.requireClientCert (relay ssl_verify_client in dev; TEMPORAL_TLS_REQUIRE_CLIENT_AUTH and the client CAs in server mode) and choregos-temporal.ui.loopbackOnly. Merged as #2223 under the id S80-47, which #2222 had already taken: renumbered."
+    notes: "A finding of the operator's deployment repository (origin #2082): the clients could present a certificate (global.temporal.tls.mutual) but the embedded Temporal never asked for one, and the dev UI served write actions with no login. choregos-temporal.tls.requireClientCert (relay ssl_verify_client in dev; TEMPORAL_TLS_REQUIRE_CLIENT_AUTH and the client CAs in server mode) and choregos-temporal.ui.loopbackOnly. Merged as #2223 under the id S80-47, which #2222 had already taken: renumbered."
   - id: S40-28
     title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
     stream: S40

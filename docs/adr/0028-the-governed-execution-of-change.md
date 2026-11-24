@@ -70,7 +70,7 @@ knows how to call third-party tools for an agent without giving it a credential 
    agent identity.
 4. **No code merge with graal.** Two products share identity (one OIDC realm), audit conventions and
    the namespaced install model. They are sold as one offer when a customer buys both.
-5. **The first user is a systems integrator delivering with it** (Diametral); the second segment
+5. **The first user is a systems integrator delivering with it**; the second segment
    is regulated group IT. Both need per-client isolation, chargeback and a client-facing evidence
    pack — the enterprise edition's E4 and E5.
 

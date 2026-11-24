@@ -35,7 +35,7 @@ surface that only matters with it, belong to a separate enterprise edition.**
 
 1. **Licence.** The core stays **Apache-2.0**, published by the Varga Foundation. The enterprise
    edition is proprietary, lives in a **separate private repository**, and is published by
-   Diametral (see the amendment below: since 2026-10-15, by GraalSystems, a DiametralGroup subsidiary). Apache-2.0 allows this without reservation: it has no copyleft.
+   its operator (see the amendment below: since 2026-10-15, by GraalSystems; `NOTICE` names the company). Apache-2.0 allows this without reservation: it has no copyleft.
 2. **What the community edition keeps.** Everything that works today except a second
    organisation: the DSL and its static validation, the Temporal interpreter, the fourteen
    gates, evidence, the cost ledger with its per-run cap, the tool catalogue, ACP and its
@@ -49,7 +49,7 @@ surface that only matters with it, belong to a separate enterprise edition.**
    from the data layer, and shipping a knowingly weaker security posture to the community would
    be indefensible.
 5. **No licence key in the first enterprise version.** The enterprise edition is run by
-   Diametral, for Diametral and its tenants (amended: published by GraalSystems, operated by DiametralGroup companies); access control is the image pull secret. A signed
+   its first operator, for itself and its tenants (amended: published by GraalSystems, operated under an agreement); access control is the image pull secret. A signed
    offline key is a question for the day a customer self-hosts it.
 6. **The chart stays in the community edition.** Tenants vendor the published chart, which
    overwrites everything but their values file, so any change the enterprise edition needs is
@@ -74,10 +74,9 @@ surface that only matters with it, belong to a separate enterprise edition.**
 
 ## Amendment, 2026-10-15 (S39-01): who publishes the enterprise edition, and how it says so
 
-Decisions 1 and 5 said the enterprise edition is published by Diametral. It is now **published by
-GraalSystems**, a subsidiary of DiametralGroup, and **operated by the DiametralGroup companies** under an agreement; the private
-repository moved to the `DiametralGroup` GitHub organisation and its images to
-`ghcr.io/diametralgroup`. Nothing else in the decision changes (same boundary, same seams, no
+Decisions 1 and 5 said the enterprise edition is published by its first operator. It is now **published by
+GraalSystems** (`NOTICE` and `docs/TRADEMARK.md` name the group it belongs to) and **operated by the group's companies** under an
+agreement; the private repository and its images moved to that group's GitHub organisation. Nothing else in the decision changes (same boundary, same seams, no
 licence key).
 
 The core must not hard-code who publishes an edition it does not know, and a chart value would let a

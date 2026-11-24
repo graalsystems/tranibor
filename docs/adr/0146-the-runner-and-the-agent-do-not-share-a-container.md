@@ -23,7 +23,7 @@ in a container of its own, as another uid, and the flag is `CHOREGOS_RUNNER_AGEN
 (`process` | `container`), set in the chart by `global.runner.agentIsolation` (until 0.27.15
 `runner.sandbox.agentIsolation`, the warm pool's alone; S65-04d made it the deployment's). **The chart's
 default is `container` from 0.28** (S65-04m, §13): the shape is proved on a kubelet with runc (S65-04h, i)
-and, with the real runner image, under gVisor on a deployed cluster (S65-04o), and the diametral dev and
+and, with the real runner image, under gVisor on a deployed cluster (S65-04o), and the first operator's dev and
 production clusters run it on the warm pool and on `k8s_job` (see "Proved on the clusters" below). The
 code's default, read when nothing sets `CHOREGOS_RUNNER_AGENT_ISOLATION` (Docker Compose, the demo, a
 runner its executor says nothing to), stays `process`: the runner is told by its executor, and an executor
@@ -121,8 +121,8 @@ with a real harness.
 
 **Built after, S65-04j (§7)**: the memory MCP server of an agent is a credentialed server like the others, and a *scoped* one. `McpServerRef` gained `scope_arguments` (arguments the runner overwrites in every `tools/call`) and `allowed_tools` (the only tools the loopback relays). For memory the orchestrator announces `tenant_id = <project>` and the tools of the binding's mode; the key stays in `env` and never reaches the agent. A scoped server goes through the loopback even without a header, and where there is no container isolation it is withheld from the agent, because nothing there could keep the key or the scope out of its reach. Ecphoria's MCP does not read `X-Ecphoria-Tenant` and the platform key has no tenant, so the tools that are not scoped by their `tenant_id` argument (`query`, `ingest`, `set_state`, the graph tools, and the id-based `update_memory`, `delete_memory`, `memory_history`, `link_memory`, `memory_feedback`, `memory_provenance`) are not offered. They come back when Ecphoria scopes keys or the MCP honours the tenant header. **Update 2026-11-19**: Ecphoria now honours `X-Ecphoria-Tenant` as a hard scope for every MCP tool and confines the by-id tools to that tenant, so `memory_history` (read), `update_memory` and `delete_memory` (write only) are offered when the deployment sets `scoped_by_id` (`CHOREGOS_MEMORY_SCOPED_BY_ID`, off by default: Ecphoria 0.2.5 does not scope them). The runner then sends the run's tenant in the header with the key, besides the forced `tenant_id`. `link_memory`, `memory_feedback`, `memory_provenance` and the graph tools stay out.
 
-**Proved on the clusters (S65-04o, S65-04m; 2026-11-19/20)**: the diametral dev and production clusters run
-0.27.16 with `global.runner.agentIsolation: container` (choregos-deploy#315, #316; Argo dev 245→246, prod 74→75),
+**Proved on the clusters (S65-04o, S65-04m; 2026-11-19/20)**: the first operator's dev and production clusters run
+0.27.16 with `global.runner.agentIsolation: container` (the deployment repository, #316; Argo dev 245→246, prod 74→75),
 every run pod under the `gvisor` RuntimeClass. The probe of `tests/cluster/test_agent_isolation.py`, run on dev
 with the real runner image in the warm pool's own pod and in `k8s_job`'s Job: from the agent's container (uid
 1001), no run token, no gateway key, no runner process (each container of a gVisor pod has its own PID
@@ -156,7 +156,7 @@ connector):
   credentials. In the `k8s_job` pod the runner's container (the control) holds the run token
   (`CHOREGOS_RUN_TOKEN`, `TRANIBOR_RUN_TOKEN`) and credentialed proxy variables. The warm pool's runner
   holds none in its environment: its credentials arrive sealed over the assignment port.
-- **A code agent's own image (§10)**: `global.images.agents.plain` on dev (choregos-deploy#324) is
+- **A code agent's own image (§10)**: `global.images.agents.plain` on dev (the deployment repository) is
   `examples/agents/plain`, built FROM `tranibor-runner:0.27.17` and pinned by digest, and
   `GET /platform/agent-images` lists `plain` (`digest_pinned: true`). A trial with
   `runtime: {kind: code, image: plain}` went to `k8s_job` and `succeeded`: "Triaged as P1 with a model
@@ -189,12 +189,12 @@ connector):
   | `kubernetes.default.svc:443`, `1.1.1.1:443` | timeout | timeout | timeout |
 
   The warm pool's pods are held by the namespace's run-pod policy (tenant-base's `choregos-sandbox-egress`,
-  selector `choregos/sandbox: "true"`). `k8s_job`'s pods did not carry that label, so on diametral only the
+  selector `choregos/sandbox: "true"`). `k8s_job`'s pods did not carry that label, so on the first operator's platform only the
   namespace baseline applied to them (finding #2082). The agent holds no credential for anything it reaches.
 
   **After (S65-04p, 2026-11-21)**: a Job's pod carries the warm pool's labels, `choregos/sandbox: "true"`
   included (`k8s_job.RUNNER_POD_LABELS`; `tests/charts/test_run_pod_labels.py` fails when the two sets part).
-  Until a release carries it, choregos-deploy#325 holds the Jobs' pods without the label to the same refusals
+  Until a release carries it, the deployment repository holds the Jobs' pods without the label to the same refusals
   (`choregos-k8s-job-egress`, dev and production). The "after" column was measured on dev three ways: from
   the agent's container (uid 1001) of a real `k8s_job` run (a `plain` code-agent trial, `succeeded`; held by
   the interim policy), and by `tests/cluster/test_agent_isolation.py` with `TRANIBOR_ISOLATION_CLOSED` and
@@ -204,7 +204,7 @@ connector):
   objects and selectors were read and an opencode trial routed to `k8s_job` `succeeded` under them; the reach
   itself was not probed there (no `exec` in production). What the Temporal server accepts from the pods
   that still reach it (every other pod of the namespace: no mutual TLS, no authorizer) is
-  choregos-deploy#326.
+  the deployment repository.
 
 **Not proved**: the resumption of the suspended question's run itself. Answering needs a person's session
 (`POST /work-items/{id}/decisions` answers 403 `decision_requires_session` to an API token), so the

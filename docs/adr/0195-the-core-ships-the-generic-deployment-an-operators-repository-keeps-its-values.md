@@ -2,8 +2,8 @@
 
 - **Status**: accepted, 2026-11-19 (decided by the product owner on 2026-11-19; implemented by S80-12 and S80-14 to S80-17); amended 2026-11-23 (#2150, S80-25)
 - **Concerns**: `charts/choregos` and its subcharts (`temporal`, `litellm`, `ecphoria`, a new `websearch`),
-  `docs/deployment.md`, and the first operator's deployment repository (DiametralGroup/choregos-deploy,
-  a French-language repository outside this one)
+  `docs/deployment.md`, and the first operator's deployment repository (a private,
+  French-language repository outside this one)
 
 ## Context
 
