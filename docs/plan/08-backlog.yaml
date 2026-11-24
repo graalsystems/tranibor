@@ -5918,6 +5918,14 @@ stories:
     size: M
     depends_on: [S80-28]
     notes: "Played on k3d. Fixed: Temporal (server) in the PostgreSQL ingress clients; restore.sh keeps the replica counts across a failed run and stops waiting on a failed job; runbook. Filed #2185 (memory DuckDB copied live, restored Ecphoria silently empty). Not done: a new machine, real S3, proof.sh to approved."
+  - id: S80-40
+    title: "fix(charts): SearXNG asks engines that answer from a cluster, and enables each one it lists"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-31]
+    notes: "Finding #2183. Measured from dev's SearXNG pod through the relay on 2026-11-24: DuckDuckGo CAPTCHA, Brave 429 or host-less links, Google, Qwant and Dogpile access denied, Wikipedia nothing; Bing, Startpage, Mojeek and PrivacyWall 10 linked results on 5 of 5 queries. keep_only alone kept a listed engine that upstream ships disabled or inactive silent; the chart now renders an engines entry enabling each one. Not done: Diametral's egress and values follow the release that carries it (chart 0.29.1 can list an engine but not enable it)."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81

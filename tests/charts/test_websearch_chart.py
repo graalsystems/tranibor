@@ -95,3 +95,44 @@ def test_pods_are_non_root_and_unprivileged() -> None:
         assert spec["securityContext"]["runAsNonRoot"] is True
         for container in spec["containers"] + spec.get("initContainers", []):
             assert container["securityContext"]["allowPrivilegeEscalation"] is False
+
+
+def _settings(*sets: str) -> dict[str, Any]:
+    docs = _docs(*ON, *sets)
+    config = next(d for d in docs if d["kind"] == "ConfigMap" and d["metadata"]["name"] == "c-searxng-config")
+    settings: dict[str, Any] = yaml.safe_load(config["data"]["settings.yml"])
+    return settings
+
+
+def test_every_listed_engine_is_kept_loaded_and_enabled() -> None:
+    """S80-40 (#2183): upstream ships most general-web engines `disabled` (a query naming no engine, as
+    Firecrawl's, never asks them) or `inactive` (not loaded). `keep_only` alone kept them listed and
+    silent: each listed engine is now also enabled and loaded, the default list as any other."""
+    defaults = yaml.safe_load((CHART / "charts" / "websearch" / "values.yaml").read_text())
+    names = defaults["searxng"]["engines"]
+    assert len(names) >= 3, "one engine that fails leaves the search with others"
+    for relay in ((), RELAY):
+        settings = _settings(*relay)
+        assert settings["use_default_settings"]["engines"]["keep_only"] == names
+        assert settings["engines"] == [{"name": n, "disabled": False, "inactive": False} for n in names]
+
+
+def test_an_engine_entry_may_carry_its_own_settings() -> None:
+    settings = _settings(
+        "choregos-websearch.searxng.engines[0]=bing",
+        "choregos-websearch.searxng.engines[1].name=mojeek",
+        "choregos-websearch.searxng.engines[1].timeout=8",
+        "choregos-websearch.searxng.engines[1].disabled=true",
+    )
+    assert settings["use_default_settings"]["engines"]["keep_only"] == ["bing", "mojeek"]
+    assert settings["engines"] == [
+        {"name": "bing", "disabled": False, "inactive": False},
+        {"name": "mojeek", "timeout": 8, "disabled": True, "inactive": False},
+    ]
+
+
+def test_no_engine_or_a_nameless_one_is_refused() -> None:
+    empty = _render(*ON, "choregos-websearch.searxng.engines=null")
+    assert empty.returncode != 0 and "searxng.engines is empty" in empty.stderr
+    nameless = _render(*ON, "choregos-websearch.searxng.engines[0].timeout=8")
+    assert nameless.returncode != 0 and "a map with its `name`" in nameless.stderr
