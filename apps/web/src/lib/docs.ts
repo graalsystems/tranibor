@@ -25,6 +25,7 @@ export const DOC_SLUGS = [
   "use/knowledge",
   "use/connectors",
   "use/budgets-and-policies",
+  "connectors",
   "build/skills",
   "build/agents",
   "build/plugins",

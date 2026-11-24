@@ -6322,6 +6322,19 @@ stories:
       - "a plugin tracker write made after its caller's transaction wrote is audited once, whether that transaction commits or rolls back, and the call does not wait for the caller's lock"
       - "after_end runs after a commit and after a rollback in every owner of a session (session_scope, get_db, get_platform_db, in_scope)"
     notes: "Before: on SQLite the audit row was written from a second connection while the caller held the write lock: 5 s, database is locked, no trace."
+  - id: S84-06
+    title: "feat(web,docs): a plugin server shows its plugin's setup procedure, and each connector has a page on the documentation site (ADR 0215)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: M
+    depends_on: [S43-04, S43-08]
+    acceptance:
+      - "the settings of a plugin server's connector show its plugin's procedure (connector:mcp/<plugin>, then mcp/<server>), and the generic MCP server procedure when the plugin ships none"
+      - "Library → Plugins opens each procedure of an installed plugin by its id in the setup panel; an id the API does not serve stays plain text"
+      - "export_docs.py --site writes one page per procedure, the platform's grouped by kind and, with --plugins, one group per plugin naming it and linking its source; title and description, no slug or id, placeholders as in docs/procedures/, fields as a table, prose safe for MDX"
+      - "the documentation site has a connectors/ section (hand-written index, generated pages never committed), built by docs-site.yml after the import, daily too, with the plugins' repository at main"
+    notes: "The API is unchanged: GET /procedures?for= answers an empty list when nothing matches, which moves the console's lookup to the next candidate."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

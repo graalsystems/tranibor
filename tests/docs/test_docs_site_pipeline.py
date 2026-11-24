@@ -11,6 +11,8 @@ import pathlib
 import re
 from urllib.parse import urlparse
 
+from tranibor_core.publishing import PUBLISHING
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WEBSITE = ROOT / "website"
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-site.yml"
@@ -48,3 +50,40 @@ def test_the_workflow_builds_on_pull_requests_and_publishes_from_main_and_releas
     assert "actions/deploy-pages@" in text and "id-token: write" in text
     # The publishing job never runs for a pull request.
     assert re.search(r"deploy:\n\s+if: github\.event_name != 'pull_request'", text)
+
+
+def _steps() -> list[str]:
+    """The build job's steps, each as its text, in order."""
+    text = WORKFLOW.read_text("utf-8")
+    build = text.split("\n  build:\n", 1)[1].split("\n  deploy:\n", 1)[0]
+    return [chunk for chunk in re.split(r"\n(?=      - )", build) if chunk.lstrip().startswith("- ")]
+
+
+def test_the_connector_pages_are_written_after_the_import_and_before_the_build() -> None:
+    """S84-06 (ADR 0215): the import empties website/docs/ first, so the pages are written after it, and
+    the build publishes them; each assertion fails if its step is removed or moved."""
+    steps = _steps()
+    at = {
+        name: next(i for i, step in enumerate(steps) if marker in step)
+        for name, marker in (
+            ("import", "scripts/import-docs.mjs"),
+            ("export", "tools/procedures/export_docs.py --site docs/connectors"),
+            ("build", "npm run build"),
+        )
+    }
+    assert at["import"] < at["export"] < at["build"]
+    export = steps[at["export"]]
+    assert "--plugins ../.plugins-checkout/plugins" in export and "--plugins-ref" in export
+    assert "--plugins-lenient" in export and "github.event_name != 'pull_request'" in export
+
+
+def test_the_plugins_are_read_from_their_public_repository_without_credentials() -> None:
+    checkout = next(step for step in _steps() if "path: .plugins-checkout" in step)
+    plugins = urlparse(PUBLISHING.plugin_repository).path.strip("/")
+    assert f"repository: {plugins}" in checkout and "ref: main" in checkout
+    assert "persist-credentials: false" in checkout
+
+
+def test_a_published_plugin_procedure_reaches_the_site_without_a_commit_here() -> None:
+    text = WORKFLOW.read_text("utf-8")
+    assert re.search(r"\n  schedule:\n    - cron: ", text), "a daily build picks up the plugins' procedures"
