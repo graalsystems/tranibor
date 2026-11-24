@@ -1619,9 +1619,19 @@ global:
 With `enabled`, the chart renders a Role in that namespace (Deployments, Services, NetworkPolicies,
 Secrets; CiliumNetworkPolicies with `egress: cilium`) bound to the API's ServiceAccount, nothing
 cluster-wide, and opens the platform's egress towards the namespace. The namespace must not be the
-release's. Per organisation and server the API writes a Deployment, a Service, a NetworkPolicy (ingress
-from the API's pods only) and a Secret, named `<server>-<hash of the organisation>` and labelled
-`choregos.dev/plugin`, `choregos.dev/server`, `choregos.dev/org`.
+release's. Per organisation and server the API writes a Deployment, a Service, a NetworkPolicy and a
+Secret, named `<server>-<hash of the organisation>` and labelled `choregos.dev/plugin`,
+`choregos.dev/server`, `choregos.dev/org`.
+
+The server's NetworkPolicy admits, on its port and from the release's namespace, the three kinds of
+callers a server has (#2192): the **API** (`app.kubernetes.io/name: choregos-api`: the broker, discovery,
+the connector test, the webhook) and the **orchestrator's workers** (`choregos-orchestrator`, every
+queue: the `tracker` queue polls and writes a `tracker/plugin`, the `orchestrator` queue plays a governed
+action's `connector.call`, and every activity builds its project's adapters). A runner pod is never
+admitted. A platform that writes its own policies for the servers' namespace (a tenant baseline that
+denies ingress by default) opens the same three to the servers' pods; NetworkPolicies add up, so the
+API's own policy is enough wherever nothing else denies. A server already running takes the wider policy
+at its next reconcile (a change of its connector's configuration).
 
 What stays with the operator: the namespace (unless `create`), the registry allowlist in two places —
 `registries` here and the prefix of the Kyverno policy `choregos-plugin-server-images`

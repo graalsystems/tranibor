@@ -897,7 +897,9 @@ says `unconfigured`; then `deployed`. The connector routes answer the server's p
 
 ### Network
 
-The server's pods admit only the API's pods (`plugins.servers` puts the API's namespace in the policy).
+The server's pods admit only the platform's: the API's and the orchestrator workers' pods, which call
+the server for a `tracker/plugin` and a governed action's `connector.call` (#2192), never a runner's
+(`plugins.servers` puts the API's namespace in the policy).
 Their egress is the hosts their configuration names (`egress.from_fields`, or the fixed `egress.hosts`):
 each is checked against the organisation's network bounds when it is typed (a denied host is a 422), and
 the server's NetworkPolicy lets through DNS and public addresses on those hosts' ports (never the

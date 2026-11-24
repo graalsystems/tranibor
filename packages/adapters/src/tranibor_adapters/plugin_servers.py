@@ -18,8 +18,11 @@ What runs:
   resource limits, the RuntimeClass the deployment names (gVisor), the pull secrets the deployment
   names. The digest of the Secret's data is an annotation of the pod template: changing the
   configuration rolls the pods;
-- a **Service** in front of it, which only the API calls;
-- a **NetworkPolicy**: ingress from the API pods only, on the server's port; egress to DNS and, by
+- a **Service** in front of it, which only the platform's own processes call;
+- a **NetworkPolicy**: ingress, on the server's port, from the pods of the platform's processes that call
+  a server (`CALLERS`): the API, and the orchestrator's workers, which build a project's adapters (a
+  `tracker/plugin` reads and writes through the server, #2192) and play a governed action's
+  `connector.call` effect; never a runner. Egress to DNS and, by
   default, to public addresses on the ports of the hosts its configuration names. Kubernetes cannot
   name a host: with `egress="cilium"` a `CiliumNetworkPolicy` narrows egress to those exact names
   (`toFQDNs`) and DNS to the lookups of those names (an L7 `dns` rule), and the NetworkPolicy opens no
@@ -33,7 +36,7 @@ import base64
 import hashlib
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import httpx
@@ -51,6 +54,11 @@ CILIUM_API = "/apis/cilium.io/v2"
 TOKEN_ENV = "TRANIBOR_SERVER_TOKEN"  # noqa: S105 - a variable name, not a secret
 CONFIG_DIGEST = "choregos.dev/config-digest"
 APP_NAME = "choregos-plugin-server"
+#: The `app.kubernetes.io/name` of every pod that calls a plugin server (`PluginServerClient`): the API
+#: (the broker, discovery, the connector test, the webhook) and the orchestrator's workers of every queue
+#: (each activity builds the project's adapters, a `tracker/plugin` among them, and the `orchestrator`
+#: queue plays a governed action's `connector.call`). A runner (`choregos-runner`) is never one (#2192).
+CALLERS = ("choregos-api", "choregos-orchestrator")
 #: Addresses a server never reaches by the default NetworkPolicy: the cluster's, the node's, the
 #: cloud's metadata endpoint. Its egress is the internet, on the ports its configuration names.
 PRIVATE_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10")
@@ -74,9 +82,10 @@ class ServerDeployment:
     runtime_class: str | None = None
     cpu: str = "500m"
     memory: str = "512Mi"
-    #: the API's pods, the only ones admitted (`kubernetes.io/metadata.name` of their namespace)
+    #: the namespace of the platform's pods, the only ones admitted (`kubernetes.io/metadata.name`)
     api_namespace: str = ""
-    api_labels: dict[str, str] = field(default_factory=lambda: {"app.kubernetes.io/name": "choregos-api"})
+    #: the `app.kubernetes.io/name` of the pods admitted there
+    callers: tuple[str, ...] = CALLERS
     #: (host, port) the server may reach, derived from its configuration
     egress: tuple[tuple[str, int], ...] = ()
     egress_mode: EgressMode = "networkpolicy"
@@ -192,7 +201,8 @@ def _ports(egress: Iterable[tuple[str, int]]) -> list[dict[str, Any]]:
 
 
 def _network_policy(d: ServerDeployment) -> dict[str, Any]:
-    source: dict[str, Any] = {"podSelector": {"matchLabels": dict(d.api_labels)}}
+    names = {"key": "app.kubernetes.io/name", "operator": "In", "values": list(d.callers)}
+    source: dict[str, Any] = {"podSelector": {"matchExpressions": [names]}}
     source["namespaceSelector"] = (
         {"matchLabels": {"kubernetes.io/metadata.name": d.api_namespace}} if d.api_namespace else {}
     )
@@ -354,6 +364,7 @@ class PluginServerClient(McpClient):
 
 
 __all__ = [
+    "CALLERS",
     "CONFIG_DIGEST",
     "PRIVATE_RANGES",
     "TOKEN_ENV",

@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 import yaml
+from tranibor_adapters.plugin_servers import ServerDeployment, server_manifests
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -173,3 +174,63 @@ def test_the_rules_the_docs_list_are_the_roles(tmp_path: pathlib.Path) -> None:
                 )
             )
     assert listed == rendered
+
+
+def _admits(selector: dict[str, Any], labels: dict[str, str]) -> bool:
+    """Whether a Kubernetes label selector selects a pod carrying `labels`."""
+    for key, value in (selector.get("matchLabels") or {}).items():
+        if labels.get(key) != value:
+            return False
+    for expression in selector.get("matchExpressions") or []:
+        present, values = expression["key"] in labels, expression.get("values") or []
+        held = labels.get(expression["key"])
+        if expression["operator"] == "In" and held not in values:
+            return False
+        if expression["operator"] == "NotIn" and present and held in values:
+            return False
+        if expression["operator"] == "Exists" and not present:
+            return False
+        if expression["operator"] == "DoesNotExist" and present:
+            return False
+    return True
+
+
+def test_every_caller_of_a_plugin_server_is_admitted_by_its_policy(tmp_path: pathlib.Path) -> None:
+    """#2192: a server's NetworkPolicy admitted the API alone, while the orchestrator's workers call the
+    server too (the `tracker` queue polls a `tracker/plugin`, the `orchestrator` queue plays a governed
+    action's `connector.call`, and every activity builds the project's adapters). On the chart's own
+    pods: the policy the API writes admits the API's and every orchestrator queue's, never a runner's,
+    and the platform's egress lets each of them out to the servers' namespace."""
+    docs = _docs(ON, tmp_path)
+    pods = {
+        doc["metadata"]["name"]: doc["spec"]["template"]["metadata"]["labels"]
+        for doc in docs
+        if doc.get("kind") == "Deployment"
+        and doc["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/name")
+        in {"choregos-api", "choregos-orchestrator"}
+    }
+    queues = {n for n, labels in pods.items() if labels["app.kubernetes.io/name"] == "choregos-orchestrator"}
+    assert len(queues) >= 4 and "choregos-api" in pods, sorted(pods)
+    server = ServerDeployment(
+        name="servicenow-0123abcd",
+        namespace="choregos-plugins",
+        image="registry.example/s@sha256:" + "a" * 64,
+        port=8080,
+        health_path="/healthz",
+        env={},
+        labels={},
+        api_namespace="choregos",
+    )
+    policy = next(o for o in server_manifests(server) if o["kind"] == "NetworkPolicy")
+    (rule,) = policy["spec"]["ingress"]
+    (source,) = rule["from"]
+    assert source["namespaceSelector"] == {"matchLabels": {"kubernetes.io/metadata.name": "choregos"}}
+    refused = sorted(name for name, labels in pods.items() if not _admits(source["podSelector"], labels))
+    assert refused == [], f"callers of a plugin server its policy does not admit: {refused}"
+    assert not _admits(source["podSelector"], {"app.kubernetes.io/name": "choregos-runner"})
+    platform = _named(docs, "NetworkPolicy", "choregos-allow-platform")
+    assert platform is not None
+    out = sorted(
+        name for name, labels in pods.items() if not _admits(platform["spec"]["podSelector"], labels)
+    )
+    assert out == [], f"callers the platform's egress does not let out: {out}"

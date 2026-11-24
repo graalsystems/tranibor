@@ -127,12 +127,17 @@ async def test_install_runs_the_server_under_the_pod_rules(
     policy = _only(kube, "networkpolicies")["spec"]
     assert policy["policyTypes"] == ["Ingress", "Egress"]
     (rule,) = policy["ingress"]
+    names = {
+        "key": "app.kubernetes.io/name",
+        "operator": "In",
+        "values": ["choregos-api", "choregos-orchestrator"],
+    }
     assert rule["from"] == [
         {
-            "podSelector": {"matchLabels": {"app.kubernetes.io/name": "choregos-api"}},
+            "podSelector": {"matchExpressions": [names]},
             "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "choregos"}},
         }
-    ]
+    ], "the API and the orchestrator's workers (#2192), never a runner"
     assert policy["egress"] == [], "no configured host: the server reaches nothing"
     assert len(_env(kube)[TOKEN_ENV]) >= 32
 
