@@ -15,6 +15,12 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from tranibor_contracts import Control, HumanDecision, InboundEvent
+from tranibor_core.temporal_connection import (
+    ORG_MEMO,
+    current_organisation,
+    organisation_of_workflow,
+    organisation_scope,
+)
 
 from .config import get_settings
 from .logging import get_logger
@@ -262,6 +268,18 @@ class FakeTemporal:
         self.cancelled.append(workflow_id)
 
 
+def organisation_of_payload(payload: dict[str, Any]) -> str | None:
+    """The organisation a start payload names (`org_id`), for the payload codec (ADR 0220). A payload that
+    names none is the platform's, unless the caller opened an `organisation_scope` around the start."""
+    value = payload.get("org_id")
+    return value if isinstance(value, str) and value else None
+
+
+def _memo(org_id: str | None) -> dict[str, str] | None:
+    """The workflow's memo: its organisation, so that a process that signals it later finds the key."""
+    return {ORG_MEMO: org_id} if org_id else None
+
+
 class RealTemporal:
     """Real Temporal client, connected lazily."""
 
@@ -287,14 +305,17 @@ class RealTemporal:
         from temporalio.service import RPCError
 
         client = await self.client()
+        org_id = organisation_of_payload(payload) or current_organisation()
         try:
-            handle = await client.start_workflow(
-                workflow,
-                payload,
-                id=workflow_id,
-                task_queue=self.task_queue,
-                id_reuse_policy=2,  # ALLOW_DUPLICATE_FAILED_ONLY: no duplicate on one ticket
-            )
+            with organisation_scope(org_id):
+                handle = await client.start_workflow(
+                    workflow,
+                    payload,
+                    id=workflow_id,
+                    task_queue=self.task_queue,
+                    id_reuse_policy=2,  # ALLOW_DUPLICATE_FAILED_ONLY: no duplicate on one ticket
+                    memo=_memo(org_id),
+                )
             return str(handle.id)
         except WorkflowAlreadyStartedError:
             # Already running under this id: the expected case (one loop per source, one interpreter
@@ -317,14 +338,17 @@ class RealTemporal:
         from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
         client = await self.client()
-        handle = await client.start_workflow(
-            "WorkflowInterpreter",
-            payload,
-            id=workflow_id,
-            task_queue=self.task_queue,
-            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
-            id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
-        )
+        org_id = organisation_of_payload(payload) or current_organisation()
+        with organisation_scope(org_id):
+            handle = await client.start_workflow(
+                "WorkflowInterpreter",
+                payload,
+                id=workflow_id,
+                task_queue=self.task_queue,
+                id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
+                id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
+                memo=_memo(org_id),
+            )
         return str(handle.id)
 
     async def start_action(self, workflow_id: str, payload: dict[str, Any]) -> str:
@@ -341,14 +365,17 @@ class RealTemporal:
         from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
         client = await self.client()
-        handle = await client.start_workflow(
-            "ActionWorkflow",
-            payload,
-            id=workflow_id,
-            task_queue=self.task_queue,
-            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
-            id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
-        )
+        org_id = organisation_of_payload(payload) or current_organisation()
+        with organisation_scope(org_id):
+            handle = await client.start_workflow(
+                "ActionWorkflow",
+                payload,
+                id=workflow_id,
+                task_queue=self.task_queue,
+                id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
+                id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
+                memo=_memo(org_id),
+            )
         return str(handle.id)
 
     async def start_trial(self, workflow_id: str, payload: dict[str, Any]) -> str:
@@ -364,14 +391,17 @@ class RealTemporal:
         from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
         client = await self.client()
-        handle = await client.start_workflow(
-            "ProjectProvisioning",
-            payload,
-            id=workflow_id,
-            task_queue=self.task_queue,
-            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
-            id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
-        )
+        org_id = organisation_of_payload(payload) or current_organisation()
+        with organisation_scope(org_id):
+            handle = await client.start_workflow(
+                "ProjectProvisioning",
+                payload,
+                id=workflow_id,
+                task_queue=self.task_queue,
+                id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
+                id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
+                memo=_memo(org_id),
+            )
         return str(handle.id)
 
     async def start_knowledge_sync(self, workflow_id: str, payload: dict[str, Any]) -> str:
@@ -403,14 +433,16 @@ class RealTemporal:
     async def signal(self, workflow_id: str, name: str, payload: Any) -> None:
         client = await self.client()
         handle = client.get_workflow_handle(workflow_id)
-        await handle.signal(name, payload)
+        with organisation_scope(await organisation_of_workflow(client, workflow_id)):
+            await handle.signal(name, payload)
 
     async def query(self, workflow_id: str, name: str) -> Any:
         return await answer_or_none(workflow_id, name, self._query(workflow_id, name))
 
     async def _query(self, workflow_id: str, name: str) -> Any:
         client = await self.client()
-        return await client.get_workflow_handle(workflow_id).query(name)
+        with organisation_scope(await organisation_of_workflow(client, workflow_id)):
+            return await client.get_workflow_handle(workflow_id).query(name)
 
     async def cancel(self, workflow_id: str) -> None:
         client = await self.client()

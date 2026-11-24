@@ -1,7 +1,9 @@
 # 0183 — Temporal over TLS, payloads encrypted: one connection factory, one key per deployment in phase 1
 
 - **Status**: accepted, 2026-11-17; phase 1 implemented by S80-06; phase 2 (a key per organisation, from
-  a KMS) not started
+  a KMS) not started; amended by [ADR 0220](0220-one-temporal-key-per-organisation-encryption-on-by-default.md)
+  (a key per organisation derived from the master key, encryption on by default in the chart and required in
+  `staging`/`prod`: §4 "Off by default" and "No refusal of clear text in production yet" no longer hold)
 - **Concerns**: `choregos_core.temporal_connection` (`connect_temporal`, `TemporalSecurity`,
   `AesGcmCodec`, `data_converter`), every Temporal client and worker (`choregos_orchestrator.worker`,
   `choregos_orchestrator.train_client`, `choregos_api.temporal.RealTemporal`, `tools/replay_record.py`),

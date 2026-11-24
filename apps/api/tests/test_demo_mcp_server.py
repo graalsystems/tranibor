@@ -203,6 +203,7 @@ async def test_the_api_does_not_start_with_the_file_where_it_is_refused(
     monkeypatch.setenv("TRANIBOR_ENV", env)
     monkeypatch.setenv("TRANIBOR_FAKES", fakes)
     monkeypatch.setenv("TRANIBOR_DEV_LOGIN_ENABLED", "false")
+    monkeypatch.setenv("TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS", "true")  # reach this refusal, not ADR 0220's
     reset_settings_cache()
     with pytest.raises(DemoMcpToolsRefusedError, match=named):
         async with app.router.lifespan_context(app):

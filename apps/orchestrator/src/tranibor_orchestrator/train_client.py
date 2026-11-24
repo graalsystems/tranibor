@@ -41,6 +41,14 @@ async def _connect() -> Any:
     return await connect_temporal(settings.temporal_address, settings.temporal_namespace)
 
 
+def _memo() -> dict[str, str] | None:
+    """The workflow's memo: the organisation in scope (ADR 0220), so that a later signal finds its key."""
+    from tranibor_core.temporal_connection import ORG_MEMO, current_organisation
+
+    org_id = current_organisation()
+    return {ORG_MEMO: org_id} if org_id else None
+
+
 def clear_fake_signals() -> None:
     _FAKE_SIGNALS.clear()
     _FAKE_STARTS.clear()
@@ -75,6 +83,7 @@ async def start_workflow_once(
             payload,
             id=workflow_id,
             task_queue="orchestrator",
+            memo=_memo(),
             # Already finished for this ticket: it is not started again. Already running: the
             # existing one is taken over rather than creating a second.
             # A loop (a project's catch-up) that died in failure restarts; a ticket never does.
@@ -105,6 +114,7 @@ async def restart_interpreter(workflow_id: str, payload: dict[str, Any]) -> None
         payload,
         id=workflow_id,
         task_queue="orchestrator",
+        memo=_memo(),
         id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
         id_conflict_policy=WorkflowIDConflictPolicy.TERMINATE_EXISTING,
     )

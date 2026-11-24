@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query
 from sqlalchemy import or_, select
 from tranibor_contracts import EventType
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import Finding, Project, WorkItem
@@ -149,15 +150,16 @@ async def act(id: str, body: FindingAction, session: Db, principal: Me) -> Findi
         if item is None:
             raise not_found("Work item created for this finding", row.id)
         workflow_id = interpreter_id(project.slug, item.tracker_key)
-        await get_temporal().start_interpreter(
-            workflow_id,
-            {
-                "project_id": project.id,
-                "project_slug": project.slug,
-                "work_item_id": item.id,
-                "tracker_key": item.tracker_key,
-            },
-        )
+        with organisation_scope(project.org_id):
+            await get_temporal().start_interpreter(
+                workflow_id,
+                {
+                    "project_id": project.id,
+                    "project_slug": project.slug,
+                    "work_item_id": item.id,
+                    "tracker_key": item.tracker_key,
+                },
+            )
         item.temporal_wf_id = workflow_id
     elif body.action == "mark_relevant":
         row.relevant = True

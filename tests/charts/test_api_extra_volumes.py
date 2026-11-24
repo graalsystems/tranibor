@@ -44,6 +44,8 @@ def test_default_adds_nothing(tmp_path: pathlib.Path) -> None:
         "playbooks",
         # The built-in agents' plugin configuration, on by default since S43-09 (ADR 0093 §6).
         "plugins-config",
+        # Temporal's payload codec keys, on by default (ADR 0220).
+        "temporal-codec",
     }
     assert "theme" not in {m["name"] for m in spec["containers"][0]["volumeMounts"]}
 
