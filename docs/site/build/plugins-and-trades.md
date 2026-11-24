@@ -70,7 +70,8 @@ names it.
   repository templates and the roles `fix_ci`, `address_review`, `release_notes` and `verify_prod`.
 - **IT service management**: `servicenow`. Content only: an ITSM triage agent, its skill, and an MCP
   server that implements the tracker profile, so a project's tickets live in ServiceNow and every write
-  the agent makes is a governed operation of that server.
+  the agent makes is a governed operation of that server. Its governed path was run end to end on a real
+  instance on the dev cluster (S80-20); `docs/plugins.md` says what that proves and what it does not.
 - **Documentation**: a plugin with content only: a drafting agent, a skill with the house style, a
   template whose workflow goes draft, review, publish. It uses the core's own gates (`outputs_present`,
   `output_schema`) and a person's review. It would need an extension only to add a gate of its own.
