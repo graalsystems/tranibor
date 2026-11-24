@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 
 import httpx
@@ -11,6 +12,7 @@ from tranibor_adapters.oci import RegistryError
 from tranibor_adapters.plugin_servers import (
     CONFIG_DIGEST,
     PRIVATE_RANGES,
+    TOKEN_ENV,
     PluginServerClient,
     PluginServerRuntime,
     ServerDeployment,
@@ -63,6 +65,17 @@ def test_cilium_names_the_exact_hosts_and_the_network_policy_opens_no_egress() -
 
 def test_no_host_no_egress_at_all() -> None:
     assert _kind(server_manifests(_server(egress=())), "NetworkPolicy")["spec"]["egress"] == []  # type: ignore[index]
+
+
+def test_the_secret_gives_the_token_under_both_names_during_the_window() -> None:
+    """#2191: core 0.28 renamed the variable it writes into a third party's pod, and every server image
+    published before the rename (reading only the former name) refused to start. Until ADR 0176's R4
+    window closes, the Secret carries both; the server's own configuration is not doubled."""
+    data = _kind(server_manifests(_server()), "Secret")["data"]
+    env = {k: base64.b64decode(v).decode() for k, v in data.items()}  # type: ignore[union-attr]
+    legacy = "CHOREGOS_" + TOKEN_ENV.removeprefix("TRANIBOR_")
+    assert env[TOKEN_ENV] == env[legacy] == "t" * 43
+    assert set(env) == {TOKEN_ENV, legacy, "BASE_URL"}
 
 
 def test_the_configuration_digest_rolls_the_pods() -> None:

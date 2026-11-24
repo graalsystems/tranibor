@@ -869,6 +869,12 @@ approval) runs each of its servers and governs it:
   `TRANIBOR_SERVER_TOKEN`, and presents it as `Authorization: Bearer <token>` on every call to
   `paths.mcp`. A server that answers without it lets anything in the cluster that reaches it act with
   its credentials.
+  **Which variable to read.** Read `TRANIBOR_SERVER_TOKEN` first and fall back to
+  `CHOREGOS_SERVER_TOKEN`: <!-- compat-ok -->
+  core 0.29.2 and later give the pod the token under both names for ADR 0176's R4 window (#2191); cores
+  0.28.0 to 0.29.1 give the new name only, cores before 0.28 the former name only. A server that reads
+  both runs on every core; one that reads only the former name refuses to start on 0.28.0 to 0.29.1.
+  The same holds for any other `TRANIBOR_*` variable the platform sets in the pod.
 - **Answer MCP over HTTP** (`protocol: mcp-http`) at `paths.mcp`, and `200` at `paths.health`
   (readiness and liveness probes).
 - **Run as a non-root user with a read-only root filesystem**; `/tmp` is a small writable `emptyDir`.

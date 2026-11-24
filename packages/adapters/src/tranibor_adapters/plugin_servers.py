@@ -9,7 +9,10 @@ replaying an install, an upgrade or a configuration change converges on the same
 What runs:
 
 - a **Secret** with the server's configuration as environment variables and the platform's bearer
-  token (`TRANIBOR_SERVER_TOKEN`), the server refusing any call without it;
+  token (`TRANIBOR_SERVER_TOKEN`), the server refusing any call without it. During ADR 0176's R4 window
+  every `TRANIBOR_*` variable of the Secret is also given under its former `CHOREGOS_*` name
+  (`with_legacy`): a server image is third-party code on its own release cycle, and one published before
+  the rename reads only the former name (#2191);
 - a **Deployment** of one replica (none while the configuration is incomplete), the image pinned by
   digest, non-root, read-only root filesystem, no ServiceAccount token, capabilities dropped,
   resource limits, the RuntimeClass the deployment names (gVisor), the pull secrets the deployment
@@ -34,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import httpx
+from tranibor_contracts.env import with_legacy
 
 from .executor.tekton import CORE_API, KubernetesClient
 from .mcp.client import McpClient
@@ -43,6 +47,7 @@ APPS_API = "/apis/apps/v1"
 NETWORKING_API = "/apis/networking.k8s.io/v1"
 CILIUM_API = "/apis/cilium.io/v2"
 #: The variable the server reads its bearer token from; it refuses `/mcp` without it (docs/plugins.md).
+#: The Secret also carries it under its former name until ADR 0176's R4 window closes (`_secret`).
 TOKEN_ENV = "TRANIBOR_SERVER_TOKEN"  # noqa: S105 - a variable name, not a secret
 CONFIG_DIGEST = "choregos.dev/config-digest"
 APP_NAME = "choregos-plugin-server"
@@ -89,12 +94,15 @@ def _meta(d: ServerDeployment) -> dict[str, Any]:
 
 
 def _secret(d: ServerDeployment) -> dict[str, Any]:
+    # Both names of each platform variable (ADR 0176 R4): the core renamed what it writes, a server
+    # image published before the rename still reads the former name, and it is not the core's to move.
+    env = with_legacy(d.env)
     return {
         "apiVersion": "v1",
         "kind": "Secret",
         "metadata": _meta(d),
         "type": "Opaque",
-        "data": {k: base64.b64encode(v.encode()).decode() for k, v in sorted(d.env.items())},
+        "data": {k: base64.b64encode(v.encode()).decode() for k, v in sorted(env.items())},
     }
 
 

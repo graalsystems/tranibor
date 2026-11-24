@@ -59,7 +59,9 @@ platform fills.
    arguments, the questions a connector type answers for pfSense.
 6. **Authentication of `/mcp`.** The platform generates a token per server and organisation, seals it in
    the organisation's store under the connector's `_server_token` field (outside the secret routes' field
-   pattern: nobody sets or reads it), gives it to the pod as `CHOREGOS_SERVER_TOKEN`, and presents it as
+   pattern: nobody sets or reads it), gives it to the pod as `CHOREGOS_SERVER_TOKEN` (amended: as
+   `TRANIBOR_SERVER_TOKEN` and, for ADR 0176's R4 window, also under the former name; see the amendment
+   at the end), and presents it as
    a bearer token on every call. A server must refuse a call without it. The call goes to the Service
    URL the platform wrote, follows no redirect, and is not an egress of the organisation: it does not
    pass the organisation's egress allowlist, as an internet call would.
@@ -165,3 +167,16 @@ an image, never a module of the core (§1), so the core reaches the server only 
   (`choregos_adapters.fakes.plugin_servers`): the plugin's own CI serves its server in-process on its fake;
   the core's CI answers from a recording of that fake (`FakePluginServer`). Its tools are the declared
   operations the server lists, at their declared floor, as discovery and the broker govern them.
+
+## Amendment (2026-11-24, #2191): the variable the token reaches the pod as
+
+ADR 0176's R4 (S75-04, core 0.28.0) renamed the platform's variables to `TRANIBOR_*` and the core
+started writing the server's token as `TRANIBOR_SERVER_TOKEN` alone. Every plugin server image published
+before the rename read only `CHOREGOS_SERVER_TOKEN`, and on core 0.29.0 each refused to start (the
+`servicenow` server on the Diametral dev cluster, 2026-11-23). A server image is third-party code on its
+own release cycle: the core does not break it on a rename. From core 0.29.2 the Secret of a server (and
+of its eval instance) carries every `TRANIBOR_*` variable under its former `CHOREGOS_*` name too, until
+R4's window closes in its own PR; `docs/plugins.md` ("What the server must do") tells a server to read
+the new name first and the former one as a fallback. A server already running takes the doubled Secret
+at its next reconcile (any change of its connector's configuration); the core does not reconcile
+servers at start-up.
