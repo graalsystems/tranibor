@@ -5958,6 +5958,14 @@ stories:
     size: S
     depends_on: [S80-20]
     notes: "The pages that say what is proven of ServiceNow and what is not (S80-20 and its follow-ups, tranibor-agents 0.2.12 and 0.2.13). docs/plugins.md gains the paragraph: the two live suites and how to run them, the governed path run on the dev cluster on 2026-11-24, what stays unproven. docs/runbooks/live-eval-matrix.md: the plugin repository's name (tranibor-agents), and the fixture paragraph no longer says 0.1.1 is the latest release (0.1.2 and later declare the matrix cases and the fake; none is in the offline lock). The live test's docstring names TRANIBOR_SERVER_TOKEN. The plugin side: tranibor-agents PR for 0.2.13."
+  - id: S80-44b
+    title: "docs(servicenow): 0.2.12's change move and paging are proven on the instance"
+    stream: S80
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: [S80-44]
+    notes: "S80-44 said the plugin's 0.2.12 fixes had not run on an instance; the plugin's live suite passed 9 tests on 2026-11-24 (tranibor-agents#43, #46). docs/plugins.md says so, and what stays unproven."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
