@@ -79,6 +79,12 @@ log = get_logger(__name__)
 SERVER_TOKEN_FIELD = "_server_token"  # noqa: S105 - a field name, not a secret
 KIND, TYPE = "mcp", "mcp"
 UNCONFIGURED, DEPLOYED, ERROR = "unconfigured", "deployed", "error"
+#: The connector's status after a check that reached the server (Discover, the connector test): the
+#: status column is shared by the deployment (`deployed`, `unconfigured`) and the last check (`ok`,
+#: `error`), and a server that answered a check is running (#2193).
+CHECKED = "ok"
+#: The statuses of a server that runs: deployed with its whole configuration, or answering since.
+RUNNING = frozenset({DEPLOYED, CHECKED})
 _ENV = re.compile(r"^[A-Z_][A-Z0-9_]{0,127}$")
 _OVERRIDES: dict[str, Any] = {}
 
@@ -709,7 +715,9 @@ async def connector_client(
 
 
 __all__ = [
+    "CHECKED",
     "DEPLOYED",
+    "RUNNING",
     "SERVER_TOKEN_FIELD",
     "UNCONFIGURED",
     "bound_fake",

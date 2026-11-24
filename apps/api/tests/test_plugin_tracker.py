@@ -134,6 +134,28 @@ async def test_a_template_s_plugin_tracker_is_wired_once_the_server_runs(
     assert tested.json()["ok"] is True, "the connector test reached the server and found the whole profile"
 
 
+async def test_a_server_discover_reached_is_still_running_for_the_template_and_the_webhook(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
+) -> None:
+    """#2193: Discover turned the server's connector from `deployed` to `ok` (its check reached it), and
+    project creation then refused the template's tracker as "not running (`ok`)"; a delivery to its
+    webhook was dropped the same way. A server that answered a check runs."""
+    await _install(client)
+    await _configure(client)
+    fake = _server(kube)
+    discovered = await client.post(f"{ORG}/connectors/desk/discover")
+    assert discovered.status_code == 200, discovered.text
+    assert (await client.get(f"{ORG}/connectors/desk")).json()["status"] == "ok"
+    created = await _project(client)
+    assert created.status_code == 201, created.text
+    fake.add("INC0000001", "VPN drops")
+    answered = await client.post(
+        HOOK, content=fake.delivery("INC0000001"), headers={"X-Choregos-Secret": SECRET}
+    )
+    assert answered.status_code == 202, answered.text
+    assert len(dispatched) == 1
+
+
 async def test_a_plugin_tracker_of_a_plugin_not_installed_is_refused(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi
 ) -> None:

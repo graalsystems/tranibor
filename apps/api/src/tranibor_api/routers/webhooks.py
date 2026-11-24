@@ -910,7 +910,7 @@ async def _tracker_servers(session: Any, org: str, plugin: str, server: str) -> 
     """The organisation's running connector of `plugin`'s server `server`, when it is a tracker with a
     webhook. The URL names the organisation: a delivery is never shown to another organisation's server."""
     from ..db.org_aliases import organisation_by_slug_or_alias
-    from ..services.plugin_servers import DEPLOYED
+    from ..services.plugin_servers import RUNNING
 
     # A renamed organisation keeps its webhook URL: an old slug is an alias (ADR 0090).
     owner = await organisation_by_slug_or_alias(session, org)
@@ -928,7 +928,7 @@ async def _tracker_servers(session: Any, org: str, plugin: str, server: str) -> 
             continue
         if "tracker" in (declared.get("implements") or []) and declared.get("webhook"):
             found.append(row)
-    return sorted((r for r in found if r.status == DEPLOYED), key=lambda r: str(r.org_id))
+    return sorted((r for r in found if r.status in RUNNING), key=lambda r: str(r.org_id))
 
 
 async def _projects_on(session: Any, org_id: str, plugin: str, server: str) -> list[Project]:
