@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/demo-history.schema.json",
+  "title": "DemoHistory",
+  "description": "A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused.",
+  "type": "object",
+  "required": ["schema", "work_items"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "choregos/DemoHistory/v1" },
+    "workflow": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "The project's workflow the work items belong to, by name; absent: the project's default. Every state the document names must exist in it."
+    },
+    "prices": {
+      "type": "object",
+      "description": "The price the document declares for each model, in USD per million tokens. A run that gives no `cost_usd` is costed with the price of its `model`; a model with no price there is refused.",
+      "additionalProperties": { "$ref": "#/$defs/price" }
+    },
+    "work_items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/work_item" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "The external id: what makes the import idempotent. Unique in its list (for runs, decisions and findings: in its work item)."
+    },
+    "price": {
+      "type": "object",
+      "required": ["input_usd_per_mtok", "output_usd_per_mtok"],
+      "additionalProperties": false,
+      "properties": {
+        "input_usd_per_mtok": { "type": "number", "minimum": 0 },
+        "output_usd_per_mtok": { "type": "number", "minimum": 0 },
+        "cached_input_usd_per_mtok": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The price of the input tokens read from a cache; absent: the input price."
+        }
+      }
+    },
+    "state_entry": {
+      "type": "object",
+      "required": ["state", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "at": { "type": "string", "format": "date-time" },
+        "by": { "type": "string", "maxLength": 200, "description": "Who moved it: an e-mail of a member of the organisation, or an agent slug of its registry; absent: the orchestrator." },
+        "reason": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input": { "type": "integer", "minimum": 0, "description": "All the input tokens, the cached ones included." },
+        "output": { "type": "integer", "minimum": 0 },
+        "cached": { "type": "integer", "minimum": 0, "description": "The part of `input` read from a cache." }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["id", "stage", "status", "started_at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "stage": { "type": "string", "minLength": 1, "maxLength": 32, "description": "The role of the step the run played (`refine`, `implement`, `review`...)." },
+        "agent": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "The slug of an agent of the organisation's registry; refused when the registry does not hold it." },
+        "attempt": { "type": "integer", "minimum": 1, "default": 1 },
+        "status": { "type": "string", "enum": ["succeeded", "failed", "cancelled", "timed_out"] },
+        "started_at": { "type": "string", "format": "date-time" },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "model": { "type": "string", "maxLength": 200 },
+        "tokens": { "$ref": "#/$defs/tokens" },
+        "cost_usd": { "type": "number", "minimum": 0, "description": "The cost as declared; absent: the tokens at the price of `model` in `prices`." },
+        "summary": { "type": "string", "maxLength": 2000, "description": "The run's result summary." }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["id", "kind", "summary", "at", "by"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "type": "string", "enum": ["approval", "question", "scope_change"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "What the person was asked." },
+        "requested_at": { "type": "string", "format": "date-time", "description": "Absent: one hour before `at`." },
+        "at": { "type": "string", "format": "date-time", "description": "When the person decided." },
+        "by": { "type": "string", "maxLength": 200, "description": "The e-mail of a member of the organisation; refused otherwise." },
+        "approved": { "type": "boolean", "default": true, "description": "An approval or a scope change: granted or refused." },
+        "answer": { "type": "string", "maxLength": 2000, "description": "A question: the answer." },
+        "reason": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "A finding type the platform knows (the same open list as a finding an agent raises)." },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "evidence": { "type": "string", "minLength": 1 },
+        "suggested_fix": { "type": "string" },
+        "estimate": { "type": "string", "enum": ["S", "M", "L"] },
+        "status": { "type": "string", "enum": ["pending", "dismissed"], "default": "pending" },
+        "run": { "$ref": "#/$defs/id", "description": "The id of the run of this work item that raised it." },
+        "at": { "type": "string", "format": "date-time", "description": "Absent: the work item's creation." }
+      }
+    },
+    "work_item": {
+      "type": "object",
+      "required": ["id", "title", "created_at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "body": { "type": "string" },
+        "url": { "type": "string", "maxLength": 500 },
+        "size": { "type": "string", "enum": ["S", "M", "L", "XL"] },
+        "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "fields": { "type": "object", "additionalProperties": true, "description": "The ticket's fields, validated by the workflow's `metadata.inputs` as a live ticket's are." },
+        "created_by": { "type": "string", "maxLength": 200, "description": "The e-mail of a member of the organisation; refused otherwise." },
+        "created_at": { "type": "string", "format": "date-time" },
+        "state": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The state it is in now; absent: the last of `history`, else the workflow's initial state." },
+        "history": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/state_entry" },
+          "description": "The states it went through, oldest first, from the initial state. The last one is the current state."
+        },
+        "runs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/run" } },
+        "decisions": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/decision" } },
+        "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } }
+      }
+    }
+  }
+}

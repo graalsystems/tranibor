@@ -17,6 +17,7 @@ from tranibor_contracts import (
     ContextPack,
     ContextPolicy,
     DecisionRecord,
+    DemoHistory,
     Finding,
     HumanDecision,
     InboundEvent,
@@ -76,6 +77,7 @@ def test_all_declared_schemas_exist() -> None:
         ("human-decision.example.json", "human-decision.schema.json"),
         ("decision-record.example.json", "decision-record.schema.json"),
         ("context-pack.example.json", "context-pack.schema.json"),
+        ("demo-history.example.json", "demo-history.schema.json"),
         ("event.example.json", "event.schema.json"),
         ("ui-manifest.example.json", "ui-manifest.schema.json"),
         ("plugin.example.json", "plugin.schema.json"),
@@ -110,6 +112,7 @@ def test_example_matches_json_schema(example: str, schema_name: str) -> None:
         ("human-decision.example.json", HumanDecision),
         ("decision-record.example.json", DecisionRecord),
         ("context-pack.example.json", ContextPack),
+        ("demo-history.example.json", DemoHistory),
     ],
 )
 def test_example_matches_python_model(example: str, model: type) -> None:
