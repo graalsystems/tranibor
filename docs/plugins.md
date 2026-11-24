@@ -958,9 +958,15 @@ person and written once. Not proven: the Business Rule's delivery to the webhook
 credentials on a cluster, a nightly run, a human's governance (test accounts gave the approvals), and the
 plugin's 0.2.12 fixes on a cluster. Those fixes (a change request moves along its change model, the queue
 poll pages and says what it left out; findings tranibor-agents#24 and #25) passed the plugin's live suite
-on the instance on 2026-11-24 (9 tests, basic authentication, as the instance's admin); what is not proven
-is OAuth client credentials and the Change Management roles for a non-admin integration user. No
-ServiceNow finding is open in either repository.
+on the instance on 2026-11-24 (9 tests, basic authentication, as the instance's admin). The same day
+(plugin 0.2.15, S80-45) the suite passed 18 tests as the procedure's non-admin integration user, 9 by
+basic authentication and 9 by OAuth client credentials: the user holds the procedure's custom role,
+`snc_basic_auth_api_access` (basic only) and `sn_change_read`, not `sn_change_write`; client credentials
+need the system property `glide.oauth.inbound.client.credential.grant_type.enabled`. The Business Rule's
+delivery was tried against the dev cluster's webhook route and never left the instance: the cluster's
+API name resolves only on a private network (`java.net.UnknownHostException` in the instance's outbound
+log). A deployment whose API has a public name is what that proof needs. No ServiceNow finding is open
+in either repository.
 
 | `TrackerAdapter` | Tool | Declared access |
 |:--|:--|:--|
