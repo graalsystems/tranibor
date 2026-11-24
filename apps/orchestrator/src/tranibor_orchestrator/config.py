@@ -88,6 +88,10 @@ class OrchestratorSettings(BaseSettings):
     #: own that the executor starts; one that cannot refuses the run. `TRANIBOR_RUNNER_AGENT_ISOLATION`,
     #: the same variable the runner and the API read.
     runner_agent_isolation: Literal["process", "container"] = "process"
+    #: The named opt-out of ADR 0222: in `staging` and `prod` a run whose agent would share the runner's
+    #: container (`process`) is refused unless this holds `none-accepted`. `TRANIBOR_AGENT_ISOLATION`, the
+    #: chart's `global.runner.acceptUnisolatedAgent`; any other word is refused at start.
+    agent_isolation: Literal["", "none-accepted"] = ""
     #: Below this reservation (USD), a stage does not start: its key would be refused at its first
     #: model call (ADR 0047, S27-02). `TRANIBOR_MIN_RUN_RESERVATION_USD`.
     min_run_reservation_usd: float = Field(default=0.01, ge=0)

@@ -312,6 +312,12 @@ class StageJobSpec(Model):
     #: Where the step's agent runs (ADR 0146, `tranibor_core.agent_isolation`): `container` asks the
     #: executor for the agent's own container, and one that cannot start it refuses the run.
     agent_isolation: Literal["process", "container"] = "process"
+    #: The deployment's `TRANIBOR_ENV`, set by every step run (ADR 0222): in `staging` and `prod` an executor
+    #: refuses `process` unless `agent_isolation_accepted`. Empty (a hosted session's pod, which starts no
+    #: agent of its own) is not judged.
+    environment: str = ""
+    #: The operator named the opt-out (`TRANIBOR_AGENT_ISOLATION=none-accepted`, ADR 0222); every run logs it.
+    agent_isolation_accepted: bool = False
     #: The image of the agent's own container under `container` (ADR 0146 §10): the operator's, for an
     #: agent written in code (ADR 0063), whose runner is then the platform's image. None: the runner's.
     agent_image: str | None = None

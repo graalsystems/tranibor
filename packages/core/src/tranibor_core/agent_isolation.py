@@ -19,6 +19,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Literal
 
+from .production import ENVIRONMENT_VARIABLE, is_production
+
 AgentIsolation = Literal["process", "container"]
 
 #: The deployment's setting, read by the API, the workers and the runner alike.
@@ -29,6 +31,46 @@ AGENT_ISOLATION_MODES: tuple[AgentIsolation, ...] = ("process", "container")
 SEPARATE_AGENT = "separate_agent"
 #: The error code of a run refused for it, as `hosted_unsupported_cluster` names its own refusal.
 AGENT_ISOLATION_UNAVAILABLE = "agent_isolation_unavailable"
+
+
+#: The named, explicit opt-out (ADR 0222): in staging and prod an agent that runs beside the runner's
+#: credentials (`process`) is refused unless this variable holds `none-accepted`. The only value; a typo
+#: is refused at start, never read as an acceptance.
+AGENT_ISOLATION_ACCEPT_ENV = "TRANIBOR_AGENT_ISOLATION"
+NONE_ACCEPTED = "none-accepted"
+
+
+def agent_isolation_none_accepted(value: str | None) -> bool:
+    """Whether a `TRANIBOR_AGENT_ISOLATION` value is the opt-out. Empty is not; any other word is refused."""
+    text = (value or "").strip()
+    if not text:
+        return False
+    if text == NONE_ACCEPTED:
+        return True
+    raise ValueError(
+        f"{AGENT_ISOLATION_ACCEPT_ENV}={text!r}: the only value is {NONE_ACCEPTED!r} (ADR 0222); "
+        "leave it unset to keep the agent isolated"
+    )
+
+
+def unisolated_agent_refusal(
+    environment: str | None, asked: str, executor: str, *, accepted: bool
+) -> str | None:
+    """Why a run whose agent would share the runner's container is refused, or None.
+
+    Only in staging and prod (`is_production`), only under `process`, and not when the operator named the
+    opt-out (ADR 0222). An empty `environment` is not judged: a pod that starts no agent of its own
+    (a hosted session) leaves it empty. One comparison for the executor, the runner and `/readiness`."""
+    if accepted or asked != "process" or not is_production(environment):
+        return None
+    return (
+        f"{AGENT_ISOLATION_UNAVAILABLE}: {ENVIRONMENT_VARIABLE}={(environment or '').strip()} and the agent "
+        f"would run in the runner's own container ({AGENT_ISOLATION_ENV}=process, executor `{executor}`), "
+        "where it can read the run token, the git token and the egress report key (ADR 0146). Isolate it "
+        "(`global.runner.agentIsolation: container` on `k8s_job`, `local_docker` or `agent_sandbox`), or "
+        f"accept the risk by name with {AGENT_ISOLATION_ACCEPT_ENV}={NONE_ACCEPTED} "
+        "(the chart's `global.runner.acceptUnisolatedAgent: true`), which every run then logs (ADR 0222)"
+    )
 
 
 def deployment_agent_isolation(environ: Mapping[str, str]) -> AgentIsolation:
@@ -69,5 +111,6 @@ def agent_isolation_refusal(asked: str, executor: str, capabilities: Iterable[st
         f"({AGENT_ISOLATION_ENV}=container, ADR 0146) and the `{executor}` executor cannot start one "
         f"(it does not declare `{SEPARATE_AGENT}`{': ' + why if why else ''}); run the project on an "
         "executor that does (`k8s_job`, `local_docker`, `agent_sandbox`), or set "
-        "`global.runner.agentIsolation: process`"
+        "`global.runner.agentIsolation: process` (in staging and prod that also needs "
+        f"{AGENT_ISOLATION_ACCEPT_ENV}={NONE_ACCEPTED}, ADR 0222)"
     )

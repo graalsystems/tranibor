@@ -9,6 +9,7 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
+import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
@@ -182,7 +183,7 @@ def test_the_procurement_job_image_is_named_and_follows_the_runners_version() ->
     import json
 
     env = _env(_services()["worker"])
-    images = json.loads(env["TRANIBOR_JOB_IMAGES"].replace("${TRANIBOR_RUNNER_VERSION:-0.17.12}", "X"))
+    images = json.loads(env["TRANIBOR_JOB_IMAGES"].replace("${TRANIBOR_RUNNER_VERSION:-0.29.3}", "X"))
     assert list(images) == ["procurement"]
     assert images["procurement"] == f"{PUBLISHING.image('tranibor-procurement')}:X"
     assert "${TRANIBOR_RUNNER_VERSION:-" in env["TRANIBOR_JOB_IMAGES"], (
@@ -206,3 +207,55 @@ def test_the_image_carries_exactly_the_offers_the_seed_hands() -> None:
     assert sorted(s.removeprefix(fixtures) for s in sources) == sorted(PROCUREMENT_SAMPLES)
     for name in PROCUREMENT_SAMPLES:
         assert (ROOT / fixtures / name).is_file(), name
+
+
+# ADR 0222: `docker compose up` runs every agent isolated ─────────────────────────────────────────
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+#: The first runner release whose image carries the launcher and the Docker side of the agent's own
+#: container (ADR 0146, S65-04h, the chart's default from 0.27.17). An older image ignores
+#: `TRANIBOR_RUNNER_AGENT_ISOLATION` and would run the agent beside the run's credentials, saying nothing.
+FIRST_ISOLATING_RUNNER = "0.27.17"
+
+
+def test_every_agent_runs_in_a_container_of_its_own() -> None:
+    assert _platform_env()["TRANIBOR_RUNNER_AGENT_ISOLATION"] == "container"
+    for name in ("api", "worker"):
+        assert _env(_services()[name])["TRANIBOR_RUNNER_AGENT_ISOLATION"] == "container", name
+
+
+def test_the_workers_executor_is_the_one_that_can_start_that_container() -> None:
+    from tranibor_adapters.executor.isolation import declared_capabilities
+    from tranibor_core.agent_isolation import SEPARATE_AGENT, agent_isolation_refusal
+
+    kind = _env(_services()["worker"])["TRANIBOR_EXECUTOR_KIND"]
+    capabilities = declared_capabilities(kind, agent_isolation="container")
+    assert SEPARATE_AGENT in capabilities, f"{kind} cannot isolate: the compose file would refuse every run"
+    assert agent_isolation_refusal("container", kind, capabilities) is None
+
+
+def test_the_worker_reads_the_isolation_from_the_compose_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tranibor_orchestrator.config import OrchestratorSettings
+
+    monkeypatch.setenv(
+        "TRANIBOR_RUNNER_AGENT_ISOLATION", _env(_services()["worker"])["TRANIBOR_RUNNER_AGENT_ISOLATION"]
+    )
+    assert OrchestratorSettings(_env_file=None).runner_agent_isolation == "container"  # type: ignore[call-arg]
+
+
+def test_the_default_runner_image_carries_the_launcher() -> None:
+    """Isolation needs the runner of 0.27.17 or later: the default version, in the compose file and in
+    `.env.example`, must not be an older one."""
+    import re
+
+    compose = COMPOSE.read_text(encoding="utf-8")
+    defaults = set(re.findall(r"TRANIBOR_RUNNER_VERSION:-([0-9.]+)\}", compose))
+    defaults.add(
+        re.search(r"^TRANIBOR_RUNNER_VERSION=([0-9.]+)$", (ROOT / ".env.example").read_text(), re.M).group(1)  # type: ignore[union-attr]
+    )
+    assert len(defaults) == 1, f"one default runner version everywhere, found {sorted(defaults)}"
+    assert _version(defaults.pop()) >= _version(FIRST_ISOLATING_RUNNER)

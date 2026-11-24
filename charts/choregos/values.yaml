@@ -82,6 +82,11 @@ global:
     # `choregos-orchestrator.runner.runtimeClass` still applies to the pool as before, but the API
     # treats the pool's class as unknown and judges nothing. Both set and different: refused.
     # runtimeClass: gvisor
+    # gVisor is an opt-in, deliberately not a default (ADR 0222): a pod naming a RuntimeClass the cluster
+    # lacks is never admitted, so every run would hang; the chart cannot ask the cluster (`lookup` answers
+    # nothing under `helm template` and under Argo CD's offline render, so a default would differ by renderer); and Landlock does
+    # not exist under gVisor (ADR 0094). On a cluster that has the class, `runtimeClass: gvisor` here is
+    # the whole change, and `/readiness` then judges a policy's `sandbox.runtime` against it.
     # What the API lets a project choose as its `runtime` connector. Empty: only `executor`.
     # Add `k8s_job` for the steps that name their own image.
     allowedExecutors: []
@@ -95,6 +100,13 @@ global:
     # (S65-04m); `tekton` and `aca` cannot start the agent's container, so a deployment on them sets
     # `process`, which stays a choice, journaled on every run (`agent.isolation`). Roll back the same way.
     agentIsolation: container
+    # The named opt-out (ADR 0222). With `global.environment: staging` or `prod`, `agentIsolation: process`
+    # (the agent in the runner's container, able to read the run token, git token and egress report key) is
+    # REFUSED at render unless this is true: say so by name, and every run then logs it
+    # (`TRANIBOR_AGENT_ISOLATION=none-accepted`; `/readiness`: `agent-isolation` is `check`). Needed on
+    # `tekton` and `aca`, which cannot start the agent's container (ADR 0146 §9). Ignored under `container`
+    # and outside staging and prod.
+    acceptUnisolatedAgent: false
   # Additional environment variables, given to the API, to each worker and to the migration Job
   # (through `choregos.commonEnv`). To enable a setting the chart does not know
   # yet — for example a setting an installed plugin reads (`ACME_PLUGIN_MODE: "strict"`) — without

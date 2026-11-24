@@ -35,9 +35,16 @@ from tranibor_contracts import (
 from tranibor_contracts.delivery import ResultDelivery, branch_of, commits_of, repository_of, without_commands
 from tranibor_contracts.env import with_legacy
 from tranibor_core import telemetry
+from tranibor_core.agent_isolation import (
+    AGENT_ISOLATION_ACCEPT_ENV,
+    NONE_ACCEPTED,
+    agent_isolation_none_accepted,
+    unisolated_agent_refusal,
+)
 from tranibor_core.context_breakdown import PARTS_EVENT, Hints, register
 from tranibor_core.egress_gate import REPORT_EVENT as EGRESS_GATE_EVENT
 from tranibor_core.hosted import CONNECT_PORT, MCP_PORT, MODEL_PORT
+from tranibor_core.production import ENVIRONMENT_VARIABLE, is_production
 from tranibor_core.redaction import REDACTED, redact
 
 from . import compression, confine, safe_files, tool_scripts
@@ -812,6 +819,26 @@ class Runner:
         if self.settings.egress_gate_report is not None:
             await journal.record(EGRESS_GATE_EVENT, egress_gate_report(self.settings.egress_gate_report))
 
+    async def _refuse_unisolated(self, journal: EventJournal) -> RunOutcome | None:
+        """ADR 0222: in staging and prod the agent does not start beside the runner's credentials unless the
+        operator named the opt-out. The orchestrator refuses first; this is for a runner started by anything
+        else (a hand-made Job, a stale template), which finds `TRANIBOR_ENV` in its own environment."""
+        try:
+            accepted = agent_isolation_none_accepted(os.environ.get(AGENT_ISOLATION_ACCEPT_ENV))
+        except ValueError:
+            accepted = False
+        refusal = unisolated_agent_refusal(
+            os.environ.get(ENVIRONMENT_VARIABLE), "process", "runner", accepted=accepted
+        )
+        if refusal is None:
+            if accepted and is_production(os.environ.get(ENVIRONMENT_VARIABLE)):
+                # Journaled with `agent.isolation`: the opt-out is on every run's record (ADR 0222).
+                self.isolation["accepted"] = NONE_ACCEPTED
+            return None
+        await journal.record("run.failed", {"phase": "isolation", "error": refusal})
+        await journal.flush()
+        return RunOutcome(Exit.AGENT_ISOLATION_UNAVAILABLE, detail=refusal)
+
     async def _isolate(self, journal: EventJournal) -> RunOutcome | None:
         """Where the agent will run, journaled with `run.started`, so before the agent starts
         (ADR 0146 §9). Under `container` the launcher of the agent's container must answer: with
@@ -819,7 +846,7 @@ class Runner:
         self.launcher = None
         self.isolation = {"mode": "process"}
         if self.settings.agent_isolation == "process":
-            return None
+            return await self._refuse_unisolated(journal)
         launcher = Launcher(self.settings.launcher_host, self.settings.launcher_port)
         address = f"{launcher.host}:{launcher.port}"
         if not await launcher.wait_ready(self.settings.launcher_wait_seconds):

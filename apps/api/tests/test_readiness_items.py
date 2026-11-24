@@ -38,7 +38,7 @@ from tranibor_api.services.readiness import (
     runtime_fact,
 )
 from tranibor_contracts import Policy, ProjectConfig
-from tranibor_core.agent_isolation import agent_isolation_refusal
+from tranibor_core.agent_isolation import agent_isolation_refusal, unisolated_agent_refusal
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
 
@@ -471,3 +471,37 @@ def test_a_warm_pool_rendered_with_the_agents_container_is_done(isolated: pytest
     (item,) = item_agent_isolation(facts(isolation=fact))
     assert item.state == "done"
     assert "`agent_sandbox`" in item.detail
+
+
+# ADR 0222: an unisolated agent in staging and prod ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("environment", ["staging", "prod"])
+def test_process_in_production_is_to_do_with_the_sentence_start_raises(
+    isolated: pytest.MonkeyPatch, environment: str
+) -> None:
+    isolated.setenv("TRANIBOR_RUNNER_AGENT_ISOLATION", "process")
+    isolated.setenv("TRANIBOR_ENV", environment)
+    isolated.delenv("TRANIBOR_AGENT_ISOLATION", raising=False)
+    fact = isolation_fact({"runtime": connector("runtime", "tekton")})
+    assert fact is not None and fact.executor == "tekton" and fact.accepted is False
+    assert fact.refusal == unisolated_agent_refusal(environment, "process", "tekton", accepted=False)
+    (item,) = item_agent_isolation(facts(isolation=fact))
+    assert item.state == "todo" and "TRANIBOR_AGENT_ISOLATION=none-accepted" in item.detail
+    assert evaluate(facts(isolation=fact)).ready is False
+
+
+def test_the_named_opt_out_is_a_check_not_a_silence(isolated: pytest.MonkeyPatch) -> None:
+    isolated.setenv("TRANIBOR_RUNNER_AGENT_ISOLATION", "process")
+    isolated.setenv("TRANIBOR_ENV", "prod")
+    isolated.setenv("TRANIBOR_AGENT_ISOLATION", "none-accepted")
+    fact = isolation_fact({"runtime": connector("runtime", "aca")})
+    assert fact is not None and fact.accepted is True and fact.refusal is None
+    (item,) = item_agent_isolation(facts(isolation=fact))
+    assert item.state == "check" and "accepted it by name" in item.detail
+
+
+def test_process_outside_production_is_still_not_judged(isolated: pytest.MonkeyPatch) -> None:
+    isolated.setenv("TRANIBOR_RUNNER_AGENT_ISOLATION", "process")
+    isolated.setenv("TRANIBOR_ENV", "dev")
+    assert isolation_fact({}) is None
