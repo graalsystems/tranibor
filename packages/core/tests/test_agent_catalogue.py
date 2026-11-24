@@ -19,7 +19,7 @@ RECORDED_DIGESTS = {
     # (S60-04, ADR 0127) — software-delivery 1.1.1, netops 1.2.0, authoring 1.1.0, requests 1.1.0. Sixteen
     # delivery agents moved once more in software-delivery 1.2.0 (the skills and knowledge their
     # instructions use, offline from 1.3.0, S83-04o): an installed one is offered the update.
-    # The agents of procurement 0.3.0 and procurement-operations 0.3.3 (S85, ADR 0202) were born there.
+    # The agents of procurement 0.3.0 and procurement-operations 0.3.4 (S85, ADR 0202) were born there.
     "agent-drafter": "sha256:28d4c5df5d91ed095358fe7990760eaa4b30f47ca3ed04c0d384ef39ed129734",
     "architect": "sha256:88ecc0245b687fa1eeb2da7c39dd6e9d6818ada400a1370f275e6eb9030865dc",
     "assistant": "sha256:e99375ec41aa60fd5202bdace406ee249c24627295f73db81f194e4f696e4e16",
