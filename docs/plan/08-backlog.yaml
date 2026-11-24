@@ -5974,6 +5974,14 @@ stories:
     size: S
     depends_on: [S80-44b]
     notes: "tranibor-agents#49 (servicenow 0.2.15): the plugin's live suite passed 18 tests on the Australia PDI on 2026-11-24 as the procedure's non-admin integration user, 9 by basic authentication and 9 by OAuth client credentials. Its roles: choregos_integration, snc_basic_auth_api_access (basic only), sn_change_read; sn_change_write is not needed. The Business Rule's delivery to the dev deployment's webhook route was tried and could not run: the instance could not resolve the API's name (private DNS). docs/plugins.md and the S80-20 row say so."
+  - id: S40-28
+    title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
+    stream: S40
+    sprint: 1
+    priority: 3
+    size: M
+    depends_on: []
+    notes: "A core port InjectionClassifier, an HTTP adapter in LLM Guard's API shape and a scriptable fake; TRANIBOR_INJECTION_CLASSIFIER=off|http|fake is the deployment's, off by default, never a policy (no contract change). Findings are security events with detector model; block stops before any run; a service down is fail-closed under block (retryable) and logged under warn. The secret-masking guardrail (ADR 0084) is not an injection detector and is unchanged. Probabilistic, not a guarantee; not proven against a real LLM Guard server; the chart deploys no classifier."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
