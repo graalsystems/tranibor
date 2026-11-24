@@ -3800,6 +3800,19 @@ and state compare without case. The backup poll that catches lost webhooks asks 
 by JQL, GitHub and GitLab by the labels a rule names (a rule on a type or a state is caught by the
 webhook only). Both lists can be edited as JSON in the project's *Triggers* card.
 
+A template can ship them (`defaults.start_rules`, core 0.29.2): a project born of it takes the
+template's rules unless its creation request sets its own `start_rules`. The ServiceNow ITSM template
+does, so a project polling a queue whose incidents carry no label opens its new incidents at once
+(graalsystems/tranibor-agents#38):
+
+```yaml
+# templates/itsm-incident-triage/manifest.yaml
+defaults:
+  start_rules:
+    - item_type: incident
+      states: [New]
+```
+
 ### A ticket that comes back
 
 A work item that ended — delivered, declined, abandoned — starts again when its ticket comes back

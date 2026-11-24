@@ -156,6 +156,45 @@ async def test_a_server_discover_reached_is_still_running_for_the_template_and_t
     assert len(dispatched) == 1
 
 
+def _with_start_rules(tmp_path: Path, rules: list[dict[str, Any]]) -> None:
+    """The offline copy of `desk-flow` (the `kube` fixture's) declares start rules."""
+    manifest = tmp_path / "plugins" / "desk" / "1.0.0" / "templates" / "desk-flow" / "manifest.yaml"
+    text = manifest.read_text().replace(
+        "  workflow: template:default-request@1\n",
+        "  workflow: template:default-request@1\n  start_rules: " + json.dumps(rules) + "\n",
+    )
+    manifest.write_text(text)
+
+
+async def test_a_template_s_start_rules_become_the_project_s(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, tmp_path: Path
+) -> None:
+    """graalsystems/tranibor-agents#38: a queue whose items carry no label (ServiceNow) opens work items
+    only by a start rule, and a project born of the ITSM template had none until someone added it. The
+    template's `defaults.start_rules` are the project's, unless the creation request states its own."""
+    _with_start_rules(tmp_path, [{"item_type": "incident", "states": ["New"]}])
+    await _install(client)
+    await _configure(client)
+    _server(kube)
+    created = await _project(client)
+    assert created.status_code == 201, created.text
+    assert created.json()["config"]["start_rules"] == [
+        {"labels_any": [], "labels_all": [], "item_type": "incident", "states": ["New"]}
+    ]
+    own = await client.post(
+        f"{ORG}/projects",
+        json={
+            "slug": "own-rules",
+            "name": "own-rules",
+            "template_ref": "plugin:desk/desk-flow",
+            "config": {"slug": "own-rules", "org": "northwind", "start_rules": [{"labels_any": ["urgent"]}]},
+        },
+    )
+    assert own.status_code == 201, own.text
+    (rule,) = own.json()["config"]["start_rules"]
+    assert rule["labels_any"] == ["urgent"] and not rule.get("item_type"), "the request's own rules win"
+
+
 async def test_a_plugin_tracker_of_a_plugin_not_installed_is_refused(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi
 ) -> None:

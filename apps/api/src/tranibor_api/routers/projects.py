@@ -47,6 +47,7 @@ from ..services.organisations import organisation_by_slug
 from ..services.personal_spaces import is_reserved_slug, listed
 from ..services.plugin_tracker import wire_template_tracker
 from ..services.projects import config_revision
+from ..services.templates import apply_template_start_rules
 from ..temporal import get_temporal, provisioning_id
 
 router = APIRouter(tags=["projects"])
@@ -412,6 +413,9 @@ async def create_project(org: str, body: ProjectCreate, session: Db, principal: 
     session.add(project)
     await session.flush()
     await ensure_defaults(session, project, refuse_unenforced=True)
+    if "start_rules" not in body.config.model_fields_set:
+        # The template's start rules (`defaults.start_rules`), unless the request states its own.
+        await apply_template_start_rules(session, project)
     if body.default_workflow is not None:
         # The routing endpoint's own rule, once the template's workflows exist (S80-21).
         await require_active_workflows(session, project.id, [body.default_workflow])

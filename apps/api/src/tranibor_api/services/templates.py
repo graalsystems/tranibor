@@ -252,4 +252,33 @@ def _policy_source(ref: str, folder: Path | None) -> str:
         ) from missing
 
 
-__all__ = ["Delivery", "delivery", "shipped_workflows", "template_manifest", "templates_directory"]
+async def apply_template_start_rules(session: AsyncSession, project: Any) -> None:
+    """A project born of a template takes the template's `defaults.start_rules` as its own
+    `start_rules` (graalsystems/tranibor-agents#38): a tracker that labels nothing (a ServiceNow queue)
+    opens work items only by a rule. The caller skips it when the creation request states its own."""
+    from pydantic import ValidationError
+    from tranibor_contracts import ProjectConfig
+
+    manifest, _ = await template_manifest(session, project.template_ref, project.org_id)
+    rules = (manifest.get("defaults") or {}).get("start_rules")
+    if not rules:
+        return
+    try:
+        config = ProjectConfig.model_validate({**(project.config or {}), "start_rules": rules})
+    except ValidationError as invalid:
+        raise unprocessable(
+            f"the template `{project.template_ref}` declares start rules the project cannot take: {invalid}",
+            [{"loc": ["template_ref"], "msg": "defaults.start_rules"}],
+        ) from invalid
+    project.config = config.model_dump(mode="json", exclude_none=True)
+    await session.flush()
+
+
+__all__ = [
+    "Delivery",
+    "apply_template_start_rules",
+    "delivery",
+    "shipped_workflows",
+    "template_manifest",
+    "templates_directory",
+]
