@@ -1,6 +1,6 @@
 # Where Tranibor sits
 
-An honest comparison, first written on 2026-09-25 from public sources and revised on 2026-11-23
+An honest comparison, first written on 2026-09-25 from public sources and revised on 2026-11-24
 for what Tranibor itself does today (each claim about Tranibor below names the code or the record
 that proves it). It says what others do better; that is the part worth reading.
 
@@ -55,7 +55,7 @@ solves problems they do not have (what is a stage, who signed off, what did it c
 | Agent | its own | several harnesses | locked | any ACP agent |
 | Trigger | chat, issue | ticket | chat, issue | ticket, with a workflow per ticket |
 | Budgets | per project, built-in gateway | — | credits | per stage, hard cap on the key, tool calls in the same ledger |
-| Prompt-injection detection | **yes, with automatic halt** | — | varies | lexical detection of known patterns over the ticket, its documents and the memory pack **before** the run, and over tool answers: `warn` journals a security event, `block` (the `regulated` preset) stops the stage; a net against crude cases, not an understanding, and no automatic halt mid-run (`tranibor_core/injection.py`, `apps/orchestrator/tests/test_injection.py`; `docs/security.md`) |
+| Prompt-injection detection | **yes, with automatic halt** | — | varies | before the run, over the ticket, its documents and the memory pack: lexical detection of known patterns, then, if the deployment provides one, a classifier model on the texts the patterns did not flag (LLM Guard's API shape, off by default, ADR 0219); over tool answers, the lexical net only. `warn` journals a security event, `block` (the `regulated` preset) stops the stage and fails closed when the classifier is down; probabilistic, not an understanding, and no automatic halt mid-run (`tranibor_core/injection.py`, `tranibor_core/injection_classifier.py`, `apps/orchestrator/tests/test_injection.py`; `docs/security.md`) |
 | Gates with refusal semantics | no | no | no | yes, statically validated (ADR 0010) |
 | Evidence measured by the platform | partial | no | no | tests run by the runner, business facts, gate verdicts |
 | Human-in-the-loop | chat | — | chat | a state with an SLA, a reminder and an escalation; the run resumes in its own sandbox, with the agent's conversation reloaded when the agent supports ACP `session/load` |
@@ -63,7 +63,8 @@ solves problems they do not have (what is a stage, who signed off, what did it c
 | Non-code work | no | no | no | yes (ADR 0012) |
 
 Reading: OpenHands' injection detection (with its automatic halt) and the mature HITL chat of the
-products are ahead on depth. Tranibor detects only the crude lexical cases; its answer to injection
+products are ahead on depth. Tranibor's own detection is a lexical net, with an optional classifier model
+the deployment runs, never proven here against a real attack corpus; its answer to injection
 is mainly mechanical (scope refused, diff reverted, secrets gated), and `docs/security.md` says the
 walls, not the detector, are the guarantee.
 
@@ -121,4 +122,5 @@ only so far, gives no data residency, and has not run on a real network yet.
 
 Choose Tranibor when the question is *"what did the agent do, under which contract, who
 signed off, what did it cost, and can I prove it?"* — and expect to bring, or wait for, a
-runtime for density, a stronger detector for injection than a lexical net, and breadth for tools.
+runtime for density, an injection classifier service of your own (Tranibor calls one, it ships none), and
+breadth for tools.
