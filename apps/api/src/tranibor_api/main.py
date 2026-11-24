@@ -22,6 +22,7 @@ from tranibor_core.production import (
     refuse_demo_history_import,
     refuse_demo_inline_worker,
     refuse_demo_mcp_tools,
+    refuse_demo_plugin_servers,
     refuse_fakes_in_production,
 )
 
@@ -155,6 +156,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.demo_mcp_tools:
         refuse_demo_mcp_tools(environment=settings.env, fakes=settings.fakes)
         fake_mcp_server()
+    # Plugin servers run in-process (ADR 0218): refused elsewhere; its file is read now.
+    if settings.demo_plugin_servers:
+        refuse_demo_plugin_servers(environment=settings.env, fakes=settings.fakes)
+        from .services.plugin_servers import in_process_servers
+
+        in_process_servers(settings)
     if not settings.is_sqlite:
         await _refuse_the_superuser()
     _warn_without_secrets_key(settings.fakes)
@@ -210,6 +217,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Calls through an outpost that ran out of time where nobody polls or calls any more (ADR 0149 §5).
     background = [asyncio.create_task(outpost_rendezvous.sweep_loop())] if settings.outposts else []
     yield
+    if settings.demo_plugin_servers:
+        from .services.plugin_servers import stop_in_process_servers
+
+        await stop_in_process_servers()
     if inline_worker is not None:
         from .demo_inline import stop_inline_worker
 

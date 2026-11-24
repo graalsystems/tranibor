@@ -42,6 +42,12 @@ To show a governed write to a "business system" in the same demonstration, add `
 fakes' MCP server then offers the tools the file declares and records the writes it receives
 ([integrations](integrations.md#a-demonstration-mcp-server), ADR 0213).
 
+To use a plugin that brings a server (ServiceNow, say) on the same laptop, add
+`TRANIBOR_DEMO_PLUGIN_SERVERS=<file>`: the API then runs that server in its own process, from the plugin's
+Python package and on the fake it declares, with an optional seed
+([plugins](plugins.md#on-a-laptop-a-server-in-the-apis-process), ADR 0218). It is refused unless the fakes are on
+and `TRANIBOR_ENV` is `dev` or `test`.
+
 ### A past for the demonstration: importing a history (ADR 0216)
 
 A demonstration is more convincing on a project that looks lived in: work items that went through their

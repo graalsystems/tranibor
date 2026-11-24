@@ -167,3 +167,35 @@ def refuse_demo_history_import(*, environment: str | None, enabled: str | bool |
             f"nothing measured and is for a demonstration instance only: unset "
             f"{DEMO_HISTORY_IMPORT_VARIABLE}, or run with {ENVIRONMENT_VARIABLE}=dev."
         )
+
+
+#: The variable that names the file of plugin servers the API runs in its own process (ADR 0218).
+DEMO_PLUGIN_SERVERS_VARIABLE = "TRANIBOR_DEMO_PLUGIN_SERVERS"
+
+
+class DemoPluginServersRefusedError(RuntimeError):
+    """In-process plugin servers were asked for where they must not run."""
+
+
+def refuse_demo_plugin_servers(*, environment: str | None, fakes: str | bool | None) -> None:
+    """Stop a process when `TRANIBOR_DEMO_PLUGIN_SERVERS` is set outside development under the fakes.
+
+    A plugin server run in-process (ADR 0218) is the plugin's own code, on its own fake instance, inside
+    the API's process: no container, no signature check on an image, no network listener. It needs the
+    fakes (so that nothing real is reached) and a `dev` or `test` environment; anything else is refused,
+    naming the setting to change.
+    """
+    env = (environment or "").strip().lower()
+    if env not in DEMO_INLINE_WORKER_ENVIRONMENTS:
+        raise DemoPluginServersRefusedError(
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} is set and {ENVIRONMENT_VARIABLE}={env or '(unset)'}: refused. "
+            "A plugin server run in-process (ADR 0218) skips the image checks of a deployment and is for a "
+            f"development machine only: unset {DEMO_PLUGIN_SERVERS_VARIABLE}, or run with "
+            f"{ENVIRONMENT_VARIABLE}=dev."
+        )
+    if not fakes_on(fakes):
+        raise DemoPluginServersRefusedError(
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} is set and {FAKES_VARIABLE} is off: refused. A plugin server "
+            f"in-process runs on its fake instance (ADR 0005, ADR 0218); set {FAKES_VARIABLE}=1, or unset "
+            f"{DEMO_PLUGIN_SERVERS_VARIABLE} and run the server on a cluster."
+        )
