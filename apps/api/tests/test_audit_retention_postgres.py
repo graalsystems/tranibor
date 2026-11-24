@@ -83,9 +83,10 @@ async def test_what_remains_verifies_from_the_checkpoint(orgs: dict[str, str]) -
     assert result.pruned == 8
     assert await _seqs(orgs["a"]) == [9]  # the record of the prune, chained after entry 8
     report = await _verify(orgs["a"])
-    assert report.intact and report.pruned is not None and report.pruned.seq == 8 and report.entries == 2
-    again = await Pruner(30, clock=old()).run_pass()
-    assert again.pruned == 0
+    assert report.intact and report.pruned is not None and report.pruned.seq == 8 and report.entries == 1
+    # The record of the prune is as old as the rule at the same clock a hundred days on, and goes with the
+    # next prune (each prune writes a new one); at the real time nothing is due.
+    assert (await Pruner(30).run_pass()).pruned == 0
 
 
 async def test_the_database_refuses_a_delete_no_checkpoint_vouches_for(orgs: dict[str, str]) -> None:
@@ -107,14 +108,19 @@ async def test_the_database_refuses_a_delete_no_checkpoint_vouches_for(orgs: dic
         )
         await session.execute(text(f"DELETE FROM audit_log WHERE org_id = '{orgs['a']}' AND seq <= 2"))
     assert await _seqs(orgs["a"]) == [3, 4]
+    # Entry 3 is past the checkpoint: the trigger refuses its delete, and the revoked UPDATE never reaches it.
     for statement in (
         f"DELETE FROM audit_log WHERE org_id = '{orgs['a']}' AND seq = 3",
-        f"UPDATE audit_log SET action = 'x' WHERE org_id = '{orgs['a']}' AND seq = 3",
         "DELETE FROM audit_checkpoints",
     ):
         with pytest.raises(DBAPIError, match="append-only"):
             async with session_scope(orgs="*") as session:
                 await session.execute(text(statement))
+    with pytest.raises(DBAPIError, match="permission denied"):
+        async with session_scope(orgs="*") as session:
+            await session.execute(
+                text(f"UPDATE audit_log SET action = 'x' WHERE org_id = '{orgs['a']}' AND seq = 3")
+            )
 
 
 async def test_a_session_bounded_to_an_organisation_cannot_prune_or_vouch(orgs: dict[str, str]) -> None:
