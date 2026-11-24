@@ -31,10 +31,11 @@ helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
   -f my-values.yaml
 ```
 
-Images are published under `ghcr.io/graalsystems/choregos-{api,orchestrator,web,tools,runner}`,
-multi-arch and signed. The chart's `global.imageTag` follows the chart version. From the release after
-0.27.13, every image and chart is also published under its new name, `tranibor-*` (see "Upgrading past
-0.27.13"): the same digest, signed the same way.
+Images are published under `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`,
+multi-arch and signed; the chart is also published as `oci://ghcr.io/graalsystems/charts/tranibor`, with the same content as `…/charts/choregos`. The former names,
+`choregos-*`, carry the same digests for the ADR 0176 window and are still the chart's defaults (see "Upgrading
+past 0.27.13"). The published packages are public: pulls are anonymous. The chart's `global.imageTag`
+follows the chart version.
 
 ## Dependencies: embedded or external
 
@@ -2408,7 +2409,7 @@ Before it listens, the server loads the desks of the installed extensions (since
 the 0.28.1 API image, 34 s at 200m of CPU, 12 s at 500m, 6 s at one CPU, longer with more extensions
 (the enterprise edition's image). The pod therefore has a startup probe on `/healthz`
 (`demoFakes.startupProbe`: 36 tries 5 s apart, 180 s) before the liveness probe applies, and a CPU
-limit of 500m (`demoFakes.resources`); it has the deployment's `CHOREGOS_ENV`, which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
+limit of 500m (`demoFakes.resources`); it has the deployment's `TRANIBOR_ENV` (the chart still renders it as `CHOREGOS_ENV`, which ADR 0176 R4 maps), which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
 being killed by its liveness probe (#2139) can return to the defaults.
 
 ### Which edition am I running?
