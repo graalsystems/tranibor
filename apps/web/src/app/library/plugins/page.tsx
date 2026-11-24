@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import { Confirmation } from "@/components/confirmed-gesture";
 import { Alert, Badge, Button, Card, Code, Empty, ErrorNote, ReadState, Select } from "@/components/ui";
 import { OrgPageHeader } from "@/components/org-page-header";
+import { ProcedurePanel } from "@/components/procedures/procedure-panel";
 import { api } from "@/lib/api";
 import {
   admissibleVersions,
@@ -384,6 +385,10 @@ function InstalledCard({
   );
 }
 
+/**
+ * What an installed plugin brought. Each of its procedures opens, by its id, in the setup panel a
+ * connector's form uses (ADR 0215); an id the API does not serve stays plain text.
+ */
 function Contents({ contents }: { contents: PluginContents }) {
   const kinds = CONTENT_KINDS.filter(({ key }) => contents[key].length > 0);
   if (kinds.length === 0) return <p className="text-xs text-ink-muted">It brought nothing.</p>;
@@ -394,9 +399,24 @@ function Contents({ contents }: { contents: PluginContents }) {
         return (
           <li key={key} className="flex items-start gap-2" data-testid={`contents-${key}`}>
             <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
-            <span>
-              <span className="text-ink-muted">{label}:</span> <span data-verbatim>{contents[key].join(", ")}</span>
-            </span>
+            {key === "procedures" ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-ink-muted">{label}:</span>
+                {contents.procedures.map((id) => (
+                  <ProcedurePanel
+                    key={id}
+                    procedure={id}
+                    label={id}
+                    autoOpen={false}
+                    fallback={<span data-verbatim>{id}</span>}
+                  />
+                ))}
+              </span>
+            ) : (
+              <span>
+                <span className="text-ink-muted">{label}:</span> <span data-verbatim>{contents[key].join(", ")}</span>
+              </span>
+            )}
           </li>
         );
       })}

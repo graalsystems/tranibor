@@ -99,7 +99,9 @@ continue**; anyone else presses **Ask an administrator**, and the request waits 
 ## How to connect a given system
 
 Each connector type has a step-by-step page: what to create on the other side, the permissions to give,
-and the errors you may meet. For example: [GitHub](../../procedures/connector.scm.github.md),
+and the errors you may meet. [Connector setup](../connectors/index.md) has one page for each, the
+platform's and those of the plugins' servers; the console shows the same text with **How to set this
+up**. In the repository, for example: [GitHub](../../procedures/connector.scm.github.md),
 [Jira](../../procedures/connector.tracker.jira.md), [Argo CD](../../procedures/connector.cd.argocd.md),
 [Slack](../../procedures/connector.notify.slack.md),
 [Confluence](../../procedures/connector.documents.confluence.md),
@@ -120,4 +122,5 @@ is generated from the platform's own procedures.
 
 - [Projects and members](projects-and-members.md): the readiness list.
 - [Knowledge](knowledge.md): document sources that sync.
+- [Connector setup](../connectors/index.md): the setup page of each system, the platform's and the plugins'.
 - [Connectors](../../usage.md#connectors), in depth.

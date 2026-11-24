@@ -78,6 +78,7 @@ Read it in order the first time: what it is, the ideas, a first project, then th
 | ▸ [Budgets and policies](use/budgets-and-policies.md) | Cap what work costs and bound what agents may do |
 | ▸ [Assistants](use/assistants.md) | Talk to an assistant, confirm its writes, and keep control of what it remembers and does for you |
 | ▸ [The terminal](use/terminal.md) | Sign in as yourself, ask an assistant, follow what runs, decide what waits, from a terminal |
+| [Connector setup](connectors/index.md) | Find the setup page of each system you connect, the platform's and the plugins' |
 | **Build agents** | Write what agents carry |
 | ▸ [Skills](build/skills.md) | Package know-how an agent loads |
 | ▸ [Agents](build/agents.md) | Create, version and release agents of every kind |

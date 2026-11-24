@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcedurePanel } from "@/components/procedures/procedure-panel";
 import { api } from "@/lib/api";
-import { markSeen, presetOfMcpUrl, hostOf, wasSeen } from "@/lib/procedures";
+import { connectorTargets, markSeen, presetOfMcpUrl, hostOf, wasSeen } from "@/lib/procedures";
+import { installedPlugins, serverConnectorOf } from "@/mocks/plugins";
 import { proceduresApi } from "@/mocks/procedures";
 import type { Procedure } from "@/lib/types";
 
@@ -200,5 +201,74 @@ describe("what picks a preset", () => {
   it("reads the host of an agent card address", () => {
     expect(hostOf("https://A2A.Atlassian.com/.well-known/agent.json")).toBe("a2a.atlassian.com");
     expect(hostOf("")).toBeUndefined();
+  });
+});
+
+describe("the procedure of a plugin's server (S84-06, ADR 0215)", () => {
+  const servicenow = serverConnectorOf("servicenow", "0.1.0", "servicenow");
+
+  it("asks the plugin's name, then the server's, then the generic MCP server", () => {
+    expect(connectorTargets(servicenow)).toEqual(["connector:mcp/servicenow", "connector:mcp/mcp"]);
+    expect(connectorTargets({ kind: "mcp", type: "mcp", server: { plugin: "procurement-operations", server: "purchasing" } })).toEqual([
+      "connector:mcp/procurement-operations",
+      "connector:mcp/purchasing",
+      "connector:mcp/mcp",
+    ]);
+    // Without the `server` field, the installer's mark says the same.
+    expect(connectorTargets({ kind: "mcp", type: "mcp", catalogue_entry: "plugin:microsoft-365-desk/desk@0.3.0" })).toEqual([
+      "connector:mcp/microsoft-365-desk",
+      "connector:mcp/desk",
+      "connector:mcp/mcp",
+    ]);
+    expect(connectorTargets({ kind: "mcp", type: "mcp", catalogue_entry: "atlassian" })).toEqual(["connector:mcp/mcp"]);
+    expect(connectorTargets({ kind: "tracker", type: "jira" })).toEqual(["connector:tracker/jira"]);
+  });
+
+  it("shows the plugin's own procedure on its server's connector, not the generic one", async () => {
+    view(<ProcedurePanel target={connectorTargets(servicenow)} autoOpen={false} />);
+    fireEvent.click(await screen.findByRole("button", { name: "How to set this up" }));
+    const panel = screen.getByTestId("procedure-panel");
+    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent("Connect a ServiceNow instance");
+    expect(within(panel).getByTestId("procedure-value-plugin_webhook_url:servicenow/servicenow")).toHaveTextContent(
+      "https://choregos.example.com/api/v1/webhooks/plugins/acme/servicenow/servicenow",
+    );
+    expect(api.listProcedures).toHaveBeenCalledTimes(1);
+    expect(api.listProcedures).toHaveBeenCalledWith({ for: "connector:mcp/servicenow", card_host: undefined, preset: undefined });
+  });
+
+  it("falls back to the generic MCP server procedure when the plugin ships none", async () => {
+    const hello = serverConnectorOf("hello", "1.0.0", "greeter");
+    view(<ProcedurePanel target={connectorTargets(hello)} autoOpen={false} />);
+    fireEvent.click(await screen.findByRole("button", { name: "How to set this up" }));
+    expect(screen.getByTestId("procedure-panel")).toHaveTextContent("Connect an MCP server");
+    expect(vi.mocked(api.listProcedures).mock.calls.map(([query]) => query?.for)).toEqual([
+      "connector:mcp/hello",
+      "connector:mcp/greeter",
+      "connector:mcp/mcp",
+    ]);
+  });
+
+  it("stops at an error rather than show a procedure for something else", async () => {
+    vi.mocked(api.listProcedures).mockRejectedValueOnce(new Error("down"));
+    const { container } = view(<ProcedurePanel target={connectorTargets(servicenow)} fallback={<span>no help</span>} />);
+    await waitFor(() => expect(container).toHaveTextContent("no help"));
+    // The error stops the walk: no second target is asked, and nothing is opened.
+    expect(api.listProcedures).toHaveBeenCalledTimes(1);
+    expect(api.getProcedure).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "How to set this up" })).toBeNull();
+  });
+
+  it("the mock API lists a plugin's procedure only while the plugin is installed", () => {
+    expect(proceduresApi("GET", "/procedures?for=connector%3Amcp%2Fservicenow")).toEqual([
+      expect.objectContaining({ id: "connector.mcp.servicenow" }),
+    ]);
+    expect(proceduresApi("GET", "/procedures?for=connector%3Amcp%2Fhello")).toEqual([]);
+    const at = installedPlugins.findIndex((p) => p.name === "servicenow");
+    const [servicenowPlugin] = installedPlugins.splice(at, 1);
+    try {
+      expect(proceduresApi("GET", "/procedures?for=connector%3Amcp%2Fservicenow")).toEqual([]);
+    } finally {
+      installedPlugins.splice(at, 0, servicenowPlugin!);
+    }
   });
 });
