@@ -74,6 +74,17 @@ def _routes(project_id: str, workflow_yaml: str, policy_yaml: str) -> list[tuple
             {"slug": "release-captains", "name": "Captains"},
         ),
         ("member:read", "GET", "/api/v1/orgs/northwind/groups", None),
+        # A demonstration history (ADR 0216): the administrator alone. The instance did not opt in, so the
+        # administrator is refused with a 409, which is not the 403 of a missing right.
+        (
+            "demo_history:import",
+            "POST",
+            f"/api/v1/projects/{project_id}/demo-history",
+            {
+                "schema": "choregos/DemoHistory/v1",
+                "work_items": [{"id": "a", "title": "T", "created_at": "2026-11-02T09:00:00Z"}],
+            },
+        ),
         # Agent scopes (S39-09, ADR 0061): a personal agent is every working role's, a project's agent
         # its owner's, an organisation agent (`agent:manage`, above) the administrator's.
         (

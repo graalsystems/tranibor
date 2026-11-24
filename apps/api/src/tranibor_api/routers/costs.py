@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Response
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from tranibor_contracts import StageRole
 from tranibor_core import utcnow
 from tranibor_core.cross_review import Arm, StageRun, cross_backend_arms, cross_backend_verdict
@@ -104,6 +104,8 @@ async def _report(
             func.sum(CostLedger.tokens_cache_write),
             func.sum(CostLedger.tokens_cache_write_1h),
             func.count(CostLedger.id),
+            # What an imported demonstration history contributes to the line (ADR 0216): never measured.
+            func.sum(case((CostLedger.imported.is_(True), CostLedger.cost_usd), else_=0.0)),
         )
         .where(*where)
         .group_by(column)
@@ -121,6 +123,7 @@ async def _report(
             tokens_cache_write=int(row[6] or 0),
             tokens_cache_write_1h=int(row[7] or 0),
             runs=int(row[8] or 0),
+            imported_usd=round(float(row[9] or 0), 6),
         )
         for row in rows
     ]
@@ -137,6 +140,7 @@ async def _report(
             tokens_cached=sum(r.tokens_cached for r in report_rows),
             tokens_cache_write=sum(r.tokens_cache_write for r in report_rows),
             tokens_cache_write_1h=sum(r.tokens_cache_write_1h for r in report_rows),
+            imported_usd=round(sum(r.imported_usd for r in report_rows), 6),
         ),
     )
 

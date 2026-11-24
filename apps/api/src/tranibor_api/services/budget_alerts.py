@@ -111,7 +111,9 @@ async def check_after_spend(session: AsyncSession, run_id: str | None) -> list[B
         (
             await session.execute(
                 select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0)).where(
-                    CostLedger.project_id == project.id, CostLedger.ts >= midnight
+                    CostLedger.project_id == project.id,
+                    CostLedger.ts >= midnight,
+                    CostLedger.imported.is_(False),
                 )
             )
         ).scalar_one()

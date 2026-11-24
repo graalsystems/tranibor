@@ -81,6 +81,8 @@ class FindingDto(Dto):
     occurrences: int = 1
     relevant: bool | None = None
     created_at: datetime
+    #: True for a finding a demonstration history import wrote (ADR 0216).
+    imported: bool = False
 
 
 class FindingPage(Dto):

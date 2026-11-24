@@ -419,6 +419,30 @@ Options:
   --help  Show this message and exit.
 ```
 
+## `choregos demo`
+
+Demonstration data
+
+### `choregos demo import`
+
+```text
+Usage: choregos demo import [OPTIONS] {project} {file}
+
+  Take a demonstration history (work items, runs, costs, decisions) into a
+  project.
+
+  Needs the organisation administrator, on an instance started with
+  `TRANIBOR_DEMO_HISTORY_IMPORT=1` outside staging and prod. Everything it
+  writes is marked imported; the same file again changes nothing.
+
+Arguments:
+  project  The project: `org/slug` or its id.  [required]
+  file     A demonstration history, YAML or JSON.  [required]
+
+Options:
+  --help  Show this message and exit.
+```
+
 ## `choregos dev`
 
 Development environment

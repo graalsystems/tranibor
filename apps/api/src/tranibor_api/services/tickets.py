@@ -100,6 +100,7 @@ def run_summary(run: Run) -> RunSummary:
         model=run.model,
         cost_usd=run.cost_usd,
         started_at=run.started_at,
+        imported=run.imported,
     )
 
 
@@ -145,6 +146,7 @@ def run_dto(run: Run, project_slug: str, tool_connectors: list[ToolConnector] | 
         agent_version=run.agent_version,
         initiated_by=run.initiated_by,
         tool_connectors=list(tool_connectors or []),
+        imported=run.imported,
     )
 
 
@@ -270,6 +272,7 @@ async def work_item_dto(
         restricted_knowledge=list(item.restricted_knowledge or []),
         created_at=item.created_at,
         closed_at=item.closed_at,
+        imported=item.imported,
     )
 
 

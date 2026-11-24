@@ -97,6 +97,8 @@ class CostRow(Dto):
     #: The part of `tokens_cache_write` written with the 1-hour TTL (S4-12, ADR 0200).
     tokens_cache_write_1h: int = 0
     runs: int = 0
+    #: The part of `cost_usd` that a demonstration history import wrote (ADR 0216): never measured.
+    imported_usd: float = 0.0
 
 
 class CostTotal(Dto):
@@ -113,6 +115,8 @@ class CostTotal(Dto):
     tokens_cache_write: int = 0
     #: The part of `tokens_cache_write` written with the 1-hour TTL (S4-12, ADR 0200).
     tokens_cache_write_1h: int = 0
+    #: The part of `cost_usd` that a demonstration history import wrote (ADR 0216): never measured.
+    imported_usd: float = 0.0
 
 
 class CostFx(Dto):
@@ -182,3 +186,19 @@ class BudgetAlertPage(Dto):
 
     items: list[BudgetAlertDto]
     meta: PageMeta
+
+
+class DemoHistoryCounts(Dto):
+    """What a demonstration history import wrote, or found already written (ADR 0216)."""
+
+    work_items: int = 0
+    runs: int = 0
+    decisions: int = 0
+    findings: int = 0
+
+
+class DemoHistoryImport(Dto):
+    created: DemoHistoryCounts
+    unchanged: DemoHistoryCounts
+    #: The cost the created runs carry, in USD: declared by the document, never measured.
+    cost_usd: float = 0.0
