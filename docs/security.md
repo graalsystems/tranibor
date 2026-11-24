@@ -314,7 +314,7 @@ tenantless key it would cross tenants (`query`, `ingest`, `set_state`, the graph
 named here, not a rule of ours. The id-based tools were refused for the same reason on Ecphoria 0.2.5 (a memory id is a
 global handle there). An Ecphoria that confines them to one tenant (the MCP and REST read `X-Ecphoria-Tenant` as a hard scope;
 another tenant's id answers "memory not found", never "forbidden") lets a deployment set `scoped_by_id`
-(`CHOREGOS_MEMORY_SCOPED_BY_ID=1`): the agent is then also offered `memory_history`, and, with a `write` binding,
+(`CHOREGOS_MEMORY_SCOPED_BY_ID=1`; this one has no `TRANIBOR_` alias, ADR 0176 R4 did not cover it: set it under that exact name): the agent is then also offered `memory_history`, and, with a `write` binding,
 `update_memory` and `delete_memory`, and the runner sends the run's tenant in that header beside the forced `tenant_id`.
 The switch is off by default, because against 0.2.5 these three tools would reach every project's memories.
 A JSON-RPC batch is refused. Without container isolation the server is not given to the

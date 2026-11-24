@@ -5934,6 +5934,14 @@ stories:
     size: M
     depends_on: [S80-32]
     notes: "#2185. Backup: POST /api/v1/admin/backup, the directory copied from Ecphoria's claim and checked against its manifest. Restore: staged on the claim, POST /api/v1/admin/restore then /admin/reindex, Ecphoria running. Proven on k3d (bkproof2) through a node destroyed. Not done: vectors with content, a store past Ecphoria's 30 s request timeout, the nightly proof.sh with its memory check (#2187)."
+  - id: S80-42
+    title: "docs(rename): the pages name the repositories, images and variables a reader types today"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-41]
+    notes: "Audit of the core repository's reference pages against the code after the move to graalsystems and ADR 0176 R1 to R4. Fixed: the plugin marketplace is added from graalsystems/tranibor (docs/integrations.md, docs/site/integrate/mcp.md); the Ecphoria image of the development compose is no longer called private (the graalsystems GHCR packages are public); docs/deployment.md's Install section names tranibor-* first, with choregos-* as the window's names the chart still defaults to; the batch distillation switch is TRANIBOR_KNOWLEDGE_DISTILL_BATCH; CHOREGOS_MEMORY_SCOPED_BY_ID is said to have no TRANIBOR_ alias (builtins.py reads that name only); the chart-rendered CHOREGOS_ENV is said to be mapped. Guard: tests/docs/test_docs_name_current_names.py. No page outside docs/adr and docs/plan names the Varga Foundation (tests/licences/test_no_varga.py already holds)."
   - id: S80-43
     title: "docs(deployment): the pages and chart comments agree on the generic deployment (ADR 0195)"
     stream: S80
