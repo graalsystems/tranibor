@@ -29,6 +29,7 @@ ALLOWED_SOURCES = {
     "test_decision_step",
     "test_fan_out",
     "test_gateway_key_through_the_secret",
+    "test_injection",
     "test_interpreter",
     "test_lost_run",
     "test_project_day_team",
@@ -36,6 +37,7 @@ ALLOWED_SOURCES = {
     "test_resolver_sees_the_gateway",
     "test_restarted_interpreter_resumes",
     "test_result_from_journal",
+    "test_run_closed_when_the_wait_ends",
     "test_suspend_around_human",
     "test_trial_item_has_no_interpreter",
 }
