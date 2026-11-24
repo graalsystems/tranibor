@@ -32,6 +32,9 @@ NAMES = frozenset(
         "choregos_audit_export_failures_total",
         "choregos_audit_export_lag_entries",
         "choregos_audit_export_progress_timestamp_seconds",
+        "choregos_audit_retention_pruned_entries_total",
+        "choregos_audit_retention_held_back_total",
+        "choregos_audit_retention_failures_total",
     }
 )
 

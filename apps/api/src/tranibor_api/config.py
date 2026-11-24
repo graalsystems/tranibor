@@ -581,6 +581,14 @@ class Settings(BaseSettings):
     audit_export_source: str = "choregos"
     audit_export_interval_s: float = 10.0
     audit_export_batch: int = 500
+    #: Retention of the audit log (ADR 0221): entries older than this many days are removed from the front
+    #: of each chain, behind a checkpoint. 0 (the default) keeps the log for ever; otherwise at least 30.
+    audit_retention_days: int = 0
+    #: A longer rule for an organisation, by slug (JSON object of days); never shorter than the deployment's.
+    audit_retention_orgs: dict[str, int] = Field(default_factory=dict)
+    audit_retention_interval_s: float = 3600.0
+    #: The most entries one transaction removes: it holds the chain's head, which writers wait for.
+    audit_retention_batch: int = 5000
     #: Tempo's query address, read by the nightly ledger-vs-trace job (`trace_drift.py`, ADR 0018
     #: point 3). Empty: the job refuses to run.
     tempo_url: str = ""
