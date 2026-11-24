@@ -146,6 +146,81 @@ async def test_without_the_switch_there_is_no_eval_instance_and_turning_it_off_d
     assert set(_objects(kube, "secrets")) == {server["object"]}
 
 
+_RESOURCES = ("deployments", "services", "networkpolicies", "secrets")
+
+
+def _org_objects(api: FakeKubernetesApi, org_id: str) -> dict[str, list[str]]:
+    """Every object of the organisation left in the plugins namespace, by resource."""
+    left = {
+        resource: sorted(
+            name
+            for name, obj in _objects(api, resource).items()
+            if obj["metadata"]["labels"].get("choregos.dev/org") == org_id
+        )
+        for resource in _RESOURCES
+    }
+    return {resource: names for resource, names in left.items() if names}
+
+
+async def test_uninstalling_deletes_the_eval_instance_with_the_server(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, eval_fakes: pytest.MonkeyPatch
+) -> None:
+    """#2195: the uninstall deleted the server's own objects and left its eval instance running (its
+    Deployment, Service, Secret with the platform's token, NetworkPolicy)."""
+    await _install(client)
+    org_id = (await _connector()).org_id
+    assert set(_objects(kube, "deployments")) == {
+        (await _connector()).plugin_server["object"],
+        (await _connector()).plugin_server["fake_object"],
+    }
+    gone = await client.delete(f"{ORG}/plugins/servicenow")
+    assert gone.status_code == 200, gone.text
+    assert _org_objects(kube, org_id) == {}, "nothing of the plugin is left in the plugins namespace"
+
+
+async def test_turned_off_since_the_uninstall_still_deletes_the_eval_instance(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, eval_fakes: pytest.MonkeyPatch
+) -> None:
+    """The switch was on when the instance was created and is off at the uninstall: it still goes."""
+    await _install(client)
+    org_id = (await _connector()).org_id
+    eval_fakes.delenv(EVAL_FAKE_SCENES_ENV)
+    assert (await client.delete(f"{ORG}/plugins/servicenow")).status_code == 200
+    assert _org_objects(kube, org_id) == {}
+
+
+async def test_an_upgrade_whose_server_drops_its_fake_deletes_the_eval_instance(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, eval_fakes: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#2195: the reconcile after an upgrade only knows the new declaration, which names no eval
+    instance; the one the former declaration ran is deleted by the upgrade."""
+    import yaml
+
+    newer = tmp_path / "plugins" / "servicenow" / "0.1.2"
+    shutil.copytree(FIXTURES / "plugins" / "servicenow", newer)
+    server_file = newer / "servers" / "servicenow.yaml"
+    declared = yaml.safe_load(server_file.read_text())
+    declared.pop("fake")
+    server_file.write_text(yaml.safe_dump(declared))
+    manifest = newer / "plugin.yaml"
+    manifest.write_text(manifest.read_text().replace("version: 0.1.1", "version: 0.1.2"))
+    await _install(client)
+    before = (await _connector()).plugin_server
+    asked = await client.post(f"{ORG}/plugins/servicenow/upgrade", json={"version": "0.1.2"})
+    if asked.status_code == 202:
+        await as_user(client, SECOND)
+        approved = await client.post(f"{ORG}/plugin-approvals/{asked.json()['approval_id']}/approve")
+        assert approved.status_code == 200, approved.text
+        await as_user(client, "admin@northwind.dev")
+    else:
+        assert asked.status_code == 200, asked.text
+    after = (await _connector()).plugin_server
+    assert after["version"] == "0.1.2" and "fake_object" not in after
+    for resource in _RESOURCES:
+        assert before["fake_object"] not in _objects(kube, resource), resource
+    assert set(_objects(kube, "deployments")) == {before["object"]}, "the server itself keeps running"
+
+
 async def test_a_server_without_a_fake_has_no_eval_instance(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, eval_fakes: pytest.MonkeyPatch
 ) -> None:
