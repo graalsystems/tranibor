@@ -25,6 +25,7 @@ from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_adapters.fakes.plugin_servers import FakePluginServer
 from tranibor_adapters.fakes.scenes import EVAL_FAKE_SCENES_ENV, FAKE_SCENE_FIELD
 from tranibor_adapters.plugin_servers import TOKEN_ENV, PluginServerRuntime
+from tranibor_contracts.env import with_legacy
 
 from .agent_scopes_kit import add_member, as_user
 
@@ -121,8 +122,10 @@ async def test_a_server_with_a_fake_runs_its_eval_instance_where_the_deployment_
     assert deployments[fake]["spec"]["replicas"] == 1
     assert deployments[fake]["metadata"]["labels"]["choregos.dev/fake"] == "true"
     secrets = _objects(kube, "secrets")
-    assert _env(secrets[fake]) == {"SERVICENOW_FAKE": "1", TOKEN_ENV: _env(secrets[real])[TOKEN_ENV]}, (
-        "the fake's variables and the platform's token, nothing of the configuration"
+    token = {TOKEN_ENV: _env(secrets[real])[TOKEN_ENV]}
+    assert _env(secrets[fake]) == {"SERVICENOW_FAKE": "1", **with_legacy(token)}, (
+        "the fake's variables and the platform's token (under both names, ADR 0176 R4), nothing of the "
+        "configuration"
     )
     assert _objects(kube, "networkpolicies")[fake]["spec"]["egress"] == [], "it reaches nothing"
 
