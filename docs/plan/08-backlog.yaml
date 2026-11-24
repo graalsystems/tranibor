@@ -5982,6 +5982,14 @@ stories:
     size: S
     depends_on: [S80-45]
     notes: "P1 asks for 14 green nights on a real ServiceNow instance; S80-45 said a nightly needed the instance's credentials as CI secrets. It does not: a project with an internal tracker schedules one work item a night whose only step is a job calling the organisation's servicenow connector with the run's token (examples/servicenow-nightly/workflow.yaml, runbook docs/runbooks/servicenow-nightly.md). One green night on an operator's dev cluster on 2026-11-24; tracker_create_item allowed for the nightly project's group only."
+  - id: S80-48
+    title: "feat(charts): the embedded Temporal can require a client certificate, and its dev UI can leave the network"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-06]
+    notes: "Finding DiametralGroup/choregos-deploy#326 (origin #2082): the clients could present a certificate (global.temporal.tls.mutual) but the embedded Temporal never asked for one, and the dev UI served write actions with no login. choregos-temporal.tls.requireClientCert (relay ssl_verify_client in dev; TEMPORAL_TLS_REQUIRE_CLIENT_AUTH and the client CAs in server mode) and choregos-temporal.ui.loopbackOnly. Merged as #2223 under the id S80-47, which #2222 had already taken: renumbered."
   - id: S40-28
     title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
     stream: S40

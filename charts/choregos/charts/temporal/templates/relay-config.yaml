@@ -21,6 +21,12 @@ data:
         ssl_protocols TLSv1.2 TLSv1.3;
         # gRPC: recent clients (grpc-go >= 1.67) require the server to pick h2.
         ssl_alpn h2;
+        {{- if .Values.tls.requireClientCert }}
+        # Mutual TLS (ADR 0183 point 5): a client with no certificate from this authority is cut at the
+        # handshake. The authority does not rotate (cert-manager `rotationPolicy: Never`), so a fixed path.
+        ssl_verify_client on;
+        ssl_client_certificate /etc/temporal-tls/ca.crt;
+        {{- end }}
         proxy_pass 127.0.0.1:7234;
         # Long gRPC streams (the workers' long poll) are not cut by the relay.
         proxy_timeout 24h;
