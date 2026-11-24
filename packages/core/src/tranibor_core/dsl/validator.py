@@ -159,6 +159,7 @@ def validate_workflow(wf: Workflow, source: Any = None) -> ValidationReport:
     _check_tasks(wf, report, source)
     _check_spawns(wf, report, source)
     _check_attachments(wf, report, source)
+    _check_finding_types(wf, report, source)
     _check_effects(wf, report, source)
     _check_output_types(wf, report, source)
     _check_artifact_declarations(wf, report, source)
@@ -632,6 +633,35 @@ def _check_attachments(wf: Workflow, report: ValidationReport, source: Any) -> N
             ["artifacts", ATTACHMENTS_INPUT],
             source,
         )
+
+
+def _check_finding_types(wf: Workflow, report: ValidationReport, source: Any) -> None:
+    """A workflow's own finding types (ADR 0217) are named once, and never take a name the core or a
+    plugin already gives a type: two meanings for one name would make a finding's type depend on which
+    workflow filed it."""
+    from tranibor_contracts import FINDING_TYPES
+
+    seen: set[str] = set()
+    for index, decl in enumerate(wf.metadata.finding_types or []):
+        location: list[str | int] = ["metadata", "finding_types", index, "name"]
+        if decl.name in seen:
+            report.error(
+                "finding_types.duplicate",
+                f"the finding type `{decl.name}` is declared twice",
+                location,
+                source,
+            )
+        seen.add(decl.name)
+        if decl.name in FINDING_TYPES.known():
+            owner = FINDING_TYPES.plugin_of(decl.name)
+            who = f"the plugin `{owner}`" if owner else "the core"
+            report.error(
+                "finding_types.taken",
+                f"the finding type `{decl.name}` is already {who}'s: it is valid in every workflow, "
+                "declare another name",
+                location,
+                source,
+            )
 
 
 def _check_spawns(wf: Workflow, report: ValidationReport, source: Any) -> None:

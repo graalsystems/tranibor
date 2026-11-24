@@ -5892,6 +5892,8 @@ export type FindingRecord = {
   origin_run_id?: string | null;
   title: string;
   type: string;
+  /** The title the finding's workflow gives its type (`metadata.finding_types`, ADR 0217); null for a type the core or a plugin declares, and for one its workflow no longer declares. */
+  type_title?: string | null;
   severity: "low" | "medium" | "high" | "critical";
   evidence?: string;
   suggested_fix?: string | null;

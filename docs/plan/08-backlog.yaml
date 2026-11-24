@@ -6247,6 +6247,19 @@ stories:
       - "the two connector.marketdata procedures are the plugin's"
       - "test_core_names_no_business_vocabulary.py has no exemption left"
     notes: "4-6 pd, 2027-01-25 to 2027-02-12."
+  - id: S83-11
+    title: "contract(contracts,core,api,web,cli): a workflow declares its own finding types (ADR 0217)"
+    stream: S83
+    sprint: 3
+    priority: 6
+    size: M
+    depends_on: [S83-04]
+    acceptance:
+      - "a workflow declares finding types in metadata.finding_types (name, title, optional severities and description) and publishes; a duplicate name or a name the core or a plugin owns is refused at publication"
+      - "a finding of a declared type is accepted through the run's finding route and its result, and listed with its title; an undeclared type is refused with a 422 naming the workflow and the allowed types"
+      - "the core's and the plugins' finding types stay valid in every workflow; every archived history replays"
+      - "the console and the CLI show the declared title"
+    notes: "From a pre-sales demonstration of a warranty-claims workflow, where a suspected duplicate claim had to be filed as security. Gates and humans file no finding today; when one does, it judges with tranibor_core.finding_types."
   - id: S4-07
     title: "The cost ledger separates cache writes from cache reads (ADR 0188)"
     stream: S4

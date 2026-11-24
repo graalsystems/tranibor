@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { use, useState } from "react";
 import { Button, Card, Empty, ErrorNote, ReadState, Select, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import { api } from "@/lib/api";
+import { findingTypeLabel } from "@/lib/finding-type";
 import { relative } from "@/lib/format";
 
 const SEVERITY_TONE: Record<string, string> = {
@@ -71,7 +72,7 @@ export default function FindingsPage({ params }: { params: Promise<{ slug: strin
           {(findings.data?.items ?? []).map((finding) => (
             <TR key={finding.id}>
               <TD className={SEVERITY_TONE[finding.severity] ?? ""}>{finding.severity}</TD>
-              <TD>{finding.type}</TD>
+              <TD title={finding.type_title ? finding.type : undefined}>{findingTypeLabel(finding)}</TD>
               <TD>
                 {finding.title}
                 {(finding.occurrences ?? 1) > 1 && (

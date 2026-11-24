@@ -20,6 +20,7 @@ from tranibor_api.services import DecidedBy, persist_event, record_cost, record_
 from tranibor_api.services.artifacts import record_diff, record_inline_outputs
 from tranibor_api.services.budget_alerts import unsent_month_alerts
 from tranibor_api.services.budgets import ticket_budget, ticket_spent
+from tranibor_api.services.finding_types import workflow_of
 from tranibor_api.services.model_catalogue import priced_spend
 from tranibor_api.services.tickets import outputs_to_store
 from tranibor_contracts import CHANGE_REQUEST, EventType, StageInput, StageResult, StageStatus
@@ -27,6 +28,7 @@ from tranibor_contracts.open_lists import STORED
 from tranibor_core import Message, Spend, elapsed_seconds, utcnow
 from tranibor_core.decision_ledger import declared_confidences
 from tranibor_core.domain import DiffSummary
+from tranibor_core.finding_types import refusal
 from tranibor_core.run_stop import stopped_by_a_person
 from tranibor_core.unified_diff import unified_diff
 
@@ -374,8 +376,15 @@ async def _persist_findings(session: Any, run: Run, item: Any, result: StageResu
     )
     known = {row.title for row in existing}
     created: list[str] = []
+    workflow = await workflow_of(session, item)
     for finding in result.findings:
         if finding.title in known or len(existing) + len(created) >= cap:
+            continue
+        # The result was read as a stored document, its types unjudged: the workflow's are judged here
+        # (ADR 0217). A finding the API already refused when the runner posted it is not filed now.
+        why = refusal(workflow, str(finding.type), str(finding.severity))
+        if why is not None:
+            logger.warning("finding.refused", run_id=run.id, title=finding.title, reason=why)
             continue
         row = FindingRow(
             project_id=run.project_id,

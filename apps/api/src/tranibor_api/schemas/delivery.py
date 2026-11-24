@@ -71,6 +71,8 @@ class FindingDto(Dto):
     origin_run_id: str | None = None
     title: str
     type: str
+    #: The title the finding's workflow gives its type (ADR 0217); `None` for a core or plugin type.
+    type_title: str | None = None
     severity: str
     evidence: str
     suggested_fix: str | None = None

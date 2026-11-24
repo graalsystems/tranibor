@@ -922,7 +922,8 @@ def findings_list(project: str, status: Annotated[str | None, typer.Option()] = 
         table.add_row(
             finding["id"][:8],
             finding["severity"],
-            finding["type"],
+            # The title the finding's workflow gives its type, beside the name (ADR 0217).
+            f"{finding['type']} ({finding['type_title']})" if finding.get("type_title") else finding["type"],
             finding["title"][:50],
             finding["status"],
             finding.get("created_work_item_key") or "—",
