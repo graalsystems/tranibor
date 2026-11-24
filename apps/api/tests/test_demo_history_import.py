@@ -376,3 +376,83 @@ async def test_every_import_is_audited(client: AsyncClient, project: dict[str, A
     await client.post(URL.format(id=project["id"]), json=DOCUMENT)
 
     assert await _count(AuditLog, AuditLog.action == "demo_history.import") == 1
+
+
+WARRANTY = """
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: warranty-claims
+  version: 1
+  finding_types:
+    - name: duplicate-claim
+      title: Suspected duplicate claim
+      severities: [medium, high]
+initial: received
+actors:
+  assessor: { type: agent, role: claim_assessment }
+states:
+  received: { display: Received }
+  assessed: { display: Assessed, terminal: true }
+transitions:
+  - { id: t-assess, from: received, to: assessed, by: assessor }
+"""
+
+
+def _claim(finding_type: str, severity: str) -> dict[str, Any]:
+    return {
+        "schema": "choregos/DemoHistory/v1",
+        "workflow": "warranty-claims",
+        "work_items": [
+            {
+                "id": "wc-6",
+                "title": "Serial 4471 claimed twice",
+                "created_at": "2026-11-02T09:00:00Z",
+                "history": [{"state": "received", "at": "2026-11-02T09:00:00Z"}],
+                "findings": [
+                    {
+                        "id": "dup",
+                        "title": "Serial 4471 was claimed in March",
+                        "type": finding_type,
+                        "severity": severity,
+                        "evidence": "claims/2026-03-1187",
+                    }
+                ],
+            }
+        ],
+    }
+
+
+async def test_a_finding_type_the_workflow_declares_is_imported_and_judged_by_its_scale(
+    client: AsyncClient, project: dict[str, Any], demo: None
+) -> None:
+    from tranibor_api.db.models import Finding, WorkItem
+
+    published = await client.put(
+        f"/api/v1/projects/{project['id']}/workflows/warranty-claims", json={"yaml": WARRANTY}
+    )
+    assert published.status_code in (200, 201), published.text
+    url = URL.format(id=project["id"])
+
+    outside_scale = await client.post(url, json=_claim("duplicate-claim", "low"))
+    assert outside_scale.status_code == 422, outside_scale.text
+    assert "severity `low`" in outside_scale.text
+    assert await _count(WorkItem) == 0
+
+    answer = await client.post(url, json=_claim("duplicate-claim", "high"))
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["created"]["findings"] == 1
+    assert await _count(Finding, Finding.type == "duplicate-claim") == 1
+
+
+async def test_a_workflow_declared_type_is_refused_under_a_workflow_that_does_not_declare_it(
+    client: AsyncClient, project: dict[str, Any], demo: None
+) -> None:
+    from tranibor_api.db.models import WorkItem
+
+    document = _with(lambda item: item["findings"][0].update(type="duplicate-claim"))
+    answer = await client.post(URL.format(id=project["id"]), json=document)
+
+    assert answer.status_code == 422, answer.text
+    assert "unknown finding type `duplicate-claim`" in answer.text
+    assert await _count(WorkItem) == 0

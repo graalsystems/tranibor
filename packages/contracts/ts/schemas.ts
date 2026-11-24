@@ -363,7 +363,7 @@ export type DemoHistoryDecision = {
 export type DemoHistoryFinding = {
   id: DemoHistoryId;
   title: string;
-  /** A finding type the platform knows (the same open list as a finding an agent raises). */
+  /** A finding type the project's workflow allows: the core's, the plugins' or its own `metadata.finding_types` (ADR 0217), judged by the import as the finding routes judge an agent's; the severity must fit the type's scale. */
   type: string;
   severity: "low" | "medium" | "high" | "critical";
   evidence: string;
