@@ -30,6 +30,18 @@ An empty endpoint means AWS; any other is an S3-compatible store addressed by pa
 {{- end }}
 {{- end -}}
 
+{{/*
+The environment of the backup's and the restore's `memory` steps (S80-41, #2185): the embedded
+Ecphoria's URL and the key its admin API takes, the platform's own (`<release>-memory`, an admin key
+with no tenant, unless `global.memory.tokenSecret` names another one, which must be an admin key too).
+*/}}
+{{- define "choregos.backupMemoryEnv" -}}
+{{- toYaml .env }}
+- { name: MEMORY_URL, value: {{ include "choregos.memoryUrl" .root | quote }} }
+- name: MEMORY_TOKEN
+  valueFrom: { secretKeyRef: { name: {{ include "choregos.memoryTokenSecret" .root }}, key: token } }
+{{- end -}}
+
 {{- define "choregos.labels" -}}
 app.kubernetes.io/name: {{ include "choregos.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}

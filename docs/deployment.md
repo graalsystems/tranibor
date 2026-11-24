@@ -1737,7 +1737,8 @@ helm install choregos charts/choregos -n choregos --create-namespace \
 
 **The backup.** The CronJob `choregos-backup` runs every night at 02:00 UTC (`backup.schedule`) and
 writes one directory per run: a `pg_dump -Fc --create` of every database (Temporal's included in
-`server` mode), an online copy of Temporal's SQLite file in `dev` mode, the memory's files, the object store when asked, a `MANIFEST` and a
+`server` mode), an online copy of Temporal's SQLite file in `dev` mode, the memory as Ecphoria backs it up itself while it runs
+(`/api/v1/admin/backup`, S80-41), the object store when asked, a `MANIFEST` and a
 `COMPLETE` marker; it keeps the 7 newest complete backups (`backup.keep`). To take one now:
 `kubectl -n choregos create job --from=cronjob/choregos-backup backup-now`. A `volume` target
 (`backup.target.kind: volume`) is accepted, and is a backup only if that volume is not on the

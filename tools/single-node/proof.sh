@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # The single-node proof (ADR 0184, S80-07b), made to run every night:
 #
-#   blank node -> k3s -> the chart with values/single-node.yaml -> one work item to `approved`
-#   -> the chart's backup -> the node DESTROYED -> a new blank node -> k3s -> the chart -> the chart's
-#   restore -> the same work item is still `approved`.
+#   blank node -> k3s -> the chart with values/single-node.yaml -> one work item to `approved` and
+#   one memory record -> the chart's backup -> the node DESTROYED -> a new blank node -> k3s -> the
+#   chart -> the chart's restore -> the same work item is still `approved`, the record still there.
 #
 #   tools/single-node/proof.sh                   # k3s in Docker (k3d), on this machine
 #   PROOF_CLUSTER=k3s tools/single-node/proof.sh # k3s itself, on THIS machine (a throwaway VM, root)
@@ -279,6 +279,28 @@ token() {
   k exec deploy/choregos-api -- choregos-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
 }
 
+# S80-41, #2185: a record of the memory, written to Ecphoria and read back by id, from the API's pod
+# with the API's own URL and key. The backup is taken while Ecphoria runs; a copy of its DuckDB files
+# made then came back empty, and Ecphoria said nothing. `write <content>` prints the id; `read <id>
+# <content>` fails unless the record holds that content.
+MEMORY_RECORD='
+import json, os, sys, urllib.request
+url, token = os.environ["CHOREGOS_MEMORY_URL"].rstrip("/"), os.environ["CHOREGOS_MEMORY_TOKEN"]
+headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json", "X-Ecphoria-Tenant": "proof"}
+def ask(method, path, body=None):
+    data = None if body is None else json.dumps(body).encode()
+    with urllib.request.urlopen(urllib.request.Request(url + path, data, headers, method=method), timeout=30) as r:
+        return json.loads(r.read())
+if sys.argv[1] == "write":
+    written = ask("POST", "/api/v1/memories", {"subject": "single-node proof", "content": sys.argv[2]})
+    print(written.get("id") or written["memory"]["id"])
+else:
+    found = ask("GET", "/api/v1/memories/" + sys.argv[2])
+    assert found.get("content") == sys.argv[3], found
+    print("memory record " + sys.argv[2] + ": " + found["content"])
+'
+memory_record() { k exec deploy/choregos-api -- python -c "$MEMORY_RECORD" "$@"; }
+
 trap 'status=$?; [ $status -ne 0 ] && echo "PROOF FAILED (exit $status) — workdir $WORK"; \
   if [ -z "${PROOF_KEEP:-}" ] && [ "$MODE" = k3d ]; then k3d cluster delete "$NAME" >/dev/null 2>&1; \
   docker rm -f "$NAME-s3" >/dev/null 2>&1; docker network rm "$NAME" >/dev/null 2>&1; fi; true' EXIT
@@ -299,10 +321,14 @@ step "one work item to completion"
 TOKEN=$(token)
 ITEM=$(k exec -i deploy/choregos-api -- python - run "$ORG" "$TOKEN" <"$ROOT/tools/single-node/work_item.py")
 echo "  $ITEM"
-step "backup (the chart's CronJob, started now)"
+step "one memory record, written while Ecphoria runs"
+MEMORY_CONTENT="written by the proof at $(date -u +%FT%TZ)"
+MEMORY_ID=$(memory_record write "$MEMORY_CONTENT")
+memory_record read "$MEMORY_ID" "$MEMORY_CONTENT" | sed 's/^/  /'
+step "backup (the chart's CronJob, started now, Ecphoria running)"
 k create job --from=cronjob/choregos-backup proof-backup
 k wait --for=condition=complete job/proof-backup --timeout=1200s
-for c in prepare database files objects ship; do k logs job/proof-backup -c "$c" | sed "s/^/  [$c] /"; done
+for c in prepare database files memory objects ship; do k logs job/proof-backup -c "$c" | sed "s/^/  [$c] /"; done
 step "destroy the node"
 node_destroy
 step "a new blank node -> k3s -> the chart"
@@ -313,4 +339,6 @@ step "restore"
 step "the work item is still there"
 TOKEN=$(token)
 k exec -i deploy/choregos-api -- python - check "$ORG" "$TOKEN" "$ITEM" <"$ROOT/tools/single-node/work_item.py"
+step "the memory record is still there"
+memory_record read "$MEMORY_ID" "$MEMORY_CONTENT" | sed 's/^/  /'
 step "PROOF HELD: install, work item, backup, destroy, restore"
