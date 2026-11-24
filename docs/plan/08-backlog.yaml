@@ -5982,6 +5982,14 @@ stories:
     size: S
     depends_on: [S80-45]
     notes: "P1 asks for 14 green nights on a real ServiceNow instance; S80-45 said a nightly needed the instance's credentials as CI secrets. It does not: a project with an internal tracker schedules one work item a night whose only step is a job calling the organisation's servicenow connector with the run's token (examples/servicenow-nightly/workflow.yaml, runbook docs/runbooks/servicenow-nightly.md). One green night on an operator's dev cluster on 2026-11-24; tracker_create_item allowed for the nightly project's group only."
+  - id: S40-28
+    title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
+    stream: S40
+    sprint: 1
+    priority: 3
+    size: M
+    depends_on: []
+    notes: "A core port InjectionClassifier, an HTTP adapter in LLM Guard's API shape and a scriptable fake; TRANIBOR_INJECTION_CLASSIFIER=off|http|fake is the deployment's, off by default, never a policy (no contract change). Findings are security events with detector model; block stops before any run; a service down is fail-closed under block (retryable) and logged under warn. The secret-masking guardrail (ADR 0084) is not an injection detector and is unchanged. Probabilistic, not a guarantee; not proven against a real LLM Guard server; the chart deploys no classifier."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
