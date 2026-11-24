@@ -1,24 +1,12 @@
-# Default owners: the integrator stream
+# Who reads what, as it is today: one human maintainer reads every change. Neither team below exists
+# in the organisation yet (GitHub reports both as unknown owners), so nothing here blocks a merge. The
+# per-stream teams this file used to name were removed: they described an organisation the project
+# does not have (ADR 0180). `integrators` is the default, kept because the publishing identity
+# rewrites it (ADR 0156); `human-review` marks the paths that need a second human reader.
 *                         @graalsystems/integrators
 
-# Contracts — every change goes through a `contract-change` PR
-/packages/contracts/       @graalsystems/integrators
-/docs/plan/                @graalsystems/integrators
-/docs/adr/                 @graalsystems/integrators
-
-# Flux
-/packages/core/            @graalsystems/stream-s0
-/packages/adapters/        @graalsystems/stream-s3
-/packages/runner/          @graalsystems/stream-s2
-/packages/tools-mcp/       @graalsystems/stream-s2
-/apps/orchestrator/        @graalsystems/stream-s1
-/apps/api/                 @graalsystems/stream-s6
-/apps/web/                 @graalsystems/stream-s5
-/charts/                   @graalsystems/stream-s7
-/templates/                @graalsystems/stream-s8
-
 # Human review (ADR 0180): contracts, migrations and security guards are read by a human other
-# than their author. This block comes last so that it wins over the per-stream lines above;
+# than their author. This block comes last so that it wins over the default line above;
 # `tests/docs/test_human_review.py` keeps every path in it existing and owned here. The team is
 # created, and "Require review from Code Owners" turned on, when a second human reviewer joins.
 /packages/contracts/                                          @graalsystems/human-review
