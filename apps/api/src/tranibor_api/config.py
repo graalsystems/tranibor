@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     #: Opt-in presentation aid (ADR 0213): a file of tools the fakes' MCP server serves, to demonstrate
     #: a governed write. Refused unless the fakes are on and `TRANIBOR_ENV` is `dev` or `test`.
     demo_mcp_tools: str = Field(default="", validation_alias="TRANIBOR_DEMO_MCP_TOOLS")
+    #: Opt-in presentation aid (ADR 0216): `POST /projects/{id}/demo-history` takes in a declared history of
+    #: work items, runs, costs and decisions, marked as imported. Refused in `staging` and `prod`.
+    demo_history_import: bool = Field(default=False, validation_alias="TRANIBOR_DEMO_HISTORY_IMPORT")
     #: Opt-in presentation aid (ADR 0218): a file naming the Python packages of plugin servers the API runs in
     #: its own process, on their fakes, instead of as Kubernetes Deployments. Refused unless the fakes are on
     #: and `TRANIBOR_ENV` is `dev` or `test`.

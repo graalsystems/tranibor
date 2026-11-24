@@ -47,6 +47,7 @@ trains_app = typer.Typer(help="Release trains")
 findings_app = typer.Typer(help="Findings")
 workflow_app = typer.Typer(help="Workflows")
 dev_app = typer.Typer(help="Development environment")
+demo_app = typer.Typer(help="Demonstration data")
 orgs_app = typer.Typer(help="Organisations")
 tokens_app = typer.Typer(help="API tokens")
 machines_app = typer.Typer(help="Applications that call the A2A door under their own name")
@@ -67,6 +68,7 @@ app.add_typer(trains_app, name="trains")
 app.add_typer(findings_app, name="findings")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(dev_app, name="dev")
+app.add_typer(demo_app, name="demo")
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(plugin_app, name="plugin")
 app.add_typer(a2a_app, name="a2a")
@@ -1086,6 +1088,37 @@ def _make(target: str) -> None:
         fail("`make` is not found: run the target by hand")
         return
     subprocess.run([make, target], check=False)  # noqa: S603 - resolved path
+
+
+@demo_app.command("import")
+def demo_import(
+    project: Annotated[str, typer.Argument(help="The project: `org/slug` or its id.")],
+    file: Annotated[Path, typer.Argument(help="A demonstration history, YAML or JSON.", exists=True)],
+) -> None:
+    """Take a demonstration history (work items, runs, costs, decisions) into a project.
+
+    Needs the organisation administrator, on an instance started with `TRANIBOR_DEMO_HISTORY_IMPORT=1`
+    outside staging and prod. Everything it writes is marked imported; the same file again changes nothing.
+    """
+    import yaml
+
+    try:
+        document = yaml.safe_load(file.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as error:
+        fail(f"{file} cannot be read: {error}")
+        return
+    if not isinstance(document, dict):
+        fail(f"{file} is not a demonstration history: a mapping with `schema` and `work_items` was expected")
+        return
+    answer = client().post(f"/projects/{project}/demo-history", json=document)
+    created, unchanged = answer["created"], answer["unchanged"]
+    console.print(
+        f"imported: {created['work_items']} work items, {created['runs']} runs, "
+        f"{created['decisions']} decisions, {created['findings']} findings "
+        f"(${answer['cost_usd']:.2f} declared, not measured)"
+    )
+    if any(unchanged.values()):
+        console.print(f"already there, left as they were: {unchanged['work_items']} work items")
 
 
 @dev_app.command("up")

@@ -4513,18 +4513,18 @@
     "type": "Integer()"
    },
    {
-    "name": "tokens_cache_write",
-    "type": "Integer()",
-    "nullable": false,
     "default": "0",
-    "server_default": "'0'"
+    "name": "tokens_cache_write",
+    "nullable": false,
+    "server_default": "'0'",
+    "type": "Integer()"
    },
    {
-    "name": "tokens_cache_write_1h",
-    "type": "Integer()",
-    "nullable": false,
     "default": "0",
-    "server_default": "'0'"
+    "name": "tokens_cache_write_1h",
+    "nullable": false,
+    "server_default": "'0'",
+    "type": "Integer()"
    },
    {
     "default": "0.0",
@@ -4618,6 +4618,13 @@
     "type": "String(length=36)"
    },
    {
+    "default": "False",
+    "name": "imported",
+    "nullable": false,
+    "server_default": "<sqlalchemy.sql.elements.False_ object>",
+    "type": "Boolean()"
+   },
+   {
     "default": "<function uuid7>",
     "name": "id",
     "nullable": false,
@@ -4687,6 +4694,13 @@
     "ix_cost_ledger_agent_slug",
     [
      "cost_ledger.agent_slug"
+    ],
+    false
+   ],
+   [
+    "ix_cost_ledger_imported",
+    [
+     "cost_ledger.imported"
     ],
     false
    ],
@@ -5555,6 +5569,13 @@
     "nullable": true,
     "server_default": null,
     "type": "Json()"
+   },
+   {
+    "default": "False",
+    "name": "imported",
+    "nullable": false,
+    "server_default": "<sqlalchemy.sql.elements.False_ object>",
+    "type": "Boolean()"
    },
    {
     "default": "<function uuid7>",
@@ -11967,6 +11988,13 @@
     "type": "Json()"
    },
    {
+    "default": "False",
+    "name": "imported",
+    "nullable": false,
+    "server_default": "<sqlalchemy.sql.elements.False_ object>",
+    "type": "Boolean()"
+   },
+   {
     "default": "<function utcnow>",
     "name": "created_at",
     "nullable": false,
@@ -13188,6 +13216,13 @@
     "nullable": true,
     "server_default": null,
     "type": "Float()"
+   },
+   {
+    "default": "False",
+    "name": "imported",
+    "nullable": false,
+    "server_default": "<sqlalchemy.sql.elements.False_ object>",
+    "type": "Boolean()"
    },
    {
     "default": "<function uuid7>",

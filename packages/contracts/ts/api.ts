@@ -5354,6 +5354,8 @@ export type WorkItem = {
   title: string;
   body_snapshot?: string | null;
   url?: string | null;
+  /** true for a row a demonstration history import wrote (ADR 0216): nothing measured it */
+  imported?: boolean;
   size?: Size | null;
   risk?: Risk | null;
   state: string;
@@ -5750,6 +5752,8 @@ export type RunSummary = {
   model?: string | null;
   cost_usd?: number;
   started_at?: string | null;
+  /** true for a row a demonstration history import wrote (ADR 0216): nothing measured it */
+  imported?: boolean;
 };
 
 export type Run = RunSummary & {
@@ -5898,6 +5902,8 @@ export type FindingRecord = {
   occurrences?: number;
   relevant?: boolean | null;
   created_at?: string;
+  /** true for a row a demonstration history import wrote (ADR 0216): nothing measured it */
+  imported?: boolean;
 };
 
 export type FindingPage = {
@@ -6320,6 +6326,8 @@ export type CostReport = {
     /** the part of tokens_cache_write written with the 1-hour TTL (priced at its own, higher multiplier); the rest is the 5-minute write. 0 when the provider did not say or on a line booked before S4-12 (ADR 0200) */
     tokens_cache_write_1h?: number;
     runs?: number;
+    /** the part of `cost_usd` a demonstration history import wrote (ADR 0216): declared, never measured */
+    imported_usd?: number;
   }>;
   total: {
     cost_usd?: number;
@@ -6337,6 +6345,8 @@ export type CostReport = {
     tokens_cache_write?: number;
     /** the part of tokens_cache_write written with the 1-hour TTL (S4-12, ADR 0200) */
     tokens_cache_write_1h?: number;
+    /** the part of `cost_usd` a demonstration history import wrote (ADR 0216): declared, never measured */
+    imported_usd?: number;
   };
 };
 
@@ -6770,6 +6780,23 @@ export type ContextPack = S.ContextPack;
 
 export type Finding = S.Finding;
 
+export type DemoHistory = S.DemoHistory;
+
+/** What a demonstration history import wrote (ADR 0216). A second import of the same document reports everything as `unchanged`. */
+export type DemoHistoryImport = {
+  created: DemoHistoryCounts;
+  unchanged: DemoHistoryCounts;
+  /** The cost the created runs carry, in USD: declared, not measured. */
+  cost_usd?: number;
+};
+
+export type DemoHistoryCounts = {
+  work_items: number;
+  runs: number;
+  decisions: number;
+  findings: number;
+};
+
 export type InboundEvent = S.InboundEvent;
 
 export type ChoregosEvent = S.Event;
@@ -7100,6 +7127,7 @@ export interface Operations {
 }; response: WebhookAck };
   giveAgentSessionFeedback: { method: "POST"; path: "/orgs/{org}/agent-sessions/{session_id}/feedback"; body: ConversationFeedbackCreate; response: ConversationFeedback };
   healthz: { method: "GET"; path: "/healthz"; body: never; response: void };
+  importDemoHistory: { method: "POST"; path: "/projects/{id}/demo-history"; body: DemoHistory; response: DemoHistoryImport };
   importSkill: { method: "POST"; path: "/orgs/{org}/skills/import"; body: void; response: Skill };
   importSkillsFromGit: { method: "POST"; path: "/orgs/{org}/skills/import-git"; body: SkillGitImport; response: Array<Skill> };
   installAssistant: { method: "POST"; path: "/orgs/{org}/assistants"; body: AssistantInstall; response: Assistant };
