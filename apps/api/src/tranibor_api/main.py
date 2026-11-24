@@ -25,6 +25,7 @@ from tranibor_core.production import (
     refuse_demo_plugin_servers,
     refuse_fakes_in_production,
 )
+from tranibor_core.temporal_connection import refuse_clear_payloads
 
 from . import __version__
 from .a2a.push import push_loop
@@ -158,6 +159,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API starting", env=settings.env, fakes=settings.fakes)
     # The fakes are a bench's switch: in staging and prod, the API does not start on them (S80-03).
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="API")
+    # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
+    if not settings.fakes:
+        refuse_clear_payloads(environment=settings.env)
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:
         refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)

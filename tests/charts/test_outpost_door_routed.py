@@ -19,6 +19,7 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 from typing import Any
@@ -146,9 +147,14 @@ def test_disabled_nothing_of_the_door_is_rendered(form: tuple[str, ...]) -> None
 
 def test_disabled_a_value_of_the_door_changes_nothing_of_the_render() -> None:
     """Not a byte, the API pod's checksum included: a door nobody runs restarts no API."""
-    plain = _render().stdout
-    assert _render('global.outposts.door.url="https://door.example.com"', DEDICATED).stdout == plain
-    assert _render("global.outposts.callsInFlight.perOutpost=4").stdout == plain
+
+    def stable(output: str) -> str:
+        # The codec's master key is drawn at random on every render (ADR 0220): the only line that differs.
+        return re.sub(r'keys: "v1:[^"]*"', 'keys: "<drawn>"', output)
+
+    plain = stable(_render().stdout)
+    assert stable(_render('global.outposts.door.url="https://door.example.com"', DEDICATED).stdout) == plain
+    assert stable(_render("global.outposts.callsInFlight.perOutpost=4").stdout) == plain
 
 
 def test_enabled_a_value_of_the_door_redeploys_the_api() -> None:

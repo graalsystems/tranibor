@@ -996,11 +996,18 @@ HR workflow a salary. Until S80-06 every process connected in clear and wrote JS
 
 What it does **not** protect, and is said so:
 
-- Both are **off by default**; a production deployment without them starts, and the worker logs `tls=false`
-  and `payload_codec=false` at start-up.
-- **One key per deployment**: it protects the histories from whoever reads Temporal's database, backups or
-  wire, not one organisation's data from an operator of the deployment. A key per organisation, from a KMS,
-  is phase 2.
+- TLS is **off by default**. The codec is **on by default in the chart** (ADR 0220): it draws a master key
+  into a Secret, and the API, the workers and `connect_temporal` **refuse to start in `staging` or `prod`
+  with no keyring** unless `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS=true` (the chart's
+  `global.temporal.codec.allowClear`) says clear histories are acceptable. In `dev` and `test` no key is needed.
+- **One key per organisation, derived** (ADR 0220): an organisation's payloads are sealed under
+  HKDF(master key, organisation id), the organisation named in the payload's metadata and bound as
+  associated data, so organisation A's payload cannot be opened with B's key
+  (`packages/core/tests/test_temporal_org_keys.py`); a payload of no organisation is under the master key, and
+  every history of ADR 0183 decodes and replays unchanged (`tests/replay/test_replay_with_org_keys.py`).
+  **This is not a KMS**: whoever holds the master key derives every organisation's key, so it separates
+  organisations' stored histories from each other, not one organisation from the operator. Workflows other than
+  the interpreter name no organisation and stay under the master key.
 - Workflow ids (which carry a ticket's key, never its text), search attributes, type and queue names,
   timers and headers stay in clear: Temporal reads them.
 - No codec server for the Temporal UI: payloads show encrypted there.
