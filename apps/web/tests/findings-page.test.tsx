@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
-import { Suspense } from "react";
+import { Suspense, act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import FindingsPage from "@/app/p/[slug]/findings/page";
 import { api } from "@/lib/api";
@@ -44,13 +44,15 @@ describe("the findings page", () => {
   });
 
   it("shows the declared title of a workflow's type and the name of a core one", async () => {
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <Suspense fallback={null}>
-          <FindingsPage params={Promise.resolve({ slug: "warranty" })} />
-        </Suspense>
-      </QueryClientProvider>,
-    );
+    await act(async () => {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Suspense fallback={null}>
+            <FindingsPage params={Promise.resolve({ slug: "warranty" })} />
+          </Suspense>
+        </QueryClientProvider>,
+      );
+    });
     const title = await waitFor(() => screen.getByText("Suspected duplicate claim"));
     expect(title.getAttribute("title")).toBe("duplicate-claim");
     expect(screen.getByText("security")).toBeTruthy();
