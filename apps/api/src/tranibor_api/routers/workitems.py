@@ -12,6 +12,7 @@ from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import Artifact, Control, EventType, HumanDecision, HumanRequestKind, Role
 from tranibor_core import WorkflowEngine, utcnow
 from tranibor_core.dsl.groups import group_for
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import ArtifactRecord, HumanRequest, Project, Run, WorkflowDef, WorkItem
@@ -812,7 +813,8 @@ async def post_action(id: str, body: WorkItemAction, session: Db, principal: Me)
             "tracker_key": item.tracker_key,
         }
         workflow_id = interpreter_id(project.slug, item.tracker_key)
-        await get_temporal().start_interpreter(workflow_id, payload)
+        with organisation_scope(project.org_id):
+            await get_temporal().start_interpreter(workflow_id, payload)
         item.temporal_wf_id = workflow_id
     else:
         if body.action in {"pause", "resume", "stop"}:

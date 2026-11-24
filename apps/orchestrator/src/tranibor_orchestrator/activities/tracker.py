@@ -27,6 +27,7 @@ from tranibor_core import Message, MessageAction, TrackerStateMapping, elapsed_s
 from tranibor_core.domain import TRACKER_FIELD, TRIAL_STATE
 from tranibor_core.gates import ALREADY_FIXED_GATE
 from tranibor_core.restricted import WITHHELD, is_marked
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..config import get_settings
 from ..markdown import STATUS_MARKER, StageLine, StatusComment, render_human_request
@@ -710,16 +711,17 @@ async def reconcile_tracker(payload: dict[str, Any]) -> dict[str, Any]:
             if item.paused or item.closed_at is not None or (state is not None and state.terminal):
                 continue
             workflow_id = interpreter_id(bundle.slug, key)
-            fresh = await start_workflow_once(
-                "WorkflowInterpreter",
-                workflow_id,
-                {
-                    "project_id": bundle.project.id,
-                    "project_slug": bundle.slug,
-                    "work_item_id": item.id,
-                    "tracker_key": key,
-                },
-            )
+            with organisation_scope(bundle.project.org_id):
+                fresh = await start_workflow_once(
+                    "WorkflowInterpreter",
+                    workflow_id,
+                    {
+                        "project_id": bundle.project.id,
+                        "project_slug": bundle.slug,
+                        "work_item_id": item.id,
+                        "tracker_key": key,
+                    },
+                )
             if fresh:
                 item.temporal_wf_id = workflow_id
                 started.append(key)
@@ -762,6 +764,7 @@ async def _restart_if_back(session: Any, bundle: Any, item: WorkItem, workflow_i
     )
     if recurrence is None:
         return False
-    await restart_interpreter(workflow_id, restart_payload(bundle.project, item))
+    with organisation_scope(bundle.project.org_id):
+        await restart_interpreter(workflow_id, restart_payload(bundle.project, item))
     item.temporal_wf_id = workflow_id
     return True

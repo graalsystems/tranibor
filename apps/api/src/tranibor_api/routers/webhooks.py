@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
 from tranibor_contracts import InboundEvent, InboundEventType
 from tranibor_core import utcnow
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..config import get_settings
@@ -357,15 +358,16 @@ async def dispatch(
         await observe_reopening(session, item, str(event.type), event.payload)
         if should_start:
             workflow_id = interpreter_id(project.slug, key)
-            await get_temporal().start_interpreter(
-                workflow_id,
-                {
-                    "project_id": project.id,
-                    "project_slug": project.slug,
-                    "work_item_id": item.id,
-                    "tracker_key": key,
-                },
-            )
+            with organisation_scope(project.org_id):
+                await get_temporal().start_interpreter(
+                    workflow_id,
+                    {
+                        "project_id": project.id,
+                        "project_slug": project.slug,
+                        "work_item_id": item.id,
+                        "tracker_key": key,
+                    },
+                )
             item.temporal_wf_id = workflow_id
         if event.type == InboundEventType.ITEM_MOVED:
             delivered += _card_move(session, project, event, item, created=created, key=key)

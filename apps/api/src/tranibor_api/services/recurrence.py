@@ -33,6 +33,7 @@ from sqlalchemy import update
 from tranibor_contracts import EventType
 from tranibor_core import utcnow
 from tranibor_core.domain import aware
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..db.models import Project, WorkItem
 from .decision_ledger import record_reopened
@@ -167,7 +168,8 @@ async def restart_work_item(
     if recurrence is None:
         return None
     workflow_id = interpreter_id(project.slug, item.tracker_key)
-    await get_temporal().restart_interpreter(workflow_id, restart_payload(project, item))
+    with organisation_scope(project.org_id):
+        await get_temporal().restart_interpreter(workflow_id, restart_payload(project, item))
     item.temporal_wf_id = workflow_id
     return recurrence
 

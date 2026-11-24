@@ -17,6 +17,7 @@ from tranibor_contracts.open_lists import STORED
 from tranibor_core.domain import NewItem
 from tranibor_core.restricted import RESTRICTED_TITLE, WITHHELD, mark
 from tranibor_core.secrets import SecretNotFound
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import (
@@ -550,15 +551,16 @@ async def start_work_item(project: Project, item: WorkItem) -> None:
     if item.state == TRIAL_STATE:
         return
     workflow_id = interpreter_id(project.slug, item.tracker_key)
-    await get_temporal().start_interpreter(
-        workflow_id,
-        {
-            "project_id": project.id,
-            "project_slug": project.slug,
-            "work_item_id": item.id,
-            "tracker_key": item.tracker_key,
-        },
-    )
+    with organisation_scope(project.org_id):
+        await get_temporal().start_interpreter(
+            workflow_id,
+            {
+                "project_id": project.id,
+                "project_slug": project.slug,
+                "work_item_id": item.id,
+                "tracker_key": item.tracker_key,
+            },
+        )
     item.temporal_wf_id = workflow_id
 
 
