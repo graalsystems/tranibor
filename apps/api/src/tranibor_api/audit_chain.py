@@ -14,6 +14,11 @@ end, a chain shorter than its head or than a checkpoint (deleted from the end). 
 chain from some entry on, hashes recomputed, is seen only against a checkpoint kept where the rewriter
 could not reach: one signed with a key the database does not hold, or one copied outside (`--anchor`).
 
+A chain whose prefix retention removed (ADR 0221) is walked from the `prune` checkpoint written before the
+delete: the first entry left must be the one after it and link to its hash, and the checkpoint must be
+recorded by an `audit.retention.prune` entry inside the chain, so a checkpoint added or changed by hand
+shows. What was removed is no longer evidence, and the report says how far it went.
+
 The commands are `choregos-admin audit verify` and `choregos-admin audit checkpoint` (`admin_cli.py`).
 """
 
@@ -41,6 +46,8 @@ CHECKPOINT_VERSION = "choregos.audit.checkpoint/1"
 GENESIS = "0" * 64
 #: The chain key of the platform's entries (`org_id IS NULL`); an organisation's is its id.
 PLATFORM = ""
+#: The action of the entry that records a retention prune inside the chain (ADR 0221).
+PRUNE_ACTION = "audit.retention.prune"
 #: How many entries a walk reads per query.
 PAGE = 5000
 
@@ -121,6 +128,9 @@ class Checkpoint:
     signature: str | None = None
     #: Where it was read: `database`, or the anchor file it came from.
     source: str = "database"
+    #: `prune` only: the entries that prune removed, and the retention rule it applied (ADR 0221).
+    pruned: int | None = None
+    retention_days: int | None = None
 
     def statement(self) -> bytes:
         """What is signed: the chain (an organisation's id, `""` for the platform), the place, the hash and
@@ -230,6 +240,9 @@ class Report:
     last_hash: str = GENESIS
     #: The genesis checkpoint: entries up to its place were chained by the migration, not as written.
     genesis: Checkpoint | None = None
+    #: The latest `prune` checkpoint: entries 1 to its place were removed by retention, and the walk starts
+    #: after it (ADR 0221).
+    pruned: Checkpoint | None = None
     #: The signed checkpoints (database and anchors) the chain matched, the latest last.
     matched: list[Checkpoint] = field(default_factory=list)
     #: The first break; `None` when the chain is intact.
@@ -252,6 +265,8 @@ class Report:
             "last_hash": self.last_hash,
             "genesis_seq": self.genesis.seq if self.genesis else None,
             "genesis_at": timestamp(self.genesis.created_at) if self.genesis else None,
+            "pruned_through_seq": self.pruned.seq if self.pruned else None,
+            "pruned_at": timestamp(self.pruned.created_at) if self.pruned else None,
             "signed_checkpoints": len(self.matched),
             "first_break": (
                 {
@@ -283,12 +298,18 @@ class ChainWalker:
         self.report = Report(chain=chain, label=label)
         self._expected = 1
         self._prev = GENESIS
+        #: What the `audit.retention.prune` entries seen in the chain say they pruned: (seq, hash).
+        self._recorded: set[tuple[int, str]] = set()
         self._anchors: dict[int, list[Checkpoint]] = {}
         for checkpoint in sorted(checkpoints, key=lambda c: (c.seq, c.created_at)):
             if checkpoint.chain != chain:
                 continue
             if checkpoint.kind == "genesis":
                 self.report.genesis = checkpoint
+            elif checkpoint.kind == "prune":
+                # The latest one (the list is in the order of `seq`) is where the walk starts.
+                self.report.pruned = checkpoint
+                continue
             elif not checkpoint.signature_holds():
                 self.report.problems.append(
                     f"the checkpoint at entry {checkpoint.seq} ({checkpoint.source}, "
@@ -302,6 +323,27 @@ class ChainWalker:
                 )
                 continue
             self._anchors.setdefault(checkpoint.seq, []).append(checkpoint)
+        if self.report.pruned is not None:
+            self._start_after(self.report.pruned)
+
+    def _start_after(self, prune: Checkpoint) -> None:
+        """Entries 1 to `prune.seq` are gone: the walk starts at the next place, linked to the hash the
+        checkpoint kept. A checkpoint kept outside at that place must agree with it; earlier ones vouch for
+        entries nobody can read any more and are set aside."""
+        self._expected = prune.seq + 1
+        self._prev = prune.hash
+        self.report.last_seq = prune.seq
+        self.report.last_hash = prune.hash
+        for seq in [seq for seq in self._anchors if seq <= prune.seq]:
+            for anchor in self._anchors.pop(seq):
+                if seq == prune.seq and anchor.hash != prune.hash:
+                    self._stop(
+                        prune.seq,
+                        None,
+                        f"the prune checkpoint at entry {prune.seq} is not the entry the "
+                        f"{anchor.kind} checkpoint of {timestamp(anchor.created_at)} ({anchor.source}) "
+                        "vouched for: the chain was rewritten from there or before",
+                    )
 
     def _stop(self, seq: int | None, entry_id: str | None, reason: str) -> bool:
         self.report.first_break = Break(seq=seq, entry_id=entry_id, reason=reason)
@@ -348,6 +390,8 @@ class ChainWalker:
                 )
             if checkpoint.kind == "signed":
                 self.report.matched.append(checkpoint)
+        if link.action == PRUNE_ACTION:
+            self._note_prune(link)
         self.report.entries += 1
         self.report.last_seq = link.seq
         self.report.last_hash = computed
@@ -355,9 +399,26 @@ class ChainWalker:
         self._expected += 1
         return True
 
+    def _note_prune(self, link: Link) -> None:
+        """A retention prune records what it removed in the chain itself; remember it."""
+        try:
+            said = json.loads(link.payload)
+            self._recorded.add((int(said["through_seq"]), str(said["through_hash"])))
+        except (ValueError, KeyError, TypeError):
+            return
+
     def finish(self, head: tuple[int, str] | None) -> Report:
         """The end of the chain against its head and against the checkpoints past it."""
         if self.report.first_break is not None:
+            return self.report
+        pruned = self.report.pruned
+        if pruned is not None and (pruned.seq, pruned.hash) not in self._recorded:
+            self._stop(
+                pruned.seq + 1,
+                None,
+                f"the prune checkpoint at entry {pruned.seq} is not recorded in the chain by an "
+                f"`{PRUNE_ACTION}` entry: it was not written by a retention prune",
+            )
             return self.report
         beyond = sorted(seq for seq in self._anchors if seq > self.report.last_seq)
         if beyond:
@@ -477,6 +538,8 @@ async def stored_checkpoints(session: AsyncSession, chain: str) -> list[Checkpoi
             created_at=row.created_at,
             key_id=row.key_id,
             signature=row.signature,
+            pruned=row.pruned,
+            retention_days=row.retention_days,
         )
         for row in rows
     ]

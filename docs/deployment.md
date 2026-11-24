@@ -1445,9 +1445,39 @@ With `monitoring.alerts` on, the alert `ChoregosAuditExportStalled` fires when e
 moved for half an hour.
 A setting the API cannot build a sink from (a plain `http://` URL, an unknown format) stops it at start.
 
-Not part of this: a retention rule for the log, checkpoints signed on a schedule, a migration role distinct
+Not part of this: checkpoints signed on a schedule, a migration role distinct
 from the API's own, and the chain in `GET /audit`. Against a real Splunk, Elastic or syslog server nothing
 here has been run yet: the sinks are tested against simulated receivers.
+
+
+## Retention of the audit log
+
+([ADR 0221](adr/0221-the-audit-log-forgets-a-verified-prefix-behind-a-checkpoint-written-first.md), S80-05c.) The
+audit log keeps every entry **unless you set a rule**: off by default, so an upgrade deletes nothing. PostgreSQL
+only. The chart has no value for it yet; set the API's environment with `global.extraEnv`:
+
+| Setting | Default | Meaning |
+|:--|:--|:--|
+| `TRANIBOR_AUDIT_RETENTION_DAYS` | `0` | Remove entries older than this many days from the front of each chain. `0` keeps for ever; otherwise at least `30` (the API refuses to start below). |
+| `TRANIBOR_AUDIT_RETENTION_ORGS` | `{}` | A longer rule per organisation, JSON object slug to days (`{"acme": 2555}`). Never shorter than the deployment's; refused while the deployment's rule is off. |
+| `TRANIBOR_AUDIT_RETENTION_INTERVAL_S` | `3600` | Seconds between two passes, in every API replica. |
+| `TRANIBOR_AUDIT_RETENTION_BATCH` | `5000` | Most entries one transaction removes (it holds the chain's head, which writers wait for); each batch has its own checkpoint. |
+
+What is removed: the longest prefix of a chain that is older than the rule, **passes the hash-chain walk**, and,
+when `TRANIBOR_AUDIT_EXPORT` is on and covers the chain, **has been accepted by the SIEM sink** (its cursor is
+the ceiling; no cursor, nothing removed). A sink that is down therefore holds retention back and the log grows:
+watch `ChoregosAuditExportStalled` and `choregos_audit_retention_held_back_total`. Entries that do not verify are
+never removed, and `choregos-admin audit verify` shows the break. Before each delete a `prune` checkpoint
+(the last removed entry's `seq` and `hash`, the count, the rule) is written and an `audit.retention.prune` entry
+records it in the chain; `choregos-admin audit verify` walks what remains from the checkpoint and says how far
+retention went. Removed entries are no longer evidence in the database: keep the SIEM's copy as long as your
+policy requires. Do not rename the export (`TRANIBOR_AUDIT_EXPORT_NAME`) or delete cursors on a pruned log: the
+export would ship it again from entry 1 and log `audit.export.chain_discontinuity`.
+
+`choregos-admin audit prune --dry-run` says what the next pass would remove; without `--dry-run` it applies the
+rule once. `/metrics`: `choregos_audit_retention_pruned_entries_total`, `choregos_audit_retention_held_back_total`,
+`choregos_audit_retention_failures_total` (per process). Logs: `audit.retention.pruned`, `.held_back`,
+`.chain_broken`, `.failed`.
 
 ## Extra volumes for the API
 
@@ -2708,12 +2738,12 @@ the `ontology:` extension of the `joiners-leavers` template are gone. It was off
 | What | What happens | What to do |
 | :-- | :-- | :-- |
 | `TRANIBOR_ONTOLOGY_TRIAL` | No longer read. | Remove it from `global.extraEnv` (or `.env`) **with or after** the upgrade, never before: on 0.27.16 or earlier, removing it where the branch was applied leaves `onto0003` in `alembic_version` with no revision to read it, and the migration Job fails. |
-| Its tables `ontology_versions`, `managed_objects` (and `action_proposals`, left by `onto0002`) | The core migration `b4d6f8a0c2e5` drops them when they exist; their RLS policies and indexes go with them. Their content is not kept. | Export them first if you need what they hold. |
+| Its tables `ontology_versions`, `managed_objects` (and `action_proposals`, left by `onto0002`) | The core migration `e8c0a2d4f6b1` drops them when they exist; their RLS policies and indexes go with them. Their content is not kept. | Export them first if you need what they hold. |
 | Its rows in `alembic_version` (`onto0001` to `onto0003`) | The migration Job forgets them before anything else (Alembic could not read the table otherwise) and logs `retired_revisions_forgotten`. `python -m tranibor_api.migrate heads` shows the core's head only. | Nothing. |
 | Actions it persisted (`origin: ontology`, effects `ontology.effet` / `ontology.preuve`, `params.ontologie`) <!-- lang: fr-ok --> | Read as before: the API, the console's action page and the audit log still show them, and the contract keeps `ontology` as an `origin` it reads and never writes. | One still pending can be rejected; approved, it fails on its effect, which nothing declares any more. |
 | A plugin of your own that declared a template installer, tools for people or effects | The extension seam it used stays: nothing of it was specific to the ontology. | Nothing. |
 
-The downgrade of `b4d6f8a0c2e5` does not create the tables again.
+The downgrade of `e8c0a2d4f6b1` does not create the tables again.
 
 **Neutral names beside the former ones** ([ADR 0181](adr/0181-the-contracts-speak-no-trade.md), round C1).
 The former names left in 0.29.0, earlier than planned: see "Upgrading to 0.29.0: the roles and fields of

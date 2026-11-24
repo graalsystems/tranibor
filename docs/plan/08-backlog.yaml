@@ -5558,6 +5558,14 @@ stories:
     size: M
     depends_on: [S80-05]
     notes: "Plan workstream S3, second part (ADR 0182 point 9; the plan dates the SIEM export and retention in May 2027). Delivered, partial (ADR 0207, proposed): the SIEM export of the audit chains, in order and at least once from a durable cursor, to HTTPS JSON (webhook, Splunk HEC, Elastic/OpenSearch) or syslog over TLS (RFC 5424, CEF), off by default; proved on simulated receivers and SQLite, the PostgreSQL tests and the migration written and not yet run. Still to do: retention behind a signed checkpoint, checkpoints signed on a schedule, a migration role distinct from the API's, the enterprise edition's `org.delete` entry carrying the deleted chain's last seq and hash, `seq` and `hash` in `GET /audit` (a contract change)."
+  - id: S80-05c
+    title: "feat(api): the audit log has a retention rule: a verified, shipped prefix is removed behind a checkpoint written first"
+    stream: S80
+    sprint: 2
+    priority: 5
+    size: M
+    depends_on: [S80-05, S80-05b]
+    notes: "Plan workstream S3, third part (ADR 0221, proposed; ADR 0182 point 9 and the retention item ADR 0207 left open). A migration and a change to the append-only trigger: human review (ADR 0180). Off by default; TRANIBOR_AUDIT_RETENTION_DAYS (at least 30), an organisation may keep longer, never shorter."
   - id: S80-03
     title: "fix(api,orchestrator,runner,charts): the fakes are refused in staging and prod: the render fails, and the API, the outposts' door, the workers and the runner refuse to start"
     stream: S80
@@ -5597,7 +5605,7 @@ stories:
     priority: 8
     size: M
     depends_on: [S80-08]
-    notes: "Project lead's decision of 2026-11-19: option O4-1. packages/ontology, the compat shim, the console card, the template extension and the ontology trials go; migration b4d6f8a0c2e5 drops the tables IF EXISTS and migrate.forget_retired_revisions removes onto0001-0003 from alembic_version. Persisted origin 'ontology', ontology.effet/preuve and params.ontologie stay readable; the contract is unchanged."  # lang: fr-ok
+    notes: "Project lead's decision of 2026-11-19: option O4-1. packages/ontology, the compat shim, the console card, the template extension and the ontology trials go; migration e8c0a2d4f6b1 drops the tables IF EXISTS and migrate.forget_retired_revisions removes onto0001-0003 from alembic_version. Persisted origin 'ontology', ontology.effet/preuve and params.ontologie stay readable; the contract is unchanged."  # lang: fr-ok
   - id: S80-02
     title: "docs(plan): STATUS.md becomes an index of per-stream status files, and the install guide names the current version"
     stream: S80
