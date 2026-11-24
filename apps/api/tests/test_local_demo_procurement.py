@@ -372,7 +372,7 @@ async def test_the_environment_of_that_test_refuses_the_plugin_that_brings_a_ser
     await _the_demo_user()
     await seed_local_demo(settings)
     config = PluginsConfig(
-        default_plugins=(DefaultPlugin(OFFLINE, "procurement-operations", "0.3.3", preapproved=True),),
+        default_plugins=(DefaultPlugin(OFFLINE, "procurement-operations", "0.3.4", preapproved=True),),
         offline=local_install,
     )
     async with session_scope(orgs="*") as session:
