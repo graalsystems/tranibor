@@ -3,11 +3,13 @@
 {{- $server := eq .Values.mode "server" }}
 {{- $tls := .Values.tls.enabled }}
 {{- $db := .Values.database }}
+{{- $mtls := and $tls .Values.tls.requireClientCert }}
+{{- $uiOnNetwork := and .Values.ui.enabled (not .Values.ui.loopbackOnly) }}
+{{- /* dev with TLS keeps the frontend on loopback; with the UI off the network too, nothing on the pod's
+       address answers but the relay, so the probe asks the frontend itself, from inside the pod. */}}
+{{- $execProbe := and $tls (not $server) (not $uiOnNetwork) }}
 {{- if not (has .Values.mode (list "dev" "server")) }}
 {{- fail (printf "temporal.mode=%s unknown: `dev` (start-dev, SQLite) or `server` (auto-setup, PostgreSQL)." .Values.mode) }}
-{{- end }}
-{{- if and $tls (not $server) (not .Values.ui.enabled) }}
-{{- fail "temporal.tls.enabled in dev mode needs temporal.ui.enabled=true: the readiness probe of the plain frontend (127.0.0.1 only, behind the relay) is the UI port." }}
 {{- end }}
 {{- /*
 `dev`: `server start-dev`, a single process, SQLite, no migration to run. This is the Temporal of
@@ -83,7 +85,7 @@ spec:
             {{- if $tls }}
             # The frontend AND the internal traffic (history, matching, worker) with the same
             # certificate; the name verified is the Service's, which the certificate carries, not the
-            # pod IP. No mutual TLS: the clients prove the server, not the reverse. Re-read hourly:
+            # pod IP. Mutual TLS only with `tls.requireClientCert` (below). Re-read hourly:
             # cert-manager renews the Secret and nobody restarts the pod.
             - { name: TEMPORAL_TLS_SERVER_CA_CERT, value: /etc/temporal-tls/ca.crt }
             - { name: TEMPORAL_TLS_SERVER_CERT, value: /etc/temporal-tls/tls.crt }
@@ -97,6 +99,17 @@ spec:
             - { name: TEMPORAL_TLS, value: "true" }
             - { name: TEMPORAL_TLS_CA, value: /etc/temporal-tls/ca.crt }
             - { name: TEMPORAL_TLS_SERVER_NAME, value: {{ .Values.tls.serverName | default $svc | quote }} }
+            {{- if $mtls }}
+            # Mutual TLS (ADR 0183 point 5): the frontend AND the internal services refuse a client with no
+            # certificate from this authority. The internal services present the server certificate (it
+            # carries `client auth`), and so does the bootstrap script's CLI. CLIENT2 repeats CLIENT1: the
+            # image's template lists both, and an empty entry is a file it cannot read.
+            - { name: TEMPORAL_TLS_REQUIRE_CLIENT_AUTH, value: "true" }
+            - { name: TEMPORAL_TLS_CLIENT1_CA_CERT, value: /etc/temporal-tls/ca.crt }
+            - { name: TEMPORAL_TLS_CLIENT2_CA_CERT, value: /etc/temporal-tls/ca.crt }
+            - { name: TEMPORAL_TLS_CERT, value: /etc/temporal-tls/tls.crt }
+            - { name: TEMPORAL_TLS_KEY, value: /etc/temporal-tls/tls.key }
+            {{- end }}
             {{- end }}
           {{- else }}
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -114,7 +127,10 @@ spec:
             - --db-filename
             - /data/temporal.db
             {{- if .Values.ui.enabled }}
-            {{- if $tls }}
+            {{- if .Values.ui.loopbackOnly }}
+            - --ui-ip
+            - 127.0.0.1
+            {{- else if $tls }}
             - --ui-ip
             - 0.0.0.0
             {{- end }}
@@ -128,17 +144,23 @@ spec:
             {{- if or $server (not $tls) }}
             - { name: grpc, containerPort: 7233 }
             {{- end }}
-            {{- if and (not $server) .Values.ui.enabled }}
+            {{- if and (not $server) $uiOnNetwork }}
             - { name: ui, containerPort: 8233 }
             {{- end }}
           readinessProbe:
-            {{- if and $tls (not $server) }}
+            {{- if $execProbe }}
+            exec:
+              command: [temporal, operator, cluster, health, --address, "127.0.0.1:7234", --command-timeout, 5s]
+            timeoutSeconds: 8
+            {{- else if and $tls (not $server) }}
             tcpSocket: { port: ui }
             {{- else }}
             tcpSocket: { port: grpc }
             {{- end }}
             {{- if $server }}
             initialDelaySeconds: 20
+            periodSeconds: 10
+            {{- else if $execProbe }}
             periodSeconds: 10
             {{- else }}
             periodSeconds: 5
@@ -205,7 +227,7 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - { name: grpc, port: 7233, targetPort: grpc }
-    {{- if and (not $server) .Values.ui.enabled }}
+    {{- if and (not $server) $uiOnNetwork }}
     - { name: ui, port: 8233, targetPort: ui }
     {{- end }}
 {{- if and (not $server) .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
