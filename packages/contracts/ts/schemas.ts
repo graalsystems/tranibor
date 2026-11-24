@@ -1586,7 +1586,7 @@ export type Template = {
       };
       workflow: string;
     }>;
-    /** the start rules of a project born of the template (S56-03, ADR 0113; graalsystems/tranibor-agents#38), as the project configuration's `start_rules`: a tracker item that matches one opens and starts its work item without `agent-ready`. A creation request that sets its own `start_rules` keeps them */
+    /** the start rules of a project born of the template (S56-03, ADR 0113; the agents repository's finding #38), as the project configuration's `start_rules`: a tracker item that matches one opens and starts its work item without `agent-ready`. A creation request that sets its own `start_rules` keeps them */
     start_rules?: Array<{
       labels_any?: Array<string>;
       labels_all?: Array<string>;

@@ -254,7 +254,7 @@ def _policy_source(ref: str, folder: Path | None) -> str:
 
 async def apply_template_start_rules(session: AsyncSession, project: Any) -> None:
     """A project born of a template takes the template's `defaults.start_rules` as its own
-    `start_rules` (graalsystems/tranibor-agents#38): a tracker that labels nothing (a ServiceNow queue)
+    `start_rules` (the agents repository's finding #38): a tracker that labels nothing (a ServiceNow queue)
     opens work items only by a rule. The caller skips it when the creation request states its own."""
     from pydantic import ValidationError
     from tranibor_contracts import ProjectConfig
