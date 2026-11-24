@@ -116,7 +116,28 @@ def transport() -> httpx.AsyncBaseTransport | None:
     if not fakes_enabled():
         return None
     fake: httpx.AsyncBaseTransport = fake_tracker_server().transport()
+    if "in_process" in _OVERRIDES:
+        # Servers run in-process (ADR 0218) answer on their own host; the others on the tracker's fake.
+        fake = _OVERRIDES["in_process"].transport(fake)
     return fake
+
+
+def in_process_servers(settings: Settings | None = None) -> Any:
+    """The servers run in the API's process (ADR 0218): the operator's file read once, the process's one
+    `InProcessPluginServers`. Refused outside development under the fakes (`load_registry`)."""
+    if "in_process" not in _OVERRIDES:
+        from tranibor_adapters.fakes.in_process_plugin_servers import InProcessPluginServers, load_registry
+
+        settings = settings or get_settings()
+        _OVERRIDES["in_process"] = InProcessPluginServers(load_registry(settings.demo_plugin_servers))
+    return _OVERRIDES["in_process"]
+
+
+async def stop_in_process_servers() -> None:
+    """Ends the in-process servers' applications (the API's shutdown, a test's teardown) and forgets them."""
+    found = _OVERRIDES.pop("in_process", None)
+    if found is not None:
+        await found.stop()
 
 
 def fake_tracker_server() -> Any:
@@ -198,9 +219,28 @@ def declaration(plugin: Plugin, doc: dict[str, Any], org_id: str, settings: Sett
         "implements": list(doc.get("implements") or []),
         "webhook": doc.get("webhook"),
         "object": name,
-        "url": service_url(settings, name, int(doc["port"]), paths["mcp"]),
-        # How it runs on its fake for the live eval matrix (#1372), and where that instance answers.
-        **_fake_declaration(doc, org_id, settings, paths["mcp"]),
+        **(
+            _in_process_declaration(doc, name, paths["mcp"])
+            if settings.demo_plugin_servers
+            else {
+                "url": service_url(settings, name, int(doc["port"]), paths["mcp"]),
+                # How it runs on its fake for the live eval matrix (#1372), and where that instance answers.
+                **_fake_declaration(doc, org_id, settings, paths["mcp"]),
+            }
+        ),
+    }
+
+
+def _in_process_declaration(doc: dict[str, Any], name: str, path: str) -> dict[str, Any]:
+    """A server run in the API's process (ADR 0218): answering on its own name, with the fake it declares
+    (check refused a server without one) and no Deployment, no eval instance."""
+    from tranibor_adapters.fakes.in_process_plugin_servers import url_of
+
+    fake = doc.get("fake") or {}
+    return {
+        "in_process": True,
+        "url": url_of(name, path),
+        "fake": {"env": dict(fake.get("env") or {}), "scenes": list(fake.get("scenes") or ["default"])},
     }
 
 
@@ -275,6 +315,30 @@ async def _check_image(image: str, settings: Settings) -> None:
     log.warning("plugin.server.signature_unverified", image=image, detail=verdict.detail)
 
 
+def _check_in_process(plugin: Plugin, settings: Settings) -> None:
+    """In-process (ADR 0218): refused outside development under the fakes; each server must declare its
+    `fake` and be listed in the operator's file. The image is never pulled, so it is not checked."""
+    from tranibor_core.production import DemoPluginServersRefusedError, refuse_demo_plugin_servers
+
+    try:
+        refuse_demo_plugin_servers(environment=settings.env, fakes=settings.fakes)
+    except DemoPluginServersRefusedError as exc:
+        raise unprocessable(str(exc)) from exc
+    servers = in_process_servers(settings)
+    for name, doc in sorted(plugin.servers.items()):
+        if not isinstance(doc.get("fake"), dict):
+            raise unprocessable(
+                f"the server `{name}` of `{plugin.name}` declares no `fake`: in-process, a server runs only "
+                "on the fake it declares (ADR 0218)",
+                [{"loc": ["servers", name, "fake"], "msg": "missing"}],
+            )
+        if servers.entry(plugin.name, name) is None:
+            raise unprocessable(
+                f"the server `{plugin.name}/{name}` is not in the TRANIBOR_DEMO_PLUGIN_SERVERS file: "
+                "it names the package that serves each one (ADR 0218)"
+            )
+
+
 async def check(
     session: AsyncSession, org_id: str, plugin: Plugin, settings: Settings, *, replacing: str | None
 ) -> None:
@@ -284,14 +348,17 @@ async def check(
     `replacing`: the name of the installed plugin an upgrade replaces."""
     if not plugin.servers:
         return
-    if runtime(settings) is None:
+    if settings.demo_plugin_servers:
+        _check_in_process(plugin, settings)
+    elif runtime(settings) is None:
         raise unprocessable(
             f"`{plugin.name}` brings a server and this deployment runs none "
             "(`global.plugins.servers.enabled`, TRANIBOR_PLUGIN_SERVERS)"
         )
     require_store({SERVER_TOKEN_FIELD: "-"})
     for name, doc in sorted(plugin.servers.items()):
-        await _check_image(str(doc["image"]), settings)
+        if not settings.demo_plugin_servers:
+            await _check_image(str(doc["image"]), settings)
         for field, env in _env_names(doc).items():
             if not _ENV.match(env) or env.startswith(("TRANIBOR_", "CHOREGOS_")):  # compat-ok
                 raise unprocessable(
@@ -428,6 +495,11 @@ async def _remove(
 ) -> None:
     found = runtime(settings)
     server = instance.plugin_server or {}
+    if server.get("in_process"):
+        running = _OVERRIDES.get("in_process")  # absent when the mode was switched off since
+        if running is not None:
+            await running.stop(str(server["object"]))
+        found = None
     # The server's own objects and its eval instance's (#1372), whether or not the deployment serves
     # eval fakes today: the switch may have been on when it was created (#2195).
     for key in ("object", "fake_object"):
@@ -519,7 +591,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     settings = settings or get_settings()
     server = instance.plugin_server
     found = runtime(settings)
-    if server is None or found is None:
+    if server is None or (found is None and not server.get("in_process")):
         return instance.status
     from tranibor_core.secrets import SecretNotFound
 
@@ -532,6 +604,14 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
             f"the server `{instance.name}` cannot read its configuration: {missing}"
         ) from missing
     token = str(resolved.pop(SERVER_TOKEN_FIELD))
+    if server.get("in_process"):
+        # No Deployment: the application starts now, so that a package that cannot be imported fails the
+        # install. Its fake needs no configuration, which is not read (ADR 0218).
+        await _start_in_process(server, token, settings)
+        instance.status, instance.last_error = DEPLOYED, None
+        await session.flush()
+        return instance.status
+    assert found is not None
     names = _env_names(server)
     env = {names[f]: _env_value(v) for f, v in resolved.items() if f in names and v is not None}
     env[TOKEN_ENV] = token
@@ -658,7 +738,27 @@ async def server_endpoint(session: AsyncSession, instance: OrgConnector) -> tupl
         {},
         {SERVER_TOKEN_FIELD: (instance.secret_refs or {})[SERVER_TOKEN_FIELD]},
     )
-    return url, str(resolved[SERVER_TOKEN_FIELD])
+    token = str(resolved[SERVER_TOKEN_FIELD])
+    if server.get("in_process"):
+        # Started again after a restart of the process, which forgot it (a replay with the same token: no-op).
+        await _start_in_process(server, token, get_settings())
+    return url, token
+
+
+async def _start_in_process(server: dict[str, Any], token: str, settings: Settings) -> None:
+    from tranibor_adapters.errors import ConfigurationError
+
+    servers = in_process_servers(settings)
+    entry = servers.entry(str(server["plugin"]), str(server["server"]))
+    if entry is None:
+        raise unprocessable(
+            f"the server `{server['plugin']}/{server['server']}` is not in the "
+            "TRANIBOR_DEMO_PLUGIN_SERVERS file"
+        )
+    try:
+        await servers.ensure(str(server["object"]), entry, server["fake"]["env"], token)
+    except ConfigurationError as exc:
+        raise unprocessable(str(exc)) from exc
 
 
 USER_TOKEN_HEADER = "X-Choregos-User-Token"  # noqa: S105 - a header name
@@ -747,6 +847,7 @@ __all__ = [
     "fake_object_name",
     "fake_tracker_server",
     "floor_policy",
+    "in_process_servers",
     "object_name",
     "plugin_client",
     "provision",
@@ -755,6 +856,7 @@ __all__ = [
     "runtime",
     "server_endpoint",
     "spec_of_connector",
+    "stop_in_process_servers",
     "transport",
     "use_plugin_runtime",
     "use_plugin_transport",

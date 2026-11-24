@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+name: demo-itsm
+image: ghcr.io/graalsystems/tranibor-agents/demo-itsm-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
+port: 8080
+protocol: mcp-http
+paths: {mcp: /mcp, health: /healthz}
+config_schema:
+  type: object
+  properties:
+    base_url: {type: string, format: uri}
+secret_fields: []
+operations:
+  - {name: search_records, access: read, description: Records of a table.}
+  - {name: add_work_note, access: write, description: A work note on a record.}
+fake:
+  env: {DEMO_ITSM_FAKE: "1"}
+  scenes: [default]
