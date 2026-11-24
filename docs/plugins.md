@@ -973,6 +973,12 @@ delivery was tried against the dev cluster's webhook route and never left the in
 API name resolves only on a private network (`java.net.UnknownHostException` in the instance's outbound
 log). A deployment whose API has a public name is what that proof needs. No ServiceNow finding is open
 in either repository.
+A nightly needs no CI secret (S80-46): on a deployment, a project with an internal tracker schedules one work
+item a night whose only step is a job that files an incident through the organisation's `servicenow` connector
+and reads it back until the triage project's poll, its agent and the platform's write-back have answered
+([`examples/servicenow-nightly/workflow.yaml`](../examples/servicenow-nightly/workflow.yaml), runbook
+[`servicenow-nightly.md`](runbooks/servicenow-nightly.md)); the instance's credentials stay in the connector's
+sealed secrets. One night was green on 2026-11-24; P1 asks for fourteen in a row.
 
 | `TrackerAdapter` | Tool | Declared access |
 |:--|:--|:--|
