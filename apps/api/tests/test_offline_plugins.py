@@ -52,7 +52,7 @@ def test_the_api_reads_the_offline_directory_against_its_lock() -> None:
         "netops": ["1.2.2"],
         "procurement": ["0.3.0"],
         # The operations half of the split (plugin repository pull request 27, #2134): the server.
-        "procurement-operations": ["0.3.3"],
+        "procurement-operations": ["0.3.4"],
         "requests": ["1.1.2"],
         "software-delivery": ["1.3.0"],
     }
