@@ -21,11 +21,16 @@ from . import outpost_route as route
 from .outpost_daemon import Daemon
 from .outpost_route import ALIAS, CONNECTOR, ORG, RUN
 
-#: Seconds the connector of these tests waits once it is prepared: a lost lease is in doubt after this
-#: long, and a call nobody claims is offline after it. Long enough for a loaded CI runner to hand a
-#: call over to the scripted instance, short enough that a test that waits for it stays quick. The
-#: discovery itself is made under the route kit's `SETUP_TIMEOUT_S`.
+#: Seconds the connector waits once it is prepared, in a test that measures a lapse: a lost lease is
+#: in doubt after this long, and a call nobody claims is offline after it. Short, so that a test that
+#: waits for it stays quick. The discovery itself is made under the route kit's `SETUP_TIMEOUT_S`.
 TIMEOUT_S = 4
+#: Seconds the connector waits in a test where every call is answered or refused, and none is meant to
+#: lapse: an answer wakes the waiter at once, so the longer wait costs nothing. Under `TIMEOUT_S` a
+#: loaded runner turned a refusal into a lost lease: CI runs `pytest -n 4 --cov` on 4 vCPUs, one poll
+#: took 3.7 s there, the refusal reached the door after the call's 4 s and met `lease_lost`, and the
+#: write ended `in_doubt` (S80-33). A test that is not about the timeout must not fail on one.
+SERVED_TIMEOUT_S = route.SETUP_TIMEOUT_S
 READS = ("search_issues", "get_issue")
 #: An in-doubt outcome is accepted for the operation, explicitly.
 ACCEPTED = {"in_doubt_accepted": True}
@@ -88,17 +93,18 @@ async def prepared(
     *,
     opened: dict[str, dict[str, Any]] | None = None,
     policy: str = "allowed",
+    timeout_s: int = TIMEOUT_S,
 ) -> tuple[Daemon, dict[str, str]]:
-    """An outpost with one approved instance that polled, a connector declared at it, its tools
-    discovered and its reads opened, each write of `opened` opened under the statement given for it,
-    and a run of an agent that names the connector."""
+    """An outpost with one approved instance that polled, a connector declared at it and waiting
+    `timeout_s` for a call, its tools discovered and its reads opened, each write of `opened` opened
+    under the statement given for it, and a run of an agent that names the connector."""
     daemon = await daemon_kit.approved(client)
     await route.seen(client, daemon, fake)
     await route.declare(client)
     async with route.serving(client, daemon, fake):
         discovered = await client.post(f"{ORG}/connectors/{CONNECTOR}/discover")
         assert discovered.status_code == 200, discovered.text
-    await route.set_timeout(client, TIMEOUT_S)
+    await route.set_timeout(client, timeout_s)
     for name in READS:
         assert (await route.open_operation(client, name)).status_code == 200
     for name, statement in (opened or {}).items():

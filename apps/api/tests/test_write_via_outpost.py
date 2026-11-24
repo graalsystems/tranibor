@@ -37,7 +37,7 @@ from .kits import outpost_route as route
 from .kits import outpost_writes as kit
 from .kits import outposts as outposts_kit
 from .kits.outpost_route import ALIAS, BASE, CONNECTOR, ORG, SLUG
-from .kits.outpost_writes import ACCEPTED, KEYED
+from .kits.outpost_writes import ACCEPTED, KEYED, SERVED_TIMEOUT_S
 
 QUEUE = "choregos-outpost-writes"
 #: Seconds the broker waits for a governed write in the tests that play one on Temporal.
@@ -315,7 +315,9 @@ async def test_an_effect_retried_after_its_claim_reads_the_first_answer_and_plac
     the effect: it meets the first call and reads the stored outcome. Once its result is recorded,
     and only then, what the rendezvous held of the answer is emptied."""
     served, fake = kit.outpost()
-    daemon, _headers = await kit.prepared(client, project, fake, opened={"create_issue": ACCEPTED})
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
     action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
     async with route.serving(client, daemon, fake):
         assert await kit.attempt_that_dies(action_id) == {"key": "OPS-7"}
@@ -354,7 +356,9 @@ async def test_two_attempts_of_one_effect_in_flight_deliver_it_once(
     the same id: the table holds the call once, an instance claims it once, and both read the one
     answer."""
     served, fake = kit.outpost()
-    daemon, _headers = await kit.prepared(client, project, fake, opened={"create_issue": ACCEPTED})
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
     action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
 
     async def placed() -> bool:
@@ -389,7 +393,9 @@ async def test_a_retry_after_the_answer_was_swept_is_in_doubt_and_never_a_second
     from tranibor_core import utcnow
 
     served, fake = kit.outpost()
-    daemon, _headers = await kit.prepared(client, project, fake, opened={"create_issue": ACCEPTED})
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
     action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
     async with route.serving(client, daemon, fake):
         await kit.attempt_that_dies(action_id)
@@ -443,7 +449,9 @@ async def test_a_quota_is_retried_for_a_write_and_the_outposts_own_refusal_is_fi
     from tranibor_adapters.outpost import OutpostNotAdmitted
 
     served, fake = kit.outpost()
-    daemon, _headers = await kit.prepared(client, project, fake, opened={"create_issue": ACCEPTED})
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
     # A quota of the door passes by itself: nothing was written, the effect's policy retries.
     busy = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
     outposts_kit.configure(monkeypatch, outposts_calls_per_minute_per_outpost="1")
@@ -459,6 +467,34 @@ async def test_a_quota_is_retried_for_a_write_and_the_outposts_own_refusal_is_fi
             await kit.play(refused)
     assert (final.value.type, final.value.non_retryable) == ("EffectRefused", True)
     assert "write_denied" in str(final.value) and served.calls == []
+
+
+async def test_a_refusal_that_comes_late_within_the_connectors_timeout_is_still_final(
+    client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The instance holds the claimed write longer than a lapse test waits (a loaded runner, S80-33):
+    the platform waits the connector's whole timeout, and the refusal that comes within it is the
+    outpost's, final, not a lost lease and not a doubt."""
+    served, fake = kit.outpost()
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
+    made = fake.make
+
+    async def stalled(call: Any) -> Any:
+        await asyncio.sleep(kit.TIMEOUT_S + 1)
+        return await made(call)
+
+    monkeypatch.setattr(fake, "make", stalled)
+    action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
+    fake.refuse_next("write_denied")
+    async with route.serving(client, daemon, fake):
+        with pytest.raises(ApplicationError) as final:
+            await kit.play(action_id)
+    assert (final.value.type, final.value.non_retryable) == ("EffectRefused", True), final.value
+    assert "write_denied" in str(final.value) and served.calls == []
+    (delivery,) = await kit.deliveries()
+    assert delivery.state == "refused"
 
 
 async def test_a_read_played_by_an_effect_still_fails_fast_when_nobody_claims_it(
@@ -577,7 +613,9 @@ async def test_a_worker_that_stops_while_its_write_is_claimed_does_not_put_it_in
     """The write is not given up when whoever waited for it goes away: the instance still answers
     it, and the effect played again by another worker meets the same call and reads that answer."""
     served, fake = kit.outpost()
-    daemon, _headers = await kit.prepared(client, project, fake, opened={"create_issue": ACCEPTED})
+    daemon, _headers = await kit.prepared(
+        client, project, fake, opened={"create_issue": ACCEPTED}, timeout_s=SERVED_TIMEOUT_S
+    )
     action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE)])
     claimed = await _claimed_then_its_worker_stops(client, daemon, fake, action_id)
     (delivery,) = await kit.deliveries()
@@ -661,7 +699,7 @@ async def test_a_compensation_through_the_same_outpost_is_a_call_of_its_own(
 
     served, fake = kit.outpost()
     opened = {"create_issue": ACCEPTED, "delete_issue": ACCEPTED}
-    daemon, _headers = await kit.prepared(client, project, fake, opened=opened)
+    daemon, _headers = await kit.prepared(client, project, fake, opened=opened, timeout_s=SERVED_TIMEOUT_S)
     action_id = await kit.action(project["id"], [kit.call("create_issue", TITLE, compensate=UNDO)])
     async with route.serving(client, daemon, fake):
         await kit.play(action_id)
