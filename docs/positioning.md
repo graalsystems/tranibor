@@ -39,7 +39,7 @@ does not count it.
 | BYO agent | image | image | any ACP agent (ADR 0002) |
 | Egress control | allowlist gateway | none (bring your own) | per-project Squid proxy from the policy, agent-side guardrails first |
 | Credentials | per task | per sandbox | one capped virtual key per run; tool keys never reach the agent (ADR 0014), and the agent never holds the run token (ADR 0115) |
-| Suspend / snapshot | yes | yes | yes, by sitting on agent-sandbox: the `agent_sandbox` executor, the default (ADR 0016, ADR 0072), suspends the sandbox across a human question and resumes the same run in its kept workspace; the agent's conversation is reloaded only if the agent announces ACP `session/load`, otherwise a new one starts with the answer (`executor/agent_sandbox.py`, `runner.py` `_open_session`) |
+| Suspend / snapshot | yes | yes | yes, by sitting on agent-sandbox: the `agent_sandbox` executor, the default (ADR 0016, ADR 0072), suspends the sandbox across a human question and resumes the same run in its kept workspace; the agent's conversation is reloaded when the agent announces ACP `session/load`; otherwise a new one starts with the answer and a bounded, deterministic recap of the agent's own plan, last messages, calls and question, built from the kept journal (ADR 0223; `executor/agent_sandbox.py`, `runner.py` `_open_session`). An executor that cannot suspend replays the stage in a new run, which also reads the recap of the run that asked |
 | Kernel isolation | gVisor | `RuntimeClass` | gVisor only where the policy or the deployment asks (`runner.runtimeClass`); `RuntimeDefault` seccomp is required on every pod by a Kyverno rule, and we ship no custom seccomp profile (`infra/policies/pod-security.yaml`, `docs/security.md`) |
 | Stages, gates, evidence, cost, trains | no | no | yes |
 | Control plane | cluster-scoped, unsupported by vendor | cluster-scoped, v1beta1 | namespaced; a tenant can install it |
@@ -58,7 +58,7 @@ solves problems they do not have (what is a stage, who signed off, what did it c
 | Prompt-injection detection | **yes, with automatic halt** | — | varies | lexical detection of known patterns over the ticket, its documents and the memory pack **before** the run, and over tool answers: `warn` journals a security event, `block` (the `regulated` preset) stops the stage; a net against crude cases, not an understanding, and no automatic halt mid-run (`tranibor_core/injection.py`, `apps/orchestrator/tests/test_injection.py`; `docs/security.md`) |
 | Gates with refusal semantics | no | no | no | yes, statically validated (ADR 0010) |
 | Evidence measured by the platform | partial | no | no | tests run by the runner, business facts, gate verdicts |
-| Human-in-the-loop | chat | — | chat | a state with an SLA, a reminder and an escalation; the run resumes in its own sandbox, with the agent's conversation reloaded when the agent supports ACP `session/load` |
+| Human-in-the-loop | chat | — | chat | a state with an SLA, a reminder and an escalation; the run resumes in its own sandbox, with the agent's conversation reloaded when the agent supports ACP `session/load`, else with a recap of its earlier work and the answer (who, when), through the injection guard (ADR 0223) |
 | Self-hosted, GitOps-only | yes | SaaS | mostly no | yes, Apache 2.0 |
 | Non-code work | no | no | no | yes (ADR 0012) |
 
