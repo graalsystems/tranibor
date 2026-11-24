@@ -406,6 +406,7 @@ async def provision(
                 target_id=instance.id, name=name, type=TYPE, plugin=plugin.name,
             )  # fmt: skip
         else:
+            await _drop_fake(instance, decl, settings)
             instance.plugin_server = decl
             instance.catalogue_entry = f"plugin:{plugin.name}/{name}@{plugin.version}"[:128]
         await _sync_operations(session, instance)
@@ -413,13 +414,25 @@ async def provision(
     return sorted(plugin.servers)
 
 
+async def _drop_fake(instance: OrgConnector, decl: dict[str, Any], settings: Settings) -> None:
+    """An upgrade whose server no longer declares its `fake` deletes the eval instance the former
+    declaration ran (#2195): the next reconcile only knows the new declaration, which names none."""
+    found = runtime(settings)
+    before = (instance.plugin_server or {}).get("fake_object")
+    if found is not None and before and before != decl.get("fake_object"):
+        await _apply(found.delete(str(before)), instance)
+
+
 async def _remove(
     session: AsyncSession, instance: OrgConnector, principal: Principal, settings: Settings
 ) -> None:
     found = runtime(settings)
     server = instance.plugin_server or {}
-    if found is not None and server.get("object"):
-        await _apply(found.delete(str(server["object"])), instance)
+    # The server's own objects and its eval instance's (#1372), whether or not the deployment serves
+    # eval fakes today: the switch may have been on when it was created (#2195).
+    for key in ("object", "fake_object"):
+        if found is not None and server.get(key):
+            await _apply(found.delete(str(server[key])), instance)
     await drop_replaced_store_values(session, require_store(None), instance.org_id, instance.secret_refs, {})
     await session.delete(instance)
     await session.flush()
@@ -432,7 +445,8 @@ async def _remove(
 async def deprovision(
     session: AsyncSession, org_id: str, plugin: str, principal: Principal, settings: Settings
 ) -> list[str]:
-    """Uninstall: each server's objects deleted, its connector with its operations and sealed values."""
+    """Uninstall: each server's objects (its eval instance's too) deleted, its connector with its
+    operations and sealed values."""
     removed = []
     for instance in await connectors_of(session, org_id, plugin):
         removed.append(instance.name)
