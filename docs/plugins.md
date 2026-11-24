@@ -951,8 +951,8 @@ ServiceNow instance in two live suites. The plugin's own (`plugins/servicenow/se
 `tranibor-agents`, its README says how to run it) drives the server through MCP. The core's
 (`tests/live/test_servicenow_live.py`, `make test-live` with `TRANIBOR_LIVE_SERVICENOW_MCP_URL`,
 `_MCP_TOKEN` and `_WEBHOOK_SECRET`, the server started by hand) drives `PluginTracker` through the server
-and checks every answer against the profile's schema. On 2026-11-24 the governed path ran end to end on the
-Diametral dev cluster (core 0.29.0, plugin 0.2.9): installation approved by a second administrator, a
+and checks every answer against the profile's schema. On 2026-11-24 the governed path ran end to end on
+an operator's dev cluster (core 0.29.0, plugin 0.2.9): installation approved by a second administrator, a
 work item opened by the queue poll, the agent's triage, the review, and an apply step approved by a second
 person and written once. Not proven: the Business Rule's delivery to the webhook route, OAuth client
 credentials on a cluster, a nightly run, a human's governance (test accounts gave the approvals), and the
