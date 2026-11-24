@@ -89,7 +89,7 @@ What Rovo actually exposes (checked 2026-10-15):
 8. **Egress is admission.** The stage is refused (`AgentIndisponible`, the interpreter's existing
    configuration refusal: the work item is escalated, a person fixes the configuration) when the
    endpoint host is not in the project's `sandbox.network.allow_domains`, naming the fix; so is a
-   credential that is missing, pending or revoked. On Diametral the platform's FQDN egress list must
+   credential that is missing, pending or revoked. On the first operator's platform the platform's FQDN egress list must
    also contain the host (infra).
 9. **The A2A client is ours** (`choregos_adapters/a2a`: httpx, SSE parsing), 0.3 and 1.0 method names
    chosen by the card's `protocolVersion`, with a scriptable `FakeA2aAgent`. *Rejected: the `a2a-sdk`

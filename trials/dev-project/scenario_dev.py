@@ -18,7 +18,7 @@ Variables:
     CHOREGOS_DEV_URL       the address of the tenant's console
     CHOREGOS_DEV_TOKEN     an administrator's API token (`chg_...`); never written here
     CHOREGOS_DEV_ORG       the tenant's organisation
-    TRIAL_REPOSITORY       (default DiametralGroup/choregos-sandbox-dev) the sandbox repository
+    TRIAL_REPOSITORY       (default example-org/choregos-sandbox-dev) the sandbox repository
     The Choregos GitHub App must be installed on the repository (Settings, Connections): the
     installation is discovered and claimed by the organisation, nobody types its id (ADR 0073).
     TRIAL_FAKES_URL        (default http://choregos-demo-fakes:8090) the fakes, seen from the cluster
@@ -39,7 +39,7 @@ from typing import Any
 import httpx
 
 URL = os.environ.get("CHOREGOS_DEV_URL", "").rstrip("/")
-REPOSITORY = os.environ.get("TRIAL_REPOSITORY", "DiametralGroup/choregos-sandbox-dev")
+REPOSITORY = os.environ.get("TRIAL_REPOSITORY", "example-org/choregos-sandbox-dev")
 FAKES = os.environ.get("TRIAL_FAKES_URL", "http://choregos-demo-fakes:8090").rstrip("/")
 BACKEND = os.environ.get("TRIAL_BACKEND", "opencode")
 MODELS = dict(

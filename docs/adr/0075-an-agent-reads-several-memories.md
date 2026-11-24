@@ -107,7 +107,7 @@ memories at the same time.
 
 The namespace `org:<org>#memory:<store>` and the backend tenant `org:<org>` were built from the
 organisation's **slug**, which a platform administrator may change (`PATCH /orgs/{org}`): renaming
-`varga` to `diametral` would have hidden every global memory. The organisation now keeps a **memory
+`varga` to `acme` would have hidden every global memory. The organisation now keeps a **memory
 key**: `settings["memory_key"]` is set to the old slug the first time the slug changes and is never
 overwritten; `memory_key(organisation)` (`choregos_core.memory_scope`) returns it, else the slug. Every
 place that turns an organisation into a global namespace or tenant uses it (the API's global routes and

@@ -108,5 +108,5 @@ answer is **no**, and `choregos-agent-sdk` stays what it is:
    `choregos-contracts`, the runner image and the conformance suite; no separate repository. It is
    published to PyPI from this repository's GitHub Actions (`release.yml`, trusted publishing),
    because PyPI trusted publishing accepts GitHub Actions and not Tekton, the CE's contributors are
-   not on the Diametral platform, and its images are already signed keylessly with GitHub OIDC.
+   not on the first operator's platform, and its images are already signed keylessly with GitHub OIDC.
 
