@@ -5894,6 +5894,14 @@ stories:
     size: S
     depends_on: []
     notes: "Finding #2183. SearXNG 2026.10.19's Brave engine hands Brave's cloaked links on as http:///go/v1/<token> (searxng/searxng#6967, upstream disabled Brave web on 2026-11-20); result() checked only the http(s) prefix. Not done: an engine to replace Brave, asking Firecrawl for more than max_results (#2183)."
+  - id: S80-33
+    title: "test(api): a write test that waits for an answer gives the call time to be answered on a loaded runner"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: []
+    notes: "Flaky test_a_quota_is_retried_for_a_write_and_the_outposts_own_refusal_is_final (CI of #2186, run 45260627889 attempt 1): the writes kit set a 4 s connector timeout for every test; one poll took 3.7 s under pytest -n 4 --cov, the refusal met lease_lost and the write ended in_doubt. Not caused by #2180. Tests that expect every call answered or refused now wait the route kit's SETUP_TIMEOUT_S; the lapse tests keep 4 s. Not done: the lapse tests still depend on the runner within their 4 s."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
