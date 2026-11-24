@@ -100,7 +100,10 @@ One commit cannot rename all four, and the fourth layer must not be renamed by a
    **Emission** goes both ways during the window: the runner's job environment, the hosted agent's, and
    the Kubernetes, ACA and Docker executors' variables carry `TRANIBOR_X` and `CHOREGOS_X` (`with_legacy`,
    `with_legacy_entries`), because a runner image, or an agent script, from before the rename reads the
-   former names. The runner's credential scrub and the reserved-prefix filters cover both prefixes.
+   former names. *Amended 2026-11-24 (#2191)*: so does a plugin server's Secret
+   (`tranibor_adapters.plugin_servers`, its token and every other `TRANIBOR_*` variable): S75-04 missed
+   it, and from 0.28.0 to 0.29.1 every server image published before the rename refused to start; the
+   window covers it from 0.29.2 and closes with the others. The runner's credential scrub and the reserved-prefix filters cover both prefixes.
    **Not yet moved**: the charts' rendered variables and the images' `ENV` defaults stay `CHOREGOS_*` (a
    chart rendering both names next to an image default of the other would let the stale one win); they
    move with the chart step of R3. The web reads `TRANIBOR_API_URL` then `CHOREGOS_API_URL`.
