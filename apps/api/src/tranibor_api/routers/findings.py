@@ -43,6 +43,7 @@ async def _dto(session: Db, row: Finding, project_slug: str) -> FindingDto:
         occurrences=row.occurrences,
         relevant=row.relevant,
         created_at=row.created_at,
+        imported=row.imported,
     )
 
 

@@ -298,6 +298,119 @@ export type DecisionRecord = {
   outcome?: null | DecisionRecordOutcome;
 };
 
+/** The external id: what makes the import idempotent. Unique in its list (for runs, decisions and findings: in its work item). */
+export type DemoHistoryId = string;
+
+export type DemoHistoryPrice = {
+  input_usd_per_mtok: number;
+  output_usd_per_mtok: number;
+  /** The price of the input tokens read from a cache; absent: the input price. */
+  cached_input_usd_per_mtok?: number;
+};
+
+export type DemoHistoryStateEntry = {
+  state: string;
+  at: string;
+  /** Who moved it: an e-mail of a member of the organisation, or an agent slug of its registry; absent: the orchestrator. */
+  by?: string;
+  reason?: string;
+};
+
+export type DemoHistoryTokens = {
+  /** All the input tokens, the cached ones included. */
+  input?: number;
+  output?: number;
+  /** The part of `input` read from a cache. */
+  cached?: number;
+};
+
+export type DemoHistoryRun = {
+  id: DemoHistoryId;
+  /** The role of the step the run played (`refine`, `implement`, `review`...). */
+  stage: string;
+  /** The slug of an agent of the organisation's registry; refused when the registry does not hold it. */
+  agent?: string;
+  attempt?: number;
+  status: "succeeded" | "failed" | "cancelled" | "timed_out";
+  started_at: string;
+  duration_s?: number;
+  model?: string;
+  tokens?: DemoHistoryTokens;
+  /** The cost as declared; absent: the tokens at the price of `model` in `prices`. */
+  cost_usd?: number;
+  /** The run's result summary. */
+  summary?: string;
+};
+
+export type DemoHistoryDecision = {
+  id: DemoHistoryId;
+  kind: "approval" | "question" | "scope_change";
+  /** What the person was asked. */
+  summary: string;
+  /** Absent: one hour before `at`. */
+  requested_at?: string;
+  /** When the person decided. */
+  at: string;
+  /** The e-mail of a member of the organisation; refused otherwise. */
+  by: string;
+  /** An approval or a scope change: granted or refused. */
+  approved?: boolean;
+  /** A question: the answer. */
+  answer?: string;
+  reason?: string;
+};
+
+export type DemoHistoryFinding = {
+  id: DemoHistoryId;
+  title: string;
+  /** A finding type the platform knows (the same open list as a finding an agent raises). */
+  type: string;
+  severity: "low" | "medium" | "high" | "critical";
+  evidence: string;
+  suggested_fix?: string;
+  estimate?: "S" | "M" | "L";
+  status?: "pending" | "dismissed";
+  /** The id of the run of this work item that raised it. */
+  run?: DemoHistoryId;
+  /** Absent: the work item's creation. */
+  at?: string;
+};
+
+export type DemoHistoryWorkItem = {
+  id: DemoHistoryId;
+  title: string;
+  body?: string;
+  url?: string;
+  size?: "S" | "M" | "L" | "XL";
+  risk?: "low" | "medium" | "high" | "critical";
+  /** The ticket's fields, validated by the workflow's `metadata.inputs` as a live ticket's are. */
+  fields?: {
+    [key: string]: unknown;
+  };
+  /** The e-mail of a member of the organisation; refused otherwise. */
+  created_by?: string;
+  created_at: string;
+  /** The state it is in now; absent: the last of `history`, else the workflow's initial state. */
+  state?: string;
+  /** The states it went through, oldest first, from the initial state. The last one is the current state. */
+  history?: Array<DemoHistoryStateEntry>;
+  runs?: Array<DemoHistoryRun>;
+  decisions?: Array<DemoHistoryDecision>;
+  findings?: Array<DemoHistoryFinding>;
+};
+
+/** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */
+export type DemoHistory = {
+  schema: "choregos/DemoHistory/v1";
+  /** The project's workflow the work items belong to, by name; absent: the project's default. Every state the document names must exist in it. */
+  workflow?: string;
+  /** The price the document declares for each model, in USD per million tokens. A run that gives no `cost_usd` is costed with the price of its `model`; a model with no price there is refused. */
+  prices?: {
+    [key: string]: DemoHistoryPrice;
+  };
+  work_items: Array<DemoHistoryWorkItem>;
+};
+
 /** An internal event, CloudEvents 1.0 (docs/plan/01 §1.7). */
 export type Event = {
   specversion: "1.0";
@@ -2027,6 +2140,7 @@ export type ChoregosContract =
   | ContextPack
   | ConversationEvals
   | DecisionRecord
+  | DemoHistory
   | Event
   | Finding
   | HumanDecision

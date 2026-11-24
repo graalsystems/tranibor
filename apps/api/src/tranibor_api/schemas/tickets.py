@@ -76,6 +76,8 @@ class RunSummary(Dto):
     model: str | None = None
     cost_usd: float = 0.0
     started_at: datetime | None = None
+    #: True for a run a demonstration history import wrote (ADR 0216): no agent ran it, nothing measured it.
+    imported: bool = False
 
 
 class HumanRequestAssignee(Dto):
@@ -202,6 +204,8 @@ class WorkItemDto(Dto):
     redacted: bool = False
     created_at: datetime
     closed_at: datetime | None = None
+    #: True for a work item a demonstration history import wrote (ADR 0216): no workflow ran it.
+    imported: bool = False
 
 
 class WorkItemPage(Dto):

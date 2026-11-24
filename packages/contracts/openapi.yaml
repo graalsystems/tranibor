@@ -369,6 +369,31 @@ paths:
       tags: [projects]
       operationId: suspendProject
       responses: { "200": { description: Suspended, content: { application/json: { schema: { $ref: "#/components/schemas/Project" } } } } }
+  /projects/{id}/demo-history:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [projects]
+      operationId: importDemoHistory
+      description: |
+        Takes in a declared demonstration history (ADR 0216) for this project: work items with their fields and
+        the states they went through, runs with their tokens and cost, human decisions, findings. Only the
+        organisation administrator (`demo_history:import`), and only on an instance that opted in
+        (`TRANIBOR_DEMO_HISTORY_IMPORT=1`) and is not `staging` or `prod`: 409 elsewhere, naming the setting.
+        Everything is checked before anything is written: a state the workflow does not declare, a person who
+        is not a member of the organisation, an agent the registry does not hold, a model with no declared
+        price, or an id used twice answers 422 naming it. The import is idempotent: each object carries an
+        external `id`, re-importing the same document writes nothing, and an id that already holds other
+        content answers 409. What it writes is marked `imported` (work items, runs, findings, cost lines) and
+        counts in no budget. Audited as `demo_history.import`.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistory" } } }
+      responses:
+        "200": { description: Imported, content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistoryImport" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /projects/{id}/readiness:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -12339,6 +12364,7 @@ components:
         title: { type: string }
         body_snapshot: { type: [string, "null"] }
         url: { type: [string, "null"] }
+        imported: { type: boolean, default: false, description: "true for a row a demonstration history import wrote (ADR 0216): nothing measured it" }
         size: { oneOf: [{ $ref: "#/components/schemas/Size" }, { type: "null" }] }
         risk: { oneOf: [{ $ref: "#/components/schemas/Risk" }, { type: "null" }] }
         state: { type: string }
@@ -12804,6 +12830,7 @@ components:
         model: { type: [string, "null"] }
         cost_usd: { type: number, default: 0 }
         started_at: { type: [string, "null"], format: date-time }
+        imported: { type: boolean, default: false, description: "true for a row a demonstration history import wrote (ADR 0216): nothing measured it" }
     Run:
       allOf:
         - $ref: "#/components/schemas/RunSummary"
@@ -12974,6 +13001,7 @@ components:
         occurrences: { type: integer, default: 1 }
         relevant: { type: [boolean, "null"] }
         created_at: { type: string, format: date-time }
+        imported: { type: boolean, default: false, description: "true for a row a demonstration history import wrote (ADR 0216): nothing measured it" }
     FindingPage:
       type: object
       required: [items, meta]
@@ -13418,6 +13446,7 @@ components:
               tokens_cache_write: { type: integer, default: 0, description: "the input tokens the provider wrote to its cache (Anthropic cache creation), part of tokens_in; absent from a line booked before S4-07" }
               tokens_cache_write_1h: { type: integer, default: 0, description: "the part of tokens_cache_write written with the 1-hour TTL (priced at its own, higher multiplier); the rest is the 5-minute write. 0 when the provider did not say or on a line booked before S4-12 (ADR 0200)" }
               runs: { type: integer, default: 0 }
+              imported_usd: { type: number, default: 0, description: "the part of `cost_usd` a demonstration history import wrote (ADR 0216): declared, never measured" }
         total:
           type: object
           properties:
@@ -13430,6 +13459,7 @@ components:
             tokens_cached: { type: integer, default: 0, description: "the input tokens the model read from its cache, part of tokens_in" }
             tokens_cache_write: { type: integer, default: 0, description: "the input tokens the provider wrote to its cache, part of tokens_in (S4-07)" }
             tokens_cache_write_1h: { type: integer, default: 0, description: "the part of tokens_cache_write written with the 1-hour TTL (S4-12, ADR 0200)" }
+            imported_usd: { type: number, default: 0, description: "the part of `cost_usd` a demonstration history import wrote (ADR 0216): declared, never measured" }
     MemoryAbGroup:
       type: object
       properties:
@@ -13903,6 +13933,23 @@ components:
         size: { type: integer }
     ContextPack: { $ref: "./schemas/context-pack.schema.json" }
     Finding: { $ref: "./schemas/finding.schema.json" }
+    DemoHistory: { $ref: "./schemas/demo-history.schema.json" }
+    DemoHistoryImport:
+      type: object
+      description: What a demonstration history import wrote (ADR 0216). A second import of the same document reports everything as `unchanged`.
+      required: [created, unchanged]
+      properties:
+        created: { $ref: "#/components/schemas/DemoHistoryCounts" }
+        unchanged: { $ref: "#/components/schemas/DemoHistoryCounts" }
+        cost_usd: { type: number, description: "The cost the created runs carry, in USD: declared, not measured." }
+    DemoHistoryCounts:
+      type: object
+      required: [work_items, runs, decisions, findings]
+      properties:
+        work_items: { type: integer }
+        runs: { type: integer }
+        decisions: { type: integer }
+        findings: { type: integer }
     InboundEvent: { $ref: "./schemas/inbound-event.schema.json" }
     ChoregosEvent: { $ref: "./schemas/event.schema.json" }
     HumanDecision: { $ref: "./schemas/human-decision.schema.json" }

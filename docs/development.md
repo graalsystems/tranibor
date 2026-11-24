@@ -48,6 +48,57 @@ Python package and on the fake it declares, with an optional seed
 ([plugins](plugins.md#on-a-laptop-a-server-in-the-apis-process), ADR 0218). It is refused unless the fakes are on
 and `TRANIBOR_ENV` is `dev` or `test`.
 
+### A past for the demonstration: importing a history (ADR 0216)
+
+A demonstration is more convincing on a project that looks lived in: work items that went through their
+states, runs with their tokens and cost, decisions people took. Nothing in the API writes a past, so
+a document declares it and the API takes it in, on any instance, deployed or local, without touching
+its database. Start the API with `TRANIBOR_DEMO_HISTORY_IMPORT=1` (it is off unless asked and **refused
+when `TRANIBOR_ENV` is `staging` or `prod`**: the API does not even start there with it on), sign in as
+the organisation administrator, and:
+
+```bash
+tranibor demo import acme/billing history.yaml      # or: POST /api/v1/projects/{id}/demo-history
+```
+
+```yaml
+schema: choregos/DemoHistory/v1
+prices:                              # USD per million tokens; a run without `cost_usd` is costed with it
+  anthropic/claude-sonnet-5: { input_usd_per_mtok: 3.0, output_usd_per_mtok: 15.0, cached_input_usd_per_mtok: 0.3 }
+work_items:
+  - id: inv-142                      # the external id: re-importing the same document changes nothing
+    title: Credit notes are not deducted from the invoice total
+    size: M
+    created_by: admin@northwind.dev  # members of the organisation only
+    created_at: 2026-11-02T09:00:00Z
+    history:                         # states of the project's workflow, oldest first; the last is the current one
+      - { state: inbox, at: 2026-11-02T09:00:00Z }
+      - { state: in_progress, at: 2026-11-02T10:30:00Z }
+      - { state: deployed_prod, at: 2026-11-03T08:00:00Z }
+    runs:
+      - id: implement-1
+        stage: implement
+        status: succeeded
+        started_at: 2026-11-02T10:31:00Z
+        duration_s: 3600
+        model: anthropic/claude-sonnet-5
+        tokens: { input: 412000, output: 18500, cached: 300000 }
+        summary: Credit notes are subtracted before the VAT is computed.
+    decisions:
+      - { id: spec-ok, kind: approval, summary: "Approve the specification?", at: 2026-11-02T10:25:00Z, by: admin@northwind.dev }
+```
+
+The contract is `packages/contracts/schemas/demo-history.schema.json`. The whole document is checked before
+anything is written: a state the workflow does not declare, a person who is not a member, an agent the
+registry does not hold, a model with no declared price or an id used twice is a 422 naming it. Each work
+item is written through the builders a live ticket uses. A second import of the same document finds every
+row and writes nothing; an id that already holds other content is a 409.
+
+What it writes is **marked as imported demonstration data**, never as measured: `imported` on the work
+items, runs, findings and cost lines (visible in the API), `imported_usd` in every cost report, and no
+budget counts an imported line. Each import is audited as `demo_history.import`. Imported work items are
+not run by any workflow (no interpreter): they are history, and their key is `demo:<id>`.
+
 ## Local services
 
 For front-end and API work, without Docker:

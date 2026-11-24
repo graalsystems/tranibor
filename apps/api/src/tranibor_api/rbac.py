@@ -62,6 +62,9 @@ class Permission(StrEnum):
     #: Create, edit and delete the organisation's groups and choose who is in them (ADR 0160): the
     #: organisation administrator. Every member of the organisation reads them.
     GROUP_MANAGE = "group:manage"
+    #: Take a declared demonstration history into a project (ADR 0216): the organisation administrator,
+    #: on an instance that opted in; no other role carries it.
+    DEMO_HISTORY_IMPORT = "demo_history:import"
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
