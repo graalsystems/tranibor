@@ -43,6 +43,11 @@ tls:
   clientSecretName: ""
   # The name the clients verify; it must be in the certificate. Empty: the Service name.
   serverName: ""
+  # Mutual TLS (ADR 0183 point 5): refuse, at the handshake, a client that presents no certificate signed
+  # by the server Secret's `ca.crt`. `dev`: the relay verifies it. `server`: the frontend and the internal
+  # services require it (they present the server certificate to each other). The clients must present
+  # one: `global.temporal.tls.mutual: true`, or the render refuses.
+  requireClientCert: false
   certManager:
     # Render the chain: self-signed issuer -> CA -> server and client certificates. Off: bring the Secrets.
     enabled: false
@@ -64,6 +69,10 @@ tls:
 # The Temporal UI, served by the same binary (`dev`). No Ingress: `kubectl port-forward`.
 ui:
   enabled: true
+  # `true`: the UI listens on the pod's loopback only. `kubectl port-forward` still reaches it (Kubernetes
+  # authenticates the person); no other pod does, and the Service has no UI port. The UI has no login and
+  # its write actions (terminate, signal, reset) are on: keep it off the network where pods share it.
+  loopbackOnly: false
 resources:
   requests: { cpu: 100m, memory: 256Mi }
   limits: { cpu: "1", memory: 1Gi }

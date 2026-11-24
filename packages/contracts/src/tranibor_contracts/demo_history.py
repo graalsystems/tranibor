@@ -12,9 +12,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import ConfigDict, Field, StringConstraints, model_validator
 
-from .open_lists import FINDING_TYPES
+from .open_lists import FINDING_TYPE_PATTERN
 from .workflow import Strict
 
 #: The external id of an object of the document: what makes the import idempotent.
@@ -77,7 +77,9 @@ class DemoDecision(Strict):
 class DemoFinding(Strict):
     id: ExternalId
     title: str = Field(min_length=3, max_length=200)
-    type: Annotated[str, AfterValidator(FINDING_TYPES.check)]
+    #: A name, read by the list's pattern alone: the import judges it against the project's workflow, whose
+    #: own types (ADR 0217) the contract cannot know, as the finding routes do.
+    type: str = Field(pattern=FINDING_TYPE_PATTERN)
     severity: Literal["low", "medium", "high", "critical"]
     evidence: str = Field(min_length=1)
     suggested_fix: str | None = None
