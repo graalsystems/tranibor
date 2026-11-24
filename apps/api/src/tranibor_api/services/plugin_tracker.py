@@ -9,7 +9,7 @@ Those values are never typed and never stored on the project connector.
 
 A template whose `requires.connectors.tracker` is `plugin:<plugin>/<server>` wires that connector when a
 project is created from it, and refuses when the plugin is not installed in the organisation, the server
-is not its tracker, or the server is not running (`deployed`).
+is not its tracker, or the server is not running (`deployed`, or `ok` once a check reached it: #2193).
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ async def tracker_problem(session: AsyncSession, org_id: str, plugin: str, serve
         return f"the plugin `{plugin}` runs no server `{server}` in this organisation"
     if "tracker" not in ((found.plugin_server or {}).get("implements") or []):
         return f"the server `{server}` of `{plugin}` does not implement the tracker profile"
-    if found.status != plugin_servers.DEPLOYED:
+    if found.status not in plugin_servers.RUNNING:
         detail = f": {found.last_error}" if found.last_error else ""
         state = f"`{found.status}`{detail}"
         return f"the server `{server}` of `{plugin}` is not running ({state}); configure it first"
