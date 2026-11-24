@@ -5,6 +5,11 @@ What the backup holds: every database of the embedded PostgreSQL (`pg_dump -Fc -
 SQLite file (an online copy) in `dev` mode, the memory's files, and the object store when `backup.objectStore` is on.
 A `server` mode Temporal (`choregos-temporal.mode: server`) has no file: its two databases are in the
 PostgreSQL dump when they are on the embedded PostgreSQL, and the backup mounts no Temporal volume (#2156).
+The memory's DuckDB files are copied as they are, WAL aside: they are consistent only when Ecphoria is
+stopped (`kubectl -n choregos scale deploy/choregos-ecphoria --replicas=0`, then the backup, then back
+to 1). Taken while it runs, the copy does not replay and the restored Ecphoria **silently runs empty, in
+memory** (issue #2185). Its `vectors/` directory is not
+copied at all.
 What it does not hold: the site's secrets (`choregos-api-secrets`, `choregos-oidc`, the object store's
 and the backup target's keys). Those come from the site's vault.
 
@@ -15,6 +20,15 @@ and the backup target's keys). Those come from the site's vault.
 - Or the data is wrong and must go back to last night: a bad migration, an erasure by mistake.
   Everything since the backup is lost by the restore (the recovery point is the last backup, 24 h at
   most with the default schedule). Say so to the people who used it today before you start.
+
+## Before you start
+
+- The S3 endpoint of `backup.target.s3.endpoint` must be reachable from the pods (a target bound to one
+  host address, or to the wrong Docker network, leaves the `ship` container hanging with no error).
+  An interrupted backup leaves a directory without `COMPLETE`; the restore ignores it.
+- Do not stop the writers by hand first: the script does it. If you did (or an earlier run failed), it
+  restores the replica counts it saved on each Deployment (`choregos-restore-replicas` annotation), not
+  the zeros it finds.
 
 ## Which backup
 
@@ -55,7 +69,8 @@ Without a stamp the restore takes the newest complete one.
 
    It stops every writer (API, console, workers, Temporal, gateway, memory), runs the chart's restore
    job (`kubectl create job --from=cronjob/choregos-restore …`), prints its log, and starts the
-   writers again with the replica counts they had. The job drops and re-creates each database from its
+   writers again with the replica counts they had (saved in the `choregos-restore-replicas` annotation,
+   so a run that follows a failed one still starts them). The job drops and re-creates each database from its
    dump, puts Temporal's (`dev` mode) and the memory's files back, and copies the object store back when the
    backup holds it.
 
@@ -81,7 +96,12 @@ Fix the cause and run the script again: every step overwrites what the previous 
 ```bash
 kubectl -n choregos get deploy                      # every Deployment available
 kubectl -n choregos logs deploy/choregos-api | grep -i "API starting"
+kubectl -n choregos logs deploy/choregos-ecphoria | grep -c "falling back"   # must be 0
 ```
+
+Temporal (`server` mode): its workflows come back with the databases; `temporal workflow list` (see
+[temporal-backup.md](temporal-backup.md)) shows those that were running at the backup, and none started
+after it. Ecphoria: search for a record you know was there.
 
 Then in the console: the work items of yesterday are there, in the state they had at the backup. A
 work item whose workflow was running resumes from where Temporal's copy left it; one created after the
