@@ -60,6 +60,7 @@ from ..context_reduction import (
     tool_scripts_on_for,
 )
 from ..org_egress import org_runner_hosts
+from .answer_recap import recap_of_the_run_that_asked, with_the_answer
 from .base import (
     db,
     declared_artifact_displays,
@@ -308,7 +309,9 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
             agent,
             await task_instruction_values(session, item) if agent else None,
         )
-        playbook_ref = _playbook_ref(plan, agent, playbook_prompt)
+        playbook_ref, shown_prompt = await _ref_and_shown_prompt(
+            session, item, plan, agent, run_id, playbook_prompt
+        )
         # A `read` agent writes no repository file: its scope matches only its deliverables (ADR 0119).
         allowed_paths = write_paths_for(workspace, list(item.allowed_paths or []))
         repo = _repo_ref(
@@ -372,7 +375,7 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
             budget=budget,
             allowed_paths=allowed_paths,
             context_pack_url=f"{settings.object_store_url}/runs/{run_id}/context.json",
-            playbook=PlaybookRef(ref=playbook_ref, prompt=playbook_prompt),
+            playbook=PlaybookRef(ref=playbook_ref, prompt=shown_prompt),
             tools=ToolsRef(
                 mcp={}
                 if remote_runtime is not None
@@ -572,6 +575,17 @@ def _run_id(plan: StagePlan) -> str:
     return f"{plan.work_item_id}-{plan.transition_id}-{plan.attempt}"
 
 
+async def _ref_and_shown_prompt(
+    session: Any, item: Any, plan: StagePlan, agent: Any, run_id: str, prompt: str
+) -> tuple[str, str]:
+    """The playbook's reference, and the prompt the run reads. A stage replayed after a person's answer
+    starts a new conversation: it reads what the run that asked had done (ADR 0223), after the
+    reference is taken, which the recap does not change."""
+    ref = _playbook_ref(plan, agent, prompt)
+    recap = await recap_of_the_run_that_asked(session, item, plan.transition_id, run_id)
+    return ref, f"{recap}\n\n---\n\n{prompt}" if recap else prompt
+
+
 def _playbook_ref(plan: StagePlan, agent: Any, prompt: str) -> str:
     """`agent:<slug>@<version>` (or the playbook, or the role) pinned by the prompt's digest."""
     digest = sha256(prompt.encode()).hexdigest()[:12]
@@ -664,12 +678,9 @@ def _render_playbook(
     plan: StagePlan, bundle: Any, item: Any, context: ContextPack, agent: Any = None, assistant: Any = None
 ) -> str:
     text = _render_playbook_text(plan, bundle, item, context, agent, assistant)
-    answer = str((item.documents or {}).get("human_answer") or "").strip()
-    if not answer:
-        return text
     # A person answered the question that had stopped the work item (#313): the agent that
     # resumes reads it first, without the workflow's author having to declare it as an input.
-    return f"## A person answered the question that stopped this work item\n\n{answer}\n\n---\n\n{text}"
+    return with_the_answer(item.documents or {}, text)
 
 
 def _render_playbook_text(

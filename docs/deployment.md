@@ -757,7 +757,12 @@ and the answer resumes the same run in it: one run, not two. The policy bounds t
 and the answer replays the stage. The workspace survives, and so does the agent's
 conversation when the agent can reload it (ACP `loadSession`); otherwise the run journal says so
 (`session/load.unsupported`) and the agent starts a new conversation in that workspace, with the
-answer at the head of its prompt.
+answer at the head of its prompt and a **recap of its own earlier work** before it (ADR 0223): its
+stage and task, its last plan, its last messages, the names and outcomes of its last tool calls and
+the question it asked, taken from the transcript the workspace kept, without calling a model, at most
+8,000 characters, secrets masked and any excerpt the injection patterns flag withheld. The answer says who
+gave it and when. A conversation that reloads gets no recap. The run's journal records
+`session/recap` (sizes and sections, never the text).
 
 The chart then renders a `SandboxTemplate` and a `SandboxWarmPool`, both named
 `choregos-runner`. A warm sandbox's pod mounts no service account token and no secret: its
@@ -2753,12 +2758,12 @@ the `ontology:` extension of the `joiners-leavers` template are gone. It was off
 | What | What happens | What to do |
 | :-- | :-- | :-- |
 | `TRANIBOR_ONTOLOGY_TRIAL` | No longer read. | Remove it from `global.extraEnv` (or `.env`) **with or after** the upgrade, never before: on 0.27.16 or earlier, removing it where the branch was applied leaves `onto0003` in `alembic_version` with no revision to read it, and the migration Job fails. |
-| Its tables `ontology_versions`, `managed_objects` (and `action_proposals`, left by `onto0002`) | The core migration `e8c0a2d4f6b1` drops them when they exist; their RLS policies and indexes go with them. Their content is not kept. | Export them first if you need what they hold. |
+| Its tables `ontology_versions`, `managed_objects` (and `action_proposals`, left by `onto0002`) | The core migration `b4d6f8a0c2e5` drops them when they exist; their RLS policies and indexes go with them. Their content is not kept. | Export them first if you need what they hold. |
 | Its rows in `alembic_version` (`onto0001` to `onto0003`) | The migration Job forgets them before anything else (Alembic could not read the table otherwise) and logs `retired_revisions_forgotten`. `python -m tranibor_api.migrate heads` shows the core's head only. | Nothing. |
 | Actions it persisted (`origin: ontology`, effects `ontology.effet` / `ontology.preuve`, `params.ontologie`) <!-- lang: fr-ok --> | Read as before: the API, the console's action page and the audit log still show them, and the contract keeps `ontology` as an `origin` it reads and never writes. | One still pending can be rejected; approved, it fails on its effect, which nothing declares any more. |
 | A plugin of your own that declared a template installer, tools for people or effects | The extension seam it used stays: nothing of it was specific to the ontology. | Nothing. |
 
-The downgrade of `e8c0a2d4f6b1` does not create the tables again.
+The downgrade of `b4d6f8a0c2e5` does not create the tables again.
 
 **Neutral names beside the former ones** ([ADR 0181](adr/0181-the-contracts-speak-no-trade.md), round C1).
 The former names left in 0.29.0, earlier than planned: see "Upgrading to 0.29.0: the roles and fields of
@@ -2968,7 +2973,7 @@ chart's job as usual; what an operator does:
 | What | Why | What to do |
 | :-- | :-- | :-- |
 | `TRANIBOR_TOKEN_EXCHANGE_AUDIENCES` | The audiences a person's token may be exchanged for (`user_exchange`, ADR 0135). Unset, a connector's editor chooses any audience the identity provider allows. | Set it in `global.extraEnv` to a JSON list of your sources' audiences before binding a need under `user_exchange` ([security](security.md), "Review of the person's identity"). |
-| `TRANIBOR_TOKEN_EXCHANGE_SCOPES` | The scope sent with an exchange, by audience (a JSON object, e.g. `{"insights360-mcp": "insights360-mcp"}`). Unset, no scope is sent. | Keycloak grants an audience only through a scope the request names or a default scope of the client: name the scope here and keep it optional on the client, so the source's audience is not in every token the console is issued. |
+| `TRANIBOR_TOKEN_EXCHANGE_SCOPES` | The scope sent with an exchange, by audience (a JSON object, e.g. `{"analytics-mcp": "analytics-mcp"}`). Unset, no scope is sent. | Keycloak grants an audience only through a scope the request names or a default scope of the client: name the scope here and keep it optional on the client, so the source's audience is not in every token the console is issued. |
 | The identity provider | `user_exchange` needs token exchange (RFC 8693) enabled for the API's client and limited to the sources' audiences; a standing delegation (ADR 0137) needs `offline_access`, bounded and revocable offline sessions. | Configure the realm; nothing changes for deployments without assistants. |
 | Open sessions of `/responses` | The migration that makes sessions durable closes the sessions open at upgrade time (`reason: migrated`, their spend booked). | Upgrade outside working hours if hosted prompt agents are in use. |
 | Connected accounts | Accounts are now bound to the authorization server the person consented to (`provider_digest`). | Accounts made before 0.26 (none outside a test deployment) are connected again once. |

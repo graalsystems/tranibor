@@ -51,7 +51,7 @@ Run: `uv run python trials/investment/sources.py` from a workstation, window 202
 
 ## 2026-10-19 — the first campaign on the dev tenant (`campaign_dev.py`)
 
-The tenant runs 0.18.8 and its pods hold the free Alpha Vantage key (choregos-deploy#60). With an
+The tenant runs 0.18.8 and its pods hold the free Alpha Vantage key (the deployment repository). With an
 administrator's API token, `campaign_dev.py prepare` made the org connector `marketdata`
 (`composite`, yahoo → alphavantage, key by `env:CONNECTOR_ALPHAVANTAGE_API_KEY`) and the project
 `varga:research` from the template, then `open` started `RESEARCH-1`: 20 US products, 2019-01-02 to
@@ -85,10 +85,10 @@ with the same fields.
 | # | Step | Result | Consequence |
 |---|---|---|---|
 | 1 | `t-snapshot` | the job ran in the warm pool and called `marketdata__get_bars` through the API; **every call took 123.2 s** and the job timed out at 900 s (`job exited with 124`) | `campaign → to_review`, an approval to relaunch waits; cost 0 |
-| 2 | why | from the API pod, `query1.finance.yahoo.com` and `www.alphavantage.co` answer `ConnectError [Errno 101] Network is unreachable`: the tenant's Cilium egress (`DiametralGroup/infra`, `tenant-base`) opens only GitHub, Atlassian and diametral.com to the API | the data sources need their FQDNs opened on dev (infra change, Vincent) |
+| 2 | why | from the API pod, `query1.finance.yahoo.com` and `www.alphavantage.co` answer `ConnectError [Errno 101] Network is unreachable`: the tenant's Cilium egress (`the operator's infrastructure`, `tenant-base`) opens only GitHub, Atlassian and the operator's own domain to the API | the data sources need their FQDNs opened on dev (infra change, Vincent) |
 | 3 | what a user sees | `job exited with 124: timed out (900 s)`; nothing says that the 20 calls each hit a network wall | the connector's failure reaches the job only after its own timeouts; to record with #750 |
 
-## 2026-10-20 — `RESEARCH-2` relaunched, the egress open (DiametralGroup/infra#1201)
+## 2026-10-20 — `RESEARCH-2` relaunched, the egress open (the operator's infrastructure)
 
 | # | Step | Result | Consequence |
 |---|---|---|---|
@@ -96,7 +96,7 @@ with the same fields.
 | 2 | storing `bars` | `PUT /internal/runs/…/outputs/bars` → **503 "Object store unavailable"** after 60 s; the run fails `missing_outputs` and the campaign goes back to `to_review` | the dev tenant has **no object store**: `objectStore.endpoint` is empty (AWS), with no `secretRef`; no artifact of any workflow can be stored there |
 
 The object store was then given to the tenant (RGW tenant user `choregos$choregos-app`, 20G quota,
-bucket `choregos`, keys through Infisical `/app`; DiametralGroup/choregos-deploy#78).
+bucket `choregos`, keys through Infisical `/app`; the operator's deployment repository).
 
 ## 2026-10-20, after the object store — the real model runs, the backtest cannot read it
 
@@ -114,7 +114,7 @@ multi-year range: the connector can be set `cross_check: false`, or keep Alpha V
 
 ## 2026-10-21 — `RESEARCH-3`, a campaign to its verdict
 
-0.19.1 (#766) was deployed to dev on 2026-10-20 (choregos-deploy#80), yet `RESEARCH-2` relaunched
+0.19.1 (#766) was deployed to dev on 2026-10-20 (the deployment repository), yet `RESEARCH-2` relaunched
 failed the same way: the project's `campaign` workflow is the copy the 0.19.0 template made when the
 project was created (2026-10-19, `t-strategize.output_types: {}`), and a work item stays on the
 version it started with. The only difference with the template on `main` was the `output_types`
@@ -165,8 +165,8 @@ person's statement ("I read the memo…") and are left to Vincent.
 
 The dev cluster got gVisor: `runsc` 20261005.0 (sha512-pinned, the release of
 `dev/scripts/gvisor.sh`) in K3s's containerd on the three nodes, one at a time, canary first
-(DiametralGroup/infra#1224); the `gvisor` RuntimeClass by Argo CD; the runner pool's template
-set to `runtimeClass: gvisor` (choregos-deploy#83). The project's policy went back to
+(the operator's infrastructure); the `gvisor` RuntimeClass by Argo CD; the runner pool's template
+set to `runtimeClass: gvisor` (the deployment repository). The project's policy went back to
 `preset:regulated` unchanged (version 3, `sandbox.runtime: gvisor`), and `RESEARCH-5` was opened
 with RESEARCH-3's fields (thresholds as shipped).
 
@@ -188,7 +188,7 @@ asking for gVisor off a pool that lacks it.
 
 ## 2026-10-22, morning — `RESEARCH-6`, 0.19.2: the bar in the memo
 
-The dev tenant moved to 0.19.2 (choregos-ee#33, choregos-deploy#84; gVisor now set in
+The dev tenant moved to 0.19.2 (choregos-ee#33, the deployment repository; gVisor now set in
 `global.runner.runtimeClass`, so the API knows the pool's class). The template of v0.19.2 was
 republished on `varga:research`: skill `reading-metrics` v2, agent `quant-analyst` v2 (the memo
 states the thresholds), workflows `product-memo` v2 and `campaign` v3. `RESEARCH-6` was opened with
@@ -238,7 +238,7 @@ key, or a second free source that serves full history.
 
 0.20.4 carries S38-21: Alpha Vantage in `outputsize: compact` asks for the last 100 trading days
 (the free key refuses `full`), and a source without the full history only checks the primary. The
-dev connector `marketdata` (org `diametral`) got `source_configs: {"alphavantage": {"outputsize":
+dev connector `marketdata` (org `acme`) got `source_configs: {"alphavantage": {"outputsize":
 "compact"}}`. `RESEARCH-10` was opened with `RESEARCH-7`'s fields.
 
 | # | Step | Result |

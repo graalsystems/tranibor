@@ -39,3 +39,19 @@ keeps another product out of the core's code; nothing kept an operator out.
   decision: every mention removed was a comment, a test value or demonstration data.
 - An operator's own vocabulary that is not its name (a Jira project key, a workflow or agent name used
   as test data) is not refused by the test; a story that meets one in shipped code rewords it.
+
+## Amendment, 2026-11-24: history is no longer an exception
+
+Decision 2 let the ADRs, `docs/plan/` and `trials/` name the instance they were measured on. The
+repository is public and its records are read by the same outsiders as its code, so the exception named
+an operator's private repositories, tickets, hosts and registry in every status row that cited them.
+
+- **Records are written operator-neutral too.** They keep their dates, versions and measurements and say
+  "the first operator's dev cluster", "the operator's infrastructure" or "the operator's deployment
+  repository", never whose, and they cite no private repository or ticket. Example organisations and
+  repositories are `acme` and `example-org`.
+- **The pattern widens.** Besides the company name and the Jira site, the test refuses the operator's
+  internal products and registry hosts, its hosting provider's name, a contributor's company domain,
+  and a person's home directory (`/home/<name>/`, also in a recorded Temporal history's stack trace;
+  `/home/user` is the neutral one).
+- **Only the two legal notices stay excepted**, under decision 3.

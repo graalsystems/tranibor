@@ -5,7 +5,7 @@
 
 ## Context
 
-Diametral's platform already watches itself, and watches itself well. `infra/ops/healthcheck`
+The first operator's platform already watches itself, and watches itself well. `infra/ops/healthcheck`
 runs a weekly Tekton pipeline with nineteen collectors — OS packages, systemd, disk, clock, MAAS,
 Ceph, ArgoCD drift, k3s, k3s certificates, GitOps, SSO, observability, the LLM gateway, apps,
 ingress, client IP, load-balancer exposure, MSS clamping, NetBird relays. The last report counted

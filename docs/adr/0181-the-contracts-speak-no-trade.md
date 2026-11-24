@@ -696,7 +696,7 @@ or a former field of a project or a policy gets a 422; one that reads `pr_url`, 
 `repository_fixed`, `needs_repository`, `writes_branch`, `in_pull_request` or `first_pass_merge_rate` finds
 nothing. An identity provider that sends only `developers` or `release-captains` gives no role: a member
 whose role the provider granted loses it at the next sign-in, so the deployment's provider must send
-`contributors` and `approvers` before the upgrade (diametral: DiametralGroup/infra#1637, synchronised on
+`contributors` and `approvers` before the upgrade (the first operator: the operator's infrastructure, synchronised on
 2026-11-23 before the deployment). The human group `release-captains` that the core's templates address
 (`group: release-captains`) is a group slug, not a role, and is unchanged. An enterprise edition or a plugin
 that imported a removed name moves with the same release. A Python import of a removed member fails.

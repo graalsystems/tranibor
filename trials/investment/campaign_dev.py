@@ -8,7 +8,7 @@
 Variables:
     CHOREGOS_DEV_URL         the tenant's console (e.g. `https://choregos.example`)
     CHOREGOS_DEV_TOKEN_FILE  a file holding an administrator's API token (`chg_…`); never printed
-    CHOREGOS_DEV_ORG         (default diametral)
+    CHOREGOS_DEV_ORG         (default acme)
     CHOREGOS_DEV_PROJECT     (default research)
     CHOREGOS_DEV_ALPHAVANTAGE_KEY_FILE  a file holding the organisation's Alpha Vantage key (optional)
 
@@ -32,7 +32,7 @@ from typing import Any
 import httpx
 
 URL = os.environ.get("CHOREGOS_DEV_URL", "").rstrip("/")
-ORG = os.environ.get("CHOREGOS_DEV_ORG", "diametral")
+ORG = os.environ.get("CHOREGOS_DEV_ORG", "acme")
 PROJECT = os.environ.get("CHOREGOS_DEV_PROJECT", "research")
 #: Twenty US products: broad, size, region, rates, commodities, sectors, and four single stocks.
 UNIVERSE = [
