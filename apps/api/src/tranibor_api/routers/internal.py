@@ -113,6 +113,7 @@ from ..services.extension_tools import (
     extension_result_cap,
     extension_tools,
 )
+from ..services.finding_types import refuse_undeclared, workflow_of
 from ..services.network import record_decisions, run_network
 from ..services.receipts import PRODUCED, PROMPT_DOCUMENTS, READ, record, record_digests
 from ..services.run_cancel import without_a_result
@@ -302,6 +303,9 @@ async def post_result(id: str, body: StageResult, session: Db, claims: RunAuth) 
     takes, so that a close and a post made at the same moment cannot both win.
     """
     run, item, project = await _run_and_item(session, id)
+    if body.findings:
+        # A type the work item's workflow does not declare is refused before anything is written (ADR 0217).
+        refuse_undeclared(await workflow_of(session, item), body.findings)
     payload = body.model_dump(mode="json", by_alias=True)
     await session.refresh(run, with_for_update={"key_share": True})
     if run_is_closed(run):
@@ -375,6 +379,7 @@ async def post_result(id: str, body: StageResult, session: Db, claims: RunAuth) 
 async def post_finding(id: str, body: Finding, session: Db, claims: OpenRunAuth) -> FindingAck:
     """Post a finding, capped by `policy.findings.max_per_run`."""
     run, item, project = await _run_and_item(session, id)
+    refuse_undeclared(await workflow_of(session, item), [body])
     engine = PolicyEngine(await effective_policy(session, project.id))
     cap = engine.max_findings_per_run()
     existing = (

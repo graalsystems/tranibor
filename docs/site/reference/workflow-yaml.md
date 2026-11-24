@@ -170,6 +170,7 @@ at most.
 | `extends` | `template:<name>@<version>`: start from a shipped template |
 | `inputs` | the JSON Schema of a work item's fields; every door (console, CLI, REST, MCP, A2A, triggers) checks fields against it |
 | `attachments` | the files a person may hand to a work item (ADR 0201): `accept` (artifact types, 1 to 20, required), `min` (0 to 50, default 0), `max` (1 to 50, default 20); a step reads them through the reserved input `attachments` |
+| `finding_types` | the finding types of this workflow, beside the platform's (`security`, `docs`, `ux`) and the plugins' (ADR 0217): a list of 30 at most of `name` (lower case, digits and hyphens, 32 characters at most, never a name the platform or a plugin owns), `title` (what the console shows, 80 characters at most) and optional `severities` (the severities a finding of this type may carry, a subset of `low`, `medium`, `high`, `critical`) and `description`; a finding of any other type is refused with a 422 naming the workflow and the allowed types |
 | `catalogue` | how the workflow catalogue presents it: `title` (80 characters), `summary` (400), `tags` (12 at most); the engine ignores it |
 
 ## `actors`

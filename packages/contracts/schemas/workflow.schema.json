@@ -46,6 +46,29 @@
           "type": "object",
           "description": "JSON Schema of the fields of a work item of this workflow (ADR 0031)."
         },
+        "finding_types": {
+          "type": "array",
+          "maxItems": 30,
+          "description": "The finding types of this workflow, beside the core's and the plugins' (ADR 0217): valid for this workflow's work items alone, shown with their title. Absent: none.",
+          "items": {
+            "type": "object",
+            "required": ["name", "title"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+              "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "severities": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "uniqueItems": true,
+                "description": "The severities a finding of this type may carry. Absent: every severity.",
+                "items": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+              },
+              "description": { "type": "string", "maxLength": 400 }
+            }
+          }
+        },
         "attachments": {
           "type": "object",
           "description": "The files a person may hand to a work item of this workflow (ADR 0201 §1). Absent: the workflow takes no file from a person. A step reads them through the reserved input `attachments`.",

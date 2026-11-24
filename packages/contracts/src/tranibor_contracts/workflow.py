@@ -16,8 +16,8 @@ from pydantic import (
     model_validator,
 )
 
-from .enums import ActorType, StateKind, StateOutcome
-from .open_lists import CONNECTOR_KIND_PATTERN, STORED, OpenList
+from .enums import ActorType, Severity, StateKind, StateOutcome
+from .open_lists import CONNECTOR_KIND_PATTERN, FINDING_TYPE_PATTERN, STORED, OpenList
 from .recorded import FORMER_APPROVER_ROLES
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,62}$")]
@@ -78,6 +78,25 @@ class WorkflowAttachments(Strict):
         return self
 
 
+class FindingTypeDecl(Strict):
+    """A finding type the workflow declares (ADR 0217): the trade's own name for a problem an agent, a
+    step's output or a person files (`duplicate_claim`), with the title the console shows. It is valid
+    for this workflow's work items alone; the core's and the plugins' types stay valid everywhere."""
+
+    name: str = Field(pattern=FINDING_TYPE_PATTERN)
+    title: str = Field(min_length=1, max_length=80)
+    #: The severities a finding of this type may carry; absent: every severity.
+    severities: list[Severity] | None = Field(default=None, min_length=1, max_length=4)
+    description: str | None = Field(default=None, max_length=400)
+
+    @field_validator("severities")
+    @classmethod
+    def _distinct_severities(cls, severities: list[Severity] | None) -> list[Severity] | None:
+        if severities is not None and len(set(severities)) != len(severities):
+            raise ValueError("a severity is listed twice")
+        return severities
+
+
 class WorkflowMetadata(Strict):
     name: Slug
     version: int = Field(ge=1)
@@ -89,6 +108,8 @@ class WorkflowMetadata(Strict):
     catalogue: WorkflowCatalogueInfo | None = None
     #: The files a person may hand to a work item of this workflow (ADR 0201); absent: none.
     attachments: WorkflowAttachments | None = None
+    #: The finding types of this workflow, beside the core's and the plugins' (ADR 0217); absent: none.
+    finding_types: list[FindingTypeDecl] | None = Field(default=None, max_length=30)
 
 
 #: An agent role. The package roles (`StageRole`) keep their meaning: the platform relies on

@@ -389,7 +389,11 @@ until a person settles it (made, or not made): see [Outposts](outposts.md).
 ## Findings and trains
 
 An agent that spots a problem **outside its scope** does not fix it: it reports a *finding*,
-which is deduplicated, triaged and turned into a linked ticket. A *release train* batches
+which is deduplicated, triaged and turned into a linked ticket. A finding has a type: the platform's
+(`security`, `docs`, `ux`), a plugin's, or one the workflow declares for itself in
+`metadata.finding_types` (`duplicate-claim`, with the title the console shows); a type the workflow does
+not allow is refused with a 422 naming the workflow and the allowed ones
+([ADR 0217](adr/0217-a-workflow-declares-its-own-finding-types.md)). A *release train* batches
 what is ready, opens its window, requires its approval, and can be frozen with a reason. A
 project has trains only when one of its active workflows has a `via: release_train` transition
 (`has_release_train` on the project): otherwise — an HR project born from `joiners-leavers`, say —

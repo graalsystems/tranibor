@@ -3729,6 +3729,28 @@ token, and it changes when the token is minted again. The project's settings lis
 the received events: their URL, their workflow, whether a token exists, a button to mint it (shown
 once) and a box to fire it with a payload.
 
+### Declaring your own finding types
+
+A trade names its own problems. A workflow declares the finding types its work items may be filed under
+([ADR 0217](adr/0217-a-workflow-declares-its-own-finding-types.md)):
+
+```yaml
+metadata:
+  name: warranty-claims
+  version: 1
+  finding_types:
+    - name: duplicate-claim            # lower case, digits and hyphens, 32 characters at most
+      title: Suspected duplicate claim # what the console shows
+      severities: [medium, high]       # optional: the severities a finding of this type may carry
+      description: The same serial number was claimed before.
+```
+
+An agent files a finding of that type like any other (`type: duplicate-claim`). The platform's types
+(`security`, `docs`, `ux`) and the installed plugins' stay valid in every workflow; a type the workflow does
+not declare is refused with a `422` naming the workflow and the allowed types, and publication refuses a
+name declared twice or one the platform or a plugin already owns. The findings list returns the declared
+title as `type_title`.
+
 ### Handing files to a work item
 
 A workflow that works from documents a person received says so in its metadata
