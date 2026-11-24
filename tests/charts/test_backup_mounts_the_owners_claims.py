@@ -7,8 +7,9 @@ exist, or copied a stale one. The claim names now come from one helper per owner
 (`choregos.temporalClaim`, `choregos.memoryClaim`) that the owner's template and the backup both call.
 
 The memory's DuckDB files have a single writer, Ecphoria: one replica, recreated rather than rolled,
-and the backup copies the files without opening them. The SQLite copies need a read-write mount (the
-online backup takes its shared lock through `-shm`, ADR 0184), so the mount is not read-only.
+and neither the backup nor the restore opens or copies them: Ecphoria backs its stores up and restores
+them itself (S80-41, #2185). Temporal's SQLite copy needs a read-write mount (the online backup takes
+its shared lock through `-shm`, ADR 0184), so that mount is not read-only.
 
 Temporal has a claim only in `dev` mode (SQLite). In `server` mode (ADR 0195) its state is two
 databases on `global.database`, the chart renders no claim, and the backup used to wait on one that
@@ -126,16 +127,11 @@ def test_the_memory_has_one_writer_and_the_backup_never_opens_its_duckdb_files()
         cronjob = _one(docs, "CronJob", job)
         # Never two backup (or restore) pods on the volume at once.
         assert cronjob["spec"]["concurrencyPolicy"] == "Forbid", job
-    files = _one(docs, "ConfigMap", "c-backup")["data"]["files.py"]
-    # The DuckDB files are copied as files (ADR 0184); opening them would make the backup a writer.
-    assert not re.search(r"\bduckdb\b", files), "the backup opens a DuckDB file"
-    assert "shutil.copy2(path, target)" in files
-    backup = _job_pod(_one(docs, "CronJob", "c-backup"))
-    (step,) = [c for c in backup["initContainers"] if c["name"] == "files"]
-    (mount,) = [m for m in step["volumeMounts"] if m["name"] == "memory"]
-    # Read-write by design: `state.db`'s online SQLite copy takes its shared lock through `-shm`.
-    assert mount["mountPath"] == "/memory"
-    assert not mount.get("readOnly", False)
+    scripts = _one(docs, "ConfigMap", "c-backup")["data"]
+    # Ecphoria backs its stores up itself, while it runs (S80-41, #2185): no script opens a DuckDB
+    # file, and none copies one (`tests/charts/test_backup_memory_through_ecphoria.py`).
+    for name in ("files.py", "memory.py", "restore-files.py", "restore-memory.py"):
+        assert not re.search(r"\bduckdb\b", scripts[name], re.IGNORECASE), name
 
 
 def _temporal_mounts(pod: dict[str, Any]) -> list[str]:
@@ -155,7 +151,7 @@ def test_only_a_dev_mode_temporal_has_a_claim_the_backup_mounts() -> None:
         assert "temporal" not in _claims(server_pod), job
         assert "temporal" not in {v["name"] for v in server_pod["volumes"]}, job
         assert _temporal_mounts(server_pod) == [], job
-        # The memory's files are still copied, through the same step.
+        # The memory is still backed up, by its own step (Ecphoria's backup, S80-41).
         assert _claims(server_pod)["memory"] == "c-ecphoria", job
 
 

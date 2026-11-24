@@ -910,7 +910,8 @@ singleNode:
 
 # Scheduled backup of what the chart embeds (ADR 0184, S80-07b): a CronJob that writes, per run, a
 # directory `<UTC stamp>/` holding `pg_dump -Fc --create` of every database of the embedded
-# PostgreSQL, an online copy of the embedded Temporal's SQLite file, the embedded memory's files,
+# PostgreSQL, an online copy of the embedded Temporal's SQLite file, the embedded memory's own backup
+# (Ecphoria's `/api/v1/admin/backup`, taken while it runs: S80-41),
 # optionally a copy of the object store, a `MANIFEST` and a `COMPLETE` marker; then keeps the `keep`
 # newest complete backups. Restore: `docs/runbooks/single-node-restore.md`. Every embedded volume is
 # mounted by the backup pod: this works on ONE node (a ReadWriteOnce volume is per node), which is
