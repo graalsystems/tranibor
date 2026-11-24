@@ -15,11 +15,27 @@ with no event and no failure — the API reads the workflow status on every work
 
 ## Embedded Temporal (`global.temporal.embedded: true`)
 
-The embedded Temporal is `temporal server start-dev`: one process, **SQLite** on a
-PersistentVolume (`/data/temporal.db`), one replica, `Recreate` strategy. It exists for a
-bench. The chart refuses it in `staging` and `prod` (`templates/guard.yaml`).
+The chart embeds Temporal in one of two modes (`choregos-temporal.mode`, ADR 0195).
 
-If you still need a copy of it — to move a bench, or to keep a history for a replay test:
+**`server` mode** (`temporalio/auto-setup`, the production tier): the pod holds **no data**. Temporal's
+state is two PostgreSQL databases (`choregos-temporal.database.name`, default `temporal`, and
+`.visibilityName`, default `temporal_visibility`), and the chart renders no Temporal volume. Back them up
+as the platform database is:
+
+- on the embedded PostgreSQL, they are in the scheduled backup's `pg_dump` (single-node profile,
+  `single-node-restore.md`), which mounts no Temporal claim (#2156, #2179);
+- on the operator's PostgreSQL (`global.database` or `choregos-temporal.database.host`), whoever runs
+  that PostgreSQL backs them up: see "External Temporal" below, the rules are the same.
+
+`choregos-temporal.server.numHistoryShards` is immutable once the database is initialised. Restarting the
+pod cuts the workflows for about 30 s; the clients resume alone.
+
+**`dev` mode** (`temporal server start-dev`): one process, **SQLite** on a PersistentVolume
+(`/data/temporal.db`), one replica, `Recreate` strategy. It exists for a bench. The chart refuses it in
+`staging` and `prod` (`templates/guard.yaml`) unless the single-node profile is on, where the scheduled
+backup copies the SQLite file (`single-node-restore.md`).
+
+If you still need a copy of the `dev` one — to move a bench, or to keep a history for a replay test:
 
 ```bash
 NS=choregos

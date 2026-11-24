@@ -25,8 +25,11 @@ provide its secrets, upgrade it, back it up, and know what protects what.
 | **Runner** | the image every agent run starts in, one sandboxed pod per run |
 
 They depend on PostgreSQL, Temporal, a model gateway (LiteLLM), an S3-compatible object store and an
-OIDC identity provider. Each dependency can be embedded by the chart, for a bench, or external, for
-production (the default).
+OIDC identity provider. Each dependency can be embedded by the chart or external (the default). The
+embedded PostgreSQL, the `dev`-mode Temporal (SQLite) and a memory without a volume are benches that
+`staging` and `prod` refuse; the embedded Temporal in `server` mode, the LiteLLM gateway on your
+PostgreSQL and the Ecphoria memory on a volume are accepted there (see the
+[deployment reference](../../deployment.md), "The embedded LiteLLM and Ecphoria in a serious environment").
 
 ## Prerequisites
 

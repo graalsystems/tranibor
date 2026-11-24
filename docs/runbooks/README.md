@@ -13,7 +13,7 @@ removed in 0.24.0 (S45-49).
 | `train-frozen.md` | a train is frozen and nothing departs |
 | `api-5xx.md` | the API returns 5xx |
 | `postgres-restore.md` | data loss, PITR restore — the only one played on a cluster so far |
-| `ecphoria-quorum.md` | Ecphoria lost its Raft quorum |
+| `ecphoria-quorum.md` | a clustered Ecphoria (the operator's, not the chart's single replica) lost its Raft quorum |
 | `secret-rotation.md` | rotating the GitHub App, the gateway `master_key`, the JWT keys |
 | `temporal-upgrade.md` | upgrading Temporal |
 | `rename-tenant-names.md` | bringing a tenant created before `joiners-leavers` 2.0.0 forward to English names |

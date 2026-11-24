@@ -7,7 +7,13 @@
 
 ## Understand
 
-Ecphoria runs as a three-replica StatefulSet with Raft. One lost node is tolerated; with
+This page is for an Ecphoria an operator runs clustered (a three-replica StatefulSet, with the
+restore CronJob its own repository defines: the chart renders neither). The chart's embedded Ecphoria
+(`global.memory.embedded`) is **one replica on one volume**: it has no quorum to lose. If that one is
+broken, its restore is the memory step of `single-node-restore.md` (`POST /api/v1/admin/restore` on a
+backup taken by `POST /api/v1/admin/backup`, S80-41).
+
+Ecphoria here runs as a three-replica StatefulSet with Raft. One lost node is tolerated; with
 two, the quorum falls and writes stop.
 
 ```bash
