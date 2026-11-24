@@ -46,7 +46,7 @@ PLUGIN_VERSIONS = {
     "requests": "1.1.2",
     "mcp-clients": "1.0.1",
     "procurement": "0.3.0",
-    "procurement-operations": "0.3.1",
+    "procurement-operations": "0.3.3",
 }
 #: Plugins whose agents were born in a plugin, never in the core: each is at its first version (S85).
 BORN_IN_A_PLUGIN = {"procurement", "procurement-operations"}
