@@ -5974,6 +5974,14 @@ stories:
     size: S
     depends_on: [S80-44b]
     notes: "tranibor-agents#49 (servicenow 0.2.15): the plugin's live suite passed 18 tests on the Australia PDI on 2026-11-24 as the procedure's non-admin integration user, 9 by basic authentication and 9 by OAuth client credentials. Its roles: choregos_integration, snc_basic_auth_api_access (basic only), sn_change_read; sn_change_write is not needed. The Business Rule's delivery to the dev deployment's webhook route was tried and could not run: the instance could not resolve the API's name (private DNS). docs/plugins.md and the S80-20 row say so."
+  - id: S80-46
+    title: "feat(examples,docs): a ServiceNow nightly on a deployment, its credentials in the platform's own store"
+    stream: S80
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: [S80-45]
+    notes: "P1 asks for 14 green nights on a real ServiceNow instance; S80-45 said a nightly needed the instance's credentials as CI secrets. It does not: a project with an internal tracker schedules one work item a night whose only step is a job calling the organisation's servicenow connector with the run's token (examples/servicenow-nightly/workflow.yaml, runbook docs/runbooks/servicenow-nightly.md). One green night on an operator's dev cluster on 2026-11-24; tracker_create_item allowed for the nightly project's group only."
   - id: S40-28
     title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
     stream: S40
