@@ -67,7 +67,7 @@ For a single-node bench with every dependency embedded, start from the chart's
 
 ```shell
 helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
-  --version 0.29.3 --namespace choregos --create-namespace -f my-values.yaml
+  --version 0.29.4 --namespace choregos --create-namespace -f my-values.yaml
 ```
 
 The chart's version is the product's version; the images
