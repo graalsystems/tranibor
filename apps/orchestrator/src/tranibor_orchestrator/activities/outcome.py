@@ -275,6 +275,7 @@ async def record_run_outcome(payload: dict[str, Any]) -> dict[str, Any]:
             documents["infra_pr_url"] = infra_pr
         if result.status == StageStatus.DONE:
             documents.pop("human_answer", None)  # the answer served the step that asked for it
+            documents.pop("human_answer_by", None)
         item.documents = documents
         # The same outputs as typed artifacts (ADR 0049). Usually already recorded when the runner
         # posted its result; the same content makes no new version, so this is a no-op then.

@@ -757,7 +757,12 @@ and the answer resumes the same run in it: one run, not two. The policy bounds t
 and the answer replays the stage. The workspace survives, and so does the agent's
 conversation when the agent can reload it (ACP `loadSession`); otherwise the run journal says so
 (`session/load.unsupported`) and the agent starts a new conversation in that workspace, with the
-answer at the head of its prompt.
+answer at the head of its prompt and a **recap of its own earlier work** before it (ADR 0223): its
+stage and task, its last plan, its last messages, the names and outcomes of its last tool calls and
+the question it asked, taken from the transcript the workspace kept, without calling a model, at most
+8,000 characters, secrets masked and any excerpt the injection patterns flag withheld. The answer says who
+gave it and when. A conversation that reloads gets no recap. The run's journal records
+`session/recap` (sizes and sections, never the text).
 
 The chart then renders a `SandboxTemplate` and a `SandboxWarmPool`, both named
 `choregos-runner`. A warm sandbox's pod mounts no service account token and no secret: its

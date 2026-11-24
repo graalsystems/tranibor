@@ -25,11 +25,10 @@ from tranibor_api.security import mint_run_token
 from tranibor_core import ExecRef, utcnow
 
 from ..config import get_settings
+from .answer_recap import answer_of, with_the_answer
 from .base import db, load_work_item, project_bundle, without_secrets
+from .injection_guard import guard_sources
 from .run_key import key_ttl_seconds, mint_key, revoke
-
-#: What the agent reads first when its run goes on — the same heading as a replayed stage.
-ANSWER_HEADING = "## A person answered the question that stopped this work item"
 
 
 def _ref(run: Run, namespace: str) -> ExecRef:
@@ -106,6 +105,16 @@ async def resume_run(payload: dict[str, Any]) -> dict[str, Any]:
         if not _can_suspend(executor):
             return {"resumed": False}
         item = await load_work_item(session, run.work_item_id)
+        # The answer is third-party text like any other the agent reads (ADR 0223): the guard looks
+        # at it BEFORE anything is resumed, as it did when the stage started (`block` stops here).
+        if answer_of(item.documents or {}):
+            await guard_sources(
+                bundle,
+                item,
+                run.id,
+                run.stage_role,
+                {"document.human_answer": answer_of(item.documents or {})},
+            )
         stage_input = dict(run.stage_input)
         budget = dict(stage_input["budget"])
         timeout_minutes = int(budget["max_minutes"]) + 10
@@ -144,10 +153,9 @@ async def resume_run(payload: dict[str, Any]) -> dict[str, Any]:
                 expires_at=key.expires_at,
             )
         )
-        answer = str((item.documents or {}).get("human_answer") or "").strip()
         playbook = dict(stage_input.get("playbook") or {})
-        if answer and playbook.get("prompt") is not None:
-            playbook["prompt"] = f"{ANSWER_HEADING}\n\n{answer}\n\n---\n\n{playbook['prompt']}"
+        if playbook.get("prompt") is not None and answer_of(item.documents or {}):
+            playbook["prompt"] = with_the_answer(item.documents or {}, playbook["prompt"])
         stage_input["playbook"] = playbook
         # The runner reads its input again; its fresh token and key went to the sandbox's Secret
         # through `resume`, never here (#519, #523).
