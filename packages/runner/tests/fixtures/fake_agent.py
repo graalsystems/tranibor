@@ -219,6 +219,18 @@ def _record_prompt(message: dict[str, Any]) -> None:
     path.write_text(json.dumps([*seen, text], ensure_ascii=False), encoding="utf-8")
 
 
+def _plan(session_id: str, entries: list[dict[str, str]]) -> None:
+    """`plan_entries`: the agent announces its plan (ACP `plan` update)."""
+    if entries:
+        send(
+            {
+                "jsonrpc": "2.0",
+                "method": "session/update",
+                "params": {"sessionId": session_id, "update": {"sessionUpdate": "plan", "entries": entries}},
+            }
+        )
+
+
 def _say(session_id: str, notes: list[str]) -> None:
     for note in notes:
         send(
@@ -293,6 +305,7 @@ def main() -> int:
                 continue
 
             _say(session_id, plan.get("messages", []))
+            _plan(session_id, plan.get("plan_entries", []))
             for call in plan.get("model_calls", []):
                 _call_model(call)
 

@@ -5,7 +5,7 @@
 - **Status**: accepted, 2026-11-17 (decided by the product owner on 2026-11-15, D6, and confirmed on
   2026-11-17: "do the renames now", the trademark gate being skipped); R1 is implemented by S75-01,
   R3 steps (a) and (b) by S75-03 (2026-11-18), R2 by S75-02 (2026-11-18), shipped by release 0.27.14,
-  and R3 step (c) on the Diametral deployments (2026-11-18, see the amendment "0.27.14 on a real
+  and R3 step (c) on the first operator's deployments (2026-11-18, see the amendment "0.27.14 on a real
   release"), and R3 step (d) (2026-11-18, see the amendment "step (d)"); R4 by S75-04 (2026-11-19); R3 step (e) is not
   started
 - **Concerns**: the whole repository (25,000 occurrences of the old name in 4,600 files, counted on
@@ -23,7 +23,7 @@ The Apache-2.0 core under it is named **Tranibor**, and that name is the one the
 (`graalsystems/tranibor`, transferred and renamed on GitHub on 2026-11-17), the documentation, and, on
 the agentic side, the CLI, the packages and the images. "Choregos" was the name of the project under the
 Varga Foundation; the enterprise edition (an EE build that imports `choregos_api`) and the production at
-`agentic.diametral.com` were built on it.
+`agentic.example.com` were built on it.
 
 The old name is everywhere, in four layers that do not break alike:
 
@@ -193,8 +193,8 @@ One commit cannot rename all four, and the fourth layer must not be renamed by a
 
 ## Amendment (2026-11-18, S75-03): R3 steps (a) and (b), as built
 
-- **(a)** The Diametral platform's `choregos-verify-images` admits `ghcr.io/graalsystems/tranibor-<component>`
-  beside `choregos-*`, with the same signer (DiametralGroup/infra#1600), and so does
+- **(a)** The first operator's platform's `choregos-verify-images` admits `ghcr.io/graalsystems/tranibor-<component>`
+  beside `choregos-*`, with the same signer (the operator's infrastructure), and so does
   `infra/policies/images.yaml` here. Each component is named: a glob `tranibor-*` would also catch
   `ghcr.io/graalsystems/tranibor-agents/<server>`, the plugin servers, which another repository signs.
 - **(b)** The publishing identity gains two values, `image_prefix` (`tranibor`) and `image_alias_prefix`
@@ -263,10 +263,10 @@ One commit cannot rename all four, and the fourth layer must not be renamed by a
   through them (no `py.typed`, no stubs: 86 `import-untyped` errors in the enterprise edition), and
   `python -m choregos_<x>.<module>` fails (`'_AliasLoader' object has no attribute 'get_code'`, finding
   #1899). A consumer that type-checks or runs modules moves to the new names; the enterprise edition did,
-  in the same release (`DiametralGroup/choregos-ee#112`: it imports `tranibor_*`, downloads and installs
+  in the same release (`the enterprise edition's repository`: it imports `tranibor_*`, downloads and installs
   both wheel sets by path, and its floor is 0.27.14). That is the package half of step (d); its base
   images keep the former names.
-- **Step (c), as done for the Diametral deployments** (`DiametralGroup/choregos-deploy#298` dev, `#299`
+- **Step (c), as done for the first operator's deployments** (its deployment repository, dev and
   prod): those clusters pull the core's images from a private Harbor project into which each release is
   copied byte for byte, now under both names. The values set `choregos-web.image.repository:
   tranibor-web` and `choregos-orchestrator.runner.image: tranibor-runner` (the warm sandbox, the
@@ -308,22 +308,22 @@ One commit cannot rename all four, and the fourth layer must not be renamed by a
   glob of `infra/policies/images.yaml` (`…/tranibor/.github/workflows/*`) matches them
   (`--certificate-identity-regexp`), and the same check against `…@refs/tags/v0.27.13` fails, so the
   identity is what is checked. Not proven: a cluster's admission webhook verifying a `tranibor-*`
-  reference (the Diametral clusters pull from Harbor).
+  reference (the first operator's clusters pull from Harbor).
 
 ## Amendment (2026-11-18, S75-03): R3 step (d), the enterprise edition on the new base image
 
-- **Done.** `DiametralGroup/choregos-ee#113` builds the enterprise images FROM
+- **Done.** `the enterprise edition's repository` builds the enterprise images FROM
   `tranibor-api` / `tranibor-orchestrator` (its `Makefile`, `outils/coeur.sh`, `outils/coeur-local.sh`),
-  and its CI passes the same name (`DiametralGroup/choregos-deploy#300`: `choregos-kaniko-build` and
+  and its CI passes the same name (the operator's deployment repository: `choregos-kaniko-build` and
   `choregos-ee-tests` take the base image's prefix, `tranibor` for the release pipeline). With the package
   half (`choregos-ee#112`, `tranibor_*` imports), step (d) is complete. The image says which base it was
   built from, in the OCI annotation `org.opencontainers.image.base.name`
-  (`harbor.build.diametral.com/choregos/tranibor-<component>:0.27.14` on both published images).
+  (`registry.example.com/choregos/tranibor-<component>:0.27.14` on both published images).
 - **The enterprise images keep their names** (`choregos-api-ee`, `choregos-orchestrator-ee`). Point 4
   renames the core's artefacts; the enterprise edition is not "Tranibor Enterprise" (point 9), and a new
   name for its images is a product decision, not part of this round. Nothing therefore moved in the
   registry's immutability and retention rules or in the clusters' admission.
-- **Deployed** on dev (`choregos-deploy#301`) then prod (`#302`, synchronised by hand): the six EE
+- **Deployed** on dev (`the deployment repository`) then prod (`#302`, synchronised by hand): the six EE
   deployments run the new digests, ready without restart, and `GET /api/v1/edition` answers `enterprise`,
   0.27.14, edition 0.2.0 on both. The base digests are the ones the former names carry (`tranibor-api:0.27.14`
   and `choregos-api:0.27.14` are one digest, likewise the orchestrator), so the core inside is byte for

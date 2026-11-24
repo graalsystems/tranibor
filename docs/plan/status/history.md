@@ -154,7 +154,7 @@ the 492 tests did not say:
    both sides for two days — restored and guarded by `tests/docs/test_agent_instructions.py`,
    which also refuses a nonexistent `make` target. Remaining P1-1b/c: the English
    of the interface, the complete translation of the 14 ADRs and the 11 runbooks.
-   **The product's first non-zero cost (2026-09-26, 18:00)**: on Diametral's dev tenant,
+   **The product's first non-zero cost (2026-09-26, 18:00)**: on the first operator's dev tenant,
    a `platform/cheap` call answered through the tenant's gateway then the
    platform's — 16 tokens, and the virtual key `choregos-dev` carries **2.7 × 10⁻⁵ USD** of spend,
    under a ceiling of $20 over 30 days. The product's argument no. 1 had twelve ledger rows
@@ -171,7 +171,7 @@ the 492 tests did not say:
 
    **Community edition and enterprise edition (2026-09-26)**: [ADR 0024](../../adr/0024-two-editions.md)
    reopens D1 and enacts two editions. The core remains Apache-2.0 under the Varga Foundation; the enterprise
-   edition will be proprietary, in a separate private repository, edited by Diametral. The
+   edition will be proprietary, in a separate private repository, edited by its first operator. The
    community edition becomes **single-organization**: `POST /orgs` refuses the second with a 409 that
    names the decision, and the refusal is tied to the EDITION, not to a hard-coded ceiling — the enterprise
    edition will lift it without forking the core. The rights check comes before the
@@ -331,7 +331,7 @@ the 492 tests did not say:
    sole embedded LiteLLM in `CreateContainerConfigError`: it awaits `platform-llm-key`, the
    provider key that we do not have.
    **v0.4.0 published (2026-09-26)**: ten signed multi-arch images and the chart on
-   `oci://ghcr.io/vargafoundation/charts/choregos` — this is the chart that the Diametral tenant
+   `oci://ghcr.io/vargafoundation/charts/choregos` — this is the chart that the first operator's tenant
    vendors. A job of the release failed, and on a real defect: `choregos-playbooks`
    declared `packages` (which embeds the whole tree) **and** a `force-include` on `roles/`,
    so hatchling refused to add the same path twice. Nothing saw it — `make ci`
@@ -513,7 +513,7 @@ the 492 tests did not say:
    *workflow*'s queue. Everything therefore ran on `orchestrator`; the three specialized worker
    deployments that the chart creates never received a task. No test could see it,
    the three Temporal suites mounting a single worker carrying all the activities: it answers
-   whatever queue is requested. What made it visible was a Diametral network policy
+   whatever queue is requested. What made it visible was an operator's network policy
    that did take the split seriously.
 
    What the fix proves: `apps/orchestrator/tests/test_repartition_des_files.py` reads in

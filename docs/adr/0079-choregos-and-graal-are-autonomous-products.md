@@ -34,7 +34,7 @@ product owner chose on 2026-10-20: the products stay autonomous.
    customer's OIDC provider on its own. Both may use the same realm; that is a deployment choice,
    not a requirement (this amends ADR 0028 §4).
 4. **A feature that needs both is a generic capability on each side.** A report's live references
-   resolve through any MCP connector (graal, Insights360 or another), with the viewer's token where
+   resolve through any MCP connector (graal, an analytics platform or another), with the viewer's token where
    the connector declares it (ADR 0077, proposed in #758). A report format that graal renders is a graal feature that
    Choregos produces as any other MCP client would. The data-change template (S14-03) runs against
    any data platform's MCP server, and against a fake in CI.

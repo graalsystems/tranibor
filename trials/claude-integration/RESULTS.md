@@ -1,6 +1,6 @@
 # Trial S15-07 - a real Claude Code against the dev tenant's MCP door
 
-Played on **2026-10-05** against `http://choregos.internal.dev.diametral.com` (Choregos **0.14.0**,
+Played on **2026-10-05** against `http://choregos.dev.example.com` (Choregos **0.14.0**,
 `choregos-deploy` #21), from a workstation on the VPN, with Claude Code **2.1.289**.
 
 ```bash
@@ -9,7 +9,7 @@ CHOREGOS_DEV_TOKEN="$(cat ~/.config/choregos/dev-token)" trials/claude-integrati
 
 A human's `*` token is only used to prepare and to check over REST; it never enters Claude Code's
 configuration. For the trial the script mints an `mcp:write` token, bound to the project
-`diametral:essai-it4it`, valid for one day, written to a 0600 file in a temporary directory,
+`acme:essai-it4it`, valid for one day, written to a 0600 file in a temporary directory,
 and **revokes** it on exit (checked afterwards: it is no longer listed).
 
 ## What was observed

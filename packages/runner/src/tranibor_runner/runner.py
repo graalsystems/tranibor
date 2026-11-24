@@ -45,6 +45,7 @@ from tranibor_core.context_breakdown import PARTS_EVENT, Hints, register
 from tranibor_core.egress_gate import REPORT_EVENT as EGRESS_GATE_EVENT
 from tranibor_core.hosted import CONNECT_PORT, MCP_PORT, MODEL_PORT
 from tranibor_core.production import ENVIRONMENT_VARIABLE, is_production
+from tranibor_core.recap import build_recap, parse_journal
 from tranibor_core.redaction import REDACTED, redact
 
 from . import compression, confine, safe_files, tool_scripts
@@ -454,6 +455,8 @@ class Runner:
             return decision.allowed, decision.reason
 
         diagnostics = Diagnostics()
+        #: Filled by `_open_session` when a resumed run could not reload its conversation (ADR 0223).
+        recap_text: list[str] = []
         agent_result: StageResult | None = None
         dod_iterations = repairs = 0
         scope_result = None
@@ -474,10 +477,18 @@ class Runner:
                         max_turns=stage_input.budget.max_turns, loop_threshold=self.settings.loop_threshold
                     ),
                 ),
-                lambda agent: _open_session(agent, journal, workspace.path, backend.name, plan.mcp_servers),
+                lambda agent: _open_session(
+                    agent,
+                    journal,
+                    workspace.path,
+                    backend.name,
+                    plan.mcp_servers,
+                    recap_into=recap_text,
+                    where=(stage_input.transition.id, stage_input.work_item.title),
+                ),
             ) as agent:
                 # 7. premier tour
-                prompt = self._prompt(stage_input, workspace.path)
+                prompt = _under_the_recap(recap_text, self._prompt(stage_input, workspace.path))
                 await self._record_tool_instructions(journal, prompt)
                 budget_seconds = stage_input.budget.max_minutes * 60
                 # A key the gateway refuses for budget refuses every further turn too: no DoD
@@ -1778,7 +1789,14 @@ SAVED_SESSION = Path(".choregos") / "acp-session.json"
 
 
 async def _open_session(
-    agent: Any, journal: EventJournal, workspace: Path, backend: str, mcp_servers: list[dict[str, Any]]
+    agent: Any,
+    journal: EventJournal,
+    workspace: Path,
+    backend: str,
+    mcp_servers: list[dict[str, Any]],
+    *,
+    recap_into: list[str] | None = None,
+    where: tuple[str, str] = ("", ""),
 ) -> None:
     """A new conversation — or, for a run resumed in its own sandbox after a person's answer
     (S35-03), the SAME one, when the agent can reload it (ACP `session/load`).
@@ -1786,7 +1804,9 @@ async def _open_session(
     The conversation id is saved on the workspace volume when it is opened; the agent keeps the
     conversation itself in its home, which is the workspace (`HOME=/workspace` in the runner
     image), so both survive a suspended sandbox. An agent that cannot reload says so in the
-    journal, and the run goes on in a new conversation, in the kept workspace, with the answer.
+    journal, and the run goes on in a new conversation, in the kept workspace, with the answer
+    and, in `recap_into`, a recap of its own earlier work built from the kept journal (ADR 0223).
+    A reloaded conversation gets no recap: it would say twice what the agent already holds.
     """
     saved = _saved_session(workspace)
     if saved is not None and saved.get("backend") == backend:
@@ -1807,6 +1827,8 @@ async def _open_session(
                     "reloaded; a new one starts in the kept workspace, with the answer",
                 },
             )
+    if saved is not None and recap_into is not None:
+        await _recap_of_the_kept_journal(journal, workspace, backend, recap_into, where)
     session_id = await agent.new_session(str(workspace), mcp_servers)
     await journal.record("session/new", {"backend": backend})
     try:
@@ -1817,6 +1839,35 @@ async def _open_session(
         # A link in the saved session's place: nothing is written through it. The run goes on; only a
         # resume after a person's answer would not reload this conversation (a new one starts).
         await journal.record("session/save.refused", {"backend": backend, "error": str(exc)[:300]})
+
+
+def _under_the_recap(recap: list[str], prompt: str) -> str:
+    return f"{recap[0]}\n\n---\n\n{prompt}" if recap else prompt
+
+
+async def _recap_of_the_kept_journal(
+    journal: EventJournal, workspace: Path, backend: str, into: list[str], where: tuple[str, str]
+) -> None:
+    """What the agent did before the question, from the transcript the workspace kept (ADR 0223). It
+    is read before this session's own events are written; nothing it holds is an error."""
+    try:
+        raw = safe_files.read_bytes(workspace, Path(".choregos") / "transcript.jsonl")
+    except OSError:
+        return
+    recap = build_recap(parse_journal(raw), stage=where[0] or None, task=where[1] or None)
+    if not recap:
+        return
+    into.append(recap.text)
+    await journal.record(
+        "session/recap",
+        {
+            "backend": backend,
+            "chars": len(recap.text),
+            "sections": list(recap.sections),
+            "withheld": recap.withheld,
+            "truncated": recap.truncated,
+        },
+    )
 
 
 def _saved_session(workspace: Path) -> dict[str, Any] | None:

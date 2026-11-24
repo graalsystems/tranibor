@@ -17,7 +17,7 @@ property as a form field. The field was dead:
 - **No factory read it.** `_github_client(cfg)` builds `GitHubAppAuth(app_id, private_key)` from the
   deployment's environment, and `GitHubAppAuth.token_for()` already discovers the installation with
   `GET /repos/{owner}/{repo}/installation`. The dev API log shows it: in four hours, eight
-  `GET https://api.github.com/repos/DiametralGroup/choregos-sandbox-dev/installation`, each followed by
+  `GET https://api.github.com/repos/example-org/choregos-sandbox-dev/installation`, each followed by
   `POST /app/installations/169371754/access_tokens`. The stored `installation_id: 169371754` was never
   read; only the trial script wrote it.
 - **Nothing helped to install the App**: the provisioning step only tested the tracker and said

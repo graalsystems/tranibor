@@ -141,8 +141,8 @@ the six reference tickets each, so 24 real runs. Every case was metered; none wa
   not 0.1× (pricing page, read 2026-10-22): these costs overstate the cache reads. They are not
   recomputed, because this matrix's per-run history was not kept; the second measurement below
   is. Both gateways price cache reads and writes since 2026-10-19 (#737), the dev one only once
-  restarted on 2026-10-20 (#773), at 0.1× for reads until DiametralGroup/infra#1255 and
-  DiametralGroup/choregos-deploy#87: a later matrix reads its cost from the gateway. The
+  restarted on 2026-10-20 (#773), at 0.1× for reads until the operator's infrastructure and
+  the operator's deployment repository: a later matrix reads its cost from the gateway. The
   confidence interval is a bootstrap of the mean paired difference, ticket by ticket, over the
   six tickets.
 - **Where the money goes.** About 85 % of a run's input is read from the provider's prompt cache.
@@ -190,7 +190,7 @@ six tickets each. That makes 24 real runs. Every case was metered and none was s
 - **The gateway's own cost was not usable.** The cost the run records from the gateway is
   $1.03 for the 24 runs, about the output alone, the same as before #737 was closed. The cause
   (#773): the dev LiteLLM reads its config only at startup, and had run since 2026-10-16. Once
-  restarted (DiametralGroup/choregos-deploy#79), a run's 13 requests recorded $0.2813, the price
+  restarted (the operator's deployment repository), a run's 13 requests recorded $0.2813, the price
   with the cache, against $1.1997 without it.
 - **Success.** 6/6 in every cell. `py-hors-perimetre` now passes everywhere with S37-17.
 

@@ -29,7 +29,7 @@ What existed:
 - **The tool broker** (ADR 0034) and the platform's own fetchers (knowledge crawl, git skill import)
   with no organisation-wide policy on destinations and no politeness.
 
-On the Diametral dev tenant the real wall is infra's FQDN policy (eight hosts, identical for every
+on the first operator's dev tenant the real wall is infra's FQDN policy (eight hosts, identical for every
 project and agent): the console's `allow_domains` has no effect there.
 
 ## Decision
@@ -38,7 +38,7 @@ project and agent): the console's `allow_domains` has no effect there.
 
 | Scope | Where it is written | What it can do |
 | :-- | :-- | :-- |
-| Instance | `CHOREGOS_NETWORK_INSTANCE_DENY` (chart `egress.denyDomains`), and on Diametral the infra FQDN policies | the outermost bound; never edited from the console |
+| Instance | `CHOREGOS_NETWORK_INSTANCE_DENY` (chart `egress.denyDomains`), and on the first operator's platform the infra FQDN policies | the outermost bound; never edited from the console |
 | Organisation ("global") | `PolicyCeiling.network` in `organizations.settings.policy_ceiling` | the widest allowed set (`allow_domains`, `null` = no cap), a deny list that always wins, rate caps, built-in web tools allowed or not, a contact for the User-Agent |
 | Project | `Policy.sandbox.network` | its allowlist (within the organisation's), its own deny list, rates under the caps, built-in web tools |
 | Agent | `AgentSpec.network`, each published version | `domains: null` = the project's list; `[]` = no internet; a list = only these hosts, each of which the project and the organisation must allow **or the run is refused at admission**; a rate under the project's; built-in web tools off |
@@ -60,7 +60,7 @@ raises a `policy.network_deny_by_default_not_enforced` warning telling the autho
 
 | Layer | What it sees | Enforces | Strength |
 | :-- | :-- | :-- | :-- |
-| L3/L4: Kubernetes NetworkPolicy (chart) or Cilium (Diametral infra) | pod → IP:port | runner pods reach only the API, gateway, memory, telemetry and the egress proxy | **Wall** where the CNI enforces it and the runner has no other policy. On Diametral the infra owns it and today lets runners reach eight hosts directly |
+| L3/L4: Kubernetes NetworkPolicy (chart) or Cilium (the operator's infrastructure) | pod → IP:port | runner pods reach only the API, gateway, memory, telemetry and the egress proxy | **Wall** where the CNI enforces it and the runner has no other policy. On the first operator's platform the infra owns it and today lets runners reach eight hosts directly |
 | Egress proxy `choregos-egress` (per release namespace, S40-01c) | the run's identity (`Proxy-Authorization` = run id + run token), `CONNECT host:port` or the plain-HTTP request line | effective allow and deny per run, ports 443/80, IP literals and private addresses refused (resolved and pinned), connection rate per host, per run and per organisation host, concurrent tunnels, decisions journaled | **Wall for host, port and connection rate**, when L3/L4 forces traffic through it. It cannot see method, path, headers or User-Agent inside TLS, and one tunnel can carry many HTTP/2 requests: its rate is a *connection* rate |
 | Tool broker and platform-side fetchers (S40-01d) | the whole request | organisation allow/deny on the destination at declaration and at call, rate per destination host organisation-wide, identifying User-Agent, robots.txt and crawl-delay for crawls | **Wall** (the API makes the call) |
 | Governed `web_fetch` tool (S40-01f) | the whole request | GET/HEAD only, the run's allowlist, robots.txt, User-Agent with contact, politeness, size cap, redirects re-checked | **Wall** for what goes through it: the only place robots.txt and method rules can hold for agent browsing |
@@ -94,7 +94,7 @@ default, like `knowledge` and `memory`: versions published before this ADR keep 
 
 - *Per-agent Cilium/NetworkPolicy by pod label*: warm sandboxes are created before their run, so a
   policy cannot be per run or per agent; it would need `pods/patch` for the executor and one object per
-  agent; Diametral forbids tenants to create NetworkPolicies. Not portable.
+  agent; the first operator forbids tenants to create NetworkPolicies. Not portable.
 - *Keep Squid and render a union per project*: no run identity, no rates, no audit, no per-agent wall.
   Kept only for the per-project-namespace provisioning path (project-level, host-level).
 - *Squid `external_acl_type` helper calling the API*: a C++ proxy and a helper protocol in a Python
@@ -117,7 +117,7 @@ default, like `knowledge` and `memory`: versions published before this ADR keep 
   reached on 443 and on 80 are two rows, and the cumulative totals of one never overwrite the other.
 - A trial run (a draft that is no registry version) and a job step have no `AgentVersion`: the API
   reads the network the orchestrator wrote into the run's permissions for them.
-- On Diametral the infra keeps the outer wall; removing the runner's direct FQDNs there is what turns
+- On the first operator's platform the infra keeps the outer wall; removing the runner's direct FQDNs there is what turns
   the Choregos proxy from a net into a wall (a gesture for the platform team, listed in the S40-01
   pull requests).
 - The enterprise edition needs nothing: each tenant organisation has its own ceiling, set by its

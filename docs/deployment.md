@@ -125,6 +125,21 @@ choregos-temporal:
   SQLite writers corrupt the file), then let the chart's Deployment start on the same claim.
 - `choregos-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
   clients would speak clear.
+- **Mutual TLS on the embedded Temporal** (ADR 0183 point 5). `choregos-temporal.tls.requireClientCert: true`
+  refuses, at the handshake, a client with no certificate from the server Secret's `ca.crt`. In `dev` the
+  relay verifies it (`ssl_verify_client`). In `server` mode the frontend and the internal services require
+  it; they present the server certificate to each other, and so does the bootstrap CLI. The render refuses
+  it without `choregos-temporal.tls.enabled` and without `global.temporal.tls.mutual: true`, because the API
+  and the workers would present nothing. With `certManager.enabled` the client Secret
+  (`tls.clientSecretName`) already holds a `client auth` certificate from the same CA. Switch the clients
+  first (`mutual: true`; a server that does not ask ignores the certificate), then the server. A client
+  reads its certificate once, at start: a process that outlives its certificate (`certManager.duration`,
+  90 days by default, renewed 30 days before) must be restarted.
+- **The dev UI off the network.** `choregos-temporal.ui.loopbackOnly: true` binds the UI to the pod's loopback
+  and drops port 8233 from the pod and the Service. `kubectl port-forward` still reaches it, after Kubernetes
+  has authenticated the person. The UI has no login, and its write actions (terminate, signal, reset) are on.
+  With TLS, the readiness probe then runs `temporal operator cluster health` inside the pod, because the
+  frontend is on loopback too. For the same reason, `ui.enabled: false` with TLS is no longer refused.
 - **Adopting a Deployment and its labels** (#2150). The embedded Ecphoria and the web-search pieces take
   what a site's own manifests already name: `choregos-ecphoria.deploymentName` (the volume keeps
   `persistence.existingClaim` and the Service `global.memory.serviceName`; Deployments of the web-search
@@ -742,7 +757,12 @@ and the answer resumes the same run in it: one run, not two. The policy bounds t
 and the answer replays the stage. The workspace survives, and so does the agent's
 conversation when the agent can reload it (ACP `loadSession`); otherwise the run journal says so
 (`session/load.unsupported`) and the agent starts a new conversation in that workspace, with the
-answer at the head of its prompt.
+answer at the head of its prompt and a **recap of its own earlier work** before it (ADR 0223): its
+stage and task, its last plan, its last messages, the names and outcomes of its last tool calls and
+the question it asked, taken from the transcript the workspace kept, without calling a model, at most
+8,000 characters, secrets masked and any excerpt the injection patterns flag withheld. The answer says who
+gave it and when. A conversation that reloads gets no recap. The run's journal records
+`session/recap` (sizes and sections, never the text).
 
 The chart then renders a `SandboxTemplate` and a `SandboxWarmPool`, both named
 `choregos-runner`. A warm sandbox's pod mounts no service account token and no secret: its
@@ -2942,7 +2962,7 @@ chart's job as usual; what an operator does:
 | What | Why | What to do |
 | :-- | :-- | :-- |
 | `TRANIBOR_TOKEN_EXCHANGE_AUDIENCES` | The audiences a person's token may be exchanged for (`user_exchange`, ADR 0135). Unset, a connector's editor chooses any audience the identity provider allows. | Set it in `global.extraEnv` to a JSON list of your sources' audiences before binding a need under `user_exchange` ([security](security.md), "Review of the person's identity"). |
-| `TRANIBOR_TOKEN_EXCHANGE_SCOPES` | The scope sent with an exchange, by audience (a JSON object, e.g. `{"insights360-mcp": "insights360-mcp"}`). Unset, no scope is sent. | Keycloak grants an audience only through a scope the request names or a default scope of the client: name the scope here and keep it optional on the client, so the source's audience is not in every token the console is issued. |
+| `TRANIBOR_TOKEN_EXCHANGE_SCOPES` | The scope sent with an exchange, by audience (a JSON object, e.g. `{"analytics-mcp": "analytics-mcp"}`). Unset, no scope is sent. | Keycloak grants an audience only through a scope the request names or a default scope of the client: name the scope here and keep it optional on the client, so the source's audience is not in every token the console is issued. |
 | The identity provider | `user_exchange` needs token exchange (RFC 8693) enabled for the API's client and limited to the sources' audiences; a standing delegation (ADR 0137) needs `offline_access`, bounded and revocable offline sessions. | Configure the realm; nothing changes for deployments without assistants. |
 | Open sessions of `/responses` | The migration that makes sessions durable closes the sessions open at upgrade time (`reason: migrated`, their spend booked). | Upgrade outside working hours if hosted prompt agents are in use. |
 | Connected accounts | Accounts are now bound to the authorization server the person consented to (`provider_digest`). | Accounts made before 0.26 (none outside a test deployment) are connected again once. |

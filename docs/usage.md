@@ -3905,7 +3905,10 @@ refreshes at each poll (every `heartbeat_seconds`, 60 s by default), not a strea
 ends it is archived with the run (ADR 0054).
 
 When an agent is blocked it does not guess: it asks, the ticket moves to a waiting state, a
-human is notified with an SLA, and the answer resumes the workflow where it stopped.
+human is notified with an SLA, and the answer resumes the workflow where it stopped. The agent that
+goes on reads the answer (with who gave it and when) and, unless its conversation was reloaded (ACP
+`session/load`), a bounded recap of what it had done: its plan, its last messages and calls, the question
+it asked ([ADR 0223](adr/0223-an-agent-that-cannot-reload-its-conversation-reads-a-recap-after-a-human-answer.md)).
 
 The project's overview shows, after the DORA card, the **cross-backend review**: does a review by
 another coding-agent backend than the implementer's catch more than a review by the same one? Each arm

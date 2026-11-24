@@ -19,7 +19,7 @@ to S67 by the amendment of 2026-11-18 of [ADR 0180](../adr/0180-one-quarter-of-d
 ## 1. The terminal, after
 
 ```
- diametral · diametral-guide                     1 running · 11 waiting for you · €3.80 today
+ acme     · acme-guide                     1 running · 11 waiting for you · €3.80 today
  Conversation   Activity   Projects   Decisions 11   Artefacts   Live              ctrl-k
  ──────────────────────────────────────────────────────────────────┬──────────────────────
  you      iris is not reachable by everyone…                       │ FON-319 · iris
@@ -39,7 +39,7 @@ is a view of the workflow where the tickets travel.
 The terminal draws the flow as a horizontal pipeline of stations, the tokens parked at them:
 
 ```
- iris · diametral-dev · delivery                                       LIVE ● 14:58:12
+ iris · acme-dev · delivery                                       LIVE ● 14:58:12
  2 in flight   1 waiting for a person   1 failed   41 done today   €1.84 today
 
   triage ───────▶ refine ───────▶ plan ───────▶ implement ───────▶ review ───────▶ done
