@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     #: Opt-in presentation aid (ADR 0213): a file of tools the fakes' MCP server serves, to demonstrate
     #: a governed write. Refused unless the fakes are on and `TRANIBOR_ENV` is `dev` or `test`.
     demo_mcp_tools: str = Field(default="", validation_alias="TRANIBOR_DEMO_MCP_TOOLS")
+    #: Opt-in presentation aid (ADR 0218): a file naming the Python packages of plugin servers the API runs in
+    #: its own process, on their fakes, instead of as Kubernetes Deployments. Refused unless the fakes are on
+    #: and `TRANIBOR_ENV` is `dev` or `test`.
+    demo_plugin_servers: str = Field(default="", validation_alias="TRANIBOR_DEMO_PLUGIN_SERVERS")
     #: The edition that the DEPLOYMENT announces (ADR 0024). It is not the same thing as the edition
     #: that runs: that one is declared by the enterprise extension when it loads. The two are
     #: compared at startup, because a gap is silent otherwise: the chart would announce
