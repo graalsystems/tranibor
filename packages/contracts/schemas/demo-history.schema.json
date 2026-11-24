@@ -107,7 +107,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "title": { "type": "string", "minLength": 3, "maxLength": 200 },
-        "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "A finding type the platform knows (the same open list as a finding an agent raises)." },
+        "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "A finding type the project's workflow allows: the core's, the plugins' or its own `metadata.finding_types` (ADR 0217), judged by the import as the finding routes judge an agent's; the severity must fit the type's scale." },
         "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "evidence": { "type": "string", "minLength": 1 },
         "suggested_fix": { "type": "string" },
