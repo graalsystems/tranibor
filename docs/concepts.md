@@ -479,6 +479,14 @@ run and escalates again if it fails.
 An answer to a question that parked the work item resumes the stage the same way: one more
 attempt, not a new allowance.
 
+What the agent reads when it goes on (ADR 0223): the answer first, with the question, who answered and
+when, then (when its conversation cannot be reloaded) a bounded recap of its own earlier work. A run
+resumed in its kept sandbox reloads the conversation when the agent announces ACP `session/load` and
+gets no recap; with an agent that does not, the runner builds the recap from the workspace's transcript.
+A stage replayed in a new run (the sandbox was deleted past `suspend_max_hours`, or the executor cannot
+suspend) has no conversation to reload: the orchestrator builds the recap from the journal of the run
+that asked. The answer is third-party text: it goes through the injection guard before the run goes on.
+
 ## Core, plugins and editions
 
 The core names no trade (ADR 0029, [ADR 0181](adr/0181-the-contracts-speak-no-trade.md)). What one
