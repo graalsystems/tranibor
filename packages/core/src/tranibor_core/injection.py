@@ -84,9 +84,16 @@ class Suspicion:
     source: str
     motif: str
     extrait: str
+    #: Who found it: `lexical` (the patterns above) or `model` (a classifier service, ADR 0219).
+    detector: str = "lexical"
 
     def to_dict(self) -> dict[str, str]:
-        return {"source": self.source, "motif": self.motif, "extrait": self.extrait}
+        return {
+            "source": self.source,
+            "motif": self.motif,
+            "extrait": self.extrait,
+            "detector": self.detector,
+        }
 
 
 def suspicions(texte: str, *, source: str = "texte") -> list[Suspicion]:
