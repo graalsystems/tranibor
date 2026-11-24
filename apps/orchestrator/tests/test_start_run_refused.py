@@ -163,3 +163,91 @@ async def test_by_default_a_run_asks_for_process(setup: Fixture) -> None:
     await _start(setup, await _prepare(setup))
     (spec,) = executor.started
     assert spec.agent_isolation == "process"
+
+
+class _Cluster:
+    """A cluster API that records what reaches it: a refusal must send nothing."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    async def request(self, method: str, path: str, **_: Any) -> Any:
+        self.calls.append((method, path))
+        return None
+
+
+async def test_in_production_a_run_whose_agent_would_share_the_runner_is_refused_by_name(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR 0222: `staging`/`prod` under `process` (the code's default), an executor that runs an agent
+    refuses the run at `start`, naming the opt-out; the run fails once, with the reason on its record."""
+    from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
+    from tranibor_api.db.models import Run
+    from tranibor_api.db.session import session_scope
+    from tranibor_core.agent_isolation import AGENT_ISOLATION_UNAVAILABLE
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_ENV", "prod")
+    monkeypatch.delenv("TRANIBOR_AGENT_ISOLATION", raising=False)
+    get_settings.cache_clear()
+    cluster = _Cluster()
+    try:
+        setup.adapters.executor = KubernetesJobExecutor(client=cluster)  # type: ignore[arg-type]
+        plan = await _prepare(setup)
+        with pytest.raises(ApplicationError) as raised:
+            await _start(setup, plan)
+    finally:
+        get_settings.cache_clear()
+    assert raised.value.non_retryable is True and raised.value.type == AGENT_ISOLATION_UNAVAILABLE
+    assert "TRANIBOR_AGENT_ISOLATION=none-accepted" in str(raised.value)
+    assert cluster.calls == [], "nothing reached the cluster"
+    async with session_scope() as session:
+        run = await session.get(Run, str(plan["run_id"]))
+        assert run is not None and run.status == "failed"
+
+
+async def test_in_production_the_named_opt_out_lets_the_run_start_and_reaches_the_runner(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_ENV", "staging")
+    monkeypatch.setenv("TRANIBOR_AGENT_ISOLATION", "none-accepted")
+    get_settings.cache_clear()
+    try:
+        executor = FakeExecutor()
+        setup.adapters.executor = executor
+        await _start(setup, await _prepare(setup))
+    finally:
+        get_settings.cache_clear()
+    (spec,) = executor.started
+    assert spec.environment == "staging" and spec.agent_isolation_accepted is True
+    assert spec.env["TRANIBOR_AGENT_ISOLATION"] == "none-accepted", "the runner finds it beside TRANIBOR_ENV"
+    assert spec.env["TRANIBOR_ENV"] == "staging"
+
+
+async def test_without_the_opt_out_the_runner_is_not_told_one(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_ENV", "prod")
+    monkeypatch.delenv("TRANIBOR_AGENT_ISOLATION", raising=False)
+    get_settings.cache_clear()
+    try:
+        executor = FakeExecutor()
+        setup.adapters.executor = executor
+        await _start(setup, await _prepare(setup))
+    finally:
+        get_settings.cache_clear()
+    (spec,) = executor.started
+    assert spec.agent_isolation_accepted is False and "TRANIBOR_AGENT_ISOLATION" not in spec.env
+
+
+async def test_a_word_other_than_the_opt_out_is_refused_at_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pydantic import ValidationError
+    from tranibor_orchestrator.config import OrchestratorSettings
+
+    monkeypatch.setenv("TRANIBOR_AGENT_ISOLATION", "none")
+    with pytest.raises(ValidationError, match="none-accepted"):
+        OrchestratorSettings()
