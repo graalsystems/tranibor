@@ -69,8 +69,23 @@ async def test_otherwise_the_workers_start(
 ) -> None:
     from tranibor_orchestrator import worker
 
-    settings_from(TRANIBOR_ENV=environment, TRANIBOR_FAKES=fakes)
+    # Staging and prod also want payload encryption, or its explicit opt-out (ADR 0220): given here.
+    settings_from(
+        TRANIBOR_ENV=environment, TRANIBOR_FAKES=fakes, TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS="true"
+    )
     with pytest.raises(_Joined):
+        await worker.run_worker(["orchestrator"])
+
+
+@pytest.mark.parametrize("environment", ["staging", "prod"])
+async def test_the_workers_refuse_clear_payloads_in_production_before_connecting(
+    joined: None, settings_from: Callable[..., None], environment: str
+) -> None:
+    from tranibor_core.temporal_connection import TemporalConfigError
+    from tranibor_orchestrator import worker
+
+    settings_from(TRANIBOR_ENV=environment, TRANIBOR_FAKES="0")
+    with pytest.raises(TemporalConfigError, match="TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS"):
         await worker.run_worker(["orchestrator"])
 
 

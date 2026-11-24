@@ -60,7 +60,13 @@ def _render(chart: pathlib.Path, *arguments: str) -> list[dict[str, Any]]:
     command = ["helm", "template", "platform", str(chart), *arguments]
     output = subprocess.run(command, capture_output=True, text=True, check=True, timeout=180)
     # The `# Source: <chart>/templates/...` comments name the chart; the objects must not.
-    return [doc for doc in yaml.safe_load_all(output.stdout) if doc]
+    docs = [doc for doc in yaml.safe_load_all(output.stdout) if doc]
+    for doc in docs:
+        # The master key of Temporal's payload codec is drawn at random on every render (ADR 0220): two
+        # renders differ by it and by nothing else.
+        if doc["kind"] == "Secret" and doc["metadata"]["name"].endswith("-temporal-codec"):
+            doc["stringData"] = dict.fromkeys(doc["stringData"], "<drawn>")
+    return docs
 
 
 def _pod_images(docs: list[dict[str, Any]]) -> set[str]:
