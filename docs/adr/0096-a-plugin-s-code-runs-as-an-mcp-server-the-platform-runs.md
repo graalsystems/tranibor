@@ -76,7 +76,9 @@ platform fills.
    the organisation's network bounds (deny list, allowed set, ADR 0070) when they are typed. The per-run
    egress proxy authenticates a *run* by its token and asks what that run may reach; a server is not a
    run and has no run token, and the organisation egress allowlist (ADR 0066) governs the platform's own
-   pod families. So the server's NetworkPolicy admits ingress from the API's pods only, and lets egress
+   pod families. So the server's NetworkPolicy admits ingress from the API's pods only (amended
+   2026-11-24, #2192: and the orchestrator workers' pods, which call the server for a `tracker/plugin`
+   and a governed action's `connector.call`; never a runner's), and lets egress
    through to DNS and to public addresses on the configured hosts' ports, never the private, link-local
    (metadata) or carrier-grade ranges. Kubernetes cannot name a host: with `plugins.servers.egress:
    cilium` a `CiliumNetworkPolicy` narrows egress to the exact names (`toFQDNs`) and the NetworkPolicy
