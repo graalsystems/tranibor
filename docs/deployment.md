@@ -183,6 +183,12 @@ chart only references it. Service names are `<release>-firecrawl`, `<release>-se
 set in `choregos-websearch.names.*`. Firecrawl has no authentication when self-hosted: open no network
 path to it except from the platform's namespace, and none to the internet from its pod.
 
+SearXNG asks the engines of `choregos-websearch.searxng.engines` (default `bing`, `startpage`, `mojeek`,
+`privacywall`, measured on a cluster's egress in #2183), and only those: each listed engine is loaded and
+enabled, though upstream ships most of them off. Each one is a host its egress (or the relay's) must
+reach on 443: `www.bing.com`, `www.startpage.com`, `www.mojeek.com`, `www.privacywall.org`. An entry may
+be a map of SearXNG engine settings with its `name` (`{name: mojeek, timeout: 8}`).
+
 ### Temporal over TLS, payloads encrypted ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 
 Temporal keeps every workflow's inputs, results, signals and failure messages: ticket text, agents'

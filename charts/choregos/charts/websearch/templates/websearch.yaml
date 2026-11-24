@@ -14,6 +14,23 @@
 {{- if and $relay.enabled (not $relay.organisation) }}
 {{- fail "choregos-websearch.relay.enabled needs relay.organisation: the organisation whose proxy the relay applies." }}
 {{- end }}
+{{- /* Each engine is a name or a map of SearXNG engine settings with its `name`. A listed engine is kept,
+loaded and enabled: upstream ships most general-web engines `disabled` (never asked by a query that names
+no engine, which is how Firecrawl asks) or `inactive` (not even loaded); the map's own keys win. */}}
+{{- $engineNames := list }}
+{{- $engineEntries := list }}
+{{- range .Values.searxng.engines }}
+{{- $engine := . }}
+{{- if kindIs "string" $engine }}{{ $engine = dict "name" $engine }}{{ end }}
+{{- if not (and (kindIs "map" $engine) $engine.name) }}
+{{- fail "choregos-websearch.searxng.engines: each entry is an engine name or a map with its `name`." }}
+{{- end }}
+{{- $engineNames = append $engineNames $engine.name }}
+{{- $engineEntries = append $engineEntries (merge (deepCopy $engine) (dict "disabled" false "inactive" false)) }}
+{{- end }}
+{{- if not $engineNames }}
+{{- fail "choregos-websearch.searxng.engines is empty: SearXNG would answer every search with nothing." }}
+{{- end }}
 {{- if $relay.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -24,7 +41,8 @@ data:
   settings.yml: |
     use_default_settings:
       engines:
-        keep_only: {{ .Values.searxng.engines | toJson }}
+        keep_only: {{ $engineNames | toJson }}
+    engines: {{ $engineEntries | toJson }}
     general:
       instance_name: {{ .Values.searxng.instanceName | quote }}
       enable_metrics: false
@@ -58,7 +76,8 @@ data:
   settings.yml: |
     use_default_settings:
       engines:
-        keep_only: {{ .Values.searxng.engines | toJson }}
+        keep_only: {{ $engineNames | toJson }}
+    engines: {{ $engineEntries | toJson }}
     general:
       instance_name: {{ .Values.searxng.instanceName | quote }}
       enable_metrics: false
