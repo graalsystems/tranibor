@@ -1,10 +1,10 @@
 [project]
 name = "choregos-outpost"
-version = "0.29.1"
+version = "0.29.2"
 description = "Deprecated name of tranibor-outpost: an empty wheel that depends on it and ships the `choregos_outpost` import alias (ADR 0176, R2)"
 requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
-dependencies = ["tranibor-outpost==0.29.1", "tranibor-contracts==0.29.1"]
+dependencies = ["tranibor-outpost==0.29.2", "tranibor-contracts==0.29.2"]
 
 [build-system]
 requires = ["hatchling"]
