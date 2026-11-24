@@ -169,7 +169,7 @@ def _with_start_rules(tmp_path: Path, rules: list[dict[str, Any]]) -> None:
 async def test_a_template_s_start_rules_become_the_project_s(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, tmp_path: Path
 ) -> None:
-    """graalsystems/tranibor-agents#38: a queue whose items carry no label (ServiceNow) opens work items
+    """the agents repository's finding #38: a queue whose items carry no label (ServiceNow) opens work items
     only by a start rule, and a project born of the ITSM template had none until someone added it. The
     template's `defaults.start_rules` are the project's, unless the creation request states its own."""
     _with_start_rules(tmp_path, [{"item_type": "incident", "states": ["New"]}])
