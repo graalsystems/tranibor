@@ -14,6 +14,7 @@ sidebar_position: 6
 | --- | --- | --- |
 | **The platform database** (PostgreSQL) | projects, work items, decisions, the journal, the cost ledger, sealed secrets | continuous archiving with point-in-time recovery; with CloudNativePG, a target of 5 minutes of data at most |
 | **Temporal's database** | where each work item in flight stands | the same tool and the same frequency as the platform database |
+| **The memory** (Ecphoria) | what agents remembered | Ecphoria's own admin API (backup, then restore and reindex, while it runs), or your volume snapshots; the single-node profile's scheduled backup calls it |
 | **The object store** | the file artefacts of runs (documents, spreadsheets, images) | your object store's versioning or replication |
 | **The `secrets-keks` key** | without it, every connector secret in the database is unreadable | in your vault, with the vault's own backups; keep old keys while a backup sealed with them can still be restored |
 | **Your Helm values and Secrets' source** | to rebuild the instance | in git and in your vault |

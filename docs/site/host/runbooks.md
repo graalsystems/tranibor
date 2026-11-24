@@ -22,6 +22,6 @@ repository, next to the alerts that link to them.
 | the database keeps growing | [Purging runs, events and transcripts](../../runbooks/purge-runs.md) |
 | the MCP gateway is down or refusing | [The MCP gateway is down](../../runbooks/mcp-gateway-down.md) |
 | claude.ai cannot sign in to the MCP door | [Signing in to the MCP door with Keycloak](../../runbooks/keycloak-mcp.md) |
-| the memory service lost its quorum | [Ecphoria lost its Raft quorum](../../runbooks/ecphoria-quorum.md) |
+| a clustered memory service lost its quorum | [Ecphoria lost its Raft quorum](../../runbooks/ecphoria-quorum.md) |
 
 The full index: [runbooks](../../runbooks/README.md).

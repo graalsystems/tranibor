@@ -54,11 +54,14 @@ choregos-web:
   Integrations page's commands, the links in notifications. Set both to `https://…`.
 - `bootstrap` creates the first organisation and makes those people its administrators at every
   start, never changing what exists. There is no default organisation.
-- In `staging` and `prod`, the chart refuses to render with an embedded dependency, generated
-  secrets, the development sign-in or the demonstration fakes.
+- In `staging` and `prod`, the chart refuses to render with a bench dependency (the embedded PostgreSQL,
+  the embedded Temporal in `dev` mode, a gateway on the embedded PostgreSQL, a memory without a volume),
+  generated secrets, the development sign-in or the demonstration fakes. The embedded Temporal in `server`
+  mode, LiteLLM and Ecphoria are accepted when they rest on your PostgreSQL or a persistent volume.
 
 For a single-node bench with every dependency embedded, start from the chart's
-`values/local.yaml` overlay instead.
+`values/local.yaml` overlay instead; for a supported single node with a nightly backup,
+`values/single-node.yaml`.
 
 ## 2. Install
 

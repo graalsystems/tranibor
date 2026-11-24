@@ -5934,6 +5934,14 @@ stories:
     size: M
     depends_on: [S80-32]
     notes: "#2185. Backup: POST /api/v1/admin/backup, the directory copied from Ecphoria's claim and checked against its manifest. Restore: staged on the claim, POST /api/v1/admin/restore then /admin/reindex, Ecphoria running. Proven on k3d (bkproof2) through a node destroyed. Not done: vectors with content, a store past Ecphoria's 30 s request timeout, the nightly proof.sh with its memory check (#2187)."
+  - id: S80-43
+    title: "docs(deployment): the pages and chart comments agree on the generic deployment (ADR 0195)"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-41]
+    notes: "Audit of docs/deployment.md, the runbooks, the docs site and the chart's comments against the templates (S80-14 to S80-17, S80-25 to S80-32, S80-40, S80-41). Fixed: runbooks/temporal-backup.md said the embedded Temporal is start-dev on SQLite and refused in staging and prod (server mode, on PostgreSQL, is the production tier: #2156, #2179); runbooks/ecphoria-quorum.md described a three-replica Raft StatefulSet and a restore CronJob the chart does not render (the embedded Ecphoria is one replica on one volume: it now says so and points to single-node-restore.md); docs/site/host (index, install, backups) said any embedded dependency is refused in a serious environment and had no memory row in the backups; docs/deployment.md gains the budget reservation switch (#2181, #2182) and why Brave is not a default SearXNG engine and a host-less hit is dropped (#2183, #2184); templates/guard.yaml's header and one French comment of the litellm values are corrected. Guard: tests/docs/test_deployment_pages_agree.py."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
