@@ -93,6 +93,15 @@ speaks clear (or the reverse) fails at the first call, with an error that names 
 {{- if and $serverTls (not $clientTls) }}
 {{- fail "choregos-temporal.tls.enabled=true needs global.temporal.tls.enabled=true: the Temporal serves TLS and the API and workers would speak clear." }}
 {{- end }}
+{{- /* ADR 0183 point 5: a server that requires a client certificate refuses every client that has none. */ -}}
+{{- if ($tm.tls | default dict).requireClientCert }}
+{{- if not $serverTls }}
+{{- fail "choregos-temporal.tls.requireClientCert=true needs choregos-temporal.tls.enabled=true: a client certificate is asked for in a TLS handshake." }}
+{{- end }}
+{{- if not (($g.temporal.tls | default dict).mutual) }}
+{{- fail "choregos-temporal.tls.requireClientCert=true needs global.temporal.tls.mutual=true: the API and the workers would present no certificate and the server would refuse them all." }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- /*
 The per-run egress proxy exists to be used: runners reach it through `runner.egressProxy`. Rendering

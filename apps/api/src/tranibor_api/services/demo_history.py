@@ -41,6 +41,7 @@ from tranibor_contracts import (
     Workflow,
 )
 from tranibor_core import WorkflowEngine
+from tranibor_core.finding_types import refusal as finding_type_refusal
 
 from ..audit import record
 from ..config import get_settings
@@ -234,6 +235,10 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
                 raise unprocessable(
                     f"finding `{finding.id}` names the run `{finding.run}`, not in `{item.id}`"
                 )
+            # The type and its severity are the workflow's to judge (ADR 0217), as at the finding routes.
+            refused = finding_type_refusal(workflow, finding.type, finding.severity)
+            if refused is not None:
+                raise unprocessable(f"finding `{finding.id}` of `{item.id}`: {refused}")
         # The ticket's fields are the workflow's to judge, as for a live ticket; nothing is written yet.
         await verify_birth(
             session,

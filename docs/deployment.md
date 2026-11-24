@@ -125,6 +125,21 @@ choregos-temporal:
   SQLite writers corrupt the file), then let the chart's Deployment start on the same claim.
 - `choregos-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
   clients would speak clear.
+- **Mutual TLS on the embedded Temporal** (ADR 0183 point 5). `choregos-temporal.tls.requireClientCert: true`
+  refuses, at the handshake, a client with no certificate from the server Secret's `ca.crt`. In `dev` the
+  relay verifies it (`ssl_verify_client`). In `server` mode the frontend and the internal services require
+  it; they present the server certificate to each other, and so does the bootstrap CLI. The render refuses
+  it without `choregos-temporal.tls.enabled` and without `global.temporal.tls.mutual: true`, because the API
+  and the workers would present nothing. With `certManager.enabled` the client Secret
+  (`tls.clientSecretName`) already holds a `client auth` certificate from the same CA. Switch the clients
+  first (`mutual: true`; a server that does not ask ignores the certificate), then the server. A client
+  reads its certificate once, at start: a process that outlives its certificate (`certManager.duration`,
+  90 days by default, renewed 30 days before) must be restarted.
+- **The dev UI off the network.** `choregos-temporal.ui.loopbackOnly: true` binds the UI to the pod's loopback
+  and drops port 8233 from the pod and the Service. `kubectl port-forward` still reaches it, after Kubernetes
+  has authenticated the person. The UI has no login, and its write actions (terminate, signal, reset) are on.
+  With TLS, the readiness probe then runs `temporal operator cluster health` inside the pod, because the
+  frontend is on loopback too. For the same reason, `ui.enabled: false` with TLS is no longer refused.
 - **Adopting a Deployment and its labels** (#2150). The embedded Ecphoria and the web-search pieces take
   what a site's own manifests already name: `choregos-ecphoria.deploymentName` (the volume keeps
   `persistence.existingClaim` and the Service `global.memory.serviceName`; Deployments of the web-search
