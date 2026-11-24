@@ -260,7 +260,13 @@ call them by design (the model, the memory's MCP), with a per-run key.
 */}}
 {{- $stores := list }}
 {{- if .Values.global.database.embedded }}
-{{- $stores = append $stores (dict "pod" "choregos-postgresql" "port" 5432 "clients" (list "choregos-api" "choregos-orchestrator" "choregos-litellm" "choregos-outposts-door" "choregos-trace-drift" "choregos-backup" "choregos-restore")) }}
+{{- $pgClients := list "choregos-api" "choregos-orchestrator" "choregos-litellm" "choregos-outposts-door" "choregos-trace-drift" "choregos-backup" "choregos-restore" }}
+{{- /* The embedded Temporal in `server` mode keeps its state in this PostgreSQL (ADR 0195): without
+       this entry it waits for the database for ever ("Waiting for PostgreSQL to startup"). */}}
+{{- if and .Values.global.temporal.embedded (eq (toString ((index .Values "choregos-temporal" | default dict).mode | default "dev")) "server") }}
+{{- $pgClients = append $pgClients "choregos-temporal" }}
+{{- end }}
+{{- $stores = append $stores (dict "pod" "choregos-postgresql" "port" 5432 "clients" $pgClients) }}
 {{- end }}
 {{- if .Values.global.temporal.embedded }}
 {{- $stores = append $stores (dict "pod" "choregos-temporal" "port" 7233 "clients" (list "choregos-api" "choregos-orchestrator")) }}

@@ -5910,6 +5910,14 @@ stories:
     size: S
     depends_on: [S80-07e]
     notes: "Issue #2187. The single-node profile embeds no object store; the proof set none, so the API wrote the demo seed's handed files to AWS's s3://choregos and local_demo died on NoSuchBucket before any backup. proof.sh creates the bucket choregos in its off-node SeaweedFS, sets global.objectStore (url, endpoint, keys) and backup.objectStore. Not done: the nightly job green on main after the merge (proven by a local run of the same script)."
+  - id: S80-32
+    title: "fix(charts): a single-node backup and restore played on a cluster"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: M
+    depends_on: [S80-28]
+    notes: "Played on k3d. Fixed: Temporal (server) in the PostgreSQL ingress clients; restore.sh keeps the replica counts across a failed run and stops waiting on a failed job; runbook. Filed #2185 (memory DuckDB copied live, restored Ecphoria silently empty). Not done: a new machine, real S3, proof.sh to approved."
   - id: S81-01
     title: "docs(adr,plan): the scope freeze is lifted (ADR 0192); the phone is a surface of the platform (ADR 0193); stream S81"
     stream: S81
