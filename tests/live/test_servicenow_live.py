@@ -9,7 +9,7 @@ the instance with the integration user of the plugin's procedure:
     cd tranibor-agents/plugins/servicenow/server
     SERVICENOW_BASE_URL=https://<instance>.service-now.com SERVICENOW_AUTH=basic \\
     SERVICENOW_USERNAME=choregos.integration SERVICENOW_PASSWORD=… SERVICENOW_WEBHOOK_SECRET=… \\
-    SERVICENOW_ASSIGNMENT_GROUPS="Service Desk" CHOREGOS_SERVER_TOKEN=… PORT=18080 uv run choregos-servicenow
+    SERVICENOW_ASSIGNMENT_GROUPS="Service Desk" TRANIBOR_SERVER_TOKEN=… PORT=18080 uv run choregos-servicenow
 
     TRANIBOR_LIVE_SERVICENOW_MCP_URL=http://127.0.0.1:18080/mcp TRANIBOR_LIVE_SERVICENOW_MCP_TOKEN=… \\
     TRANIBOR_LIVE_SERVICENOW_WEBHOOK_SECRET=… uv run pytest tests/live/test_servicenow_live.py -m live
