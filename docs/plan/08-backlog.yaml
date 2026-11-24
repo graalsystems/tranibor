@@ -5982,6 +5982,14 @@ stories:
     size: S
     depends_on: [S80-45]
     notes: "P1 asks for 14 green nights on a real ServiceNow instance; S80-45 said a nightly needed the instance's credentials as CI secrets. It does not: a project with an internal tracker schedules one work item a night whose only step is a job calling the organisation's servicenow connector with the run's token (examples/servicenow-nightly/workflow.yaml, runbook docs/runbooks/servicenow-nightly.md). One green night on an operator's dev cluster on 2026-11-24; tracker_create_item allowed for the nightly project's group only."
+  - id: S80-47
+    title: "fix(api): an archived project no longer unroutes a plugin tracker's webhook; the ServiceNow Business Rule's delivery is proven"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-46]
+    notes: "Finding #2221: _projects_on listed archived projects, so a new item delivered to a plugin tracker's webhook was unrouted while an archived project used the same tracker. The other trackers' webhooks already filtered them. With the dev deployment's API name public, the procedure's Business Rule delivered an incident's insert and the work item was opened by the delivery (initiated_by tracker:plugin:servicenow/servicenow)."
   - id: S40-28
     title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
     stream: S40
