@@ -123,7 +123,7 @@ never decides; work-item text is data). Claude Code asks for the URL and the tok
 token in your system's secret store:
 
 ```text
-/plugin marketplace add graalsystems/choregos
+/plugin marketplace add graalsystems/tranibor
 /plugin install choregos@choregos
 ```
 

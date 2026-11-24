@@ -73,8 +73,8 @@ TRANIBOR_FAKES=1 uv run uvicorn tranibor_api.main:app --port 8001
 PORT=3001 pnpm -C apps/web dev
 ```
 
-The Ecphoria image is pulled from `ghcr.io/graalsystems/ecphoria`. While that package is private,
-log in once before the first `up`: `echo "$GITHUB_TOKEN" | docker login ghcr.io -u <user> --password-stdin`.
+The Ecphoria image is pulled from `ghcr.io/graalsystems/ecphoria`. The `graalsystems` packages on GHCR are
+public: no login is needed.
 
 Development accounts (Keycloak, realm `choregos`): `augustin` / `choregos` (owner),
 `marie` / `choregos` (release captain). Locally, `/auth/login?as=<email>` opens a session

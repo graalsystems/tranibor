@@ -2710,7 +2710,7 @@ parts is refused with its biggest documents. Each call is kept by the digest of 
 costs nothing, and distilling again after one document changed pays for that document's part only. A
 distillation that shows `running` with no progress for 30 minutes no longer blocks a new one.
 
-Batch mode (S4-09, ADR 0190, off by default): with `CHOREGOS_KNOWLEDGE_DISTILL_BATCH=true` the map step goes
+Batch mode (S4-09, ADR 0190, off by default): with `TRANIBOR_KNOWLEDGE_DISTILL_BATCH=true` the map step goes
 through the gateway's OpenAI-compatible batch API (same gateway URL, key and alias as the synchronous call) as one
 batch at half the price, and the run ends within a day (polled every `..._BATCH_POLL_SECONDS`, 120). No LiteLLM
 enterprise licence is needed: the adapter uses the open `model=` path (ADR 0190, S4-11 amendment). The alias must
