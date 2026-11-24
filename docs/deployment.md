@@ -168,6 +168,13 @@ kubectl -n <namespace> annotate certificate/<name> issuer/<name> argocd.argoproj
 then remove them from your application, let the chart's application take them over, and drop the
 annotation once the chart's application is their only owner.
 
+**Budget reservation** (#2181, #2182). The embedded LiteLLM runs with `disable_budget_reservation: true`
+(`choregos-litellm.budgetReservation: false`, the default): a run key's budget is checked against its
+recorded spend, not against the worst case of a call in flight (its input plus `max_tokens`), which at a
+frontier model's price used up a few-cent budget and refused the agent's other calls. A run can pass its
+budget by the calls in flight when it is reached; `true` restores the reservation, for a gateway whose
+budgets sit far above one call's worst case.
+
 **Price sheets.** `choregos-litellm.models[].modelInfo` is rendered as written, with one change: a price
 `toYaml` would write as `1e-08`, which LiteLLM's YAML 1.1 reader takes for a string, is written `1.0e-08`,
 so every price of a sheet, `tiered_pricing` included, is a float.
@@ -188,6 +195,12 @@ SearXNG asks the engines of `choregos-websearch.searxng.engines` (default `bing`
 enabled, though upstream ships most of them off. Each one is a host its egress (or the relay's) must
 reach on 443: `www.bing.com`, `www.startpage.com`, `www.mojeek.com`, `www.privacywall.org`. An entry may
 be a map of SearXNG engine settings with its `name` (`{name: mojeek, timeout: 8}`).
+
+Brave is not in the list on purpose (#2183, #2184): its engine in the pinned SearXNG returns result links
+with no host (`http:///go/v1/<token>`, Brave now cloaks them; searxng/searxng#6967). The platform does not
+pass such a hit on: `web_search` drops any result whose link names no host, so an agent may get fewer
+than `max_results`. This is about the SearXNG engine; the `brave` connector (Brave Search API,
+`api.search.brave.com`) is a different backend.
 
 ### Temporal over TLS, payloads encrypted ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 

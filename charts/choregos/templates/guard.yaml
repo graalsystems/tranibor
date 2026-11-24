@@ -1,6 +1,7 @@
 {{- /*
-The guard of serious environments. The embedded dependencies (a single-instance PostgreSQL
-without backup, a Temporal on SQLite, a single-replica gateway), the
+The guard of serious environments. The embedded dependencies that rest on a bench (a single-instance
+PostgreSQL without backup, a Temporal in `dev` mode on SQLite, a gateway on that PostgreSQL, a memory on an
+emptyDir; Temporal in `server` mode and a gateway and memory that rest on none of these are accepted), the
 secrets written by the chart and the development login are made for a bench.
 This file renders nothing; in `staging` and `prod`, it STOPS the rendering if one of these
 values is on, and names which one. Before: nothing forbade it, and the API only refused

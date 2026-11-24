@@ -3,7 +3,7 @@ image:
   repository: ghcr.io/berriai/litellm-database
   tag: "v1.108.12"
 # The aliases Choregos asks for (`profile:*` → `platform/*`), and what they become in
-# amont. Deux formes possibles :
+# upstream. Two possible shapes:
 #   - upstream = another gateway (the platform's own): api_base + virtual key;
 #   - upstream = a provider: model `openai/gpt-…` or `anthropic/claude-…` + its key.
 # `upstream.apiKeySecret` names the secret (key `api-key`) injected as $UPSTREAM_API_KEY.
