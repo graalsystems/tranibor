@@ -16,9 +16,11 @@ tail of about 1,500 characters of the corpus's English benign tickets, beside tw
 controls, scored by the adapter with its windows and with one window of 2,000 characters (the
 adapter's window before ADR 0219 was measured), to show what dilution does.
 
-It prints a Markdown report; `--json` also writes every verdict and latency. The token is read from
-`TRANIBOR_INJECTION_CLASSIFIER_TOKEN` and never printed. Nothing here is a test: it measures a model
-on texts we wrote, and says so.
+It prints a Markdown report; `--json` also writes every verdict and latency. `--patterns-only` needs no
+service: it scores the lexical patterns alone, per language, on `--corpus` (for instance the held-out
+`tests/fixtures/injection/heldout-es-fr.yaml`), and names each miss and each benign text flagged.
+The token is read from `TRANIBOR_INJECTION_CLASSIFIER_TOKEN` and never printed. Nothing here is a
+test: it measures a model on texts we wrote, and says so.
 """
 
 from __future__ import annotations
@@ -257,6 +259,47 @@ def report(corpus: Sequence[Verdict], long_new: Sequence[Verdict], long_old: Seq
     return "\n".join(parts)
 
 
+def pattern_verdicts(samples: Sequence[Sample]) -> list[Verdict]:
+    """Each text through the lexical patterns alone; no classifier is asked."""
+    from tranibor_core.injection import suspicions
+
+    return [
+        Verdict(
+            id=s.id,
+            lang=s.lang,
+            label=s.label,
+            trap=s.trap,
+            chars=len(s.text),
+            patterns=bool(suspicions(s.text, source=s.id)),
+            classifier=False,
+            score=None,
+            latency_ms=0.0,
+        )
+        for s in samples
+    ]
+
+
+def patterns_report(verdicts: Sequence[Verdict]) -> str:
+    """The patterns' confusion over all texts and per language, then what they missed and flagged."""
+    rows = [
+        "| texts | TP | FP | FN | TN | precision | recall | false-positive rate |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    subsets = [("all", list(verdicts))] + [(lang, [v for v in verdicts if v.lang == lang]) for lang in LANGS]
+    for name, subset in subsets:
+        if not subset:
+            continue
+        c = confusion([v.label == "injection" for v in subset], [v.patterns for v in subset])
+        rows.append(
+            f"| {name}, {len(subset)} | {c.tp} | {c.fp} | {c.fn} | {c.tn} | {_pct(c.precision)} "
+            f"| {_pct(c.recall)} | {_pct(c.false_positive_rate)} |"
+        )
+    misses = [v.id for v in verdicts if v.label == "injection" and not v.patterns]
+    false = [v.id for v in verdicts if v.label == "benign" and v.patterns]
+    rows += ["", f"missed: {', '.join(misses) or 'none'}", f"benign flagged: {', '.join(false) or 'none'}"]
+    return "\n".join(rows)
+
+
 async def run(url: str, token: str | None, corpus_path: pathlib.Path) -> dict[str, list[Verdict]]:
     from tranibor_adapters.injection_classifier import HttpInjectionClassifier
 
@@ -277,10 +320,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--url", required=True, help="the classifier service, e.g. http://127.0.0.1:18431")
+    parser.add_argument("--url", help="the classifier service, e.g. http://127.0.0.1:18431")
+    parser.add_argument(
+        "--patterns-only", action="store_true", help="score the lexical patterns alone, no service"
+    )
     parser.add_argument("--corpus", type=pathlib.Path, default=CORPUS)
     parser.add_argument("--json", type=pathlib.Path, help="also write every verdict here")
     args = parser.parse_args(argv)
+    if args.patterns_only:
+        print(patterns_report(pattern_verdicts(load_corpus(args.corpus))))
+        return 0
+    if not args.url:
+        parser.error("--url is required unless --patterns-only")
     token = os.environ.get("TRANIBOR_INJECTION_CLASSIFIER_TOKEN") or None
     results = asyncio.run(run(args.url, token, args.corpus))
     print(report(results["corpus"], results["long_adapter"], results["long_one_window"]))
