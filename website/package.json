@@ -34,5 +34,6 @@
     "production": [">0.5%", "not dead", "not op_mini all"],
     "development": ["last 3 chrome version", "last 3 firefox version", "last 5 safari version"]
   },
-  "engines": { "node": ">=18.0" }
+  "engines": { "node": ">=18.0" },
+  "overrides": { "tinypool": "2.1.2" }
 }

@@ -213,7 +213,7 @@ async def _approuver_l_action(client: AsyncClient, project: dict[str, Any], genr
             await client.get(
                 f"/api/v1/projects/{project['id']}/actions", params={"status": "pending_approval"}
             )
-        ).json()
+        ).json()["items"]  # a page since ADR 0206
         trouvees = [a for a in waiting if a["kind"] == genre]
         if trouvees:
             break
@@ -228,7 +228,9 @@ async def _approuver_l_action(client: AsyncClient, project: dict[str, Any], genr
 
 
 async def _actions(client: AsyncClient, project: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {a["kind"]: a for a in (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()}
+    page = (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()  # a page since ADR 0206
+    assert not page["meta"]["has_more"], "the scenario's actions fit on one page"
+    return {a["kind"]: a for a in page["items"]}
 
 
 def _plan(name: str) -> StageResult:
