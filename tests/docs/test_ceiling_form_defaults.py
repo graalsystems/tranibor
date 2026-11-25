@@ -70,14 +70,14 @@ def test_the_form_minimums_are_the_ceiling_models() -> None:
         ("CeilingAttempts", "default_max"): 1,
         ("CeilingAttempts", "dod_iterations"): 0,
         ("CeilingScope", "auto_grant_max_files"): 0,
-        ("CeilingScope", "max_diff_files"): 1,
-        ("CeilingScope", "max_diff_lines"): 1,
+        ("CeilingDiffBounds", "max_diff_files"): 1,
+        ("CeilingDiffBounds", "max_diff_lines"): 1,
         ("CeilingFindings", "max_per_run"): 0,
     }
     for (cls, name), minimum in pairs.items():
         branch = next(b for b in model[cls]["properties"][name]["anyOf"] if b.get("type") == "integer")
         assert branch["minimum"] == minimum, (cls, name)
-        spec = re.search(rf'path: \["\w+", "{name}"\], kind: "int", min: (\d+)', text)
+        spec = re.search(rf'path: \[(?:"\w+", )+"{name}"\], kind: "int", min: (\d+)', text)
         assert spec and int(spec.group(1)) == minimum, f"the form's minimum for {name} drifted"
     for name in ("daily_project_usd", "monthly_org_usd"):
         branch = next(
@@ -91,7 +91,11 @@ def test_the_form_minimums_are_the_ceiling_models() -> None:
         ("attempts", "CeilingAttempts"),
         ("scope", "CeilingScope"),
         ("findings", "CeilingFindings"),
+        ('delivery", "scope', "CeilingDiffBounds"),
     ):
         allowed = set(model[cls]["properties"])
         used = set(re.findall(rf'path: \["{section}", "(\w+)"', text))
         assert used <= allowed, (section, used - allowed)
+    # The software-delivery plugin's section (S83-13): the form writes the diff caps there, not in `scope`.
+    assert set(model["CeilingDelivery"]["properties"]) == {"scope"}
+    assert not re.search(r'path: \["scope", "max_diff', text)

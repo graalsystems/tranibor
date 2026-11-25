@@ -109,6 +109,20 @@ describe("the organisation's policy ceiling (S27-05)", () => {
     );
   });
 
+  it("writes the diff caps in the ceiling's delivery section, the software-delivery plugin's (S83-13)", async () => {
+    vi.mocked(api.policyCeiling).mockResolvedValue({ ceiling: { scope: { auto_grant_max_files: 2 }, delivery: { scope: { max_diff_lines: 900 } } } as never });
+    vi.mocked(api.putPolicyCeiling).mockReset();
+    vi.mocked(api.putPolicyCeiling).mockResolvedValue({ ceiling: null });
+    wrap(<PolicyCeilingCard org="northwind" canEdit />);
+    await waitFor(() => expect(screen.getByLabelText("Lines in a diff")).toHaveValue("900"));
+    fireEvent.change(screen.getByLabelText("Files in a diff"), { target: { value: "40" } });
+    fireEvent.change(screen.getByLabelText("Lines in a diff"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save the ceiling" }));
+    await waitFor(() =>
+      expect(api.putPolicyCeiling).toHaveBeenCalledWith("northwind", { scope: { auto_grant_max_files: 2 }, delivery: { scope: { max_diff_files: 40 } } }),
+    );
+  });
+
   it("blocks the save below a minimum and says which field", async () => {
     vi.mocked(api.policyCeiling).mockResolvedValue({ ceiling: null });
     vi.mocked(api.putPolicyCeiling).mockReset();

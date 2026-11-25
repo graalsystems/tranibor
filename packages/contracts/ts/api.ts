@@ -3703,8 +3703,6 @@ export type PolicyCeiling = {
   };
   scope?: {
     auto_grant_max_files?: number | null;
-    max_diff_files?: number | null;
-    max_diff_lines?: number | null;
   };
   findings?: {
     max_per_run?: number | null;
@@ -3721,6 +3719,13 @@ export type PolicyCeiling = {
   /** Tool scripts (ADR 0122 §6): the ceiling can only forbid them. `off` refuses a project policy that offers them, for any role (422 at PUT, clamped to `off` for a policy saved earlier); `offer` or null leaves each project to choose. */
   tools?: {
     scripts?: "off" | "offer" | null;
+  };
+  /** The software-delivery plugin's section (ADR 0181, S83-13): it caps the project policy's `delivery` section, field by field. A ceiling that writes a cap of this section at its former place is refused (422, naming the section). */
+  delivery?: {
+    scope?: {
+      max_diff_files?: number | null;
+      max_diff_lines?: number | null;
+    };
   };
 };
 
