@@ -313,7 +313,11 @@
             "approval": {
               "type": "object",
               "additionalProperties": false,
-              "properties": { "group": { "type": "string" }, "required": { "type": "boolean", "default": true } }
+              "properties": {
+                "group": { "type": "string" },
+                "required": { "type": "boolean", "default": true },
+                "timeout_hours": { "type": "integer", "minimum": 1, "default": 4 }
+              }
             }
           }
         },

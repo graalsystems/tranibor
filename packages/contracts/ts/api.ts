@@ -159,12 +159,12 @@ export type Problem = {
   detail?: string;
   instance?: string;
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     /** Machine code of a workflow or policy issue */
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   /** A machine code on some 409s: `stale_base` (from an agent publication, or from `updateProject`), `no_change`, `eval_failed` (S40-12), `action_not_in_doubt` and `action_already_settled` (`settleAction`); on the 403 of `approveOutpostInstance`, `approval_requires_session` */
@@ -1371,10 +1371,10 @@ export type WorkflowValidation = {
   valid: boolean;
   errors: Array<WorkflowIssue>;
   warnings: Array<WorkflowIssue>;
-  graph?: WorkflowGraph;
+  graph?: WorkflowGraph | null;
   process?: Array<ProcessStep>;
-  /** the workflow as the engine read it (ADR 0112) */
-  document?: S.Workflow;
+  /** the workflow as the engine read it (ADR 0112); null when the document does not parse */
+  document?: S.Workflow | null;
 };
 
 /** A transition in plain words — the process view (ADR 0031). */
@@ -4143,11 +4143,11 @@ export type OutpostConflict = {
   instance?: string;
   /** the problem's `errors` list, as on `Problem` (an API refusal may carry it) */
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   code: "outposts_disabled" | "door_key_missing" | "outpost_exists" | "outpost_revoked" | "outpost_not_revoked" | "outpost_in_use" | "instance_not_pending" | "fingerprint_mismatch" | "enrolment_used" | "outpost_paused" | "outpost_offline" | "outpost_refused" | "outpost_timeout";
@@ -5603,7 +5603,7 @@ export type WorkItemJourney = {
   /** The state the item is in now. */
   state: string;
   closed?: boolean;
-  graph: WorkflowGraph;
+  graph: WorkflowGraph | null;
   process: Array<ProcessStep>;
   moves: Array<JourneyMove>;
   steps: Array<JourneyStep>;
@@ -6053,11 +6053,11 @@ export type McpGatewayConflict = {
   instance?: string;
   /** the problem's `errors` list, as on `Problem` (an API refusal may carry it) */
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   code: "gateway_in_use" | "gateway_required" | "gateway_not_configured" | "gateway_assertion_key_missing";

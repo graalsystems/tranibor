@@ -81,7 +81,7 @@ export default function BoardPage({ params }: { params: Promise<{ slug: string }
   if (items.error) return <ErrorNote>{(items.error as Error).message}</ErrorNote>;
 
   const sections: BoardSectionModel[] = shown.map((w, index) => {
-    const all = columnsFromGraph(validations[index]?.data?.graph, itemsOf(items.data?.items ?? [], w.name, w.name === defaultWorkflow));
+    const all = columnsFromGraph(validations[index]?.data?.graph ?? undefined, itemsOf(items.data?.items ?? [], w.name, w.name === defaultWorkflow));
     const { shown: columns, hidden } = visibleColumns(all, showEmpty);
     const tickets = all.flatMap((column) => column.items);
     return {
@@ -194,7 +194,7 @@ export default function BoardPage({ params }: { params: Promise<{ slug: string }
           key={`${section.name}|${section.version ?? ""}`}
           slug={slug}
           model={section}
-          graph={validations[index]?.data?.graph}
+          graph={validations[index]?.data?.graph ?? undefined}
           items={items.data?.items ?? NO_ITEMS}
           isDefault={shown[index]?.name === defaultWorkflow}
           showEmpty={showEmpty}

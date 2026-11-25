@@ -1069,6 +1069,7 @@ export type PolicyTrainEnv = {
     approval?: {
       group?: string;
       required?: boolean;
+      timeout_hours?: number;
     };
   };
   freeze?: boolean;
@@ -1248,6 +1249,12 @@ export type Project = {
   display_name?: string;
   template_ref?: string;
   envs?: Array<string>;
+  /** What the runner measures itself (exit code 0 = true), as opposed to what the agent tells. */
+  dod?: {
+    facts?: {
+      [key: string]: string;
+    };
+  };
   agent?: {
     default_backend?: string;
     allowed_backends?: Array<string>;

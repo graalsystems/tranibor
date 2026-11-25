@@ -7257,11 +7257,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string, description: Machine code of a workflow or policy issue }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, description: "A machine code on some 409s: `stale_base` (from an agent publication, or from `updateProject`), `no_change`, `eval_failed` (S40-12), `action_not_in_doubt` and `action_already_settled` (`settleAction`); on the 403 of `approveOutpostInstance`, `approval_requires_session`" }
         latest_version: { type: integer, description: "On `stale_base` and `no_change`: the agent's latest version" }
@@ -8363,9 +8363,9 @@ components:
         valid: { type: boolean }
         errors: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
         warnings: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
-        document: { $ref: "./schemas/workflow.schema.json", description: "the workflow as the engine read it (ADR 0112)" }
+        document: { oneOf: [{ $ref: "./schemas/workflow.schema.json" }, { type: "null" }], description: "the workflow as the engine read it (ADR 0112); null when the document does not parse" }
     ProcessStep:
       type: object
       description: A transition in plain words — the process view (ADR 0031).
@@ -11115,11 +11115,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [outposts_disabled, door_key_missing, outpost_exists, outpost_revoked, outpost_not_revoked, outpost_in_use, instance_not_pending, fingerprint_mismatch, enrolment_used, outpost_paused, outpost_offline, outpost_refused, outpost_timeout] }
         outpost: { type: string, description: "the outpost the refusal is about" }
@@ -12656,7 +12656,7 @@ components:
         initial: { type: [string, "null"], description: The workflow's initial state. }
         state: { type: string, description: The state the item is in now. }
         closed: { type: boolean, default: false }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
         moves: { type: array, items: { $ref: "#/components/schemas/JourneyMove" } }
         steps: { type: array, items: { $ref: "#/components/schemas/JourneyStep" } }
@@ -13162,11 +13162,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [gateway_in_use, gateway_required, gateway_not_configured, gateway_assertion_key_missing] }
         connectors: { type: array, items: { type: string }, description: "the connectors that go through the gateway (`gateway_in_use`)" }
