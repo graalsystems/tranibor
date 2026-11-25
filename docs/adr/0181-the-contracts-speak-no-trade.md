@@ -712,3 +712,17 @@ git as a transport for skills and workflows, `open_pr`/`merge_pr`/`pull_request.
 ceiling `max_diff_*`, the process view's actor type `release_train`). The allowlist of the frozen surfaces is therefore
 not empty: those 69 hits are the next rounds' work, not former names. `window.py` is read by the guard
 again (it names no former name any more).
+
+### As built after the windows (2026-11-25)
+
+The project lead approved moving two more groups into the `software-delivery` plugin before the 1.0
+freeze, without a window (the decision above):
+
+- **The software stage roles** (S83-12): `fix_ci`, `address_review`, `release_notes` and `verify_prod`
+  left `StageRole` and the playbooks' `KNOWN_ROLES`; their playbooks moved to
+  `tranibor_software_delivery/roles/`, which the extension declares (`declare_stage_roles`, the open list
+  `STAGE_ROLES`), and `release_notes_markdown` left the named outputs of `StageOutputs` (read as any other
+  output). The strings are wire values and do not change, so no row is migrated. The role guesses for a
+  workflow stored before `repairs:` and `needs:` stay, as readers of stored versions, in
+  `tranibor_contracts.recorded` (`GUESSED_REPAIR_ROLES`, `GUESSED_ROLES_IN_A_REPOSITORY`,
+  `GUESSED_ROLES_IN_PRODUCTION`). Vocabulary guard: 69 hits in 8 files → 59 in 6.

@@ -64,6 +64,9 @@ def roles_in(directory: Path) -> list[str]:
     return sorted(flat | nested)
 
 
+#: The core's roles, each with its playbook in `roles/`. A plugin's roles are its own (`declare_roles_dir`):
+#: the software-delivery roles `fix_ci`, `address_review`, `release_notes`, `verify_prod` left this list
+#: for the `software-delivery` plugin (ADR 0181, S83-12), with their playbooks.
 KNOWN_ROLES = (
     "triage",
     "refine",
@@ -71,10 +74,6 @@ KNOWN_ROLES = (
     "implement",
     "verify",
     "review",
-    "fix_ci",
-    "address_review",
-    "release_notes",
-    "verify_prod",
     # A request that delivers no code (ADR 0110): the brief a person approves, then the deliverable.
     "brief",
     "deliver",
@@ -156,8 +155,14 @@ PREVIEW_VARIABLES: dict[str, Any] = {
 
 
 def playbook_origin(role: str) -> str:
-    """`deployment` when `TRANIBOR_PLAYBOOKS_DIR` supplies the role's prompt, `package` otherwise."""
-    return "package" if playbook_path(role).is_relative_to(ROLES_DIR) else "deployment"
+    """`deployment` when `TRANIBOR_PLAYBOOKS_DIR` supplies the role's prompt, `plugin` when a plugin's
+    extension does (`declare_roles_dir`), `package` otherwise."""
+    path = playbook_path(role)
+    if path.is_relative_to(ROLES_DIR):
+        return "package"
+    if any(path.is_relative_to(directory) for directory, _ in _DECLARED_DIRS):
+        return "plugin"
+    return "deployment"
 
 
 def preview_playbook(role: str) -> str:

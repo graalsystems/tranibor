@@ -27,6 +27,7 @@ from dataclasses import dataclass
 
 from tranibor_contracts import SystemActor, Workflow
 from tranibor_contracts.enums import ActorType
+from tranibor_contracts.recorded import GUESSED_ROLES_IN_A_REPOSITORY, GUESSED_ROLES_IN_PRODUCTION
 from tranibor_contracts.workflow import is_production_state, transition_effect
 
 from ..carriers import carrier_needs, carrier_of
@@ -34,12 +35,11 @@ from ..gates import gate_needs
 from ..step_effects import step_effect_of
 
 #: The guess for a workflow that declares no `needs:` (one stored before ADR 0181 C1): the roles whose
-#: playbook works in a repository, they read a diff, push a branch.
-ROLES_IN_A_REPOSITORY = frozenset(
-    {"implement", "fix_ci", "address_review", "review", "release_notes", "architect", "document"}
-)
+#: playbook works in a repository, they read a diff, push a branch. A reader of stored versions, listed
+#: with them in `tranibor_contracts.recorded` (most of the roles are the `software-delivery` plugin's).
+ROLES_IN_A_REPOSITORY = GUESSED_ROLES_IN_A_REPOSITORY
 #: Those that look at production.
-ROLES_IN_PRODUCTION = frozenset({"verify_prod"})
+ROLES_IN_PRODUCTION = GUESSED_ROLES_IN_PRODUCTION
 
 #: The order in which the console shows them.
 ORDER = ("tracker", "scm", "ci", "cd", "runtime", "gateway", "memory", "notify")
