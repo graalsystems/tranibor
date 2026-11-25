@@ -273,7 +273,8 @@ async def resolve_agent(
 
 
 async def spend_since(session: AsyncSession, org_id: str, agent_slug: str, since: datetime) -> float:
-    """What the agent's runs cost since `since`, models AND tools."""
+    """What the agent's runs cost since `since`, models AND tools; never a demonstration's declared cost
+    (ADR 0216): this is the agent's budget, and an imported day must not stop a real run."""
     from sqlalchemy import func
 
     from ..db.models import CostLedger, Project, Run
@@ -283,7 +284,12 @@ async def spend_since(session: AsyncSession, org_id: str, agent_slug: str, since
             select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0))
             .join(Run, Run.id == CostLedger.run_id)
             .join(Project, Project.id == Run.project_id)
-            .where(Run.agent_slug == agent_slug, Project.org_id == org_id, CostLedger.ts >= since)
+            .where(
+                Run.agent_slug == agent_slug,
+                Project.org_id == org_id,
+                CostLedger.ts >= since,
+                CostLedger.imported.is_(False),
+            )
         )
     ).scalar_one()
     return float(total)
