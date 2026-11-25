@@ -101,3 +101,15 @@ def test_the_schemas_accept_both_api_versions_and_name_themselves_tranibor() -> 
         schema = load_schema(f"{name}.schema.json")
         assert schema["$id"].startswith(wire.SCHEMA_ID_BASE), name
         assert set(schema["properties"]["apiVersion"]["enum"]) == set(wire.API_VERSIONS), name
+
+
+def test_a_whole_marker_has_two_forms_and_is_found_under_either() -> None:
+    assert wire.marker_twins("<!-- tranibor:status -->") == (
+        "<!-- tranibor:status -->",
+        "<!-- choregos:status -->",
+    )
+    assert wire.marker_twins("[choregos:3fa2]") == ("[tranibor:3fa2]", "[choregos:3fa2]")
+    assert wire.marker_twins("plain") == ("plain",)
+    assert wire.carries_marker("x\n<!-- choregos:status -->\nold", "<!-- tranibor:status -->")
+    assert not wire.carries_marker("<!-- tranibor:human -->", "<!-- tranibor:status -->")
+    assert not wire.carries_marker(None, "<!-- tranibor:status -->")

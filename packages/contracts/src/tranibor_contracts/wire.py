@@ -53,6 +53,7 @@ __all__ = [
     "SCHEMA_ID_BASE",
     "SCHEMA_ID_BASES",
     "both_headers",
+    "carries_marker",
     "cookie",
     "cookie_names",
     "former_cookie",
@@ -71,6 +72,7 @@ __all__ = [
     "label_keys",
     "labels_with_former",
     "marker",
+    "marker_twins",
     "markers",
     "read_access",
     "read_cookie",
@@ -320,6 +322,23 @@ def markers(kind: str, *, html: bool = True) -> tuple[str, str]:
 def has_marker(text: str | None, kind: str, *, html: bool = True) -> bool:
     """Whether `text` carries the marker `kind` under either name."""
     return bool(text) and any(m in (text or "") for m in markers(kind, html=html))
+
+
+def marker_twins(written: str) -> tuple[str, ...]:
+    """Both forms of a whole marker string (`<!-- tranibor:status -->`, `[tranibor:status]`,
+    `[tranibor:3fa2c1]`), the new one first; a string that names neither prefix is its own only form."""
+    new, former = f"{NAME}:", f"{FORMER_NAME}:"
+    if new in written:
+        return written, written.replace(new, former, 1)
+    if former in written:
+        return written.replace(former, new, 1), written
+    return (written,)
+
+
+def carries_marker(text: str | None, written: str) -> bool:
+    """Whether `text` carries the marker `written` under either name: how a status comment written
+    before the upgrade is found and rewritten in place, never duplicated."""
+    return bool(text) and any(form in (text or "") for form in marker_twins(written))
 
 
 #: `<!-- tranibor:<anything> -->` or the former: the platform's own comment, whatever its kind.
