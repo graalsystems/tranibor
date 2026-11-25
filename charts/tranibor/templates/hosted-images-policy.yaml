@@ -2,7 +2,7 @@
 A hosted agent's image, at admission (S41-14, ADR 0080 §8). Publication pins the tag to a digest and
 asks cosign; this policy is the cluster's own check, for every pod, including one that never went
 through publication. In the release's namespace (where `agent_sandbox` runs pods), `proj-*`,
-`tranibor-*` and, for the window of ADR 0224, `choregos-*`, an image under
+`tranibor-*` and, for the window of ADR 0226, `choregos-*`, an image under
 `global.images.hostedRegistries` runs only pinned by `@sha256:` and, under `hostedCosign: enforce`,
 signed by the operator's key or keyless identity, in the signature format `hostedCosignFormat` names
 (`bundle`, cosign 3's default, or `legacy`).

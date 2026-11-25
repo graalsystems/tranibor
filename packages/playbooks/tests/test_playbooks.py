@@ -64,23 +64,6 @@ def test_the_invariants_do_not_contradict_each_other_on_result_json() -> None:
         )
 
 
-def test_verify_prod_without_indicator_source_settles_for_the_measured_smoke_test() -> None:
-    """S22-48: without a production indicator source, a measured smoke_ok is enough, and said."""
-    rendered = render_playbook("verify_prod")
-    assert "none configured for this project" in rendered
-    assert "a measured `smoke_ok: true` is sufficient for a go" in rendered
-    assert "Only the smoke test was available (smoke_ok)" in rendered
-    assert "When in doubt, it is `no-go`" not in rendered
-
-
-def test_verify_prod_with_an_indicator_source_keeps_the_strict_rule() -> None:
-    rendered = render_playbook("verify_prod", production_indicators=["grafana_query"])
-    assert "configured for this project: grafana_query." in rendered
-    assert "SLO indicators before/after the promotion" in rendered
-    assert "When in doubt, it is `no-go`" in rendered
-    assert "Only the smoke test was available" not in rendered
-
-
 @pytest.mark.parametrize("role", KNOWN_ROLES)
 def test_a_preview_names_what_only_a_run_knows(role: str) -> None:
     """The console shows a built-in agent's prompt: the role's own words, the frame, and

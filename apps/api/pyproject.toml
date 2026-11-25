@@ -39,7 +39,7 @@ dependencies = [
 [project.scripts]
 tranibor-api = "tranibor_api.main:main"
 tranibor-admin = "tranibor_api.admin_cli:main"
-# The former names, for the window of ADR 0224 R5.
+# The former names, for the window of ADR 0226 R5.
 choregos-api = "tranibor_api.main:main"
 choregos-admin = "tranibor_api.admin_cli:main"
 

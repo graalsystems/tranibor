@@ -106,7 +106,7 @@ async def test_initialize_negotiates_the_version_and_sets_the_rule(client: Async
     client.cookies.clear()
     known = (await _rpc(client, token, "initialize", {"protocolVersion": "2025-06-18"})).json()["result"]
     assert known["protocolVersion"] == "2025-06-18"
-    assert known["serverInfo"]["name"] == "tranibor", "ADR 0224: the MCP server's name"
+    assert known["serverInfo"]["name"] == "tranibor", "ADR 0226: the MCP server's name"
     assert "decision_url" in known["instructions"], 'the rule "never a decision here" is told to the model'
     unknown = (await _rpc(client, token, "initialize", {"protocolVersion": "1999-01-01"})).json()["result"]
     assert unknown["protocolVersion"] == "2025-11-25"

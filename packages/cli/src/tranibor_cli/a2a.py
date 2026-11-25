@@ -38,7 +38,7 @@ console = Console()
 errors = Console(stderr=True)
 
 #: The card's extension that gives each skill's fields as a JSON Schema (the door's `SKILL_FIELDS_EXTENSION`).
-#: A card of an instance before ADR 0224 announces it under the former URI, read too.
+#: A card of an instance before ADR 0226 announces it under the former URI, read too.
 SKILL_FIELDS_EXTENSION = wire.A2A_SKILL_FIELDS_EXTENSION
 #: The states after which a task does not change any more.
 FINAL_STATES = frozenset({"completed", "failed", "canceled", "rejected"})

@@ -128,6 +128,7 @@ from .services.installed_suites import installed_suite_source
 from .services.plugin_defaults import check_configuration, reconcile_in_background
 from .services.plugin_supply import warm_shipping
 from .services.skill_scanner import mirror_loop
+from .services.temporal_keys import install_organisation_data_keys
 
 API_PREFIX = "/api/v1"
 logger = get_logger("choregos.api")
@@ -162,6 +163,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
     if not settings.fakes:
         refuse_clear_payloads(environment=settings.env)
+        # An organisation's payloads under its own data key, wrapped by the key wrapper (ADR 0225).
+        install_organisation_data_keys()
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:
         refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)
@@ -488,7 +491,7 @@ def create_app() -> FastAPI:
     from .former_cookies import FormerCookiesMiddleware
 
     # Outside the origin guard and every route: a cookie set under its former name (`choregos_*`) is
-    # read under its new one, then cleared (ADR 0224).
+    # read under its new one, then cleared (ADR 0226).
     app.add_middleware(FormerCookiesMiddleware)
 
     @app.middleware("http")

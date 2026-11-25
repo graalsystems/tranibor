@@ -234,7 +234,7 @@ async def test_a_rotated_token_replaces_the_old_one(client: AsyncClient, admin: 
         "/api/v1/webhooks/triggers/northwind/desk/incident", json=SNOW, headers={"X-Choregos-Token": new}
     )
     assert by_header.status_code == 202, by_header.text
-    # ADR 0224: the token under the header's new name.
+    # ADR 0226: the token under the header's new name.
     by_new_header = await client.post(
         "/api/v1/webhooks/triggers/northwind/desk/incident",
         json=SNOW | {"sys_id": "renamed"},
@@ -395,7 +395,7 @@ async def test_a_signed_trigger_takes_the_signature_and_not_the_token(
     assert rotated != minted["signing_secret"], "the signing secret changes with the token"
     stale = await post({"X-Choregos-Signature": f"sha256={mac.hexdigest()}", "Idempotency-Key": "3"})
     assert stale.status_code == 401
-    # ADR 0224: the header's new name, checked the same way.
+    # ADR 0226: the header's new name, checked the same way.
     fresh = hmac.new(rotated.encode(), body, hashlib.sha256)
     renamed = await post({"X-Tranibor-Signature": f"sha256={fresh.hexdigest()}", "Idempotency-Key": "4"})
     assert renamed.status_code == 202, renamed.text

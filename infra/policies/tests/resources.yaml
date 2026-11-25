@@ -696,7 +696,7 @@ spec:
     seccompProfile:
       type: RuntimeDefault
 ---
-# ADR 0224 R6: the namespaces and the project label under the new name are judged like the former ones.
+# ADR 0226 R6: the namespaces and the project label under the new name are judged like the former ones.
 apiVersion: v1
 kind: Pod
 metadata:

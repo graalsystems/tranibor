@@ -158,7 +158,7 @@ async def test_the_card_says_which_fields_a_skill_takes(client: AsyncClient, pro
     from tranibor_api.a2a.door import SKILL_FIELDS_EXTENSION
     from tranibor_contracts import wire
 
-    # The card names both URIs for the window of ADR 0224; the guide names the new one only (R8).
+    # The card names both URIs for the window of ADR 0226; the guide names the new one only (R8).
     new, *former_uris = wire.A2A_SKILL_FIELDS_EXTENSIONS
     assert new in _page() and not any(uri in _page() for uri in former_uris)
     await _publish(client, project)
@@ -168,7 +168,7 @@ async def test_the_card_says_which_fields_a_skill_takes(client: AsyncClient, pro
     extension, former = raw["capabilities"]["extensions"]
     assert extension["uri"] == SKILL_FIELDS_EXTENSION == "https://tranibor.dev/a2a/extensions/skill-fields/v1"
     assert extension["required"] is False
-    # A client keyed on the former URI finds the same extension (ADR 0224).
+    # A client keyed on the former URI finds the same extension (ADR 0226).
     assert former == {**extension, "uri": "https://choregos.dev/a2a/extensions/skill-fields/v1"}
     schema = extension["params"]["skills"]["billing-api/ship-a-change"]
     assert schema["required"] == ["ticket"] and set(schema["properties"]) == {"ticket", "priority"}
@@ -222,7 +222,7 @@ def test_the_1_0_names_the_guide_lists_are_the_door_s() -> None:
 
 
 def test_the_task_id_namespace_keeps_its_value() -> None:
-    """ADR 0224 §4: the namespace that derives A2A task ids is an input to a hash, not a name. Renamed in
+    """ADR 0226 §4: the namespace that derives A2A task ids is an input to a hash, not a name. Renamed in
     the code, its value never changes: every task id a client holds stays the same."""
     from uuid import UUID
 

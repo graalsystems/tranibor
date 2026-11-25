@@ -1,13 +1,13 @@
-# The former name's ceilings (ADR 0224): occurrences of `choregos` per file, case-insensitive.
+# The former name's ceilings (ADR 0226): occurrences of `choregos` per file, case-insensitive.
 # A count only goes down. Regenerate with `uv run python tools/former_name.py --write`, then review
 # the diff: a ceiling that rises, or a file that enters, is justified in the pull request.
 4	.claude-plugin/marketplace.json
-3	.env.example
-32	.github/workflows/ci.yml
+2	.env.example
+30	.github/workflows/ci.yml
 2	.github/workflows/hosted-agent-examples.yml
 9	.github/workflows/nightly.yml
 9	.github/workflows/release.yml
-10	.github/workflows/single-node-proof.yml
+4	.github/workflows/single-node-proof.yml
 3	.gitignore
 5	.gitleaks.toml
 1	AGENTS.md
@@ -30,7 +30,7 @@
 1	apps/api/src/tranibor_api/db/models/__init__.py
 1	apps/api/src/tranibor_api/db/models/audit.py
 1	apps/api/src/tranibor_api/db/models/outposts.py
-8	apps/api/src/tranibor_api/db/session.py
+10	apps/api/src/tranibor_api/db/session.py
 1	apps/api/src/tranibor_api/decision_session.py
 1	apps/api/src/tranibor_api/demo_inline.py
 5	apps/api/src/tranibor_api/deps.py
@@ -139,6 +139,7 @@
 3	apps/api/src/tranibor_api/services/task_delivery.py
 1	apps/api/src/tranibor_api/services/task_erasure.py
 1	apps/api/src/tranibor_api/services/template_knowledge.py
+1	apps/api/src/tranibor_api/services/temporal_keys.py
 3	apps/api/src/tranibor_api/services/tickets.py
 1	apps/api/src/tranibor_api/services/tool_call_cap.py
 1	apps/api/src/tranibor_api/services/turn_cancels.py
@@ -209,7 +210,8 @@
 2	apps/api/tests/test_delegations.py
 2	apps/api/tests/test_deliverables_api.py
 8	apps/api/tests/test_delivery_sections_migration.py
-3	apps/api/tests/test_demo_history_import.py
+4	apps/api/tests/test_demo_history_import.py
+4	apps/api/tests/test_demo_history_pending.py
 1	apps/api/tests/test_demo_inline_worker.py
 1	apps/api/tests/test_device_sign_in.py
 2	apps/api/tests/test_docs_url.py
@@ -225,6 +227,7 @@
 10	apps/api/tests/test_former_cookies.py
 1	apps/api/tests/test_fresh_authentication.py
 1	apps/api/tests/test_fresh_installation.py
+1	apps/api/tests/test_fuzz_no_server_errors.py
 1	apps/api/tests/test_gesture_checks.py
 3	apps/api/tests/test_github_app.py
 6	apps/api/tests/test_github_app_manifest.py
@@ -311,6 +314,7 @@
 1	apps/api/tests/test_template_extensions.py
 1	apps/api/tests/test_template_knowledge.py
 2	apps/api/tests/test_temporal_and_bus.py
+1	apps/api/tests/test_temporal_data_keys.py
 7	apps/api/tests/test_tenant_host.py
 21	apps/api/tests/test_tenant_host_sign_in.py
 5	apps/api/tests/test_tenant_sign_in.py
@@ -361,7 +365,7 @@
 1	apps/orchestrator/src/tranibor_orchestrator/activities/stage_refusals.py
 2	apps/orchestrator/src/tranibor_orchestrator/activities/stage_tools.py
 3	apps/orchestrator/src/tranibor_orchestrator/activities/tracker.py
-3	apps/orchestrator/src/tranibor_orchestrator/config.py
+2	apps/orchestrator/src/tranibor_orchestrator/config.py
 3	apps/orchestrator/src/tranibor_orchestrator/eval_live_cases.py
 16	apps/orchestrator/src/tranibor_orchestrator/gitops.py
 1	apps/orchestrator/src/tranibor_orchestrator/local.py
@@ -399,7 +403,6 @@
 5	apps/orchestrator/tests/test_migration.py
 1	apps/orchestrator/tests/test_no_fakes_in_production.py
 1	apps/orchestrator/tests/test_notification_target.py
-1	apps/orchestrator/tests/test_prod_verifier_indicators.py
 2	apps/orchestrator/tests/test_project_rbac.py
 1	apps/orchestrator/tests/test_queue_routing.py
 1	apps/orchestrator/tests/test_quotas.py
@@ -667,7 +670,7 @@
 2	compat/choregos-runner/src/choregos_runner/__init__.py
 3	compat/choregos-tools-mcp/pyproject.toml
 2	compat/choregos-tools-mcp/src/choregos_tools_mcp/__init__.py
-27	compose.yaml
+26	compose.yaml
 1	conftest.py
 14	demo/README.md
 1	demo/kind.yaml
@@ -678,7 +681,7 @@
 3	demo/values-demo.yaml
 1	demo/workflows/demo-code.yaml
 1	demo/workflows/staffing.yaml
-11	dev/Tiltfile
+6	dev/Tiltfile
 14	dev/compose.yaml
 5	dev/keycloak-realm.json
 1	dev/kind-no-ports.yaml
@@ -699,11 +702,12 @@
 10	docs/cli.md
 10	docs/code-agents.md
 3	docs/concepts.md
-361	docs/deployment.md
+376	docs/deployment.md
 41	docs/development.md
 1	docs/getting-started.md
 10	docs/hosted-agents.md
 16	docs/integrations.md
+1	docs/load-testing.md
 7	docs/outpost-operator.md
 1	docs/outposts.md
 10	docs/plugins.md
@@ -728,13 +732,13 @@
 3	docs/runbooks/purge-runs.md
 2	docs/runbooks/rename-tenant-names.md
 6	docs/runbooks/secret-rotation.md
-1	docs/runbooks/servicenow-nightly.md
+7	docs/runbooks/servicenow-nightly.md
 8	docs/runbooks/single-node-restore.md
 3	docs/runbooks/stuck-run.md
 3	docs/runbooks/temporal-backup.md
 3	docs/runbooks/temporal-upgrade.md
 1	docs/runbooks/train-frozen.md
-16	docs/security.md
+17	docs/security.md
 4	docs/site/build/plugins-and-trades.md
 1	docs/site/build/plugins.md
 5	docs/site/cli/reference.md
@@ -917,6 +921,7 @@
 1	packages/cli/src/tranibor_cli/main.py
 7	packages/cli/src/tranibor_cli/outposts.py
 1	packages/cli/src/tranibor_cli/self_update.py
+1	packages/cli/src/tranibor_cli/temporal_keys.py
 1	packages/cli/src/tranibor_cli/workspace.py
 1	packages/cli/tests/__snapshots__/test_chat/test_the_palette_snapshot[empty-160-colour].svg
 1	packages/cli/tests/__snapshots__/test_chat/test_the_palette_snapshot[empty-160-no-color].svg
@@ -996,6 +1001,7 @@
 1	packages/cli/tests/test_run_activity.py
 1	packages/cli/tests/test_run_steps.py
 21	packages/cli/tests/test_self_update.py
+1	packages/cli/tests/test_temporal_keys.py
 1	packages/cli/tests/test_unreachable_api.py
 1	packages/cli/tests/test_validate_offline.py
 1	packages/cli/tests/test_workflows.py
@@ -1094,7 +1100,7 @@
 3	packages/core/src/tranibor_core/procedures/connector.scm.gitlab.md
 2	packages/core/src/tranibor_core/procedures/connector.tracker.jira.md
 2	packages/core/src/tranibor_core/publishing.json
-2	packages/core/src/tranibor_core/publishing.py
+5	packages/core/src/tranibor_core/publishing.py
 3	packages/core/src/tranibor_core/repository_dir.py
 1	packages/core/src/tranibor_core/skill_catalogue/schema.json
 1	packages/core/src/tranibor_core/step_effects.py
@@ -1144,7 +1150,7 @@
 1	packages/core/tests/test_process_view_names_the_agent.py
 2	packages/core/tests/test_project_scoped_group.py
 1	packages/core/tests/test_prompt_cache.py
-14	packages/core/tests/test_publishing.py
+9	packages/core/tests/test_publishing.py
 4	packages/core/tests/test_redaction.py
 2	packages/core/tests/test_repairs_declared.py
 1	packages/core/tests/test_repositories.py
@@ -1339,6 +1345,7 @@
 1	plugins/software-delivery/tests/api/test_release_train_declared.py
 4	plugins/software-delivery/tests/api/test_train_metrics.py
 1	plugins/software-delivery/tests/api/test_unsigned_tekton_webhook.py
+1	plugins/software-delivery/tests/api/test_webhook_bad_bodies.py
 1	plugins/software-delivery/tests/api/test_work_item_labels.py
 1	plugins/software-delivery/tests/core/test_process_view.py
 1	plugins/software-delivery/tests/core/test_requirements.py
@@ -1357,6 +1364,7 @@
 5	plugins/software-delivery/tests/orchestrator/test_merged_is_what_was_judged.py
 1	plugins/software-delivery/tests/orchestrator/test_open_pr_draft.py
 2	plugins/software-delivery/tests/orchestrator/test_open_pr_without_branch.py
+1	plugins/software-delivery/tests/orchestrator/test_prod_verifier_indicators.py
 1	plugins/software-delivery/tests/orchestrator/test_repairs_declared.py
 3	plugins/software-delivery/tests/orchestrator/test_restart_after_a_decided_pass.py
 1	plugins/software-delivery/tests/orchestrator/test_run_perimeter.py
@@ -1381,11 +1389,12 @@
 1	plugins/software-delivery/tests/test_merge_holds_the_diff_guarantees.py
 1	plugins/software-delivery/tests/test_pipelines_and_deployments.py
 8	plugins/software-delivery/tests/test_release_names.py
+1	plugins/software-delivery/tests/test_stage_roles.py
 16	plugins/software-delivery/tests/test_tekton.py
 2	plugins/software-delivery/tests/test_train_dsl.py
 9	plugins/software-delivery/tests/test_train_series.py
 1	plugins/software-delivery/tests/test_validate_offline.py
-2	plugins/vault-transit/README.md
+4	plugins/vault-transit/README.md
 2	plugins/vault-transit/pyproject.toml
 2	plugins/vault-transit/src/tranibor_vault_transit/extension.py
 5	plugins/vault-transit/tests/conftest.py
@@ -1402,15 +1411,15 @@
 1	templates/github-software-delivery/workflows/dev-complex.yaml
 1	templates/github-software-delivery/workflows/dev-simple.yaml
 1	templates/github-software-delivery/workflows/study.yaml
-2	templates/github-tekton-argo-k8s/k8s/smoke-job.yaml
+1	templates/github-tekton-argo-k8s/k8s/smoke-job.yaml
 4	templates/github-tekton-argo-k8s/manifest.yaml
 1	templates/github-tekton-argo-k8s/optional/claude-code-review.yml
 2	templates/github-tekton-argo-k8s/scaffold/AGENTS.md.j2
 1	templates/github-tekton-argo-k8s/scaffold/CODEOWNERS.j2
 1	templates/github-tekton-argo-k8s/scaffold/deploy/kustomization.yaml.j2
 1	templates/github-tekton-argo-k8s/scaffold/tekton/pipeline.yaml.j2
-7	templates/github-tekton-argo-k8s/tekton/agent-stage.yaml
-3	templates/github-tekton-argo-k8s/tekton/pipeline-agent.yaml
+5	templates/github-tekton-argo-k8s/tekton/agent-stage.yaml
+2	templates/github-tekton-argo-k8s/tekton/pipeline-agent.yaml
 4	templates/github-tekton-argo-k8s/tekton/pipeline-ci.yaml
 6	templates/github-tekton-argo-k8s/tekton/triggers.yaml
 2	templates/joiners-leavers/manifest.yaml
@@ -1437,7 +1446,7 @@
 6	tests/charts/test_backup_memory_through_ecphoria.py
 7	tests/charts/test_backup_mounts_the_owners_claims.py
 16	tests/charts/test_buildkitd_chart.py
-5	tests/charts/test_chart_names.py
+11	tests/charts/test_chart_names.py
 1	tests/charts/test_cli_downloads_routed.py
 31	tests/charts/test_component_values_keys.py
 2	tests/charts/test_context_reduction.py
@@ -1454,7 +1463,7 @@
 7	tests/charts/test_gateway_context_breakdown.py
 2	tests/charts/test_gateway_type.py
 14	tests/charts/test_hosted_images_policy.py
-5	tests/charts/test_image_per_component.py
+4	tests/charts/test_image_per_component.py
 1	tests/charts/test_ingress_annotations.py
 2	tests/charts/test_kyverno_engine_runs.py
 19	tests/charts/test_laya_decisions.py
@@ -1548,7 +1557,7 @@
 1	tests/conformance/templates/test_shipped_agents_are_complete.py
 1	tests/conformance/templates/test_templates.py
 2	tests/core_alone/test_the_core_without_its_plugins.py
-7	tests/dev/test_local_install.py
+6	tests/dev/test_local_install.py
 9	tests/docs/test_action_in_doubt_contract.py
 2	tests/docs/test_action_settlement_contract.py
 6	tests/docs/test_docs_name_current_names.py
@@ -1606,11 +1615,13 @@
 4	tests/live/test_agent_shape_live.py
 1	tests/live/test_ecphoria_live.py
 10	tests/live/test_gitlab_live.py
+1	tests/live/test_injection_classifier_live.py
 4	tests/live/test_jira_live.py
 2	tests/live/test_keycloak_exchange_live.py
 4	tests/live/test_llm_guard_live.py
 5	tests/live/test_otel_collector_live.py
 11	tests/live/test_servicenow_live.py
+1	tests/live/test_vault_transit_temporal_keys_live.py
 5	tests/packaging/conftest.py
 8	tests/packaging/test_console_scripts.py
 1	tests/packaging/test_distributables.py
@@ -1632,19 +1643,24 @@
 2	tests/testkit/src/tranibor_testkit/workflows.py
 1	tests/tools/test_cli_binary.py
 1	tests/tools/test_hosted_dockerfile.py
-13	tests/tools/test_publishing_identity.py
+12	tests/tools/test_publishing_identity.py
 3	tests/tools/test_report_round_trips.py
+4	tests/tools/test_single_node_load.py
 4	tests/web/test_a2a_snippets_match_the_door.py
 9	tests/web/test_api_routes_have_a_client.py
 3	tools/bump_version.py
-2	tools/cli_binary/release.py
+1	tools/cli_binary/build.py
+3	tools/cli_binary/release.py
 1	tools/cli_binary/smoke.py
 2	tools/e2e_live_api.py
 4	tools/former_name.py
 12	tools/gen_cli_reference.py
 4	tools/gen_contracts.py
 2	tools/hosted_dockerfile.py
+420	tools/load/results/2026-11-25-single-node.json
+2	tools/load/single_node_load.py
 2	tools/local_install_check.py
+1	tools/package_charts.py
 1	tools/plugins/update_lock.py
 2	tools/procedures/export_docs.py
 9	tools/rename_env_vars.py

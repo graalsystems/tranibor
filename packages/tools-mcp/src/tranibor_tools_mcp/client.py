@@ -16,7 +16,7 @@ from tranibor_contracts.wire import both_headers, header
 _PAGE_LIMIT = 200
 
 #: The headers that say which door a tool call came through (ADR 0122 §4), as `callRunTool` reads them.
-#: The new names (ADR 0224); the API reads the former `X-Choregos-*` too, and both are sent for the
+#: The new names (ADR 0226); the API reads the former `X-Choregos-*` too, and both are sent for the
 #: window, so an API of the previous release still reads them during a rolling upgrade.
 TOOL_ORIGIN_HEADER = header("Tool-Origin")
 SCRIPT_HEADER = header("Script")

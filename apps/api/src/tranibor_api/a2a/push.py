@@ -59,7 +59,7 @@ BATCH = 100
 MAX_ATTEMPTS = 8
 TIMEOUT_S = 10.0
 #: `t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`: the receiver checks it and the age of `t`.
-#: Sent under both names for the window of ADR 0224 (`both_headers`): a receiver registered before it
+#: Sent under both names for the window of ADR 0226 (`both_headers`): a receiver registered before it
 #: checks `X-Choregos-Signature`; the value is the same under either name.
 SIGNATURE = header("Signature")
 EVENT_ID = header("Event-Id")

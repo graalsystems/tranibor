@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import Role
 from tranibor_core.argument_grants import interpolate, narrowed, violation
 from tranibor_core.mcp import data_once, serializes
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..db.models import (
     AgentVersion,
@@ -471,7 +472,8 @@ async def write_through_action(
         # transaction: the session's next one sets it again, and until then it holds no connection —
         # neither while Temporal is asked nor while the wait below polls (#1354).
         await release_connection(session)
-        await get_temporal().start_action(temporal_action_id(action.id), {"action_id": action.id})
+        with organisation_scope(project.org_id):
+            await get_temporal().start_action(temporal_action_id(action.id), {"action_id": action.id})
     deadline = time.monotonic() + get_settings().courtier_attente_ecriture_s
     in_doubt = ActionStatus.IN_DOUBT.value
     finished = {

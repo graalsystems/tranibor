@@ -35,7 +35,7 @@ def test_the_digest_of_a_group_only_workflow_does_not_move() -> None:
 
 
 def test_the_digest_does_not_move_with_the_name_of_the_api_version() -> None:
-    """ADR 0224: `tranibor/v1` and `choregos/v1` are one document; a pin made before the rename holds."""
+    """ADR 0226: `tranibor/v1` and `choregos/v1` are one document; a pin made before the rename holds."""
     document = _example()
     assert document["apiVersion"] == "tranibor/v1", "the example is written with the new name"
     former = {**document, "apiVersion": "choregos/v1"}

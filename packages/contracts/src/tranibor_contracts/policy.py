@@ -227,7 +227,7 @@ class PolicyMetadata(Strict):
 
 
 class Policy(Strict):
-    #: `tranibor/v1`; a document written as `choregos/v1` is read as it was written (ADR 0224).
+    #: `tranibor/v1`; a document written as `choregos/v1` is read as it was written (ADR 0226).
     apiVersion: Literal["tranibor/v1", "choregos/v1"] = "tranibor/v1"  # noqa: N815
     kind: Literal["Policy"] = "Policy"
     metadata: PolicyMetadata

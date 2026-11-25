@@ -10,7 +10,7 @@
  *
  * On a host an organisation owns (ADR 0175) the host decides: the visitor's host is forwarded to the API
  * (`X-Forwarded-Host`), which serves that organisation's theme whatever the cookie says and names the
- * organisation (`X-Tranibor-Host-Org`, or the former `X-Choregos-Host-Org` from an API before ADR 0224); a
+ * organisation (`X-Tranibor-Host-Org`, or the former `X-Choregos-Host-Org` from an API before ADR 0226); a
  * tenant host's memo entry is keyed by the host alone.
  */
 import { cookies, headers } from "next/headers";

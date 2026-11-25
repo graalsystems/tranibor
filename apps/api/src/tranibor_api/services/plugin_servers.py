@@ -627,7 +627,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
-        # `tranibor.dev/*`, and the former `choregos.dev/*` beside them for the window (ADR 0224): a
+        # `tranibor.dev/*`, and the former `choregos.dev/*` beside them for the window (ADR 0226): a
         # policy or a selector written for the former family still matches.
         labels=wire.labels_with_former(
             {
@@ -770,7 +770,7 @@ async def _start_in_process(server: dict[str, Any], token: str, settings: Settin
 
 
 #: The header of the person's `user_consent` token. A plugin server is outside the repository and may
-#: read the former name (`X-Choregos-User-Token`): both are sent for the window of ADR 0224.
+#: read the former name (`X-Choregos-User-Token`): both are sent for the window of ADR 0226.
 USER_TOKEN_HEADER = header("User-Token")
 
 

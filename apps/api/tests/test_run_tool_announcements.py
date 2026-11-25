@@ -265,7 +265,7 @@ def test_the_contract_names_the_origins_the_api_reads() -> None:
     assert tuple(headers[internal.TOOL_ORIGIN_HEADER]["enum"]) == internal.TOOL_ORIGINS
     assert headers[internal.SCRIPT_HEADER]["pattern"] == "^[0-9a-f]{64}$"
     entry = contracts.load_openapi()["components"]["schemas"]["RunTool"]["properties"]
-    for key in wire.ACCESS_KEYS:  # ADR 0224: both names, the former one listed for the window
+    for key in wire.ACCESS_KEYS:  # ADR 0226: both names, the former one listed for the window
         assert entry[key]["enum"] == ["read", "write", "approval"]
     assert {f"X-Choregos-{n}" for n in ("Tool-Origin", "Script")} <= set(headers), (
         "the former names, read too"

@@ -22,7 +22,7 @@ WEEKLY = ROOT / ".github" / "workflows" / "cli-binaries-weekly.yml"
 DOCKERFILE = ROOT / "docker" / "api.Dockerfile"
 BLOCKERS = ROOT / "docs" / "plan" / "BLOCKERS.md"
 #: The fixed file names, shared with S62-08 (`tools/cli_binary/build.py` holds the same five): named
-#: after the publishing identity's prefix since ADR 0224 R5.
+#: after the publishing identity's prefix since ADR 0226 R5.
 NAMES = {
     "tranibor-linux-x86_64",
     "tranibor-linux-arm64",
@@ -115,7 +115,7 @@ def test_the_images_wait_for_the_binaries_and_the_api_image_carries_them() -> No
         s for s in jobs["images"]["steps"] if s.get("uses", "").startswith("actions/download-artifact")
     )
     assert download["with"]["name"] == "cli-dist" and download["if"] == "matrix.image == 'api'"
-    # SHA256SUMS names each file twice (ADR 0224 R5); the image holds the current names, all checked.
+    # SHA256SUMS names each file twice (ADR 0226 R5); the image holds the current names, all checked.
     assert 'grep "  tranibor-" SHA256SUMS | sha256sum -c -' in _runs(jobs["images"])
     assert "./tranibor-linux-$(uname -m | sed s/aarch64/arm64/) --version" in _runs(jobs["images"])
 
@@ -128,7 +128,7 @@ def test_the_github_release_attaches_the_binaries() -> None:
 
 
 def test_the_github_release_attaches_the_former_names_too() -> None:
-    """ADR 0224 R5: for the window, a `choregos-<platform>` download URL keeps working (the same bytes)."""
+    """ADR 0226 R5: for the window, a `choregos-<platform>` download URL keeps working (the same bytes)."""
     steps = _jobs(RELEASE)["changelog"]["steps"]
     names = [step.get("name", step.get("uses", "")) for step in steps]
     former = names.index("the CLI binaries under their former names too")

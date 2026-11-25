@@ -80,9 +80,6 @@
             "comment"
           ]
         },
-        "release_notes_markdown": {
-          "type": "string"
-        },
         "duplicate_of": {
           "type": [
             "string",

@@ -36,7 +36,7 @@ def groups_for_org(groups: Iterable[Any] | None, org_slug: str) -> set[str]:
 
     The identity provider may send a group bare (`architects`) or namespaced for an organisation
     (`tranibor:acme:architects`, the same prefix that carries the role; the former `choregos:` prefix is
-    read too, ADR 0224). For `org_slug` both count, as the bare name, and a namespaced group counts under
+    read too, ADR 0226). For `org_slug` both count, as the bare name, and a namespaced group counts under
     both prefixes; a group namespaced for **another** organisation does not, so two organisations of one
     instance never confuse their `architects`. `User.groups` stays as sent.
     """

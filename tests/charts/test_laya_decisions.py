@@ -181,7 +181,7 @@ def test_laya_runs_offline_on_cpu_and_is_probed_on_its_health_route() -> None:
     assert env["LAYA_DEVICE"] == "cpu"
     # The tag follows the chart's `global.imageTag`, which `tools/bump_version.py` moves at each release.
     tag = yaml.safe_load((CHART / "values.yaml").read_text())["global"]["imageTag"]
-    assert container["image"] == PUBLISHING.image("tranibor-laya", tag)
+    assert container["image"] == PUBLISHING.image_name("laya") + f":{tag}"
     assert container["ports"] == [{"name": "http", "containerPort": 8000}]
     for probe in ("startupProbe", "readinessProbe", "livenessProbe"):
         assert container[probe]["httpGet"] == {"path": "/health", "port": "http"}, probe

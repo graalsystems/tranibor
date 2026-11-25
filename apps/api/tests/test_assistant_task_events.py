@@ -210,7 +210,7 @@ async def test_the_door_takes_only_the_signature_of_that_task(
     # Another task's key opens no other task's door.
     other_task = await _post(anonymous, _event("ann@northwind.dev"), key=await _key("delegated_event"))
     assert other_task.status_code == 401
-    # A sender configured before ADR 0224 signs in `X-Choregos-Signature`: still read, checked the same way.
+    # A sender configured before ADR 0226 signs in `X-Choregos-Signature`: still read, checked the same way.
     former_wrong = await _post(
         anonymous, _event("ann@northwind.dev"), key="chtev_nope", header="X-Choregos-Signature"
     )
@@ -224,7 +224,7 @@ async def test_the_door_takes_only_the_signature_of_that_task(
 async def test_a_sender_of_the_former_header_is_still_read(
     client: AsyncClient, org: str, app: Any, offline: Path, markets: Any
 ) -> None:
-    """ADR 0224: a sender configured before the rename signs in `X-Choregos-Signature`."""
+    """ADR 0226: a sender configured before the rename signs in `X-Choregos-Signature`."""
     await _ready(client)
     ann = await _subscriber(client, app, "ann@northwind.dev")
     await _subscribe(ann)

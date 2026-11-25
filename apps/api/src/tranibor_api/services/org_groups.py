@@ -87,7 +87,7 @@ def _counted(org_id: _Column | str) -> ColumnElement[bool]:
 async def principal_groups(session: AsyncSession, user_id: str) -> list[str]:
     """The table's groups of one person, in every organisation they belong to, as
     `tranibor:<org slug>:<group slug>`, and the former `choregos:` form beside it for the window of ADR
-    0224 (an edition's check may still read it): one query. The slug is read now (it can change)."""
+    0226 (an edition's check may still read it): one query. The slug is read now (it can change)."""
     rows = (
         await session.execute(
             select(Organization.slug, OrgGroup.slug)

@@ -1,4 +1,4 @@
-# 0224 — The former name leaves every layer, the wire included: each name gets its Tranibor twin, both are read for a window, the former one goes
+# 0226 — The former name leaves every layer, the wire included: each name gets its Tranibor twin, both are read for a window, the former one goes
 
 - **Status**: accepted, 2026-11-25 (decided by the product owner on 2026-11-25: "the name is to go",
   every layer including the protocol)

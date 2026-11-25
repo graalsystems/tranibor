@@ -384,7 +384,9 @@ paths:
         price, or an id used twice answers 422 naming it. The import is idempotent: each object carries an
         external `id`, re-importing the same document writes nothing, and an id that already holds other
         content answers 409. What it writes is marked `imported` (work items, runs, findings, cost lines) and
-        counts in no budget. Audited as `demo_history.import`.
+        counts in no budget nor in the agents' metrics. A work item may declare a request that still waits
+        (`pending`): the inbox lists it and an approver decides it through `postDecision`, which records the
+        decision and passes it to no workflow. Audited as `demo_history.import`.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistory" } } }
@@ -394,6 +396,21 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [projects]
+      operationId: deleteDemoHistory
+      description: |
+        Removes what demonstration history imports wrote into this project (ADR 0216): the work items marked
+        `imported` with their runs, requests, decisions and events, and the findings and cost lines marked
+        `imported`. Nothing that is not marked is touched. The same gate as the import: the organisation
+        administrator (`demo_history:import`), on an instance that opted in and is not `staging` or `prod`
+        (409 elsewhere). Idempotent: a second call removes nothing. Audited as `demo_history.delete`, with
+        the counts.
+      responses:
+        "200": { description: Removed, content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistoryRemoval" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /projects/{id}/readiness:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -508,6 +525,51 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { description: Below the 60-second floor }
+  /orgs/{org}/temporal-keys:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    get:
+      tags: [admin]
+      operationId: listTemporalKeys
+      summary: The organisation's Temporal data keys (ADR 0225)
+      description: "The ids, states (`active`, `retired`, `shredded`), wrapping key and dates of the random keys that seal the organisation's Temporal payloads. Never a key, wrapped or not. `available` is false when the deployment has no key wrapper (`TRANIBOR_SECRETS_KEKS` or the vault-transit extension): the organisation's keys are then derived from the master key (ADR 0220) and cannot be shredded. The organisation's administrator only."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeys" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /orgs/{org}/temporal-keys/rotation:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [admin]
+      operationId: rotateTemporalKey
+      summary: Rotate the organisation's Temporal data key (ADR 0225)
+      description: "A new random data key seals the organisation's new Temporal payloads; the retired ones still open what they sealed. Other processes move to it within `TRANIBOR_TEMPORAL_DATA_KEY_TTL_S`. Audited (`org.temporal_keys.rotate`). The organisation's administrator only."
+      responses:
+        "200": { description: Rotated, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeyInfo" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /orgs/{org}/temporal-keys/shredding:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [admin]
+      operationId: shredTemporalKeys
+      summary: Shred the organisation's Temporal data keys (crypto-shredding, ADR 0225)
+      description: |
+        Destroys every wrapped data key of the organisation: the Temporal payloads they sealed can never be
+        read again, by anyone. Irreversible: `confirm` repeats the organisation's slug. The rows stay as
+        tombstones (id, time, who); the organisation's next payload gets a new key. What is not erased is
+        listed in the answer (`not_erased`): Temporal's own metadata, search attributes and memo, payloads
+        sealed before ADR 0225 or under the master key, database backups taken before, and a key another
+        process still caches (`TRANIBOR_TEMPORAL_DATA_KEY_TTL_S` at most). Workflows of the organisation
+        still open fail their next task: terminate them first. Audited (`org.temporal_keys.shred`, with the
+        reason). The organisation's administrator only.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeyShredding" } } } }
+      responses:
+        "200": { description: Shredded, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeysShredded" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { description: "`confirm` is not the organisation's slug" }
   /orgs/{org}/saml:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -1837,6 +1899,10 @@ paths:
     post:
       tags: [work-items]
       operationId: postDecision
+      description: >-
+        Records the decision, passes it to the work item's workflow and closes the request. A request of a
+        work item a demonstration history imported (ADR 0216) has no workflow: its decision is recorded and
+        audited (`imported: true`) and passed to nothing, so no agent runs and nothing leaves the platform.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DecisionRequest" } } }
@@ -1895,6 +1961,8 @@ paths:
         `migrate` requires `workflow_def_id`, a definition of the project; the ticket's current
         state must exist in it, or be mapped by `state_mapping` — otherwise 422, and nothing is
         passed on.
+        A work item a demonstration history imported (ADR 0216) takes no action: 409, so that no
+        interpreter is ever started for it.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/WorkItemAction" } } }
@@ -5395,7 +5463,7 @@ paths:
       - { name: task, in: path, required: true, schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,62}$" } }
       - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
       - { name: X-Tranibor-Signature, in: header, required: false, schema: { type: string }, description: "`sha256=<hex>`: the HMAC-SHA256 of the body under the task's event key. Required, under this name or the former one." }
-      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0224), read until 0.32.0." }
+      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0226), read until 0.32.0." }
     post:
       tags: [webhooks]
       security: []
@@ -6232,7 +6300,7 @@ paths:
       operationId: jiraWebhook
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/azure-boards:
@@ -6242,7 +6310,7 @@ paths:
       operationId: azureBoardsWebhook
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6264,7 +6332,7 @@ paths:
       description: The service hooks of Azure Repos pull requests (`git.pullrequest.*`) and of Azure Pipelines builds and runs (`build.complete`, `ms.vss-pipelines.run-state-changed-event`).
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses:
@@ -6280,7 +6348,7 @@ paths:
         - { name: ce-type, in: header, required: true, schema: { type: string } }
         - { name: ce-id, in: header, required: true, schema: { type: string } }
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a sink that is set by a URL and adds no header" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6292,7 +6360,7 @@ paths:
       operationId: jenkinsWebhook
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a Notification plugin endpoint that is set by a URL and adds no header" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6304,7 +6372,7 @@ paths:
       operationId: argocdWebhook
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/alertmanager:
@@ -6314,7 +6382,7 @@ paths:
       operationId: alertmanagerWebhook
       parameters:
         - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
-        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0224), read until 0.32.0." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/plugins/{org}/{plugin}/{server}:
@@ -6346,9 +6414,9 @@ paths:
       - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
       - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
       - { name: X-Tranibor-Token, in: header, required: false, schema: { type: string } }
-      - { name: X-Choregos-Token, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Token` (ADR 0224), read until 0.32.0." }
+      - { name: X-Choregos-Token, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Token` (ADR 0226), read until 0.32.0." }
       - { name: X-Tranibor-Signature, in: header, required: false, schema: { type: string }, description: "`sha256=<hex or base64>` of the body, for a trigger with `auth: signature` (S56-04)." }
-      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0224), read until 0.32.0." }
+      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0226), read until 0.32.0." }
       - { name: token, in: query, required: false, schema: { type: string }, description: "For a sender that can only set a URL." }
     post:
       tags: [webhooks]
@@ -6488,7 +6556,7 @@ paths:
         (run, tool, arguments) returns the same action. A write under approval (`approval`) returns
         202: a person decides.
 
-        The two `X-Tranibor-*` headers (or their former `X-Choregos-*` names, read until 0.32.0, ADR 0224)
+        The two `X-Tranibor-*` headers (or their former `X-Choregos-*` names, read until 0.32.0, ADR 0226)
         say which door the call came through (ADR 0122 §4): they
         are attribution, recorded on the call's ledger line (`group_by=origin` of the cost
         reports), on `choregos.tool.called` (`origin`, `script_sha256`) and on its `execute_tool`
@@ -6510,13 +6578,13 @@ paths:
           in: header
           required: false
           deprecated: true
-          description: "The former name of `X-Tranibor-Tool-Origin` (ADR 0224), read when the new one is absent, until 0.32.0."
+          description: "The former name of `X-Tranibor-Tool-Origin` (ADR 0226), read when the new one is absent, until 0.32.0."
           schema: { type: string, enum: [model, script, job], default: model }
         - name: X-Choregos-Script
           in: header
           required: false
           deprecated: true
-          description: "The former name of `X-Tranibor-Script` (ADR 0224), read when the new one is absent, until 0.32.0."
+          description: "The former name of `X-Tranibor-Script` (ADR 0226), read when the new one is absent, until 0.32.0."
           schema: { type: string, pattern: "^[0-9a-f]{64}$" }
       requestBody:
         required: true
@@ -6883,7 +6951,7 @@ paths:
       parameters:
         - { name: type, in: query, required: true, description: "a type of the artifact vocabulary", schema: { type: string } }
         - { name: X-Tranibor-Digest, in: header, required: false, description: "sha256:<hex> of the body. Required, under this name or the former one.", schema: { type: string } }
-        - { name: X-Choregos-Digest, in: header, required: false, deprecated: true, description: "The former name of `X-Tranibor-Digest` (ADR 0224), read until 0.32.0.", schema: { type: string } }
+        - { name: X-Choregos-Digest, in: header, required: false, deprecated: true, description: "The former name of `X-Tranibor-Digest` (ADR 0226), read until 0.32.0.", schema: { type: string } }
       requestBody:
         required: true
         content: { application/octet-stream: { schema: { type: string, format: binary } } }
@@ -7056,14 +7124,14 @@ paths:
               description: "`default` (no provider, or nothing to provide), `provided`, or `fallback` (the provider failed or returned an invalid theme)"
               schema: { type: string, enum: [default, provided, fallback] }
             X-Choregos-Theme:
-              description: "The same value under the former name (ADR 0224), sent until 0.32.0."
+              description: "The same value under the former name (ADR 0226), sent until 0.32.0."
               deprecated: true
               schema: { type: string, enum: [default, provided, fallback] }
             X-Tranibor-Host-Org:
               description: "The organisation that owns the host the console was reached on, when one does (ADR 0175)."
               schema: { type: string }
             X-Choregos-Host-Org:
-              description: "The same value under the former name (ADR 0224), sent until 0.32.0."
+              description: "The same value under the former name (ADR 0226), sent until 0.32.0."
               deprecated: true
               schema: { type: string }
             ETag: { schema: { type: string } }
@@ -7075,12 +7143,12 @@ paths:
     get: { tags: [session], security: [], operationId: readyz, responses: { "200": { description: OK }, "503": { description: Not ready } } }
 components:
   securitySchemes:
-    session: { type: apiKey, in: cookie, name: tranibor_session, description: "The console's session; the former cookie `choregos_session` is read, set again under this name and cleared, until 0.32.0 (ADR 0224)." }
+    session: { type: apiKey, in: cookie, name: tranibor_session, description: "The console's session; the former cookie `choregos_session` is read, set again under this name and cleared, until 0.32.0 (ADR 0226)." }
     bearer: { type: http, scheme: bearer, bearerFormat: "choregos-api-token, or a developer-surface session (`POST /auth/device/token`, ADR 0154 §6)" }
     runToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Run JWT signed with ES256, aud=internal" }
     relayToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Relay JWT signed with ES256, aud=choregos-relay, sub=the organisation's slug, expiring (ADR 0091)" }
     egressToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Egress JWT signed with ES256, aud=choregos-egress, sub=the run, expiring with its run token (ADR 0115)" }
-    egressReportKey: { type: apiKey, in: header, name: X-Tranibor-Egress-Key, description: "The egress proxy's own key, shared with the API and never given to a run's pod (ADR 0145). The former `X-Choregos-Egress-Key` is read too, until 0.32.0 (ADR 0224)." }
+    egressReportKey: { type: apiKey, in: header, name: X-Tranibor-Egress-Key, description: "The egress proxy's own key, shared with the API and never given to a run's pod (ADR 0145). The former `X-Choregos-Egress-Key` is read too, until 0.32.0 (ADR 0226)." }
   parameters:
     Id: { name: id, in: path, required: true, schema: { type: string } }
     Org: { name: org, in: path, required: true, schema: { type: string } }
@@ -7295,11 +7363,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string, description: Machine code of a workflow or policy issue }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, description: "A machine code on some 409s: `stale_base` (from an agent publication, or from `updateProject`), `no_change`, `eval_failed` (S40-12), `action_not_in_doubt` and `action_already_settled` (`settleAction`); on the 403 of `approveOutpostInstance`, `approval_requires_session`" }
         latest_version: { type: integer, description: "On `stale_base` and `no_change`: the agent's latest version" }
@@ -8401,9 +8469,9 @@ components:
         valid: { type: boolean }
         errors: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
         warnings: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
-        document: { $ref: "./schemas/workflow.schema.json", description: "the workflow as the engine read it (ADR 0112)" }
+        document: { oneOf: [{ $ref: "./schemas/workflow.schema.json" }, { type: "null" }], description: "the workflow as the engine read it (ADR 0112); null when the document does not parse" }
     ProcessStep:
       type: object
       description: A transition in plain words — the process view (ADR 0031).
@@ -8973,7 +9041,7 @@ components:
           type: string
           enum: [read, write, approval]
           deprecated: true
-          description: "The same value as `x-tranibor-access`, under its former name (ADR 0224), listed until 0.32.0 for a runner of an earlier release. A plugin tool may still declare it."
+          description: "The same value as `x-tranibor-access`, under its former name (ADR 0226), listed until 0.32.0 for a runner of an earlier release. A plugin tool may still declare it."
         x-tranibor-access:
           type: string
           enum: [read, write, approval]
@@ -9989,7 +10057,7 @@ components:
       properties:
         role: { type: string }
         playbook: { type: string }
-        playbook_origin: { type: [string, "null"], description: "`package` or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`)." }
+        playbook_origin: { type: [string, "null"], description: "`package`, `plugin` (a plugin's extension declared the role) or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`)." }
         instructions: { type: [string, "null"] }
         instructions_error: { type: [string, "null"] }
         instructions_template: { type: [string, "null"], description: "The prompt as a registry agent's instructions (rendered in the sandbox, framed after): what registering the agent gives it." }
@@ -10672,8 +10740,6 @@ components:
           additionalProperties: false
           properties:
             auto_grant_max_files: { type: [integer, "null"], minimum: 0 }
-            max_diff_files: { type: [integer, "null"], minimum: 1 }
-            max_diff_lines: { type: [integer, "null"], minimum: 1 }
         findings:
           type: object
           additionalProperties: false
@@ -10697,6 +10763,18 @@ components:
           description: "Tool scripts (ADR 0122 §6): the ceiling can only forbid them. `off` refuses a project policy that offers them, for any role (422 at PUT, clamped to `off` for a policy saved earlier); `offer` or null leaves each project to choose."
           properties:
             scripts: { type: [string, "null"], enum: ["off", "offer", null] }
+        delivery:
+          x-plugin: software-delivery
+          type: object
+          additionalProperties: false
+          description: "The software-delivery plugin's section (ADR 0181, S83-13): it caps the project policy's `delivery` section, field by field. A ceiling that writes a cap of this section at its former place is refused (422, naming the section)."
+          properties:
+            scope:
+              type: object
+              additionalProperties: false
+              properties:
+                max_diff_files: { type: [integer, "null"], minimum: 1 }
+                max_diff_lines: { type: [integer, "null"], minimum: 1 }
     CeilingNetwork:
       type: object
       additionalProperties: false
@@ -11078,7 +11156,7 @@ components:
     OrgGroup:
       type: object
       additionalProperties: false
-      description: "A group that belongs to the organisation (ADR 0160). A person in it carries it as `tranibor:<org>:<slug>` (formerly `choregos:<org>:<slug>`, read until 0.32.0, ADR 0224) wherever a group is checked."
+      description: "A group that belongs to the organisation (ADR 0160). A person in it carries it as `tranibor:<org>:<slug>` (formerly `choregos:<org>:<slug>`, read until 0.32.0, ADR 0226) wherever a group is checked."
       required: [slug, name, source, member_count, created_at]
       properties:
         slug: { type: string }
@@ -11158,11 +11236,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [outposts_disabled, door_key_missing, outpost_exists, outpost_revoked, outpost_not_revoked, outpost_in_use, instance_not_pending, fingerprint_mismatch, enrolment_used, outpost_paused, outpost_offline, outpost_refused, outpost_timeout] }
         outpost: { type: string, description: "the outpost the refusal is about" }
@@ -12699,7 +12777,7 @@ components:
         initial: { type: [string, "null"], description: The workflow's initial state. }
         state: { type: string, description: The state the item is in now. }
         closed: { type: boolean, default: false }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
         moves: { type: array, items: { $ref: "#/components/schemas/JourneyMove" } }
         steps: { type: array, items: { $ref: "#/components/schemas/JourneyStep" } }
@@ -13205,11 +13283,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [gateway_in_use, gateway_required, gateway_not_configured, gateway_assertion_key_missing] }
         connectors: { type: array, items: { type: string }, description: "the connectors that go through the gateway (`gateway_in_use`)" }
@@ -13636,6 +13714,37 @@ components:
       properties:
         revoked: { type: string }
         ended: { type: integer }
+    TemporalKeyInfo:
+      type: object
+      required: [key_id, state, kek_id, created_at]
+      properties:
+        key_id: { type: string, description: "what each payload carries in `encryption-key-id`" }
+        state: { type: string, enum: [active, retired, shredded] }
+        kek_id: { type: string, description: "the key wrapper's key that wraps it" }
+        created_at: { type: string, format: date-time }
+        created_by: { type: [string, "null"] }
+        shredded_at: { type: [string, "null"], format: date-time }
+        shredded_by: { type: [string, "null"] }
+    TemporalKeys:
+      type: object
+      required: [org, available, keys]
+      properties:
+        org: { type: string }
+        available: { type: boolean, description: "a key wrapper is configured; false: the keys are derived (ADR 0220) and cannot be shredded" }
+        keys: { type: array, items: { $ref: "#/components/schemas/TemporalKeyInfo" } }
+    TemporalKeyShredding:
+      type: object
+      required: [confirm, reason]
+      properties:
+        confirm: { type: string, minLength: 1, maxLength: 128, description: "the organisation's slug, typed again" }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    TemporalKeysShredded:
+      type: object
+      required: [org, shredded, not_erased]
+      properties:
+        org: { type: string }
+        shredded: { type: array, items: { type: string }, description: "the key ids destroyed by this call" }
+        not_erased: { type: array, items: { type: string } }
     SamlProviderIn:
       type: object
       required: [idp_entity_id, sso_url, certificate_pem, domains]
@@ -13989,12 +14098,24 @@ components:
         cost_usd: { type: number, description: "The cost the created runs carry, in USD: declared, not measured." }
     DemoHistoryCounts:
       type: object
-      required: [work_items, runs, decisions, findings]
+      required: [work_items, runs, decisions, findings, pending]
       properties:
         work_items: { type: integer }
         runs: { type: integer }
         decisions: { type: integer }
         findings: { type: integer }
+        pending: { type: integer, description: "Requests that wait for a person (`pending`)." }
+    DemoHistoryRemoval:
+      type: object
+      description: What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported.
+      required: [work_items, runs, requests, findings, cost_lines]
+      properties:
+        work_items: { type: integer }
+        runs: { type: integer }
+        requests: { type: integer, description: "Human requests, decided or waiting, of the imported work items." }
+        findings: { type: integer }
+        cost_lines: { type: integer }
+        cost_usd: { type: number, description: "The declared cost of the removed cost lines, in USD." }
     InboundEvent: { $ref: "./schemas/inbound-event.schema.json" }
     ChoregosEvent: { $ref: "./schemas/event.schema.json" }
     HumanDecision: { $ref: "./schemas/human-decision.schema.json" }

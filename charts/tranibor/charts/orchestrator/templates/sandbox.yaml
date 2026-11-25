@@ -275,7 +275,7 @@ spec:
       choregos/sandbox: "true"
   policyTypes: ["Ingress"]
   ingress:
-    # The executor workers under either name of the queue's label (ADR 0224): a worker started before
+    # The executor workers under either name of the queue's label (ADR 0226): a worker started before
     # the upgrade carries the former one only, and keeps assigning until it is replaced.
     - from:
         {{- range $queue := list "tranibor/queue" "choregos/queue" }}

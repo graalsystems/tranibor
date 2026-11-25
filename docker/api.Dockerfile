@@ -107,7 +107,7 @@ RUN git clone --quiet --depth 1 --branch "${HUBBLE_VERSION}" https://github.com/
       -X 'github.com/cilium/cilium/hubble/pkg.Version=${HUBBLE_VERSION#v}'" \
     -o /out/hubble .
 
-# The native `tranibor` CLI binaries (S62-07; `tranibor-<platform>` since ADR 0224 R5), served by the
+# The native `tranibor` CLI binaries (S62-07; `tranibor-<platform>` since ADR 0226 R5), served by the
 # instance (S62-08): EMPTY here. The release replaces this stage with the signed binaries, their SHA256SUMS and manifest.json
 # (`--build-context cli=dist/cli`, `release.yml`); any other build (compose, CI) leaves it empty, and
 # the image then has no /opt/choregos/cli/ — the instance says no CLI is bundled in this build.

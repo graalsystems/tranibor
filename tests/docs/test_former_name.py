@@ -1,4 +1,4 @@
-"""The former name leaves, and does not come back (ADR 0224, Consequences; round R8).
+"""The former name leaves, and does not come back (ADR 0226, Consequences; round R8).
 
 Two guards:
 
@@ -47,7 +47,7 @@ fn = _load()
 def test_every_file_is_at_its_ceiling() -> None:
     found = fn.problems(fn.count(), fn.read_baseline())
     assert not found, (
-        "the former name moved (ADR 0224): write the new name, or lower the ceiling with "
+        "the former name moved (ADR 0226): write the new name, or lower the ceiling with "
         "`uv run python tools/former_name.py --write`:\n  " + "\n  ".join(found[:40])
     )
 
@@ -120,7 +120,7 @@ KEPT = (
     ),
     _kept(
         r"\bchoregos-(?:api-secrets|db|gateway-secrets|oidc|object-store|backup-target)\b",
-        "the chart's default Secret names: stored state (ADR 0224 §6, R6 notes)",
+        "the chart's default Secret names: stored state (ADR 0226 §6, R6 notes)",
     ),
     _kept(
         r"`choregos/api`", "the ExternalSecret's remote key: a path in the operator's secret store (R6 notes)"
@@ -129,7 +129,7 @@ KEPT = (
         r"\bchoregos-pg-rw\.choregos-data\.svc\b|\.choregos-(?:temporal|gateway)\.svc\b",
         "the default namespaces of external dependencies in the chart's values (R6 notes)",
     ),
-    _kept(r"^\s+(?:name|user): choregos$", "the database name and role: stored state (ADR 0224 §6)"),
+    _kept(r"^\s+(?:name|user): choregos$", "the database name and role: stored state (ADR 0226 §6)"),
     _kept(
         r"\bclientId: choregos$|\bchoregos-mcp\b|\bchoregos-claude-(?:code|ai)\b",
         "the OIDC client, the MCP audience and the Keycloak clients the chart and the API default to",
@@ -145,7 +145,7 @@ KEPT = (
         r'"choregos:inbox"', "a tracker state label of the shipped templates (R6 notes: state labels stay)"
     ),
     _kept(r"`choregos\.(?:plugins|migrations)`", "the Python entry-point groups extensions register under"),
-    _kept(r"`choregos\.release\.\*`", "event types, which history and subscribers key on (ADR 0224 §6)"),
+    _kept(r"`choregos\.release\.\*`", "event types, which history and subscribers key on (ADR 0226 §6)"),
     _kept(r"`choregos-quant`", "the investment-research plugin's job command, under that name only"),
     _kept(r"`admin@choregos\.local`", "the demo administrator compose.yaml signs in"),
     _kept(
@@ -188,7 +188,7 @@ def test_the_site_shows_the_former_name_only_where_the_product_keeps_it() -> Non
         line for p in _pages() for line in unexplained(p.relative_to(SITE).as_posix(), p.read_text("utf-8"))
     ]
     assert not offenders, (
-        "docs/site writes a former name the product has a twin for (ADR 0224 R8): write the new one, "
+        "docs/site writes a former name the product has a twin for (ADR 0226 R8): write the new one, "
         "or add it to KEPT with its reason:\n  " + "\n  ".join(offenders)
     )
 

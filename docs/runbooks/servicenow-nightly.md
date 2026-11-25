@@ -2,9 +2,9 @@
 
 ## What it is for
 
-Plan workstream P1 asks for fourteen green nights in a row on a real ServiceNow instance (S80-20, S80-46). The
-nightly is not a CI job: the instance's credentials would have to leave the platform for that. It runs **on a
-deployment**, with the platform's own scheduler and secret storage:
+Plan workstream P1 asks for fourteen green nights in a row on a real ServiceNow instance (S80-20, S80-46). Two
+nightlies count them, each proving what the other cannot (the CI one is [below](#the-ci-nightly)). This one runs
+**on a deployment**, with the platform's own scheduler and secret storage, and proves the platform's path:
 
 - a project with an internal tracker (`servicenow-nightly` on the first deployment that ran it) whose
   `schedules:` opens one work item a night, `cron: "0 3 * * *"` (UTC);
@@ -69,6 +69,35 @@ connector's `base_url` and secret, and nothing else: the projects and the schedu
   `groups` holding the nightly project's group.
 - Rotate the instance's credential: the procedure's page on the instance, then
   `PUT /api/v1/orgs/{org}/connectors/servicenow/secrets/password`; the server's pod rolls on its own.
+
+## The CI nightly
+
+The repository's `nightly` workflow has a `servicenow-live` job (S80-50): it runs the plugin's own live suite
+(`plugins/servicenow/server/tests/live` of the agents repository, at the commit that published the server image)
+and the core's `tests/live/test_servicenow_live.py` through the published server image, on the instance. It
+proves the server and the core's `tracker/plugin` adapter against a real instance every night; it does not
+prove the platform's path (the poll, the agent, the write-back), which the deployment's nightly does.
+
+- Its credentials are repository secrets: `TRANIBOR_LIVE_SERVICENOW_URL`, `TRANIBOR_LIVE_SERVICENOW_USERNAME`,
+  `TRANIBOR_LIVE_SERVICENOW_PASSWORD`. The user is **not** the deployment's `choregos.integration` (its
+  password is sealed in the connector; resetting it for CI would turn the deployment's nights red) but a second
+  user, `choregos.ci`, built by the same procedure: web service access only, internal integration user, the
+  roles `choregos_integration`, `snc_basic_auth_api_access` and `sn_change_read`, nothing else. No cleanup
+  user: the run leaves its incidents resolved and its change canceled, titled `[choregos-live <run>]`, and the
+  request item test skips.
+- Both suites file in the group **`Tranibor CI`** (`TRANIBOR_LIVE_SERVICENOW_GROUP` in the job), never in the
+  Service Desk that this page's triage project watches: that project opened the CI's incidents as work items,
+  and its first state mirror reopened them one second after the suite resolved them (graalsystems/tranibor-agents#66).
+  The group holds one member, so that a change's group approval waits in Assess (empty, the change model
+  approves it at once). A new instance: create the group with one member, as the instance's admin.
+- It **skips**, the reason named in the job's summary and a warning, in two cases only: `secrets-absent` (one
+  of the three secrets is not set) and `instance-hibernating` (the instance answered a redirect or an HTML page
+  to the integration user instead of JSON). A skipped night is not a green night. Anything else is red and
+  reaches the night's alert issue: an instance that does not answer, a wrong password (`401`), a failed test.
+- Run it alone: `gh workflow run nightly.yml -f job=servicenow-live` (the other jobs are left out).
+- Rotate its password: reset `choregos.ci`'s password as the instance's admin, then
+  `gh secret set TRANIBOR_LIVE_SERVICENOW_PASSWORD` from a file or the environment, never on the command line.
+- A new instance: the procedure again for `choregos.ci`, then the three secrets.
 
 ## How to check it is fixed
 

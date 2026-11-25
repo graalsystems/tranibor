@@ -91,7 +91,7 @@ async def test_the_platforms_user_agent_is_sent_and_the_platforms_robots_token_o
 
 
 async def test_the_default_user_agent_names_both_tokens() -> None:
-    """ADR 0224: the new product token, and the former one a site may key on beside it."""
+    """ADR 0226: the new product token, and the former one a site may key on beside it."""
     seen: list[httpx.Request] = []
     await _crawl(_site(seen=seen), []).changes(None)
     assert {r.headers["user-agent"] for r in seen} == {

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from fastapi import status
+from tranibor_core.temporal_connection import organisation_scope
 
 from ...audit import record
 from ...deps import Db, Me
@@ -93,15 +94,16 @@ async def start_agent_trial(org: str, body: AgentTrialCreate, session: Db, princ
         created_by=principal.email,
         fields=body.input.fields,
     )
-    await get_temporal().start_trial(
-        trial_workflow_id(item.id),
-        {
-            "project_id": project_row.id,
-            "work_item_id": item.id,
-            "spec": body.spec.model_dump(mode="json"),
-            "budget_usd": budget,
-        },
-    )
+    with organisation_scope(project_row.org_id):
+        await get_temporal().start_trial(
+            trial_workflow_id(item.id),
+            {
+                "project_id": project_row.id,
+                "work_item_id": item.id,
+                "spec": body.spec.model_dump(mode="json"),
+                "budget_usd": budget,
+            },
+        )
     item.temporal_wf_id = trial_workflow_id(item.id)
     await record(
         session,

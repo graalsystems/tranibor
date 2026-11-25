@@ -115,18 +115,31 @@ async def first_pass_merge_rate(session: AsyncSession, project_id: str) -> float
 
 async def active_project_slugs(*, keeping_memory: bool = False) -> list[str]:
     """The active projects' slugs, across organisations; with `keeping_memory`, only those whose
-    policy keeps memory (S51-02). The orchestrator worker starts one loop per slug: this is its one
-    entry into the API for both loops (ADR 0099 counts each import the orchestrator makes of it)."""
+    policy keeps memory (S51-02)."""
+    return [slug for slug, _ in await active_projects(keeping_memory=keeping_memory)]
+
+
+async def active_projects(*, keeping_memory: bool = False) -> list[tuple[str, str]]:
+    """`(slug, organisation id)` of the active projects, across organisations; with `keeping_memory`, only
+    those whose policy keeps memory (S51-02). The orchestrator worker starts one loop per project, inside
+    its organisation's scope (ADR 0225): this is its one entry into the API for both loops (ADR 0099
+    counts each import the orchestrator makes of it)."""
     from ..db.session import session_scope
 
     async with session_scope(orgs="*") as session:
         rows = (
-            (await session.execute(select(Project.id, Project.slug).where(Project.status == "active")))
+            (
+                await session.execute(
+                    select(Project.id, Project.slug, Project.org_id).where(Project.status == "active")
+                )
+            )
             .tuples()
             .all()
         )
         if not keeping_memory:
-            return [slug for _, slug in rows]
+            return [(slug, org_id) for _, slug, org_id in rows]
         return [
-            slug for project_id, slug in rows if (await policy_engine(session, project_id)).memory_enabled()
+            (slug, org_id)
+            for project_id, slug, org_id in rows
+            if (await policy_engine(session, project_id)).memory_enabled()
         ]

@@ -28,7 +28,7 @@ from .start_rules import label_searches
 #: `<!-- tranibor:status -->`; a comment written under the former `choregos:` marker is found too.
 STATUS_COMMENT_MARKER = wire.marker("status")
 #: The fields block written into an issue's description: `<!-- tranibor:fields {...} -->`; a description
-#: written before ADR 0224 carries `<!-- choregos:fields`, read too.
+#: written before ADR 0226 carries `<!-- choregos:fields`, read too.
 METADATA_START = "<!-- tranibor:fields"
 METADATA_END = "-->"
 METADATA_RE = re.compile(r"<!-- (?:tranibor|choregos):fields(?P<json>.*?)" + re.escape(METADATA_END), re.S)

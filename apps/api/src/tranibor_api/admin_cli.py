@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`tranibor-admin` (`choregos-admin`, its former name, for the window of ADR 0224 R5): the gestures
+"""`tranibor-admin` (`choregos-admin`, its former name, for the window of ADR 0226 R5): the gestures
 that come before the first token.
 
 The first API token cannot come from the API: calling `POST /me/tokens` takes a session, and a

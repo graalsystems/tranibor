@@ -155,7 +155,7 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
     assert [skill["id"] for skill in card["skills"]] == ["billing-api/ship-a-change"], card
     announced = [e for e in card["capabilities"]["extensions"] if e["uri"].endswith("/skill-fields/v1")]
     fields = announced[0]
-    # The card names the extension under both URIs for the window of ADR 0224; the page the new one (R8).
+    # The card names the extension under both URIs for the window of ADR 0226; the page the new one (R8).
     assert [e["uri"] for e in announced if e["uri"] in _page()] == [wire.A2A_SKILL_FIELDS_EXTENSION]
     assert fields["params"]["skills"]["billing-api/ship-a-change"]["required"] == ["ticket"]
 
@@ -184,7 +184,7 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
     registered = await _post(client, _with_task(push, task), {**auth, **push_h})
     assert registered["result"]["signing"]["secret"], registered
     assert registered["result"]["signing"]["header"] == "X-Tranibor-Signature"
-    # A push carries both names for the window of ADR 0224; the page names the new one only (R8).
+    # A push carries both names for the window of ADR 0226; the page names the new one only (R8).
     assert "X-Tranibor-Signature" in _page() and "X-Choregos-Signature" not in _page()
 
     stopped = await _post(client, _with_task(cancel, task), {**auth, **cancel_h})

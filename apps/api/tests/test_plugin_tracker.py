@@ -454,7 +454,7 @@ def _parsed_headers(fake: FakePluginTrackerServer) -> list[dict[str, Any]]:
 async def test_a_sender_s_header_reaches_the_server_under_both_names(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
 ) -> None:
-    """ADR 0224: a server built before the rename reads `X-Choregos-Secret`, a newer one `X-Tranibor-Secret`;
+    """ADR 0226: a server built before the rename reads `X-Choregos-Secret`, a newer one `X-Tranibor-Secret`;
     a sender may send either, and the server is handed both."""
     fake = await _ready(client, kube)
     fake.add("INC0000001", "VPN drops")

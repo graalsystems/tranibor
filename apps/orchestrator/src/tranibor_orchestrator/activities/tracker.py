@@ -48,7 +48,7 @@ logger = get_logger("choregos.tracker")
 
 #: The delivery comment: one per work item, rewritten if needed, so a replayed close_out does not
 #: post a second one.
-DELIVERED_MARKER = wire.marker("delivered")  # the former `choregos:` one is found too (ADR 0224)
+DELIVERED_MARKER = wire.marker("delivered")  # the former `choregos:` one is found too (ADR 0226)
 #: The comment that closes a work item already fixed on the default branch (S22-47): one, upserted.
 ALREADY_FIXED_MARKER = wire.marker("already-fixed")
 

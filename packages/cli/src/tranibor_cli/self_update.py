@@ -98,7 +98,7 @@ class Manifest:
 
     def entry(self, system: str, arch: str) -> dict[str, Any]:
         """The platform's file, under its name (`tranibor-<platform>`) or, from an instance released before
-        ADR 0224 R5, its former name (`choregos-<platform>`); any other name is refused."""
+        ADR 0226 R5, its former name (`choregos-<platform>`); any other name is refused."""
         for candidate in self.files:
             if candidate.get("os") == system and candidate.get("arch") == arch:
                 names, given = binary_names(system, arch), candidate.get("name")

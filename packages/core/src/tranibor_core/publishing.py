@@ -32,8 +32,12 @@ IMAGE_COMPONENTS = ("api", "orchestrator", "tools", "web", "runner", "laya", "ou
 #: platform's, named by the prefix alone, and the outpost's, `<prefix>-outpost` (ADR 0147), each
 #: packaged from its directory.
 CHARTS = {"": "charts/tranibor", "-outpost": "charts/tranibor-outpost"}
+#: The product's former name (ADR 0226). The native CLI's files are released under it too for the
+#: window of R5 (through 0.31.x): images and charts are no longer published under it (ADR 0176 R3 (e)),
+#: but an installed `choregos` binary and its `self update` still look for its own name.
+FORMER_CLI_PREFIX = "choregos"
 #: The native CLI's platforms (ADR 0151), `(os, arch)` in the manifest's words, and the end of each file's
-#: name: the file is `<prefix>-<end>`, `tranibor-linux-x86_64` (ADR 0224 R5), and for the deprecation
+#: name: the file is `<prefix>-<end>`, `tranibor-linux-x86_64` (ADR 0226 R5), and for the deprecation
 #: window also under the former prefix, `choregos-linux-x86_64` (the same bytes).
 CLI_PLATFORMS: dict[tuple[str, str], str] = {
     ("linux", "x86_64"): "linux-x86_64",
@@ -51,11 +55,9 @@ class Publishing:
     #: The image and chart namespace: `<registry>/tranibor-api`, `oci://<registry>/charts/tranibor`.
     registry: str
     #: The name every image and chart starts with: `<registry>/<image_prefix>-api`, the charts
-    #: `<image_prefix>` and `<image_prefix>-outpost` (ADR 0176 R3).
+    #: `<image_prefix>` and `<image_prefix>-outpost` (ADR 0176 R3). The former prefix, `choregos`, was
+    #: published beside it until 0.29.4 and is no longer (step (e)).
     image_prefix: str
-    #: The former prefix, published beside `image_prefix` (one digest, two names, both signed) for the
-    #: deprecation window of ADR 0176 R3; it goes with the old names, in that round's step (e).
-    image_alias_prefix: str
     #: The core's repository: its releases, its issues, its files.
     source_repository: str
     #: The public user documentation, without a trailing slash (`TRANIBOR_DOCS_URL` by default).
@@ -86,24 +88,19 @@ class Publishing:
         """An image of the registry: `<registry>/<name>[:<tag>]`."""
         return f"{self.registry}/{name}" + (f":{tag}" if tag else "")
 
-    @property
-    def image_prefixes(self) -> tuple[str, str]:
-        """The prefixes a release publishes under: the current one first, then the alias."""
-        return self.image_prefix, self.image_alias_prefix
-
-    def image_names(self, component: str) -> tuple[str, ...]:
-        """Every name a release pushes one image under, `<registry>/<prefix>-<component>`, per prefix."""
+    def image_name(self, component: str) -> str:
+        """The one name a release pushes an image under: `<registry>/<image_prefix>-<component>`."""
         if component not in IMAGE_COMPONENTS:
             raise ValueError(
                 f"{component!r} is not an image the release builds: {', '.join(IMAGE_COMPONENTS)}"
             )
-        return tuple(self.image(f"{prefix}-{component}") for prefix in self.image_prefixes)
+        return self.image(f"{self.image_prefix}-{component}")
 
-    def chart_names(self, suffix: str = "") -> tuple[str, ...]:
-        """Every name a release pushes one chart under (`""` the platform's, `"-outpost"`), per prefix."""
+    def chart_name(self, suffix: str = "") -> str:
+        """The one name a release pushes a chart under (`""` the platform's, `"-outpost"`)."""
         if suffix not in CHARTS:
             raise ValueError(f"{suffix!r} names no chart of the release: {sorted(CHARTS)}")
-        return tuple(f"{prefix}{suffix}" for prefix in self.image_prefixes)
+        return f"{self.image_prefix}{suffix}"
 
     def cli_file(self, os_name: str, arch: str, *, former: bool = False) -> str:
         """The native CLI's file for a platform: `<image_prefix>-<platform>`, or under the former prefix."""
@@ -111,10 +108,10 @@ class Publishing:
             end = CLI_PLATFORMS[(os_name, arch)]
         except KeyError:
             raise ValueError(f"no native CLI is built for {os_name}/{arch}") from None
-        return f"{self.image_alias_prefix if former else self.image_prefix}-{end}"
+        return f"{FORMER_CLI_PREFIX if former else self.image_prefix}-{end}"
 
     def cli_file_names(self, os_name: str, arch: str) -> tuple[str, str]:
-        """Both names of a platform's file for the window of ADR 0224 R5: the current one, then the former."""
+        """Both names of a platform's file for the window of ADR 0226 R5: the current one, then the former."""
         return self.cli_file(os_name, arch), self.cli_file(os_name, arch, former=True)
 
     def cli_twin(self, name: str) -> str | None:
@@ -140,6 +137,11 @@ def parse(text: str) -> Publishing:
     """A publishing identity from the text of a `publishing.json`; refuses a missing or empty value."""
     data: dict[str, Any] = json.loads(text)
     names = [field.name for field in fields(Publishing)]
+    if "image_alias_prefix" in data:
+        raise ValueError(
+            "publishing.json: `image_alias_prefix` is gone: the former image and chart names are no "
+            "longer published (ADR 0176 R3, step (e)); remove it"
+        )
     unknown = sorted(set(data) - set(names) - {"$comment"})
     if unknown:
         raise ValueError(f"publishing.json: unknown key(s) {unknown}")

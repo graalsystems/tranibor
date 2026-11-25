@@ -184,7 +184,7 @@ def test_bytes_that_do_not_match_the_announced_digest_are_not_written(
 
 
 def test_the_digest_of_an_api_before_the_rename_is_checked_too(platform: Platform, tmp_path: Path) -> None:
-    """An API of a release before ADR 0224 announces the digest in `X-Choregos-Digest`."""
+    """An API of a release before ADR 0226 announces the digest in `X-Choregos-Digest`."""
     platform.content("spec.md", b"tampered", digest=_digest(b"original"), header="X-Choregos-Digest")
     target = tmp_path / "spec.md"
     result = _run("download", ITEM, "spec.md", str(target))

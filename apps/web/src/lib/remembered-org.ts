@@ -8,7 +8,7 @@
  * grants nothing, every API route still checks the session, and an unknown or malformed value
  * means the instance theme.
  *
- * Before ADR 0224 the cookie was `choregos_org`: the server still reads it when the new one is absent, and
+ * Before ADR 0226 the cookie was `choregos_org`: the server still reads it when the new one is absent, and
  * the next choice writes the new one and clears it.
  */
 export const ORG_COOKIE = "tranibor_org";

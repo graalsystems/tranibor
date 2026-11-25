@@ -1,6 +1,6 @@
-"""The platform's commands are named `tranibor-*`, and keep their former `choregos-*` names (ADR 0224 R5).
+"""The platform's commands are named `tranibor-*`, and keep their former `choregos-*` names (ADR 0226 R5).
 
-Each distribution declares the new command and, for the window of ADR 0224 §1, the former one, both on
+Each distribution declares the new command and, for the window of ADR 0226 §1, the former one, both on
 the same function; the images call the new one (`docker/*.Dockerfile`, checked in their own tests) and
 an operator's script or unit that still calls the former one keeps working until the window closes.
 """

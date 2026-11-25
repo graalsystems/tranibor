@@ -10,7 +10,7 @@ reads the pages as they are and compares them with the code:
 - relative links resolve inside `docs/site`, anchors included; links to the repository name files and
   headings that exist; site-absolute links name a slug of the contract;
 - the pages are safe for MDX (Docusaurus 3): no bare `<` or `{` outside code;
-- every `tranibor` command parses against the CLI's own Typer app (options, arguments); since ADR 0224
+- every `tranibor` command parses against the CLI's own Typer app (options, arguments); since ADR 0226
   R8 a page writes the command's name only, and a `choregos …` line is a command this test does not know;
 - every YAML block is claimed by a check: a workflow parses without error or warning, a policy
   validates, Helm values name keys of the chart, the plugin of the plugins page validates;
@@ -300,7 +300,7 @@ def test_every_command_exists(page: str, command: str) -> None:
     for words in parts:
         if not words:
             continue
-        if words[0] == "tranibor":  # the pages write the command's name only (ADR 0224 R8)
+        if words[0] == "tranibor":  # the pages write the command's name only (ADR 0226 R8)
             name = " ".join(["tranibor", *(w for w in words[1:3] if not w.startswith("-"))])
             problem = _cli_problem(words)
             if problem and name in UPCOMING:
@@ -335,7 +335,7 @@ def _chart_values() -> dict[str, Any]:
     values = yaml.safe_load((ROOT / "charts/tranibor/values.yaml").read_text(encoding="utf-8"))
     for chart in (ROOT / "charts/tranibor/charts").iterdir():
         own = yaml.safe_load((chart / "values.yaml").read_text(encoding="utf-8")) or {}
-        # A deployment sets a component under `tranibor-<component>` (ADR 0224 R6); the pages write that
+        # A deployment sets a component under `tranibor-<component>` (ADR 0226 R6); the pages write that
         # key only (R8), so the former `choregos-<component>` is not a key of the chart here.
         merged = values.setdefault(f"tranibor-{chart.name}", {}) or {}
         values[f"tranibor-{chart.name}"] = {**own, **merged}

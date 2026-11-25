@@ -56,6 +56,23 @@ from ..tenant_host import org_base_url_of_id
 router = APIRouter(tags=["webhooks"], prefix="/webhooks")
 logger = get_logger("choregos.webhooks")
 
+
+def json_body(body: bytes) -> dict[str, Any]:
+    """A delivery's body as a JSON object; anything else is a 400, never a 500.
+
+    An empty body is the empty object. A sender that is authenticated (a shared secret, an HMAC) may still
+    send bytes that are not JSON, or JSON that is not an object (`[]`, `"x"`, `0`): the handlers read the
+    payload with `.get`, so either would end as an unhandled error and a 500 the sender retries for ever.
+    """
+    try:
+        payload = json.loads(body or b"{}")
+    except ValueError as exc:  # JSONDecodeError and UnicodeDecodeError are both ValueErrors
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Bad request", "the body is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Bad request", "the body must be a JSON object")
+    return payload
+
+
 AGENT_READY_LABEL = "agent-ready"
 #: The issue events that carry the CURRENT list of its labels: `labeled` (added or removed,
 #: `removed`), and `updated`: GitLab emits nothing else when a label is removed.
@@ -187,7 +204,7 @@ def _by_labels(matches: list[Any], issue: dict[str, Any]) -> list[Any]:
 #: Verbs a tracker comment can carry. None is honoured (ADR 0102): a tracker login is not a principal.
 DECISION_VERBS = frozenset({"approve", "reject", "answer", "scope"})
 CONTROL_VERBS = frozenset({"pause", "resume", "stop"})
-COMMAND_MARKER = wire.marker("command")  # formerly `<!-- choregos:command -->` (ADR 0224)
+COMMAND_MARKER = wire.marker("command")  # formerly `<!-- choregos:command -->` (ADR 0226)
 
 
 LINK_HINT = "you can link your GitHub account on My account (or an organisation administrator declares it)"
@@ -522,12 +539,12 @@ async def github_webhook(
         # The App's own events (ADR 0073): they keep `github_installations` in step and are no work item.
         from ..services.github_app import apply_installation_event
 
-        await apply_installation_event(session, x_github_event, json.loads(body or b"{}"))
+        await apply_installation_event(session, x_github_event, json_body(body))
         return WebhookAck(accepted=True)
 
     from tranibor_adapters.tracker.github_events import parse_github_event
 
-    events = parse_github_event(x_github_event, x_github_delivery, json.loads(body or b"{}"))
+    events = parse_github_event(x_github_event, x_github_delivery, json_body(body))
     delivered = await dispatch(session, events)
     response.status_code = status.HTTP_202_ACCEPTED
     return WebhookAck(accepted=True, events=delivered)
@@ -550,7 +567,7 @@ async def alertmanager_webhook(
     settings = get_settings()
     if not verify_shared_secret(settings.generic_webhook_secret, read_header(request.headers, "Secret")):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     alerts = payload.get("alerts", [])
     count = 0
     for alert in alerts:
@@ -590,7 +607,7 @@ async def _alert_reaches_memory(session: Any, project: Project, event: InboundEv
         logger.info("alert not kept: memory disabled", project=project.slug, delivery=event.delivery_id)
         return False
     try:
-        await signal_memory_loop(project.slug, "alert", event.model_dump(mode="json"))
+        await signal_memory_loop(project.slug, "alert", event.model_dump(mode="json"), org_id=project.org_id)
     except MemoryLoopNotRunningError as exc:
         logger.warning("alert not kept: memory loop not running", project=project.slug, reason=exc.cause)
         return False
@@ -620,7 +637,7 @@ async def jira_webhook(
 
     from tranibor_adapters.tracker.jira_events import parse_jira_event
 
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     events = parse_jira_event(delivery, payload)
     project, decided = await _jira_project_for(session, payload)
     if decided and project is None:
@@ -666,7 +683,7 @@ async def azure_boards_webhook(
 ) -> WebhookAck:
     """A service hook does not sign its deliveries: the shared secret is the only barrier, sent as the
     password of the subscription's basic authentication or in an `X-Tranibor-Secret` header (formerly
-    `X-Choregos-Secret`, ADR 0224)."""
+    `X-Choregos-Secret`, ADR 0226)."""
     from tranibor_adapters.azure_devops import shared_secret_of
     from tranibor_adapters.tracker.azure_boards_events import parse_azure_boards_event
 
@@ -674,7 +691,7 @@ async def azure_boards_webhook(
     provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     delivery = _azure_delivery_id(payload, body)
     if await already_seen(session, "azure-boards", delivery, "azure-boards", body):
         return WebhookAck(accepted=True, duplicate=True)
@@ -807,7 +824,7 @@ async def azure_devops_webhook(
     provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     delivery = _azure_delivery_id(payload, body)
     if await already_seen(session, "azure-devops", delivery, "azure-devops", body):
         return WebhookAck(accepted=True, duplicate=True)
@@ -892,7 +909,7 @@ async def gitlab_webhook(
 
     from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
 
-    events = parse_gitlab_event(x_gitlab_event, delivery, json.loads(body or b"{}"))
+    events = parse_gitlab_event(x_gitlab_event, delivery, json_body(body))
     delivered = await dispatch(session, events)
     return WebhookAck(accepted=True, events=delivered)
 
@@ -999,7 +1016,7 @@ async def plugin_webhook(
     if not candidates:
         raise not_found("Plugin tracker server", f"{org}/{plugin}/{server}")
     body = await request.body()
-    # A server built before ADR 0224 reads `X-Choregos-*`, a newer one `X-Tranibor-*`: both are relayed.
+    # A server built before ADR 0226 reads `X-Choregos-*`, a newer one `X-Tranibor-*`: both are relayed.
     headers = with_twin_headers({k: v for k, v in request.headers.items() if k.lower() not in _NOT_FORWARDED})
     sender = request.headers.get("authorization")
     for connector in candidates:

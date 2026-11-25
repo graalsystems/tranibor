@@ -66,7 +66,7 @@ describe("the instance theme, read on the server (S39-03b)", () => {
     ]);
   });
 
-  it("reads the organisation remembered under the cookie's former name (ADR 0224)", async () => {
+  it("reads the organisation remembered under the cookie's former name (ADR 0226)", async () => {
     vi.stubEnv("TRANIBOR_API_URL", "http://api.test");
     const fetcher = vi.fn(async () => new Response(JSON.stringify(SAMPLE_THEME)));
     vi.stubGlobal("fetch", fetcher);
@@ -186,7 +186,7 @@ describe("a host an organisation owns lands on that organisation, theme first (A
     },
   );
 
-  it("reads the former header of an API before ADR 0224 (X-Choregos-Host-Org)", async () => {
+  it("reads the former header of an API before ADR 0226 (X-Choregos-Host-Org)", async () => {
     vi.stubEnv("TRANIBOR_API_URL", "http://api.test");
     vi.stubGlobal(
       "fetch",

@@ -27,6 +27,7 @@ from tranibor_api.db.models import WorkItem
 from tranibor_api.errors import ApiError
 from tranibor_api.logging import get_logger
 from tranibor_contracts import SpawnSpec
+from tranibor_core.temporal_connection import ORG_MEMO, organisation_scope
 
 from .base import db, load_work_item, project_bundle
 
@@ -192,12 +193,14 @@ async def spawn_children(payload: dict[str, Any]) -> dict[str, Any]:
     # Started after the commit: a child's interpreter reads its work item at once. Same identifier
     # every time, so a retried activity finds the interpreter already running.
     for start in to_start:
-        with contextlib.suppress(WorkflowAlreadyStartedError):
+        # The child's payloads under its organisation's key, and its memo for a later signal (ADR 0225).
+        with contextlib.suppress(WorkflowAlreadyStartedError), organisation_scope(bundle.project.org_id):
             await activity.client().start_workflow(
                 "WorkflowInterpreter",
                 start["input"],
                 id=start["id"],
                 task_queue=activity.info().task_queue,
+                memo={ORG_MEMO: bundle.project.org_id},
             )
     return {"children": keys}
 

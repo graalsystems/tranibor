@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_core import utcnow
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..config import get_settings
 from ..db.models import Agent, AgentEvaluation, AgentVersion, Project, Run
@@ -113,15 +114,16 @@ async def start(
             fields=case.input.fields,
         )
         if can_run:
-            await get_temporal().start_trial(
-                trial_workflow_id(item.id),
-                {
-                    "project_id": project.id,
-                    "work_item_id": item.id,
-                    "spec": row.spec,
-                    "budget_usd": budget,
-                },
-            )
+            with organisation_scope(project.org_id):
+                await get_temporal().start_trial(
+                    trial_workflow_id(item.id),
+                    {
+                        "project_id": project.id,
+                        "work_item_id": item.id,
+                        "spec": row.spec,
+                        "budget_usd": budget,
+                    },
+                )
             item.temporal_wf_id = trial_workflow_id(item.id)
         started.append(
             {

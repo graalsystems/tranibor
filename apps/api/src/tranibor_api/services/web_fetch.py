@@ -13,7 +13,7 @@ makes the request:
 - `robots.txt` of each origin, read for the `Choregos` token and cached for an hour; `Crawl-delay` and
   the effective per-host rate (counted organisation-wide from the cost ledger) become a 429 with a
   `retry_after_s`; the run's own rate too;
-- `User-Agent: Tranibor/<version> Choregos/<version> (+<contact>)` (the former token beside, ADR 0224);
+- `User-Agent: Tranibor/<version> Choregos/<version> (+<contact>)` (the former token beside, ADR 0226);
 - at most three redirects, each target going through every check above;
 - the address the agent writes is checked like a search query (ADR 0083 §5): path and query go through
   `tranibor_core.redaction`, as written and percent-decoded, and an address that redaction would change
@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 TOOL_NAME = "web_fetch"
 #: The user-agent tokens robots.txt addresses: the new one, and the former one a site may have written
-#: its rules for (ADR 0224). A page is read only when every token may read it; the longest delay wins.
+#: its rules for (ADR 0226). A page is read only when every token may read it; the longest delay wins.
 ROBOTS_TOKENS = ("Tranibor", "Choregos")
 ROBOTS_TOKEN = ROBOTS_TOKENS[0]
 MAX_BYTES = 2 * 1024 * 1024

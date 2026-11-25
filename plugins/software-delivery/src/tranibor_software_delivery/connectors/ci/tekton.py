@@ -40,7 +40,7 @@ class TektonCi:
         self.pipeline = pipeline
 
     async def status_for(self, repo: str, sha: str) -> CiStatus:
-        # A pipeline labels its runs `tranibor/sha=<commit>`, or, written before ADR 0224, `choregos/sha`:
+        # A pipeline labels its runs `tranibor/sha=<commit>`, or, written before ADR 0226, `choregos/sha`:
         # a selector names one key, so both are asked.
         runs: list[dict[str, Any]] = []
         for key in label_keys("sha", domain=False):

@@ -83,7 +83,7 @@ def test_update_replaces_the_binary_with_the_verified_one(binary: Path) -> None:
 
 
 def test_an_instance_released_before_the_rename_still_updates_the_cli(binary: Path) -> None:
-    """ADR 0224 R5: an instance whose manifest names `choregos-<platform>` is the same binary."""
+    """ADR 0226 R5: an instance whose manifest names `choregos-<platform>` is the same binary."""
     with respx.mock() as mock:
         download = _serve(mock, _manifest(prefix="choregos"))
         result = _update(binary)

@@ -52,7 +52,7 @@ FENCE = re.compile(r"^[ \t]*```(?P<lang>[a-z]*)[^\n]*\n(?P<body>.*?)^[ \t]*```[ 
 HEADING = re.compile(r"^(#{1,6}) (.+?)\s*$", re.M)
 INLINE = re.compile(r"`([^`\n]+)`")
 LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
-#: The daemon's command since ADR 0224 R5; the pages name it so (R8).
+#: The daemon's command since ADR 0226 R5; the pages name it so (R8).
 DAEMON = "tranibor-outpost"
 
 #: What the operator's guide carries, each under a heading (the plan's acceptance criteria). The
@@ -480,7 +480,7 @@ def test_the_platform_s_commands_are_in_the_cli_reference() -> None:
         head.group(1): reference[head.end() : heads[i + 1].start() if i + 1 < len(heads) else None]
         for i, head in enumerate(heads)
     }
-    # The page writes the command's name (ADR 0224 R8): a span under the former name is not counted.
+    # The page writes the command's name (ADR 0226 R8): a span under the former name is not counted.
     spans = INLINE.findall(_prose(_text(PLATFORM)))
     shown = [span for span in spans if span.startswith("tranibor outposts")]
     assert len(shown) >= 2, "the page names no command of `tranibor outposts`"

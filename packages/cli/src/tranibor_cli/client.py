@@ -14,9 +14,9 @@ import httpx
 
 #: The largest page the API serves (ADR 0206): a list read to its end asks for this many rows at a time.
 PAGE_LIMIT = 200
-#: Where the profile lives unless `TRANIBOR_CONFIG` names another file (ADR 0224 R5).
+#: Where the profile lives unless `TRANIBOR_CONFIG` names another file (ADR 0226 R5).
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "tranibor" / "config.json"
-#: The profile's former place: read when the default profile is absent, for the window of ADR 0224 R5,
+#: The profile's former place: read when the default profile is absent, for the window of ADR 0226 R5,
 #: and never written again (`tranibor login` writes `DEFAULT_CONFIG_PATH`).
 FORMER_CONFIG_PATH = Path.home() / ".config" / "choregos" / "config.json"
 CONFIG_PATH = Path(os.environ.get("TRANIBOR_CONFIG", DEFAULT_CONFIG_PATH))
@@ -39,7 +39,7 @@ class NoOrganisationError(RuntimeError):
 @dataclass
 class Profile:
     """The connection profile, stored in `~/.config/tranibor/config.json` (`~/.config/choregos/config.json`
-    is read when it is absent, for the window of ADR 0224 R5)."""
+    is read when it is absent, for the window of ADR 0226 R5)."""
 
     api_url: str = "http://localhost:8000"
     token: str = ""

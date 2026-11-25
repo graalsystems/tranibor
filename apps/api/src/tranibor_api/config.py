@@ -185,7 +185,7 @@ class Settings(BaseSettings):
     #: A verification-only key during a rotation (`TRANIBOR_SESSION_SECRET_PREVIOUS`): a value signed
     #: with it still reads, and nothing is signed with it.
     session_secret_previous: str = ""
-    #: `tranibor_session`; a browser holding the former `choregos_session` is moved to it (ADR 0224,
+    #: `tranibor_session`; a browser holding the former `choregos_session` is moved to it (ADR 0226,
     #: `former_cookies`). A name set here is the operator's and is never renamed.
     session_cookie: str = "tranibor_session"
     session_max_age_s: int = 8 * 3600

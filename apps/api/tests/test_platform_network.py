@@ -205,7 +205,7 @@ async def test_mcp_calls_carry_the_organisations_contact(
         "status_code"
     ] == 200
     agents = {received["user-agent"] for _, received, _ in supplier.received[-3:]}
-    # ADR 0224: the new product token, and the former one a site may key on beside it.
+    # ADR 0226: the new product token, and the former one a site may key on beside it.
     assert agents == {f"Tranibor/{__version__} Choregos/{__version__} (+security@ops.example)"}
 
 

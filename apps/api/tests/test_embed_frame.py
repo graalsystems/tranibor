@@ -65,7 +65,7 @@ async def test_a_frame_with_the_token_alone_converses_and_nothing_more(
     bare = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     assert (await bare.get(ME)).status_code == 401
     assert (await frame.get(ME)).status_code == 200
-    # ADR 0224: `embed_frame.HEADER` is `X-Tranibor-Embed`; a frame of the previous release sends the former.
+    # ADR 0226: `embed_frame.HEADER` is `X-Tranibor-Embed`; a frame of the previous release sends the former.
     assert embed_frame.HEADER == "X-Tranibor-Embed"
     former = AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test", headers={"X-Choregos-Embed": token}

@@ -167,7 +167,9 @@ def test_contract_requires_the_english_access_names_and_drops_the_former() -> No
         assert key not in line["properties"], key
 
 
-async def test_validation_emits_english_codes_without_a_former_spelling(client: AsyncClient) -> None:
+async def test_validation_emits_english_codes_without_a_former_spelling(
+    client: AsyncClient, admin: str
+) -> None:
     response = await client.post(
         "/api/v1/workflows/validate", json={"yaml": WORKFLOW_WITH_THE_CODES_OF_S34_03}
     )

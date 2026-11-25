@@ -19,11 +19,11 @@ import urllib.request
 import pygments.lexers
 import pytest
 from tranibor_cli import a2a
-from tranibor_core.publishing import CLI_PLATFORMS, PUBLISHING
+from tranibor_core.publishing import CLI_PLATFORMS, FORMER_CLI_PREFIX, PUBLISHING
 
 from tools.cli_binary import build, release, smoke
 
-#: The file names since ADR 0224 R5: the publishing identity's prefix, then the platform.
+#: The file names since ADR 0226 R5: the publishing identity's prefix, then the platform.
 CONTRACT = {
     "tranibor-linux-x86_64": ("linux", "x86_64"),
     "tranibor-linux-arm64": ("linux", "arm64"),
@@ -45,7 +45,7 @@ def test_the_names_follow_the_publishing_identity() -> None:
     """The scripts read `publishing.json` as a file (no workspace yet); the code reads it as a module."""
     assert build.PLATFORMS == release.PLATFORMS == CLI_PLATFORMS
     assert (build.PREFIX, build.FORMER_PREFIX) == (release.PREFIX, release.FORMER_PREFIX)
-    assert PUBLISHING.image_prefixes == (build.PREFIX, build.FORMER_PREFIX)
+    assert (PUBLISHING.image_prefix, FORMER_CLI_PREFIX) == (build.PREFIX, build.FORMER_PREFIX)
     for name, (os_name, arch) in CONTRACT.items():
         assert PUBLISHING.cli_file_names(os_name, arch) == (name, FORMER[name])
         assert PUBLISHING.cli_twin(name) == FORMER[name] and PUBLISHING.cli_twin(FORMER[name]) == name
@@ -148,7 +148,7 @@ def test_the_manifest_and_the_sums(tmp_path: pathlib.Path) -> None:
         assert entry["size"] == len(entry["name"])
         assert entry["sha256"] == release.sha256(tmp_path / entry["name"])
     sums = (tmp_path / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
-    # Each digest under the file's name, then under its former name (ADR 0224 R5), which the manifest
+    # Each digest under the file's name, then under its former name (ADR 0226 R5), which the manifest
     # never lists: a CLI picks its file by platform.
     assert sums == [f"{e['sha256']}  {e['name']}" for e in manifest["files"]] + [
         f"{e['sha256']}  {FORMER[e['name']]}" for e in manifest["files"]

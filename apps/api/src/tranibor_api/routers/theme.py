@@ -60,7 +60,7 @@ async def get_theme(
         "ETag": etag,
         "Cache-Control": "no-cache",
         "Vary": "Host, X-Forwarded-Host",
-        # Both names for the window of ADR 0224: a console of the previous release reads the former.
+        # Both names for the window of ADR 0226: a console of the previous release reads the former.
         **both_headers("Theme", source),
     }
     if host_org:

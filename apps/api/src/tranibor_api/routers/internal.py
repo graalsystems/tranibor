@@ -1025,7 +1025,7 @@ def _run_tool(
     access the platform knows, and the output schema the operation declares, when it declares one."""
     own = entry.get("annotations")
     annotations = {**(own if isinstance(own, dict) else {}), "readOnlyHint": access == "read"}
-    # Both keys for the window of ADR 0224: a runner of the previous release reads `x-choregos-access`.
+    # Both keys for the window of ADR 0226: a runner of the previous release reads `x-choregos-access`.
     listed = {**entry, "annotations": annotations, **dict.fromkeys(ACCESS_KEYS, access)}
     if output_schema:
         listed["outputSchema"] = output_schema
@@ -1047,7 +1047,7 @@ def json_sha256(value: Any) -> str:
 async def get_tools(id: str, session: Db, claims: OpenRunAuth) -> dict[str, Any]:
     """The tools THIS run can call, in MCP format (`name`, `description`, `inputSchema`), each with
     `annotations.readOnlyHint`, its access (`x-tranibor-access`, and the former `x-choregos-access` for the
-    window of ADR 0224: `read`, `write`, `approval`) and the `outputSchema` its operation declares (ADR 0122).
+    window of ADR 0226: `read`, `write`, `approval`) and the `outputSchema` its operation declares (ADR 0122).
     A catalogue tool and the web tools read: a catalogue tool that may write is not listed, and its call is
     refused."""
     run, _item, project = await _run_and_item(session, id)
@@ -1089,7 +1089,7 @@ async def get_tools(id: str, session: Db, claims: OpenRunAuth) -> dict[str, Any]
 #: Who made a tool call (ADR 0122 §4): the agent's MCP client, a script through the runner's tool
 #: bridge, a job step. Attribution only: no authorisation reads it.
 TOOL_ORIGIN_HEADER = header("Tool-Origin")
-#: The same header under its former name, still read for the window of ADR 0224.
+#: The same header under its former name, still read for the window of ADR 0226.
 FORMER_TOOL_ORIGIN_HEADER = former_header("Tool-Origin")
 TOOL_ORIGINS = ("model", "script", "job")
 #: The origin of a job step's calls, which the API reads from the run, never from the call (S57-06).
@@ -1170,7 +1170,7 @@ def _traced_tool_call(
 
 @router.post("/runs/{id}/tools/{name}", operation_id="callRunTool")
 @_traced_tool_call
-async def call_tool(  # noqa: PLR0913 - the origin headers under both names (ADR 0224)
+async def call_tool(  # noqa: PLR0913 - the origin headers under both names (ADR 0226)
     id: str,
     name: str,
     body: dict[str, Any],

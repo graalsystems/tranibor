@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The names the platform puts on the wire and in stored state, and their former twins (ADR 0224, R7).
+"""The names the platform puts on the wire and in stored state, and their former twins (ADR 0226, R7).
 
-ADR 0224 §4 gives every wire name a Tranibor twin. For a window of two minor versions the platform
+ADR 0226 §4 gives every wire name a Tranibor twin. For a window of two minor versions the platform
 **reads both** (accepts both on input, finds both in stored state) and **writes the new one**; it emits
 both only where a reader of the former one exists outside the repository. This module is the one place
 that spells both forms of each family, so no other module writes the former name by hand:
@@ -17,7 +17,7 @@ that spells both forms of each family, so no other module writes the former name
 * tracker markers: `<!-- tranibor:<kind> -->` (and `[tranibor:<kind>]`), the former found too;
 * the MCP server's `name`, the A2A extension URI, the problem type URIs, the web fetch's tokens.
 
-The former forms are removed in the minor that closes the window, in their own PR (ADR 0224 §1).
+The former forms are removed in the minor that closes the window, in their own PR (ADR 0226 §1).
 """
 
 from __future__ import annotations

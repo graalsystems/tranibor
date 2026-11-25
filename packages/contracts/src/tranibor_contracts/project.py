@@ -173,7 +173,7 @@ class TriggerConfig(Strict):
     `when` (S56-05) maps a pointer to the text, or one of the texts, it must hold; every pointer must
     match. `auth: signature` (S56-04) takes `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>`
     (hex or base64) keyed by the signing secret shown with the token, and no bearer token; the former
-    `X-Choregos-Signature` is read too until 0.32.0 (ADR 0224).
+    `X-Choregos-Signature` is read too until 0.32.0 (ADR 0226).
     """
 
     name: Slug

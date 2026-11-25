@@ -4,7 +4,7 @@
 # and the default unchanged for the others.
 suite: mode locataire
 templates:
-  # First: it reads `tranibor-<component>` and `choregos-<component>` (ADR 0224 R6). A suite renders
+  # First: it reads `tranibor-<component>` and `choregos-<component>` (ADR 0226 R6). A suite renders
   # only the templates it lists, and without this one a component setting reaches nothing.
   - templates/values/keys/merged/first.yaml
   - charts/api/templates/service.yaml
@@ -45,7 +45,7 @@ tests:
       global.runner.executor: tekton
       global.rbac.clusterScoped: false
     asserts:
-      # The Service, the former name's Service (ADR 0224 R6) and the ServiceAccount.
+      # The Service, the former name's Service (ADR 0226 R6) and the ServiceAccount.
       - hasDocuments:
           count: 3
       - containsDocument:

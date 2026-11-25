@@ -11,7 +11,7 @@ There was no CLI reference, in any language (state of play of 2026-09-24): `usag
 showed five of its commands, `dev.md` six others, and nothing mentioned the profile's file. This
 file is produced by Typer from the real commands, with their options and their help — and a test
 compares it with the repository. The program is rendered as `tranibor`, the command's name since
-ADR 0224 R5 (the native files and the install scripts carry it); `PROGRAM` holds it.
+ADR 0226 R5 (the native files and the install scripts carry it); `PROGRAM` holds it.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from typing import Any
 from tranibor_core.publishing import PUBLISHING, SIGNING_ISSUER
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-#: The command the reference names (ADR 0224 R5); `choregos`, the former one, is a link to it.
+#: The command the reference names (ADR 0226 R5); `choregos`, the former one, is a link to it.
 PROGRAM = "tranibor"
 TARGET = ROOT / "docs" / "cli.md"
 SITE_TARGET = ROOT / "docs" / "site" / "cli" / "reference.md"
@@ -40,7 +40,7 @@ Generated from the CLI itself by `tools/gen_cli_reference.py` — do not edit by
 
 ## Installing the CLI
 
-The command is `tranibor` (ADR 0224 R5). For a window of two minor versions the former names still
+The command is `tranibor` (ADR 0226 R5). For a window of two minor versions the former names still
 work: the release also attaches each file under its former name (`choregos-linux-x86_64`, the same
 bytes), an instance serves both, the install scripts put a `choregos` link to `tranibor` on the
 PATH, `tranibor self update` accepts an instance whose files carry the former names, and
@@ -88,7 +88,7 @@ remains the way to work on the CLI itself.
 
 The profile lives in `~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` overrides the
 path): `api_url`, `token`, `org`. `tranibor login` writes it; `TRANIBOR_API_URL`,
-`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0224 R5,
+`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0226 R5,
 the former file, `~/.config/choregos/config.json`, is read when the new one is absent (and
 `TRANIBOR_CONFIG` names no other file); it is never written again.
 

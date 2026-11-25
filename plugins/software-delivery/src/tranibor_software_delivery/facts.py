@@ -129,7 +129,10 @@ async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
         if all(files is not None for files in listed):
             default_branch_files = sorted({path for files in listed for path in files or []})
 
-    max_files, max_lines = bundle.engine.max_diff()
+    # The policy's diff bounds are the plugin's section (`delivery.scope`, ADR 0181): the core's policy
+    # engine does not read them.
+    bounds = bundle.engine.policy.delivery.scope
+    max_files, max_lines = bounds.max_diff_files, bounds.max_diff_lines
     return DeliveryFacts(
         # `needs_diff` says a guarantee depends on it; `diff` says whether we got it.
         diff_available=(diff is not None) if needs_diff else True,

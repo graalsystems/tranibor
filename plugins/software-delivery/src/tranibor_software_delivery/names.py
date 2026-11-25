@@ -60,6 +60,17 @@ class DeliveryKind(StrEnum):
     CD = "cd"
 
 
+class DeliveryRole(StrEnum):
+    """The stage roles of software delivery, which the core's `StageRole` held until ADR 0181 moved them here
+    (S83-12): each has its playbook in `roles/`, which the extension declares (`roles.declare_roles`). The
+    strings never change: stored workflows, the runs' `stage_role` and recorded histories carry them."""
+
+    FIX_CI = "fix_ci"
+    ADDRESS_REVIEW = "address_review"
+    RELEASE_NOTES = "release_notes"
+    VERIFY_PROD = "verify_prod"
+
+
 class ReleaseStatus(StrEnum):
     """A release's status, as the train's `status_query` answers it and the `releases` rows store it (the
     contracts' `ReleaseStatus` until the window D-train of ADR 0181 closed, under the same values)."""

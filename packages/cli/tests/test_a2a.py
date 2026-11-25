@@ -21,7 +21,7 @@ API = "http://api.test"
 DOOR = f"{API}/a2a/orgs/acme"
 CARD = f"{DOOR}/.well-known/agent-card.json"
 CONSOLE = "https://tranibor.example.com/p/billing-api/items/t-1"
-#: The card's skill-fields extension (ADR 0224 R7): the door announces it under its URI and, for the
+#: The card's skill-fields extension (ADR 0226 R7): the door announces it under its URI and, for the
 #: window, under the former one too; a door of an earlier release announces only the former one.
 FIELDS_EXTENSION = "https://tranibor.dev/a2a/extensions/skill-fields/v1"
 FORMER_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"

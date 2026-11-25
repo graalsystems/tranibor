@@ -49,7 +49,7 @@ from ..secret_store import SecretStoreUnavailable, resolved_configuration
 from ..security import read_session, sign_session
 from .egress import egress_scope
 
-HANDSHAKE_COOKIE: Final = "tranibor_forge_link"  # formerly `choregos_forge_link` (ADR 0224)
+HANDSHAKE_COOKIE: Final = "tranibor_forge_link"  # formerly `choregos_forge_link` (ADR 0226)
 HANDSHAKE_S: Final = 600
 CALLBACK_PATH: Final = "/api/v1/auth/linked-accounts/callback"
 #: Where the handshake cookie is sent back: the callback only.

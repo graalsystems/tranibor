@@ -25,7 +25,7 @@ SERVER_INFO = {"name": "choregos-tools", "version": "1.0.0"}
 
 
 #: The prefixes of the platform's own keys on an entry of the run's tool list (`x-tranibor-access`, and
-#: the former `x-choregos-access`, ADR 0224).
+#: the former `x-choregos-access`, ADR 0226).
 PLATFORM_KEYS = PLATFORM_KEY_PREFIXES
 
 

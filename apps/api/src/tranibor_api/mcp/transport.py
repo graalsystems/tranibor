@@ -229,7 +229,7 @@ async def _answer(ctx: Context, message: dict[str, Any], request: Request) -> di
                     "resources": {"listChanged": False},
                     **({"prompts": {"listChanged": False}} if ctx.assistant is not None else {}),
                 },
-                # `tranibor` (ADR 0224); a client's configuration keys servers by its own name, not by this.
+                # `tranibor` (ADR 0226); a client's configuration keys servers by its own name, not by this.
                 "serverInfo": {"name": wire.MCP_SERVER_NAME, "title": "Tranibor", "version": __version__},
                 "instructions": INSTRUCTIONS,
             },

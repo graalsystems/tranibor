@@ -22,6 +22,7 @@ from tranibor_contracts import EventType
 from tranibor_core import utcnow
 from tranibor_core.run_closure import OPEN_RUN_STATUSES, run_is_closed
 from tranibor_core.run_stop import stopped_by_a_person, stopped_result
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import Organization, Project, Run, WorkItem
@@ -136,20 +137,23 @@ async def _write_the_stop(
         status="cancelled",
         by=principal.email,
     )
-    _cancel_on_the_executor_once_committed(session, project.id, run.id)
+    _cancel_on_the_executor_once_committed(session, project.id, run.id, project.org_id)
     return run
 
 
-def _cancel_on_the_executor_once_committed(session: AsyncSession, project_id: str, run_id: str) -> None:
+def _cancel_on_the_executor_once_committed(
+    session: AsyncSession, project_id: str, run_id: str, org_id: str | None = None
+) -> None:
     """`RunCancellation` leaves for Temporal once the result is COMMITTED (ADR 0085): its `cancel_run`
     then finds the run stopped. Lost (Temporal down), the interpreter still ends the stage at its
     next poll and its `collect_spend` closes the key; the executor stops the run at its deadline."""
     from ..temporal import get_temporal, run_cancellation_id
 
     async def start() -> None:
-        await get_temporal().start_run_cancellation(
-            run_cancellation_id(run_id), {"project_id": project_id, "run_id": run_id}
-        )
+        with organisation_scope(org_id):
+            await get_temporal().start_run_cancellation(
+                run_cancellation_id(run_id), {"project_id": project_id, "run_id": run_id}
+            )
 
     after_commit(session, start)
 

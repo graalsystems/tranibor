@@ -233,7 +233,7 @@ def test_only_the_orchestrator_executor_may_reach_the_assignment_port() -> None:
     assert policy["policyTypes"] == ["Ingress"]
     (rule,) = policy["ingress"]
     assert rule["ports"] == [{"protocol": "TCP", "port": 9876}]
-    # One peer per name of the queue's label (ADR 0224 R6): a worker that predates the upgrade carries
+    # One peer per name of the queue's label (ADR 0226 R6): a worker that predates the upgrade carries
     # the former one only, and each peer alone lets the executor in.
     peers = rule["from"]
     assert [sorted(peer["podSelector"]["matchLabels"]) for peer in peers] == [

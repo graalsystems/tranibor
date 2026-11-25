@@ -1,4 +1,4 @@
-"""The chart takes the name tranibor (ADR 0224, R6): its keys, its objects, what keeps its name.
+"""The chart takes the name tranibor (ADR 0226, R6): its keys, its objects, what keeps its name.
 
 * A component is set under `tranibor-<component>`; its former key `choregos-<component>` is read too for
   the window, through one helper (`templates/_values.tpl`), and renders the same objects; a setting
@@ -47,7 +47,7 @@ KEPT = {
     ("Deployment", "choregos-egress"): "gitops.py's per-project proxy has the same name (R7)",
     ("Service", "choregos-egress"): "one default `runner.egressProxy` addresses both proxies",
 }
-#: A Secret's default name is stored state (ADR 0224 §6): the Secrets the chart draws, and the
+#: A Secret's default name is stored state (ADR 0226 §6): the Secrets the chart draws, and the
 #: ExternalSecret whose target is one, keep theirs (`test_secret_names_are_stored_state.py`).
 SECRET_KINDS = {"Secret", "ExternalSecret"}
 
@@ -152,7 +152,7 @@ def test_a_setting_under_both_names_refuses_to_render(current: str, former: str,
         return
     assert rendered.returncode != 0, "the chart chose one of two values"
     named = f"{current.split('=', 1)[0]} and {former.split('=', 1)[0]} are both set"
-    assert named in rendered.stderr and "ADR 0224" in rendered.stderr
+    assert named in rendered.stderr and "ADR 0226" in rendered.stderr
 
 
 @helm

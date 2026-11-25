@@ -163,7 +163,7 @@ async def test_ci_aggregates_the_pipelineruns_of_a_sha() -> None:
     wire = Wire({("GET", f"{TEKTON_API}/namespaces/ci/pipelineruns"): (200, runs)})
     ci_status = await TektonCi(k8s(wire), namespace="ci").status_for("northwind/billing", "abc")
     assert ci_status.state == "running" and [c.status for c in ci_status.runs] == ["completed", "in_progress"]
-    # ADR 0224: the new label, then the former one; a run carrying both is counted once.
+    # ADR 0226: the new label, then the former one; a run carrying both is counted once.
     assert [r.url.params["labelSelector"] for r in wire.requests] == ["tranibor/sha=abc", "choregos/sha=abc"]
     vide = await TektonCi(
         k8s(Wire({("GET", f"{TEKTON_API}/namespaces/ci/pipelineruns"): (200, {"items": []})})), namespace="ci"
@@ -178,7 +178,7 @@ async def test_ci_aggregates_the_pipelineruns_of_a_sha() -> None:
 
 
 async def test_ci_finds_a_run_labelled_only_with_the_former_sha_label() -> None:
-    """ADR 0224: a pipeline labelled before the rename carries `choregos/sha` only."""
+    """ADR 0226: a pipeline labelled before the rename carries `choregos/sha` only."""
     import httpx
 
     def answer(request: httpx.Request) -> httpx.Response:

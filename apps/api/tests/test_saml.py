@@ -78,7 +78,7 @@ def test_a_signed_assertion_is_accepted_and_its_groups_are_translated_for_this_o
 ) -> None:
     identity = verify(idp, signed_response(idp, groups=("Admins", "Unknown", "choregos:other:org-admins")))
     assert identity.email == "ann@globex.example"
-    # ADR 0224: the new prefix, and the former one beside it for an edition's mapper during the window.
+    # ADR 0226: the new prefix, and the former one beside it for an edition's mapper during the window.
     assert identity.groups == ["choregos:northwind:org-admins", "tranibor:northwind:org-admins"]
     assert identity.assertion_id == "_assertion-1"
 

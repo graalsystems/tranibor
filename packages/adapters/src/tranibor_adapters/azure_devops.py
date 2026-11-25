@@ -227,7 +227,7 @@ def azure_boards_egress(config: Mapping[str, Any]) -> list[tuple[str, int]]:
 
 def shared_secret_of(headers: Mapping[str, str]) -> str:
     """The secret a service hook delivery carries: `X-Tranibor-Secret` (a custom HTTP header of the
-    subscription; `X-Choregos-Secret` for the window of ADR 0224), else the password of its
+    subscription; `X-Choregos-Secret` for the window of ADR 0226), else the password of its
     `Authorization: Basic` header (any user name). Empty when none."""
     lowered = {name.lower(): value for name, value in headers.items()}
     header = read_header(lowered, "Secret")

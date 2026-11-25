@@ -12,7 +12,7 @@ metadata:
     choregos/queue: {{ .name }}
 spec:
   replicas: {{ .replicas }}
-  # The queue's label under both names for the window of ADR 0224 (a policy or a dashboard may select
+  # The queue's label under both names for the window of ADR 0226 (a policy or a dashboard may select
   # either); this Deployment is new under its new name, so its own selector takes the new one.
   selector:
     matchLabels:

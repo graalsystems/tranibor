@@ -24,7 +24,7 @@ import pytest
 from httpx import AsyncClient
 from tranibor_core.publishing import PUBLISHING
 
-#: The files' names since ADR 0224 R5; `FORMER` are the names a bundle built before it has.
+#: The files' names since ADR 0226 R5; `FORMER` are the names a bundle built before it has.
 NAMES = {
     ("linux", "x86_64"): "tranibor-linux-x86_64",
     ("linux", "arm64"): "tranibor-linux-arm64",
@@ -44,7 +44,7 @@ def make_bundle(
     directory: Path, *, version: str = "9.9.9", tamper: str | None = None, former: bool = False
 ) -> dict[str, Any]:
     """The five files, `SHA256SUMS` and `manifest.json`; `tamper` names a file whose bytes change after;
-    `former` names the files as a release before ADR 0224 R5 did."""
+    `former` names the files as a release before ADR 0226 R5 did."""
     directory.mkdir(parents=True, exist_ok=True)
     files = []
     sums = []
@@ -79,7 +79,7 @@ def bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str
 
 
 async def test_a_former_name_is_served_as_the_same_file(client: AsyncClient, bundle: dict[str, Any]) -> None:
-    """ADR 0224 R5: a script or an older `self update` that asks for `choregos-<platform>` gets the file."""
+    """ADR 0226 R5: a script or an older `self update` that asks for `choregos-<platform>` gets the file."""
     for target, name in NAMES.items():
         response = await client.get(f"/downloads/cli/{FORMER[target]}")
         assert response.status_code == 200, response.text
@@ -400,7 +400,7 @@ def test_install_sh_installs_the_verified_binary_into_local_bin(
     ran = subprocess.run([str(installed)], capture_output=True, text=True, check=True)
     assert ran.stdout.strip() == f"tranibor 9.9.9 ({name})"
     assert "Installed tranibor 9.9.9" in done.stdout
-    # The former command, for the window of ADR 0224 R5: a relative link to the new binary.
+    # The former command, for the window of ADR 0226 R5: a relative link to the new binary.
     former = installed.parent / "choregos"
     assert former.is_symlink() and os.readlink(former) == "tranibor"
     assert subprocess.run([str(former)], capture_output=True, text=True, check=True).stdout == ran.stdout
@@ -533,7 +533,7 @@ def test_install_ps1_stays_within_windows_powershell_5_1(tmp_path: Path) -> None
     assert "[Environment]::SetEnvironmentVariable('Path'" in code and "'User')" in code
     assert "$name = 'tranibor-windows-x86_64.exe'" in code
     assert "$target = Join-Path $InstallDir 'tranibor.exe'" in code
-    # ADR 0224 R5: an older instance's file name is accepted, the former command runs the new binary,
+    # ADR 0226 R5: an older instance's file name is accepted, the former command runs the new binary,
     # and an earlier install's choregos.exe (which PATHEXT would prefer) is moved out of the way.
     assert "$formerName = 'choregos-windows-x86_64.exe'" in code
     assert 'Join-Path $InstallDir \'choregos.cmd\') -Value "@`"%~dp0tranibor.exe`" %*"' in code

@@ -1,4 +1,4 @@
-"""ADR 0224 (R7): an identity provider's group is `tranibor:<org>:<group>`, and the former
+"""ADR 0226 (R7): an identity provider's group is `tranibor:<org>:<group>`, and the former
 `choregos:<org>:<group>` is still read for the window."""
 
 from __future__ import annotations

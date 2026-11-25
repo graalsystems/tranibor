@@ -123,7 +123,7 @@ async def test_the_status_comment_is_rewritten_not_duplicated() -> None:
 
 
 async def test_a_status_comment_written_under_the_former_marker_is_rewritten_not_duplicated() -> None:
-    """ADR 0224: a comment written before the rename carries `<!-- choregos:status -->`; it is found and
+    """ADR 0226: a comment written before the rename carries `<!-- choregos:status -->`; it is found and
     rewritten under the new marker."""
     assert STATUS_COMMENT_MARKER == "<!-- tranibor:status -->"
     wire = Wire(

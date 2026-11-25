@@ -1,11 +1,11 @@
-"""The default Secret names are stored state and keep their names (ADR 0224 §3, §6).
+"""The default Secret names are stored state and keep their names (ADR 0226 §3, §6).
 
 A Secret the chart reads by a default name is one a deployment provided under that name (a sealed
 secret, a vault operator, `kubectl create secret`); a Secret the chart draws is re-read under the name
 it was written with. Renaming a default breaks both on upgrade, and under a renderer that cannot read
 the cluster (Argo CD) the second would be drawn again, `secrets-keks` included, leaving every stored
 connector secret unreadable. So every Secret name the chart reads or draws, with no values and with
-each profile, is pinned here to what it was before ADR 0224 (7bf2576a6). A deployment that wants other
+each profile, is pinned here to what it was before ADR 0226 (7bf2576a6). A deployment that wants other
 names sets them in its values, after copying each Secret (docs/deployment.md).
 """
 

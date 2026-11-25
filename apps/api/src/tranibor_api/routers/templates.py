@@ -6,12 +6,12 @@ from __future__ import annotations
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 
 from ..audit import record
 from ..db.models import Template
-from ..deps import Db, Me, require_platform_admin
+from ..deps import Db, Me, current_principal, require_platform_admin
 from ..errors import not_found, unprocessable
 from ..schemas import TemplateDetail, TemplateSummary, TemplateUpsert
 from ..services.templates import templates_directory
@@ -44,7 +44,12 @@ def _from_disk() -> list[TemplateDetail]:
     return out
 
 
-@router.get("/templates", response_model=list[TemplateSummary], operation_id="listTemplates")
+@router.get(
+    "/templates",
+    response_model=list[TemplateSummary],
+    operation_id="listTemplates",
+    dependencies=[Depends(current_principal)],
+)
 async def list_templates(session: Db) -> list[TemplateSummary]:
     rows = (await session.execute(select(Template))).scalars().all()
     from_db = [
@@ -64,7 +69,12 @@ async def list_templates(session: Db) -> list[TemplateSummary]:
     ]
 
 
-@router.get("/templates/{name}", response_model=TemplateDetail, operation_id="getTemplate")
+@router.get(
+    "/templates/{name}",
+    response_model=TemplateDetail,
+    operation_id="getTemplate",
+    dependencies=[Depends(current_principal)],
+)
 async def get_template(name: str, session: Db) -> TemplateDetail:
     row = (
         await session.execute(

@@ -95,7 +95,8 @@ def test_a_policy_without_a_section_gets_the_default_bounds() -> None:
     from tranibor_core.policy import PolicyEngine
 
     policy = Policy.model_validate(POLICY)
-    assert PolicyEngine(policy).max_diff() == (60, 3000)
+    bounds = PolicyEngine(policy).policy.delivery.scope
+    assert (bounds.max_diff_files, bounds.max_diff_lines) == (60, 3000)
     assert PolicyEngine(policy).train_envs() == []
 
 

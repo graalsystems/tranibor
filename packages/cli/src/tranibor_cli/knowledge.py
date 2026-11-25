@@ -76,7 +76,7 @@ class EvalCase(_Strict):
 
 
 class Manifest(_Strict):
-    apiVersion: Literal["tranibor/v1", "choregos/v1"]  # noqa: N815 - the former is read (ADR 0224)
+    apiVersion: Literal["tranibor/v1", "choregos/v1"]  # noqa: N815 - the former is read (ADR 0226)
     kind: Literal["KnowledgeBase"]
     slug: str = Field(pattern=r"^[a-z][a-z0-9-]{1,62}$")
     name: str = Field(min_length=1, max_length=200)

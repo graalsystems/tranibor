@@ -9,7 +9,7 @@
 # %LOCALAPPDATA%\Programs\tranibor\tranibor.exe and adds that folder to the user's PATH. No
 # administrator rights. PowerShell 5.1 or later.
 #
-# For the window of ADR 0224 R5 the former command still works: `choregos.cmd` beside it runs
+# For the window of ADR 0226 R5 the former command still works: `choregos.cmd` beside it runs
 # tranibor.exe, and the `choregos.exe` an earlier install left in that folder or in the former default
 # one (%LOCALAPPDATA%\Programs\choregos) is removed, so that `choregos` finds the new binary.
 #
@@ -50,7 +50,7 @@ function Install-Tranibor {
         throw "tranibor install: unsupported processor $arch; the Windows CLI is built for x86_64"
     }
     $name = 'tranibor-windows-x86_64.exe'
-    # An instance from before ADR 0224 R5 names its file `choregos-windows-x86_64.exe`: the same binary.
+    # An instance from before ADR 0226 R5 names its file `choregos-windows-x86_64.exe`: the same binary.
     $formerName = 'choregos-windows-x86_64.exe'
 
     $work = Join-Path ([IO.Path]::GetTempPath()) ('tranibor-' + [Guid]::NewGuid().ToString('N'))
@@ -121,7 +121,7 @@ function Install-Tranibor {
         if (Test-Path -LiteralPath $aside) { Remove-Item -LiteralPath $aside -Force -ErrorAction SilentlyContinue }
         Write-Host "Installed tranibor $($manifest.version) at $target"
 
-        # The former command for the window of ADR 0224 R5: `choregos.cmd` runs tranibor.exe (no link:
+        # The former command for the window of ADR 0226 R5: `choregos.cmd` runs tranibor.exe (no link:
         # a symbolic link needs a privilege a person may not have). An earlier install's choregos.exe
         # would win over it (.exe comes before .cmd in PATHEXT), here or in the former default folder
         # still on the PATH: it is renamed aside and removed, or removed at the next install if running.

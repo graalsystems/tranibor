@@ -22,7 +22,7 @@ from tranibor_testkit.orchestrator import Fixture
 
 pytestmark = pytest.mark.asyncio
 
-MARKER = "<!-- tranibor:delivered -->"  # ADR 0224
+MARKER = "<!-- tranibor:delivered -->"  # ADR 0226
 
 
 async def _deliver(setup: Fixture, temporal_env: Any, worker_factory: Any) -> dict[str, Any]:

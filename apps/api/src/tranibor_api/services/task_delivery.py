@@ -12,7 +12,7 @@ second pass sends nothing twice and a failed channel is retried up to `MAX_ATTEM
   `set_notifier_factory`. A channel nobody configured is recorded as `not_configured`, never silent.
 - `webhook` posts the artifact as JSON to `policy_overrides.delivery.webhook.url`, through the organisation's
   egress guard, signed like the A2A push notifications: `X-Tranibor-Signature` (and the former
-  `X-Choregos-Signature`, ADR 0224): `t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`, under a key derived from
+  `X-Choregos-Signature`, ADR 0226): `t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`, under a key derived from
   the deployment's session secret, the installation id and its generation (`webhook_secret`; an owner is shown
   it once, `reveal_webhook_secret`), with `Idempotency-Key` the artifact's id.
 """
@@ -49,7 +49,7 @@ MAX_ATTEMPTS = 5
 #: How many of the newest artifacts a pass looks at.
 BATCH = 500
 BODY_LIMIT = 4000
-#: Sent under both names for the window of ADR 0224 (`both_headers`): a receiver written before it
+#: Sent under both names for the window of ADR 0226 (`both_headers`): a receiver written before it
 #: checks `X-Choregos-Signature`; the value is the same under either name.
 SIGNATURE = header("Signature")
 TIMEOUT_S = 10.0

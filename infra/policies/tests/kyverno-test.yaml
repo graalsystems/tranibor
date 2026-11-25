@@ -276,7 +276,7 @@ results:
   - platform-latest
   kind: Pod
   result: fail
-# ADR 0224 R6: a pod in `tranibor` or `tranibor-*` is judged as one in `choregos` or `choregos-*`, and a
+# ADR 0226 R6: a pod in `tranibor` or `tranibor-*` is judged as one in `choregos` or `choregos-*`, and a
 # project's object may carry the project label under either name, never under neither.
 - policy: choregos-pod-security
   rule: non-root

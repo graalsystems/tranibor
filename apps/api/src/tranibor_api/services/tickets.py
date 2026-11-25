@@ -386,7 +386,7 @@ async def project_tracker(session: AsyncSession, project: Project) -> tuple[Conn
         raise upstream(row.type, f"the tracker connector cannot be built: {error}") from error
 
 
-ORIGIN_MARKER = wire.marker("origin")  # formerly `<!-- choregos:origin -->` (ADR 0224)
+ORIGIN_MARKER = wire.marker("origin")  # formerly `<!-- choregos:origin -->` (ADR 0226)
 FILED_LABEL = "source:choregos"
 
 

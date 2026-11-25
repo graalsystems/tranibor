@@ -723,12 +723,12 @@ global:
     storeRef: choregos-cluster-store
     refreshInterval: 1h
 
-# ─── The components (ADR 0224 R6) ───────────────────────────────────────────────────────────────
+# ─── The components (ADR 0226 R6) ───────────────────────────────────────────────────────────────
 # The blocks `api:`, `web:`, `orchestrator:`, `tools:` and `websearch:` below are the chart's
 # DEFAULTS for each component, with the defaults of `charts/<component>/values.yaml` under them. They
 # are not where a deployment's values go: set a component under `tranibor-<component>`
 # (`tranibor-api.replicaCount`, `tranibor-orchestrator.runner.egressProxy`, `tranibor-websearch.enabled`).
-# The former keys `choregos-<component>` are read too, for the window of ADR 0224 (two minor
+# The former keys `choregos-<component>` are read too, for the window of ADR 0226 (two minor
 # versions); a setting written under both names refuses to render. `templates/_values.tpl` merges them.
 api:
   enabled: true

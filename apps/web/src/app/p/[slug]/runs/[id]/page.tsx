@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import { useQuery } from "@tanstack/react-query";
 import { use, useState } from "react";
 import { RunActivityView } from "@/components/run-activity";
@@ -115,6 +116,7 @@ export default function RunPage({ params }: { params: Promise<{ slug: string; id
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ImportedBadge imported={run.data.imported} />
           {end && (
             <Badge tone="waiting" data-testid="declared-end" title="The agent says it is done; the platform has not observed it">
               {end}

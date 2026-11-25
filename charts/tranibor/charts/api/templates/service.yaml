@@ -15,7 +15,7 @@ spec:
     app.kubernetes.io/name: choregos-api
     app.kubernetes.io/instance: {{ .Release.Name }}
 ---
-# The API's former address, for the window of ADR 0224 (R6): a run that started before the upgrade was
+# The API's former address, for the window of ADR 0226 (R6): a run that started before the upgrade was
 # given `http://choregos-api:8000` and calls back there until it ends (a suspended sandbox can wait
 # days for a human answer), and so does whatever of the operator's still names the former Service.
 # The same pods; no `component` label, so the ServiceMonitor does not scrape them twice.

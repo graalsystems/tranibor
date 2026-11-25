@@ -1,4 +1,4 @@
-"""The CLI's profile is `~/.config/tranibor/config.json`; the former is read, never written (ADR 0224 R5)."""
+"""The CLI's profile is `~/.config/tranibor/config.json`; the former is read, never written (ADR 0226 R5)."""
 
 from __future__ import annotations
 

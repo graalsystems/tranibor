@@ -23,7 +23,7 @@ describe("the remembered organisation (S42-13)", () => {
     expect(document.cookie).toContain("tranibor_org=acme-labs");
   });
 
-  it("clears the cookie's former name when it writes the new one (ADR 0224)", () => {
+  it("clears the cookie's former name when it writes the new one (ADR 0226)", () => {
     document.cookie = "choregos_org=old-org; Path=/";
     rememberOrgCookie("acme-labs");
     expect(document.cookie).toContain("tranibor_org=acme-labs");

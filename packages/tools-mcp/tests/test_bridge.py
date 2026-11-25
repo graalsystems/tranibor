@@ -164,7 +164,7 @@ async def bridged(make_bridged: Callable[..., Awaitable[Bridged]]) -> AsyncItera
 
 
 async def test_a_script_of_the_former_client_is_still_read(bridged: Bridged) -> None:
-    """A client generated before ADR 0224 sends `X-Choregos-Script`: the bridge reads it."""
+    """A client generated before ADR 0226 sends `X-Choregos-Script`: the bridge reads it."""
     http, api, _ = bridged
     response = await http.post(f"/bridge/v1/tools/{TOOL}", json={}, headers={"X-Choregos-Script": DIGEST})
     assert response.status_code == 200
@@ -182,7 +182,7 @@ async def test_a_call_is_relayed_with_the_run_token_the_origin_and_the_script(br
     [sent] = api.requests
     assert (sent.method, sent.url.path) == ("POST", f"/api/v1/internal/runs/{RUN}/tools/{TOOL}")
     assert sent.headers["authorization"] == f"Bearer {TOKEN}", "the runner's run token, not the agent's"
-    # The new names (ADR 0224), and the former ones beside them for an API of the previous release.
+    # The new names (ADR 0226), and the former ones beside them for an API of the previous release.
     assert sent.headers["x-tranibor-tool-origin"] == sent.headers["x-choregos-tool-origin"] == "script"
     assert sent.headers["x-tranibor-script"] == sent.headers["x-choregos-script"] == DIGEST
     assert sent.content == arguments, "the arguments as the script sent them"

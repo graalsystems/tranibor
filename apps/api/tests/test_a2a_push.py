@@ -95,7 +95,7 @@ async def _config(task_id: str) -> Any:
 
 
 def _signed_by(request: httpx.Request, secret: str) -> bool:
-    # ADR 0224: the signature under its new name, and the same value under the former one.
+    # ADR 0226: the signature under its new name, and the same value under the former one.
     assert request.headers["x-tranibor-signature"] == request.headers["x-choregos-signature"]
     stamp, signature = (part.split("=", 1)[1] for part in request.headers["x-tranibor-signature"].split(","))
     expected = hmac.new(secret.encode(), stamp.encode() + b"." + request.content, hashlib.sha256)

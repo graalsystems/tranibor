@@ -74,6 +74,26 @@ class DemoDecision(Strict):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+class DemoPending(Strict):
+    """A request that still waits for a person: the inbox lists it, and an approver decides it.
+
+    Deciding it records the decision and closes the request; no workflow runs the imported work item, so
+    nothing follows from it: no agent runs, nothing is written outside the platform.
+    """
+
+    id: ExternalId
+    kind: Literal["approval", "question", "scope_change"]
+    summary: str = Field(min_length=1, max_length=2000)
+    requested_at: datetime
+    due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _due_after_asked(self) -> DemoPending:
+        if self.due_at is not None and self.due_at <= self.requested_at:
+            raise ValueError("`due_at` comes after `requested_at`")
+        return self
+
+
 class DemoFinding(Strict):
     id: ExternalId
     title: str = Field(min_length=3, max_length=200)
@@ -104,6 +124,8 @@ class DemoWorkItem(Strict):
     runs: list[DemoRun] = Field(default_factory=list, max_length=100)
     decisions: list[DemoDecision] = Field(default_factory=list, max_length=100)
     findings: list[DemoFinding] = Field(default_factory=list, max_length=100)
+    #: What the work item waits for now, if a person must decide: at most one, as a live ticket.
+    pending: DemoPending | None = None
 
 
 class DemoHistory(Strict):

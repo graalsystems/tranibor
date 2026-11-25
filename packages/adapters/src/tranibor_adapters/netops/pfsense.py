@@ -127,7 +127,7 @@ PFSENSE_WRITE_OPERATIONS: tuple[OperationSpec, ...] = (
 )
 
 #: The marker a rule written by an action carries in its description: what makes a replay find it. Written
-#: `[tranibor:<hash>]`; a rule written before ADR 0224 carries `[choregos:<hash>]`, found too.
+#: `[tranibor:<hash>]`; a rule written before ADR 0226 carries `[choregos:<hash>]`, found too.
 _MARKER = re.compile(r"\s*\[(?:tranibor|choregos):[0-9a-f]+\]")
 
 
@@ -216,7 +216,7 @@ class PfSenseFirewall:
         """Idempotent by the action's marker: a replay after a lost answer finds the rule it made."""
         tag = marker(action_key)
         existing: list[Any] = []
-        # A replay finds the rule it made under the marker it wrote, the former one included (ADR 0224).
+        # A replay finds the rule it made under the marker it wrote, the former one included (ADR 0226).
         for form in wire.marker_twins(tag):
             existing = await self._data("GET", "/firewall/rules", params={"descr__contains": form})
             if existing:

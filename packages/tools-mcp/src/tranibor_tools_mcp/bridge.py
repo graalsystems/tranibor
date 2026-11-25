@@ -8,7 +8,7 @@ through three routes of the same server, on the same loopback port, holding no c
   (`inputSchema`, `outputSchema`, `x-tranibor-access`): the generated client (S57-08) is built from it;
 - `POST /bridge/v1/tools/{name}`, the arguments as the body, relays to `callRunTool` with the run
   token, `X-Tranibor-Tool-Origin: script` and the script's `X-Tranibor-Script` when it sends one (the
-  former `X-Choregos-*` names are read too, ADR 0224), and
+  former `X-Choregos-*` names are read too, ADR 0226), and
   hands back the API's answer unchanged: the same status, the same bytes, a problem included;
 - `POST /bridge/v1/scripts` takes a script's text once (`{"sha256", "text"}`) and journals it.
 

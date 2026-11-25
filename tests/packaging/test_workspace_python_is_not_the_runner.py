@@ -39,7 +39,7 @@ def test_the_platform_commands_stay_callable_by_name_and_the_build_checks_python
     linked = runtime.split("for command in", 1)[1].split(";", 1)[0].split()
     # A Tekton step runs `tranibor-runner run`: linked, not on PATH. A job image built FROM this one
     # links its own command the same way (`plugins/investment-research/Dockerfile`). The former names stay
-    # linked for the window of ADR 0224 R5: a pipeline written before it runs `choregos-runner run`.
+    # linked for the window of ADR 0226 R5: a pipeline written before it runs `choregos-runner run`.
     assert {"tranibor-runner", "tranibor-tools", "choregos-runner", "choregos-tools"} <= set(linked)
     assert 'ln -s "/app/.venv/bin/$command" "/usr/local/bin/$command"' in runtime
     assert 'test "$(command -v python3)" = /usr/local/bin/python3' in runtime

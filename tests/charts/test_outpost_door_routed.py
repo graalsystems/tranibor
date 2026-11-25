@@ -30,7 +30,7 @@ import yaml
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 DOOR = "tranibor-outposts-door"
 #: The door's drawn key, `<release>-outposts-door` (the release is `choregos` here), and its pods'
-#: `app.kubernetes.io/name`, which stays the former name until ADR 0224's R7.
+#: `app.kubernetes.io/name`, which stays the former name until ADR 0226's R7.
 DOOR_KEY = DOOR_LABEL = "choregos-outposts-door"
 DOOR_HOST = "outposts.example.com"
 ON = "global.outposts.enabled=true"

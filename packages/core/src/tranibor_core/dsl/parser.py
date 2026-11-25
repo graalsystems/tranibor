@@ -22,7 +22,7 @@ from .yamlsource import json_pointer, load_yaml, locate
 def checksum(document: Any) -> str:
     """Stable fingerprint of a workflow (the pinning key on a work item).
 
-    The `apiVersion` is hashed under its former name whichever name the document carries (ADR 0224):
+    The `apiVersion` is hashed under its former name whichever name the document carries (ADR 0226):
     the fingerprint is an input to a pin, not a name, so a workflow does not get a new digest when its
     `choregos/v1` becomes `tranibor/v1`, and the work items pinned to it still find it."""
     if isinstance(document, Workflow):

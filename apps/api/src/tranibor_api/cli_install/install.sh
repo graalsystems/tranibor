@@ -9,7 +9,7 @@
 # Linux and macOS, x86_64 and arm64. It downloads the binary from the same instance, checks its
 # sha256 against the instance's manifest, and installs it as `<prefix>/bin/tranibor`
 # (`~/.local/bin/tranibor` by default), with `<prefix>/bin/choregos` a link to it: the former name of the
-# command still works for the window of ADR 0224 R5, and an earlier install's `choregos` is replaced by
+# command still works for the window of ADR 0226 R5, and an earlier install's `choregos` is replaced by
 # the link. It never calls sudo: pick a prefix you can write to.
 #
 # Options:
@@ -65,7 +65,7 @@ if [ "$OS" = macos ] && [ "$ARCH" = x86_64 ] && [ "$(sysctl -n sysctl.proc_trans
   ARCH=arm64
 fi
 NAME="tranibor-$OS-$ARCH"
-# An instance from before ADR 0224 R5 (`--url`) names its file `choregos-<platform>`: the same binary.
+# An instance from before ADR 0226 R5 (`--url`) names its file `choregos-<platform>`: the same binary.
 FORMER_NAME="choregos-$OS-$ARCH"
 
 # ── the tools it needs ──
@@ -120,7 +120,7 @@ STAGED="$BIN_DIR/.tranibor.$$.tmp"
 cp "$WORK/tranibor" "$STAGED"
 chmod 0755 "$STAGED"
 mv -f "$STAGED" "$BIN_DIR/tranibor"
-# The former name, a relative link to the new one, also put in place by a rename (ADR 0224 R5): it
+# The former name, a relative link to the new one, also put in place by a rename (ADR 0226 R5): it
 # replaces the binary an earlier install left there, and `self update` through it replaces `tranibor`.
 LINK="$BIN_DIR/.choregos.$$.lnk"
 ln -s tranibor "$LINK"

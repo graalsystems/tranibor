@@ -32,7 +32,7 @@ persistence:
   storageClass: ""
   accessModes: [ReadWriteOnce]
   # The StatefulSet's name, which its claims follow (`data-<name>-0`). Empty: the name it had before ADR
-  # 0224, `<release>-choregos-outpost` (the release's name when it holds that name), so that an upgrade
+  # 0226, `<release>-choregos-outpost` (the release's name when it holds that name), so that an upgrade
   # keeps every instance on its own volume. Set it only after moving the claims (docs/deployment.md).
   statefulSetName: ""
 

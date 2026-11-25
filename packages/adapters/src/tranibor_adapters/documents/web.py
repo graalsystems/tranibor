@@ -38,7 +38,7 @@ from tranibor_contracts import wire
 from ..http.egress import guarded
 from .base import Changes, SourceItem, SourceRefusedError
 
-#: The former product token is sent beside the new one for the window of ADR 0224: a site keyed on it.
+#: The former product token is sent beside the new one for the window of ADR 0226: a site keyed on it.
 USER_AGENT = "TraniborKnowledge/1.0 ChoregosKnowledge/1.0 (+https://tranibor.dev)"
 #: The names a site's `robots.txt` may address the crawler by: its historical one, and the platform's
 #: (ADR 0070). A page either of them is refused is not read; the longer `Crawl-delay` wins.

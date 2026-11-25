@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The former name's ratchet (ADR 0224, Consequences): `choregos` only goes down, file by file.
+"""The former name's ratchet (ADR 0226, Consequences): `choregos` only goes down, file by file.
 
     uv run python tools/former_name.py            # check the tree against its baseline (`make lint`)
     uv run python tools/former_name.py --write    # write the baseline from the tree, then review its diff
     uv run python tools/former_name.py --report   # the totals, per top-level directory
 
-ADR 0224 gives every name of the former product its `tranibor` twin, reads both for a window, then
+ADR 0226 gives every name of the former product its `tranibor` twin, reads both for a window, then
 removes the former one. What may still say `choregos` is the compatibility code of each open window
 and the history. This tool counts, for every text file of the repository, its case-insensitive
 occurrences of the former name, and holds each count to a ceiling written in
@@ -49,7 +49,7 @@ HISTORY = (
 GIT = shutil.which("git") or "git"
 HISTORY_NAMES = re.compile(r"(^|/)CHANGELOG[^/]*$|(^|/)migrations/versions/", re.IGNORECASE)
 HEADER = (
-    "# The former name's ceilings (ADR 0224): occurrences of `choregos` per file, case-insensitive.\n"
+    "# The former name's ceilings (ADR 0226): occurrences of `choregos` per file, case-insensitive.\n"
     "# A count only goes down. Regenerate with `uv run python tools/former_name.py --write`, then review\n"
     "# the diff: a ceiling that rises, or a file that enters, is justified in the pull request.\n"
 )
@@ -163,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"former-name: {problem}", file=sys.stderr)
     if found:
         print(
-            "former-name: write the new name (ADR 0224), or run `tools/former_name.py --write`",
+            "former-name: write the new name (ADR 0226), or run `tools/former_name.py --write`",
             file=sys.stderr,
         )
         return 1

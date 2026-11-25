@@ -16,7 +16,7 @@ from ..errors import ApiError, conflict
 
 #: The platform's own key on an entry of the run's tool list (ADR 0122): what a call does. The run's
 #: tool server does not list it to the model, which reads it in the description and `readOnlyHint`.
-#: `x-tranibor-access`; the former `x-choregos-access` is read and listed too (ADR 0224).
+#: `x-tranibor-access`; the former `x-choregos-access` is read and listed too (ADR 0226).
 ACCESS_KEY = wire.ACCESS_KEY
 ACCESSES = ("read", "write", "approval")
 

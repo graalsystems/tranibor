@@ -4,7 +4,7 @@
  * ANOTHER site holds, since the console's cookie is `SameSite=Lax` and is not sent there. It is minted for the
  * person by the sign-in popup (first party), handed to the frame by `postMessage` (same origin), kept in the
  * frame's memory (and its `sessionStorage`, to survive a reload of the frame) and sent as `X-Tranibor-Embed`
- * (the API still reads the former `X-Choregos-Embed`, ADR 0224).
+ * (the API still reads the former `X-Choregos-Embed`, ADR 0226).
  * The host application never sees it.
  */
 /** What the sign-in popup says to the frame that opened it. */

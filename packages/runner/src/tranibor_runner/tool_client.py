@@ -67,7 +67,7 @@ BRIDGE_VARIABLE = "TRANIBOR_TOOLS_BRIDGE"
 #: The directory of this package and of `INDEX.md`, set by the runner.
 DIRECTORY_VARIABLE = "TRANIBOR_TOOLS_DIR"
 #: The header that carries the running script's digest (formerly `X-Choregos-Script`, which the bridge
-#: still reads for the window of ADR 0224). This file is copied into the workspace and imports nothing
+#: still reads for the window of ADR 0226). This file is copied into the workspace and imports nothing
 #: of the platform, so the name is spelled here.
 SCRIPT_HEADER = "X-Tranibor-Script"
 #: The longest script text the bridge keeps (UTF-8 bytes); a longer one is not sent, its digest is.

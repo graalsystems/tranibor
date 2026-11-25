@@ -381,7 +381,7 @@ async def test_a_redirect_is_followed_and_each_target_is_checked(
 async def test_robots_txt_is_obeyed_for_the_new_token_and_the_former_one(
     client: AsyncClient, project: dict[str, Any], web: Any, token: str
 ) -> None:
-    """ADR 0224: a site that wrote its rules for the former token keeps them; one written for the new
+    """ADR 0226: a site that wrote its rules for the former token keeps them; one written for the new
     token is obeyed too."""
     web.add(
         "https://docs.example.com/robots.txt",

@@ -36,6 +36,18 @@
         "prod"
       ]
     },
+    "dod": {
+      "type": "object",
+      "description": "What the runner measures itself (exit code 0 = true), as opposed to what the agent tells.",
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "default": {}
+        }
+      }
+    },
     "agent": {
       "type": "object",
       "additionalProperties": false,

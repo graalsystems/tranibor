@@ -35,7 +35,7 @@ from tranibor_contracts.wire import header, read_header
 from . import theme
 from .client import ApiError, Client
 
-#: The digest the API sends with the bytes, `X-Tranibor-Digest`; an API of a release before ADR 0224
+#: The digest the API sends with the bytes, `X-Tranibor-Digest`; an API of a release before ADR 0226
 #: sends `X-Choregos-Digest`, which is read too.
 DIGEST_HEADER = header("Digest")
 #: Media types, beyond `text/*`, that are text and so can be compared line by line.

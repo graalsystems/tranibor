@@ -1,4 +1,4 @@
-"""The repository's directory is `.tranibor/`, `.choregos/` read when it is absent (ADR 0224 R5)."""
+"""The repository's directory is `.tranibor/`, `.choregos/` read when it is absent (ADR 0226 R5)."""
 
 from __future__ import annotations
 

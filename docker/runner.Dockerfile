@@ -273,7 +273,7 @@ RUN /app/.venv/bin/tranibor-runner --help >/dev/null
 # (`plugins/investment-research/Dockerfile`, ADR 0181 O4-3), not here.
 # The platform's commands, by name, for whoever calls them so (a Tekton step's `tranibor-runner run`),
 # without putting the venv's `python3` in front of the workspace (#713). The former names
-# (`choregos-runner`, `choregos-tools`) stay for the window of ADR 0224 R5: a pipeline written before it
+# (`choregos-runner`, `choregos-tools`) stay for the window of ADR 0226 R5: a pipeline written before it
 # calls them.
 RUN set -eux; \
     for command in tranibor-runner tranibor-tools choregos-runner choregos-tools; do \

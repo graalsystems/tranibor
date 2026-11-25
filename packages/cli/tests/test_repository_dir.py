@@ -1,6 +1,6 @@
 """The workflow a repository declares is `.tranibor/workflow.yaml`; `.choregos/` is read when it is absent.
 
-ADR 0224 R5: `tranibor workflow validate|show|push` without a path read the new directory, and a repository
+ADR 0226 R5: `tranibor workflow validate|show|push` without a path read the new directory, and a repository
 that still has only the former one keeps working for the window.
 """
 

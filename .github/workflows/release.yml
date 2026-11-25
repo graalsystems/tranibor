@@ -8,10 +8,10 @@
 # proven: one architecture per native runner, pushed by digest, then
 # a manifest list per image.
 #
-# Two names per image and per chart (ADR 0176 R3): `tranibor-*`, the name from now on, and
-# `choregos-*`, published beside it for the deprecation window. One digest under both names, each
-# signed by this workflow; the charts are packaged twice from one directory. The names come from the
-# publishing identity (`image_prefix`, `image_alias_prefix`, ADR 0156).
+# One name per image and per chart (ADR 0176 R3): `tranibor-*`. The former `choregos-*`, published
+# beside it for the deprecation window from 0.27.14 to 0.29.4, stopped with step (e); the versions
+# already pushed under it stay where they are. The name comes from the publishing identity
+# (`image_prefix`, ADR 0156).
 name: release
 
 on:
@@ -25,7 +25,7 @@ jobs:
   # The `tranibor` CLI as native binaries (S62-07): one per target, each built on a runner of its own
   # OS and architecture (Nuitka does not cross-compile), each smoke-tested there where no Python is
   # available. The file names are a shared contract (S62-08 serves them): `tranibor-<platform>` since
-  # ADR 0224 R5, and for its window the GitHub release also attaches each under its former name,
+  # ADR 0226 R5, and for its window the GitHub release also attaches each under its former name,
   # `choregos-<platform>` (the same bytes, the `release` job below), which the instance serves too.
   cli-binaries:
     name: cli binary (${{ matrix.name }})
@@ -205,7 +205,7 @@ jobs:
           # The daemon an outpost's operator runs (ADR 0147): built, signed and attested as its neighbours.
           - { image: outpost, file: docker/outpost.Dockerfile, target: "" }
     env:
-      # Pushed by digest under the current name only; the manifest job gives it both names.
+      # Pushed by digest; the manifest job gives it its tags.
       IMAGE: ghcr.io/graalsystems/tranibor-${{ matrix.image }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -274,8 +274,6 @@ jobs:
         image: [api, orchestrator, tools, web, runner, laya, outpost]
     env:
       IMAGE: ghcr.io/graalsystems/tranibor-${{ matrix.image }}
-      # The former name, the same manifest list (ADR 0176 R3): until the deployments have moved.
-      ALIAS: ghcr.io/graalsystems/choregos-${{ matrix.image }}
     steps:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
@@ -292,10 +290,7 @@ jobs:
       - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
-          # Every tag under both names: `imagetools create` writes the one manifest list to each.
-          images: |
-            ${{ env.IMAGE }}
-            ${{ env.ALIAS }}
+          images: ${{ env.IMAGE }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -326,16 +321,12 @@ jobs:
           exit-code: "1"
           severity: CRITICAL
           ignore-unfixed: true
-      - name: sign the manifest, under both names
+      - name: sign the manifest
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
           digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)
-          alias=$(docker buildx imagetools inspect "${ALIAS}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)
-          # One digest, two names: a signature lives beside the repository it signs, so each gets one.
-          test "$digest" = "$alias" || { echo "::error::${ALIAS} is ${alias}, not ${digest}"; exit 1; }
           cosign sign --yes "${IMAGE}@${digest}"
-          cosign sign --yes "${ALIAS}@${digest}"
 
   job-image:
     # The `investment-research` plugin's job image (ADR 0181 O4-3, ADR 0056): the runner image this
@@ -597,8 +588,8 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # The platform's chart and the one an outpost's operator installs in their own cluster
-          # (ADR 0147), each under both names of ADR 0176 R3 (`tranibor`, `choregos`; `-outpost`):
-          # one directory each, packaged once per name, the same templates and the same defaults.
+          # (ADR 0147), as `tranibor` and `tranibor-outpost` (ADR 0176 R3; `choregos` and
+          # `choregos-outpost` are no longer published since step (e)).
           uv run python tools/package_charts.py --version "$version" --out dist/charts
           echo "$HELM_TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
           for chart in dist/charts/*.tgz; do
@@ -642,7 +633,7 @@ jobs:
         with:
           name: cli-dist
           path: dist/cli
-      # For the window of ADR 0224 R5, each binary and its bundle under the former name too
+      # For the window of ADR 0226 R5, each binary and its bundle under the former name too
       # (`choregos-<platform>`, the same bytes): a download URL written before the rename keeps working,
       # and SHA256SUMS already gives the digest under both names.
       - name: the CLI binaries under their former names too

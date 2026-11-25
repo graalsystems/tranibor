@@ -63,15 +63,20 @@ PLATFORMS: dict[tuple[str, str], str] = {
 }
 
 
+#: The former name the files are also released under for the window of ADR 0226 R5 (through 0.31.x):
+#: `tranibor_core.publishing.FORMER_CLI_PREFIX`, repeated here as this script runs without the workspace.
+FORMER_CLI_PREFIX = "choregos"
+
+
 def prefixes() -> tuple[str, str]:
-    """The identity's `image_prefix` and `image_alias_prefix`: the files' name, and their former name."""
+    """The identity's `image_prefix`, the files' name, and their former name."""
     data = json.loads(PUBLISHING_JSON.read_text(encoding="utf-8"))
-    return str(data["image_prefix"]), str(data["image_alias_prefix"])
+    return str(data["image_prefix"]), FORMER_CLI_PREFIX
 
 
 PREFIX, FORMER_PREFIX = prefixes()
 #: The stable, version-less file names (shared contract of S62-07 and S62-08): `<prefix>-<platform>`,
-#: `tranibor-linux-x86_64` (ADR 0224 R5). The release also attaches each under the former prefix.
+#: `tranibor-linux-x86_64` (ADR 0226 R5). The release also attaches each under the former prefix.
 TARGETS: dict[tuple[str, str], str] = {target: f"{PREFIX}-{end}" for target, end in PLATFORMS.items()}
 #: The workspace packages the binary is built from, in install order.
 PACKAGES = ("packages/contracts", "packages/core", "packages/cli")

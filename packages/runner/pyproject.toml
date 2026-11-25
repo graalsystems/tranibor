@@ -33,7 +33,7 @@ dependencies = [
 
 [project.scripts]
 tranibor-runner = "tranibor_runner.cli:main"
-# The former name, for the window of ADR 0224 R5.
+# The former name, for the window of ADR 0226 R5.
 choregos-runner = "tranibor_runner.cli:main"
 
 [build-system]

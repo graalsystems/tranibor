@@ -281,7 +281,7 @@ call them by design (the model, the memory's MCP), with a per-run key.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  # The policy is the chart's (`tranibor-*`); the pods it selects keep their label (ADR 0224 R7).
+  # The policy is the chart's (`tranibor-*`); the pods it selects keep their label (ADR 0226 R7).
   name: {{ .pod | replace "choregos-" "tranibor-" }}-ingress
   labels: {{- include "tranibor.labels" $ | nindent 4 }}
 spec:

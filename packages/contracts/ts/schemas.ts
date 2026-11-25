@@ -360,6 +360,18 @@ export type DemoHistoryDecision = {
   reason?: string;
 };
 
+/** A request that still waits for a person: after the import the inbox lists it and an approver decides it through the usual decision route. Deciding it records the decision (audited) and closes the request; no workflow runs an imported work item, so nothing follows from it: no agent runs and nothing is written outside the platform. Refused on a work item in a terminal state. */
+export type DemoHistoryPending = {
+  id: DemoHistoryId;
+  kind: "approval" | "question" | "scope_change";
+  /** What the person is asked. */
+  summary: string;
+  /** When it was asked; not before the work item was created. */
+  requested_at: string;
+  /** When it is due, after `requested_at`; absent: 24 hours after it. */
+  due_at?: string;
+};
+
 export type DemoHistoryFinding = {
   id: DemoHistoryId;
   title: string;
@@ -397,6 +409,8 @@ export type DemoHistoryWorkItem = {
   runs?: Array<DemoHistoryRun>;
   decisions?: Array<DemoHistoryDecision>;
   findings?: Array<DemoHistoryFinding>;
+  /** What the work item waits for now, if a person must decide: at most one. */
+  pending?: DemoHistoryPending;
 };
 
 /** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */
@@ -744,7 +758,7 @@ export type PluginIndexRelease = {
 
 /** A plugin source's index, index.yaml: name → versions → where and what (ADR 0093). */
 export type PluginIndex = {
-  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
   apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "PluginIndex";
   plugins: {
@@ -983,7 +997,7 @@ export type PluginGlob = string;
 
 /** A plugin's manifest, plugin.yaml at the root of its directory (ADR 0093). */
 export type Plugin = {
-  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
   apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Plugin";
   metadata: {
@@ -1071,6 +1085,7 @@ export type PolicyTrainEnv = {
     approval?: {
       group?: string;
       required?: boolean;
+      timeout_hours?: number;
     };
   };
   freeze?: boolean;
@@ -1084,7 +1099,7 @@ export type PolicyTrainEnv = {
 
 /** A project's policy: budgets, approvals, attempts, scope, sandbox, findings, release train. */
 export type Policy = {
-  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
   apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Policy";
   metadata: {
@@ -1251,6 +1266,12 @@ export type Project = {
   display_name?: string;
   template_ref?: string;
   envs?: Array<string>;
+  /** What the runner measures itself (exit code 0 = true), as opposed to what the agent tells. */
+  dod?: {
+    facts?: {
+      [key: string]: string;
+    };
+  };
   agent?: {
     default_backend?: string;
     allowed_backends?: Array<string>;
@@ -1603,7 +1624,6 @@ export type StageResult = {
     plan_markdown?: string;
     review_markdown?: string;
     verdict?: "approve" | "request_changes" | "comment";
-    release_notes_markdown?: string;
     duplicate_of?: string | null;
     questions_asked?: number;
     [key: string]: unknown;
@@ -1665,7 +1685,7 @@ export type StageResult = {
 
 /** A stack template's manifest (docs/plan/03 §3.2). */
 export type Template = {
-  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
   apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Template";
   metadata: {
@@ -1880,7 +1900,7 @@ export type WorkflowActor = WorkflowAgentActor | WorkflowHumanActor | WorkflowSy
 
 export type WorkflowAgentActor = {
   type: "agent";
-  /** The agent's role. The package's roles — triage, refine, plan, implement, verify, review, fix_ci, address_review, release_notes, verify_prod, brief, deliver, custom — keep their meaning; a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name. */
+  /** The agent's role. The core's roles — triage, refine, plan, implement, verify, review, brief, deliver, custom — keep their meaning; a plugin declares its own with their playbooks (the software-delivery plugin's repair, review answer, release notes and production check), a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name. */
   role: string;
   /** profile:<name>, profile:by_size, or a direct LiteLLM identifier. */
   model?: string;
@@ -2093,7 +2113,7 @@ export type WorkflowDecisionQuestion = {
 
 /** Choregos workflow DSL: a declarative state machine per project (docs/plan/01 §1.4). */
 export type Workflow = {
-  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
   apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Workflow";
   metadata: {

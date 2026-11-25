@@ -27,6 +27,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_core.hosted import SESSION_RUN_PREFIX
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..config import get_settings
 from ..db.models import AgentSessionEvent, AgentSessionRecord, Organization, Project
@@ -117,7 +118,7 @@ async def respond_hosted(
     result: AgentSessionTurnResult | None = None
     runtime = spec.runtime
     readiness = float(getattr(runtime, "readiness_timeout_s", 120))
-    if not await ask_for_pod(record.id, record.expires_at, org_slug, first=first):
+    if not await ask_for_pod(record.id, record.expires_at, org_slug, first=first, org_id=record.org_id):
         error = AgentResponseError(code="hosted_unavailable", message="the session's pod could not start")
     if error is None:
         result = await _await_answer(record.id, org_slug, response_id, readiness + TURN_TIMEOUT_S)
@@ -163,22 +164,31 @@ async def respond_hosted(
     )
 
 
-async def ask_for_pod(session_id: str, expires_at: datetime | None, org_slug: str, *, first: bool) -> bool:
+async def ask_for_pod(
+    session_id: str,
+    expires_at: datetime | None,
+    org_slug: str,
+    *,
+    first: bool,
+    org_id: str | None = None,
+) -> bool:
     """Starts the session's pod (`first`, which needs the session's `expires_at`) or tells it the
     session is alive; `False` when it could not start. The caller has committed
-    `record.pod = {"state": "requested"}` before a first ask."""
+    `record.pod = {"state": "requested"}` before a first ask. `org_id` seals the pod workflow's payloads
+    under the organisation's key (ADR 0225)."""
     try:
         if first:
             assert expires_at is not None, "a pod is started for a session's lifetime"
-            await get_temporal().start_session_pod(
-                session_pod_id(session_id),
-                {
-                    "session_id": session_id,
-                    "org": org_slug,
-                    "idle_s": get_settings().hosted_session_idle_s,
-                    "expires_at": expires_at.isoformat(),
-                },
-            )
+            with organisation_scope(org_id):
+                await get_temporal().start_session_pod(
+                    session_pod_id(session_id),
+                    {
+                        "session_id": session_id,
+                        "org": org_slug,
+                        "idle_s": get_settings().hosted_session_idle_s,
+                        "expires_at": expires_at.isoformat(),
+                    },
+                )
         else:
             with contextlib.suppress(Exception):  # a missed touch only shortens the pod's idle wait
                 await get_temporal().signal(session_pod_id(session_id), "touch", {})

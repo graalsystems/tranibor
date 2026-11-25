@@ -106,6 +106,59 @@ async def test_a_released_savepoint_is_not_a_commit(app: Any, org: str) -> None:
     assert ran == ["fail=False"]
 
 
+async def test_a_released_savepoint_s_callback_dies_with_the_root_s_rollback(app: Any, org: str) -> None:
+    """#2089: released, then the root rolls back and the session goes on to commit something else:
+    the writes the callback belonged to were never kept, so it never runs (ADR 0085)."""
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import after_commit, session_scope
+
+    ran, mark = _marker()
+    async with session_scope(orgs="*") as session:
+        await session.execute(update(Organization).where(Organization.slug == org).values(name="x"))
+        async with session.begin_nested():
+            after_commit(session, mark("never: rolled back"))
+        await session.rollback()
+        await session.execute(text("SELECT 1"))
+        after_commit(session, mark("committed"))
+    assert ran == ["committed"]
+
+
+async def test_a_failed_savepoint_keeps_the_outer_transaction_s_callbacks(app: Any, org: str) -> None:
+    """#2089: what the outer transaction registered survives a SAVEPOINT that rolls back, and runs
+    once when the outer transaction commits; what the savepoint registered does not."""
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import after_commit, session_scope
+
+    ran, mark = _marker()
+    async with session_scope(orgs="*") as session:
+        await session.execute(update(Organization).where(Organization.slug == org).values(name="x"))
+        after_commit(session, mark("outer"))
+        with contextlib.suppress(RuntimeError):
+            async with session.begin_nested():
+                after_commit(session, mark("never: its savepoint rolled back"))
+                raise RuntimeError("the savepoint fails")
+        async with session.begin_nested():
+            after_commit(session, mark("released"))
+    assert ran == ["outer", "released"]
+
+
+async def test_nested_savepoints_drop_only_what_the_failed_one_registered(app: Any, org: str) -> None:
+    from tranibor_api.db.models import Organization
+    from tranibor_api.db.session import after_commit, session_scope
+
+    ran, mark = _marker()
+    async with session_scope(orgs="*") as session:
+        await session.execute(update(Organization).where(Organization.slug == org).values(name="x"))
+        async with session.begin_nested():
+            after_commit(session, mark("outer savepoint"))
+            with contextlib.suppress(RuntimeError):
+                async with session.begin_nested():
+                    after_commit(session, mark("never: inner savepoint rolled back"))
+                    raise RuntimeError("the inner savepoint fails")
+            after_commit(session, mark("after the inner one"))
+    assert ran == ["outer savepoint", "after the inner one"]
+
+
 async def test_what_waits_for_the_end_waits_for_the_outer_transaction(app: Any, org: str) -> None:
     from tranibor_api.db.models import Organization
     from tranibor_api.db.session import after_end, session_scope, wrote_in_transaction

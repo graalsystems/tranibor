@@ -135,7 +135,7 @@ class FakeTracker:
         self.calls.append(("upsert_status_comment", key))
         item = self.items[key]
         for comment in item.comments:
-            # Found under either name (ADR 0224), rewritten under the one written now.
+            # Found under either name (ADR 0226), rewritten under the one written now.
             if comment.marker in wire.marker_twins(marker):
                 comment.marker = marker
                 comment.body = markdown

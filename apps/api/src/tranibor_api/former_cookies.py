@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The cookies' former names, still read for the window of ADR 0224 (R7).
+"""The cookies' former names, still read for the window of ADR 0226 (R7).
 
 The API sets its cookies under `tranibor_*` (`tranibor_session`, `tranibor_oidc`, `tranibor_saml`,
 `tranibor_forge_link`, `tranibor_consent`, `tranibor_remote_oauth`). A browser signed in before the

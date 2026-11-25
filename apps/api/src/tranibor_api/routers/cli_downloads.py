@@ -9,7 +9,7 @@ The native binaries (S62-07) lie in `TRANIBOR_CLI_DIR` (`/opt/choregos/cli` in t
 - `GET /downloads/cli/manifest.json`: the manifest, as the build wrote it, once checked.
 - `GET /downloads/cli/<name>`: a file the manifest lists, or `SHA256SUMS`. Nothing else: the name
   is looked up in the manifest, never joined to a path, so `../` reaches nothing. For the window of
-  ADR 0224 R5 a file is also served under its other name (`choregos-linux-x86_64` for
+  ADR 0226 R5 a file is also served under its other name (`choregos-linux-x86_64` for
   `tranibor-linux-x86_64`, and the reverse for a bundle built before the rename): a script or a
   `choregos self update` that asks for the former name gets the same bytes.
 - `GET /cli/install.sh`, `GET /cli/install.ps1`: the install scripts, with this instance's public
@@ -124,7 +124,7 @@ def read_manifest(directory: Path) -> tuple[CliManifest, bytes]:
 
 
 def _listed(manifest: CliManifest, name: str) -> CliFile | None:
-    """The manifest's entry for `name`, or for its other name (ADR 0224 R5): the same file either way."""
+    """The manifest's entry for `name`, or for its other name (ADR 0226 R5): the same file either way."""
     twin = PUBLISHING.cli_twin(name)
     for wanted in (name, twin):
         entry = next((candidate for candidate in manifest.files if candidate.name == wanted), None)

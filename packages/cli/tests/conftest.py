@@ -27,7 +27,7 @@ def _no_real_profile(
     from tranibor_cli import client
 
     monkeypatch.setattr(client, "CONFIG_PATH", tmp_path / "no-profile.json")
-    # The former profile (ADR 0224 R5) is read only beside the default one; never the developer's either.
+    # The former profile (ADR 0226 R5) is read only beside the default one; never the developer's either.
     monkeypatch.setattr(client, "FORMER_CONFIG_PATH", tmp_path / "no-former-profile.json")
     # Everything else derived from the home directory (profile, version-check cache, tokens) too (#1777).
     home = tmp_path_factory.mktemp("home")  # not under `tmp_path`: tests list that directory

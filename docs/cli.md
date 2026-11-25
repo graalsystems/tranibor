@@ -5,7 +5,7 @@ Generated from the CLI itself by `tools/gen_cli_reference.py` — do not edit by
 
 ## Installing the CLI
 
-The command is `tranibor` (ADR 0224 R5). For a window of two minor versions the former names still
+The command is `tranibor` (ADR 0226 R5). For a window of two minor versions the former names still
 work: the release also attaches each file under its former name (`choregos-linux-x86_64`, the same
 bytes), an instance serves both, the install scripts put a `choregos` link to `tranibor` on the
 PATH, `tranibor self update` accepts an instance whose files carry the former names, and
@@ -53,7 +53,7 @@ remains the way to work on the CLI itself.
 
 The profile lives in `~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` overrides the
 path): `api_url`, `token`, `org`. `tranibor login` writes it; `TRANIBOR_API_URL`,
-`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0224 R5,
+`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0226 R5,
 the former file, `~/.config/choregos/config.json`, is read when the new one is absent (and
 `TRANIBOR_CONFIG` names no other file); it is never written again.
 
@@ -261,6 +261,53 @@ Usage: tranibor admin secrets rewrap [OPTIONS]
 
 Options:
   --help  Show this message and exit.
+```
+
+## `tranibor admin temporal-keys`
+
+An organisation's Temporal data keys: list, rotate, shred (ADR 0225)
+
+### `tranibor admin temporal-keys list`
+
+```text
+Usage: tranibor admin temporal-keys list [OPTIONS]
+
+  The organisation's Temporal data keys: id, state, wrapping key, dates.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `tranibor admin temporal-keys rotate`
+
+```text
+Usage: tranibor admin temporal-keys rotate [OPTIONS]
+
+  A new data key for the organisation's new Temporal payloads; the retired
+  ones still open theirs.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `tranibor admin temporal-keys shred`
+
+```text
+Usage: tranibor admin temporal-keys shred [OPTIONS]
+
+  Destroy every Temporal data key of the organisation: its Temporal payloads
+  can never be read again.
+
+  Irreversible. Terminate the organisation's open workflows first: they fail
+  their next task.
+
+Options:
+  --reason <str>   why, kept in the audit log  [required]
+  --confirm <str>  the organisation's slug again; asked for when absent
+  --org <str>      the organisation; the profile's otherwise
+  --help           Show this message and exit.
 ```
 
 ## `tranibor artifacts`
@@ -503,6 +550,26 @@ Usage: tranibor demo import [OPTIONS] {project} {file}
 Arguments:
   project  The project: `org/slug` or its id.  [required]
   file     A demonstration history, YAML or JSON.  [required]
+
+Options:
+  --help  Show this message and exit.
+```
+
+### `tranibor demo remove`
+
+```text
+Usage: tranibor demo remove [OPTIONS] {project}
+
+  Remove what demonstration history imports wrote into a project, and nothing
+  else.
+
+  Only the rows marked imported go: the work items with their runs, requests
+  and events, the findings and the cost lines. The import's gate applies (the
+  organisation administrator, `TRANIBOR_DEMO_HISTORY_IMPORT=1`, outside
+  staging and prod); the removal is audited, and a second one removes nothing.
+
+Arguments:
+  project  The project: `org/slug` or its id.  [required]
 
 Options:
   --help  Show this message and exit.

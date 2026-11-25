@@ -120,7 +120,7 @@ async def test_a_delivery_needs_the_shared_secret_in_basic_auth_or_a_header(
     assert (
         await _deliver(client, pull_request("Billing", notification="n-2"), {"X-Choregos-Secret": SECRET})
     )["accepted"] is True
-    # ADR 0224: the header's new name.
+    # ADR 0226: the header's new name.
     assert (
         await _deliver(client, pull_request("Billing", notification="n-3"), {"X-Tranibor-Secret": SECRET})
     )["accepted"] is True

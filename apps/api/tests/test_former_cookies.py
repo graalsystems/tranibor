@@ -1,4 +1,4 @@
-"""ADR 0224 (R7): the cookies are `tranibor_*`; a browser that holds a former `choregos_*` cookie is read
+"""ADR 0226 (R7): the cookies are `tranibor_*`; a browser that holds a former `choregos_*` cookie is read
 under the new name, then the former one is cleared (and the session set again under the new name)."""
 
 from __future__ import annotations

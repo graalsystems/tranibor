@@ -328,7 +328,7 @@
     "money": { "type": "number", "exclusiveMinimum": 0, "maximum": 100000 }
   },
   "properties": {
-    "apiVersion": { "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224)" },
+    "apiVersion": { "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226)" },
     "kind": { "const": "Assistant" },
     "metadata": {
       "type": "object",

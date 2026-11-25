@@ -1,4 +1,4 @@
-"""The wire names and their former twins (ADR 0224, R7): read both, write the new one."""
+"""The wire names and their former twins (ADR 0226, R7): read both, write the new one."""
 
 from __future__ import annotations
 

@@ -100,6 +100,19 @@
         "reason": { "type": "string", "maxLength": 2000 }
       }
     },
+    "pending": {
+      "type": "object",
+      "required": ["id", "kind", "summary", "requested_at"],
+      "additionalProperties": false,
+      "description": "A request that still waits for a person: after the import the inbox lists it and an approver decides it through the usual decision route. Deciding it records the decision (audited) and closes the request; no workflow runs an imported work item, so nothing follows from it: no agent runs and nothing is written outside the platform. Refused on a work item in a terminal state.",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "type": "string", "enum": ["approval", "question", "scope_change"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "What the person is asked." },
+        "requested_at": { "type": "string", "format": "date-time", "description": "When it was asked; not before the work item was created." },
+        "due_at": { "type": "string", "format": "date-time", "description": "When it is due, after `requested_at`; absent: 24 hours after it." }
+      }
+    },
     "finding": {
       "type": "object",
       "required": ["id", "title", "type", "severity", "evidence"],
@@ -140,7 +153,8 @@
         },
         "runs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/run" } },
         "decisions": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/decision" } },
-        "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } }
+        "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } },
+        "pending": { "$ref": "#/$defs/pending", "description": "What the work item waits for now, if a person must decide: at most one." }
       }
     }
   }

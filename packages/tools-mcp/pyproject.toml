@@ -8,7 +8,7 @@ dependencies = ["tranibor-core", "tranibor-contracts", "httpx>=0.27", "pydantic>
 
 [project.scripts]
 tranibor-tools = "tranibor_tools_mcp.app:main"
-# The former name, for the window of ADR 0224 R5.
+# The former name, for the window of ADR 0226 R5.
 choregos-tools = "tranibor_tools_mcp.app:main"
 
 [build-system]

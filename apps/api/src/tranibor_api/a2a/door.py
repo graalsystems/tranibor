@@ -145,10 +145,10 @@ _STREAMS: Counter[str] = Counter()
 #: The stream's clock for its lifetime; a test moves it instead of waiting an hour.
 _clock = time.monotonic
 #: Derives a task id from (org, client, messageId): a resent message finds its work item. An input to a
-#: hash, not a name (ADR 0224 §4): its value never changes, or every task id would.
+#: hash, not a name (ADR 0226 §4): its value never changes, or every task id would.
 A2A_TASK_ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://choregos.dev/a2a/task")
 #: The card's extension that says which fields a skill takes: A2A's `AgentSkill` has no place for it.
-#: Announced under its new URI and, for the window of ADR 0224, under the former one a client may key on.
+#: Announced under its new URI and, for the window of ADR 0226, under the former one a client may key on.
 SKILL_FIELDS_EXTENSION = wire.A2A_SKILL_FIELDS_EXTENSION
 _ARTIFACT_NAME = re.compile(ARTIFACT_NAME_PATTERN)
 

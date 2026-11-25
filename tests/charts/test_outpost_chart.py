@@ -137,10 +137,10 @@ def test_the_image_is_the_release_one_pinned_by_digest_when_given() -> None:
     container = _pod(_documents(*MINIMAL))["containers"][0]
     version = yaml.safe_load((CHART / "Chart.yaml").read_text(encoding="utf-8"))["appVersion"]
     # The image the release builds, signs and attests (`release.yml`, the `outpost` image).
-    assert container["image"] == PUBLISHING.image("tranibor-outpost", version)
+    assert container["image"] == PUBLISHING.image_name("outpost") + f":{version}"
     pinned = _pod(_documents(*MINIMAL, f'image.digest="{digest}"', 'image.tag="9.9.9"'))
     for holder in (pinned["containers"][0], pinned["initContainers"][0]):
-        assert holder["image"] == PUBLISHING.image(f"tranibor-outpost@{digest}")
+        assert holder["image"] == PUBLISHING.image_name("outpost") + f"@{digest}"
     assert "image.digest" in _refusal(*MINIMAL, 'image.digest="latest"')
     # `run` is what the pod runs, through the image's own entrypoint.
     assert container["args"] == ["run"] and "command" not in container

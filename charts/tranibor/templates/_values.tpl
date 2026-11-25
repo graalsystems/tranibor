@@ -1,8 +1,8 @@
 {{/*
-The components' values keys (ADR 0224 R6). Each subchart reads its values from an internal key, its
+The components' values keys (ADR 0226 R6). Each subchart reads its values from an internal key, its
 directory's name (`api`, `web`, `orchestrator`…), which holds the chart's defaults and nothing else.
 An operator sets a component under `tranibor-<component>` (`tranibor-api.runDoor.hostnames`) or, for
-the window of ADR 0224, under its former name `choregos-<component>`: neither key carries a default,
+the window of ADR 0226, under its former name `choregos-<component>`: neither key carries a default,
 so what is under them is what the operator wrote, and a setting written under both is seen.
 `templates/values/keys/merged/first.yaml` merges them into the internal key before anything renders.
 */}}
@@ -73,7 +73,7 @@ same values.
 {{- range $path := include "tranibor.valueLeaves" (dict "values" (get $set $current) "prefix" "") | fromJsonArray -}}
 {{- range $other := $old -}}
 {{- if or (eq $path $other) (hasPrefix (printf "%s." $path) $other) (hasPrefix (printf "%s." $other) $path) -}}
-{{- fail (printf "%s.%s and %s.%s are both set: %s is the former name of %s (ADR 0224), read only until the end of its window. Keep the setting under %s and remove it from %s." $current $path $former $other $former $current $current $former) -}}
+{{- fail (printf "%s.%s and %s.%s are both set: %s is the former name of %s (ADR 0226), read only until the end of its window. Keep the setting under %s and remove it from %s." $current $path $former $other $former $current $current $former) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

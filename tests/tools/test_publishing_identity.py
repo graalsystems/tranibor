@@ -34,7 +34,6 @@ ELSEWHERE = {
     "owner": "ExampleOrg",
     "registry": "registry.example.org/exampleorg",
     "image_prefix": "exampleware",
-    "image_alias_prefix": "examplelegacy",
     "source_repository": "https://forge.example.org/exampleorg/choregos",
     "documentation": "https://docs.example.org/choregos",
     "security_contact": "security@example.org",
@@ -83,7 +82,8 @@ def test_the_derived_defaults_are_the_definition() -> None:
         "utf-8"
     )
     images = (ROOT / "infra/policies/images.yaml").read_text(encoding="utf-8")
-    assert f'imageReferences: ["{PUBLISHING.registry}/{PUBLISHING.image_alias_prefix}-*"]' in images
+    # The former names, no longer published, still admitted until the policies drop them (ADR 0176 R3 (e)).
+    assert f'imageReferences: ["{PUBLISHING.registry}/choregos-*"]' in images
     for component in IMAGE_COMPONENTS:
         assert f'- "{PUBLISHING.registry}/{PUBLISHING.image_prefix}-{component}*"' in images
     assert f'subject: "{PUBLISHING.source_repository}/.github/workflows/*"' in images
@@ -124,10 +124,10 @@ def test_code_cannot_be_listed_as_derived(small: pathlib.Path) -> None:
 
 def test_a_value_spelled_in_another_case_is_refused(small: pathlib.Path) -> None:
     """The rewrite replaces values as the definition spells them; another case would be left behind."""
-    _write(small, "docs/x.md", f"docker pull {PUBLISHING.registry.upper()}/choregos-api\n")
+    _write(small, "docs/x.md", f"docker pull {PUBLISHING.registry.upper()}/{PUBLISHING.image_prefix}-api\n")
     issues = pi.problems(small, derived=["charts/tranibor/values.yaml", "docs/x.md"])
     # The image's name is read whole (the prefix counts inside it), and reported whole.
-    spelled = f"{PUBLISHING.registry.upper()}/choregos-api"
+    spelled = f"{PUBLISHING.registry.upper()}/{PUBLISHING.image_prefix}-api"
     assert issues == [
         f"docs/x.md:1: `{spelled}` is not spelled as in {pi.CANONICAL}; the rewrite would miss it"
     ]
@@ -209,13 +209,11 @@ def test_moving_the_publication_is_one_edit_and_one_command(tmp_path: pathlib.Pa
     policy = (root / "infra/policies/plugin-servers.yaml").read_text(encoding="utf-8")
     assert r"^registry\\.example\\.org/exampleorg/tranibor-agents/" in policy
     assert "@ExampleOrg/integrators" in (root / "CODEOWNERS").read_text(encoding="utf-8")
-    # The images and charts follow their prefixes and their registry, both names of the window.
+    # The images and charts follow their prefix and their registry.
     release = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
     assert "IMAGE: registry.example.org/exampleorg/exampleware-${{ matrix.image }}" in release
-    assert "ALIAS: registry.example.org/exampleorg/examplelegacy-${{ matrix.image }}" in release
     images = (root / "infra/policies/images.yaml").read_text(encoding="utf-8")
     assert '- "registry.example.org/exampleorg/exampleware-api*"' in images
-    assert 'imageReferences: ["registry.example.org/exampleorg/examplelegacy-*"]' in images
     install = (root / "docs/site/host/install.md").read_text(encoding="utf-8")
     assert "oci://registry.example.org/exampleorg/charts/exampleware" in install
     # The plugins' images keep their own name under the registry: it is not an image prefix.
@@ -224,19 +222,19 @@ def test_moving_the_publication_is_one_edit_and_one_command(tmp_path: pathlib.Pa
 
 def test_the_prefixes_count_only_in_an_image_or_chart_name() -> None:
     """A prefix is a word ("tranibor" is the product's name): it counts only under the registry."""
-    identity = {key: getattr(PUBLISHING, key) for key in ("registry", "image_prefix", "image_alias_prefix")}
-    registry, prefix, alias = identity["registry"], PUBLISHING.image_prefix, PUBLISHING.image_alias_prefix
+    identity = {key: getattr(PUBLISHING, key) for key in ("registry", "image_prefix")}
+    registry, prefix = identity["registry"], PUBLISHING.image_prefix
     prose = f"{prefix} is the core; {prefix}-api is a package; {registry}/{prefix}-agents/hello-mcp"
     assert pi.find(prose, identity) == [(1, registry)]
     names = (
-        f"{registry}/{prefix}-api:1 {registry}/{alias}-runner@sha256 {registry}/{prefix}-* "
-        f"{registry}/{alias}-${{{{ matrix.image }}}} oci://{registry}/charts/{prefix}-outpost"
+        f"{registry}/{prefix}-api:1 {registry}/{prefix}-runner@sha256 {registry}/{prefix}-* "
+        f"{registry}/{prefix}-${{{{ matrix.image }}}} oci://{registry}/charts/{prefix}-outpost"
     )
     assert [text for _, text in pi.find(names, identity)] == [
         f"{registry}/{prefix}-api",
-        f"{registry}/{alias}-runner",
+        f"{registry}/{prefix}-runner",
         f"{registry}/{prefix}-",
-        f"{registry}/{alias}-",
+        f"{registry}/{prefix}-",
         f"{registry}/charts/{prefix}-outpost",
     ]
     escaped = registry.replace(".", "\\.")

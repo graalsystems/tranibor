@@ -24,6 +24,7 @@ from tranibor_contracts import (
     Workflow,
     missing_outputs,
 )
+from tranibor_contracts.recorded import GUESSED_REPAIR_ROLES
 
 from ..gates import ALREADY_FIXED_GATE, ALREADY_FIXED_UNPROVEN, GateOutcome
 from .conditions import when_holds
@@ -53,12 +54,9 @@ OUTCOME_REJECTED = "rejected"
 
 #: The role guess of a workflow stored before `repairs:` (ADR 0181 C1): which agent role repairs which
 #: outcome. A workflow that declares `repairs:` on any transition is never guessed for. The two roles
-#: are the software-delivery plugin's (C2); the guess stays for the stored versions, which are never
-#: rewritten.
-LEGACY_REPAIR_ROLES: dict[str, str] = {
-    OUTCOME_CI_FAILED: "fix_ci",
-    OUTCOME_CHANGES_REQUESTED: "address_review",
-}
+#: are the `software-delivery` plugin's (S83-12); the guess is a reader of stored versions, which are
+#: never rewritten, and is listed with them in `tranibor_contracts.recorded`.
+LEGACY_REPAIR_ROLES: dict[str, str] = GUESSED_REPAIR_ROLES
 
 
 class UnknownStateError(KeyError):

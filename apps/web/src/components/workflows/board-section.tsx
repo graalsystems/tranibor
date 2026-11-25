@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { DecisionBar } from "@/components/decision-bar";
@@ -264,7 +265,10 @@ function BoardCard({
             <CostChip costUsd={item.totals?.cost_usd} tokensIn={item.totals?.tokens_in} />
           )}
         </div>
-        <p className="mt-1 font-mono text-xs text-ink-muted">{item.tracker_key}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-muted">
+          {item.tracker_key}
+          <ImportedBadge imported={item.imported} />
+        </p>
         {running && live ? (
           // What is running now: the stage (and the agent when it is not the stage's own name), for how
           // long, and what it cost so far (ADR 0187 §4).

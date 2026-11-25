@@ -2822,7 +2822,9 @@ ticket size S/M/L/XL; under *Per-stage budgets*, one per role and size; max turn
 role, with a `default` row for every role not named; tool calls per run; daily spend per project;
 monthly spend of the organisation), **Attempts** (default attempts, accepted but not enforced;
 definition-of-done iterations; attempts per role), **Scope** (files granted without asking, files and
-lines in a diff) and **Findings** (per run). An empty field is no cap and is left out of what is
+lines in a diff) and **Findings** (per run). The two diff caps are written in the ceiling's `delivery`
+section, the `software-delivery` plugin's, which caps the policy's section of the same name; a ceiling
+that writes them under `scope` is refused (`422`, naming the section). An empty field is no cap and is left out of what is
 saved; the grey figure in a field is what the platform applies when nobody sets one. A value below a
 field's minimum is flagged on the field and blocks the save; a refusal from the API (`422`) is shown on
 the field it names. Saving reads the ceiling again and changes only these fields, so the **Network
@@ -2836,7 +2838,7 @@ The same ceiling as JSON:
              "max_minutes": {"implement": 45}, "tool_calls_per_run": 50, "daily_project_usd": 100,
              "monthly_org_usd": 5000},
  "attempts": {"default_max": 2, "by_role": {"implement": 2}},
- "scope": {"max_diff_lines": 2000}, "findings": {"max_per_run": 3}}
+ "delivery": {"scope": {"max_diff_lines": 2000}}, "findings": {"max_per_run": 3}}
 ```
 
 `monthly_org_usd` is the one cap that is not a project policy field: what all the organisation's

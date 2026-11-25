@@ -1,6 +1,6 @@
 {{/*
 The name every object of one outpost carries: the release's, with `tranibor-outpost` when it holds
-neither that name nor the former one (ADR 0224 R6). Not the chart's name: it is published as
+neither that name nor the former one (ADR 0226 R6). Not the chart's name: it is published as
 `tranibor-outpost` and `choregos-outpost` (ADR 0176 R3), and both render the same objects.
 */}}
 {{- define "tranibor-outpost.fullname" -}}
@@ -20,7 +20,7 @@ neither that name nor the former one (ADR 0224 R6). Not the chart's name: it is 
 The StatefulSet's name, which is also its pods' (`<it>-0`) and its claims' (`data-<it>-0`): an
 instance's keys, its journal and its audit log are on that claim, so a rename would leave every
 instance on a new, empty volume, a new identity to enrol and approve. It keeps the name the chart gave
-it before ADR 0224 (`<release>-choregos-outpost`, or the release's when it holds that name) until the
+it before ADR 0226 (`<release>-choregos-outpost`, or the release's when it holds that name) until the
 operator moves the data and sets `persistence.statefulSetName` (docs/deployment.md, "Upgrading to the
 next release: the chart takes the name tranibor").
 */}}

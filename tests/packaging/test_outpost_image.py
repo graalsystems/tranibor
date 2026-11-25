@@ -22,7 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "docker" / "outpost.Dockerfile"
 PACKAGE = "tranibor-outpost"
 #: The console script is `tranibor-outpost`; the former name an operator types stays for the window
-#: of ADR 0224 R5.
+#: of ADR 0226 R5.
 COMMAND, FORMER_COMMAND = "tranibor-outpost", "choregos-outpost"
 
 
@@ -75,7 +75,7 @@ def test_the_image_listens_on_nothing_and_runs_as_the_daemon() -> None:
     assert runtime[-2:] == ['ENTRYPOINT ["/usr/bin/tini", "--", "tranibor-outpost"]', 'CMD ["run"]']
     # The daemon must start in the image and find its contract: the build fails otherwise.
     checks = " ".join(line for line in runtime if line.startswith("RUN"))
-    # Both names start (ADR 0224 R5): `tranibor-outpost`, and the former one an operator's unit still calls.
+    # Both names start (ADR 0226 R5): `tranibor-outpost`, and the former one an operator's unit still calls.
     assert "tranibor-outpost --version" in checks and "choregos-outpost --version" in checks
     assert "load_outpost_door()" in checks
     # Nothing of the operator's is baked in: no secret, no address, no policy.
@@ -110,7 +110,6 @@ def test_the_release_builds_signs_and_attests_the_image_as_its_neighbours() -> N
     assert manifest["strategy"]["matrix"]["image"] == matrix["image"], "an image built and never signed"
     signed = [step.get("run", "") for step in manifest["steps"]]
     assert any('cosign sign --yes "${IMAGE}@${digest}"' in run for run in signed)
-    assert any('cosign sign --yes "${ALIAS}@${digest}"' in run for run in signed)
     assert images["env"]["IMAGE"] == PUBLISHING.image(f"{PUBLISHING.image_prefix}-${{{{ matrix.image }}}}")
 
 

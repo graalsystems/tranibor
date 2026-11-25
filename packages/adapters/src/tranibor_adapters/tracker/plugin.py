@@ -257,7 +257,7 @@ def _marker(marker: str) -> str:
     (`<!-- tranibor:status -->`), reduced to their name.
 
     A plugin's server finds its status note by the exact marker it was handed, and every note written
-    before ADR 0224 carries the former name: for the window the server is handed the former form
+    before ADR 0226 carries the former name: for the window the server is handed the former form
     (`choregos:status`), so that note is rewritten, never duplicated. The new form is handed when the
     window closes."""
     bare = wire.marker_twins(marker)[-1].strip().removeprefix("<!--").removesuffix("-->").strip()

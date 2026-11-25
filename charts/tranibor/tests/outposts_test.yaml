@@ -6,7 +6,7 @@
 # that the template renders the route first: without it the chart draws a key, in a Secret of its own.
 suite: outposts
 templates:
-  # First: it reads `tranibor-<component>` and `choregos-<component>` (ADR 0224 R6). A suite renders
+  # First: it reads `tranibor-<component>` and `choregos-<component>` (ADR 0226 R6). A suite renders
   # only the templates it lists, and without this one a component setting reaches nothing.
   - templates/values/keys/merged/first.yaml
   - charts/api/templates/deployment.yaml

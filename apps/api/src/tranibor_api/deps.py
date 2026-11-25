@@ -469,6 +469,12 @@ async def resolve_project(session: AsyncSession, identifier: str) -> tuple[Proje
 async def project_context(id: str, session: Db, principal: Me) -> ProjectContext:
     project, org_slug = await resolve_project(session, id)
     context = ProjectContext(project=project, org_slug=org_slug, principal=principal)
+    if principal.role_for(org_slug, project.slug) is None:
+        # No role at all on it, nor on its organisation: the project does not exist for this caller. A 403
+        # naming `org/slug` told whoever held an id (a log, a shared link) that it was a project of another
+        # organisation, and which. Row-level security hides it the same way on PostgreSQL; this holds on
+        # every backend, and for a bare slug or `org/slug` that resolved to another organisation's project.
+        raise not_found("Project", id)
     context.require(Permission.PROJECT_READ)
     bind(project=f"{org_slug}/{project.slug}")
     return context
@@ -547,7 +553,7 @@ async def report_claims(
     The agent inherits the egress token, not the key: without this, it could post its own run's
     counters. A deployment that configured no key accepts the egress token alone, as before. The key
     comes in `X-Tranibor-Egress-Key`, or in the former `X-Choregos-Egress-Key` from a proxy of a release
-    before ADR 0224."""
+    before ADR 0226."""
     claims, egress = _network_token(id, authorization)
     key = get_settings().egress_report_key
     sent = x_tranibor_egress_key or x_choregos_egress_key or ""

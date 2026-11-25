@@ -1,4 +1,4 @@
-# ADR 0224 R6: the default Secret names are stored state (§6) and keep their former names. A drawn
+# ADR 0226 R6: the default Secret names are stored state (§6) and keep their former names. A drawn
 # Secret is re-read under the name it was written with, so an upgrade keeps its values: above all
 # `secrets-keks`, which seals every stored connector secret. `helm template` cannot `lookup`;
 # helm-unittest's provider stands in for the cluster.

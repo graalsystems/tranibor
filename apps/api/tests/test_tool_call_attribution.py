@@ -135,7 +135,7 @@ def _provider_answers(monkeypatch: pytest.MonkeyPatch, seen: list[Any]) -> None:
         # Whatever it says: the door is read from the run, and a job step has no bridge to journal a script.
         (True, SCRIPT, "job", None),
         (True, {"X-Choregos-Tool-Origin": "model"}, "job", None),
-        # The names of ADR 0224 (`X-Tranibor-*`), read beside the former ones for the window.
+        # The names of ADR 0226 (`X-Tranibor-*`), read beside the former ones for the window.
         (False, {"X-Tranibor-Tool-Origin": "script", "X-Tranibor-Script": DIGEST}, "script", DIGEST),
     ],
     ids=[

@@ -13,7 +13,6 @@ import the API's routers.
 
 from __future__ import annotations
 
-import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request, status
@@ -47,12 +46,12 @@ async def tekton_webhook(
     """CloudEvents `dev.tekton.event.pipelinerun.{successful,failed}.v1`.
 
     Authenticated by the shared secret, in the `X-Tranibor-Secret` header (formerly `X-Choregos-Secret`, ADR
-    0224) OR in the sink URL (`?token=`): Tekton's CloudEvents sink is configured with a URL and adds no
+    0226) OR in the sink URL (`?token=`): Tekton's CloudEvents sink is configured with a URL and adds no
     header. The former spelling of the parameter was removed in 0.24.0 (S45-49): it authenticates nothing.
     There used to be NO check: harmless while row-level security hid everything from this route on PostgreSQL,
     an anonymous write path as soon as it sees the projects ("CI passed" on any work item).
     """
-    from tranibor_api.routers.webhooks import already_seen, dispatch
+    from tranibor_api.routers.webhooks import already_seen, dispatch, json_body
 
     settings = get_settings()
     supplied = read_header(request.headers, "Secret") or request.query_params.get("token", "")
@@ -64,7 +63,7 @@ async def tekton_webhook(
     body = await request.body()
     if await already_seen(session, "tekton", ce_id or body_digest(body), ce_type, body):
         return WebhookAck(accepted=True, duplicate=True)
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     run = payload.get("pipelineRun", payload)
     labels = (run.get("metadata", {}) or {}).get("labels", {})
     mapping = {
@@ -103,7 +102,7 @@ async def jenkins_webhook(
 
     Authenticated like the Tekton sink, by the shared secret in `X-Tranibor-Secret` (or `X-Choregos-Secret`)
     or in the URL (`?token=`): the Notification plugin takes a URL and no header."""
-    from tranibor_api.routers.webhooks import already_seen, dispatch
+    from tranibor_api.routers.webhooks import already_seen, dispatch, json_body
 
     settings = get_settings()
     supplied = read_header(request.headers, "Secret") or request.query_params.get("token", "")
@@ -116,7 +115,7 @@ async def jenkins_webhook(
 
     from .connectors.ci.jenkins import parse_jenkins_event
 
-    events = parse_jenkins_event(json.loads(body or b"{}"))
+    events = parse_jenkins_event(json_body(body))
     if not events:
         return WebhookAck(accepted=True)
     if await already_seen(session, "jenkins", events[0].delivery_id, str(events[0].type), body):
@@ -135,13 +134,13 @@ async def argocd_webhook(
     request: Request,
     session: PlatformDb,
 ) -> WebhookAck:
-    from tranibor_api.routers.webhooks import already_seen, project_for
+    from tranibor_api.routers.webhooks import already_seen, json_body, project_for
 
     body = await request.body()
     settings = get_settings()
     if not verify_shared_secret(settings.generic_webhook_secret, read_header(request.headers, "Secret")):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     app = payload.get("app", payload.get("application", ""))
     health = str(payload.get("health", payload.get("status", ""))).lower()
     kind = _argocd_kind(health, payload.get("rollout"))

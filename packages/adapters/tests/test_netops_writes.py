@@ -36,7 +36,7 @@ async def test_a_created_rule_is_created_once_per_action() -> None:
 
 
 async def test_a_replay_finds_the_rule_it_wrote_under_the_former_marker() -> None:
-    """ADR 0224 and ADR 0008: a rule an action wrote before the rename carries `[choregos:<hash>]`; the
+    """ADR 0226 and ADR 0008: a rule an action wrote before the rename carries `[choregos:<hash>]`; the
     action replayed after it finds that rule and creates no second one."""
     from tranibor_adapters.netops.pfsense import marker
 

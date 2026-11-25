@@ -99,3 +99,35 @@ async def test_the_tls_settings_and_the_codec_reach_the_connect_call(
     )
     codec = call["data_converter"].payload_codec
     assert isinstance(codec, AesGcmCodec) and codec.key_id == "k2"
+
+
+async def test_the_worker_installs_the_organisations_data_keys_for_every_client(
+    deployment: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR 0225: with a key wrapper (here the `TRANIBOR_SECRETS_KEKS` keyring), the worker's client and
+    every client its activities connect afterwards seal an organisation's payloads under its data key."""
+    from tranibor_core.temporal_connection import install_data_keys
+
+    monkeypatch.setenv("TRANIBOR_SECRETS_KEKS", f"s1:{base64.b64encode(os.urandom(32)).decode()}")
+    try:
+        with pytest.raises(_Stop):
+            await _worker()
+        with pytest.raises(_Stop):
+            await _signal()
+        worker_codec, activity_codec = (call["data_converter"].payload_codec for call in deployment)
+        assert isinstance(worker_codec, AesGcmCodec) and worker_codec.data_keys is not None
+        assert isinstance(activity_codec, AesGcmCodec)
+        assert activity_codec.data_keys is worker_codec.data_keys, "one cache per process"
+    finally:
+        install_data_keys(None)
+
+
+async def test_without_a_key_wrapper_the_worker_keeps_the_derived_keys(
+    deployment: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("TRANIBOR_SECRETS_KEKS", raising=False)
+    with pytest.raises(_Stop):
+        await _worker()
+    (call,) = deployment
+    codec = call["data_converter"].payload_codec
+    assert isinstance(codec, AesGcmCodec) and codec.data_keys is None

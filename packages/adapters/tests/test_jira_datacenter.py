@@ -85,7 +85,7 @@ async def test_reading_an_issue_uses_v2_and_a_bearer_token() -> None:
     item = await tracker(handler).fetch_item("BILL-42")
     assert item.body == "h1. Why\nThe total ignores them."
     assert item.url == f"{BASE}/browse/BILL-42"
-    assert item.comments[0].marker == "[tranibor:status]", "found under the former marker (ADR 0224)"
+    assert item.comments[0].marker == "[tranibor:status]", "found under the former marker (ADR 0226)"
     # A user is its login or key: no accountId exists on Data Center.
     assert item.fields["tracker"]["reporter"]["account_id"] == "JIRAUSER1"
 

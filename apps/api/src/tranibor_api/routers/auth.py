@@ -11,7 +11,7 @@ What this router guarantees, and why each guarantee exists:
 - **PKCE (S256)**: the authorisation code is worthless without the `code_verifier` kept in
   a ten-minute signed cookie.
 - **Roles per organisation**: an OIDC group is written `tranibor:<org>:<group>` (or the former
-  `tranibor:<org>:<group>`, read until 0.32.0, ADR 0224). An
+  `tranibor:<org>:<group>`, read until 0.32.0, ADR 0226). An
   unprefixed group only counts for `oidc_default_org`, otherwise for nothing. Before, any group gave the
   role on ALL the organisations of the instance.
 - **Development sign-in**: off by default, refused in staging/prod, and
@@ -59,7 +59,7 @@ router = APIRouter(tags=["session"])
 logger = get_logger("choregos.auth")
 
 #: Cookie that carries the PKCE `code_verifier` and the nonce between `/login` and `/callback`.
-OIDC_COOKIE = "tranibor_oidc"  # formerly `choregos_oidc`, read by `former_cookies` (ADR 0224)
+OIDC_COOKIE = "tranibor_oidc"  # formerly `choregos_oidc`, read by `former_cookies` (ADR 0226)
 OIDC_HANDSHAKE_S = 600
 
 #: The role groups an identity provider sends, bare or as `tranibor:<org>:<group>` (ADR 0181 C1 named
@@ -651,7 +651,7 @@ async def _relink_in_window(
 
 
 def roles_from_groups(groups: list[str], default_org: str) -> dict[str, Role]:
-    """`tranibor:<org>:<group>` (or the former `tranibor:<org>:<group>`, ADR 0224) → role on that org. A
+    """`tranibor:<org>:<group>` (or the former `tranibor:<org>:<group>`, ADR 0226) → role on that org. A
     bare group only counts for `default_org`.
 
     When several groups target the same organisation, the highest wins.

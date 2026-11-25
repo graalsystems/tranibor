@@ -62,7 +62,7 @@ HOSTED_WORKSPACE_VOLUME = "hosted-workspace"
 #: and reached Temporal, Redis and the web search from its agent's container (finding #2082);
 #: `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
 #: Not yet under the new family: the chart's warm pool and its policies select on these exact labels
-#: (`tests/charts/test_run_pod_labels.py`), and the chart's own labels move in round R6 (ADR 0224).
+#: (`tests/charts/test_run_pod_labels.py`), and the chart's own labels move in round R6 (ADR 0226).
 RUNNER_POD_LABELS = {
     "app.kubernetes.io/name": "choregos-runner",
     "app.kubernetes.io/component": "runner",

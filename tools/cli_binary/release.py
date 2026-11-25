@@ -16,7 +16,7 @@ them unless the five targets are all there: a release that silently lacked one w
 manifest whose missing platform nobody notices before a user does.
 
 The files are named `<prefix>-<platform>` after the publishing identity (`tranibor-linux-x86_64`,
-ADR 0224 R5). For the deprecation window the former names (`choregos-linux-x86_64`) stay readable:
+ADR 0226 R5). For the deprecation window the former names (`choregos-linux-x86_64`) stay readable:
 `SHA256SUMS` gives each file's digest under both names, the instance serves a former name as the
 current file (`/downloads/cli/`), and `--former-names` copies each file and its cosign bundle under
 the former name, for the GitHub release only (the API image carries one copy). The manifest lists the
@@ -46,10 +46,11 @@ PLATFORMS: dict[tuple[str, str], str] = {
     ("windows", "x86_64"): "windows-x86_64.exe",
 }
 _IDENTITY = json.loads(PUBLISHING_JSON.read_text(encoding="utf-8"))
-PREFIX, FORMER_PREFIX = str(_IDENTITY["image_prefix"]), str(_IDENTITY["image_alias_prefix"])
+#: The former name (`build.FORMER_CLI_PREFIX`, ADR 0226 R5): this script runs without the workspace.
+PREFIX, FORMER_PREFIX = str(_IDENTITY["image_prefix"]), "choregos"
 #: name -> (os, arch): the five targets, the same names as `build.py`'s.
 TARGETS: dict[str, tuple[str, str]] = {f"{PREFIX}-{end}": target for target, end in PLATFORMS.items()}
-#: current name -> former name, for the deprecation window of ADR 0224 R5 (the same bytes).
+#: current name -> former name, for the deprecation window of ADR 0226 R5 (the same bytes).
 FORMER_NAMES: dict[str, str] = {f"{PREFIX}-{end}": f"{FORMER_PREFIX}-{end}" for end in PLATFORMS.values()}
 #: The cosign bundle beside each file (`cosign sign-blob --bundle <file>.sigstore.json`).
 BUNDLE_SUFFIX = ".sigstore.json"
@@ -84,7 +85,7 @@ def manifest(directory: pathlib.Path, version: str, *, partial: bool = False) ->
 
 
 def sha256sums(doc: dict[str, Any]) -> str:
-    """Each file's digest under its name, then under its former name (ADR 0224 R5): a script that checks
+    """Each file's digest under its name, then under its former name (ADR 0226 R5): a script that checks
     a `choregos-*` download with `sha256sum --ignore-missing -c SHA256SUMS` keeps working."""
     lines = [f"{entry['sha256']}  {entry['name']}\n" for entry in doc["files"]]
     lines += [
@@ -130,7 +131,7 @@ def main() -> int:
     parser.add_argument(
         "--former-names",
         action="store_true",
-        help="copy each file of the manifest, and its bundle, under its former name (ADR 0224 R5)",
+        help="copy each file of the manifest, and its bundle, under its former name (ADR 0226 R5)",
     )
     args = parser.parse_args()
     if args.former_names:

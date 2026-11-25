@@ -125,7 +125,7 @@ def test_the_package_depends_on_nothing_that_serves_or_reports() -> None:
     }, "a new dependency of the daemon is a decision: say why in the pull request"
     assert declared["scripts"] == {
         "tranibor-outpost": "tranibor_outpost.cli:main",
-        "choregos-outpost": "tranibor_outpost.cli:main",  # the former name, for the window of ADR 0224 R5
+        "choregos-outpost": "tranibor_outpost.cli:main",  # the former name, for the window of ADR 0226 R5
     }
 
 
