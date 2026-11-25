@@ -39,6 +39,10 @@ LAUNCHER_BESIDE_HOSTED = "launcher"
 EXCHANGE = "/exchange"
 EXCHANGE_VOLUME = "exchange"
 AGENT_TMP_VOLUME = "agent-tmp"
+#: Where a platform ends a run only once every container has ended (a Container Apps job, S86-08), the
+#: runner writes its exit code to this file and the launcher (`--until-file`) ends on it.
+RUNNER_DONE_ENV = "TRANIBOR_RUNNER_DONE_FILE"
+RUNNER_DONE_FILE = f"{EXCHANGE}/.runner-done"
 #: The interpreter of the runner's image (its venv is not on `PATH`, #713): the startup probe's.
 PYTHON = "/app/.venv/bin/python"
 

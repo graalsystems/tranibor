@@ -88,10 +88,8 @@ def deployment_agent_isolation(environ: Mapping[str, str]) -> AgentIsolation:
 #: Why an executor that will not start the agent's container does not (S65-04l), added to its refusal
 #: so that the operator reads the reason, not only the missing word.
 WHY_NOT_SEPARATE: dict[str, str] = {
-    "aca": (
-        "a Container Apps job runs one container per execution here, and whether a job stops a second "
-        "container when the runner's ends was never run"
-    ),
+    # Empty since S86-08: every shipped executor that runs agents starts the agent's container (`tekton`
+    # since S86-05, `aca` since S86-08). An executor added without it names its reason here.
 }
 
 
@@ -107,7 +105,7 @@ def agent_isolation_refusal(asked: str, executor: str, capabilities: Iterable[st
         f"{AGENT_ISOLATION_UNAVAILABLE}: the deployment runs every agent in a container of its own "
         f"({AGENT_ISOLATION_ENV}=container, ADR 0146) and the `{executor}` executor cannot start one "
         f"(it does not declare `{SEPARATE_AGENT}`{': ' + why if why else ''}); run the project on an "
-        "executor that does (`k8s_job`, `local_docker`, `agent_sandbox`, `tekton`), or set "
+        "executor that does (`k8s_job`, `local_docker`, `agent_sandbox`, `tekton`, `aca`), or set "
         "`global.runner.agentIsolation: process` (in staging and prod that also needs "
         f"{AGENT_ISOLATION_ACCEPT_ENV}={NONE_ACCEPTED}, ADR 0222)"
     )

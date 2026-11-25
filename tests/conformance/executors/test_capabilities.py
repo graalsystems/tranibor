@@ -132,23 +132,26 @@ async def test_tekton_declares_the_agents_own_container_and_starts_it(
     assert [s["name"] for s in stage["taskSpec"]["sidecars"]] == ["agent"]
 
 
-async def test_aca_refuses_the_agents_own_container_saying_why(monkeypatch: pytest.MonkeyPatch) -> None:
-    """S65-04l: ACA does not start the agent's container (ADR 0146 §9). Under `container` it refuses the
-    run at `start`, naming itself and the reason, before anything reaches its backend; `/readiness`
-    reads the same sentence (`agent_isolation_refusal`)."""
-    from tranibor_adapters.errors import AgentIsolationRefusedError
+async def test_aca_declares_the_agents_own_container_and_starts_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S86-08: a Container Apps job carries the agent's container beside the runner's (ADR 0146, ADR 0224
+    §2): ACA declares `separate_agent`, has no reason left in `WHY_NOT_SEPARATE`, and a run under
+    `container` reaches ARM with a job whose second container is the launcher, ending on the runner's
+    done file, with no secret; the two share the working tree and the exchange directory."""
     from tranibor_core.agent_isolation import SEPARATE_AGENT, WHY_NOT_SEPARATE, agent_isolation_refusal
     from tranibor_core.domain import StageJobSpec
 
-    name = "aca"
     monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
-    executor = build("runtime", name, CONFIGS[name])
-    assert SEPARATE_AGENT not in executor.capabilities
+    executor = build("runtime", "aca", CONFIGS["aca"])
+    assert SEPARATE_AGENT in executor.capabilities
+    assert "aca" not in WHY_NOT_SEPARATE
+    assert agent_isolation_refusal("container", "aca", executor.capabilities) is None
+    sent: list[tuple[str, str, Any]] = []
 
-    async def nothing(*_: object, **__: object) -> None:
-        raise AssertionError(f"{name} reached its backend")
+    async def record(method: str, path: str, **kwargs: Any) -> Any:
+        sent.append((method, path, kwargs.get("json")))
+        return None
 
-    monkeypatch.setattr(executor.client, "request", nothing)
+    monkeypatch.setattr(executor.client, "request", record)
     spec = StageJobSpec(
         run_id="r-1",
         project_slug="demo",
@@ -158,7 +161,17 @@ async def test_aca_refuses_the_agents_own_container_saying_why(monkeypatch: pyte
         run_token="token",
         agent_isolation="container",
     )
-    with pytest.raises(AgentIsolationRefusedError) as refused:
-        await executor.start(spec)
-    assert f"`{name}`" in str(refused.value) and WHY_NOT_SEPARATE[name] in str(refused.value)
-    assert str(refused.value) == agent_isolation_refusal("container", name, executor.capabilities)
+    await executor.start(spec)
+    [job] = [body for method, _, body in sent if method == "PUT"]
+    runner, agent = job["properties"]["template"]["containers"]
+    assert agent["name"] == "agent"
+    assert agent["args"][:1] == ["launcher"] and "--until-file" in agent["args"]
+    assert not [e for e in agent["env"] if "secretRef" in e], "the agent's container holds no secret"
+    assert {e["name"] for e in runner["env"]} >= {
+        "TRANIBOR_RUNNER_AGENT_ISOLATION",
+        "TRANIBOR_RUNNER_DONE_FILE",
+    }
+    shared = {m["volumeName"] for m in runner["volumeMounts"]} & {
+        m["volumeName"] for m in agent["volumeMounts"]
+    }
+    assert shared == {"workspace", "exchange"}

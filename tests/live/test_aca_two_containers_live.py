@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -35,7 +36,9 @@ from .conftest import require
 
 pytestmark = pytest.mark.live
 
-IMAGE = "ghcr.io/graalsystems/tranibor-runner:0.29.4"
+#: The runner image; S86-08 needs one carrying `launcher --until-file` (0.29.5 and later, or a build of this
+#: tree pushed to a registry the subscription can read: `TRANIBOR_LIVE_AZURE_REGISTRY_*`).
+IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
 LAUNCHER = "/app/.venv/bin/choregos-runner"
 PYTHON = "/app/.venv/bin/python"
 #: The agent's container when it ends itself once the runner says it is done (ADR 0224 §2, S86-08).
@@ -70,7 +73,7 @@ def definition(
     exchange = [{"volumeName": "exchange", "mountPath": "/exchange"}]
     checks = json.dumps({str(code): verdict for code, verdict in probe.CHECKS.items()})
     return {
-        "location": "westeurope",
+        "location": os.environ.get("TRANIBOR_LIVE_AZURE_LOCATION", "westeurope"),
         "tags": {"choregos-live": "s86-07"},
         "properties": {
             "environmentId": environment_id,
@@ -161,3 +164,86 @@ async def test_what_the_execution_does_when_the_agent_outlives_the_runner(
     client, environment_id = arm
     status = await run_job(client, environment_id, agent_command=[LAUNCHER, "launcher"], timeout_s=240)
     assert status in {"succeeded", "failed"}, f"no terminal state observed: {status}"
+
+
+@pytest.mark.capability("aca", "separate_agent")
+async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
+    arm: tuple[AzureArmClient, str],
+) -> None:
+    """S86-08: the definition `AcaExecutor` writes under `container` (its agent container, its volumes, its
+    launcher with `--until-file`, the runner told where the agent is), on a real subscription. Only the
+    runner's command is replaced by the probe's runner side, which holds the run token as the runner does
+    (a job secret) and writes the done file the real runner writes. `Succeeded` means: loopback reached,
+    the volume shared both ways, the token in no `/proc` entry the agent can read, and the execution ended
+    with the runner."""
+    from tranibor_adapters.executor.aca import AcaExecutor
+    from tranibor_core.domain import StageJobSpec
+
+    client, environment_id = arm
+    executor = AcaExecutor(
+        client,
+        environment_id=environment_id,
+        location=os.environ.get("TRANIBOR_LIVE_AZURE_LOCATION", "westeurope"),
+        cpu=0.5,
+        memory="1Gi",
+    )
+    run_id = f"s86-08-{uuid.uuid4().hex[:8]}"
+    spec = StageJobSpec(
+        run_id=run_id,
+        project_slug="live-test",
+        namespace="choregos",
+        runner_image=IMAGE,
+        api_url="https://choregos.invalid/api",
+        run_token=f"s86-run-token-{uuid.uuid4().hex}",
+        agent_isolation="container",
+        timeout_minutes=10,
+    )
+    name = executor._name(run_id)
+    definition = executor._definition(spec, name)
+    runner, agent = definition["properties"]["template"]["containers"]
+    assert agent["name"] == "agent" and "--until-file" in agent["args"]
+    assert not any("secretRef" in entry for entry in agent.get("env", [])), (
+        "the agent's container holds no secret"
+    )
+    checks = json.dumps({str(code): verdict for code, verdict in probe.CHECKS.items()})
+    runner["command"] = [PYTHON, "-c", probe.RUNNER_SIDE]
+    runner.pop("args", None)
+    runner["env"] = [
+        *runner["env"],
+        {"name": "S86_MARKER", "secretRef": "run-token"},
+        {"name": "S86_AGENT_SIDE", "value": probe.AGENT_SIDE},
+        {"name": "S86_CHECKS", "value": checks},
+    ]
+    server = os.environ.get("TRANIBOR_LIVE_AZURE_REGISTRY_SERVER", "")
+    if server:
+        configuration = definition["properties"]["configuration"]
+        configuration["secrets"].append(
+            {"name": "registry-password", "value": os.environ["TRANIBOR_LIVE_AZURE_REGISTRY_PASSWORD"]}
+        )
+        configuration["registries"] = [
+            {
+                "server": server,
+                "username": os.environ["TRANIBOR_LIVE_AZURE_REGISTRY_USER"],
+                "passwordSecretRef": "registry-password",
+            }
+        ]
+    path = executor._path(name)
+    await client.request("PUT", path, json=definition)
+    try:
+        await client.request("POST", f"{path}/start")
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 900
+        status = "pending"
+        while loop.time() < deadline:
+            executions = (await client.request("GET", f"{path}/executions") or {}).get("value", [])
+            if executions:
+                status = str((executions[0].get("properties") or {}).get("status", "")).lower()
+                if status in {"succeeded", "failed", "stopped", "degraded"}:
+                    break
+            await asyncio.sleep(10)
+        print(f"S86-08 job={name} status={status}")
+    finally:
+        await client.request("DELETE", path)
+    assert status == "succeeded", (
+        f"the executor's own two-container job ended {status}: see its `S86-07` line"
+    )
