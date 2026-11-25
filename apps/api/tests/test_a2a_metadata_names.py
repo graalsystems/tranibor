@@ -31,4 +31,4 @@ def test_the_new_key_wins_when_both_are_sent() -> None:
 
 def test_a_block_under_another_key_names_no_skill() -> None:
     with pytest.raises(Fault):
-        _pick_skill(SERVED, {"varga": {"skill": "fix"}})
+        _pick_skill(SERVED, {"acme": {"skill": "fix"}})

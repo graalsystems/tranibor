@@ -198,7 +198,7 @@
 2	apps/api/tests/test_deliverables_api.py
 8	apps/api/tests/test_delivery_sections_migration.py
 4	apps/api/tests/test_demo_history_import.py
-4	apps/api/tests/test_demo_history_pending.py
+3	apps/api/tests/test_demo_history_pending.py
 1	apps/api/tests/test_demo_inline_worker.py
 1	apps/api/tests/test_device_sign_in.py
 2	apps/api/tests/test_docs_url.py
