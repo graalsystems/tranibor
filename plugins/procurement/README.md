@@ -11,9 +11,9 @@ repository.
 tranibor-procurement extract [--timeout N] [--max-chars-per-file N]
 ```
 
-Reads the files of `.choregos/inputs/` (the workspace is `TRANIBOR_WORKSPACE`, else the current
-directory) and the field `number_format` of `.choregos/fields.json` (`auto`, `decimal_comma`,
-`decimal_point`; default `auto`). Writes `.choregos/job.json` = `{summary, facts, outputs}`.
+Reads the files of `.tranibor/inputs/` (the workspace is `TRANIBOR_WORKSPACE`, else the current
+directory) and the field `number_format` of `.tranibor/fields.json` (`auto`, `decimal_comma`,
+`decimal_point`; default `auto`). Writes `.tranibor/job.json` = `{summary, facts, outputs}`.
 
 - **Output `offers_text`**: `{files: [{name, sha256, type, pages, chars, notation, text}]}`, the readable
   files by name. `text` is cut at `--max-chars-per-file` (150000); `chars` is its length before the cut.
@@ -52,9 +52,9 @@ the standard security handler (user password `secret`).
 tranibor-procurement compare
 ```
 
-Reads `.choregos/inputs/offers_structured.json` (the shape of
+Reads `.tranibor/inputs/offers_structured.json` (the shape of
 `src/tranibor_procurement/schemas/offers_structured.schema.json`: each supplier has its own `currency`,
-every number nullable), `offers_text.json` and the field `currency` of `.choregos/fields.json`. An inline
+every number nullable), `offers_text.json` and the field `currency` of `.tranibor/fields.json`. An inline
 JSON input is mounted under its artifact name plus `.json`. All arithmetic is `decimal.Decimal`, rounded
 half-even to two places; the only float is the JSON number an amount is written as, after the arithmetic.
 
@@ -76,7 +76,7 @@ half-even to two places; the only float is the JSON number an amount is written 
 tranibor-procurement tier --committee-from AMOUNT
 ```
 
-Reads `.choregos/inputs/award_basis.json`. Output `approval_tier` is `committee` when `highest_total` is
+Reads `.tranibor/inputs/award_basis.json`. Output `approval_tier` is `committee` when `highest_total` is
 at least the amount, else `standard`; output `highest_total`; fact `approval_tier_threshold`. A missing or
 non-numeric `--committee-from` exits non-zero and writes nothing: no threshold never means the lighter tier.
 
@@ -86,9 +86,9 @@ non-numeric `--committee-from` exits non-zero and writes nothing: no threshold n
 tranibor-procurement supplier-check --required KIND [KIND ...] --as-of DATE|today [--duplicates]
 ```
 
-Reads `.choregos/inputs/supplier_file.json` (the shape of `src/tranibor_procurement/schemas/supplier_file.schema.json`:
+Reads `.tranibor/inputs/supplier_file.json` (the shape of `src/tranibor_procurement/schemas/supplier_file.schema.json`:
 `identity` and `documents`, `kind` an open string, dates ISO or null) and the fields `legal_name` and
-`registration_number` of `.choregos/fields.json` (and `country`, for the duplicate search). The kinds to
+`registration_number` of `.tranibor/fields.json` (and `country`, for the duplicate search). The kinds to
 require are arguments the workflow writes: there is no default. No bank detail is read, and a document's
 `identifier` is not copied out.
 

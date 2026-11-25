@@ -46,7 +46,7 @@ from tranibor_adapters.a2a import (
 from tranibor_contracts import StageInput, StageStatus
 from tranibor_core.redaction import REDACTED
 
-from . import safe_files
+from . import run_dir, safe_files
 from .inputs import INPUTS_DIR
 from .outputs import OUTPUTS_DIR
 
@@ -98,7 +98,7 @@ def _message_text(stage_input: StageInput, workspace: Path) -> str:
     pieces = [(stage_input.playbook.prompt or "").strip()]
     for name in ("task.md", "context.md"):
         try:
-            pieces.append(safe_files.read_text(workspace, Path(".choregos") / name).strip())
+            pieces.append(safe_files.read_text(workspace, run_dir.path(name)).strip())
         except OSError:
             continue
     return "\n\n---\n\n".join(p for p in pieces if p)
@@ -377,7 +377,7 @@ def _land(
     inline: dict[str, Any],
     facts: dict[str, str | int | float | bool],
 ) -> None:
-    """One artifact of the remote agent: a file in `.choregos/outputs/`, an inline output, or facts."""
+    """One artifact of the remote agent: a file in `.tranibor/outputs/`, an inline output, or facts."""
     for part in artifact.parts:
         if part.kind == "file" and part.content is not None:
             safe_files.write_bytes(

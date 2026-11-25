@@ -181,7 +181,7 @@ The answer is the task. Keep its `id`:
 ### 5. Send a file with it
 
 A `file` part carries its bytes in base64. Its `mimeType` must be one of the skill's `input_modes`, and
-the first step that lists its `name` in `inputs` finds it in `.choregos/inputs/`.
+the first step that lists its `name` in `inputs` finds it in `.tranibor/inputs/`.
 
 ```bash
 curl -s "$A2A" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{

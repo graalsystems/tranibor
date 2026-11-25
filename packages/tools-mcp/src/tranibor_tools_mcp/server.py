@@ -146,7 +146,7 @@ class McpServer:
                     "not nested in another output.",
                     is_error=True,
                 )
-        return text_result("ok: the result conforms to choregos/StageResult/v1")
+        return text_result("ok: the result conforms to tranibor/StageResult/v1")
 
     async def _declared_outputs(self) -> list[str]:
         """The transition's outputs, read once from the run's input. Unreadable (a client without
@@ -199,7 +199,7 @@ class McpServer:
         await self.client.ask_human(str(arguments["question"]), list(arguments.get("options", [])))
         self.context.questions_asked += 1
         return text_result(
-            "question sent. Finish cleanly now: write `.choregos/result.json` "
+            "question sent. Finish cleanly now: write `.tranibor/result.json` "
             'with `"status": "needs_human"` and your question in `questions`.'
         )
 

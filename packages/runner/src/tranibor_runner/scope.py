@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tranibor_contracts.wire import run_relative
 from tranibor_core import matches_any
 
 from .workspace import RUNNER_FILES, Workspace
@@ -37,7 +38,7 @@ class ScopeCheck:
                 "",
                 "If one of them is essential, call `request_scope_change(paths, justification)`.",
                 "If it is a problem you noticed on the way, call `report_finding(...)`.",
-                "Then resume your work within the allowed paths, and update `.choregos/result.json`.",
+                "Then resume your work within the allowed paths, and update `.tranibor/result.json`.",
             ]
         )
 
@@ -80,5 +81,10 @@ async def check_scope(
 
 
 def config_files_touched(changed: list[str], workspace_path: Path) -> list[str]:
-    """Tranibor configuration files modified: always suspect, never silent."""
-    return [path for path in changed if path.startswith(".choregos/") and not path.endswith("result.json")]
+    """Tranibor configuration files modified: always suspect, never silent. The run directory under
+    either name (ADR 0226, R9a), its result excepted."""
+    return [
+        path
+        for path in changed
+        if (inside := run_relative(path)) not in (None, "") and inside != "result.json"
+    ]

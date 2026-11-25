@@ -110,8 +110,8 @@ and under `workspace: write` none does (see below).
   at a time, each judged as an ACP agent's write is (the allowed paths, the sensitive files). A
   write the guard refuses, a `.git` path, a symlink to an absolute path or out of the tree, anything
   but a regular file or symlink, a path through a symlink of the repository, a directory turned into
-  a file, and under `.choregos/` anything but `.choregos/outputs/` stay in the volume, are journaled
-  `hosted.write_refused` and count as permission denials. What the repository ignores
+  a file, and under the run directory (`.tranibor/`, or the former `.choregos/`) anything but its
+  `outputs/` stay in the volume, are journaled `hosted.write_refused` and count as permission denials. What the repository ignores
   (`__pycache__/`) is neither judged nor brought back. Deletions are mirrored under the same rules.
   The runner commits and pushes as for any agent; the clone, its `.git` and the git credential never
   leave the runner's container.
@@ -126,7 +126,7 @@ version asks.
 declare ([ADR 0119](adr/0119-an-agent-declares-the-workspace-it-needs.md)): a hosted version may also
 set the top-level `workspace`, but only to the same value (another one is a `422`). Under `none` the
 repository's host is not on the run's network either; under `read` the runner's write scope is
-`.choregos/outputs/**` only, and a scope change is denied.
+`.tranibor/outputs/**` only, and a scope change is denied.
 
 **The executor starts the container beside the runner (S41-05).** The orchestrator accepts a hosted
 step when the version's image is pinned: an `image` source runs `ref@digest` (no digest,

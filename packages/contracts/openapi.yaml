@@ -6911,7 +6911,7 @@ paths:
       operationId: getRunInputs
       description: >-
         The declared inputs of the run that an earlier step produced, latest revision of each (ADR 0049).
-        The runner mounts them as files in `.choregos/inputs/`. One page at a time (ADR 0206): a page is a number of
+        The runner mounts them as files in `.tranibor/inputs/`. One page at a time (ADR 0206): a page is a number of
         DECLARED inputs, so one nothing has produced yet leaves it shorter; the runner follows `meta.next_cursor`
         to the end.
       parameters:
@@ -6944,7 +6944,7 @@ paths:
       security: [{ runToken: [] }]
       operationId: putRunOutput
       description: >-
-        A deliverable the agent wrote in `.choregos/outputs/` (ADR 0049). The API hashes the bytes,
+        A deliverable the agent wrote in `.tranibor/outputs/` (ADR 0049). The API hashes the bytes,
         refuses them unless they match `X-Tranibor-Digest` (or the former `X-Choregos-Digest`), stores them in the object store and records
         a typed artifact revision with its produced receipt. Same bytes, same version. Closed once the
         run's result is posted.
@@ -8593,7 +8593,7 @@ components:
           oneOf:
             - { type: string, enum: [none, read, write] }
             - { type: "null" }
-          description: "The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.choregos/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`."
+          description: "The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.tranibor/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`."
         tools:
           oneOf:
             - { $ref: "#/components/schemas/AgentTools" }
@@ -14021,7 +14021,7 @@ components:
                   type: object
                   required: [path, title, markdown]
                   properties:
-                    path: { type: string, description: "relative to `.choregos/knowledge/<slug>/`" }
+                    path: { type: string, description: "relative to `.tranibor/knowledge/<slug>/`" }
                     title: { type: string }
                     filename: { type: string }
                     markdown: { type: string }
@@ -14075,7 +14075,7 @@ components:
     Artifact: { $ref: "./schemas/artifact.schema.json" }
     RunInputFile:
       type: object
-      description: A declared input of a run, as the runner mounts it in `.choregos/inputs/` (ADR 0049).
+      description: A declared input of a run, as the runner mounts it in `.tranibor/inputs/` (ADR 0049).
       required: [name, version, filename, type, media_type, digest, size]
       properties:
         name: { type: string }

@@ -99,7 +99,7 @@ tools its version names, under each tool connector's account, listed on its run.
    returns it: it is hidden unless the person's profile shows it), the **labels**, and the **answers**
    of the issue's form: every non-empty custom field, keyed by its display name, as text (an option's
    value, a user's name, a list joined with commas, rich text as plain text), each cut at 2000
-   characters. Agents read it as `ticket.fields.tracker`, jobs in `.choregos/fields.json`. It is the
+   characters. Agents read it as `ticket.fields.tracker`, jobs in `.tranibor/fields.json`. It is the
    requester's text, never an instruction. Each webhook delivery refreshes it; an issue the poll alone
    feeds keeps what it said when it was taken on.
 

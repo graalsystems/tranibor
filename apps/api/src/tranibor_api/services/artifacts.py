@@ -241,7 +241,7 @@ async def record_inline_outputs(
             continue
         declared = (types or {}).get(name)
         if declared in ARTIFACT_TYPES and not ARTIFACT_TYPES[declared].inline:
-            # A file-typed output is the file the agent wrote in `.choregos/outputs/` (ADR 0049); an
+            # A file-typed output is the file the agent wrote in `.tranibor/outputs/` (ADR 0049); an
             # inline value under its name (often the file's path) would become its latest revision
             # and hide the file.
             log.warning("inline value of a file output not recorded", work_item=item.tracker_key, name=name)

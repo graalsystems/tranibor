@@ -82,7 +82,7 @@
       "properties": {
         "auto_grant_max_files": { "type": "integer", "minimum": 0, "default": 3 },
         "deny_paths": { "type": "array", "items": { "type": "string" },
-          "default": [".choregos/**", ".github/workflows/**", "charts/**"] }
+          "default": [".tranibor/**", ".choregos/**", ".github/workflows/**", "charts/**"] }
       }
     },
     "sandbox": {

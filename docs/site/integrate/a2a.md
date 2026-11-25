@@ -200,7 +200,7 @@ tranibor a2a send billing-api/ship-a-change --message-id order-2026-0042 --title
 ## 5. Send a file with it
 
 A `file` part carries its bytes in base64. Its `mimeType` must be one of the skill's `input_modes`; the
-first step that lists the file's `name` in its `inputs` finds it in `.choregos/inputs/`.
+first step that lists the file's `name` in its `inputs` finds it in `.tranibor/inputs/`.
 
 ```shell
 curl -s "$A2A" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{

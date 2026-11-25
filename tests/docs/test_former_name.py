@@ -107,10 +107,6 @@ def _kept(pattern: str, reason: str, pages: str = "") -> Kept:
 #: The only former names `docs/site/` may still show, each with its reason (verified in the code).
 KEPT = (
     _kept(
-        r"\.choregos/(?:inputs|outputs|result\.json|task\.md|fields\.json|job\.json|knowledge)\b",
-        "the run's workspace directory inside the step's sandbox, read by agents and job images (R5 notes)",
-    ),
-    _kept(
         r'"\.choregos/\*\*"',
         "the policy denies agents the former repository directory beside `.tranibor/**` (the templates do)",
     ),
@@ -216,6 +212,7 @@ def test_every_kept_name_is_still_shown(kept: Kept) -> None:
         "curl -fsSLO https://tranibor.example.com/downloads/cli/choregos-linux-x86_64",
         "kubectl -n tranibor exec deploy/tranibor-api -- choregos-admin tokens create",
         "`.choregos/workflow.yaml`",
+        "finds it in `.choregos/inputs/`.",  # the run directory has its twin (R9a)
         "`choregos-outpost enrol`",  # kept on the generated reference only
     ],
 )

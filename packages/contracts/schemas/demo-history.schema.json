@@ -7,7 +7,7 @@
   "required": ["schema", "work_items"],
   "additionalProperties": false,
   "properties": {
-    "schema": { "const": "choregos/DemoHistory/v1" },
+    "schema": { "enum": ["tranibor/DemoHistory/v1", "choregos/DemoHistory/v1"], "description": "`tranibor/DemoHistory/v1`; the former `choregos/DemoHistory/v1` is read until 0.32.0 (ADR 0226)" },
     "workflow": {
       "type": "string",
       "minLength": 1,

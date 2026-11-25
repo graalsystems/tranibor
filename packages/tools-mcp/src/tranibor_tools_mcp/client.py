@@ -183,7 +183,7 @@ class InternalClient:
         return response.content
 
     async def put_output(self, name: str, type_: str, data: bytes, digest: str) -> dict[str, Any]:
-        """Hands a deliverable of `.choregos/outputs/` to the platform, which hashes and stores it."""
+        """Hands a deliverable of `.tranibor/outputs/` to the platform, which hashes and stores it."""
         response = await self._client.put(
             self._url(f"/outputs/{name}"),
             params={"type": type_},

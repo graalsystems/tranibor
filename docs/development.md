@@ -62,7 +62,7 @@ tranibor demo import acme/billing history.yaml      # or: POST /api/v1/projects/
 ```
 
 ```yaml
-schema: choregos/DemoHistory/v1
+schema: tranibor/DemoHistory/v1
 prices:                              # USD per million tokens; a run without `cost_usd` is costed with it
   anthropic/claude-sonnet-5: { input_usd_per_mtok: 3.0, output_usd_per_mtok: 15.0, cached_input_usd_per_mtok: 0.3 }
 work_items:

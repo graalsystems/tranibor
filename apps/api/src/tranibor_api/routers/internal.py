@@ -584,7 +584,7 @@ async def get_inputs(id: str, session: Db, claims: OpenRunAuth, page: Pagination
     one page at a time (ADR 0206). The cursor is a position in the list, which the runner follows to the
     end.
 
-    The runner mounts them as files in `.choregos/inputs/`, so a large report no longer has to fit
+    The runner mounts them as files in `.tranibor/inputs/`, so a large report no longer has to fit
     in the prompt. An input nothing has produced yet is simply absent. When the transition declares
     `attachments`, every file handed to the work item is listed too (ADR 0201 §8); a handed name that
     is also a declared input is listed once, the declared input's revision winning."""
@@ -673,7 +673,7 @@ async def put_output(
     claims: OpenRunAuth,
     type: Annotated[str, Query(description="a type of the artifact vocabulary (ADR 0049)")],
 ) -> Artifact:
-    """A deliverable the agent wrote in `.choregos/outputs/` (S31-05, ADR 0049).
+    """A deliverable the agent wrote in `.tranibor/outputs/` (S31-05, ADR 0049).
 
     The API hashes the bytes it received and refuses them unless they match the digest the runner
     computed; it stores them in the object store and records a typed artifact revision with its

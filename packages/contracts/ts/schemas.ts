@@ -160,7 +160,8 @@ export type ContextPackMemory = {
 
 /** The memory selected for a stage, within a token budget. **Untrusted** content: data, never instructions. */
 export type ContextPack = {
-  schema: "choregos/ContextPack/v1";
+  /** `tranibor/ContextPack/v1`; the former `choregos/ContextPack/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/ContextPack/v1" | "choregos/ContextPack/v1";
   query: string;
   paths?: Array<string>;
   kinds?: Array<string>;
@@ -415,7 +416,8 @@ export type DemoHistoryWorkItem = {
 
 /** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */
 export type DemoHistory = {
-  schema: "choregos/DemoHistory/v1";
+  /** `tranibor/DemoHistory/v1`; the former `choregos/DemoHistory/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/DemoHistory/v1" | "choregos/DemoHistory/v1";
   /** The project's workflow the work items belong to, by name; absent: the project's default. Every state the document names must exist in it. */
   workflow?: string;
   /** The price the document declares for each model, in USD per million tokens. A run that gives no `cost_usd` is costed with the price of its `model`; a model with no price there is refused. */
@@ -1387,7 +1389,8 @@ export type Project = {
 
 /** Orchestrator → runner contract (docs/plan/01 §1.5). */
 export type StageInput = {
-  schema: "choregos/StageInput/v1";
+  /** `tranibor/StageInput/v1`; the former `choregos/StageInput/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/StageInput/v1" | "choregos/StageInput/v1";
   run_id: string;
   attempt: number;
   /** W3C traceparent header, passed on to the runner. */
@@ -1421,7 +1424,7 @@ export type StageInput = {
     to: string;
     outputs?: Array<string>;
     inputs?: Array<string>;
-    /** The declared type of each output (ADR 0049); a file type is written in .choregos/outputs/. */
+    /** The declared type of each output (ADR 0049); a file type is written in .tranibor/outputs/. */
     output_types?: {
       [key: string]: string;
     };
@@ -1530,7 +1533,7 @@ export type StageInput = {
     version: number;
     digest: string;
   }>;
-  /** The registry agent's knowledge bases (ADR 0051). `files`: the runner fetches the pinned documents through the internal API, checks the digest and lays them read-only under `.choregos/knowledge/<slug>/`; `index`: the agent searches the base with `knowledge_search`. */
+  /** The registry agent's knowledge bases (ADR 0051). `files`: the runner fetches the pinned documents through the internal API, checks the digest and lays them read-only under `.tranibor/knowledge/<slug>/`; `index`: the agent searches the base with `knowledge_search`. */
   knowledge?: Array<{
     slug: string;
     name?: string;
@@ -1609,9 +1612,10 @@ export type StageInput = {
   } | null;
 };
 
-/** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .choregos/result.json; the runner completes artifacts/evidence/diagnostics. */
+/** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .tranibor/result.json; the runner completes artifacts/evidence/diagnostics. */
 export type StageResult = {
-  schema: "choregos/StageResult/v1";
+  /** `tranibor/StageResult/v1`; the former `choregos/StageResult/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/StageResult/v1" | "choregos/StageResult/v1";
   status: "done" | "blocked" | "needs_human" | "failed";
   /** Cause when status != done: limit, budget, scope, invalid_result, agent_error, ci… */
   reason?: string | null;
@@ -1639,7 +1643,7 @@ export type StageResult = {
     reports?: {
       [key: string]: string;
     };
-    /** The files the step left in .choregos/outputs/, by artifact name, as the runner stored them (ADR 0049). */
+    /** The files the step left in .tranibor/outputs/, by artifact name, as the runner stored them (ADR 0049). */
     files?: {
       [key: string]: {
         filename: string;
@@ -1931,7 +1935,7 @@ export type WorkflowSystemActor = {
   type: "system";
 };
 
-/** A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.choregos/facts.json` are measured. */
+/** A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.tranibor/job.json` are measured. */
 export type WorkflowJobActor = {
   type: "job";
   role: string;

@@ -60,17 +60,17 @@ async def test_a_regular_file_of_the_folder_is_stored(stage_input: StageInput, t
     assert stored["notes.txt"].size == 4 and problems == []
 
 
-@pytest.mark.parametrize("linked", [".choregos/outputs", ".choregos"])
+@pytest.mark.parametrize("linked", [".tranibor/outputs", ".tranibor"])
 async def test_a_link_in_place_of_the_folder_is_refused_whole(
     stage_input: StageInput, tmp_path: Path, linked: str
 ) -> None:
     workspace, elsewhere = _workspace(tmp_path), _elsewhere(tmp_path)
-    if linked == ".choregos":
+    if linked == ".tranibor":
         (elsewhere / "outputs").mkdir()
         (elsewhere / "outputs" / "environ").write_bytes(b"TOKEN=not-a-deliverable")
-        (workspace / ".choregos").symlink_to(elsewhere, target_is_directory=True)
+        (workspace / ".tranibor").symlink_to(elsewhere, target_is_directory=True)
     else:
-        (workspace / ".choregos").mkdir()
+        (workspace / ".tranibor").mkdir()
         (workspace / OUTPUTS_DIR).symlink_to(elsewhere, target_is_directory=True)
     kept, refused = collect(workspace, stage_input)
     assert kept == []
@@ -85,7 +85,7 @@ async def test_the_pod_s_own_files_are_not_deliverables(stage_input: StageInput,
     if not Path("/proc/self/environ").exists():
         pytest.skip("no /proc on this platform")
     workspace = _workspace(tmp_path)
-    (workspace / ".choregos").mkdir()
+    (workspace / ".tranibor").mkdir()
     (workspace / OUTPUTS_DIR).symlink_to("/proc/self", target_is_directory=True)
     client = Client()
     stored, problems = await store_outputs(client, workspace, stage_input)

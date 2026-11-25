@@ -57,8 +57,10 @@ class Attempts(Strict):
 
 class ScopePolicy(Strict):
     auto_grant_max_files: int = Field(default=3, ge=0)
+    #: The platform's directory under both names (ADR 0226: `.tranibor/`, and the former `.choregos/`
+    #: until 0.32.0): a repository's workflow and policy, and the runner's files in the run workspace.
     deny_paths: list[str] = Field(
-        default_factory=lambda: [".choregos/**", ".github/workflows/**", "charts/**"]
+        default_factory=lambda: [".tranibor/**", ".choregos/**", ".github/workflows/**", "charts/**"]
     )
 
 

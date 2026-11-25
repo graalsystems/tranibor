@@ -15,7 +15,10 @@ that spells both forms of each family, so no other module writes the former name
 * identity provider groups: `tranibor:<org>:<group>` beside `choregos:<org>:<group>`;
 * cookies: `tranibor_<name>`, the former `choregos_<name>` read and then cleared;
 * tracker markers: `<!-- tranibor:<kind> -->` (and `[tranibor:<kind>]`), the former found too;
-* the MCP server's `name`, the A2A extension URI, the problem type URIs, the web fetch's tokens.
+* the MCP server's `name`, the A2A extension URI, the problem type URIs, the web fetch's tokens;
+* (R9a) the run workspace: `.tranibor/` inside a step's sandbox, formerly `.choregos/` (`run_path`,
+  `run_paths`, `run_relative`); the stage documents' `schema`: `tranibor/<Name>/v1`, formerly
+  `choregos/<Name>/v1` (`schema_id`, `schema_ids`).
 
 The former forms are removed in the minor that closes the window, in their own PR (ADR 0226 §1).
 """
@@ -41,6 +44,7 @@ __all__ = [
     "FORMER_NAME",
     "FORMER_PROBLEM_BASE",
     "FORMER_ROBOTS_TOKENS",
+    "FORMER_RUN_DIRECTORY",
     "GROUP_PREFIXES",
     "KUBE_API_VERSION",
     "KUBE_API_VERSIONS",
@@ -50,6 +54,8 @@ __all__ = [
     "PLATFORM_KEY_PREFIXES",
     "PROBLEM_BASE",
     "ROBOTS_TOKENS",
+    "RUN_DIRECTORIES",
+    "RUN_DIRECTORY",
     "SCHEMA_ID_BASE",
     "SCHEMA_ID_BASES",
     "both_headers",
@@ -78,6 +84,11 @@ __all__ = [
     "read_cookie",
     "read_header",
     "read_label",
+    "run_path",
+    "run_paths",
+    "run_relative",
+    "schema_id",
+    "schema_ids",
     "strip_group_prefix",
     "with_twin_headers",
 ]
@@ -361,3 +372,48 @@ FORMER_PROBLEM_BASE = "https://choregos.dev/problems/"
 #: ones, so both are honoured for the window (the most specific group that names any of them wins).
 ROBOTS_TOKENS = ("TraniborKnowledge", "Tranibor")
 FORMER_ROBOTS_TOKENS = ("ChoregosKnowledge", "Choregos")
+
+# ─── the run workspace and the stage documents (R9a) ───────────────────────────────────────────────
+
+#: The directory the runner keeps a step's files in, inside the step's sandbox (`task.md`, `inputs/`,
+#: `fields.json`, `result.json`, `job.json`, `outputs/`, `knowledge/`...). The runner writes the new one;
+#: for the window it also lays what an agent or a job READS under the former one, and reads what they
+#: WRITE under the new one first, then the former: an agent built on an older SDK, or a job image built
+#: outside the repository, still knows only the former.
+RUN_DIRECTORY = ".tranibor"
+FORMER_RUN_DIRECTORY = ".choregos"
+RUN_DIRECTORIES = (RUN_DIRECTORY, FORMER_RUN_DIRECTORY)
+
+
+def run_path(name: str) -> str:
+    """`.tranibor/<name>` (`run_path("result.json")`), relative to the workspace."""
+    return f"{RUN_DIRECTORY}/{name}"
+
+
+def run_paths(name: str) -> tuple[str, str]:
+    """Both paths of one file of the run workspace, the new one first."""
+    return run_path(name), f"{FORMER_RUN_DIRECTORY}/{name}"
+
+
+def run_relative(path: str) -> str | None:
+    """What `path` names under either run directory (`"result.json"` for `.choregos/result.json`, `""` for
+    the directory itself), `None` for a path outside both. `path` is relative to the workspace, in POSIX
+    form; a leading `./` is ignored."""
+    normalized = path.removeprefix("./")
+    for directory in RUN_DIRECTORIES:
+        if normalized == directory:
+            return ""
+        if normalized.startswith(f"{directory}/"):
+            return normalized[len(directory) + 1 :]
+    return None
+
+
+def schema_id(name: str) -> str:
+    """`tranibor/<name>/v1`: the `schema` of a stage document the platform writes (`StageResult`...)."""
+    return f"{NAME}/{name}/v1"
+
+
+def schema_ids(name: str) -> tuple[str, str]:
+    """Both ids of one stage document, the new one first: either is accepted on input, and a stored
+    document keeps the one it was written with."""
+    return schema_id(name), f"{FORMER_NAME}/{name}/v1"

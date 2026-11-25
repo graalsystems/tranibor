@@ -2693,10 +2693,8 @@ working on upgrade.
 | The version check's state, the native CLI's unpacked files | `~/.cache/tranibor/` | The former `~/.cache/choregos/` is no longer read: the next command checks the instance's version once more, and the binary unpacks itself once more | Delete `~/.cache/choregos/` if you like |
 
 **Not in this round** (they keep their former names, each to move in a later round of ADR 0226 with its own
-window): the directory a run's workspace uses between the runner and the agent or the job (`.choregos/` inside
-the step's sandbox: `result.json`, `task.md`, `inputs/`, `fields.json`, `job.json`, `outputs/`, `knowledge/`),
-which agents and job images built before the change read and write (the chart and the objects it renders
-move in R6, the next section); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
+window): the directory a run's workspace uses between the runner and the agent or the job (it moves in R9a,
+"the run workspace and the stage results" below); the chart and the objects it renders (R6, the next section); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
 
 ## Upgrading to 0.30.0: the chart takes the name tranibor (ADR 0226, R6)
 
@@ -2885,6 +2883,28 @@ plugin (S83-12, S83-13), without a window.
 | The organisation's policy ceiling `scope.max_diff_files`, `scope.max_diff_lines` | Only `delivery.scope.*` of the ceiling, which caps the policy's `delivery.scope.*`. The migration `6eb670a63a1b` rewrites `organizations.settings.policy_ceiling`; its downgrade moves the caps back. `PUT /orgs/{org}/policy-ceiling` with a former cap is refused (`422`, naming the section). The audit log keeps each ceiling as it was written. | A script or a client that writes the ceiling writes `delivery.scope`. |
 | The stage roles `fix_ci`, `address_review`, `release_notes`, `verify_prod` | No longer members of `StageRole` nor of the playbooks' `KNOWN_ROLES`: the plugin's extension declares them, with their playbooks (`tranibor_software_delivery/roles/`). The strings do not change, so no row is rewritten: stored workflows, `runs.stage_role` and recorded histories keep them. `release_notes_markdown` is no longer a named field of a step's outputs; it is read as any output, under its name. | Where the plugin's extension is absent, a workflow naming one of these roles without an `agent:` is published with the warning `role.playbook_not_found`, and its step fails for lack of a playbook: install the plugin, or bring the playbook (`TRANIBOR_PLAYBOOKS_DIR`). A Python import of `StageRole.FIX_CI` (and the three others) fails. |
 
+## Upgrading to 0.30.0: the run workspace and the stage results take the name tranibor (ADR 0226, R9a)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R9a.) The directory the runner
+keeps a step's files in, inside the step's sandbox, is `.tranibor/`; the documents the runner and the
+orchestrator exchange carry `schema: tranibor/<Name>/v1`. Agents, the agent SDK and job images built outside
+this repository may still know only `.choregos/` and `choregos/StageResult/v1`: both keep working until 0.32.0.
+
+| What | From 0.30.0 | The former name, until 0.32.0 | What to do |
+| :-- | :-- | :-- | :-- |
+| What the runner lays down for the agent or the job to read: `task.md`, `context.md`, `allowed_paths.txt`, `fields.json`, `inputs/` | Written under `.tranibor/` | **Also copied** under `.choregos/`, as real files (no symbolic link: the runner follows none, and some volumes refuse them) | Read `.tranibor/` |
+| What the agent or the job writes: `result.json`, `job.json`, `outputs/` | Read under `.tranibor/` first | Read under `.choregos/` when `.tranibor/` holds none; a deliverable present in both folders is taken from `.tranibor/outputs/` | Write `.tranibor/` |
+| The runner's own files: the journal, the agent's session, the knowledge bases, the skills a backend does not read, Claude Code's scope hook | `.tranibor/` only | A journal or a session a runner of 0.29 left in a workspace kept across a person's answer is taken over from `.choregos/` | Nothing |
+| The guard rails, the scope check, Claude Code's scope hook, the hosted workspace, the pull request | Both directories are the runner's: the agent may write only `result.json` and `outputs/` under either; nothing under either is committed, pushed, charged to the agent's scope or brought back from a hosted container but `outputs/` | — | Nothing |
+| The agent SDK (`tranibor-agent-sdk` 0.30.0) | Reads and writes `.tranibor/`, the result with `tranibor/StageResult/v1` | Under a runner before 0.30.0 (only `.choregos/` was laid down) it reads and writes `.choregos/`, the result with `choregos/StageResult/v1`, the only id that runner reads | Rebuild your agent images with the new SDK when convenient |
+| The shipped job images (`tranibor-procurement`, `choregos-quant`) | `.tranibor/` | `.choregos/` under a runner before 0.30.0, the same way | Nothing |
+| The policy's default `scope.deny_paths`, the presets | `.tranibor/**`, `.choregos/**`, `.github/workflows/**`, `charts/**` | `.choregos/**` stays in the list | A policy that lists its own `deny_paths` adds `.tranibor/**` |
+| The write scope of a `workspace: read` run | `.tranibor/outputs/**` | A run recorded before the upgrade with `.choregos/outputs/**` is still read-only: it never widens its scope | Nothing |
+| The `schema` of `StageInput`, `StageResult`, `ContextPack` and the demo history document | `tranibor/<Name>/v1` | `choregos/<Name>/v1` is accepted on input. A document stored before the upgrade (a run's input and result, a Temporal history) is read as it was written and keeps its id: replay stays deterministic (ADR 0008) | An agent that writes its result itself writes `tranibor/StageResult/v1`, or leaves `schema` out (the runner fills it in) |
+
+The A2A task id namespace, the Temporal task queues and workflow types and the stored documents are not renamed
+(ADR 0226 §6). The former directory, its copies and the former ids are removed in 0.32.0, in their own change.
+
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 
 ([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md).) The chart has run
@@ -2941,7 +2961,7 @@ that names its extension (`requires.extensions: [software-delivery]`, core `>=0.
 1.2.0's changes: ten generic skills beside `madr-4` (`test-first`, `conventional-commits`, `code-review`,
 `security-review`, `release-notes`, `ci-failure-triage`, `work-item-sizing`, `acceptance-criteria`,
 `safe-rollout`, `primary-sources`), `architect` reading primary sources on the web, and the agents that
-apply an organisation's conventions reading the knowledge bases under `.choregos/knowledge/`.
+apply an organisation's conventions reading the knowledge bases under `.tranibor/knowledge/`.
 
 - **Sixteen of its nineteen agents' documents change** (`compliance`, `secops` and `ux-designer` do
   not): each moves one version, so an organisation that installed them is **offered the update**; nothing

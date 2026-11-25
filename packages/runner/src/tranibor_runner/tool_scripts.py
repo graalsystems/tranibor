@@ -65,7 +65,7 @@ ACCESS_NOTES = {
 
 #: The section of the agent's FIRST prompt when the run is offered tool scripts (the examples page, §4.1),
 #: after its instructions and before the task (`instructions`, S57-11b): the first live matrix had it at
-#: the tail of `.choregos/task.md`, after the output contract, and no model used the client.
+#: the tail of `.tranibor/task.md`, after the output contract, and no model used the client.
 INSTRUCTIONS = """
 ## Calling tools from a script
 

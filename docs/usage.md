@@ -1144,7 +1144,7 @@ complete example that runs on the same deployment as the software one, with no c
     output_types: { budget: xlsx, deck: pptx }
 ```
 
-A typed output is a file the agent writes in `.choregos/outputs/` (`budget.xlsx`, `deck.pptx`); a
+A typed output is a file the agent writes in `.tranibor/outputs/` (`budget.xlsx`, `deck.pptx`); a
 value written in `outputs` under the same name does not stand for it. The types are `markdown`,
 `json`, `mermaid`, `sarif`, `text`, `csv`, `html`, `pdf`, `docx`, `xlsx`, `pptx`, `png`, `jpeg`,
 `gif`, `webp`, `svg`, `mp4`, `webm`, `file`, `diff`, `keyvalue`, `level` and `metric`; the validator
@@ -1206,12 +1206,12 @@ the console from the file's content, without running any of it. Fonts, charts an
 from the application's rendering, and the page says so; the download is the exact file. A revision the API
 refuses to serve is said, not shown.
 A step's declared `inputs:` reach its agent as files too: the runner writes each one in
-`.choregos/inputs/<name>.<ext>` (`deck.pptx`, `profiles.json`, `spec_markdown.md`) after checking
-its digest, and lists them in `.choregos/task.md`. A large report no longer has to fit in the
+`.tranibor/inputs/<name>.<ext>` (`deck.pptx`, `profiles.json`, `spec_markdown.md`) after checking
+its digest, and lists them in `.tranibor/task.md`. A large report no longer has to fit in the
 prompt; an input whose bytes do not match stops the run.
 
 **Binary deliverables.** An agent that produces a slide deck, a spreadsheet, a document, an image
-or a video writes it in `.choregos/outputs/`. The runner hands each file to the platform, which
+or a video writes it in `.tranibor/outputs/`. The runner hands each file to the platform, which
 checks its sha256, stores it in the object store and records it as a typed artifact; the runner
 lists what was stored in the result's `artifacts.files` — an agent cannot vouch for its own files.
 A declared file that is missing goes back to the agent, then fails the step. Undeclared files are
@@ -1235,11 +1235,11 @@ which carries no trade's command, and an unknown name stops the step. A plugin w
 steps ships its job image: the `investment-research` plugin's is `tranibor-investment-research`, built
 and signed by each release FROM that release's runner (`plugins/investment-research/Dockerfile`,
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) O4-3). A job gets no model and no
-gateway key. The runner writes the work item's fields in `.choregos/fields.json`, runs the command
+gateway key. The runner writes the work item's fields in `.tranibor/fields.json`, runs the command
 with `TRANIBOR_WORKSPACE`, `TRANIBOR_RUN_ID`, `TRANIBOR_API_URL` and the run's own token
 `TRANIBOR_RUN_TOKEN` (to call a connector through the internal API), and reads back
-`.choregos/job.json` = `{"summary": …, "facts": {…}, "outputs": {…}}` and the files in
-`.choregos/outputs/`. None of these files is committed: the branch, and the pull request, carry only
+`.tranibor/job.json` = `{"summary": …, "facts": {…}, "outputs": {…}}` and the files in
+`.tranibor/outputs/`. None of these files is committed: the branch, and the pull request, carry only
 what the command changed in the repository (S51-08). A non-zero exit fails the step; the facts are **measured**, so
 `evidence_facts` gates on what the code computed, not on what an agent said. Retries, `on_fail` and
 the `*agent` wildcard treat a job like an agent step. A job reaches the outside only through the
@@ -1518,7 +1518,7 @@ gates:
   - { name: tool_called, params: { tools: [verifier_adresse] } }
 ```
 
-Agents also get `validate_result`, which checks their `.choregos/result.json` against the
+Agents also get `validate_result`, which checks their `.tranibor/result.json` against the
 contract *before* they finish — the same validator the runner applies afterwards.
 
 ### What a run is offered
@@ -1845,7 +1845,7 @@ It is the requester's text: print it as data, never into a command, a path or a 
 The catalogue's agents show it as one line of JSON in a section that says so. A person cannot write
 `fields.tracker` (`422` on creation and on `PATCH /work-items/{id}`), and no workflow may declare an
 input named `tracker` (`inputs.reserved`); a workflow whose `metadata.inputs` forbids other
-properties still accepts it. A job reads the same object in `.choregos/fields.json`. An eval case or
+properties still accepts it. A job reads the same object in `.tranibor/fields.json`. An eval case or
 a trial gives its sample `fields` (`"input": {"title": …, "fields": {"tracker": {…}}}`); without
 them it renders with `ticket.fields` `{}`.
 
@@ -1865,7 +1865,7 @@ and a project without one gives no repository whatever the agent says.
 | `workspace` | what a run gets |
 | :-- | :-- |
 | `none` | nothing cloned: an empty directory with a local git, nothing pushed; the repository's host is **not** on the run's network (an agent naming it in `network.domains` must find it in the project's allowlist, or the run is refused before it starts) |
-| `read` | the repository cloned, and a write scope of `.choregos/outputs/**` only: a write to any repository file is refused and reverted, nothing is committed or pushed, and `request_scope_change` is always denied |
+| `read` | the repository cloned, and a write scope of `.tranibor/outputs/**` only: a write to any repository file is refused and reverted, nothing is committed or pushed, and `request_scope_change` is always denied |
 | `write` | today's run: the repository cloned, the work item's scope (`**` when it has none) |
 | absent | `write`; the field is left out of the stored spec, so a version published before it keeps its digest |
 
@@ -1881,7 +1881,7 @@ A version may also say **which language** a person reads its output in
 language tag such as `fr`, `de` or `pt-BR` (a primary subtag, optionally a region; anything else is a
 `422`). The platform's frame then asks the agent to write its summary, documents, questions and
 findings in that language, while the keys, identifiers and enum values of the result contract
-(`status`, `type`, `severity`) and the shape of `.choregos/result.json` stay as specified. Absent or
+(`status`, `type`, `severity`) and the shape of `.tranibor/result.json` stay as specified. Absent or
 `en`, the agent writes in English, as before, and an absent field is left out of the stored spec so no
 digest moves. The language is the agent's, not the organisation's: a code agent can keep writing pull
 requests in English while an assistant writes for people in theirs. A built-in role run without a
@@ -2457,7 +2457,7 @@ When a run is prepared, each named base must exist and be served to the run's pr
 the run does not start (`KnowledgeRefused`). A base served as **files** has its ready documents
 pinned by id and digest; the runner fetches exactly those (`GET /internal/runs/{id}/knowledge`),
 checks the digest (a base changed in between stops the run, exit 51), and lays them read-only under
-`.choregos/knowledge/<slug>/` with an `index.md`, out of the diff. `index.md` lists each document
+`.tranibor/knowledge/<slug>/` with an `index.md`, out of the diff. `index.md` lists each document
 with its outline: its sections, numbered (`2.3`), with their size and the line each starts on, so the
 agent reads the table of contents, then the section that answers. The prompt says where they are
 and asks the agent to cite the document and section it applies.
@@ -2806,10 +2806,10 @@ Three presets ship (`solo`, `team`, `regulated`) and are a reasonable starting p
 `scope.deny_paths` bounds every run's writes, whatever the work item's allowed paths say: the runner refuses
 a write there (the permission request, Claude Code's scope hook and the ACP file system answer alike),
 reverts one a shell made anyway, and `scope_respected` fails on a change under a denied path, even when no
-allowed path is declared. No scope change grants one. The step's own files, `.choregos/result.json` and
-`.choregos/outputs/`, stay writable under a denied `.choregos/**`. The default list is
-`.choregos/**`, `.github/workflows/**` and `charts/**`: a project whose agents change its charts lists
-its own. On a transition the platform takes, `scope_respected` with `over: work_item` holds the same
+allowed path is declared. No scope change grants one. The step's own files, `.tranibor/result.json` and
+`.tranibor/outputs/`, stay writable under a denied `.tranibor/**`. The default list is `.tranibor/**`,
+`.choregos/**` (the former name, read until 0.32.0), `.github/workflows/**` and `charts/**`: a project
+whose agents change its charts lists its own. On a transition the platform takes, `scope_respected` with `over: work_item` holds the same
 paths on the work item's whole diff ([ADR 0171](adr/0171-what-is-merged-is-what-was-judged.md)): the
 shipped workflows declare it on their merge transition, so a file under a denied path is not merged
 whoever committed it, a person on the pull request included.

@@ -18,6 +18,7 @@ from tranibor_contracts import AgentRef, JobSpec, ModelRef, StageInput, StageSta
 from tranibor_contracts.delivery import repository_of
 from tranibor_core.redaction import REDACTED
 from tranibor_runner.exits import Exit
+from tranibor_runner.job import JobRun, job_result
 from tranibor_runner.runner import Runner
 
 from .conftest import FakeInternalClient
@@ -29,11 +30,11 @@ JOB = r"""
 import json, os, pathlib, sys
 print("calling with " + os.environ["TRANIBOR_RUN_TOKEN"], file=sys.stderr)
 ws = pathlib.Path(os.environ["TRANIBOR_WORKSPACE"])
-fields = json.loads((ws / ".choregos" / "fields.json").read_text())
-out = ws / ".choregos" / "outputs"
+fields = json.loads((ws / ".tranibor" / "fields.json").read_text())
+out = ws / ".tranibor" / "outputs"
 out.mkdir(parents=True, exist_ok=True)
 (out / "results.csv").write_text("symbol\n" + "\n".join(fields["symbols"]) + "\n")
-(ws / ".choregos" / "job.json").write_text(json.dumps({
+(ws / ".tranibor" / "job.json").write_text(json.dumps({
     "summary": "backtest of " + ",".join(fields["symbols"]),
     "facts": {
         "relevant_count": 2,
@@ -136,7 +137,7 @@ async def test_a_fact_that_is_not_a_simple_value_is_refused(
     code = (
         "import json, os, pathlib\n"
         "ws = pathlib.Path(os.environ['TRANIBOR_WORKSPACE'])\n"
-        "(ws / '.choregos' / 'job.json').write_text(json.dumps({'facts': {'trades': [1, 2]}}))\n"
+        "(ws / '.tranibor' / 'job.json').write_text(json.dumps({'facts': {'trades': [1, 2]}}))\n"
     )
     job = _job(stage_input, tmp_path, code=code, outputs=[], output_types={})
     client = _client(job)
@@ -155,7 +156,7 @@ async def test_an_output_the_contract_refuses_fails_the_step_instead_of_crashing
     code = (
         "import json, os, pathlib\n"
         "ws = pathlib.Path(os.environ['TRANIBOR_WORKSPACE'])\n"
-        "(ws / '.choregos' / 'job.json').write_text(json.dumps({'outputs': {'verdict': 'relevant'}}))\n"
+        "(ws / '.tranibor' / 'job.json').write_text(json.dumps({'outputs': {'verdict': 'relevant'}}))\n"
     )
     job = _job(stage_input, tmp_path, code=code, outputs=["verdict"], output_types={})
     client = _client(job)
@@ -198,7 +199,7 @@ async def test_without_fields_a_job_does_not_run(
     outcome = await Runner(runner_settings, client).execute(job, client)  # type: ignore[arg-type]
     assert outcome.exit_code is Exit.INPUT_NOT_FOUND
     assert not client.results
-    assert not (runner_settings.workspace / ".choregos" / "job.json").exists()
+    assert not (runner_settings.workspace / ".tranibor" / "job.json").exists()
 
 
 async def test_fields_are_written_sorted(tmp_path: Path) -> None:
@@ -213,7 +214,7 @@ REPO_JOB = r"""
 import json, os, pathlib
 ws = pathlib.Path(os.environ["TRANIBOR_WORKSPACE"])
 (ws / "src" / "report.py").write_text("ROWS = 2\n")
-(ws / ".choregos" / "job.json").write_text(json.dumps({"summary": "report written"}))
+(ws / ".tranibor" / "job.json").write_text(json.dumps({"summary": "report written"}))
 """
 
 
@@ -232,6 +233,71 @@ async def test_only_the_jobs_own_files_are_committed_and_pushed(
     assert repository_of(stage_input) is not None
     pushed = subprocess.run(
         ["git", "diff", "--name-only", "main", repository_of(stage_input).work_branch],
+        cwd=toy_repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert pushed == ["src/report.py"], f"the runner's scratch files were pushed: {pushed}"
+
+
+# ─── a job image built before ADR 0226 (R9a): it knows only `.choregos/` ─────────────────────────────
+
+#: The backtest of `JOB`, as a job image built before the run directory took the name `tranibor` runs
+#: it: it reads the task and the fields under `.choregos/`, and writes its files and its result there.
+FORMER_JOB = JOB.replace('".tranibor"', '".choregos"').replace(
+    'ws = pathlib.Path(os.environ["TRANIBOR_WORKSPACE"])',
+    'ws = pathlib.Path(os.environ["TRANIBOR_WORKSPACE"])\n'
+    'assert (ws / ".choregos" / "task.md").is_file(), "the task is laid under the former name"',
+)
+
+
+async def test_a_job_image_that_knows_only_the_former_directory_still_runs(
+    stage_input: StageInput, runner_settings: Any, tmp_path: Path
+) -> None:
+    assert '".tranibor"' not in FORMER_JOB and "task.md" in FORMER_JOB
+    job = _job(stage_input, tmp_path, code=FORMER_JOB)
+    client = _client(job)
+    outcome = await Runner(runner_settings, client).execute(job, client)  # type: ignore[arg-type]
+
+    assert outcome.exit_code is Exit.OK, outcome.detail
+    result = client.results[-1]
+    assert result.status is StageStatus.DONE, result.summary
+    assert result.summary == "backtest of SPY,QQQ", "the job read the fields under `.choregos/`"
+    assert result.outputs.model_dump()["decision"] == "relevant", "its `.choregos/job.json` was read"
+    assert (result.evidence.facts or {})["relevant_count"] == 2
+    assert "results" in result.artifacts.files and "results" in client.outputs, "and its deliverable"
+
+
+async def test_the_new_job_json_wins_over_a_former_one(stage_input: StageInput, tmp_path: Path) -> None:
+    job = _job(stage_input, tmp_path, outputs=[], output_types={})
+    ran = JobRun(exit_code=0, duration_s=0.1, stdout="", stderr="")
+    (tmp_path / ".choregos").mkdir()
+    (tmp_path / ".choregos" / "job.json").write_text(json.dumps({"summary": "former"}))
+    assert job_result(job, tmp_path, ran)[0].summary == "former", "read when it is the only one"
+    (tmp_path / ".tranibor").mkdir()
+    (tmp_path / ".tranibor" / "job.json").write_text(json.dumps({"summary": "new"}))
+    assert job_result(job, tmp_path, ran)[0].summary == "new"
+
+
+async def test_a_former_jobs_scratch_files_are_not_pushed_either(
+    stage_input: StageInput, runner_settings: Any, tmp_path: Path, toy_repo: Path
+) -> None:
+    """Nothing the runner lays under `.choregos/` for the window, nor what a job writes there, reaches
+    the pull request."""
+    code = REPO_JOB.replace('".tranibor"', '".choregos"')
+    job = _job(stage_input, tmp_path, code=code, outputs=[], output_types={})
+    job = job.model_copy(update={"delivery": stage_input.delivery})
+    client = _client(job)
+    outcome = await Runner(runner_settings, client).execute(job, client)  # type: ignore[arg-type]
+
+    assert outcome.exit_code is Exit.OK, outcome.detail
+    assert client.results[-1].summary == "report written", "the former `job.json` was read"
+    assert (runner_settings.workspace / ".choregos" / "fields.json").is_file(), "the fields were mirrored"
+    repository = repository_of(stage_input)
+    assert repository is not None
+    pushed = subprocess.run(
+        ["git", "diff", "--name-only", "main", repository.work_branch],
         cwd=toy_repo,
         check=True,
         capture_output=True,

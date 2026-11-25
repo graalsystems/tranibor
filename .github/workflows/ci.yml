@@ -568,13 +568,13 @@ jobs:
             --build-arg "RUNNER_IMAGE=${RUNNER_IMAGE}" --iidfile /tmp/procurement.iid .
           image="$(cat /tmp/procurement.iid)"
           workspace="$(mktemp -d)"
-          mkdir -p "${workspace}/.choregos/inputs"
-          cp plugins/procurement/tests/fixtures/alderbrook-offer.pdf "${workspace}/.choregos/inputs/"
+          mkdir -p "${workspace}/.tranibor/inputs"
+          cp plugins/procurement/tests/fixtures/alderbrook-offer.pdf "${workspace}/.tranibor/inputs/"
           chmod -R a+rwX "${workspace}"
           # Mounted, not baked in: the command runs as a job step does, as uid 1000, in /workspace.
           docker run --rm --entrypoint tranibor-procurement -e TRANIBOR_WORKSPACE=/workspace \
             -v "${workspace}:/workspace" "${image}" extract
-          python3 - "${workspace}/.choregos/job.json" <<'PY'
+          python3 - "${workspace}/.tranibor/job.json" <<'PY'
           import json
           import sys
 

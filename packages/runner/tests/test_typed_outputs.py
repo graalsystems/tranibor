@@ -1,7 +1,7 @@
 """A declared file output (ADR 0049) is not asked for in `outputs` (S31-02).
 
 The runner asks the agent to repair a result that lacks a declared output (S22-12). A file output
-(`deck: pptx`) is written in `.choregos/outputs/`, not as a value: asking for it in `outputs` would
+(`deck: pptx`) is written in `.tranibor/outputs/`, not as a value: asking for it in `outputs` would
 push the agent to write a placeholder string, which the platform would then take for the deck.
 """
 

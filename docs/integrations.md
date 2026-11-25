@@ -354,7 +354,7 @@ the door does:
   its body, one data part its fields; name the skill in `message.metadata.skill` when there are several.
   A file part (`file.bytes` in base64, `file.mimeType` among the skill's `input_modes`) becomes an
   **input artefact** of the work item, named after `file.name` (`attachment-<n>` when it has none):
-  a step that lists that name in its transition's `inputs` finds it in `.choregos/inputs/`. The
+  a step that lists that name in its transition's `inputs` finds it in `.tranibor/inputs/`. The
   project bounds them with `a2a.max_file_bytes` in its configuration, **10 MiB by default** (50 MiB
   at most), for each file and for all the files of one message together; it is set in the project's
   **Settings › A2A**, in MiB. A file sent by `uri` is

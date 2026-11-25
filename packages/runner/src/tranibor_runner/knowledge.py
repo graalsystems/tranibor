@@ -5,12 +5,12 @@ The `StageInput` pins each base's documents and their digest when the run is pre
 come from the internal API and the digest is recomputed before anything is written: a base changed
 between preparation and execution is not the one the run was prepared with, and the run stops.
 
-Each base lands under `.choregos/knowledge/<slug>/` with an `index.md`: the title and file of each
+Each base lands under `.tranibor/knowledge/<slug>/` with an `index.md`: the title and file of each
 document, and its outline (its sections, numbered, with their size and the line each starts on), so
 the agent reads the table of contents and then the section that answers instead of grepping blind.
 Its files are made read-only and kept out of the diff; the guardrails already refuse any
-write under `.choregos/`. The prompt says where the corpus is and asks the agent to cite what it
-applies.
+write under `.tranibor/` (and its former name). The prompt says where the corpus is and asks the agent
+to cite what it applies.
 
 The folder is an Open Knowledge Format bundle (ADR 0174): every document comes with its OKF header
 from the API, and the root `index.md` declares `okf_version`. OKF reserves `index.md` and `log.md`;
@@ -24,11 +24,12 @@ from pathlib import Path
 from typing import Any
 
 from tranibor_contracts import KnowledgeRef, knowledge_digest
+from tranibor_contracts.wire import run_path
 from tranibor_core.outline import outline, render
 
 from . import safe_files
 
-ROOT = ".choregos/knowledge"
+ROOT = run_path("knowledge")
 INDEX = "index.md"
 #: Names the Open Knowledge Format reserves in a bundle (ADR 0174).
 RESERVED = frozenset({INDEX, "log.md"})

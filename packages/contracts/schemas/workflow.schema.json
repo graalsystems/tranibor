@@ -357,7 +357,7 @@
         "command"
       ],
       "additionalProperties": false,
-      "description": "A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.choregos/facts.json` are measured.",
+      "description": "A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.tranibor/job.json` are measured.",
       "properties": {
         "type": {
           "const": "job"

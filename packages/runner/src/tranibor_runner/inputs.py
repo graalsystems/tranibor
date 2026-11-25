@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Declared inputs, mounted as files in `.choregos/inputs/` (S31-03, ADR 0049).
+"""Declared inputs, mounted as files in `.tranibor/inputs/` (S31-03, ADR 0049).
 
 An earlier step's outputs reached the next agent only inlined in its prompt ("## Input: name"): a
 large report ate the context, and a file (a deck, a spreadsheet) could not reach it at all. The
@@ -7,7 +7,9 @@ runner now writes each declared input the platform holds as a file, after checki
 against the digest the API lists. A mismatch stops the run: an agent must never work from content
 that is not what the previous step produced.
 
-The folder is excluded from git like the runner's other files: it is never committed.
+The folder is excluded from git like the runner's other files: it is never committed. Until 0.32.0 the
+runner copies it to `.choregos/inputs/` too, for an agent or a job image that reads only the former name
+(ADR 0226, R9a; `run_dir.mirror`).
 """
 
 from __future__ import annotations
@@ -17,10 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from tranibor_contracts import artifact_digest
+from tranibor_contracts.wire import run_path
 
 from . import safe_files
 
-INPUTS_DIR = ".choregos/inputs"
+INPUTS_DIR = run_path("inputs")
 _FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,140}$")
 
 
@@ -51,7 +54,7 @@ async def mount_inputs(client: Any, workspace: Path) -> list[dict[str, Any]]:
 
 
 def inputs_markdown(mounted: list[dict[str, Any]]) -> str:
-    """The section appended to `.choregos/task.md`: where each input is, what it is."""
+    """The section appended to `.tranibor/task.md`: where each input is, what it is."""
     if not mounted:
         return ""
     lines = [
