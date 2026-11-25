@@ -77,11 +77,11 @@ def test_only_the_api_receives_the_session_secret() -> None:
     (api,) = [c for w, n, c in pods if (w, n) == ("tranibor-api", "api")]
     env = _env(api)
     assert env["CHOREGOS_SESSION_SECRET"]["valueFrom"]["secretKeyRef"] == {
-        "name": "tranibor-api-secrets",
+        "name": "choregos-api-secrets",
         "key": "session-secret",
     }
     assert env[PREVIOUS]["valueFrom"]["secretKeyRef"] == {
-        "name": "tranibor-api-secrets",
+        "name": "choregos-api-secrets",
         "key": "session-secret-previous",
         "optional": True,
     }
@@ -105,7 +105,7 @@ def test_extra_env_still_carries_other_names() -> None:
 def _external_secret_keys(*sets: str) -> list[str]:
     docs = _docs("global.externalSecrets.enabled=true", *sets)
     (external,) = [
-        d for d in docs if d["kind"] == "ExternalSecret" and d["metadata"]["name"] == "tranibor-api-secrets"
+        d for d in docs if d["kind"] == "ExternalSecret" and d["metadata"]["name"] == "choregos-api-secrets"
     ]
     return [item["secretKey"] for item in external["spec"]["data"]]
 
@@ -123,7 +123,7 @@ def test_the_external_secret_carries_the_previous_key_only_when_asked() -> None:
 def test_a_bench_secret_is_a_session_secret_the_api_accepts() -> None:
     """`global.devSecrets` draws the secret itself: it must meet the API's 32-byte rule."""
     docs = _docs("global.devSecrets=true", "global.externalSecrets.enabled=false")
-    (secret,) = [d for d in docs if d["kind"] == "Secret" and d["metadata"]["name"] == "tranibor-api-secrets"]
+    (secret,) = [d for d in docs if d["kind"] == "Secret" and d["metadata"]["name"] == "choregos-api-secrets"]
     session = secret["stringData"]["session-secret"]
     assert len(session.encode()) >= 32, "the API refuses a deployed session secret shorter than 32 bytes"
     assert "session-secret-previous" not in secret["stringData"], "no rotation on a bench"

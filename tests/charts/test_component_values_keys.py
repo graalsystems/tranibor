@@ -47,6 +47,9 @@ KEPT = {
     ("Deployment", "choregos-egress"): "gitops.py's per-project proxy has the same name (R7)",
     ("Service", "choregos-egress"): "one default `runner.egressProxy` addresses both proxies",
 }
+#: A Secret's default name is stored state (ADR 0224 §6): the Secrets the chart draws, and the
+#: ExternalSecret whose target is one, keep theirs (`test_secret_names_are_stored_state.py`).
+SECRET_KINDS = {"Secret", "ExternalSecret"}
 
 helm = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -212,7 +215,9 @@ def test_the_objects_are_named_tranibor_or_after_the_release(arguments: list[str
     stray = sorted(
         (kind, name)
         for kind, name in named
-        if not name.startswith(("tranibor", "platform-")) and (kind, name) not in KEPT
+        if not name.startswith(("tranibor", "platform-"))
+        and (kind, name) not in KEPT
+        and kind not in SECRET_KINDS
     )
     assert not stray, f"neither tranibor-* nor the release's: {stray}"
     assert ("Deployment", "tranibor-api") in named or not arguments

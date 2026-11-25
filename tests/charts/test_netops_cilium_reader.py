@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
-NAME = "tranibor-netops-cilium-reader"
+NAME = "choregos-netops-cilium-reader"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 

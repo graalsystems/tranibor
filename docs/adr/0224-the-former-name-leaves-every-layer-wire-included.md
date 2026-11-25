@@ -47,10 +47,12 @@ product does: a page that writes `tranibor login` to a reader whose binary is na
 3. **R6, the chart.** The chart's directory and name become `tranibor`, and its subcharts and the objects
    it renders `tranibor-*` (`tranibor-api`, `tranibor-web`…). The values keys `choregos-api`,
    `choregos-web`, `choregos-orchestrator`… are read as aliases of the new keys for the window (a helper
-   merges them; a key set under both names refuses to render). Default Secret names become `tranibor-*`;
-   a values file that names a Secret keeps it. **An object that holds data is not renamed by a rename**:
-   PersistentVolumeClaims and the StatefulSets that own them keep their names until the operator runs
-   the migration the chart documents; the upgrade notes give each step.
+   merges them; a key set under both names refuses to render). Default Secret names are stored state
+   (point 6) and keep their former names (amended 2026-11-25: a renderer that cannot read the cluster
+   would not find a renamed Secret, and would draw new keys); a deployment renames them by migration,
+   copying each Secret and then setting the new name in its values. **An object that holds data is not
+   renamed by a rename**: PersistentVolumeClaims and the StatefulSets that own them keep their names
+   until the operator runs the migration the chart documents; the upgrade notes give each step.
 4. **R7, the wire (a `contract-change` PR, ADR 0001).**
    - Headers `X-Tranibor-*` beside `X-Choregos-*`: every receiver accepts both, every sender sends the
      new one; webhook signatures are computed the same way under either name.

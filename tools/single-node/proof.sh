@@ -126,14 +126,14 @@ vault() {
 
 install() {
   kubectl create namespace "$NAMESPACE"
-  k create secret generic tranibor-api-secrets \
+  k create secret generic choregos-api-secrets \
     --from-file=run-token-private-key="$WORK/run-token.pem" \
     --from-file=session-secret="$WORK/session-secret" \
     --from-file=secrets-keks="$WORK/secrets-keks"
-  k create secret generic tranibor-oidc --from-literal=client-secret=proof-unused
-  k create secret generic tranibor-backup-target \
+  k create secret generic choregos-oidc --from-literal=client-secret=proof-unused
+  k create secret generic choregos-backup-target \
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
-  k create secret generic tranibor-object-store \
+  k create secret generic choregos-object-store \
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
   local tag=()
   [ -n "${PROOF_IMAGE_TAG:-}" ] && tag=(--set "global.imageTag=$PROOF_IMAGE_TAG")
@@ -151,7 +151,7 @@ install() {
     --set backup.target.s3.endpoint="$S3_ENDPOINT" \
     --set global.objectStore.url="s3://$OBJECTS_BUCKET" \
     --set global.objectStore.endpoint="$S3_ENDPOINT" \
-    --set global.objectStore.secretRef=tranibor-object-store \
+    --set global.objectStore.secretRef=choregos-object-store \
     --set backup.objectStore=true \
     "${tag[@]}" --timeout 20m
   # No `helm --wait`: the migrations are a post-install hook (the embedded database does not exist

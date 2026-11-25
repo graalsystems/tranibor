@@ -111,9 +111,9 @@ def test_the_proxys_report_key_goes_to_the_api_and_the_proxy_and_to_no_run() -> 
             for v in c.get("env", [])
             if v["name"] == "CHOREGOS_EGRESS_REPORT_KEY"
         ]
-        assert refs == [{"name": "tranibor-api-secrets", "key": "egress-report-key", "optional": True}], name
+        assert refs == [{"name": "choregos-api-secrets", "key": "egress-report-key", "optional": True}], name
     # A bench draws one, as it draws the other application secrets.
-    assert docs[("Secret", "tranibor-api-secrets")]["stringData"]["egress-report-key"]
+    assert docs[("Secret", "choregos-api-secrets")]["stringData"]["egress-report-key"]
 
 
 def test_the_guard_refuses_a_proxy_nobody_would_use() -> None:

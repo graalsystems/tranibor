@@ -51,13 +51,13 @@ global:
     embedded: true
     generateSecret: true
     url: s3://choregos
-    secretRef: tranibor-object-store
+    secretRef: choregos-object-store
     # Empty: the embedded server's Service.
     endpoint: ""
   oidc:
     embedded: true
     generateSecret: true
-    secretRef: tranibor-oidc
+    secretRef: choregos-oidc
     # Empty: https://auth.<global.domain>/realms/choregos (the embedded realm).
     issuer: ""
   # One node: there is no other node to spread over.

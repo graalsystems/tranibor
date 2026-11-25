@@ -258,5 +258,5 @@ tests:
             name: CHOREGOS_RUN_TOKEN_PRIVATE_KEY
             valueFrom:
               secretKeyRef:
-                name: tranibor-api-secrets
+                name: choregos-api-secrets
                 key: run-token-private-key

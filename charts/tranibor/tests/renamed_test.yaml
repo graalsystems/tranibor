@@ -1,6 +1,8 @@
-# ADR 0224 R6: the drawn Secrets whose default name became `tranibor-*` carry over what their former
-# name holds. `helm template` cannot `lookup`; helm-unittest's provider stands in for the cluster.
-suite: the former names' Secrets
+# ADR 0224 R6: the default Secret names are stored state (§6) and keep their former names. A drawn
+# Secret is re-read under the name it was written with, so an upgrade keeps its values: above all
+# `secrets-keks`, which seals every stored connector secret. `helm template` cannot `lookup`;
+# helm-unittest's provider stands in for the cluster.
+suite: the drawn Secrets keep their names
 templates:
   - templates/values/keys/merged/first.yaml
   - templates/embedded-secrets.yaml
@@ -17,8 +19,7 @@ kubernetesProvider:
         resource: secrets
       namespaced: true
   objects:
-    # What a release of the former chart drew: `choregos-api-secrets`, its session secret and its
-    # `secrets-keks`, which seals every connector secret already stored.
+    # What a release of the former chart drew, under the name the chart still renders.
     - kind: Secret
       apiVersion: v1
       metadata:
@@ -30,11 +31,11 @@ kubernetesProvider:
         run-token-private-key: Zm9ybWVyLWtleQ== # former-key
         secrets-keks: azE6Zm9ybWVyLWtlaw== # k1:former-kek
 tests:
-  - it: the application secrets keep the values the former Secret holds
+  - it: the application secrets keep their name and the values already drawn
     template: templates/embedded-secrets.yaml
     documentSelector:
       path: metadata.name
-      value: tranibor-api-secrets
+      value: choregos-api-secrets
     asserts:
       - equal:
           path: stringData.session-secret

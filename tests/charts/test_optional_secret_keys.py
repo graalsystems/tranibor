@@ -55,7 +55,7 @@ pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absen
 
 #: The API's own secret (`global.apiSecretRef`): the other references point at secrets held by
 #: others (database, OIDC, gateway), outside this classification.
-API_SECRET = "tranibor-api-secrets"
+API_SECRET = "choregos-api-secrets"
 
 
 def _secret_refs(env: str) -> dict[str, bool]:

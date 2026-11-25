@@ -2650,9 +2650,9 @@ move in R6, the next section); the headers, manifests' `apiVersion`, labels, gro
 ## Upgrading to the next release: the chart takes the name tranibor (ADR 0224, R6)
 
 ([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R6.) The chart, its
-subcharts, the objects it renders, its values keys and the Secret names it defaults to take the name
-`tranibor`. The former names are read for a window of **two minor versions** from this release, then go
-in their own release, announced here. What holds data keeps its name.
+subcharts, the objects it renders and its values keys take the name `tranibor`. The former names are
+read for a window of **two minor versions** from this release, then go in their own release, announced
+here. What holds data keeps its name, and so do the Secret names the chart defaults to.
 
 **The chart's address.** The directories are `charts/tranibor` and `charts/tranibor-outpost`, the charts
 are named `tranibor` and `tranibor-outpost`. Each release still publishes both under their former names
@@ -2711,6 +2711,7 @@ that runs `kubectl logs deploy/choregos-api`) moves to the new name with the upg
 | ServiceAccount `choregos-orchestrator` | Provisioning binds it by name (namespace and account) in every project's namespace | R7 |
 | Deployment and Service `choregos-egress` | Provisioning's per-project proxy has the same name, and one default `tranibor-orchestrator.runner.egressProxy` (`http://choregos-egress.{namespace}.svc:3128`) addresses both | R7 |
 | The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` values (`choregos-api`, `choregos`…) | The application code selects on them (egress families, plugin servers' callers, run pods), your NetworkPolicies may, and a StatefulSet's selector cannot change | R7 |
+| The default Secret names: `choregos-api-secrets` (`global.apiSecretRef`), `choregos-db` (`global.database.secretRef`), `choregos-gateway-secrets` (`global.gateway.secretRef`), `choregos-oidc` (`global.oidc.secretRef`), `choregos-object-store` (all-in-one), `choregos-backup-target` (single-node), `choregos-netops-cilium-reader` (`netops.ciliumReader.name`, and its token Secret), and the ExternalSecret that targets `global.apiSecretRef` | Stored state (ADR 0224 §6), see below | A later, documented migration; never in place |
 | The ExternalSecret's remote key `choregos/api` | It is a path in your secret store | Your store's own move |
 | The Kyverno ClusterPolicies of `infra/policies` (`choregos-pod-security`…) | The chart's PolicyException names them, and a renamed policy would be installed beside the former one | A later round |
 | Alert names, the rule group `choregos.platform`, the dashboards' uids | Alertmanager routes and Grafana links key on them | A later round |
@@ -2741,31 +2742,26 @@ outpost at a time:
    outpost -- choregos-outpost doctor`: the same fingerprint, no new enrolment pending), then delete the
    former claims.
 
-**The Secrets the chart names by default:**
+**The default Secret names keep their former names.** A Secret name is stored state ([ADR
+0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md) §6), like a claim: a deployment
+provided the Secret under that name (a sealed secret, a vault operator, `kubectl create secret`), or the
+chart drew it once and re-reads it under that name on every upgrade (`global.devSecrets`, the all-in-one
+profile). Renamed in place, the first would leave the pods waiting for a Secret that does not exist
+(`CreateContainerConfigError`), and a renderer that does not read the cluster (`helm template`, Argo CD)
+would find no former Secret to re-read and draw new keys, `secrets-keks` among them, which seals every
+stored connector secret: those would become unreadable. So `global.apiSecretRef`,
+`global.database.secretRef`, `global.gateway.secretRef`, `global.oidc.secretRef`, the profiles'
+`global.objectStore.secretRef` and `backup.target.s3.secretRef`, and `netops.ciliumReader.name` keep their
+defaults (`choregos-api-secrets`, `choregos-db`, …), and `tests/charts/test_secret_names_are_stored_state.py`
+pins every Secret name the chart reads or draws. The defaults change only by a later, documented
+migration, never in place.
 
-| Value | Default from now on | Former default |
-| :-- | :-- | :-- |
-| `global.apiSecretRef` | `tranibor-api-secrets` | `choregos-api-secrets` |
-| `global.database.secretRef` | `tranibor-db` | `choregos-db` |
-| `global.gateway.secretRef` | `tranibor-gateway-secrets` | `choregos-gateway-secrets` |
-| `global.oidc.secretRef` | `tranibor-oidc` | `choregos-oidc` |
-| `global.objectStore.secretRef` (`values/all-in-one.yaml`) | `tranibor-object-store` | `choregos-object-store` |
-| `backup.target.s3.secretRef` (`values/single-node.yaml`) | `tranibor-backup-target` | `choregos-backup-target` |
-| `netops.ciliumReader.name` (its ServiceAccount, and the token Secret `<name>-token`) | `tranibor-netops-cilium-reader` | `choregos-netops-cilium-reader` |
-
-A values file that names a Secret keeps it: nothing to do. **A deployment that relied on a default
-and provides the Secret itself** (a sealed secret, a vault operator, `kubectl create secret`) does one
-of two things before upgrading: set the former name in its values (`global.apiSecretRef:
-choregos-api-secrets`, and so on), or create the Secret under the new name, for example
-`kubectl -n <ns> get secret choregos-api-secrets -o json | jq '.metadata = {name: "tranibor-api-secrets"}' | kubectl -n <ns> apply -f -`.
-With External Secrets (`global.externalSecrets.enabled`), the chart's ExternalSecret is renamed with
-its target and syncs the new Secret from the same remote key. **The Secrets the chart draws itself**
-(`global.devSecrets`, the all-in-one profile) are drawn once and re-read: under `helm upgrade`, a
-default name that became `tranibor-*` reads the values of its former name, so the session secret, the
-run-token key and above all `secrets-keks` (which seals every stored connector secret), the object
-store's keys and the OIDC client secret carry over. A renderer that cannot read the cluster (`helm
-template`, Argo CD) would draw new ones: there, copy each Secret under its new name first (the command
-above), or set the former names.
+A deployment that wants `tranibor-*` names copies each Secret under its new name first, for example
+`kubectl -n <ns> get secret choregos-api-secrets -o json | jq '.metadata = {name: "tranibor-api-secrets"}' | kubectl -n <ns> apply -f -`,
+then sets the new names in its values (`global.apiSecretRef: tranibor-api-secrets`, and so on), and
+deletes the former Secrets once the platform runs on the copies. With External Secrets
+(`global.externalSecrets.enabled`), setting `global.apiSecretRef` renames the ExternalSecret and its
+target, which syncs from the same remote key.
 
 **The images.** The chart's defaults name the images `tranibor-*` (`tranibor-api`, `tranibor-web`,
 `tranibor-orchestrator`, `tranibor-tools`, `tranibor-laya`, `tranibor-outpost`, and the runners'

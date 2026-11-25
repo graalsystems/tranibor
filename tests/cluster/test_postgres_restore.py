@@ -114,7 +114,7 @@ def _secrets() -> str:
             {
                 "apiVersion": "v1",
                 "kind": "Secret",
-                "metadata": {"name": "tranibor-db", "namespace": NS},
+                "metadata": {"name": "choregos-db", "namespace": NS},
                 "type": "kubernetes.io/basic-auth",
                 "stringData": {"username": "choregos", "password": "choregos-dev"},
             },

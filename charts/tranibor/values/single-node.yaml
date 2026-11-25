@@ -66,7 +66,7 @@ backup:
       url: ""          # s3://bucket/prefix — the site's
       endpoint: ""     # empty for AWS
       region: us-east-1
-      secretRef: tranibor-backup-target
+      secretRef: choregos-backup-target
   # On when `global.objectStore` is set: the files the workflows produced are part of the state.
   objectStore: false
 

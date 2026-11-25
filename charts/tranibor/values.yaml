@@ -474,7 +474,7 @@ global:
     # organization isolation then does not exist. The API refuses a superuser in
     # staging/prod. With an external database (`secretRef`, key `url`), the URL decides.
     appUser: choregos_app
-    secretRef: tranibor-db
+    secretRef: choregos-db
     # Instead of `secretRef` (key `url`): the secret of an operator that carries only the
     # password (Zalando: `<user>.<cluster>.credentials.postgresql.acid.zalan.do`).
     passwordSecret: ""
@@ -529,7 +529,7 @@ global:
     url: http://litellm.choregos-gateway.svc:4000
     # Gateway secret (key `master-key`). Empty with `embedded: true`: the chart
     # generates one, stable from one update to the next.
-    secretRef: tranibor-gateway-secrets
+    secretRef: choregos-gateway-secrets
   decisions:
     # ADR 0121: `true` deploys Laya (a CPU decision model, `charts/laya`) and the embedded LiteLLM
     # serves it as `platform/decide`, the catalogue entry a workflow's `decision` step names. Only
@@ -569,7 +569,7 @@ global:
   oidc:
     issuer: https://keycloak.choregos.local/realms/choregos
     clientId: choregos
-    secretRef: tranibor-oidc
+    secretRef: choregos-oidc
     # Organization to attach the NON-prefixed OIDC groups to (`contributors`,
     # `org-admins`…). Empty: only `choregos:<org>:<group>` groups give a role.
     defaultOrg: ""
@@ -694,7 +694,7 @@ global:
   # The secret that carries the API's values: session secret, run-token signing
   # key, GitHub App. The orchestrator reads the SAME signing key there — it is the one
   # that issues the tokens, the API only verifies them.
-  apiSecretRef: tranibor-api-secrets
+  apiSecretRef: choregos-api-secrets
   # Local bench only: the chart itself writes the application secrets (see
   # templates/embedded-secrets.yaml). Never true in production.
   devSecrets: false
@@ -1019,12 +1019,12 @@ demoFakes:
 # get/list/watch on CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy, nothing else. Off by
 # default. To use it, map its token into the API and workers and reference it from the connector:
 #   global.extraEnv: [{name: CONNECTOR_CILIUM_READER_TOKEN, valueFrom: {secretKeyRef:
-#     {name: tranibor-netops-cilium-reader-token, key: token}}}]
+#     {name: choregos-netops-cilium-reader-token, key: token}}}]
 #   connector `cilium`: secret_refs: {token: env:CONNECTOR_CILIUM_READER_TOKEN}
 netops:
   ciliumReader:
     enabled: false
-    name: tranibor-netops-cilium-reader
+    name: choregos-netops-cilium-reader
     # create a `kubernetes.io/service-account-token` Secret for it
     tokenSecret: true
 
