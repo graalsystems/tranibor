@@ -640,13 +640,26 @@ jobs:
         with:
           name: cli-dist
           path: dist/cli
+      # The notes are bounded and travel as a file (tools/release_notes.py). v0.29.4: main had been
+      # rewritten after v0.29.3, `--latest` took the whole history and the action, which got it as
+      # its `body` input (an environment variable), failed twice with "Argument list too long".
+      - name: the earlier release the notes start from
+        id: notes-base
+        run: python3 tools/release_notes.py base "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
       - uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
-        with: { args: --latest --strip header }
+        with: { args: "--strip header --output release-notes.md ${{ steps.notes-base.outputs.range }}" }
         id: cliff
+      - name: keep the notes under GitHub's limit
+        env:
+          FULL_LIST: ${{ github.server_url }}/${{ github.repository }}/commits/${{ github.ref_name }}
+        run: python3 tools/release_notes.py cap release-notes.md --max-bytes 60000 --full-list "$FULL_LIST"
       - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
-          body: ${{ steps.cliff.outputs.content }}
-          generate_release_notes: true
+          body_path: release-notes.md
+          # GitHub's own list only from an earlier release that is an ancestor: from a rewritten
+          # history it would compare across the rewrite.
+          generate_release_notes: ${{ steps.notes-base.outputs.previous_tag != '' }}
+          previous_tag: ${{ steps.notes-base.outputs.previous_tag }}
           files: |
             dist/*
             dist/cli/*
