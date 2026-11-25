@@ -8,14 +8,14 @@ and an optional MCP tools sidecar — plus four dependencies it can either **emb
 
 | | Minimum | Notes |
 | :-- | :-- | :-- |
-| Kubernetes | 1.24 | `spec.suspend` on Jobs (GA in 1.24) is used to queue runs |
+| Kubernetes | 1.29 | The chart declares `kubeVersion: ">=1.29.0-0"`: Helm and Argo CD refuse to render it for an older cluster, because the default agent isolation (`container`) runs the agent as a native sidecar. `spec.suspend` on Jobs (GA in 1.24) queues runs. A managed cluster: [On a managed cluster](#on-a-managed-cluster) |
 | Kubernetes, for hosted agents | 1.29 | A hosted agent runs as a native sidecar; below 1.29 its versions are refused (`hosted_unsupported_cluster`, [hosted agents](hosted-agents.md)) |
 | Helm | 3.12 | The chart is also published as an OCI artifact |
 | PostgreSQL | 15 | Embedded single instance for a bench, an operator in production |
 | Temporal | 1.22 | Embedded dev server for a bench, a cluster in production |
 | An OIDC provider | — | Keycloak in our deployments; any OIDC issuer works |
 | The agent-sandbox operator | v1.0.6 | **Required by default.** `global.runner.executor` defaults to `agent_sandbox`, and the chart refuses to render when the cluster lacks the `extensions.agents.x-k8s.io/v1beta1/SandboxTemplate` API; its CRDs are cluster-scoped, so a platform team installs it ([the `agent_sandbox` executor](#the-agent_sandbox-executor-the-default)). Not needed with `global.runner.executor: k8s_job` |
-| External Secrets Operator | — | **Required by default.** `global.externalSecrets.enabled` is `true`: the chart renders an `ExternalSecret` (`external-secrets.io/v1beta1`) against the `ClusterSecretStore` named by `global.externalSecrets.storeRef`. Optional with `global.externalSecrets.enabled: false`, when the tenant provides the Secrets itself ([Secrets](#secrets)) |
+| External Secrets Operator | — | **Required by default.** `global.externalSecrets.enabled` is `true`: the chart renders an `ExternalSecret` (`external-secrets.io/v1` when the cluster serves it, else `v1beta1`; `global.externalSecrets.apiVersion` decides when set) against the `ClusterSecretStore` named by `global.externalSecrets.storeRef`. Optional with `global.externalSecrets.enabled: false`, when the tenant provides the Secrets itself ([Secrets](#secrets)) |
 | An S3-compatible object store | — | Needed for **file artifacts** (decks, spreadsheets, images; `global.objectStore`; AWS S3, RustFS, MinIO, Ceph). Only the API talks to it. The chart renders without one; an in-memory store (`memory://` URL, or `TRANIBOR_FAKES=1`) is for a bench and is lost on restart |
 | All of the above in one install | — | `values/all-in-one.yaml` embeds the OIDC provider and the object store, draws the Secrets and uses `k8s_job` ([All in one](#all-in-one)); a cluster then needs only a default StorageClass |
 | Kyverno | 1.12 | **Optional for the chart**: nothing in the chart's default render needs it (`hostedCosignPolicy` renders a Kyverno `ClusterPolicy` only when switched on). Needed only to install the admission policies of `infra/policies` ("Installing the admission policies", under *Running agent stages*) |
@@ -36,6 +36,59 @@ multi-arch and signed; the chart is also published as `oci://ghcr.io/graalsystem
 `choregos-*`, carry the same digests for the ADR 0176 window and are still the chart's defaults (see "Upgrading
 past 0.27.13"). The published packages are public: pulls are anonymous. The chart's `global.imageTag`
 follows the chart version.
+
+## On a managed cluster
+
+What the chart assumes about a cluster is a setting, or follows the cluster (S86-16). **What follows
+has not been run on EKS, GKE, AKS or OpenShift**: the provider values come from their
+documentation, and the chart's tests render them (`tests/charts/test_cluster_assumptions.py`). Only a
+run on each provider proves them; the support matrix says which have one.
+
+| What | The setting | Default |
+| :-- | :-- | :-- |
+| The Kubernetes version | `kubeVersion: ">=1.29.0-0"` in `Chart.yaml`: Helm and Argo CD refuse an older cluster before anything is applied. `-0` admits the providers' suffixed versions (`v1.29.4-eks-…`, `v1.30.5-gke.…`) | — |
+| The cluster's resolver | `networkPolicies.dns`: `namespace`, `podLabels` (its pods, as `matchLabels`), `cidrs` (addresses no namespace holds), `ports` (`[{port, protocol}]`, for every policy at once). An empty `namespace` with no `cidrs` fails the render | `kube-system`, every pod, no address; UDP 53 for the platform's own pods, UDP and TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder (what each policy always opened) |
+| The Prometheus Operator's types | `monitoring.skipCrdCheck`: rendered when the cluster serves them, or when this says so for an offline render ([Verifying an installation](#verifying-an-installation)) | `false` |
+| TLS on an Ingress | `choregos-api.ingress.tls`, `choregos-web.ingress.tls` (`kind: ingress`): the Ingress's `spec.tls`, as written | `[]` |
+| The outposts door's timeouts | `global.outposts.door.ingressController` (`ingress-nginx` or `""`) and `global.outposts.door.annotations`, verbatim ([Outposts](#outposts-adrs-0147-0149)) | `ingress-nginx` |
+| The External Secrets API | `global.externalSecrets.apiVersion`: `external-secrets.io/v1` or `…/v1beta1`; empty follows the cluster ([Secrets](#platform-secrets-from-vault-external-secrets-operator)) | empty: `v1` when served, else `v1beta1` |
+| What the platform reaches outside the cluster | `networkPolicies.platformEgress`: egress rules, as written, for the platform's own pods (commented examples in `values.yaml`) | `[]`: the platform team opens it its own way |
+
+**What to open, per provider.** The chart's policies deny egress by default. Beside DNS, the API and
+the workers call the Kubernetes API server to start agent pods, and the platform reaches its managed
+services (the database, the object store, the identity provider, the model gateway) wherever they
+live. A NetworkPolicy names addresses, not hosts, and matches the API server's endpoint address after
+the `kubernetes` Service is translated (some policy engines also want the Service's ClusterIP):
+
+| Provider | DNS (`networkPolicies.dns`) | The API server (`platformEgress`, TCP 443) | Managed services |
+| :-- | :-- | :-- | :-- |
+| EKS | the defaults (CoreDNS in `kube-system`) | the cluster endpoint's private addresses (`kubectl get endpoints kubernetes`) | RDS on 5432, S3 and the identity provider on 443 (a VPC endpoint's addresses where there is one) |
+| GKE | the defaults; with NodeLocal DNSCache, `cidrs: ["169.254.20.10/32"]` beside them | the control plane's endpoint (its private endpoint on a private cluster) | Cloud SQL on 5432 (its private IP), Cloud Storage on 443 |
+| AKS | the defaults | the API server's FQDN, resolved to its addresses (on a private cluster, its private endpoint) | Azure Database for PostgreSQL on 5432, Blob storage on 443 (Azure Blob has no S3 API: the object store needs an S3-compatible service) |
+| OpenShift | `namespace: openshift-dns`, `ports: [{port: 5353, protocol: UDP}, {port: 5353, protocol: TCP}]`: its DNS pods listen on 5353 | the API server's endpoint addresses on 6443 | as for the cluster's own network |
+
+```yaml
+# OpenShift, from its documentation (not run):
+networkPolicies:
+  dns:
+    namespace: openshift-dns
+    ports: [{ port: 5353, protocol: UDP }, { port: 5353, protocol: TCP }]
+  platformEgress:
+    - to: [{ ipBlock: { cidr: 203.0.113.10/32 } }]   # the API server's endpoint address
+      ports: [{ protocol: TCP, port: 6443 }]
+    - to: [{ ipBlock: { cidr: 10.20.0.0/24 } }]      # a managed PostgreSQL
+      ports: [{ protocol: TCP, port: 5432 }]
+global:
+  outposts:
+    door:
+      ingressController: ""
+      annotations: { haproxy.router.openshift.io/timeout: 60s }
+```
+
+Under another Ingress controller, the door's equivalents of ingress-nginx's read timeout and buffering
+are that controller's: for example NGINX Inc.'s `nginx.org/proxy-read-timeout: "60s"` and
+`nginx.org/proxy-buffering: "false"`, or OpenShift's router `haproxy.router.openshift.io/timeout: 60s`
+(from their documentation, not run).
 
 ## Dependencies: embedded or external
 
@@ -416,8 +469,12 @@ vault write auth/kubernetes/role/external-secrets \
 vault kv put secret/choregos/api session-secret="$(openssl rand -base64 48)" run-token-private-key=@run-token.pem
 ```
 
-The chart renders its `ExternalSecret` with `external-secrets.io/v1beta1`; the store above may be
-`v1` on a recent operator, the two are served together. A missing property fails the whole
+The chart renders its `ExternalSecret` at the version the cluster serves: `external-secrets.io/v1` when
+Argo CD or `helm install` says the cluster serves it, else `v1beta1` (an offline render, an operator
+older than `v1`). Recent operators stop serving `v1beta1`; for an offline render aimed at one, set
+`global.externalSecrets.apiVersion: external-secrets.io/v1` (or `…/v1beta1` to keep the older one
+whatever the cluster says). The fields the chart writes are the same at both versions, and the store
+above may be at either. A missing property fails the whole
 `ExternalSecret` sync, so turn on the optional entries (`keksInExternalSecret`, `sessionSecretPrevious`) only
 once Vault holds them. This path is checked by the chart's rendering tests; no External Secrets Operator
 or Vault ran against it for this page.
@@ -1247,7 +1304,8 @@ global:
 | `door.announcedKeys` | `[]` | `TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS`. A key that is not one, a key listed twice or a fourth one fails the render |
 | `door.ratePerMinute` | `1200` | `TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE`; `0` lifts the limit |
 | `door.requestTimeout` | `60s` | the HTTPRoute's `timeouts.request` (Gateway API v1.2 and later); empty leaves the field out |
-| `door.annotations` | ingress-nginx's read timeout and buffering | the door Ingress's own annotations: its timeout, and its rate limit or source restriction |
+| `door.ingressController` | `ingress-nginx` | the controller whose timeout annotations the door's Ingress carries: `ingress-nginx` writes `nginx.ingress.kubernetes.io/proxy-read-timeout: "60"` and `…/proxy-buffering: "off"`; `""` writes none, for another controller. Any other value fails the render |
+| `door.annotations` | `{}` | the door Ingress's own annotations, verbatim, over the controller's (a key given here wins): another controller's timeouts, its rate limit or source restriction. Up to 0.29.4 the two ingress-nginx annotations were this map's default; an installation that added keys to it renders the same annotations |
 | `door.dedicated` and what follows it | `false` | the door's own Deployment, below |
 
 `global.extraEnv` may not set one of these variables once `global.outposts.enabled` is true: the
@@ -1343,9 +1401,10 @@ arrange for it:
   are yours to arrange, as the console's are.
 - **Long requests.** A poll waits up to 25 seconds before it answers with nothing. Give the route an
   idle timeout above that (30 seconds or more), and do not buffer the answer. The chart's HTTPRoute
-  carries `timeouts.request` (60 seconds); its Ingress carries the door's own annotations, whose
-  defaults are ingress-nginx's: under another controller, write its equivalents in
-  `global.outposts.door.annotations`. While a poll waits it
+  carries `timeouts.request` (60 seconds); its Ingress carries the timeout annotations of
+  `global.outposts.door.ingressController` (ingress-nginx's by default): under another controller,
+  set it to `""` and write that controller's equivalents in `global.outposts.door.annotations`
+  (examples in [On a managed cluster](#on-a-managed-cluster)). While a poll waits it
   holds no database connection: a hundred waiting instances cost a hundred open requests and no pool
   (`apps/api/tests/test_outpost_long_poll_holds_no_connection.py`).
 - **What the process that serves the door needs**: the database, as every API process; the signing
@@ -2117,7 +2176,9 @@ what the API builds everything from, namely the OIDC `redirect_uri`
 (`<apiUrl>/api/v1/auth/callback`), the MCP OAuth resource metadata, the commands on the
 Integrations page and the links in notifications. Serve it over HTTPS by putting TLS on the
 ingress (the certificate comes from the platform, or from cert-manager) and by setting both
-URLs to `https://…`. Nothing else follows from the chart: the console's CSP and CORS are derived
+URLs to `https://…`. With `kind: httproute` the TLS is the Gateway's listener's; with `kind: ingress`,
+`choregos-api.ingress.tls` and `choregos-web.ingress.tls` are each Ingress's `spec.tls`, as written
+(`[{secretName: choregos-tls, hosts: [api.example.com]}]`), and nothing is rendered when they are empty. Nothing else follows from the chart: the console's CSP and CORS are derived
 from the same two values.
 
 The session cookie and the sign-in handshake cookie are `Secure` when `TRANIBOR_ENV` is
@@ -2341,6 +2402,15 @@ to `victoriametrics` to render `VMServiceScrape` and a single `VMRule`
 monitoring:
   flavour: victoriametrics
 ```
+
+**Each object is rendered only when the cluster serves its type.** On a cluster without the operator, a
+`ServiceMonitor` fails the whole install (`no matches for kind`). Argo CD and `helm install` tell the
+chart which types the cluster serves; an offline `helm template` does not, and leaves the scrape object
+and the rules out (`helm install` then says so in its notes). An offline render aimed at a cluster that
+has the operator sets `monitoring.skipCrdCheck: true`; `monitoring.serviceMonitor` and
+`monitoring.alerts` still switch each one off. Up to 0.29.4 they were rendered whatever the cluster
+served: a pipeline that renders offline and applies the result loses them until it sets
+`skipCrdCheck` (`tests/charts/test_cluster_assumptions.py`).
 
 This is not cosmetic. An operator does not see a kind it does not know, so on a
 VictoriaMetrics platform a `ServiceMonitor` is an **inert object**: nothing is scraped, no
@@ -2618,6 +2688,25 @@ value>` on the first model call. Nothing said the key had never resolved.
 
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
+
+## Upgrading past 0.29.4: what the chart assumes about the cluster follows it
+
+S86-16 ([On a managed cluster](#on-a-managed-cluster)). Rendered with the cluster's API versions, as Argo
+CD and `helm install` render, the default values render what they rendered before, policies byte for
+byte. What changes:
+
+- **Kubernetes 1.29 or later.** The chart declares `kubeVersion: ">=1.29.0-0"`: Helm and Argo CD refuse
+  to render it for an older cluster.
+- **An offline render leaves the monitoring objects out.** `ServiceMonitor` and `PrometheusRule` (or
+  `VMServiceScrape` and `VMRule`) are rendered only when the cluster serves their type. A pipeline that
+  runs `helm template` without the cluster's API versions and applies the result sets
+  `monitoring.skipCrdCheck: true` to keep them.
+- **The ExternalSecret follows the cluster.** It is rendered at `external-secrets.io/v1` where the cluster
+  serves that version; `global.externalSecrets.apiVersion: external-secrets.io/v1beta1` keeps the former.
+- **The door's ingress-nginx annotations moved** from the default of `global.outposts.door.annotations` to
+  `global.outposts.door.ingressController: ingress-nginx`. An installation that added keys to the map
+  renders the same annotations; one that removed the two (`key: null`) for another controller now sets
+  `ingressController: ""`, or carries them again, unread by its controller.
 
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 

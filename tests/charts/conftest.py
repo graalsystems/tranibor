@@ -5,6 +5,11 @@ operator's CRD is not among the cluster's API versions. Argo CD and `helm instal
 versions over; an offline `helm template` does not. Every test of this directory therefore
 renders as if the operator were installed, except a test marked `no_operator`, which renders
 the way a cluster without it would.
+
+The monitoring objects follow the same rule (S86-16): a `ServiceMonitor` or a `PrometheusRule` (or
+their VictoriaMetrics twins) is rendered only when the cluster serves its type. The tests render
+for a cluster that does, as the operator's own; a test that passes its own `--api-versions` renders
+for exactly the cluster it names.
 """
 
 from __future__ import annotations
@@ -15,6 +20,12 @@ from typing import Any
 import pytest
 
 OPERATOR_API = "extensions.agents.x-k8s.io/v1beta1/SandboxTemplate"
+MONITORING_APIS = (
+    "monitoring.coreos.com/v1/ServiceMonitor",
+    "monitoring.coreos.com/v1/PrometheusRule",
+    "operator.victoriametrics.com/v1beta1/VMServiceScrape",
+    "operator.victoriametrics.com/v1beta1/VMRule",
+)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -32,6 +43,8 @@ def _operator_installed(request: pytest.FixtureRequest, monkeypatch: pytest.Monk
     def run(args: Any, *positional: Any, **keywords: Any) -> Any:
         if isinstance(args, list) and args[:2] == ["helm", "template"] and "--api-versions" not in args:
             args = [*args, "--api-versions", OPERATOR_API]
+            for api in MONITORING_APIS:
+                args += ["--api-versions", api]
         return real_run(args, *positional, **keywords)
 
     monkeypatch.setattr(subprocess, "run", run)

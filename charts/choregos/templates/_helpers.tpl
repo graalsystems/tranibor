@@ -973,3 +973,68 @@ what the chart always rendered.
 {{- define "choregos.podLabels" -}}
 {{- toYaml (merge (dict) .selector (dict "app.kubernetes.io/component" .component) (.extra | default dict)) -}}
 {{- end -}}
+
+{{/*
+The DNS rule of every egress policy of this chart (S86-16), from `networkPolicies.dns`. A cluster's
+resolver is not always `kube-system`:53: OpenShift serves it from `openshift-dns` on 5353 (a policy
+is matched after the Service's port is translated), and GKE's NodeLocal DNSCache answers at a
+link-local address no namespace holds. `.tcp`: whether this policy's default ports include TCP 53
+beside UDP 53, as each policy did before the setting existed; `dns.ports`, when set, replaces both.
+The defaults render the rule each policy always rendered, byte for byte.
+*/}}
+{{- define "choregos.dnsEgress" -}}
+{{- $dns := .root.Values.networkPolicies.dns | default dict -}}
+{{- $namespace := $dns.namespace | default "" | toString -}}
+{{- if not (hasKey $dns "namespace") }}{{ $namespace = "kube-system" }}{{ end -}}
+{{- $cidrs := $dns.cidrs | default list -}}
+{{- if and (not $namespace) (not $cidrs) -}}
+{{- fail "networkPolicies.dns: neither a namespace nor cidrs: no pod could resolve a name. Give the resolver's namespace (kube-system, openshift-dns), its addresses (cidrs), or both." -}}
+{{- end -}}
+{{- if and $dns.podLabels (not $namespace) -}}
+{{- fail "networkPolicies.dns.podLabels selects the resolver's pods in networkPolicies.dns.namespace, which is empty." -}}
+{{- end -}}
+{{- $ports := $dns.ports | default list -}}
+{{- if not $ports -}}
+{{- $ports = list (dict "protocol" "UDP" "port" 53) -}}
+{{- if .tcp }}{{ $ports = append $ports (dict "protocol" "TCP" "port" 53) }}{{ end -}}
+{{- end -}}
+{{- range $ports -}}
+{{- if not (and .port (has (toString .protocol) (list "UDP" "TCP"))) -}}
+{{- fail (printf "networkPolicies.dns.ports: %v needs a port and a protocol (UDP or TCP)." .) -}}
+{{- end -}}
+{{- end -}}
+{{- $peers := list -}}
+{{- if $namespace -}}
+{{- $peer := printf "{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: %s } } }" $namespace -}}
+{{- with $dns.podLabels -}}
+{{- $labels := list -}}
+{{- range $key, $value := . }}{{ $labels = append $labels (printf "%s: %s" $key (toString $value | quote)) }}{{ end -}}
+{{- $peer = printf "{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: %s } }, podSelector: { matchLabels: { %s } } }" $namespace (join ", " $labels) -}}
+{{- end -}}
+{{- $peers = append $peers $peer -}}
+{{- end -}}
+{{- range $cidrs }}{{ $peers = append $peers (printf "{ ipBlock: { cidr: %s } }" (toString . | quote)) }}{{ end -}}
+{{- $rendered := list -}}
+{{- range $ports }}{{ $rendered = append $rendered (printf "{ protocol: %s, port: %d }" (toString .protocol) (int .port)) }}{{ end -}}
+- to: [{{ join ", " $peers }}]
+  ports: [{{ join ", " $rendered }}]
+{{- end -}}
+
+{{/*
+Whether the cluster serves the monitoring operator's type `.kind` (`scrape` or `rules`) of the chosen
+`monitoring.flavour` (S86-16): `true` or empty. Without the CRD, a ServiceMonitor or a PrometheusRule
+fails the whole install (`no matches for kind`), so the chart renders it only when Helm or Argo CD
+says the cluster serves it, or when `monitoring.skipCrdCheck` says so for an offline render.
+*/}}
+{{- define "choregos.monitoringApi" -}}
+{{- $vm := eq (.root.Values.monitoring.flavour | default "prometheus") "victoriametrics" -}}
+{{- if eq .kind "scrape" -}}
+{{- ternary "operator.victoriametrics.com/v1beta1/VMServiceScrape" "monitoring.coreos.com/v1/ServiceMonitor" $vm -}}
+{{- else -}}
+{{- ternary "operator.victoriametrics.com/v1beta1/VMRule" "monitoring.coreos.com/v1/PrometheusRule" $vm -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "choregos.monitoringServed" -}}
+{{- if or .root.Values.monitoring.skipCrdCheck (.root.Capabilities.APIVersions.Has (include "choregos.monitoringApi" .)) -}}true{{- end -}}
+{{- end -}}

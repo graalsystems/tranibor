@@ -88,8 +88,19 @@ API's route is made outside this chart, so is the door's.
 A poll waits up to 25 seconds before it answers with nothing (ADR 0148 §7): the entrance must not
 cut a request before that, nor hold its answer back. The HTTPRoute says so with `timeouts.request`
 (`door.requestTimeout`); an Ingress has no portable field for it, and carries the door's own
-annotations (`door.annotations`), which are also where its rate limit and its source restriction go.
+annotations: the timeout annotations of `door.ingressController` (ingress-nginx's by default; none
+for `""`), under the door's own `door.annotations`, which are also where another controller's
+timeouts, its rate limit and its source restriction go (S86-16).
 */ -}}
+{{- $controller := "ingress-nginx" }}
+{{- if hasKey $door "ingressController" }}{{ $controller = toString ($door.ingressController | default "") }}{{ end }}
+{{- $doorAnnotations := dict }}
+{{- if eq $controller "ingress-nginx" }}
+{{- $doorAnnotations = dict "nginx.ingress.kubernetes.io/proxy-read-timeout" "60" "nginx.ingress.kubernetes.io/proxy-buffering" "off" }}
+{{- else if $controller }}
+{{- fail (printf "global.outposts.door.ingressController=%s: the chart writes the timeout annotations of `ingress-nginx` only. Set \"\" and give your controller's own in global.outposts.door.annotations." $controller) }}
+{{- end }}
+{{- $doorAnnotations = merge (dict) ($door.annotations | default dict) $doorAnnotations }}
 {{- $backend := ternary "choregos-outposts-door" "choregos-api" $dedicated }}
 {{- $backendPort := ternary $doorPort (int (($api.service | default dict).port | default 8000)) $dedicated }}
 {{- if and $hosts (eq (toString $ingress.enabled) "true") (ne (toString $api.enabled) "false") }}
@@ -104,7 +115,7 @@ metadata:
     app.kubernetes.io/component: outposts-door
     app.kubernetes.io/part-of: choregos
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-  {{- with $door.annotations }}
+  {{- with $doorAnnotations }}
   annotations: {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
