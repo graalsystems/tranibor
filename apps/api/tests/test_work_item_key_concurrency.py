@@ -106,6 +106,9 @@ class _Recorder:
     def __init__(self) -> None:
         self.statements: list[tuple[str, Any]] = []
 
+    def get_bind(self) -> Any:
+        return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
     async def execute(self, statement: Any, parameters: Any = None) -> Any:
         sql = str(statement)
         self.statements.append((sql, parameters))
@@ -115,14 +118,11 @@ class _Recorder:
         )
 
 
-async def test_on_postgresql_the_lock_is_asked_for_before_the_keys_are_read(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_on_postgresql_the_lock_is_asked_for_before_the_keys_are_read() -> None:
     """The SQLite suite cannot take a PostgreSQL lock; it checks one is asked for, on the project, and
     before the keys are read — taken after, two creations would still read the same `max`."""
     from tranibor_api.services import tickets
 
-    monkeypatch.setattr(tickets, "get_settings", lambda: SimpleNamespace(is_sqlite=False))
     session = _Recorder()
     project = SimpleNamespace(id="project-1", slug="billing-api")
 
@@ -137,11 +137,10 @@ async def test_on_postgresql_the_lock_is_asked_for_before_the_keys_are_read(
     assert lock < read, statements
 
 
-async def test_a_prefix_alone_mints_nothing_and_locks_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_a_prefix_alone_mints_nothing_and_locks_nothing() -> None:
     """A schedule or a trigger builds its own key on the prefix (S38-11): no number, so no lock."""
     from tranibor_api.services import tickets
 
-    monkeypatch.setattr(tickets, "get_settings", lambda: SimpleNamespace(is_sqlite=False))
     session = _Recorder()
     project = SimpleNamespace(id="project-1", slug="billing-api")
 

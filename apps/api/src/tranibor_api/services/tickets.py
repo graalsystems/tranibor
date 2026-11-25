@@ -21,7 +21,6 @@ from tranibor_core.secrets import SecretNotFound
 from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
-from ..config import get_settings
 from ..db.models import (
     Connector,
     CostLedger,
@@ -380,7 +379,7 @@ async def lock_key_minting(session: AsyncSession, project_id: str) -> None:
     SQLite (development, the unit tests): nothing. It writes one transaction at a time, and an
     in-process lock would not be re-entrant.
     """
-    if get_settings().is_sqlite:
+    if session.get_bind().dialect.name != "postgresql":
         return
     number = key_minting_lock_number(project_id)
     await session.execute(text("SELECT pg_advisory_xact_lock(:n)"), {"n": number})
