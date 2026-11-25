@@ -79,7 +79,14 @@ async def test_the_seed_creates_the_project_once(app: Any) -> None:
     assert sorted(first["connectors"]) == sorted(demo_connectors())
 
     again = await seed_local_demo(_settings())
-    assert again == {"organisations": [], "projects": [], "connectors": [], "switched": [], "work_items": []}
+    assert again == {
+        "organisations": [],
+        "projects": [],
+        "connectors": [],
+        "switched": [],
+        "work_items": [],
+        "backends": [],
+    }
 
 
 async def test_a_request_created_in_the_demo_project_starts_its_workflow(
@@ -186,6 +193,53 @@ async def test_adding_a_key_switches_the_demo_project_to_a_real_agent(app: Any) 
     assert rows["runtime"] == ("local_docker", {"network": "choregos"})
     assert rows["gateway"] == ("litellm", {})
     assert rows == demo_connectors("openai")
+
+
+async def test_with_a_key_the_backend_the_demo_project_runs_is_enabled(app: Any) -> None:
+    """On a fresh platform only `claude-code` is on: the demo project's `opencode` was refused with
+    `BackendDisabled` at the first stage of every real run (a real `docker compose up`, 2026-11-25)."""
+    from sqlalchemy import select
+    from tranibor_api.db.models import BackendRegistryRow
+    from tranibor_api.db.session import session_scope
+    from tranibor_core import backend_enabled
+
+    async def stored() -> bool | None:
+        async with session_scope(orgs="*") as session:
+            row = (
+                await session.execute(select(BackendRegistryRow).where(BackendRegistryRow.name == "opencode"))
+            ).scalar_one_or_none()
+            return None if row is None else row.enabled
+
+    assert not backend_enabled("opencode", await stored())
+    first = await seed_local_demo(_settings(), "anthropic")
+    assert first["backends"] == ["opencode"]
+    assert backend_enabled("opencode", await stored())
+    assert (await seed_local_demo(_settings(), "anthropic"))["backends"] == []
+
+
+async def test_fakes_mode_enables_no_backend(app: Any) -> None:
+    from sqlalchemy import select
+    from tranibor_api.db.models import BackendRegistryRow
+    from tranibor_api.db.session import session_scope
+
+    assert (await seed_local_demo(_settings()))["backends"] == []
+    async with session_scope(orgs="*") as session:
+        assert (await session.execute(select(BackendRegistryRow))).first() is None
+
+
+async def test_a_backend_an_administrator_switched_off_stays_off(app: Any) -> None:
+    from sqlalchemy import select
+    from tranibor_api.db.models import BackendRegistryRow
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope(orgs="*") as session:
+        session.add(
+            BackendRegistryRow(name="opencode", enabled=False, capabilities=[], disabled_reason="by policy")
+        )
+    assert (await seed_local_demo(_settings(), "openai"))["backends"] == []
+    async with session_scope(orgs="*") as session:
+        row = (await session.execute(select(BackendRegistryRow))).scalar_one()
+        assert (row.enabled, row.disabled_reason) == (False, "by policy")
 
 
 async def test_a_connector_changed_by_a_person_is_not_switched_back(app: Any) -> None:
