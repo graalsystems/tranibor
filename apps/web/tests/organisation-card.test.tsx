@@ -95,7 +95,7 @@ describe("the Organisation card", () => {
       wrap();
       await user.click(await screen.findByRole("button", { name: "Change the slug" }));
       const box = screen.getByTestId("confirmation");
-      for (const broken of [/console URLs already copied/, /\/mcp\/projects\/northwind:<project>/, /\/a2a\/orgs\/northwind/, /choregos:northwind:<group>/, /--org northwind/]) {
+      for (const broken of [/console URLs already copied/, /\/mcp\/projects\/northwind:<project>/, /\/a2a\/orgs\/northwind/, /tranibor:northwind:<group>/, /--org northwind/]) {
         expect(box.textContent).toMatch(broken);
       }
       expect(box.textContent).toMatch(/global memories follow/);
