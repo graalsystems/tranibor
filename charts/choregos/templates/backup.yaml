@@ -42,6 +42,9 @@ runs, then `POST /api/v1/admin/reindex` rebuilds its lexical index (`*.fts.sqlit
 {{- if and (eq $kind "s3") (not $b.target.s3.url) }}
 {{- fail "backup.target.kind=s3 needs backup.target.s3.url (s3://bucket/prefix): the backup would be written nowhere." }}
 {{- end }}
+{{- if and $b.objectStore (ne (include "choregos.objectStoreKind" .) "s3") }}
+{{- fail "backup.objectStore=true copies the object store through S3: it goes with global.objectStore.kind=s3. An Azure Blob or GCS store is backed up by its own cloud (versioning, soft delete, a replicated bucket)." }}
+{{- end }}
 {{- if and $b.objectStore (not $g.objectStore.secretRef) }}
 {{- fail "backup.objectStore=true needs global.objectStore.secretRef: the backup reads the object store with the platform's own keys." }}
 {{- end }}

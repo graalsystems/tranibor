@@ -16,7 +16,7 @@ and an optional MCP tools sidecar — plus four dependencies it can either **emb
 | An OIDC provider | — | Keycloak in our deployments; any OIDC issuer works |
 | The agent-sandbox operator | v1.0.6 | **Required by default.** `global.runner.executor` defaults to `agent_sandbox`, and the chart refuses to render when the cluster lacks the `extensions.agents.x-k8s.io/v1beta1/SandboxTemplate` API; its CRDs are cluster-scoped, so a platform team installs it ([the `agent_sandbox` executor](#the-agent_sandbox-executor-the-default)). Not needed with `global.runner.executor: k8s_job` |
 | External Secrets Operator | — | **Required by default.** `global.externalSecrets.enabled` is `true`: the chart renders an `ExternalSecret` (`external-secrets.io/v1` when the cluster serves it, else `v1beta1`; `global.externalSecrets.apiVersion` decides when set) against the `ClusterSecretStore` named by `global.externalSecrets.storeRef`. Optional with `global.externalSecrets.enabled: false`, when the tenant provides the Secrets itself ([Secrets](#secrets)) |
-| An S3-compatible object store | — | Needed for **file artifacts** (decks, spreadsheets, images; `global.objectStore`; AWS S3, RustFS, MinIO, Ceph). Only the API talks to it. The chart renders without one; an in-memory store (`memory://` URL, or `TRANIBOR_FAKES=1`) is for a bench and is lost on restart |
+| An object store | — | Needed for **file artifacts** (decks, spreadsheets, images; `global.objectStore`; AWS S3, RustFS, MinIO, Ceph, Azure Blob Storage, Google Cloud Storage). Only the API talks to it. The chart renders without one; an in-memory store (`memory://` URL, or `TRANIBOR_FAKES=1`) is for a bench and is lost on restart |
 | All of the above in one install | — | `values/all-in-one.yaml` embeds the OIDC provider and the object store, draws the Secrets and uses `k8s_job` ([All in one](#all-in-one)); a cluster then needs only a default StorageClass |
 | Kyverno | 1.12 | **Optional for the chart**: nothing in the chart's default render needs it (`hostedCosignPolicy` renders a Kyverno `ClusterPolicy` only when switched on). Needed only to install the admission policies of `infra/policies` ("Installing the admission policies", under *Running agent stages*) |
 
@@ -119,7 +119,8 @@ global:
     url: http://ecphoria.choregos-memory.svc:8432
     tokenSecret: ""                 # key `token`, empty means no auth header
   objectStore:                      # file artifacts: decks, spreadsheets, images (ADR 0049)
-    url: s3://choregos              # bucket and optional prefix
+    kind: s3                        # s3 (default), azure-blob or gcs (S86-17)
+    url: s3://choregos              # bucket and optional prefix (azblob://container/prefix, gs://bucket/prefix)
     endpoint: ""                    # an S3-compatible server (RustFS, MinIO); empty means AWS
     region: us-east-1
     secretRef: ""                   # keys `access-key`, `secret-key`; read by the API only
@@ -137,6 +138,39 @@ nothing, and the purge keeps the expired rows and retries them at every pass.
 An empty `endpoint` means AWS, and without `secretRef` the calls are unsigned: nothing fails at install, and
 the first run that writes a file loses its run. The project's readiness (`object-store` item, `docs/usage.md`)
 probes the bucket when a workflow declares a file output and names the cause.
+
+#### The object store and the pod's identity (S86-17)
+
+`global.objectStore.kind` picks the protocol, read as `TRANIBOR_OBJECT_STORE_KIND` for the API and the
+workers (the two processes that read the store). Each kind takes keys from `secretRef` for a bench, or the
+cloud identity of its pod, with no key in a Secret, for a managed cloud. The identity is bound through
+`global.serviceAccount.annotations`, which the chart puts on the `choregos-api` and `choregos-orchestrator`
+service accounts.
+
+| `kind` | `url` | `endpoint` | `secretRef` keys (a bench) | Without `secretRef`: the pod's identity |
+|:--|:--|:--|:--|:--|
+| `s3` (default) | `s3://bucket/prefix` | empty for AWS; RustFS, MinIO, Ceph | `access-key`, `secret-key` | **EKS IRSA**: annotation `eks.amazonaws.com/role-arn`; EKS sets `AWS_ROLE_ARN` and `AWS_WEB_IDENTITY_TOKEN_FILE`, and the API exchanges the projected token at STS (`AssumeRoleWithWebIdentity`, regional endpoint, `AWS_ENDPOINT_URL_STS` overrides it). **EKS Pod Identity**: an association for the service account; EKS sets `AWS_CONTAINER_CREDENTIALS_FULL_URI` and `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`. Tried in that order |
+| `azure-blob` | `azblob://container/prefix` | **required**: `https://<account>.blob.core.windows.net` | `account-key` or `sas-token` (both optional, the first present wins) | **Azure Workload Identity**: annotation `azure.workload.identity/client-id`; the chart labels the pods `azure.workload.identity/use: "true"` so that the webhook sets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_FEDERATED_TOKEN_FILE`. The managed identity needs `Storage Blob Data Contributor` on the container |
+| `gcs` | `gs://bucket/prefix` | empty for Google's | refused: HMAC keys are the `s3` kind with `endpoint: https://storage.googleapis.com` | **GKE Workload Identity**: annotation `iam.gke.io/gcp-service-account`; the API asks the metadata server for the token. The Google service account needs `roles/storage.objectUser` on the bucket |
+
+Temporary credentials (IRSA, Pod Identity) are signed with their session token, sent as
+`x-amz-security-token`; every temporary credential or token is cached and fetched again five minutes
+before it expires, and the projected token files are read again at each fetch. The readiness probe lists
+at most one object under the prefix for `azure-blob` and `gcs` (it needs only the right to list, which the
+roles above grant), and is a `HEAD` on the bucket for `s3`, as before.
+
+The chart refuses a `url` whose scheme is not the kind's, `azure-blob` without `endpoint`, `gcs` with a
+`secretRef`, `embedded: true` with another kind than `s3`, and `backup.objectStore: true` with another kind
+than `s3` (the backup copies the store through rclone's S3 remote: back up a Blob container or a GCS bucket
+with the cloud's own versioning or replication).
+
+What this is proved by, and what it is not: the conformance suite (`tests/conformance/object_stores`) runs
+the same contract against the in-memory fake and against an emulator of each protocol on every CI run, and,
+with `TRANIBOR_TEST_OBJECT_STORE_DOCKER=1`, against **Azurite** (shared key, a wrong key refused),
+**fake-gcs-server**, and **RustFS** with static keys and with temporary keys from its STS, signed with their
+session token (the same keys without it, or with another one, are refused). The three identity flows are
+proved against scripted transports only (`packages/adapters/tests/test_object_store_identity.py`): **no AWS,
+Azure or Google account ran this**. Each cloud's identity is proved on its cluster by S86-11 to S86-13.
 
 Turning all four on gives a self-contained bench on a single node:
 `-f charts/choregos/values/local.yaml`.
@@ -351,7 +385,7 @@ The chart never writes production secrets. It expects them to exist:
 | `global.gateway.secretRef` | `master-key` | orchestrator |
 | `global.gateway.type` | `litellm` (default), `openai-compatible`, `direct`: the gateway adapter, as `TRANIBOR_GATEWAY_TYPE` | API, orchestrator |
 | `global.memory.tokenSecret` | `token` | orchestrator |
-| `global.objectStore.secretRef` | `access-key`, `secret-key` | API |
+| `global.objectStore.secretRef` | `access-key`, `secret-key` (`kind: s3`); `account-key` or `sas-token` (`kind: azure-blob`); none for `gcs`. Absent: the pod's cloud identity ([the object store and the pod's identity](#the-object-store-and-the-pods-identity-s86-17)) | API, workers |
 
 `run-token-private-key` is the one to get right. The **orchestrator mints** run tokens and
 the **API verifies** them, so both deployments read the same key. Give it only to the API and

@@ -21,6 +21,9 @@ spec:
         app.kubernetes.io/name: choregos-orchestrator
         app.kubernetes.io/instance: {{ $root.Release.Name }}
         choregos/queue: {{ .name }}
+        {{- with include "choregos.objectStorePodLabels" $root }}
+        {{- . | nindent 8 }}
+        {{- end }}
     spec:
       enableServiceLinks: false
       serviceAccountName: choregos-orchestrator
