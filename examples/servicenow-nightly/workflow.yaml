@@ -10,7 +10,7 @@ apiVersion: choregos/v1
 kind: Workflow
 metadata:
   name: servicenow-nightly
-  version: 1
+  version: 2
   description: Each night a job files an incident in the triage queue and checks, through the connector, that the triage project's
     poll opened it, its agent triaged it and the platform wrote back.
   inputs:
@@ -51,7 +51,7 @@ actors:
        for m,ok in(("opened","choregos:status" in b),("in_progress",i.get("state")=="In Progress"),("triaged","Triage to review" in b),("review_asked","approval requested" in b)):
         if ok and m not in seen:seen[m]=round(time.time()-t0)
        F.update({f"s_{m}":v for m,v in seen.items()});F["state"]=i.get("state")
-       if len(seen)==4:out(1,f"GREEN: {k} filed, opened by the poll after {seen['opened']} s, triaged and set In Progress after {seen['triaged']} s, review asked")
+       if len(seen)==4:out(1,f"GREEN: {k} filed, its work item opened (delivery or poll) after {seen['opened']} s, triaged and set In Progress after {seen['triaged']} s, review asked")
       out(0,f"RED: {k} after {round(time.time()-t0)} s, reached only {sorted(seen)}, state {F.get('state')}")
     max_minutes: 40
     tools:

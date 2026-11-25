@@ -369,6 +369,29 @@ async def test_a_replayed_delivery_is_ignored(
     assert [c for c in fake.calls if c[0] == "tracker_fetch_item"] == fetched, "a duplicate is not re-read"
 
 
+async def test_an_archived_project_on_the_same_tracker_does_not_unroute_the_delivery(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
+) -> None:
+    """A new item goes to the organisation's only project on the tracker; an archived one is not a second
+    candidate. Seen on a cluster: a project archived, another made from the template, and every delivery
+    for a new incident was logged `plugin.webhook.unrouted` while the poll opened the work item."""
+    await _install(client)
+    await _configure(client)
+    fake = _server(kube)
+    former = await _project(client, "former-desk")
+    assert former.status_code == 201, former.text
+    archived = await client.delete(f"/api/v1/projects/{former.json()['id']}")
+    assert archived.status_code == 204, archived.text
+    assert (await _project(client)).status_code == 201
+    fake.add("INC0000001", "VPN drops")
+    answered = await client.post(
+        HOOK, content=fake.delivery("INC0000001"), headers={"X-Choregos-Secret": SECRET}
+    )
+    assert answered.status_code == 202 and answered.json()["events"] == 1, answered.text
+    (event,) = dispatched
+    assert event.project_slug == "desked"
+
+
 async def test_the_payload_is_not_trusted_the_item_is_re_read(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
 ) -> None:
