@@ -384,7 +384,9 @@ paths:
         price, or an id used twice answers 422 naming it. The import is idempotent: each object carries an
         external `id`, re-importing the same document writes nothing, and an id that already holds other
         content answers 409. What it writes is marked `imported` (work items, runs, findings, cost lines) and
-        counts in no budget. Audited as `demo_history.import`.
+        counts in no budget nor in the agents' metrics. A work item may declare a request that still waits
+        (`pending`): the inbox lists it and an approver decides it through `postDecision`, which records the
+        decision and passes it to no workflow. Audited as `demo_history.import`.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistory" } } }
@@ -394,6 +396,21 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [projects]
+      operationId: deleteDemoHistory
+      description: |
+        Removes what demonstration history imports wrote into this project (ADR 0216): the work items marked
+        `imported` with their runs, requests, decisions and events, and the findings and cost lines marked
+        `imported`. Nothing that is not marked is touched. The same gate as the import: the organisation
+        administrator (`demo_history:import`), on an instance that opted in and is not `staging` or `prod`
+        (409 elsewhere). Idempotent: a second call removes nothing. Audited as `demo_history.delete`, with
+        the counts.
+      responses:
+        "200": { description: Removed, content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistoryRemoval" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /projects/{id}/readiness:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1837,6 +1854,10 @@ paths:
     post:
       tags: [work-items]
       operationId: postDecision
+      description: >-
+        Records the decision, passes it to the work item's workflow and closes the request. A request of a
+        work item a demonstration history imported (ADR 0216) has no workflow: its decision is recorded and
+        audited (`imported: true`) and passed to nothing, so no agent runs and nothing leaves the platform.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DecisionRequest" } } }
@@ -1895,6 +1916,8 @@ paths:
         `migrate` requires `workflow_def_id`, a definition of the project; the ticket's current
         state must exist in it, or be mapped by `state_mapping` — otherwise 422, and nothing is
         passed on.
+        A work item a demonstration history imported (ADR 0216) takes no action: 409, so that no
+        interpreter is ever started for it.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/WorkItemAction" } } }
@@ -13946,12 +13969,24 @@ components:
         cost_usd: { type: number, description: "The cost the created runs carry, in USD: declared, not measured." }
     DemoHistoryCounts:
       type: object
-      required: [work_items, runs, decisions, findings]
+      required: [work_items, runs, decisions, findings, pending]
       properties:
         work_items: { type: integer }
         runs: { type: integer }
         decisions: { type: integer }
         findings: { type: integer }
+        pending: { type: integer, description: "Requests that wait for a person (`pending`)." }
+    DemoHistoryRemoval:
+      type: object
+      description: What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported.
+      required: [work_items, runs, requests, findings, cost_lines]
+      properties:
+        work_items: { type: integer }
+        runs: { type: integer }
+        requests: { type: integer, description: "Human requests, decided or waiting, of the imported work items." }
+        findings: { type: integer }
+        cost_lines: { type: integer }
+        cost_usd: { type: number, description: "The declared cost of the removed cost lines, in USD." }
     InboundEvent: { $ref: "./schemas/inbound-event.schema.json" }
     ChoregosEvent: { $ref: "./schemas/event.schema.json" }
     HumanDecision: { $ref: "./schemas/human-decision.schema.json" }
