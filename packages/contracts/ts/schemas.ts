@@ -360,6 +360,18 @@ export type DemoHistoryDecision = {
   reason?: string;
 };
 
+/** A request that still waits for a person: after the import the inbox lists it and an approver decides it through the usual decision route. Deciding it records the decision (audited) and closes the request; no workflow runs an imported work item, so nothing follows from it: no agent runs and nothing is written outside the platform. Refused on a work item in a terminal state. */
+export type DemoHistoryPending = {
+  id: DemoHistoryId;
+  kind: "approval" | "question" | "scope_change";
+  /** What the person is asked. */
+  summary: string;
+  /** When it was asked; not before the work item was created. */
+  requested_at: string;
+  /** When it is due, after `requested_at`; absent: 24 hours after it. */
+  due_at?: string;
+};
+
 export type DemoHistoryFinding = {
   id: DemoHistoryId;
   title: string;
@@ -397,6 +409,8 @@ export type DemoHistoryWorkItem = {
   runs?: Array<DemoHistoryRun>;
   decisions?: Array<DemoHistoryDecision>;
   findings?: Array<DemoHistoryFinding>;
+  /** What the work item waits for now, if a person must decide: at most one. */
+  pending?: DemoHistoryPending;
 };
 
 /** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */

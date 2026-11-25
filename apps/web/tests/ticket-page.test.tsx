@@ -141,3 +141,43 @@ describe("a ticket's page, finished (S55-14)", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "More" })).toBeNull());
   });
 });
+
+describe("an imported ticket's page (ADR 0216)", () => {
+  const imported = {
+    ...item,
+    imported: true,
+    pending_request: {
+      id: "r1",
+      work_item_id: "w1",
+      kind: "approval",
+      payload: { summary: "Approve the specification?", imported: true },
+      requested_at: "2026-11-05T09:40:00Z",
+    },
+  } as unknown as WorkItemDto;
+  const run = { id: "run1", status: "succeeded", stage_role: "implement", attempt: 1, cost_usd: 0.5, imported: true };
+
+  it("marks the ticket, its runs and its waiting request as imported", async () => {
+    vi.mocked(api.workItem).mockResolvedValue(imported);
+    vi.mocked(api.runs).mockResolvedValue([run] as never);
+    vi.mocked(api.journey).mockResolvedValue(journeyInProgress(Date.parse("2026-11-04T12:00:00Z")));
+    vi.mocked(api.workflowNamed).mockResolvedValue(hotfix);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <Suspense fallback={null}>
+          <WorkItemPage params={params} />
+        </Suspense>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByTestId("imported-decision")).toHaveTextContent("nothing is written outside");
+    await waitFor(() => expect(screen.getAllByTestId("imported-badge")).toHaveLength(2));
+    const runRow = (await screen.findByRole("link", { name: "implement · 1" })).closest("tr")!;
+    expect(within(runRow).getByTestId("imported-badge")).toHaveTextContent("Imported");
+    vi.mocked(api.runs).mockResolvedValue([]);
+  });
+
+  it("says nothing of an import on a live ticket", async () => {
+    ticket();
+    await screen.findByTestId("ticket-facts");
+    expect(screen.queryByTestId("imported-badge")).toBeNull();
+  });
+});

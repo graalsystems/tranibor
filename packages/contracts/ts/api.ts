@@ -6802,6 +6802,20 @@ export type DemoHistoryCounts = {
   runs: number;
   decisions: number;
   findings: number;
+  /** Requests that wait for a person (`pending`). */
+  pending: number;
+};
+
+/** What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported. */
+export type DemoHistoryRemoval = {
+  work_items: number;
+  runs: number;
+  /** Human requests, decided or waiting, of the imported work items. */
+  requests: number;
+  findings: number;
+  cost_lines: number;
+  /** The declared cost of the removed cost lines, in USD. */
+  cost_usd?: number;
 };
 
 export type InboundEvent = S.InboundEvent;
@@ -6906,6 +6920,7 @@ export interface Operations {
   decidePendingMemory: { method: "POST"; path: "/projects/{id}/memory/pending"; body: MemoryDecision; response: void };
   declareMemberLinkedAccount: { method: "POST"; path: "/orgs/{org}/members/{user_id}/linked-accounts"; body: LinkedAccountDeclare; response: LinkedAccount };
   deleteAgent: { method: "DELETE"; path: "/orgs/{org}/agents/{slug}"; body: never; response: void };
+  deleteDemoHistory: { method: "DELETE"; path: "/projects/{id}/demo-history"; body: never; response: DemoHistoryRemoval };
   deleteKnowledgeDocument: { method: "DELETE"; path: "/orgs/{org}/knowledge/{slug}/documents/{document_id}"; body: never; response: void };
   deleteKnowledgeSource: { method: "DELETE"; path: "/orgs/{org}/knowledge/{slug}/sources/{source_id}"; body: never; response: void };
   deleteMcpGateway: { method: "DELETE"; path: "/orgs/{org}/mcp-gateway"; body: never; response: void };
