@@ -5,7 +5,8 @@ What is proved here, without a cluster, by rendering the chart:
 - the defaults: SandboxTemplate rendered, workers on `agent_sandbox`, runs in the release namespace;
 - the API receives the executor too (it printed "tekton" while the workers ran `k8s_job`);
 - without the operator the render fails and names the operator and the way out;
-- Tekton's objects (ClusterRole on tekton.dev, the Task ConfigMap) exist only for Tekton;
+- Tekton's objects (ClusterRole on tekton.dev) exist only for Tekton, and no Task is published: the
+  executor's PipelineRun carries its Task inline (S87-05);
 - the local bench keeps `k8s_job` by writing it;
 - the orchestrator cannot disagree with the global setting.
 
@@ -99,9 +100,12 @@ def test_other_executors_need_no_operator() -> None:
 @needs_helm
 def test_tekton_objects_only_for_tekton() -> None:
     default = _render().stdout
-    assert "tekton.dev" not in default and "choregos-agent-stage-task" not in default
+    assert "tekton.dev" not in default
     tekton = _render("--set", "global.runner.executor=tekton").stdout
-    assert "tekton.dev" in tekton and "choregos-agent-stage-task" in tekton
+    assert "tekton.dev" in tekton
+    # S87-05: the agent stage's Task is inline in each PipelineRun; no copy is published to be copied
+    # into the namespaces, where an older one could run the agent beside the runner.
+    assert "choregos-agent-stage" not in tekton and "kind: Task\n" not in tekton
 
 
 @needs_helm
@@ -131,3 +135,23 @@ def test_custom_image_executor_is_wired() -> None:
     assert _env(off["Deployment/choregos-orchestrator-executor"])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == ""
     jobs = _docs("--set", "global.runner.executor=k8s_job")
     assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/choregos-orchestrator-executor"])
+
+
+@needs_helm
+@pytest.mark.no_operator
+def test_tekton_under_container_renders_k8s_job_as_the_second_executor() -> None:
+    """S87-02: an agent step Tekton cannot isolate goes to `runner.customImageExecutor`, `k8s_job` unless the
+    values name another; under `process` nothing is routed, so nothing is rendered."""
+    executor = "Deployment/choregos-orchestrator-executor"
+    tekton = _env(_docs("--set", "global.runner.executor=tekton")[executor])
+    assert tekton["CHOREGOS_RUNNER_AGENT_ISOLATION"] == "container"
+    assert tekton["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
+    named = _docs(
+        "--set",
+        "global.runner.executor=tekton",
+        "--set",
+        "choregos-orchestrator.runner.customImageExecutor=aca",
+    )
+    assert _env(named[executor])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "aca"
+    process = _docs("--set", "global.runner.executor=tekton", "--set", "global.runner.agentIsolation=process")
+    assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(process[executor])

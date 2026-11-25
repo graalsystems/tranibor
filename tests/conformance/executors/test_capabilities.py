@@ -11,6 +11,7 @@ A capability announced and absent is worse than absent: the caller relies on it.
 from __future__ import annotations
 
 import inspect
+from typing import Any
 
 import pytest
 from tranibor_adapters import available, build
@@ -95,17 +96,51 @@ def test_only_agent_sandbox_starts_every_run_from_a_clean_sandbox(monkeypatch: p
     )
 
 
-@pytest.mark.parametrize("name", ["tekton", "aca"])
-async def test_tekton_and_aca_refuse_the_agents_own_container_saying_why(
-    name: str, monkeypatch: pytest.MonkeyPatch
+async def test_tekton_declares_the_agents_own_container_and_starts_it(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """S65-04l: neither starts the agent's container (ADR 0146 §9). Under `container` each refuses the
+    """S87-05: the agent stage's Task carries the agent's container as a sidecar (ADR 0146 §9). Tekton
+    declares `separate_agent`, has no reason left in `WHY_NOT_SEPARATE`, and a run under `container`
+    reaches its backend with the sidecar in the PipelineRun it sends."""
+    from tranibor_core.agent_isolation import SEPARATE_AGENT, WHY_NOT_SEPARATE, agent_isolation_refusal
+    from tranibor_core.domain import StageJobSpec
+
+    monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
+    executor = build("runtime", "tekton", CONFIGS["tekton"])
+    assert SEPARATE_AGENT in executor.capabilities
+    assert "tekton" not in WHY_NOT_SEPARATE
+    assert agent_isolation_refusal("container", "tekton", executor.capabilities) is None
+    sent: list[tuple[str, str, Any]] = []
+
+    async def record(method: str, path: str, **kwargs: Any) -> Any:
+        sent.append((method, path, kwargs.get("json")))
+        return None
+
+    monkeypatch.setattr(executor.client, "request", record)
+    spec = StageJobSpec(
+        run_id="r-1",
+        project_slug="demo",
+        namespace="ns",
+        runner_image="registry.example/runner:1",
+        api_url="http://api",
+        run_token="token",
+        agent_isolation="container",
+    )
+    await executor.start(spec)
+    [run] = [body for method, path, body in sent if method == "POST" and path.endswith("/pipelineruns")]
+    [stage] = run["spec"]["pipelineSpec"]["tasks"]
+    assert [s["name"] for s in stage["taskSpec"]["sidecars"]] == ["agent"]
+
+
+async def test_aca_refuses_the_agents_own_container_saying_why(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S65-04l: ACA does not start the agent's container (ADR 0146 §9). Under `container` it refuses the
     run at `start`, naming itself and the reason, before anything reaches its backend; `/readiness`
     reads the same sentence (`agent_isolation_refusal`)."""
     from tranibor_adapters.errors import AgentIsolationRefusedError
     from tranibor_core.agent_isolation import SEPARATE_AGENT, WHY_NOT_SEPARATE, agent_isolation_refusal
     from tranibor_core.domain import StageJobSpec
 
+    name = "aca"
     monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
     executor = build("runtime", name, CONFIGS[name])
     assert SEPARATE_AGENT not in executor.capabilities

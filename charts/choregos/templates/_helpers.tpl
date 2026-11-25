@@ -127,7 +127,7 @@ refused with where it went: a value silently ignored would leave the agent besid
 {{- fail "choregos-orchestrator.runner.sandbox.agentIsolation moved to global.runner.agentIsolation (S65-04d): one setting for every executor, the API and the workers; set it there and remove this one" -}}
 {{- end -}}{{- end -}}{{- end -}}
 {{- if and (eq $value "process") (has (.Values.global.environment | default "dev") (list "staging" "prod")) (not ((.Values.global.runner | default dict).acceptUnisolatedAgent | default false)) -}}
-{{- fail (printf "global.runner.agentIsolation=process with global.environment=%s: the agent would run in the runner's container and read its run token, git token and egress report key (ADR 0146). Use `container` (k8s_job, agent_sandbox, local_docker), or accept the risk by name with global.runner.acceptUnisolatedAgent: true (TRANIBOR_AGENT_ISOLATION=none-accepted, logged on every run, ADR 0222)." .Values.global.environment) -}}
+{{- fail (printf "global.runner.agentIsolation=process with global.environment=%s: the agent would run in the runner's container and read its run token, git token and egress report key (ADR 0146). Use `container` (k8s_job, agent_sandbox, local_docker, tekton), or accept the risk by name with global.runner.acceptUnisolatedAgent: true (TRANIBOR_AGENT_ISOLATION=none-accepted, logged on every run, ADR 0222)." .Values.global.environment) -}}
 {{- end -}}
 {{- $value -}}
 {{- end -}}

@@ -67,7 +67,8 @@ def unisolated_agent_refusal(
         f"{AGENT_ISOLATION_UNAVAILABLE}: {ENVIRONMENT_VARIABLE}={(environment or '').strip()} and the agent "
         f"would run in the runner's own container ({AGENT_ISOLATION_ENV}=process, executor `{executor}`), "
         "where it can read the run token, the git token and the egress report key (ADR 0146). Isolate it "
-        "(`global.runner.agentIsolation: container` on `k8s_job`, `local_docker` or `agent_sandbox`), or "
+        "(`global.runner.agentIsolation: container` on `k8s_job`, `local_docker`, `agent_sandbox` "
+        "or `tekton`), or "
         f"accept the risk by name with {AGENT_ISOLATION_ACCEPT_ENV}={NONE_ACCEPTED} "
         "(the chart's `global.runner.acceptUnisolatedAgent: true`), which every run then logs (ADR 0222)"
     )
@@ -87,10 +88,6 @@ def deployment_agent_isolation(environ: Mapping[str, str]) -> AgentIsolation:
 #: Why an executor that will not start the agent's container does not (S65-04l), added to its refusal
 #: so that the operator reads the reason, not only the missing word.
 WHY_NOT_SEPARATE: dict[str, str] = {
-    "tekton": (
-        "its PipelineRun's Task carries no agent sidecar, and the Task is copied into each project's "
-        "namespace, where an older copy would run the agent beside the runner"
-    ),
     "aca": (
         "a Container Apps job runs one container per execution here, and whether a job stops a second "
         "container when the runner's ends was never run"
@@ -110,7 +107,7 @@ def agent_isolation_refusal(asked: str, executor: str, capabilities: Iterable[st
         f"{AGENT_ISOLATION_UNAVAILABLE}: the deployment runs every agent in a container of its own "
         f"({AGENT_ISOLATION_ENV}=container, ADR 0146) and the `{executor}` executor cannot start one "
         f"(it does not declare `{SEPARATE_AGENT}`{': ' + why if why else ''}); run the project on an "
-        "executor that does (`k8s_job`, `local_docker`, `agent_sandbox`), or set "
+        "executor that does (`k8s_job`, `local_docker`, `agent_sandbox`, `tekton`), or set "
         "`global.runner.agentIsolation: process` (in staging and prod that also needs "
         f"{AGENT_ISOLATION_ACCEPT_ENV}={NONE_ACCEPTED}, ADR 0222)"
     )

@@ -586,7 +586,12 @@ def _register_runtimes() -> None:
     register("runtime", "tekton", _SHIPPED_SPECS[("runtime", "tekton")])(
         lambda cfg: TektonExecutor(
             KubernetesClient(**cfg.get("kubernetes", {})),
-            pipeline=cfg.get("pipeline", "choregos-agent"),
+            # The PipelineRun carries its Pipeline inline (S87-05): no `pipeline` to name. A stored
+            # configuration that still names one is read and ignored.
+            cpu_limit=os.environ.get("TRANIBOR_RUNNER_CPU_LIMIT", "") or "2",
+            memory_limit=os.environ.get("TRANIBOR_RUNNER_MEMORY_LIMIT", "") or "6Gi",
+            runner_requests=_own_resources(os.environ.get("TRANIBOR_RUNNER_OWN_RESOURCES", ""), "requests"),
+            runner_limits=_own_resources(os.environ.get("TRANIBOR_RUNNER_OWN_RESOURCES", ""), "limits"),
         )
     )
     register("runtime", "k8s_job")(

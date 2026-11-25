@@ -46,7 +46,7 @@ One procedure per connector type, knowledge source kind, MCP-door client and ext
 | [Run agent stages in warm sandboxes (opt-in)](connector.runtime.agent_sandbox.md) | the person who operates the platform | `runtime/agent_sandbox` | 2026-10-16 |
 | [Run agent stages as Kubernetes Jobs](connector.runtime.k8s_job.md) | the person who operates the platform | `runtime/k8s_job` | 2026-10-16 |
 | [Run agent stages in local Docker (development)](connector.runtime.local_docker.md) | the person who operates the platform | `runtime/local_docker` | 2026-10-16 |
-| [Run agent stages as Tekton PipelineRuns](connector.runtime.tekton.md) | the person who operates the platform | `runtime/tekton` | 2026-10-16 |
+| [Run agent stages as Tekton PipelineRuns](connector.runtime.tekton.md) | the person who operates the platform | `runtime/tekton` | 2026-11-25 |
 | [Use Azure DevOps Repos for branches and pull requests](connector.scm.azure-repos.md) | a project owner | `scm/azure-repos` | 2026-11-20 |
 | [Use GitHub for branches, pull requests and checks](connector.scm.github.md) | a project owner | `scm/github` | 2026-11-12 |
 | [Use GitLab for branches, merge requests and auto-merge](connector.scm.gitlab.md) | a project owner | `scm/gitlab` | 2026-11-04 |
