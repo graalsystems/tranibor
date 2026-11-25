@@ -185,6 +185,11 @@ jobs:
       TRANIBOR_LIVE_MCP_GATEWAY_ROUTING: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_ROUTING }}
       TRANIBOR_LIVE_MCP_GATEWAY_SERVER_HEADER: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_SERVER_HEADER }}
       TRANIBOR_LIVE_MCP_GATEWAY_AUTH_HEADER: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_AUTH_HEADER }}
+      # A Vault transit engine wrapping the organisations' Temporal data keys (ADR 0225,
+      # tests/live/test_vault_transit_temporal_keys_live.py). Skipped while the address is unset; the
+      # token's policy needs `transit/keys/*` and `transit/{encrypt,decrypt,rewrap}/*`.
+      TRANIBOR_LIVE_VAULT_ADDR: ${{ secrets.TRANIBOR_LIVE_VAULT_ADDR }}
+      TRANIBOR_LIVE_VAULT_TOKEN: ${{ secrets.TRANIBOR_LIVE_VAULT_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
@@ -340,10 +345,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # servicenow 0.2.19 as the agents repository published it (publish.yml), by its registry digest
+      # servicenow 0.2.20 as the agents repository published it (publish.yml), by its registry digest
       # (tests/architecture/test_supply_chain_pinned.py), and the commit it was built from.
-      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.19@sha256:78b2baa9ad042a8903aac93d281a92fde2ce9c0258222a623cb3813685d927e7
-      AGENTS_REF: 20bdba0d1cb52b088a10615995f7bf1bcb271e2b
+      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.20@sha256:dcab7a83d439d15c12a4aaf4da02d1600ac94188ccbc61931f46406562461b44
+      AGENTS_REF: da68712c4409286a2106dd5f519081565b10b4c0
+      # Both suites file in a group no deployment watches: the dev deployment's triage project watches the
+      # instance's Service Desk, opened the suites' incidents as work items and reopened them one second after
+      # their resolve (graalsystems/tranibor-agents#66). One member, so that a change's group approval waits.
+      TRANIBOR_LIVE_SERVICENOW_GROUP: Tranibor CI
       TRANIBOR_LIVE_SERVICENOW_URL: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_URL }}
       TRANIBOR_LIVE_SERVICENOW_USERNAME: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_USERNAME }}
       TRANIBOR_LIVE_SERVICENOW_PASSWORD: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_PASSWORD }}
@@ -410,7 +419,7 @@ jobs:
             -e SERVICENOW_BASE_URL="${TRANIBOR_LIVE_SERVICENOW_URL%/}" -e SERVICENOW_AUTH=basic \
             -e SERVICENOW_USERNAME="$TRANIBOR_LIVE_SERVICENOW_USERNAME" \
             -e SERVICENOW_PASSWORD="$TRANIBOR_LIVE_SERVICENOW_PASSWORD" \
-            -e SERVICENOW_ASSIGNMENT_GROUPS="Service Desk" "$SERVICENOW_IMAGE"
+            -e SERVICENOW_ASSIGNMENT_GROUPS="$TRANIBOR_LIVE_SERVICENOW_GROUP" "$SERVICENOW_IMAGE"
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:18080/healthz > /dev/null; then exit 0; fi
             sleep 2

@@ -83,7 +83,13 @@ prove the platform's path (the poll, the agent, the write-back), which the deplo
   password is sealed in the connector; resetting it for CI would turn the deployment's nights red) but a second
   user, `choregos.ci`, built by the same procedure: web service access only, internal integration user, the
   roles `choregos_integration`, `snc_basic_auth_api_access` and `sn_change_read`, nothing else. No cleanup
-  user: the run leaves its incidents resolved, titled `[choregos-live <run>]`, and the request item test skips.
+  user: the run leaves its incidents resolved and its change canceled, titled `[choregos-live <run>]`, and the
+  request item test skips.
+- Both suites file in the group **`Tranibor CI`** (`TRANIBOR_LIVE_SERVICENOW_GROUP` in the job), never in the
+  Service Desk that this page's triage project watches: that project opened the CI's incidents as work items,
+  and its first state mirror reopened them one second after the suite resolved them (graalsystems/tranibor-agents#66).
+  The group holds one member, so that a change's group approval waits in Assess (empty, the change model
+  approves it at once). A new instance: create the group with one member, as the instance's admin.
 - It **skips**, the reason named in the job's summary and a warning, in two cases only: `secrets-absent` (one
   of the three secrets is not set) and `instance-hibernating` (the instance answered a redirect or an HTML page
   to the integration user instead of JSON). A skipped night is not a green night. Anything else is red and
