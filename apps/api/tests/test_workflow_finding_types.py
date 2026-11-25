@@ -8,6 +8,7 @@ it allows. The core's and the plugins' types stay valid everywhere.
 
 from __future__ import annotations
 
+import importlib.util
 from typing import Any
 
 import pytest
@@ -159,6 +160,10 @@ async def test_the_cores_types_stay_valid_in_a_workflow_that_declares_its_own(
     assert listed["type"] == core and listed["type_title"] is None
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("tranibor_software_delivery") is None,
+    reason="`flaky-test` is the software-delivery plugin's: without it, nobody declares the name",
+)
 async def test_a_plugins_type_stays_valid_and_a_workflow_may_not_take_its_name(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:

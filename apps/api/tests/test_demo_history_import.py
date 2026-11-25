@@ -8,6 +8,7 @@ other half: off unless asked, never in production, the organisation administrato
 from __future__ import annotations
 
 import copy
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -16,8 +17,30 @@ from sqlalchemy import func, select
 
 from .conftest import login
 
+#: The workflow the document's history moves through: the test's own, so that the history holds with or
+#: without the software-delivery plugin, whose workflow a project otherwise starts with.
+INVOICES = """
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: invoices
+  version: 1
+initial: inbox
+actors:
+  implementer: { type: agent, role: implement }
+  verifier: { type: agent, role: verify }
+states:
+  inbox: { display: Inbox }
+  in_progress: { display: In progress }
+  done: { display: Done, terminal: true }
+transitions:
+  - { id: t-implement, from: inbox, to: in_progress, by: implementer }
+  - { id: t-done, from: in_progress, to: done, by: verifier }
+"""
+
 DOCUMENT: dict[str, Any] = {
     "schema": "choregos/DemoHistory/v1",
+    "workflow": "invoices",
     "prices": {
         "anthropic/claude-sonnet-5": {
             "input_usd_per_mtok": 3.0,
@@ -35,7 +58,7 @@ DOCUMENT: dict[str, Any] = {
             "history": [
                 {"state": "inbox", "at": "2026-11-02T09:00:00Z"},
                 {"state": "in_progress", "at": "2026-11-02T10:30:00Z", "by": "admin@northwind.dev"},
-                {"state": "deployed_prod", "at": "2026-11-03T08:00:00Z"},
+                {"state": "done", "at": "2026-11-03T08:00:00Z"},
             ],
             "runs": [
                 {
@@ -92,10 +115,16 @@ def _document() -> dict[str, Any]:
 
 
 @pytest.fixture
-def demo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An instance that opted in: the variable on, outside production."""
+async def demo(
+    client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[None]:
+    """An instance that opted in: the variable on, outside production; the project holds `invoices`."""
     from tranibor_api.config import reset_settings_cache
 
+    published = await client.put(
+        f"/api/v1/projects/{project['id']}/workflows/invoices", json={"yaml": INVOICES}
+    )
+    assert published.status_code in (200, 201), published.text
     monkeypatch.setenv("TRANIBOR_DEMO_HISTORY_IMPORT", "1")
     reset_settings_cache()
     yield
@@ -128,7 +157,7 @@ async def test_the_history_is_written_and_every_row_says_it_is_imported(
     items = (await client.get(f"/api/v1/projects/{project['id']}/work-items")).json()["items"]
     by_key = {item["tracker_key"]: item for item in items}
     done = by_key["demo:inv-142"]
-    assert done["state"] == "deployed_prod" and done["imported"] is True
+    assert done["state"] == "done" and done["imported"] is True
     assert done["closed_at"] is not None and done["created_at"].startswith("2026-11-02T09:00")
     assert done["totals"]["cost_usd"] == pytest.approx(0.9535) and done["totals"]["runs"] == 2
     assert by_key["demo:inv-143"]["state"] == "inbox", "no history: the workflow's initial state"
@@ -140,7 +169,7 @@ async def test_the_history_is_written_and_every_row_says_it_is_imported(
     }
     timeline = (await client.get(f"/api/v1/work-items/{done['id']}/timeline")).json()["items"]
     moves = [e["title"] for e in timeline if e["kind"] == "state_change"]
-    assert moves == ["inbox → in_progress", "in_progress → deployed_prod"]
+    assert moves == ["inbox → in_progress", "in_progress → done"]
     assert {e["kind"] for e in timeline} >= {"run", "decision", "finding", "state_change"}
     findings = (await client.get(f"/api/v1/projects/{project['id']}/findings")).json()["items"]
     assert [(f["title"], f["imported"]) for f in findings] == [
