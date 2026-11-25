@@ -71,7 +71,9 @@ class AuditCheckpoint(Base, PkMixin):
     """A point of a chain someone vouched for (ADR 0182), append-only like the log.
 
     `genesis`: what the migration chained of the history that existed, unsigned; the chain proves nothing
-    of those entries before that moment. `signed`: a head `choregos-admin audit checkpoint` verified and
+    of those entries before that moment. `prune`: the last entry a retention prune removed (`seq`, `hash`),
+    unsigned and written before the delete: a walk of what remains starts from it (ADR 0221). `signed`: a
+    head `choregos-admin audit checkpoint` verified and
     signed with an Ed25519 key the deployment keeps outside the database (`key_id` is its public half, as
     the outposts write a key; `signature` the unpadded base64url of 64 bytes)."""
 
@@ -82,11 +84,14 @@ class AuditCheckpoint(Base, PkMixin):
     )
     seq: Mapped[int] = mapped_column(BigInteger)
     hash: Mapped[str] = mapped_column(String(64))
-    #: `genesis` or `signed`
+    #: `genesis`, `prune` or `signed`
     kind: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     key_id: Mapped[str | None] = mapped_column(String(43), nullable=True)
     signature: Mapped[str | None] = mapped_column(String(86), nullable=True)
+    #: `prune` only (ADR 0221): how many entries that prune removed, and the retention rule it applied.
+    pruned: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class AuditExportCursor(Base):

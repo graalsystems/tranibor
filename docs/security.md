@@ -187,6 +187,13 @@ or another organisation.
   shows, and a rewrite of every hash from some entry on is shown only by a checkpoint kept where that hand
   did not reach. Entries written before the upgrade were chained by the migration: they are evidence from
   then on, not before. SQLite keeps no chain ([ADR 0182](adr/0182-the-audit-log-is-a-hash-chain-the-database-keeps.md)).
+  **Retention is the operator's rule, off by default** ([ADR 0221](adr/0221-the-audit-log-forgets-a-verified-prefix-behind-a-checkpoint-written-first.md)):
+  with `TRANIBOR_AUDIT_RETENTION_DAYS` set (at least 30), a loop removes the oldest entries of each chain that
+  verify and, with the SIEM export on, have been shipped, behind a `prune` checkpoint written first and
+  recorded inside the chain; what remains verifies from that checkpoint, and what was removed is no longer
+  evidence in the database (the SIEM's copy is). The checkpoint is not signed, and whoever owns the tables
+  could still write one and delete behind it; the chain then fails to record it. A stopped SIEM sink holds
+  pruning back and the log grows.
 - **Row-level security needs a non-superuser role.** A PostgreSQL superuser ignores every
   policy. The API refuses to start as one in `staging` and `prod`; the embedded PostgreSQL
   creates `choregos_app` at initdb for that reason.
@@ -1057,7 +1064,7 @@ has: the export narrows the window, it does not close it. Syslog over TLS has no
 receiver's: a message in flight when the connection breaks can be lost, and the receiver sees the missing
 `seq`. The token is read from a Secret by reference.
 
-Not yet: a retention rule for the log, checkpoints signed on a schedule, the chain in `GET /audit`, and a
+Not yet: checkpoints signed on a schedule, the chain in `GET /audit`, and a
 migration role distinct from the API's own (each its own story).
 
 ## Secrets

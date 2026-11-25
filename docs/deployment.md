@@ -1488,9 +1488,39 @@ With `monitoring.alerts` on, the alert `ChoregosAuditExportStalled` fires when e
 moved for half an hour.
 A setting the API cannot build a sink from (a plain `http://` URL, an unknown format) stops it at start.
 
-Not part of this: a retention rule for the log, checkpoints signed on a schedule, a migration role distinct
+Not part of this: checkpoints signed on a schedule, a migration role distinct
 from the API's own, and the chain in `GET /audit`. Against a real Splunk, Elastic or syslog server nothing
 here has been run yet: the sinks are tested against simulated receivers.
+
+
+## Retention of the audit log
+
+([ADR 0221](adr/0221-the-audit-log-forgets-a-verified-prefix-behind-a-checkpoint-written-first.md), S80-05c.) The
+audit log keeps every entry **unless you set a rule**: off by default, so an upgrade deletes nothing. PostgreSQL
+only. The chart has no value for it yet; set the API's environment with `global.extraEnv`:
+
+| Setting | Default | Meaning |
+|:--|:--|:--|
+| `TRANIBOR_AUDIT_RETENTION_DAYS` | `0` | Remove entries older than this many days from the front of each chain. `0` keeps for ever; otherwise at least `30` (the API refuses to start below). |
+| `TRANIBOR_AUDIT_RETENTION_ORGS` | `{}` | A longer rule per organisation, JSON object slug to days (`{"acme": 2555}`). Never shorter than the deployment's; refused while the deployment's rule is off. |
+| `TRANIBOR_AUDIT_RETENTION_INTERVAL_S` | `3600` | Seconds between two passes, in every API replica. |
+| `TRANIBOR_AUDIT_RETENTION_BATCH` | `5000` | Most entries one transaction removes (it holds the chain's head, which writers wait for); each batch has its own checkpoint. |
+
+What is removed: the longest prefix of a chain that is older than the rule, **passes the hash-chain walk**, and,
+when `TRANIBOR_AUDIT_EXPORT` is on and covers the chain, **has been accepted by the SIEM sink** (its cursor is
+the ceiling; no cursor, nothing removed). A sink that is down therefore holds retention back and the log grows:
+watch `ChoregosAuditExportStalled` and `choregos_audit_retention_held_back_total`. Entries that do not verify are
+never removed, and `choregos-admin audit verify` shows the break. Before each delete a `prune` checkpoint
+(the last removed entry's `seq` and `hash`, the count, the rule) is written and an `audit.retention.prune` entry
+records it in the chain; `choregos-admin audit verify` walks what remains from the checkpoint and says how far
+retention went. Removed entries are no longer evidence in the database: keep the SIEM's copy as long as your
+policy requires. Do not rename the export (`TRANIBOR_AUDIT_EXPORT_NAME`) or delete cursors on a pruned log: the
+export would ship it again from entry 1 and log `audit.export.chain_discontinuity`.
+
+`choregos-admin audit prune --dry-run` says what the next pass would remove; without `--dry-run` it applies the
+rule once. `/metrics`: `choregos_audit_retention_pruned_entries_total`, `choregos_audit_retention_held_back_total`,
+`choregos_audit_retention_failures_total` (per process). Logs: `audit.retention.pruned`, `.held_back`,
+`.chain_broken`, `.failed`.
 
 ## Extra volumes for the API
 

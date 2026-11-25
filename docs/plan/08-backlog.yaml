@@ -5558,6 +5558,14 @@ stories:
     size: M
     depends_on: [S80-05]
     notes: "Plan workstream S3, second part (ADR 0182 point 9; the plan dates the SIEM export and retention in May 2027). Delivered, partial (ADR 0207, proposed): the SIEM export of the audit chains, in order and at least once from a durable cursor, to HTTPS JSON (webhook, Splunk HEC, Elastic/OpenSearch) or syslog over TLS (RFC 5424, CEF), off by default; proved on simulated receivers and SQLite, the PostgreSQL tests and the migration written and not yet run. Still to do: retention behind a signed checkpoint, checkpoints signed on a schedule, a migration role distinct from the API's, the enterprise edition's `org.delete` entry carrying the deleted chain's last seq and hash, `seq` and `hash` in `GET /audit` (a contract change)."
+  - id: S80-05c
+    title: "feat(api): the audit log has a retention rule: a verified, shipped prefix is removed behind a checkpoint written first"
+    stream: S80
+    sprint: 2
+    priority: 5
+    size: M
+    depends_on: [S80-05, S80-05b]
+    notes: "Plan workstream S3, third part (ADR 0221, proposed; ADR 0182 point 9 and the retention item ADR 0207 left open). A migration and a change to the append-only trigger: human review (ADR 0180). Off by default; TRANIBOR_AUDIT_RETENTION_DAYS (at least 30), an organisation may keep longer, never shorter."
   - id: S80-03
     title: "fix(api,orchestrator,runner,charts): the fakes are refused in staging and prod: the render fails, and the API, the outposts' door, the workers and the runner refuse to start"
     stream: S80

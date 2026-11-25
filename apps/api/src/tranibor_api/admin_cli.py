@@ -10,6 +10,7 @@ used for nothing else.
     choregos-admin orgs bootstrap   # replays the bootstrap (TRANIBOR_BOOTSTRAP_*) by hand
     choregos-admin audit verify     # walks every audit chain, reports the first break (ADR 0182)
     choregos-admin audit checkpoint --key-file - < audit-checkpoint.pem
+    choregos-admin audit prune --dry-run   # applies the retention rule once (ADR 0221)
 """
 
 from __future__ import annotations
@@ -112,6 +113,12 @@ def _line(report: Any) -> str:
     if report.problems:
         return f"{report.label}: NOT VERIFIED: " + "; ".join(report.problems)
     said = [f"{report.label}: intact, {report.entries} entries"]
+    if report.pruned is not None:
+        said.append(
+            f"entries 1 to {report.pruned.seq} were removed by retention on "
+            f"{report.pruned.created_at:%Y-%m-%d} and are no longer evidence; the rest verifies from "
+            "that checkpoint"
+        )
     if report.genesis is not None:
         said.append(
             f"entries 1 to {report.genesis.seq} chained by the migration on "
@@ -228,6 +235,42 @@ def audit_checkpoint(
         elif not report.intact:
             typer.echo(_line(report), err=True)
     if not all(report.intact for report, _ in results):
+        raise typer.Exit(BROKEN)
+
+
+@audit_app.command("prune")
+def audit_prune(
+    org: Orgs = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="say what would go (one batch per chain)")
+    ] = False,
+) -> None:
+    """Apply the retention rule (`TRANIBOR_AUDIT_RETENTION_*`, ADR 0221) once, as the loop does: remove each
+    chain's verified prefix that is older than the rule and already shipped to the SIEM, behind a checkpoint.
+    Nothing is removed when the rule is off (0, the default). Exit 1 when a chain's entries due to go do not
+    verify: they stay.
+    """
+    from .audit_retention import Pruner
+
+    _postgres_or_exit()
+    from .config import get_settings
+
+    try:
+        pruner = Pruner.from_settings(get_settings())
+        if pruner.days <= 0:
+            typer.echo("audit retention is off (TRANIBOR_AUDIT_RETENTION_DAYS=0): nothing to prune", err=True)
+            return
+        result = asyncio.run(pruner.run_pass(dry_run=dry_run, orgs=org or []))
+    except (LookupError, ValueError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(NO_CHAIN) from None
+    for item in result.chains:
+        said = f"would remove {item.would_prune}" if dry_run else f"removed {item.pruned}"
+        extra = [" (held: another replica prunes it)"] if item.skipped else []
+        extra += [" (older entries wait for the SIEM export)"] if item.held_back else []
+        extra += [f" (NOT PRUNED: {item.broken})"] if item.broken else []
+        typer.echo(f"{item.label}: {said} entries{''.join(extra)}")
+    if result.failed:
         raise typer.Exit(BROKEN)
 
 
