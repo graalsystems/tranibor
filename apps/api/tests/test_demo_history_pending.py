@@ -9,6 +9,7 @@ started for it. The removal deletes the rows marked imported and nothing else, b
 from __future__ import annotations
 
 import copy
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -19,6 +20,27 @@ from sqlalchemy import func, select
 from .conftest import login
 
 URL = "/api/v1/projects/{id}/demo-history"
+#: The workflow the document's history moves through: the test's own, so that the history holds with or
+#: without the software-delivery plugin, whose workflow a project otherwise starts with. `shipped` is
+#: terminal, so that a request on the first work item is refused as one on an ended work item.
+INVOICES = """
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: invoices
+  version: 1
+initial: inbox
+actors:
+  implementer: { type: agent, role: implement }
+  verifier: { type: agent, role: verify }
+states:
+  inbox: { display: Inbox }
+  in_progress: { display: In progress }
+  shipped: { display: Shipped, terminal: true }
+transitions:
+  - { id: t-implement, from: inbox, to: in_progress, by: implementer }
+  - { id: t-shipped, from: in_progress, to: shipped, by: verifier }
+"""
 PENDING = {
     "id": "spec-review",
     "kind": "approval",
@@ -27,6 +49,7 @@ PENDING = {
 }
 DOCUMENT: dict[str, Any] = {
     "schema": "choregos/DemoHistory/v1",
+    "workflow": "invoices",
     "work_items": [
         {
             "id": "inv-142",
@@ -34,7 +57,7 @@ DOCUMENT: dict[str, Any] = {
             "created_at": "2026-11-02T09:00:00Z",
             "history": [
                 {"state": "inbox", "at": "2026-11-02T09:00:00Z"},
-                {"state": "deployed_prod", "at": "2026-11-03T08:00:00Z"},
+                {"state": "shipped", "at": "2026-11-03T08:00:00Z"},
             ],
             "runs": [
                 {
@@ -84,9 +107,16 @@ def _document() -> dict[str, Any]:
 
 
 @pytest.fixture
-def demo(monkeypatch: pytest.MonkeyPatch) -> Any:
+async def demo(
+    client: AsyncClient, project: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[None]:
+    """An instance that opted in: the variable on, outside production; the project holds `invoices`."""
     from tranibor_api.config import reset_settings_cache
 
+    published = await client.put(
+        f"/api/v1/projects/{project['id']}/workflows/invoices", json={"yaml": INVOICES}
+    )
+    assert published.status_code in (200, 201), published.text
     monkeypatch.setenv("TRANIBOR_DEMO_HISTORY_IMPORT", "1")
     reset_settings_cache()
     yield
