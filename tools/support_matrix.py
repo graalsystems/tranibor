@@ -4,12 +4,16 @@
     uv run python tools/support_matrix.py            # writes the section between the markers
     uv run python tools/support_matrix.py --check    # fails if the section differs from the record
 
-Each entry's word is computed from its last green proof against today (plan 2026-11-25, D4):
-`supported` when the proof is at most 30 days old, `tested` when it ran green once (older, or its date
-was not recorded), `unknown` when it never ran. Nobody writes the word: a record that does is refused,
-and so is a page that calls a provider supported without an entry that computes to it
-(`unsupported_claims`). A proof that turns 31 days old therefore turns the docs test red until a new
-proof is recorded or `make docs-support` writes `tested`: the page never keeps a word the record lost.
+Each entry's word is computed from its last green proof against the record's `as_of` date (plan
+2026-11-25, D4): `supported` when the proof is at most 30 days older than `as_of`, `tested` when it ran
+green once (older, or its date was not recorded), `unknown` when it never ran. Nobody writes the word: a
+record that does is refused, and so is a page that calls a provider supported without an entry that
+computes to it (`unsupported_claims`).
+
+`as_of` is the day the record was last brought up to date, written in the record and moved forward by
+whoever records a proof (and by the scheduled proofs, S86-15): the word never changes on its own, so the
+docs test never turns red on a day nobody committed anything. A record whose `as_of` is in the future,
+or older than one of its proofs, is refused.
 """
 
 from __future__ import annotations
@@ -78,7 +82,9 @@ def _entry(raw: Any, today: datetime.date) -> Entry:
         if date is not None and not isinstance(date, datetime.date):
             raise RecordError(f"{name}: the proof's date is not a date: {date!r}")
         if date is not None and date > today:
-            raise RecordError(f"{name}: the proof is dated {date}, after today ({today})")
+            raise RecordError(
+                f"{name}: the proof is dated {date}, after the record's `as_of` ({today}): move it"
+            )
     return Entry(
         id=str(raw["id"]),
         provider=str(raw["provider"]),
@@ -95,9 +101,22 @@ def _entry(raw: Any, today: datetime.date) -> Entry:
     )
 
 
+def as_of(text: str | None = None) -> datetime.date:
+    """The day the record was last brought up to date: the date every word is computed against."""
+    document = yaml.safe_load(RECORD.read_text(encoding="utf-8") if text is None else text) or {}
+    value = document.get("as_of")
+    if not isinstance(value, datetime.date):
+        raise RecordError(
+            "the record has no `as_of` date (YYYY-MM-DD): the words would have nothing to count from"
+        )
+    if value > datetime.date.today():
+        raise RecordError(f"`as_of` is {value}, after today")
+    return value
+
+
 def load(text: str | None = None, today: datetime.date | None = None) -> list[Entry]:
     """The record's entries; `RecordError` on a broken rule."""
-    today = today or datetime.date.today()
+    today = today or as_of(text)
     document = yaml.safe_load(RECORD.read_text(encoding="utf-8") if text is None else text) or {}
     entries = [_entry(raw, today) for raw in document.get("clusters") or []]
     ids = [entry.id for entry in entries]
@@ -118,7 +137,7 @@ def _evidence(item: str) -> str:
 
 def render(entries: list[Entry], today: datetime.date | None = None) -> str:
     """The section between the markers, markers included."""
-    today = today or datetime.date.today()
+    today = today or as_of()
     lines = [
         BEGIN,
         "",
@@ -173,7 +192,7 @@ def unsupported_claims(text: str, entries: list[Entry], today: datetime.date | N
 
     Narrow on purpose: a sentence counts only when it names one of an entry's `names` (whole words, as
     written) and says `supported` or `supports` without a negation in front."""
-    today = today or datetime.date.today()
+    today = today or as_of()
     found: list[str] = []
     for sentence in _SENTENCE.findall(text):
         if not _CLAIM.search(_NEGATED.sub("", sentence)):

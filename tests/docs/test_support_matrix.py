@@ -44,8 +44,8 @@ ENTRY = """
 """
 
 
-def _record(*entries: str) -> str:
-    return "clusters:" + "".join(entries)
+def _record(*entries: str, as_of: datetime.date = TODAY) -> str:
+    return f"as_of: {as_of.isoformat()}\nclusters:" + "".join(entries)
 
 
 def _proved(day: datetime.date | None) -> str:
@@ -105,8 +105,27 @@ def test_a_word_written_by_hand_is_refused() -> None:
 
 def test_a_proof_dated_in_the_future_is_refused() -> None:
     tomorrow = TODAY + datetime.timedelta(days=1)
-    with pytest.raises(sm.RecordError, match="after today"):
+    with pytest.raises(sm.RecordError, match="after the record's `as_of`"):
         sm.load(_record(ENTRY.format(id="x", provider="X", names="", proof=_proved(tomorrow))))
+
+
+def test_the_word_counts_from_the_records_as_of_not_from_the_day_the_test_runs() -> None:
+    """A record brought up to date 40 days ago still says what it said then: the docs test never turns
+    red on a day nobody committed. Moving `as_of` forward is what ages a proof."""
+    then = TODAY - datetime.timedelta(days=40)
+    proof = _proved(then - datetime.timedelta(days=5))
+    entry = ENTRY.format(id="gke", provider="Google GKE", names="GKE", proof=proof)
+    assert "**supported**" in sm.render(
+        sm.load(_record(entry, as_of=then)), today=sm.as_of(_record(entry, as_of=then))
+    )
+    assert "**tested**" in sm.render(sm.load(_record(entry)), today=TODAY)
+
+
+def test_a_record_without_as_of_or_with_one_in_the_future_is_refused() -> None:
+    with pytest.raises(sm.RecordError, match="as_of"):
+        sm.as_of("clusters: []")
+    with pytest.raises(sm.RecordError, match="after today"):
+        sm.as_of(_record(as_of=TODAY + datetime.timedelta(days=1)))
 
 
 CLOUDS = _record(

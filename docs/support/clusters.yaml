@@ -11,6 +11,9 @@
 # Seeded on 2026-11-25 with what the repository records, and nothing else: a proof is a dated status row,
 # an ADR paragraph or a CI run, named in `evidence`. `date: null` means a green run is recorded without
 # its date. `names` are what a page may call the provider (the scan of tests/docs/test_support_matrix.py).
+# The day this record was last brought up to date: every word is computed against it, never against the
+# day a test happens to run. Move it forward when you record a proof.
+as_of: 2026-11-25
 clusters:
   - id: operator-dev
     provider: The first operator's dev cluster (bare metal)
