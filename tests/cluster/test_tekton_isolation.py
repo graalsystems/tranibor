@@ -43,6 +43,8 @@ pytestmark = pytest.mark.cluster
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 IMAGE = os.environ.get("TRANIBOR_TEKTON_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
 PYTHON = "/app/.venv/bin/python"
+#: The RuntimeClass of the run's pod (`gvisor` for the second run of S86-06); empty: the cluster's default.
+RUNTIME_CLASS = os.environ.get("TRANIBOR_TEKTON_RUNTIME_CLASS", "")
 
 
 def _probe() -> ModuleType:
@@ -74,6 +76,7 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
         run_token="unused: read from the run's Secret",
         agent_isolation="container",
         timeout_minutes=10,
+        runtime_class=RUNTIME_CLASS or None,
     )
     run = TektonExecutor(SimpleNamespace(), storage="1Gi")._pipeline_run(spec, f"run-{run_id}")  # type: ignore[arg-type]
     template = run["spec"]["taskRunTemplate"]["podTemplate"]
@@ -135,7 +138,11 @@ def outcome() -> dict[str, Any]:
                 "-n", namespace, "get", "pods", "-l", f"tekton.dev/pipelineRun=run-{run_id}", "-o", "json"
             )
         )["items"]
-        [pod] = [p for p in pods if p["metadata"]["labels"].get("tekton.dev/pipelineTask") == "agent-stage"]
+        stages = [p for p in pods if p["metadata"]["labels"].get("tekton.dev/pipelineTask") == "agent-stage"]
+        if not stages:
+            events = kubectl_shared("-n", namespace, "get", "events", "--sort-by=.lastTimestamp", check=False)
+            pytest.fail(f"no agent-stage pod ran ({condition}); the namespace's events:\n{events[-2000:]}")
+        [pod] = stages
         logs = kubectl_shared("-n", namespace, "logs", pod["metadata"]["name"], "-c", "step-run", check=False)
         lines = [line for line in logs.splitlines() if line.startswith("S86-07 ")]
         flags = kubectl_shared(
@@ -148,7 +155,10 @@ def outcome() -> dict[str, Any]:
             "jsonpath={.data}",
             check=False,
         )
-        print(f"\nTekton feature flags: {flags}\ncondition: {condition}\nrunner's report: {lines}")
+        print(
+            f"\nTekton feature flags: {flags}\nruntimeClass: {pod['spec'].get('runtimeClassName')}"
+            f"\ncondition: {condition}\nrunner's report: {lines}"
+        )
         return {
             "condition": condition,
             "report": json.loads(lines[-1].removeprefix("S86-07 ")) if lines else {},
