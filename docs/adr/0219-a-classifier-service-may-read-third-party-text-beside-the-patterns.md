@@ -1,6 +1,6 @@
 # 0219 — A classifier service the deployment provides may read third-party text beside the patterns, before the run
 
-- **Status**: proposed, 2026-11-24 (story S40-28)
+- **Status**: proposed, 2026-11-24 (story S40-28); amended 2026-11-25 (S40-28b, measured against a real LLM Guard)
 - **Concerns**: `tranibor_core/injection_classifier.py`, `tranibor_adapters/injection_classifier.py`,
   `tranibor_adapters/fakes/injection_classifier.py`, `activities/injection_guard.py`; builds on
   [ADR 0005](0005-adapters-and-fakes.md) and the guard of `sandbox.prompt_injection`
@@ -65,3 +65,29 @@ What already exists, checked before building:
 - Not proven here: the adapter against a real LLM Guard server (its wire shape is the documented one,
   tested against a scripted service only), the detection rate on real attacks, the latency added to a
   stage.
+
+## Amendment (2026-11-25, S40-28b): measured against a real LLM Guard, the adapter reads it as it is
+
+The adapter was run against `laiyer/llm-guard-api:0.3.16` (`PromptInjection` alone, the v2 deberta
+model, CPU) and measured on a corpus of 84 tickets (`tests/fixtures/injection/corpus.yaml`, results in
+`docs/security.md`, "Measured against a real LLM Guard"). The real service differs from what §2 assumed,
+and §2 and §3 change accordingly:
+
+1. **The score is a risk score.** `PromptInjection` is in [-1, 1], rounded to one decimal, 0 at the
+   scanner's own threshold (`scanners.yml`). `_THRESHOLD` is on that scale, defaults to **0** (the
+   service's verdict) instead of 0.5, and a value outside [-1, 1) cannot be honoured. A finding records
+   a score of at least 0.
+2. **`is_valid` speaks for every scanner.** It is read only when `PromptInjection` answered alone;
+   otherwise the `PromptInjection` risk score decides. An answer without that score is
+   `ClassifierUnavailable`, not a clean text.
+3. **Short windows.** The model classifies its whole input, and an injection it catches alone is missed
+   inside ~800 characters of ticket text. A source is cut into windows of **256** characters (LLM Guard's
+   own `PROMPT_CHARACTERS_LIMIT`, so no `match_type` of the service cuts one) overlapping by 128, at most
+   **64** per source (about 8,300 characters, down from 16,000): on ~1,500-character tickets, 39 of 48
+   injections found instead of 3.
+
+Measured, and therefore stated: in English the classifier lifts recall from 31 % (patterns) to 88 %
+(both) at a false-positive rate of 25 %; in Spanish and French the model flags most benign tickets
+(62 % and 92 %), so `block` with a classifier on a non-English helpdesk would stop most tickets. Still
+not proven: real tickets and real attackers, another model or threshold, a GPU, the chart deploying a
+classifier (it still does not).
