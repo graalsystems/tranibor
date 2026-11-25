@@ -10629,8 +10629,6 @@ components:
           additionalProperties: false
           properties:
             auto_grant_max_files: { type: [integer, "null"], minimum: 0 }
-            max_diff_files: { type: [integer, "null"], minimum: 1 }
-            max_diff_lines: { type: [integer, "null"], minimum: 1 }
         findings:
           type: object
           additionalProperties: false
@@ -10654,6 +10652,18 @@ components:
           description: "Tool scripts (ADR 0122 §6): the ceiling can only forbid them. `off` refuses a project policy that offers them, for any role (422 at PUT, clamped to `off` for a policy saved earlier); `offer` or null leaves each project to choose."
           properties:
             scripts: { type: [string, "null"], enum: ["off", "offer", null] }
+        delivery:
+          x-plugin: software-delivery
+          type: object
+          additionalProperties: false
+          description: "The software-delivery plugin's section (ADR 0181, S83-13): it caps the project policy's `delivery` section, field by field. A ceiling that writes a cap of this section at its former place is refused (422, naming the section)."
+          properties:
+            scope:
+              type: object
+              additionalProperties: false
+              properties:
+                max_diff_files: { type: [integer, "null"], minimum: 1 }
+                max_diff_lines: { type: [integer, "null"], minimum: 1 }
     CeilingNetwork:
       type: object
       additionalProperties: false

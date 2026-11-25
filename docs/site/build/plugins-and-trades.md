@@ -67,8 +67,8 @@ names it.
   connector types (GitHub, GitLab, Azure Repos; Tekton, GitLab CI, GitHub Actions, Jenkins, Azure
   Pipelines; Argo CD) and the activities that open and merge a pull request, the release train (its
   workflow, activities, routes, series and the DORA figures), the stage roles `fix_ci`,
-  `address_review`, `release_notes` and `verify_prod` with their playbooks, the policy's diff bounds
-  (`delivery.scope`), and `make demo`. By 1.0 it also holds the repository templates.
+  `address_review`, `release_notes` and `verify_prod` with their playbooks, the policy's and the
+  organisation ceiling's diff bounds (`delivery.scope`), and `make demo`. By 1.0 it also holds the repository templates.
 - **IT service management**: `servicenow`. Content only: an ITSM triage agent, its skill, and an MCP
   server that implements the tracker profile, so a project's tickets live in ServiceNow and every write
   the agent makes is a governed operation of that server. Its governed path was run end to end on a real

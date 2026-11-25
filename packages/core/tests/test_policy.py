@@ -88,7 +88,8 @@ def test_scope_auto_grant() -> None:
     assert not e.scope_auto_grant([".choregos/workflow.yaml"])
     assert e.path_denied(".github/workflows/ci.yml")
     assert not e.path_denied("src/app.py")
-    assert e.max_diff() == (60, 3000)
+    assert not hasattr(e, "max_diff"), "the diff bounds are the software-delivery plugin's (S83-13)"
+    assert (e.policy.delivery.scope.max_diff_files, e.policy.delivery.scope.max_diff_lines) == (60, 3000)
     assert "kubectl" in e.deny_commands()
     assert "github.com" in e.allow_domains()
 

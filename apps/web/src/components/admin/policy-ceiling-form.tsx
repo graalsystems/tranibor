@@ -242,11 +242,11 @@ export function PolicyCeilingForm({
           </label>
           <label className="space-y-1 text-xs">
             <span className="font-medium">Files in a diff</span>
-            {cell(["scope", "max_diff_files"], "Files in a diff", "files", num(PLATFORM_DEFAULTS.max_diff_files))}
+            {cell(["delivery", "scope", "max_diff_files"], "Files in a diff", "files", num(PLATFORM_DEFAULTS.max_diff_files))}
           </label>
           <label className="space-y-1 text-xs">
             <span className="font-medium">Lines in a diff</span>
-            {cell(["scope", "max_diff_lines"], "Lines in a diff", "lines", num(PLATFORM_DEFAULTS.max_diff_lines))}
+            {cell(["delivery", "scope", "max_diff_lines"], "Lines in a diff", "lines", num(PLATFORM_DEFAULTS.max_diff_lines))}
           </label>
         </div>
       </Section>
