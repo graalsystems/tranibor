@@ -1,6 +1,6 @@
 # 0224 — A plugin server implements a profile a plugin declares, and runs as named instances
 
-- **Status**: proposed, 2026-11-25
+- **Status**: accepted, 2026-11-25, by the project lead for §1 to §5; §6 stays open (a choice between 6a and 6b). The stories are stream S86 ([status](../plan/status/S86.md)).
 - **Concerns**: `packages/contracts/schemas/plugin.schema.json` (`contents.profiles`),
   `packages/contracts/schemas/plugin-server.schema.json` (`implements`), a new
   `packages/contracts/schemas/plugin-profile.schema.json`, the agent catalogue entry's `mcp_servers`
@@ -59,7 +59,7 @@ Checked against `main` on 2026-11-25:
    private address. Today the one way to reach such a system is a tool the outpost's operator runs
    (ADR 0149), which a plugin's server is not.
 
-## Decision (proposed)
+## Decision
 
 ### 1. A profile is a contract a plugin declares, not one the core defines
 
