@@ -41,4 +41,9 @@ regexes = [
   # prove it never leaves the runner. `generic-api-key` reads it as a key; the CI scans the history, so
   # once merged it turned the `secrets` job red on every pull request (2026-11-05, #1382). This value only.
   '''rt-7f3c9a1e5b2d4c6f8a0b1c2d3e4f5a6b''',
+  # The object store's conformance suite (S87-17) runs against Azurite with the emulator's own account key,
+  # published by Microsoft for `devstoreaccount1` and the same in every Azurite, and proves a wrong key is
+  # refused with base64("wrong-key"). Neither opens anything. These two values only.
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  '''d3Jvbmcta2V5''',
 ]
