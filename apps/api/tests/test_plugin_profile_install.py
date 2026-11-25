@@ -122,3 +122,15 @@ async def test_a_plugin_that_requires_another_must_find_it_installed(
     assert (
         refused.status_code == 422 and "requires the plugin `notes`, which is not installed" in refused.text
     )
+
+
+async def test_a_profile_plugin_outside_the_required_range_is_refused(
+    client: AsyncClient, admin: str, offline: Path
+) -> None:
+    # `shelf` requires `notes >=1.0.0`: a notes 0.9.0 declares profiles it was not written against.
+    shutil.copytree(offline / "notes" / "1.0.0", offline / "notes" / "0.9.0")
+    _edit(offline / "notes" / "0.9.0" / "plugin.yaml", lambda d: d["metadata"].update(version="0.9.0"))
+    await _notes(client, "0.9.0")
+    refused = await _ask_shelf(client, "1.0.0")
+    assert refused.status_code == 422, refused.text
+    assert "`notes` 0.9.0 is installed, outside the range `>=1.0.0`" in refused.text

@@ -47,6 +47,7 @@ from tranibor_core.paths import PathOutsideError, SymlinkRefusedError, files_und
 from tranibor_core.plugins import Plugin, conformance_problems, foreign_profile_names
 from tranibor_core.plugins.assistants import named_files as assistant_named_files
 from tranibor_core.plugins.profiles import profile_name
+from tranibor_core.plugins.versions import VersionError, admits
 
 from ..audit import record
 from ..config import Settings, get_settings
@@ -159,6 +160,28 @@ async def _installed_profiles(
     return found
 
 
+async def _range_problems(session: AsyncSession, org_id: str, plugin: Plugin, owners: set[str]) -> list[str]:
+    """The installed version of a profile's plugin is inside the range `requires.plugins` gives it: the
+    profile the server was written against is one that version declares (ADR 0224 §2)."""
+    problems: list[str] = []
+    for required in (plugin.manifest.get("requires") or {}).get("plugins") or []:
+        if not isinstance(required, dict) or str(required.get("name")) not in owners:
+            continue
+        row = await _row(session, org_id, str(required["name"]))
+        if row is None:
+            continue
+        try:
+            inside = admits(str(required["version"]), row.version)
+        except VersionError:
+            inside = False
+        if not inside:
+            problems.append(
+                f"`{required['name']}` {row.version} is installed, outside the range `{required['version']}`"
+                f" that `{plugin.name}` requires of it, so its profiles are not the ones to implement"
+            )
+    return problems
+
+
 async def _check_profiles(session: AsyncSession, org_id: str, plugin: Plugin) -> None:
     """A server that implements another plugin's profile keeps it, against the installed version of that
     plugin (ADR 0224 §2; the loader and `plugin validate` checked it against the files they were given)."""
@@ -166,7 +189,8 @@ async def _check_profiles(session: AsyncSession, org_id: str, plugin: Plugin) ->
     if not names:
         return
     owners = {name.partition("/")[0] for name in names}
-    problems = conformance_problems(plugin, await _installed_profiles(session, org_id, owners))
+    problems = await _range_problems(session, org_id, plugin, owners)
+    problems += conformance_problems(plugin, await _installed_profiles(session, org_id, owners))
     if problems:
         raise unprocessable(
             f"`{plugin.name}` does not keep the profiles its servers implement",
