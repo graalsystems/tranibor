@@ -30,6 +30,7 @@ from typing import Any
 import httpx
 import pytest
 from tranibor_adapters.executor.aca import AzureArmClient
+from tranibor_core.publishing import PUBLISHING
 
 from . import aca_two_containers as probe
 from .conftest import require
@@ -38,7 +39,7 @@ pytestmark = pytest.mark.live
 
 #: The runner image; S87-08 needs one carrying `launcher --until-file` (0.29.5 and later, or a build of this
 #: tree pushed to a registry the subscription can read: `TRANIBOR_LIVE_AZURE_REGISTRY_*`).
-IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
+IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", PUBLISHING.image_name("runner") + ":0.29.4")
 LAUNCHER = "/app/.venv/bin/choregos-runner"
 PYTHON = "/app/.venv/bin/python"
 #: The agent's container when it ends itself once the runner says it is done (ADR 0226 §2, S87-08).

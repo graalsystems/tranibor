@@ -35,13 +35,14 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+from tranibor_core.publishing import PUBLISHING
 
 from .conftest import kubectl_shared
 
 pytestmark = pytest.mark.cluster
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-IMAGE = os.environ.get("TRANIBOR_TEKTON_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
+IMAGE = os.environ.get("TRANIBOR_TEKTON_RUNNER_IMAGE", PUBLISHING.image_name("runner") + ":0.29.4")
 PYTHON = "/app/.venv/bin/python"
 #: The RuntimeClass of the run's pod (`gvisor` for the second run of S87-06); empty: the cluster's default.
 RUNTIME_CLASS = os.environ.get("TRANIBOR_TEKTON_RUNTIME_CLASS", "")
