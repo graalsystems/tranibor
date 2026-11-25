@@ -25,6 +25,7 @@ from tranibor_api.security import body_digest, verify_shared_secret
 from tranibor_api.services import received_events
 from tranibor_api.temporal import get_temporal, train_id
 from tranibor_contracts import InboundEvent
+from tranibor_contracts.wire import read_header
 
 from .names import DeliveryEvent
 
@@ -42,20 +43,19 @@ async def tekton_webhook(
     session: PlatformDb,
     ce_type: Annotated[str, Header()] = "",
     ce_id: Annotated[str, Header()] = "",
-    x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """CloudEvents `dev.tekton.event.pipelinerun.{successful,failed}.v1`.
 
-    Authenticated by the shared secret, in the `X-Choregos-Secret` header OR in the sink URL
-    (`?token=`): Tekton's CloudEvents sink is configured with a URL and adds no header. The former
-    spelling of the parameter was removed in 0.24.0 (S45-49): it authenticates nothing. There used
-    to be NO check: harmless while row-level security hid everything from this route on PostgreSQL,
+    Authenticated by the shared secret, in the `X-Tranibor-Secret` header (formerly `X-Choregos-Secret`, ADR
+    0224) OR in the sink URL (`?token=`): Tekton's CloudEvents sink is configured with a URL and adds no
+    header. The former spelling of the parameter was removed in 0.24.0 (S45-49): it authenticates nothing.
+    There used to be NO check: harmless while row-level security hid everything from this route on PostgreSQL,
     an anonymous write path as soon as it sees the projects ("CI passed" on any work item).
     """
     from tranibor_api.routers.webhooks import already_seen, dispatch
 
     settings = get_settings()
-    supplied = x_choregos_secret or request.query_params.get("token", "")
+    supplied = read_header(request.headers, "Secret") or request.query_params.get("token", "")
     if not settings.generic_webhook_secret:
         if settings.deployed:
             raise unauthorized("Tekton webhook not configured: TRANIBOR_GENERIC_WEBHOOK_SECRET is missing")
@@ -97,17 +97,16 @@ async def tekton_webhook(
 async def jenkins_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """A build notification from Jenkins: the Notification plugin's payload, or the flat one a pipeline
     posts (`connectors.ci.jenkins.parse_jenkins_event`).
 
-    Authenticated like the Tekton sink, by the shared secret in `X-Choregos-Secret` or in the URL
-    (`?token=`): the Notification plugin takes a URL and no header."""
+    Authenticated like the Tekton sink, by the shared secret in `X-Tranibor-Secret` (or `X-Choregos-Secret`)
+    or in the URL (`?token=`): the Notification plugin takes a URL and no header."""
     from tranibor_api.routers.webhooks import already_seen, dispatch
 
     settings = get_settings()
-    supplied = x_choregos_secret or request.query_params.get("token", "")
+    supplied = read_header(request.headers, "Secret") or request.query_params.get("token", "")
     if not settings.generic_webhook_secret:
         if settings.deployed:
             raise unauthorized("Jenkins webhook not configured: TRANIBOR_GENERIC_WEBHOOK_SECRET is missing")
@@ -135,13 +134,12 @@ async def jenkins_webhook(
 async def argocd_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     from tranibor_api.routers.webhooks import already_seen, project_for
 
     body = await request.body()
     settings = get_settings()
-    if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
+    if not verify_shared_secret(settings.generic_webhook_secret, read_header(request.headers, "Secret")):
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
     app = payload.get("app", payload.get("application", ""))

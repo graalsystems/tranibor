@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from starlette.datastructures import UploadFile
 from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import Artifact, Control, EventType, HumanDecision, HumanRequestKind, Role
+from tranibor_contracts.wire import both_headers
 from tranibor_core import WorkflowEngine, utcnow
 from tranibor_core.dsl.groups import group_for
 from tranibor_core.temporal_connection import organisation_scope
@@ -342,7 +343,7 @@ async def get_artifact_content(
         headers={
             "Content-Disposition": f'{disposition}; filename="{filename_of(row)}"',
             "ETag": f'"{row.digest}"',
-            "X-Choregos-Digest": row.digest,
+            **both_headers("Digest", row.digest),
             "X-Content-Type-Options": "nosniff",
             # An HTML or SVG artifact is an agent's content: it must never run as the console's page.
             "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'",

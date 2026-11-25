@@ -436,7 +436,8 @@ class AzureBoardsTracker:
 
     def verify_webhook(self, headers: Mapping[str, str], body: bytes) -> bool:
         """A service hook does not sign its deliveries: it carries a secret, as the password of the
-        basic authentication the subscription sets, or in an `X-Choregos-Secret` header."""
+        basic authentication the subscription sets, or in an `X-Tranibor-Secret` header (formerly
+        `X-Choregos-Secret`)."""
         return bool(self.webhook_secret) and hmac.compare_digest(
             self.webhook_secret, shared_secret_of(headers)
         )

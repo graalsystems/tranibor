@@ -11,13 +11,13 @@ tools cell, through the platform's REAL doors, against a fake API and the connec
   (`tranibor_runner.tool_scripts.write_client`) — and the script calls through the tool bridge
   (`tranibor_tools_mcp.bridge`, on the tool server's app), served on the loopback by uvicorn, whose
   `InternalClient` relays to the
-  API with `X-Choregos-Tool-Origin: script` and the script's digest. The client's outcome types
+  API with `X-Tranibor-Tool-Origin: script` and the script's digest. The client's outcome types
   (`Proposal`, `Withheld`, `ToolError`) are what the script reads. A case without a script is played
   through the MCP door in this cell too, as a model that did not use the door it was offered; the
   outcome says which (`door`: `bridge` or `mcp`).
 
 `EvalApi` is the fake API: the run's two internal routes, `GET /runs/{id}/tools` (as `getRunTools` lists
-them: description, schema, `readOnlyHint`, `x-choregos-access`) and `POST /runs/{id}/tools/{name}` (as
+them: description, schema, `readOnlyHint`, `x-tranibor-access`) and `POST /runs/{id}/tools/{name}` (as
 `callRunTool` answers: `{status_code, result, remaining, result_max_bytes}`), behind
 `httpx.MockTransport`, so that both doors' real clients talk to it. It governs as `callRunTool` does for
 what the cases need, and no more: the run token; the origin header (absent: `model`); arguments checked
@@ -60,6 +60,7 @@ from typing import Any
 from urllib.parse import unquote
 
 import httpx
+from tranibor_contracts.wire import ACCESS_KEYS, read_header
 from tranibor_core import mcp
 
 #: The doors a cell may give a run's tools (ADR 0122).
@@ -195,7 +196,7 @@ class EvalApi:
                 "description": tool.description,
                 "inputSchema": tool.input_schema,
                 "annotations": {"readOnlyHint": tool.access == "read"},
-                "x-choregos-access": tool.access,
+                **dict.fromkeys(ACCESS_KEYS, tool.access),
             }
             for tool in self.tools.values()
         ]
@@ -210,10 +211,10 @@ class EvalApi:
         if request.method == "GET" and path == prefix:
             return httpx.Response(200, json={"tools": self.listed()})
         if request.method == "POST" and path.startswith(prefix + "/"):
-            origin = request.headers.get("x-choregos-tool-origin") or "model"
+            origin = read_header(request.headers, "Tool-Origin") or "model"
             if origin not in ORIGINS:
                 return _problem(
-                    400, "Tool origin refused", f"X-Choregos-Tool-Origin must be one of {ORIGINS}"
+                    400, "Tool origin refused", f"X-Tranibor-Tool-Origin must be one of {ORIGINS}"
                 )
             try:
                 arguments = json.loads(request.content or b"{}")
@@ -221,7 +222,7 @@ class EvalApi:
                 return _problem(400, "Arguments refused", "the body is not JSON")
             name = unquote(path[len(prefix) + 1 :])
             return await self.call(
-                name, arguments, origin=origin, script=request.headers.get("x-choregos-script")
+                name, arguments, origin=origin, script=read_header(request.headers, "Script") or None
             )
         return _problem(404, "Not Found", f"{request.method} {path} is not a route of the eval API")
 

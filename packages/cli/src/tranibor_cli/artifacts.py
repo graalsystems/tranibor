@@ -30,11 +30,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from tranibor_contracts.wire import header, read_header
 
 from . import theme
 from .client import ApiError, Client
 
-DIGEST_HEADER = "X-Choregos-Digest"
+#: The digest the API sends with the bytes, `X-Tranibor-Digest`; an API of a release before ADR 0224
+#: sends `X-Choregos-Digest`, which is read too.
+DIGEST_HEADER = header("Digest")
 #: Media types, beyond `text/*`, that are text and so can be compared line by line.
 TEXT_MEDIA_TYPES = frozenset(
     {"application/json", "application/xml", "application/yaml", "application/x-yaml", "application/toml"}
@@ -90,7 +93,7 @@ def fetch(api: Client, work_item: str, ref: str) -> Content:
     with them: bytes that do not match are never handed on (the API refuses them too, with a 409)."""
     response = api.get_raw(f"/work-items/{work_item}/artifacts/{ref}/content", params={"download": "true"})
     data = response.content
-    digest = response.headers.get(DIGEST_HEADER)
+    digest = read_header(response.headers, "Digest") or None
     if digest:
         actual = "sha256:" + hashlib.sha256(data).hexdigest()
         if actual != digest:

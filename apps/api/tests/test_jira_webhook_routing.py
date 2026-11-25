@@ -67,7 +67,7 @@ async def _deliver(
     response = await client.post(
         "/api/v1/webhooks/jira",
         json=payload,
-        headers={"X-Choregos-Secret": SECRET, "X-Atlassian-Webhook-Identifier": delivery},
+        headers={"X-Tranibor-Secret": SECRET, "X-Atlassian-Webhook-Identifier": delivery},
     )
     assert response.status_code == 202, response.text
     return dict(response.json())

@@ -25,7 +25,7 @@ import type { Conversation, ConversationAction } from "@/lib/types";
  * Signed out: one silent attempt (OIDC `prompt=none`, the API's `silent=1`), then a "Sign in" button that
  * opens the identity provider in a popup. The console's session cookie is `SameSite=Lax`, so under a host on
  * another site the frame has none: the popup (first party) mints a short-lived frame token and hands it to
- * this frame (`/embed/signed-in`, `lib/embed-token.ts`), which sends it as `X-Choregos-Embed`.
+ * this frame (`/embed/signed-in`, `lib/embed-token.ts`), which sends it as `X-Tranibor-Embed`.
  */
 type Phase =
   | { kind: "starting" }

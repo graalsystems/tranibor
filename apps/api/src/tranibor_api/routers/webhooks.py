@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
 from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts.wire import read_header, with_twin_headers
 from tranibor_core import utcnow
 from tranibor_core.temporal_connection import organisation_scope
 
@@ -544,11 +545,10 @@ async def github_webhook(
 async def alertmanager_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     body = await request.body()
     settings = get_settings()
-    if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
+    if not verify_shared_secret(settings.generic_webhook_secret, read_header(request.headers, "Secret")):
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
     alerts = payload.get("alerts", [])
@@ -606,12 +606,13 @@ async def _alert_reaches_memory(session: Any, project: Project, event: InboundEv
 async def jira_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
     x_atlassian_webhook_identifier: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """Jira Cloud does not sign its webhooks: the shared secret is the only barrier."""
     body = await request.body()
-    if not verify_shared_secret(get_settings().generic_webhook_secret, x_choregos_secret):
+    if not verify_shared_secret(
+        get_settings().generic_webhook_secret, read_header(request.headers, "Secret")
+    ):
         raise unauthorized("invalid shared secret")
     delivery = x_atlassian_webhook_identifier or body_digest(body)
     if await already_seen(session, "jira", delivery, "jira", body):
@@ -662,16 +663,15 @@ def _jira_tracker_of(session: Any) -> TrackerOf:
 async def azure_boards_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-    authorization: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """A service hook does not sign its deliveries: the shared secret is the only barrier, sent as the
-    password of the subscription's basic authentication or in an `X-Choregos-Secret` header."""
+    password of the subscription's basic authentication or in an `X-Tranibor-Secret` header (formerly
+    `X-Choregos-Secret`, ADR 0224)."""
     from tranibor_adapters.azure_devops import shared_secret_of
     from tranibor_adapters.tracker.azure_boards_events import parse_azure_boards_event
 
     body = await request.body()
-    provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
+    provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
@@ -795,18 +795,16 @@ def _azure_boards_tracker_of(session: Any) -> TrackerOf:
 async def azure_devops_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-    authorization: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """The service hooks of pull requests (`git.pullrequest.*`) and of builds and runs (`build.complete`,
     `ms.vss-pipelines.run-state-changed-event`). A service hook does not sign its deliveries: the shared
     secret is the only barrier, sent as the password of the subscription's basic authentication or in an
-    `X-Choregos-Secret` header, as for the Azure Boards route."""
+    `X-Tranibor-Secret` header, as for the Azure Boards route."""
     from tranibor_adapters.azure_devops import shared_secret_of
     from tranibor_adapters.azure_devops_events import parse_azure_devops_event
 
     body = await request.body()
-    provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
+    provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
     payload = json.loads(body or b"{}")
@@ -1001,7 +999,8 @@ async def plugin_webhook(
     if not candidates:
         raise not_found("Plugin tracker server", f"{org}/{plugin}/{server}")
     body = await request.body()
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in _NOT_FORWARDED}
+    # A server built before ADR 0224 reads `X-Choregos-*`, a newer one `X-Tranibor-*`: both are relayed.
+    headers = with_twin_headers({k: v for k, v in request.headers.items() if k.lower() not in _NOT_FORWARDED})
     sender = request.headers.get("authorization")
     for connector in candidates:
         # A sender that signs with a bearer token (ADR 0198): only the server that declares it sees it.

@@ -59,6 +59,7 @@ from tranibor_adapters.plugin_servers import (
     mirrored,
 )
 from tranibor_adapters.registry import FAKE_SCENE_FIELD, fakes_enabled
+from tranibor_contracts.wire import both_headers, header
 from tranibor_core.egress import host_port_of
 from tranibor_core.plugins import Plugin, configuration_variables
 
@@ -761,7 +762,9 @@ async def _start_in_process(server: dict[str, Any], token: str, settings: Settin
         raise unprocessable(str(exc)) from exc
 
 
-USER_TOKEN_HEADER = "X-Choregos-User-Token"  # noqa: S105 - a header name
+#: The header of the person's `user_consent` token. A plugin server is outside the repository and may
+#: read the former name (`X-Choregos-User-Token`): both are sent for the window of ADR 0224.
+USER_TOKEN_HEADER = header("User-Token")
 
 
 async def plugin_client(
@@ -774,8 +777,9 @@ async def plugin_client(
     """The client of a plugin's server, with its bearer token; `None` for any other connector.
 
     `bearer`: the person's exchanged token for one call (ADR 0135), which replaces the server's own.
-    `user_token`: the person's `user_consent` token for one call, sent in `X-Choregos-User-Token` NEXT TO
-    the platform's token, which still authenticates Tranibor to the server."""
+    `user_token`: the person's `user_consent` token for one call, sent in `X-Tranibor-User-Token` (and the
+    former `X-Choregos-User-Token`) NEXT TO the platform's token, which still authenticates Tranibor to the
+    server."""
     if bearer is not None and instance.plugin_server is not None:
         url = str(
             instance.plugin_server["fake_url"] if bound_fake(instance) else instance.plugin_server["url"]
@@ -784,7 +788,7 @@ async def plugin_client(
     endpoint = await server_endpoint(session, instance)
     if endpoint is None:
         return None
-    headers = {USER_TOKEN_HEADER: user_token} if user_token else None
+    headers = both_headers("User-Token", user_token) if user_token else None
     return PluginServerClient(endpoint[0], token=endpoint[1], transport=transport(), headers=headers)
 
 

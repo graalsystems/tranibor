@@ -321,8 +321,9 @@ async def test_the_other_channels_send_each_artifact_once(
     assert len(received) == 1, "the webhook got the artifact once"
     request = received[0]
     body = request.content
+    assert request.headers["x-tranibor-signature"] == request.headers["x-choregos-signature"]  # ADR 0224
     stamp, signature = re.fullmatch(
-        r"t=(\d+),v1=([0-9a-f]{64})", request.headers["x-choregos-signature"]
+        r"t=(\d+),v1=([0-9a-f]{64})", request.headers["x-tranibor-signature"]
     ).groups()  # type: ignore[union-attr]
     secret = webhook_secret(await _installation_id())
     assert hmac.compare_digest(

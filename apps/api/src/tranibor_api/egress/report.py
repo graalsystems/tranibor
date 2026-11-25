@@ -16,6 +16,7 @@ from typing import Any, Protocol
 
 import httpx
 import structlog
+from tranibor_contracts.wire import both_headers
 
 log = structlog.get_logger("choregos.egress")
 
@@ -38,7 +39,8 @@ class HttpDecisionSink:
     async def post(self, run_id: str, token: str, decisions: list[dict[str, Any]]) -> None:
         headers = {"Authorization": f"Bearer {token}"}
         if self.report_key:
-            headers["X-Choregos-Egress-Key"] = self.report_key
+            # Both names for the window of ADR 0224: an API of the previous release reads the former.
+            headers.update(both_headers("Egress-Key", self.report_key))
         response = await self.client.post(
             f"{self.base_url}/internal/runs/{run_id}/network/decisions",
             headers=headers,

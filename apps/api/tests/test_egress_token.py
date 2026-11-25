@@ -124,6 +124,9 @@ async def test_with_a_key_the_agents_egress_token_alone_cannot_report(
     assert await _report(client, "run-egress-5", egress) == 403
     assert await _report(client, "run-egress-5", {**egress, "X-Choregos-Egress-Key": "a-guess"}) == 403
     assert await _report(client, "run-egress-5", {**egress, "X-Choregos-Egress-Key": KEY}) == 202
+    # ADR 0224: the new name of the key's header.
+    assert await _report(client, "run-egress-5", {**egress, "X-Tranibor-Egress-Key": "a-guess"}) == 403
+    assert await _report(client, "run-egress-5", {**egress, "X-Tranibor-Egress-Key": KEY}) == 202
     # The runner's own token still reports; reading the network still needs no key.
     assert await _report(client, "run-egress-5", run_token) == 202
     network = await client.get("/api/v1/internal/runs/run-egress-5/network", headers=egress)

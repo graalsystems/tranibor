@@ -112,7 +112,7 @@ describe("a host an organisation owns lands on that organisation, theme first (A
     return vi.fn(async (_url: string, init?: RequestInit) => {
       const forwarded = new Headers(init?.headers).get("x-forwarded-host");
       return forwarded === "agentic.client.com"
-        ? new Response(JSON.stringify(ACME), { headers: { "x-choregos-host-org": "acme" } })
+        ? new Response(JSON.stringify(ACME), { headers: { "x-tranibor-host-org": "acme" } })
         : new Response(JSON.stringify(SAMPLE_THEME));
     });
   }
@@ -172,6 +172,17 @@ describe("a host an organisation owns lands on that organisation, theme first (A
       expect(new Headers(init.headers).get("x-forwarded-host")).toBeNull();
     },
   );
+
+  it("reads the former header of an API before ADR 0224 (X-Choregos-Host-Org)", async () => {
+    vi.stubEnv("TRANIBOR_API_URL", "http://api.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(ACME), { headers: { "x-choregos-host-org": "acme" } })),
+    );
+    incoming = { host: "agentic.client.com" };
+    const { servedLook } = await import("@/lib/served-theme-server");
+    expect((await servedLook()).hostOrg).toBe("acme");
+  });
 
   it("takes the organisation from the header only when it is a slug", async () => {
     vi.stubEnv("TRANIBOR_API_URL", "http://api.test");

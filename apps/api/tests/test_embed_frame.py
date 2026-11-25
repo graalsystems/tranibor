@@ -1,7 +1,7 @@
 """The embedded component's session in a cross-site frame (S63-12): the frame token (`embed_frame`).
 
 A page framed by another site does not carry the console's `SameSite=Lax` cookie. The popup of the sign-in
-mints a token; the frame sends it as `X-Choregos-Embed`. It opens the component's routes and nothing else."""
+mints a token; the frame sends it as `X-Tranibor-Embed`. It opens the component's routes and nothing else."""
 
 from __future__ import annotations
 
@@ -65,6 +65,12 @@ async def test_a_frame_with_the_token_alone_converses_and_nothing_more(
     bare = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     assert (await bare.get(ME)).status_code == 401
     assert (await frame.get(ME)).status_code == 200
+    # ADR 0224: `embed_frame.HEADER` is `X-Tranibor-Embed`; a frame of the previous release sends the former.
+    assert embed_frame.HEADER == "X-Tranibor-Embed"
+    former = AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test", headers={"X-Choregos-Embed": token}
+    )
+    assert (await former.get(ME)).status_code == 200
 
     opened = await frame.post(f"{ME}/assistants/northwind/{SLUG}/conversations", json={})
     assert opened.status_code == 201, opened.text

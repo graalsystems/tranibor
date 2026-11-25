@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, StartRule
+from tranibor_contracts.wire import read_header
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
 from ..errors import ConfigurationError, UpstreamError
@@ -428,7 +429,7 @@ class JiraTracker:
             method, _, digest = signature.partition("=")
             expected = hmac.new(self.webhook_secret.encode(), body or b"", hashlib.sha256).hexdigest()
             return method == "sha256" and hmac.compare_digest(expected, digest)
-        provided = lowered.get("x-choregos-secret", "")
+        provided = read_header(lowered, "Secret")
         return hmac.compare_digest(self.webhook_secret, provided or "")
 
 

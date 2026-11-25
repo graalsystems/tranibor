@@ -113,12 +113,16 @@ async def test_a_delivery_needs_the_shared_secret_in_basic_auth_or_a_header(
     client: AsyncClient, admin: str
 ) -> None:
     body = pull_request("Billing")
-    for headers in (basic("wrong"), {"X-Choregos-Secret": "wrong"}, {}):
+    for headers in (basic("wrong"), {"X-Choregos-Secret": "wrong"}, {"X-Tranibor-Secret": "wrong"}, {}):
         refused = await client.post("/api/v1/webhooks/azure-devops", json=body, headers=headers)
         assert refused.status_code == 401, headers
     assert (await _deliver(client, body, basic(SECRET)))["accepted"] is True
     assert (
         await _deliver(client, pull_request("Billing", notification="n-2"), {"X-Choregos-Secret": SECRET})
+    )["accepted"] is True
+    # ADR 0224: the header's new name.
+    assert (
+        await _deliver(client, pull_request("Billing", notification="n-3"), {"X-Tranibor-Secret": SECRET})
     )["accepted"] is True
 
 

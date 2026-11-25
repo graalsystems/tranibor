@@ -10,13 +10,16 @@ from urllib.parse import quote
 
 import httpx
 from tranibor_contracts import ContextPack, Finding, StageInput, StageResult
+from tranibor_contracts.wire import both_headers, header
 
 #: The page size the runner reads its lists with (the API's ceiling).
 _PAGE_LIMIT = 200
 
 #: The headers that say which door a tool call came through (ADR 0122 §4), as `callRunTool` reads them.
-TOOL_ORIGIN_HEADER = "X-Choregos-Tool-Origin"
-SCRIPT_HEADER = "X-Choregos-Script"
+#: The new names (ADR 0224); the API reads the former `X-Choregos-*` too, and both are sent for the
+#: window, so an API of the previous release still reads them during a rolling upgrade.
+TOOL_ORIGIN_HEADER = header("Tool-Origin")
+SCRIPT_HEADER = header("Script")
 
 
 class InternalApiError(RuntimeError):
@@ -153,9 +156,9 @@ class InternalClient:
         and the API's answer as it came — a problem is an answer here, not an error. Raises
         `httpx.TimeoutException` past `within_s` seconds, `httpx.TransportError` when the API is
         unreachable."""
-        headers = {"Content-Type": "application/json", TOOL_ORIGIN_HEADER: "script"}
+        headers = {"Content-Type": "application/json", **both_headers("Tool-Origin", "script")}
         if script is not None:
-            headers[SCRIPT_HEADER] = script
+            headers.update(both_headers("Script", script))
         response = await self._client.post(
             self._url(f"/tools/{quote(name, safe='')}"), content=arguments, headers=headers, timeout=within_s
         )
@@ -185,7 +188,7 @@ class InternalClient:
             self._url(f"/outputs/{name}"),
             params={"type": type_},
             content=data,
-            headers={"X-Choregos-Digest": digest, "Content-Type": "application/octet-stream"},
+            headers={**both_headers("Digest", digest), "Content-Type": "application/octet-stream"},
         )
         if response.status_code >= 400:
             raise InternalApiError(response.status_code, response.text[:400])

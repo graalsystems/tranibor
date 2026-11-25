@@ -180,8 +180,9 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
 
     registered = await _post(client, _with_task(push, task), {**auth, **push_h})
     assert registered["result"]["signing"]["secret"], registered
-    assert registered["result"]["signing"]["header"] == "X-Choregos-Signature"
-    assert registered["result"]["signing"]["header"] in _page()
+    assert registered["result"]["signing"]["header"] == "X-Tranibor-Signature"
+    # A push carries both names for the window of ADR 0224; the page names one of them (R8 moves it).
+    assert any(name in _page() for name in ("X-Tranibor-Signature", "X-Choregos-Signature"))
 
     stopped = await _post(client, _with_task(cancel, task), {**auth, **cancel_h})
     assert "result" in stopped, stopped

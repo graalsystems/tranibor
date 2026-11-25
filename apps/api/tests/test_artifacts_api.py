@@ -127,6 +127,7 @@ async def test_the_artifacts_of_a_work_item_are_listed_and_served(
     assert text.status_code == 200 and text.text == SPEC
     assert text.headers["content-type"].startswith("text/markdown")
     assert text.headers["x-choregos-digest"] == _digest(SPEC.encode())
+    assert text.headers["x-tranibor-digest"] == _digest(SPEC.encode()), "ADR 0224: the new name beside"
 
     deck = await client.get(
         f"/api/v1/work-items/{item['id']}/artifacts/deck/content", params={"download": True}

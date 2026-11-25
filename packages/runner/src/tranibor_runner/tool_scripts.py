@@ -37,6 +37,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
+from tranibor_contracts.wire import read_access
+
 from . import tool_client
 
 if TYPE_CHECKING:
@@ -53,7 +55,7 @@ BRIDGE_PATH = "/bridge/v1"
 MODULE_NAMES = frozenset({"Any", "annotations", "call"})
 #: The longest first sentence `INDEX.md` keeps of a description.
 SUMMARY_CHARS = 200
-#: Every access the API says a tool has (`x-choregos-access`).
+#: Every access the API says a tool has (`x-tranibor-access`, formerly `x-choregos-access`).
 ACCESSES = ("read", "write", "approval")
 ACCESS_NOTES = {
     "read": "Access: read.",
@@ -340,7 +342,7 @@ def first_sentence(description: str) -> str:
 
 def _access(entry: dict[str, Any]) -> str:
     """The tool's access as the API says it; from MCP's `readOnlyHint` for an API that does not."""
-    access = entry.get("x-choregos-access")
+    access = read_access(entry)
     if access in ACCESSES:
         return str(access)
     annotations = entry.get("annotations")

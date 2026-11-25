@@ -156,7 +156,7 @@ async def test_an_extension_tool_declaring_another_access_is_refused_when_listed
     run_id, headers = await run_extension_tool(project["id"])
     listing = await client.get(f"/api/v1/internal/runs/{run_id}/tools", headers=headers)
     assert listing.status_code == 500, listing.text
-    assert "x-choregos-access='admin'" in listing.json()["detail"]
+    assert "x-tranibor-access='admin'" in listing.json()["detail"]
     called = await client.post(f"/api/v1/internal/runs/{run_id}/tools/odd", headers=headers, json={})
     assert called.status_code == 500, "refused the same way when called"
 
@@ -258,10 +258,15 @@ async def test_a_good_origin_lands_in_the_event(
 def test_the_contract_names_the_origins_the_api_reads() -> None:
     import tranibor_contracts as contracts
     from tranibor_api.routers import internal
+    from tranibor_contracts import wire
 
     operation = contracts.load_openapi()["paths"]["/internal/runs/{id}/tools/{name}"]["post"]
     headers = {p["name"]: p["schema"] for p in operation["parameters"]}
     assert tuple(headers[internal.TOOL_ORIGIN_HEADER]["enum"]) == internal.TOOL_ORIGINS
     assert headers[internal.SCRIPT_HEADER]["pattern"] == "^[0-9a-f]{64}$"
     entry = contracts.load_openapi()["components"]["schemas"]["RunTool"]["properties"]
-    assert entry[internal.ACCESS_KEY]["enum"] == ["read", "write", "approval"]
+    for key in wire.ACCESS_KEYS:  # ADR 0224: both names, the former one listed for the window
+        assert entry[key]["enum"] == ["read", "write", "approval"]
+    assert {f"X-Choregos-{n}" for n in ("Tool-Origin", "Script")} <= set(headers), (
+        "the former names, read too"
+    )

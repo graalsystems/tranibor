@@ -10,7 +10,8 @@
  *
  * On a host an organisation owns (ADR 0175) the host decides: the visitor's host is forwarded to the API
  * (`X-Forwarded-Host`), which serves that organisation's theme whatever the cookie says and names the
- * organisation (`X-Choregos-Host-Org`); a tenant host's memo entry is keyed by the host alone.
+ * organisation (`X-Tranibor-Host-Org`, or the former `X-Choregos-Host-Org` from an API before ADR 0224); a
+ * tenant host's memo entry is keyed by the host alone.
  */
 import { cookies, headers } from "next/headers";
 import { ORG_COOKIE, validOrgSlug } from "./remembered-org";
@@ -83,7 +84,7 @@ export async function servedLook(): Promise<ServedLook> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const theme = response.ok ? sanitizeTheme(await response.json()) : DEFAULT_SERVED_THEME;
-    const hostOrg = response.ok ? validOrgSlug(response.headers.get("x-choregos-host-org")) : null;
+    const hostOrg = response.ok ? validOrgSlug(response.headers.get("x-tranibor-host-org") ?? response.headers.get("x-choregos-host-org")) : null;
     // A failure is memoised too: a down API must not cost 1.5 s on every page.
     remember(hostOrg && tenantKey ? tenantKey : key, now, { theme, hostOrg });
     return { theme, hostOrg };

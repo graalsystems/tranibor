@@ -53,6 +53,7 @@ async def _post(
     key: str | None = None,
     headers: dict[str, str] | None = None,
     raw: bytes | None = None,
+    header: str = "X-Tranibor-Signature",
 ) -> Any:
     body = raw if raw is not None else json.dumps(payload).encode()
     secret = key if key is not None else await _key(task)
@@ -60,7 +61,7 @@ async def _post(
     return await client.post(
         f"{DOOR}/{task}/events",
         content=body,
-        headers={"X-Choregos-Signature": signature, "Content-Type": "application/json", **(headers or {})},
+        headers={header: signature, "Content-Type": "application/json", **(headers or {})},
     )
 
 
@@ -209,10 +210,27 @@ async def test_the_door_takes_only_the_signature_of_that_task(
     # Another task's key opens no other task's door.
     other_task = await _post(anonymous, _event("ann@northwind.dev"), key=await _key("delegated_event"))
     assert other_task.status_code == 401
+    # A sender configured before ADR 0224 signs in `X-Choregos-Signature`: still read, checked the same way.
+    former_wrong = await _post(
+        anonymous, _event("ann@northwind.dev"), key="chtev_nope", header="X-Choregos-Signature"
+    )
+    assert former_wrong.status_code == 401
     # A task without a `trigger` has no door; nor does an unknown one.
     assert (await _post(anonymous, {}, task="morning_brief", key="x")).status_code == 404
     assert (await _post(anonymous, {}, task="nothing_here", key="x")).status_code == 404
     assert await _runs() == [] and await _journal() == []
+
+
+async def test_a_sender_of_the_former_header_is_still_read(
+    client: AsyncClient, org: str, app: Any, offline: Path, markets: Any
+) -> None:
+    """ADR 0224: a sender configured before the rename signs in `X-Choregos-Signature`."""
+    await _ready(client)
+    ann = await _subscriber(client, app, "ann@northwind.dev")
+    await _subscribe(ann)
+    sent = await _post(_anon(app), _event("ann@northwind.dev"), header="X-Choregos-Signature")
+    assert sent.status_code == 202, sent.text
+    assert len(await _runs()) == 1
 
 
 async def test_the_subscribers_gate_judges_an_event_as_it_judges_a_window(

@@ -451,6 +451,22 @@ def _parsed_headers(fake: FakePluginTrackerServer) -> list[dict[str, Any]]:
     return [dict(args["headers"]) for tool, args in fake.calls if tool == "tracker_parse_event"]
 
 
+async def test_a_sender_s_header_reaches_the_server_under_both_names(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
+) -> None:
+    """ADR 0224: a server built before the rename reads `X-Choregos-Secret`, a newer one `X-Tranibor-Secret`;
+    a sender may send either, and the server is handed both."""
+    fake = await _ready(client, kube)
+    fake.add("INC0000001", "VPN drops")
+    answered = await client.post(
+        HOOK, content=fake.delivery("INC0000001"), headers={"X-Tranibor-Secret": SECRET}
+    )
+    assert answered.status_code == 202, answered.text
+    (seen,) = _parsed_headers(fake)
+    lowered = {k.lower(): v for k, v in seen.items()}
+    assert lowered["x-tranibor-secret"] == lowered["x-choregos-secret"] == SECRET
+
+
 async def test_the_sender_s_authorization_reaches_no_server_that_did_not_ask_for_it(
     client: AsyncClient, admin: str, kube: FakeKubernetesApi, dispatched: list[InboundEvent]
 ) -> None:
