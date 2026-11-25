@@ -195,8 +195,8 @@ spec:
             {{- if or (eq $kind "agent_sandbox") (and (eq $kind "tekton") (eq (include "choregos.agentIsolation" $root) "container")) }}
             # The second executor (ADR 0072, S86-02). On `agent_sandbox`, a step that names its own image
             # cannot run in a pool made from one image, and goes to it. On `tekton` under `container`, an
-            # agent step Tekton cannot isolate goes to it; a `job` step stays on Tekton. Empty keeps the
-            # refusal.
+            # agent step Tekton cannot isolate would go to it (since S86-05 Tekton starts the agent's
+            # container itself, so none does). Empty keeps the refusal.
             - name: CHOREGOS_CUSTOM_IMAGE_EXECUTOR
               value: {{ $root.Values.runner.customImageExecutor | default "" | quote }}
             {{- end }}

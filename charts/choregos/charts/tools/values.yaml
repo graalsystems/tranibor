@@ -3,4 +3,3 @@ image:
   repository: choregos-tools
   tag: ""
   digest: ""
-publishTask: true

@@ -64,7 +64,7 @@ async def test_start_creates_the_runs_secret_then_the_pipelinerun() -> None:
             ("POST", f"{TEKTON_API}/namespaces/{NS}/pipelineruns"): (201, {}),
         }
     )
-    ref = await TektonExecutor(k8s(wire), pipeline="choregos-agent").start(spec(runtime_class="gvisor"))
+    ref = await TektonExecutor(k8s(wire)).start(spec(runtime_class="gvisor"))
     assert ref.name == "run-wi-1-t-implement-1" and ref.namespace == NS
     assert wire.sent("POST") == [
         ("POST", f"{CORE_API}/namespaces/{NS}/secrets"),

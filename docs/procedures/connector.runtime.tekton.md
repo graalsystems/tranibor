@@ -2,19 +2,23 @@
 
 # Run agent stages as Tekton PipelineRuns
 
-For the person who operates the platform. Procedure `connector.runtime.tekton`, version 1, reviewed 2026-10-16 against the vendor's own pages.
+For the person who operates the platform. Procedure `connector.runtime.tekton`, version 2, reviewed 2026-11-25 against the vendor's own pages.
 
 ## Before you start
 
-- A cluster with Tekton Pipelines, and a `Pipeline` named `choregos-agent` (or your own name) in the
-  runner namespace, installed from the chart.
+- A cluster with Tekton Pipelines, and the catalogue's `git-clone` Task in the runner namespace when
+  projects have a repository. Nothing else of Tekton's is installed for the platform: each
+  `PipelineRun` carries its Pipeline and its agent stage's Task inline.
 - The default executor when Tekton is present: `runner.executor: tekton`.
 
 ## At the cluster
 
-Install Tekton, then the chart's Pipeline. Set `runner.executor: tekton` and `runner.namespacePattern`
-in the orchestrator's values. Each agent stage becomes one `PipelineRun`; its Secret belongs to the run
-and goes with it however it ends.
+Install Tekton. Set `runner.executor: tekton` and `runner.namespacePattern` in the orchestrator's
+values. Each agent stage becomes one `PipelineRun`; its Secret belongs to the run and goes with it
+however it ends. Under `global.runner.agentIsolation: container` the agent stage's Task has the agent's
+own container as a sidecar: Tekton waits for it to be ready before the runner's step (its default,
+`await-sidecar-readiness`) and stops it after the last step; with Tekton's `enable-kubernetes-sidecar`
+flag (Kubernetes 1.29+) it is a native sidecar.
 
 ## Permissions
 
@@ -24,7 +28,8 @@ runner needs. That account is the deployment's and is not set on a connector.
 
 ## In Tranibor
 
-Mostly chart values. If a connector is declared, `pipeline` names the Pipeline to start.
+Chart values only: the connector has no field of its own. A `pipeline` field stored by an earlier
+version is ignored.
 
 ## Test it
 
@@ -32,15 +37,9 @@ Start a run and look at `kubectl get pipelineruns -n <runner namespace>`.
 
 ## When it fails
 
-- A `PipelineRun` that never schedules: the Pipeline name does not exist in that namespace.
+- A clone that never starts: `git-clone` is not in that namespace.
 - `Forbidden`: the orchestrator's service account lacks `pipelineruns` rights.
 - The run's pod is rejected at admission: see the namespace policies (security context, `LimitRange`).
-
-## Fields
-
-| Field | What to put in it |
-| :-- | :-- |
-| `pipeline` | the Pipeline each run starts, choregos-agent by default |
 
 ## Vendor documentation
 

@@ -124,8 +124,6 @@ DERIVED: tuple[str, ...] = (
     "examples/agents/plain/Dockerfile",
     "examples/agents/pydantic-ai/Dockerfile",
     "templates/github-tekton-argo-k8s/k8s/smoke-job.yaml",
-    "templates/github-tekton-argo-k8s/tekton/agent-stage.yaml",
-    "templates/github-tekton-argo-k8s/tekton/pipeline-agent.yaml",
     "templates/github-tekton-argo-k8s/tekton/pipeline-ci.yaml",
     # The plugins: the offline lock, the contract's examples, the test fixtures mirrored from them.
     "packages/contracts/schemas/examples/plugin-index.example.json",

@@ -474,10 +474,31 @@ def test_a_warm_pool_rendered_with_the_agents_container_is_done(isolated: pytest
     assert "`agent_sandbox`" in item.detail
 
 
-def test_tekton_with_a_second_executor_that_isolates_is_done_naming_it(isolated: pytest.MonkeyPatch) -> None:
-    """S86-02: the chart renders `k8s_job` behind `tekton` under `container`; the run goes there."""
+def test_tekton_starts_the_agents_container_itself_and_is_done(isolated: pytest.MonkeyPatch) -> None:
+    """S86-05: the agent stage's Task carries the agent's sidecar; nothing is routed."""
     isolated.setenv("TRANIBOR_EXECUTOR_KIND", "tekton")
     isolated.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "k8s_job")
+    fact = isolation_fact({})
+    assert fact is not None and fact.executor == "tekton"
+    assert fact.refusal is None and fact.routed_to is None
+    (item,) = item_agent_isolation(facts(isolation=fact))
+    assert item.state == "done" and "`tekton` executor starts the agent" in item.detail
+
+
+@pytest.fixture
+def tekton_without_the_sidecar(isolated: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """A Tekton that cannot start the agent's container, as before S86-05: what the second executor
+    (S86-02) is for, and what an executor declaring nothing still gets."""
+    isolated.setattr(TektonExecutor, "capabilities", frozenset())
+    isolated.setenv("TRANIBOR_EXECUTOR_KIND", "tekton")
+    return isolated
+
+
+def test_an_executor_with_a_second_executor_that_isolates_is_done_naming_it(
+    tekton_without_the_sidecar: pytest.MonkeyPatch,
+) -> None:
+    """S86-02: the chart renders `k8s_job` behind `tekton` under `container`; the run goes there."""
+    tekton_without_the_sidecar.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "k8s_job")
     fact = isolation_fact({})
     assert fact is not None and fact.executor == "tekton"
     assert fact.refusal is None and fact.routed_to == "k8s_job"
@@ -485,15 +506,14 @@ def test_tekton_with_a_second_executor_that_isolates_is_done_naming_it(isolated:
     assert item.state == "done" and "`k8s_job`" in item.detail and "`tekton`" in item.detail
 
 
-def test_tekton_without_a_second_executor_or_behind_one_that_cannot_is_to_do(
-    isolated: pytest.MonkeyPatch,
+def test_without_a_second_executor_or_behind_one_that_cannot_it_is_to_do(
+    tekton_without_the_sidecar: pytest.MonkeyPatch,
 ) -> None:
-    isolated.setenv("TRANIBOR_EXECUTOR_KIND", "tekton")
-    isolated.delenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", raising=False)
+    tekton_without_the_sidecar.delenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", raising=False)
     alone = isolation_fact({})
     assert alone is not None and alone.routed_to is None
-    assert alone.refusal == agent_isolation_refusal("container", "tekton", TektonExecutor.capabilities)
-    isolated.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "aca")
+    assert alone.refusal == agent_isolation_refusal("container", "tekton", frozenset())
+    tekton_without_the_sidecar.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "aca")
     behind_aca = isolation_fact({})
     assert behind_aca is not None and behind_aca.routed_to is None and behind_aca.refusal == alone.refusal
     (item,) = item_agent_isolation(facts(isolation=behind_aca))

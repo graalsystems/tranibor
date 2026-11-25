@@ -5,7 +5,8 @@ Under `container` the agent of an ACP step runs beside the runner, never as its 
 (an init container with `restartPolicy: Always`, Kubernetes 1.29 or later) that starts the launcher
 (`choregos-runner launcher`) and nothing else. The runner connects to it over the pod's loopback and
 asks it for the harness and the project's checks. The same shape as the warm pool's template
-(`sandbox.yaml`), built here for `k8s_job`:
+(`sandbox.yaml`), built here for `k8s_job` and, as a sidecar of the agent stage's Task, for `tekton`
+(S86-05, `tekton_sidecar`):
 
 - another uid (1001) in the runner's group (1000, the pod's `fsGroup`), a read-only root file system,
   every capability dropped; no Secret, no `envFrom`, no variable but `TMPDIR` and `HOME`;
@@ -118,18 +119,71 @@ def add_to_pod(
     pod_spec.setdefault("initContainers", []).append(
         launcher_container(image, name=name, requests=agent_requests, limits=agent_limits)
     )
-    pod_spec.setdefault("volumes", []).extend(
-        [{"name": EXCHANGE_VOLUME, "emptyDir": {}}, {"name": AGENT_TMP_VOLUME, "emptyDir": {}}]
-    )
+    pod_spec.setdefault("volumes", []).extend(_shared_volumes())
     runner = next(c for c in pod_spec["containers"] if c["name"] == "runner")
+    _tell_runner(runner, "resources", runner_requests, runner_limits)
+    # The cluster's services are not announced to the agent's container as variables.
+    pod_spec["enableServiceLinks"] = False
+
+
+def _shared_volumes() -> list[dict[str, Any]]:
+    return [{"name": EXCHANGE_VOLUME, "emptyDir": {}}, {"name": AGENT_TMP_VOLUME, "emptyDir": {}}]
+
+
+def _tell_runner(
+    runner: dict[str, Any],
+    resources: str,
+    requests: dict[str, str] | None,
+    limits: dict[str, str] | None,
+) -> None:
+    """Where the agent is (`runner_env`), the exchange directory mounted, and the runner's own requests and
+    limits under `resources` (a container's `resources`, a Tekton step's `computeResources`)."""
     told = runner_env()
     runner["env"] = [e for e in runner.get("env", []) if e.get("name") not in told] + [
         {"name": key, "value": value} for key, value in told.items()
     ]
     runner.setdefault("volumeMounts", []).append({"name": EXCHANGE_VOLUME, "mountPath": EXCHANGE})
-    runner["resources"] = {
-        "requests": dict(runner_requests or RUNNER_REQUESTS),
-        "limits": dict(runner_limits or RUNNER_LIMITS),
+    runner[resources] = {
+        "requests": dict(requests or RUNNER_REQUESTS),
+        "limits": dict(limits or RUNNER_LIMITS),
     }
-    # The cluster's services are not announced to the agent's container as variables.
-    pod_spec["enableServiceLinks"] = False
+
+
+def tekton_sidecar(image: str, *, requests: dict[str, str], limits: dict[str, str]) -> dict[str, Any]:
+    """The agent's container as a sidecar of a Tekton Task (S86-05): `launcher_container`, the same image,
+    uid, read-only root, dropped capabilities, environment and probe, with three differences Tekton
+    imposes and nothing else:
+
+    - no `restartPolicy`: a Task's sidecar is a pod container, where Kubernetes refuses the field. With
+      Tekton's `enable-kubernetes-sidecar` flag (Kubernetes 1.29+) Tekton turns it into a native sidecar
+      itself; without it, Tekton's controller waits for it to be ready before the first step (its
+      default, `await-sidecar-readiness`) and stops it after the last one;
+    - `computeResources` for `resources` (Tekton v1's name);
+    - no `/workspace` mount: Tekton mounts the Task's workspace in every step and sidecar at
+      `$(workspaces.source.path)`, the path the runner is told, so both see the tree at the same place.
+      The pod has no volume called `workspace`, and the workspace's own volume is named by Tekton."""
+    container = launcher_container(image, name=AGENT_CONTAINER, requests=requests, limits=limits)
+    del container["restartPolicy"]
+    container["computeResources"] = container.pop("resources")
+    container["volumeMounts"] = [m for m in container["volumeMounts"] if m["name"] != "workspace"]
+    return container
+
+
+def add_to_task(
+    task_spec: dict[str, Any],
+    image: str,
+    *,
+    agent_requests: dict[str, str],
+    agent_limits: dict[str, str],
+    runner_requests: dict[str, str] | None = None,
+    runner_limits: dict[str, str] | None = None,
+) -> None:
+    """`add_to_pod` for a Tekton Task (S86-05): the agent's container among the Task's sidecars, the
+    exchange directory and the agent's `/tmp` among its volumes, and the runner's step (`run`) told where
+    the launcher is, with its own requests and limits."""
+    task_spec.setdefault("sidecars", []).append(
+        tekton_sidecar(image, requests=agent_requests, limits=agent_limits)
+    )
+    task_spec.setdefault("volumes", []).extend(_shared_volumes())
+    runner = next(s for s in task_spec["steps"] if s["name"] == "run")
+    _tell_runner(runner, "computeResources", runner_requests, runner_limits)

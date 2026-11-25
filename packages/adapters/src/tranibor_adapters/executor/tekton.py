@@ -6,6 +6,16 @@ labels that make it possible to find the run again from a Tekton event.
 
 The run's Secret belongs to its PipelineRun (`ownerReferences`), and goes with it however the
 run ends (#501).
+
+The PipelineRun carries its Pipeline inline (`pipelineSpec`, S86-05): the clone (the catalogue's
+`git-clone`, by reference, when the project has a repository), then the agent stage, whose Task is
+inline too (`taskSpec`). Nothing of the agent stage is read from the project's namespace, so no
+older copy of a Task can run the agent beside the runner. Tekton Chains signs a PipelineRun whose
+spec is inline as it signs one by reference.
+
+Under `container` (ADR 0146) the agent stage's Task gets the agent's own container as a sidecar
+(`separate_agent.tekton_sidecar`, the container `k8s_job` starts, holding nothing of the run's), and
+the runner's step is told where its launcher listens, on the pod's loopback.
 """
 
 from __future__ import annotations
@@ -20,9 +30,19 @@ from urllib.parse import urlsplit
 import httpx
 from tranibor_contracts import ExecutorKind, StageResult
 from tranibor_contracts.delivery import repository_of
-from tranibor_core.domain import ExecRef, ExecStatus, StageJobSpec, utcnow
+from tranibor_contracts.env import with_legacy_entries
+from tranibor_core.agent_isolation import SEPARATE_AGENT
+from tranibor_core.domain import (
+    RUN_GATEWAY_KEY_ENV,
+    RUN_REMOTE_TOKEN_ENV,
+    ExecRef,
+    ExecStatus,
+    StageJobSpec,
+    utcnow,
+)
 
 from ..errors import ConfigurationError, UpstreamError
+from . import separate_agent
 from .isolation import refuse_unless_separate
 
 TEKTON_API = "/apis/tekton.dev/v1"
@@ -105,22 +125,32 @@ class TektonExecutor:
     """Creates and follows the `PipelineRun`s of agent steps."""
 
     kind = ExecutorKind.TEKTON
-    #: Never `separate_agent` (ADR 0146 §9, S65-04l): under `container` every run is refused at `start`,
-    #: with the reason in `tranibor_core.agent_isolation.WHY_NOT_SEPARATE`.
-    capabilities: frozenset[str] = frozenset()
+    #: `separate_agent` (ADR 0146 §9, S86-05): under `container` the agent stage's Task carries the agent's
+    #: own container as a sidecar. Tekton's own sidecar mechanism, so no Kubernetes version is required.
+    capabilities: frozenset[str] = frozenset({SEPARATE_AGENT})
 
     def __init__(
         self,
         client: KubernetesClient | None = None,
         *,
-        pipeline: str = "choregos-agent",
         service_account: str = "choregos-runner",
         storage: str = "10Gi",
+        cpu_limit: str = "2",
+        memory_limit: str = "6Gi",
+        runner_requests: dict[str, str] | None = None,
+        runner_limits: dict[str, str] | None = None,
     ) -> None:
         self.client = client or KubernetesClient()
-        self.pipeline = pipeline
         self.service_account = service_account
         self.storage = storage
+        #: The agent stage's ceiling: the runner's step under `process`, the agent's container under
+        #: `container`, whose runner step then takes `separate_agent.RUNNER_REQUESTS`/`RUNNER_LIMITS`.
+        self.cpu_limit = cpu_limit
+        self.memory_limit = memory_limit
+        #: The runner step's own requests and limits beside the agent's container (ADR 0146 §12), the chart's
+        #: `runner.ownResources`, as `k8s_job`'s runner container takes them.
+        self.runner_requests = dict(runner_requests or separate_agent.RUNNER_REQUESTS)
+        self.runner_limits = dict(runner_limits or separate_agent.RUNNER_LIMITS)
 
     def _name(self, run_id: str) -> str:
         return f"run-{run_id}"[:63].lower()
@@ -238,6 +268,9 @@ class TektonExecutor:
         }
         if spec.runtime_class:
             pod_template["runtimeClassName"] = spec.runtime_class
+        if spec.agent_isolation == "container":
+            # The cluster's services are not announced to the agent's container as variables.
+            pod_template["enableServiceLinks"] = False
         return {
             "apiVersion": "tekton.dev/v1",
             "kind": "PipelineRun",
@@ -251,15 +284,16 @@ class TektonExecutor:
                 },
             },
             "spec": {
-                "pipelineRef": {"name": self.pipeline},
+                # Inline (S86-05): no Pipeline nor Task of the namespace is read to run the agent stage.
+                "pipelineSpec": self._pipeline_spec(spec, name, cloned=depot is not None),
                 "taskRunTemplate": {"serviceAccountName": self.service_account, "podTemplate": pod_template},
                 "timeouts": {"pipeline": f"{spec.timeout_minutes}m"},
                 "params": [
                     {"name": "run-id", "value": spec.run_id},
                     {"name": "api-url", "value": spec.api_url},
                     {"name": "runner-image", "value": spec.runner_image},
-                    # Empty when the project has no repository: the pipeline's clone task is
-                    # skipped, and the runner prepares an empty directory itself.
+                    # Empty when the project has no repository: the pipeline has no clone task, and
+                    # the runner prepares an empty directory itself.
                     {
                         "name": "repo-url",
                         "value": (depot.url if depot else ""),
@@ -282,6 +316,94 @@ class TektonExecutor:
                 ],
             },
         }
+
+    def _pipeline_spec(self, spec: StageJobSpec, name: str, *, cloned: bool) -> dict[str, Any]:
+        """The run's Pipeline: the clone when there is a repository, then the agent stage."""
+        tasks: list[dict[str, Any]] = []
+        if cloned:
+            tasks.append(
+                {
+                    "name": "clone",
+                    "taskRef": {"name": "git-clone"},
+                    "workspaces": [{"name": "output", "workspace": "source"}],
+                    "params": [
+                        {"name": "url", "value": "$(params.repo-url)"},
+                        {"name": "revision", "value": "$(params.revision)"},
+                        {"name": "depth", "value": "50"},
+                    ],
+                }
+            )
+        tasks.append(
+            {
+                "name": AGENT_STAGE,
+                **({"runAfter": ["clone"]} if cloned else {}),
+                "taskSpec": self._agent_stage(spec, name),
+                "workspaces": [{"name": "source", "workspace": "source"}],
+            }
+        )
+        return {
+            "params": [
+                {"name": "run-id", "type": "string"},
+                {"name": "api-url", "type": "string"},
+                {"name": "runner-image", "type": "string"},
+                {"name": "repo-url", "type": "string"},
+                {"name": "revision", "type": "string", "default": "main"},
+            ],
+            "workspaces": [{"name": "source"}],
+            "results": [
+                {"name": "result-url", "value": f"$(tasks.{AGENT_STAGE}.results.result-url)"},
+                {"name": "status", "value": f"$(tasks.{AGENT_STAGE}.results.status)"},
+            ],
+            "tasks": tasks,
+        }
+
+    def _agent_stage(self, spec: StageJobSpec, name: str) -> dict[str, Any]:
+        """The agent stage's Task, inline: the runner's step and, under `container`, the agent's sidecar.
+
+        The runner's step gets what `k8s_job`'s runner container gets (`runner_env_entries`), and works in
+        the Task's workspace, which Tekton mounts at `$(workspaces.source.path)` in every step and
+        sidecar. `command` is named, so Tekton needs not read the image's entrypoint from its registry."""
+        args = list(spec.runner_command)
+        if args[:1] == ["run"]:
+            args += [
+                "--write-result-url",
+                "$(results.result-url.path)",
+                "--write-status",
+                "$(results.status.path)",
+            ]
+        step: dict[str, Any] = {
+            "name": "run",
+            "image": spec.runner_image,
+            "command": ["choregos-runner"],
+            "args": args,
+            "workingDir": WORKSPACE_PATH,
+            "env": [*runner_env_entries(spec, name), {"name": WORKSPACE_ENV, "value": WORKSPACE_PATH}],
+            "computeResources": {
+                "requests": {"cpu": spec.cpu, "memory": spec.memory},
+                "limits": {"cpu": self.cpu_limit, "memory": self.memory_limit},
+            },
+            "securityContext": {
+                "allowPrivilegeEscalation": False,
+                "capabilities": {"drop": ["ALL"]},
+                "seccompProfile": {"type": "RuntimeDefault"},
+            },
+        }
+        task: dict[str, Any] = {
+            "workspaces": [{"name": "source"}],
+            "results": [{"name": "result-url"}, {"name": "status"}],
+            "steps": [step],
+        }
+        if spec.agent_isolation == "container":
+            separate_agent.add_to_task(
+                task,
+                # A code agent's image (ADR 0146 §10), the platform's otherwise.
+                spec.agent_image or spec.runner_image,
+                agent_requests={"cpu": spec.cpu, "memory": spec.memory},
+                agent_limits={"cpu": self.cpu_limit, "memory": self.memory_limit},
+                runner_requests=self.runner_requests,
+                runner_limits=self.runner_limits,
+            )
+        return task
 
     async def status(self, ref: ExecRef) -> ExecStatus:
         payload = await self.client.request(
@@ -374,6 +496,42 @@ def _parse_time(value: Any) -> Any:
 GATEWAY_KEY_FIELD = "gateway-key"
 #: The key that holds the access token of a remote agent (ADR 0062): `TRANIBOR_RUN_REMOTE_TOKEN`.
 REMOTE_TOKEN_FIELD = "remote-token"  # noqa: S105 - a Secret key name, not a secret
+
+
+#: The agent stage's task in the inline Pipeline.
+AGENT_STAGE = "agent-stage"
+#: Where Tekton mounts the Task's workspace, in the runner's step and the agent's sidecar alike, and the
+#: variable that tells the runner its working tree there.
+WORKSPACE_PATH = "$(workspaces.source.path)"
+WORKSPACE_ENV = "TRANIBOR_WORKSPACE"
+
+
+def runner_env_entries(spec: StageJobSpec, secret: str) -> list[dict[str, Any]]:
+    """The runner's environment, the same for a Job's container and a Tekton step: the run's id and API,
+    its token, gateway key and remote agent's token by reference to the run's Secret, the spec's own
+    variables, each with its former name too."""
+    return with_legacy_entries(
+        [
+            {"name": "TRANIBOR_RUN_ID", "value": spec.run_id},
+            {"name": "TRANIBOR_API_URL", "value": spec.api_url},
+            {
+                "name": "TRANIBOR_RUN_TOKEN",
+                "valueFrom": {"secretKeyRef": {"name": secret, "key": "token"}},
+            },
+            # The run's gateway key, from the same Secret (#523). Optional: a run without a key (none
+            # minted) still starts.
+            {
+                "name": RUN_GATEWAY_KEY_ENV,
+                "valueFrom": {"secretKeyRef": {"name": secret, "key": GATEWAY_KEY_FIELD, "optional": True}},
+            },
+            # The access token of a remote agent (ADR 0062), same Secret, same rule.
+            {
+                "name": RUN_REMOTE_TOKEN_ENV,
+                "valueFrom": {"secretKeyRef": {"name": secret, "key": REMOTE_TOKEN_FIELD, "optional": True}},
+            },
+            *[{"name": key, "value": value} for key, value in spec.env.items()],
+        ]
+    )
 
 
 def run_secret_data(spec: StageJobSpec) -> dict[str, str]:
