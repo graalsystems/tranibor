@@ -87,7 +87,7 @@ prove the platform's path (the poll, the agent, the write-back), which the deplo
   request item test skips.
 - Both suites file in the group **`Tranibor CI`** (`TRANIBOR_LIVE_SERVICENOW_GROUP` in the job), never in the
   Service Desk that this page's triage project watches: that project opened the CI's incidents as work items,
-  and its first state mirror reopened them one second after the suite resolved them (graalsystems/tranibor-agents#66).
+  and its first state mirror reopened them one second after the suite resolved them (the agents repository's #66).
   The group holds one member, so that a change's group approval waits in Assess (empty, the change model
   approves it at once). A new instance: create the group with one member, as the instance's admin.
 - It **skips**, the reason named in the job's summary and a warning, in two cases only: `secrets-absent` (one
