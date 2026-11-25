@@ -226,7 +226,7 @@ if gated and gate is None:
     sys.exit("this deployment does not turn the egress gate on (runner.egressGate.enabled)")
 executor = KubernetesJobExecutor(client=SimpleNamespace(), egress_gate=gate if gated else None)
 spec = StageJobSpec(run_id=name, project_slug="proof", namespace="choregos", runner_image=image,
-                    api_url="http://choregos-api:8000", run_token="unused")
+                    api_url="http://tranibor-api:8000", run_token="unused")
 job = executor._job(spec, name)
 pod = job["spec"]["template"]["spec"]
 runner = next(c for c in pod["containers"] if c["name"] == "runner")
@@ -250,7 +250,7 @@ print(json.dumps({"first": tries[0], "open": tries.count("open"), "attempts": le
 agent_pod() {
   local name=$1 gated=$2 image phase
   image=$(k get deploy tranibor-api -o jsonpath='{.spec.template.spec.containers[0].image}')
-  k exec deploy/choregos-orchestrator-executor -- python -c "$AGENT_JOB" "$name" "$image" "$gated" "$FIRST_PACKETS" |
+  k exec deploy/tranibor-orchestrator-executor -- python -c "$AGENT_JOB" "$name" "$image" "$gated" "$FIRST_PACKETS" |
     k apply -f - >/dev/null
   for _ in $(seq 60); do
     phase=$(k get pod -l "job-name=$name" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || true)
@@ -276,7 +276,7 @@ egress_gate() {
 }
 
 token() {
-  k exec deploy/choregos-api -- tranibor-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
+  k exec deploy/tranibor-api -- tranibor-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
 }
 
 # S80-41, #2185: a record of the memory, written to Ecphoria and read back by id, from the API's pod
@@ -299,7 +299,7 @@ else:
     assert found.get("content") == sys.argv[3], found
     print("memory record " + sys.argv[2] + ": " + found["content"])
 '
-memory_record() { k exec deploy/choregos-api -- python -c "$MEMORY_RECORD" "$@"; }
+memory_record() { k exec deploy/tranibor-api -- python -c "$MEMORY_RECORD" "$@"; }
 
 trap 'status=$?; [ $status -ne 0 ] && echo "PROOF FAILED (exit $status) — workdir $WORK"; \
   if [ -z "${PROOF_KEEP:-}" ] && [ "$MODE" = k3d ]; then k3d cluster delete "$NAME" >/dev/null 2>&1; \
@@ -319,7 +319,7 @@ step "an agent pod's first packet out is refused: the egress gate holds it until
 egress_gate
 step "one work item to completion"
 TOKEN=$(token)
-ITEM=$(k exec -i deploy/choregos-api -- python - run "$ORG" "$TOKEN" <"$ROOT/tools/single-node/work_item.py")
+ITEM=$(k exec -i deploy/tranibor-api -- python - run "$ORG" "$TOKEN" <"$ROOT/tools/single-node/work_item.py")
 echo "  $ITEM"
 step "one memory record, written while Ecphoria runs"
 MEMORY_CONTENT="written by the proof at $(date -u +%FT%TZ)"
@@ -338,7 +338,7 @@ step "restore"
 "$ROOT/tools/single-node/restore.sh"
 step "the work item is still there"
 TOKEN=$(token)
-k exec -i deploy/choregos-api -- python - check "$ORG" "$TOKEN" "$ITEM" <"$ROOT/tools/single-node/work_item.py"
+k exec -i deploy/tranibor-api -- python - check "$ORG" "$TOKEN" "$ITEM" <"$ROOT/tools/single-node/work_item.py"
 step "the memory record is still there"
 memory_record read "$MEMORY_ID" "$MEMORY_CONTENT" | sed 's/^/  /'
 step "PROOF HELD: install, work item, backup, destroy, restore"

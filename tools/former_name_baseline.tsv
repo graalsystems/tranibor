@@ -1667,7 +1667,7 @@
 27	tools/rename_python_packages.py
 3	tools/rename_tenant_names.py
 2	tools/report_round_trips.py
-35	tools/single-node/proof.sh
+29	tools/single-node/proof.sh
 10	tools/single-node/restore.sh
 68	uv.lock
 3	website/scripts/import-docs.test.mjs
