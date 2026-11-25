@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Literal
 
-from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size
+from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
 from ..errors import ConfigurationError
@@ -22,7 +22,8 @@ from .fields import COST, RISK, RUN, SIZE, current_name, present_name
 from .github_events import parse_github_event
 from .start_rules import label_searches
 
-STATUS_COMMENT_MARKER = "<!-- choregos:status -->"
+#: `<!-- tranibor:status -->`; a comment written under the former `choregos:` marker is found too.
+STATUS_COMMENT_MARKER = wire.marker("status")
 
 PROJECT_FIELDS_QUERY = """
 query($org: String!, $number: Int!) {
@@ -175,7 +176,9 @@ class GitHubTracker:
                     id=str(c.get("id")),
                     author=(c.get("user") or {}).get("login", ""),
                     body=c.get("body") or "",
-                    marker=STATUS_COMMENT_MARKER if STATUS_COMMENT_MARKER in (c.get("body") or "") else None,
+                    marker=STATUS_COMMENT_MARKER
+                    if wire.carries_marker(c.get("body"), STATUS_COMMENT_MARKER)
+                    else None,
                 )
                 for c in comments
             ],
@@ -258,7 +261,7 @@ class GitHubTracker:
         body = markdown if marker in markdown else f"{marker}\n{markdown}"
         comments = await self.client.paginate(f"/repos/{self.repo}/issues/{number}/comments", repo=self.repo)
         for comment in comments:
-            if marker in (comment.get("body") or ""):
+            if wire.carries_marker(comment.get("body"), marker):
                 await self.client.request(
                     "PATCH",
                     f"/repos/{self.repo}/issues/comments/{comment['id']}",
@@ -283,7 +286,7 @@ class GitHubTracker:
             "duplicate": f"Doublon de {b}",
             "blocks": f"Bloque {b}",
         }[relation]
-        await self.comment(a, f"<!-- choregos:link:{relation} -->\n{wording}")
+        await self.comment(a, f"{wire.marker(f'link:{relation}')}\n{wording}")
 
     async def set_fields(self, key: str, fields: dict[str, Any]) -> None:
         """The board's structured fields: *Cost (€)*, *Size*, *Risk*, *Run*.

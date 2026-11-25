@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
-from tranibor_contracts import CHANGE_REQUEST, EventType
+from tranibor_contracts import CHANGE_REQUEST, EventType, wire
 from tranibor_contracts.open_lists import STORED
 from tranibor_core.domain import NewItem
 from tranibor_core.restricted import RESTRICTED_TITLE, WITHHELD, mark
@@ -386,7 +386,7 @@ async def project_tracker(session: AsyncSession, project: Project) -> tuple[Conn
         raise upstream(row.type, f"the tracker connector cannot be built: {error}") from error
 
 
-ORIGIN_MARKER = "<!-- choregos:origin -->"
+ORIGIN_MARKER = wire.marker("origin")  # formerly `<!-- choregos:origin -->` (ADR 0224)
 FILED_LABEL = "source:choregos"
 
 

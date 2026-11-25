@@ -15,7 +15,7 @@ from fastapi import APIRouter, Header, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent, InboundEventType, wire
 from tranibor_contracts.wire import read_header, with_twin_headers
 from tranibor_core import utcnow
 from tranibor_core.temporal_connection import organisation_scope
@@ -187,7 +187,7 @@ def _by_labels(matches: list[Any], issue: dict[str, Any]) -> list[Any]:
 #: Verbs a tracker comment can carry. None is honoured (ADR 0102): a tracker login is not a principal.
 DECISION_VERBS = frozenset({"approve", "reject", "answer", "scope"})
 CONTROL_VERBS = frozenset({"pause", "resume", "stop"})
-COMMAND_MARKER = "<!-- choregos:command -->"
+COMMAND_MARKER = wire.marker("command")  # formerly `<!-- choregos:command -->` (ADR 0224)
 
 
 LINK_HINT = "you can link your GitHub account on My account (or an organisation administrator declares it)"

@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 from urllib.parse import quote
 
-from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size
+from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
 from ..errors import ConfigurationError
@@ -25,10 +25,13 @@ from .gitlab_events import parse_gitlab_event
 from .gitlab_instance import check_instance
 from .start_rules import label_searches
 
-STATUS_COMMENT_MARKER = "<!-- choregos:status -->"
-METADATA_START = "<!-- choregos:fields"
+#: `<!-- tranibor:status -->`; a comment written under the former `choregos:` marker is found too.
+STATUS_COMMENT_MARKER = wire.marker("status")
+#: The fields block written into an issue's description: `<!-- tranibor:fields {...} -->`; a description
+#: written before ADR 0224 carries `<!-- choregos:fields`, read too.
+METADATA_START = "<!-- tranibor:fields"
 METADATA_END = "-->"
-METADATA_RE = re.compile(re.escape(METADATA_START) + r"(?P<json>.*?)" + re.escape(METADATA_END), re.S)
+METADATA_RE = re.compile(r"<!-- (?:tranibor|choregos):fields(?P<json>.*?)" + re.escape(METADATA_END), re.S)
 
 
 class GitLabTracker:
@@ -91,7 +94,7 @@ class GitLabTracker:
                     author=(note.get("author") or {}).get("username", ""),
                     body=note.get("body") or "",
                     marker=STATUS_COMMENT_MARKER
-                    if STATUS_COMMENT_MARKER in (note.get("body") or "")
+                    if wire.carries_marker(note.get("body"), STATUS_COMMENT_MARKER)
                     else None,
                 )
                 for note in notes
@@ -155,7 +158,7 @@ class GitLabTracker:
         body = markdown if marker in markdown else f"{marker}\n{markdown}"
         notes = await self.client.paginate(f"/api/v4/projects/{self.encoded}/issues/{iid}/notes")
         for note in notes:
-            if marker in (note.get("body") or ""):
+            if wire.carries_marker(note.get("body"), marker):
                 await self.client.request(
                     "PUT",
                     f"/api/v4/projects/{self.encoded}/issues/{iid}/notes/{note['id']}",

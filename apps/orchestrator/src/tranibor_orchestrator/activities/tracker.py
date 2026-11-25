@@ -21,7 +21,7 @@ from tranibor_api.services import (
     restart_payload,
 )
 from tranibor_api.services.initiator import initiator
-from tranibor_contracts import EventType, HumanActor, HumanRequestKind, StageResult
+from tranibor_contracts import EventType, HumanActor, HumanRequestKind, StageResult, wire
 from tranibor_contracts.open_lists import STORED
 from tranibor_core import Message, MessageAction, TrackerStateMapping, elapsed_seconds, utcnow
 from tranibor_core.domain import TRACKER_FIELD, TRIAL_STATE
@@ -48,9 +48,9 @@ logger = get_logger("choregos.tracker")
 
 #: The delivery comment: one per work item, rewritten if needed, so a replayed close_out does not
 #: post a second one.
-DELIVERED_MARKER = "<!-- choregos:delivered -->"
+DELIVERED_MARKER = wire.marker("delivered")  # the former `choregos:` one is found too (ADR 0224)
 #: The comment that closes a work item already fixed on the default branch (S22-47): one, upserted.
-ALREADY_FIXED_MARKER = "<!-- choregos:already-fixed -->"
+ALREADY_FIXED_MARKER = wire.marker("already-fixed")
 
 
 #: The reason the interpreter mirrors the state it (re)starts from: no decision is applied then.

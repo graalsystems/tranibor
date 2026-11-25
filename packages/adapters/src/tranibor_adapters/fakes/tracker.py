@@ -7,7 +7,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from tranibor_contracts import InboundEvent, InboundEventType, ProjectConfig, Risk, Size
+from tranibor_contracts import InboundEvent, InboundEventType, ProjectConfig, Risk, Size, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData, utcnow
 
 from ..tracker.fields import current_name, present_name
@@ -88,9 +88,9 @@ class FakeTracker:
             payload={"reopened": True, "state": to_status},
         )
 
-    def status_comment(self, key: str, marker: str = "<!-- choregos:status -->") -> str | None:
+    def status_comment(self, key: str, marker: str = "<!-- tranibor:status -->") -> str | None:
         for comment in reversed(self.items[key].comments):
-            if comment.marker == marker:
+            if comment.marker in wire.marker_twins(marker):
                 return comment.body
         return None
 
@@ -135,7 +135,9 @@ class FakeTracker:
         self.calls.append(("upsert_status_comment", key))
         item = self.items[key]
         for comment in item.comments:
-            if comment.marker == marker:
+            # Found under either name (ADR 0224), rewritten under the one written now.
+            if comment.marker in wire.marker_twins(marker):
+                comment.marker = marker
                 comment.body = markdown
                 comment.ts = utcnow()
                 return

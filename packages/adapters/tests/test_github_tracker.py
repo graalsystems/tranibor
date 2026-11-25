@@ -122,6 +122,25 @@ async def test_the_status_comment_is_rewritten_not_duplicated() -> None:
     assert wire.sent("POST") == []
 
 
+async def test_a_status_comment_written_under_the_former_marker_is_rewritten_not_duplicated() -> None:
+    """ADR 0224: a comment written before the rename carries `<!-- choregos:status -->`; it is found and
+    rewritten under the new marker."""
+    assert STATUS_COMMENT_MARKER == "<!-- tranibor:status -->"
+    wire = Wire(
+        {
+            ("GET", f"/repos/{REPO}/issues/12/comments"): (
+                200,
+                [{"id": 6, "body": "<!-- choregos:status -->\nold"}],
+            ),
+            ("PATCH", f"/repos/{REPO}/issues/comments/6"): (200, {}),
+        }
+    )
+    await tracker(wire).upsert_status_comment(f"{REPO}#12", "new")
+    assert wire.sent("PATCH") == [("PATCH", f"/repos/{REPO}/issues/comments/6")]
+    assert wire.body(-1)["body"] == "<!-- tranibor:status -->\nnew"
+    assert wire.sent("POST") == []
+
+
 async def test_without_a_status_comment_one_is_created() -> None:
     wire = Wire(
         {
@@ -144,7 +163,7 @@ async def test_creating_a_ticket_returns_a_readable_key_and_links_are_comments()
     key = await t.create_item(NewItem(title="Profiles base", body="…", labels=["finding"]))
     assert key == f"{REPO}#40"
     await t.link(key, f"{REPO}#12", "origin")
-    assert "<!-- choregos:link:origin -->" in wire.body(-1)["body"] and "#12" in wire.body(-1)["body"]
+    assert "<!-- tranibor:link:origin -->" in wire.body(-1)["body"] and "#12" in wire.body(-1)["body"]
 
 
 def _project(options: list[dict[str, str]]) -> dict[str, Any]:

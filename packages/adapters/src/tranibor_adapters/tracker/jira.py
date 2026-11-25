@@ -23,7 +23,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Literal
 
-from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, StartRule
+from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, StartRule, wire
 from tranibor_contracts.wire import read_header
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
@@ -35,7 +35,8 @@ from .jira_events import parse_jira_event, person_of
 from .ticket_fields import TRACKER_FIELD, jira_answers, person, tracker_block
 from .wiki import markdown_to_wiki, text_of_wiki
 
-STATUS_COMMENT_MARKER = "[choregos:status]"
+#: `[tranibor:status]`; a comment written under the former `[choregos:status]` is found too.
+STATUS_COMMENT_MARKER = wire.marker("status", html=False)
 GATEWAY = "https://api.atlassian.com"
 AGENT_READY_LABEL = "agent-ready"
 Flavor = Literal["cloud", "datacenter"]
@@ -169,7 +170,7 @@ class JiraTracker:
                     author=((comment.get("author") or {}).get("displayName", "")),
                     body=self._text(comment.get("body")),
                     marker=STATUS_COMMENT_MARKER
-                    if STATUS_COMMENT_MARKER in self._text(comment.get("body"))
+                    if wire.carries_marker(self._text(comment.get("body")), STATUS_COMMENT_MARKER)
                     else None,
                 )
                 for comment in comments
@@ -310,7 +311,7 @@ class JiraTracker:
             "GET", f"{self._api}/issue/{key}/comment", params={"maxResults": 100}
         )
         for comment in comments.get("comments", []):
-            if marker in self._text(comment.get("body")):
+            if wire.carries_marker(self._text(comment.get("body")), marker):
                 await self.client.request(
                     "PUT",
                     f"{self._api}/issue/{key}/comment/{comment['id']}",

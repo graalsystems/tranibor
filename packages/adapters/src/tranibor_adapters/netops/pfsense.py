@@ -21,6 +21,7 @@ import re
 from typing import Any
 
 import httpx
+from tranibor_contracts import wire
 
 from ..errors import AdapterError
 from ..http.rest import RestClient
@@ -125,12 +126,13 @@ PFSENSE_WRITE_OPERATIONS: tuple[OperationSpec, ...] = (
     ),
 )
 
-#: The marker a rule written by an action carries in its description: what makes a replay find it.
-_MARKER = re.compile(r"\s*\[choregos:[0-9a-f]+\]")
+#: The marker a rule written by an action carries in its description: what makes a replay find it. Written
+#: `[tranibor:<hash>]`; a rule written before ADR 0224 carries `[choregos:<hash>]`, found too.
+_MARKER = re.compile(r"\s*\[(?:tranibor|choregos):[0-9a-f]+\]")
 
 
 def marker(action_key: str) -> str:
-    return f"[choregos:{hashlib.sha256(action_key.encode()).hexdigest()[:12]}]"
+    return wire.marker(hashlib.sha256(action_key.encode()).hexdigest()[:12], html=False)
 
 
 class PfSenseFirewall:
@@ -213,7 +215,12 @@ class PfSenseFirewall:
     async def create_firewall_rule(self, rule: dict[str, Any], action_key: str) -> dict[str, Any]:
         """Idempotent by the action's marker: a replay after a lost answer finds the rule it made."""
         tag = marker(action_key)
-        existing = await self._data("GET", "/firewall/rules", params={"descr__contains": tag})
+        existing: list[Any] = []
+        # A replay finds the rule it made under the marker it wrote, the former one included (ADR 0224).
+        for form in wire.marker_twins(tag):
+            existing = await self._data("GET", "/firewall/rules", params={"descr__contains": form})
+            if existing:
+                break
         if existing:
             return {"rule": existing[0], "tracker": existing[0].get("tracker"), "created": False}
         descr = f"{_MARKER.sub('', str(rule.get('descr') or ''))} {tag}".strip()
@@ -230,7 +237,7 @@ class PfSenseFirewall:
         if current is None:
             raise AdapterError(f"pfsense: no rule with tracker {tracker}")
         tag = marker(action_key)
-        if tag in str(current.get("descr") or ""):
+        if wire.carries_marker(str(current.get("descr") or ""), tag):
             return {"rule": current, "tracker": current.get("tracker"), "changed": False, "snapshot": ""}
         forbidden = sorted({"id", "tracker"} & set(changes))
         if forbidden:
