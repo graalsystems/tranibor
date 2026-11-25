@@ -80,7 +80,7 @@ relay:
   image:
     # Empty: `global.imageRegistry`. The core's API image, at the deployed core's version.
     registry: ""
-    repository: choregos-api
+    repository: tranibor-api
     tag: ""
     digest: ""
   resources:

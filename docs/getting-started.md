@@ -62,7 +62,7 @@ docker compose up -d
 
 LiteLLM then routes the platform's model aliases to that provider; it is the only container
 that sees the key, and each agent run gets its own virtual key, capped by the run's budget. Each
-agent runs in the runner image (`ghcr.io/graalsystems/choregos-runner`, more than a gigabyte,
+agent runs in the runner image (`ghcr.io/graalsystems/tranibor-runner`, more than a gigabyte,
 pulled on the first run), started by the workers. With a key, the seeded work item waits for you
 to start it: an install spends nothing before you open it. `LITELLM_REAL=0` keeps fakes even with
 a key; `LITELLM_REAL=1` refuses to start without one.

@@ -26,7 +26,7 @@ Optional but recommended in production: a model gateway (LiteLLM), a memory serv
 ## Install
 
 ```bash
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
+helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
   --version 0.29.4 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
@@ -1415,7 +1415,7 @@ same name, a disruption budget, and the route then leads there.
 ### The outpost's side: the chart `choregos-outpost`
 
 Whoever runs an outpost installs the daemon in THEIR cluster with a chart of its own, published
-beside the platform's (`oci://ghcr.io/graalsystems/charts/choregos-outpost`). It is not a subchart
+beside the platform's (`oci://ghcr.io/graalsystems/charts/tranibor-outpost`). It is not a subchart
 of this one and shares no value with it: its page is `charts/choregos-outpost/README.md`, and a
 complete example is `charts/choregos-outpost/values/example.yaml`. What you hand its operator is
 what the management API returns with an enrolment token: the door's origin (`policy.control_plane`),
@@ -2042,7 +2042,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.29.4 \
+helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.4 \
   -n choregos --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
 ```
@@ -2649,6 +2649,33 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.29.4: the images and charts have one name, `tranibor-*`
+
+**The former names are no longer published** (S75-05, step (e) of [ADR
+0176](adr/0176-the-core-is-named-tranibor.md) R3). From the first release after 0.29.4, a release pushes
+and signs each image as `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`
+only, and each chart as `oci://ghcr.io/graalsystems/charts/tranibor` and `…/tranibor-outpost` only; `main`
+pushes its per-commit images under `tranibor-*` only. The versions already published under
+`choregos-*` (0.29.4 and before) stay where they are and keep their signatures.
+
+- **The chart's defaults name the new images**: `choregos-api.image.repository` is `tranibor-api`, and
+  likewise `web`, `orchestrator`, `tools`, `laya`, the web search's `api`, the outpost chart's image and
+  `choregos-orchestrator.runner.image` (`tranibor-runner`); the orchestrator's own default runner image
+  is `tranibor-runner` too. If your values still set `choregos-<component>`, change them to
+  `tranibor-<component>`, or remove them to take the default; a release after 0.29.4 under the former
+  name does not exist and the pod would not pull. A private registry into which you copy the releases
+  copies the `tranibor-*` names.
+- **Pull the chart as `tranibor`** (`helm upgrade --install <release> oci://ghcr.io/graalsystems/charts/tranibor`).
+  The objects it renders are the same as under `choregos`: the objects' names do not follow the chart's,
+  so a release moves from one address to the other with no change in the cluster. A vendored copy
+  renders byte for byte the same objects (checked on 0.29.4, dev and prod values of the first operator).
+- **Admission policies**: `infra/policies/images.yaml` still admits `choregos-*` beside the seven
+  `tranibor-*` components, so that a pod still running a former-name image is not refused by a policy
+  applied before its upgrade. It drops them in a later release, once this one is deployed; drop them from
+  your own policies after you have moved.
+- **Not renamed by this step**: the native CLI files keep their names, `choregos-<platform>` (the install
+  scripts and the self-update know only those; a second name needs the manifest to carry it first), and
+  the Helm release name, namespace and database names are your deployment's values.
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) moves two more groups into the `software-delivery`
@@ -3602,7 +3629,7 @@ global:
 
 What it renders:
 
-- **`<release>-laya`**, a Deployment of `ghcr.io/graalsystems/choregos-laya` (`docker/laya.Dockerfile`):
+- **`<release>-laya`**, a Deployment of `ghcr.io/graalsystems/tranibor-laya` (`docker/laya.Dockerfile`):
   `laya-serve` with the checkpoint baked in at a pinned commit, `HF_HUB_OFFLINE=1`, nothing fetched at
   run time. It asks for 2 GiB of memory (measured on 2026-11-03: 1.6 GiB resident with the checkpoint loaded, 1.95 GiB after a reload) and opens its port
   only once the checkpoint is loaded; the probes read `GET /health`, which answers without a credential.

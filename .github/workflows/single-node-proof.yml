@@ -48,9 +48,9 @@ jobs:
     env:
       PROOF_IMAGE_TAG: proof
       PROOF_IMPORT_IMAGES: >-
-        ghcr.io/graalsystems/choregos-api:proof
-        ghcr.io/graalsystems/choregos-orchestrator:proof
-        ghcr.io/graalsystems/choregos-web:proof
+        ghcr.io/graalsystems/tranibor-api:proof
+        ghcr.io/graalsystems/tranibor-orchestrator:proof
+        ghcr.io/graalsystems/tranibor-web:proof
       # The kubelet's default hard eviction (15 % of the image disk) is close to what a runner has
       # left once the images are in: the node would be tainted `disk-pressure` and nothing scheduled.
       PROOF_EVICTION: "5%"
@@ -81,11 +81,11 @@ jobs:
       - name: the images of this commit (api, worker, web)
         run: |
           docker build -f docker/api.Dockerfile --target api --build-arg REVISION="$GITHUB_SHA" \
-            -t ghcr.io/graalsystems/choregos-api:proof .
+            -t ghcr.io/graalsystems/tranibor-api:proof .
           docker build -f docker/api.Dockerfile --target worker --build-arg REVISION="$GITHUB_SHA" \
-            -t ghcr.io/graalsystems/choregos-orchestrator:proof .
+            -t ghcr.io/graalsystems/tranibor-orchestrator:proof .
           docker build -f docker/web.Dockerfile \
-            -t ghcr.io/graalsystems/choregos-web:proof .
+            -t ghcr.io/graalsystems/tranibor-web:proof .
           docker builder prune -af >/dev/null
           df -h /
       - name: the proof
