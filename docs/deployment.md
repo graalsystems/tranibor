@@ -1489,8 +1489,33 @@ moved for half an hour.
 A setting the API cannot build a sink from (a plain `http://` URL, an unknown format) stops it at start.
 
 Not part of this: checkpoints signed on a schedule, a migration role distinct
-from the API's own, and the chain in `GET /audit`. Against a real Splunk, Elastic or syslog server nothing
-here has been run yet: the sinks are tested against simulated receivers.
+from the API's own, and the chain in `GET /audit`. Run against real receivers on 2026-11-25: OpenSearch 2.19.8
+(security plugin on, demo TLS) through the `elastic-bulk` format, and syslog-ng 4.13.0 over TLS. Splunk HEC
+has not been run against a real Splunk; the webhook and Elastic Cloud have not been run at all.
+
+A tested recipe, OpenSearch with its security plugin on (a self-signed CA is the usual case, hence `caFile`).
+`token` is the base64 of `user:password` and `scheme` is `Basic` (with an API key, `scheme: ApiKey`). The run applied
+the same settings as `TRANIBOR_AUDIT_EXPORT_*` environment variables; the chart renders them, and rendering was not
+part of the run. The URL may end in `/_bulk` or not:
+
+```yaml
+global:
+  auditExport:
+    enabled: true
+    sink: https
+    format: elastic-bulk
+    url: https://opensearch.example:9200/_bulk
+    index: choregos-audit
+    caFile: /etc/siem/root-ca.pem       # mounted with choregos-api.extraVolumes
+    token: { secretRef: siem-token, key: audit-export-token, scheme: Basic }
+```
+
+The index then holds one document per entry, named `platform:<seq>` or `<org id>:<seq>`, with `seq`, `prev_hash`,
+`hash` and `canonical`. To check a chain from OpenSearch alone: read the documents of one `org_id`, sort by `seq`,
+and check that `seq` is contiguous, that the first `prev_hash` is 64 zeros, that
+`sha256(prev_hash + canonical) == hash` and that each `prev_hash` is the previous `hash`. For syslog, a collector
+must read RFC 5425 octet-counted frames (syslog-ng's `syslog()` source does; its `network()` source with
+`flags(syslog-protocol)` did not split them) and trust the CA you give in `caFile`.
 
 
 ## Retention of the audit log
