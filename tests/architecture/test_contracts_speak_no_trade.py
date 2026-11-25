@@ -81,7 +81,8 @@ EXCLUDED: dict[str, str] = {
     "packages/contracts/src/tranibor_contracts/recorded.py": (
         "the former spellings the platform still reads from documents it recorded or stored and cannot "
         "rewrite (ADR 0098 §4, ADR 0181 Decision (2026-11-23)): read only, never written or served; each is "
-        "folded into its successor before validation (Temporal histories, published plugins, ADR 0008)"
+        "folded into its successor before validation (Temporal histories, published plugins, ADR 0008), "
+        "and the role names a workflow stored before `repairs:` and `needs:` is guessed from (S83-12)"
     ),
 }
 
@@ -122,10 +123,10 @@ VOCABULARY: dict[str, str] = {
     "release_train": _C2,
     "train": _C2,
     "trains": _C2,
-    "release_notes": _C2 + " (a stage role and an output)",
-    "fix_ci": _C2 + " (a stage role); repair by role becomes `repairs:` in C1",
-    "address_review": _C2 + " (a stage role); repair by role becomes `repairs:` in C1",
-    "verify_prod": _C2 + " (a stage role)",
+    "release_notes": _C2 + " (a stage role and an output; the plugin's since S83-12)",
+    "fix_ci": _C2 + " (a stage role, the plugin's since S83-12); repair by role became `repairs:` in C1",
+    "address_review": _C2 + " (a stage role, the plugin's since S83-12); repair by role became `repairs:`",
+    "verify_prod": _C2 + " (a stage role, the plugin's since S83-12)",
     "flaky": _C2 + " (a finding type and a memory kind)",
     "hotspot": _C2 + " (a memory kind)",
     "tech_debt": _C2 + " (a finding type)",
@@ -144,17 +145,9 @@ ALLOWED: dict[str, dict[str, int]] = {
         "repositories": 2,
         "repository": 7,
     },
-    "packages/contracts/schemas/stage-result.schema.json": {"release_notes": 1},
     "packages/contracts/schemas/template.schema.json": {"repo": 1},
     "packages/contracts/schemas/workflow.schema.json": {"pull_request": 1, "release_train": 1, "train": 2},
     "packages/contracts/src/tranibor_contracts/__init__.py": {"pull_request": 2},
-    "packages/contracts/src/tranibor_contracts/enums.py": {
-        "address_review": 2,
-        "fix_ci": 2,
-        "release_notes": 2,
-        "verify_prod": 2,
-    },
-    "packages/contracts/src/tranibor_contracts/stage.py": {"release_notes": 1},
     "packages/contracts/src/tranibor_contracts/workflow.py": {
         "pr": 9,
         "pull_request": 3,
@@ -288,7 +281,8 @@ def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None
 
 def test_the_excluded_recorded_module_only_folds_former_spellings() -> None:
     """What `recorded.py` may hold without being read: the folds of a recorded document's former
-    spellings into their successors, and the names they fold."""
+    spellings into their successors, the names they fold, and the role names a stored workflow without
+    `repairs:` or `needs:` is guessed from (constants, S83-12)."""
     import inspect
 
     from pydantic import BaseModel

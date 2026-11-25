@@ -1600,7 +1600,6 @@ export type StageResult = {
     plan_markdown?: string;
     review_markdown?: string;
     verdict?: "approve" | "request_changes" | "comment";
-    release_notes_markdown?: string;
     duplicate_of?: string | null;
     questions_asked?: number;
     [key: string]: unknown;
@@ -1876,7 +1875,7 @@ export type WorkflowActor = WorkflowAgentActor | WorkflowHumanActor | WorkflowSy
 
 export type WorkflowAgentActor = {
   type: "agent";
-  /** The agent's role. The package's roles — triage, refine, plan, implement, verify, review, fix_ci, address_review, release_notes, verify_prod, brief, deliver, custom — keep their meaning; a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name. */
+  /** The agent's role. The core's roles — triage, refine, plan, implement, verify, review, brief, deliver, custom — keep their meaning; a plugin declares its own with their playbooks (the software-delivery plugin's repair, review answer, release notes and production check), a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name. */
   role: string;
   /** profile:<name>, profile:by_size, or a direct LiteLLM identifier. */
   model?: string;

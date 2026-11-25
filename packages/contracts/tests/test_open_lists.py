@@ -214,6 +214,13 @@ DELIVERY: dict[str, tuple[OpenList, type[StrEnum], frozenset[str]]] = {
             )
         ),
     ),
+    # The software-delivery stage roles (S83-12): a workflow's `role` is a string of its pattern, so a
+    # stored or new workflow keeps parsing; what the plugin brings is their playbooks.
+    "stage roles": (
+        STAGE_ROLES,
+        StageRole,
+        frozenset({"fix_ci", "address_review", "release_notes", "verify_prod"}),
+    ),
 }
 
 

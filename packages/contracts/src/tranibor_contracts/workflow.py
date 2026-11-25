@@ -112,9 +112,10 @@ class WorkflowMetadata(Strict):
     finding_types: list[FindingTypeDecl] | None = Field(default=None, max_length=30)
 
 
-#: An agent role. The package roles (`StageRole`) keep their meaning: the platform relies on
+#: An agent role. The core's roles (`StageRole`) keep their meaning: the platform relies on
 #: `implement`, `review` and `verify` for its measurements and for the cross review, but **a trade
-#: names its own**: `sourcing`, `qualification`, `case_processing`.
+#: names its own**: `sourcing`, `qualification`, `case_processing`, or a plugin declares them with their
+#: playbooks (`STAGE_ROLES`; the software-delivery roles are its plugin's since ADR 0181).
 #:
 #: Before 2026-09-24 one had to write `role: custom` + `playbook: sourcing`: it worked, but the
 #: board showed "custom" for every stage of a trade, and the evals did not know what it was about

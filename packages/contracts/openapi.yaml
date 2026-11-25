@@ -9946,7 +9946,7 @@ components:
       properties:
         role: { type: string }
         playbook: { type: string }
-        playbook_origin: { type: [string, "null"], description: "`package` or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`)." }
+        playbook_origin: { type: [string, "null"], description: "`package`, `plugin` (a plugin's extension declared the role) or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`)." }
         instructions: { type: [string, "null"] }
         instructions_error: { type: [string, "null"] }
         instructions_template: { type: [string, "null"], description: "The prompt as a registry agent's instructions (rendered in the sandbox, framed after): what registering the agent gives it." }

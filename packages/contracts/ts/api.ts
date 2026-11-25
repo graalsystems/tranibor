@@ -2988,7 +2988,7 @@ export type BuiltinMcpServer = {
 export type BuiltinAgent = {
   role: string;
   playbook: string;
-  /** `package` or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`). */
+  /** `package`, `plugin` (a plugin's extension declared the role) or `deployment` (`CHOREGOS_PLAYBOOKS_DIR`). */
   playbook_origin?: string | null;
   instructions?: string | null;
   instructions_error?: string | null;

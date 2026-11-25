@@ -2619,6 +2619,15 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
+
+[ADR 0181](adr/0181-the-contracts-speak-no-trade.md) moves two more groups into the `software-delivery`
+plugin (S83-12, S83-13), without a window.
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| The stage roles `fix_ci`, `address_review`, `release_notes`, `verify_prod` | No longer members of `StageRole` nor of the playbooks' `KNOWN_ROLES`: the plugin's extension declares them, with their playbooks (`tranibor_software_delivery/roles/`). The strings do not change, so no row is rewritten: stored workflows, `runs.stage_role` and recorded histories keep them. `release_notes_markdown` is no longer a named field of a step's outputs; it is read as any output, under its name. | Where the plugin's extension is absent, a workflow naming one of these roles without an `agent:` is published with the warning `role.playbook_not_found`, and its step fails for lack of a playbook: install the plugin, or bring the playbook (`TRANIBOR_PLAYBOOKS_DIR`). A Python import of `StageRole.FIX_CI` (and the three others) fails. |
+
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 
 ([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md).) The chart has run

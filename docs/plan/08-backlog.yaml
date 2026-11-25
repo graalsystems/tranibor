@@ -6284,6 +6284,19 @@ stories:
       - "the core's and the plugins' finding types stay valid in every workflow; every archived history replays"
       - "the console and the CLI show the declared title"
     notes: "From a pre-sales demonstration of a warranty-claims workflow, where a suspected duplicate claim had to be filed as security. Gates and humans file no finding today; when one does, it judges with tranibor_core.finding_types."
+  - id: S83-12
+    title: "contract(contracts,playbooks,plugins): the software stage roles are the software-delivery plugin's (ADR 0181)"
+    stream: S83
+    sprint: 3
+    priority: 6
+    size: S
+    depends_on: [S83-10]
+    acceptance:
+      - "fix_ci, address_review, release_notes and verify_prod are neither StageRole members nor KNOWN_ROLES; the plugin's extension declares them in STAGE_ROLES with their playbooks"
+      - "a workflow naming one finds its playbook where the plugin is installed; the strings are unchanged, stored workflows and recorded histories keep working"
+      - "the role guesses for workflows stored before repairs: and needs: are listed in tranibor_contracts.recorded"
+      - "the vocabulary guard's allowlist is lowered"
+    notes: "Approved by the project lead before the 1.0 freeze, without a window (ADR 0181, Decision (2026-11-23))."
   - id: S4-07
     title: "The cost ledger separates cache writes from cache reads (ADR 0188)"
     stream: S4

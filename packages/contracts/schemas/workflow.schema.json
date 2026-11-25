@@ -249,7 +249,7 @@
         "role": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{1,31}$",
-          "description": "The agent's role. The package's roles — triage, refine, plan, implement, verify, review, fix_ci, address_review, release_notes, verify_prod, brief, deliver, custom — keep their meaning; a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name."
+          "description": "The agent's role. The core's roles — triage, refine, plan, implement, verify, review, brief, deliver, custom — keep their meaning; a plugin declares its own with their playbooks (the software-delivery plugin's repair, review answer, release notes and production check), a business names its own (`sourcing`, `instruction_dossier`), and the playbook is resolved by the role's name."
         },
         "model": {
           "type": "string",
