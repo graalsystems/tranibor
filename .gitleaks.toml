@@ -41,4 +41,17 @@ regexes = [
   # prove it never leaves the runner. `generic-api-key` reads it as a key; the CI scans the history, so
   # once merged it turned the `secrets` job red on every pull request (2026-11-05, #1382). This value only.
   '''rt-7f3c9a1e5b2d4c6f8a0b1c2d3e4f5a6b''',
+  # The rename to tranibor (ADR 0224 R6, branch of #2288) moves the internal API URL above to its new
+  # service name: same URL, same reason.
+  '''tranibor-api:8000/api/v1/internal''',
+  # The chart's rename test (#2288) seeds a Secret of the former chart whose values are base64 of
+  # `former-…` words (`Zm9ybWVy` = "former", `azE6Zm9ybWVy` = "k1:former"). Those prefixes only.
+  '''(azE6)?Zm9ybWVy[A-Za-z0-9+/]*={0,2}''',
+  # Azurite's well-known development account key, published by Microsoft in its documentation, used by
+  # the object store conformance tests (#2281), and the base64 of `wrong-key` next to it. Public by
+  # design. Each of these findings sat on an unmerged branch: the CI scans every branch
+  # (`fetch-depth: 0`), so they turned the `secrets` job red on main and on every open pull request
+  # (2026-11-25).
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  '''d3Jvbmcta2V5''',
 ]
