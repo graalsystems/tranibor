@@ -152,8 +152,10 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
 
     card = (await client.get(CARD, headers=auth)).json()
     assert [skill["id"] for skill in card["skills"]] == ["billing-api/ship-a-change"], card
-    fields = next(e for e in card["capabilities"]["extensions"] if e["uri"].endswith("/skill-fields/v1"))
-    assert fields["uri"] in _page()
+    announced = [e for e in card["capabilities"]["extensions"] if e["uri"].endswith("/skill-fields/v1")]
+    fields = announced[0]
+    # The card names the extension under both URIs for the window of ADR 0224; the page one of them.
+    assert any(e["uri"] in _page() for e in announced)
     assert fields["params"]["skills"]["billing-api/ship-a-change"]["required"] == ["ticket"]
 
     calls = _calls()

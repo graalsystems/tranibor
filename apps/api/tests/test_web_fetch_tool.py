@@ -151,7 +151,7 @@ async def test_a_page_is_read_as_text_with_the_platforms_user_agent_and_counted(
         ("GET", PAGE),
     ]
     for _, _, sent, address in web.requests:
-        assert sent["User-Agent"] == f"Choregos/{__version__} (+ops@example.org)"
+        assert sent["User-Agent"] == f"Tranibor/{__version__} Choregos/{__version__} (+ops@example.org)"
         assert address == PUBLIC
 
     (row,) = await _ledger()
@@ -375,6 +375,23 @@ async def test_a_redirect_is_followed_and_each_target_is_checked(
 
 
 # ───────────────────────────── robots.txt and politeness ─────────────────────────────
+
+
+@pytest.mark.parametrize("token", ["Tranibor", "Choregos"])
+async def test_robots_txt_is_obeyed_for_the_new_token_and_the_former_one(
+    client: AsyncClient, project: dict[str, Any], web: Any, token: str
+) -> None:
+    """ADR 0224: a site that wrote its rules for the former token keeps them; one written for the new
+    token is obeyed too."""
+    web.add(
+        "https://docs.example.com/robots.txt",
+        f"User-agent: {token}\nDisallow: /private\n",
+        content_type="text/plain",
+    )
+    web.add("https://docs.example.com/private/x", "secret")
+    base, headers = await _ready(client, project)
+    refused = await _fetch(client, base, headers, url="https://docs.example.com/private/x")
+    assert refused["status_code"] == 403 and refused["result"]["type"] == "robots_disallowed"
 
 
 async def test_robots_txt_is_obeyed_and_cached_for_an_hour(

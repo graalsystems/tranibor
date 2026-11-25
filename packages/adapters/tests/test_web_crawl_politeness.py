@@ -4,6 +4,7 @@ stops when the site says 429, and says who it is."""
 from __future__ import annotations
 
 import httpx
+import pytest
 from tranibor_adapters.documents import WebCrawlSource
 
 ROOT = "https://docs.example.com/guide/"
@@ -89,7 +90,18 @@ async def test_the_platforms_user_agent_is_sent_and_the_platforms_robots_token_o
     assert f"{ROOT}p1.html" in [i.ref for i in changes.items]
 
 
-async def test_the_default_user_agent_is_unchanged() -> None:
+async def test_the_default_user_agent_names_both_tokens() -> None:
+    """ADR 0224: the new product token, and the former one a site may key on beside it."""
     seen: list[httpx.Request] = []
     await _crawl(_site(seen=seen), []).changes(None)
-    assert {r.headers["user-agent"] for r in seen} == {"ChoregosKnowledge/1.0 (+https://choregos.dev)"}
+    assert {r.headers["user-agent"] for r in seen} == {
+        "TraniborKnowledge/1.0 ChoregosKnowledge/1.0 (+https://tranibor.dev)"
+    }
+
+
+@pytest.mark.parametrize("token", ["Tranibor", "TraniborKnowledge", "Choregos", "ChoregosKnowledge"])
+async def test_the_robots_rules_of_either_name_are_obeyed(token: str) -> None:
+    robots = f"User-agent: {token}\nDisallow: /guide/p2.html\n"
+    changes = await _crawl(_site(robots), []).changes(None)
+    assert f"{ROOT}p2.html" not in [i.ref for i in changes.items]
+    assert f"{ROOT}p1.html" in [i.ref for i in changes.items]

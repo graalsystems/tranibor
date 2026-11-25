@@ -13,7 +13,7 @@ makes the request:
 - `robots.txt` of each origin, read for the `Choregos` token and cached for an hour; `Crawl-delay` and
   the effective per-host rate (counted organisation-wide from the cost ledger) become a 429 with a
   `retry_after_s`; the run's own rate too;
-- `User-Agent: Choregos/<version> (+<contact>)`;
+- `User-Agent: Tranibor/<version> Choregos/<version> (+<contact>)` (the former token beside, ADR 0224);
 - at most three redirects, each target going through every check above;
 - the address the agent writes is checked like a search query (ADR 0083 §5): path and query go through
   `tranibor_core.redaction`, as written and percent-decoded, and an address that redaction would change
@@ -65,7 +65,10 @@ if TYPE_CHECKING:
     from tranibor_adapters.fakes.scenes import WebScene
 
 TOOL_NAME = "web_fetch"
-ROBOTS_TOKEN = "Choregos"  # noqa: S105 - the user-agent token robots.txt addresses, not a secret
+#: The user-agent tokens robots.txt addresses: the new one, and the former one a site may have written
+#: its rules for (ADR 0224). A page is read only when every token may read it; the longest delay wins.
+ROBOTS_TOKENS = ("Tranibor", "Choregos")
+ROBOTS_TOKEN = ROBOTS_TOKENS[0]
 MAX_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
 ROBOTS_TTL_S = 3600.0
@@ -694,14 +697,17 @@ async def fetch(
             robots = await _robots(ctx, scheme, host, address)
             if robots.blocked:
                 raise Refused(403, "robots_disallowed", robots.blocked)
-            if robots.parser is not None and not robots.parser.can_fetch(ROBOTS_TOKEN, url):
+            parser = robots.parser
+            refused_for = [t for t in ROBOTS_TOKENS if parser is not None and not parser.can_fetch(t, url)]
+            if refused_for:
                 raise Refused(
                     403,
                     "robots_disallowed",
                     f"robots.txt of `{host}` disallows `{urlsplit(url).path or '/'}` "
-                    f"for {ROBOTS_TOKEN}: it is not read",
+                    f"for {refused_for[0]}: it is not read",
                 )
-            delay = robots.parser.crawl_delay(ROBOTS_TOKEN) if robots.parser is not None else None
+            delays = [float(parser.crawl_delay(t) or 0) for t in ROBOTS_TOKENS] if parser is not None else []
+            delay = max(delays, default=0.0) or None
             await _politeness(ctx, host, float(delay) if delay else None)
             headers = {
                 "User-Agent": ctx.agent,

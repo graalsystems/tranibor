@@ -28,6 +28,7 @@ import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
+from tranibor_contracts import wire
 
 from . import __version__
 from .client import NoOrganisationError, Profile
@@ -37,7 +38,8 @@ console = Console()
 errors = Console(stderr=True)
 
 #: The card's extension that gives each skill's fields as a JSON Schema (the door's `SKILL_FIELDS_EXTENSION`).
-SKILL_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+#: A card of an instance before ADR 0224 announces it under the former URI, read too.
+SKILL_FIELDS_EXTENSION = wire.A2A_SKILL_FIELDS_EXTENSION
 #: The states after which a task does not change any more.
 FINAL_STATES = frozenset({"completed", "failed", "canceled", "rejected"})
 EXIT_COMPLETED, EXIT_REFUSED, EXIT_FAILED, EXIT_CANCELED, EXIT_INTERRUPTED = 0, 1, 3, 4, 130
@@ -227,7 +229,7 @@ def skills_of(card: dict[str, Any]) -> list[dict[str, Any]]:
     extensions = (card.get("capabilities") or {}).get("extensions") or []
     fields: dict[str, Any] = {}
     for extension in extensions:
-        if isinstance(extension, dict) and extension.get("uri") == SKILL_FIELDS_EXTENSION:
+        if isinstance(extension, dict) and extension.get("uri") in wire.A2A_SKILL_FIELDS_EXTENSIONS:
             fields = (extension.get("params") or {}).get("skills") or {}
     return [{**skill, "fields": fields.get(skill.get("id"))} for skill in card.get("skills") or []]
 
