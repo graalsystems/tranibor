@@ -246,6 +246,12 @@ async def test_with_the_service_down_the_lexical_verdict_still_stands_in_block(
             "TRANIBOR_INJECTION_CLASSIFIER_URL": "http://x",
             "TRANIBOR_INJECTION_CLASSIFIER_THRESHOLD": "high",
         },
+        {
+            # On LLM Guard's risk-score scale, [-1, 1): a probability-minded 1.5 cannot be honoured.
+            "TRANIBOR_INJECTION_CLASSIFIER": "http",
+            "TRANIBOR_INJECTION_CLASSIFIER_URL": "http://x",
+            "TRANIBOR_INJECTION_CLASSIFIER_THRESHOLD": "1.5",
+        },
         {"TRANIBOR_INJECTION_CLASSIFIER": "on"},
         {"TRANIBOR_INJECTION_CLASSIFIER": "fake"},
     ],

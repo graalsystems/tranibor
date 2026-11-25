@@ -213,6 +213,11 @@ TRANIBOR_LIVE_LITELLM_URL=http://127.0.0.1:4000 TRANIBOR_LIVE_LITELLM_KEY=sk-…
 make test-live
 ```
 
+`tests/live/test_injection_classifier_live.py` needs an LLM Guard API running its `PromptInjection`
+scanner (`TRANIBOR_LIVE_INJECTION_CLASSIFIER_URL`, `TRANIBOR_LIVE_INJECTION_CLASSIFIER_TOKEN`; the
+service's configuration is in `docs/security.md`, "Measured against a real LLM Guard"), and
+`tools/measure_injection_detectors.py` measures the detectors against the same service.
+
 No credential lives in the repository. These tests write for real: give them a sandbox
 project, not one that matters. For LiteLLM a local proxy is enough:
 
