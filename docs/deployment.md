@@ -851,6 +851,12 @@ start on the step's image, and the run's executor kind, persisted per run, route
 and cancel afterwards. Add `k8s_job` to `global.runner.allowedExecutors`. A run on the second
 executor has that executor's capabilities (no suspension across a question).
 
+A deployment on `tekton` under `global.runner.agentIsolation: container` gets the same second executor
+(S87-02): Tekton runs any image, so a step is never routed for its image, only a run whose agent Tekton
+cannot isolate, which goes to `runner.customImageExecutor` (`k8s_job` unless the values name another; empty
+keeps the refusal). Since S87-05 Tekton isolates every agent itself (below), so the second executor takes
+no run there; it stays rendered as the fallback, and `/readiness` names whichever executor isolates the run.
+
 When an agent asks a question, its sandbox is **suspended** (pod gone, workspace volume kept)
 and the answer resumes the same run in it: one run, not two. The policy bounds the wait:
 `sandbox.suspend_max_hours` (default 24, `0` = never suspend); past it the sandbox is deleted

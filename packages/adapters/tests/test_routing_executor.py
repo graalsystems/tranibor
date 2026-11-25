@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
+from tranibor_adapters import registry
 from tranibor_adapters.executor.routing import RoutingExecutor
 from tranibor_adapters.fakes.executor import FakeExecutor
-from tranibor_adapters.registry import with_custom_image_executor
+from tranibor_adapters.registry import second_executor_kind, with_custom_image_executor
 from tranibor_contracts import ExecutorKind
+from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import ExecStatus, StageJobSpec
 
 POOL = "registry.example/choregos-runner:1.0"
@@ -96,6 +99,71 @@ def test_the_wiring_wraps_only_a_sandbox_with_a_known_pool_and_a_named_second_ex
     assert isinstance(wrapped, RoutingExecutor) and wrapped.pool_image == POOL
     assert isinstance(wrapped.secondary, FakeExecutor)
     jobs = _Jobs()
-    assert with_custom_image_executor(jobs) is jobs, "only agent_sandbox is wrapped"
+    assert with_custom_image_executor(jobs) is jobs, "only agent_sandbox and tekton are wrapped"
     monkeypatch.delenv("TRANIBOR_RUNNER_IMAGE")
     assert with_custom_image_executor(sandbox) is sandbox, "an unknown pool image: an override cannot be told"
+
+
+# S87-02: a deployment on `tekton` sends an agent step Tekton cannot isolate to the second executor ─────
+
+
+class _Tekton(FakeExecutor):
+    kind = ExecutorKind.TEKTON
+
+
+def _container(run_id: str, image: str = POOL, isolation: str = "container") -> StageJobSpec:
+    return _spec(run_id, image).model_copy(update={"agent_isolation": isolation})
+
+
+def _wrapped_tekton(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, _Tekton, _Jobs]:
+    """`with_custom_image_executor` around a Tekton that does not declare `separate_agent`, as the chart
+    wires it (`TRANIBOR_CUSTOM_IMAGE_EXECUTOR=k8s_job`, no pool image: Tekton has none)."""
+    tekton = _Tekton(capabilities=frozenset())
+    jobs = _Jobs(capabilities=frozenset({"queue", SEPARATE_AGENT}))
+    monkeypatch.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "k8s_job")
+    monkeypatch.delenv("TRANIBOR_RUNNER_IMAGE", raising=False)
+    built: list[tuple[str, str]] = []
+
+    def build(kind: str, type_name: str, config: dict[str, Any] | None = None) -> Any:
+        built.append((kind, type_name))
+        return jobs
+
+    monkeypatch.setattr(registry, "build", build)
+    wrapped = with_custom_image_executor(tekton)
+    assert built == [("runtime", "k8s_job")]
+    return wrapped, tekton, jobs
+
+
+async def test_a_container_run_on_a_tekton_primary_lands_on_k8s_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    wrapped, tekton, jobs = _wrapped_tekton(monkeypatch)
+    ref = await wrapped.start(_container("r-agent"))
+    assert str(ref.kind) == "k8s_job"
+    assert [s.run_id for s in jobs.started] == ["r-agent"] and tekton.started == []
+    # What follows `start` reaches the executor that started the run.
+    jobs.statuses["r-agent"] = ExecStatus(state="running")
+    assert (await wrapped.status(ref)).state == "running"
+
+
+async def test_on_tekton_a_job_step_with_its_own_image_and_a_process_run_stay_on_tekton(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tekton runs any image: only the agent's isolation routes, never the step's image. Under `container`
+    a job step goes too: the runner waits for the launcher in every run, a job's included."""
+    wrapped, tekton, jobs = _wrapped_tekton(monkeypatch)
+    await wrapped.start(_container("r-job", "registry.example/agent-tools:3", isolation="process"))
+    await wrapped.start(_container("r-process", isolation="process"))
+    assert [s.run_id for s in tekton.started] == ["r-job", "r-process"] and jobs.started == []
+    await wrapped.start(_container("r-job-isolated", "registry.example/agent-tools:3"))
+    assert [s.run_id for s in jobs.started] == ["r-job-isolated"]
+
+
+def test_tekton_is_wrapped_without_a_pool_image_and_left_alone_without_a_second_executor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wrapped, _, _ = _wrapped_tekton(monkeypatch)
+    assert isinstance(wrapped, RoutingExecutor) and wrapped.pool_image is None
+    assert second_executor_kind("tekton") == "k8s_job"
+    monkeypatch.delenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR")
+    tekton = _Tekton(capabilities=frozenset())
+    assert with_custom_image_executor(tekton) is tekton, "no second executor named: the refusal stays"
+    assert second_executor_kind("tekton") is None

@@ -449,18 +449,37 @@ def allowed_executor_kinds() -> list[str]:
     return kinds
 
 
-def with_custom_image_executor(executor: Any) -> Any:
-    """On `agent_sandbox`, send a step that names its own image to a second executor (ADR 0072).
+def second_executor_kind(primary: str) -> str | None:
+    """The executor `with_custom_image_executor` puts behind a primary of kind `primary`, or None.
 
-    `TRANIBOR_CUSTOM_IMAGE_EXECUTOR` (chart `runner.customImageExecutor`) names it; empty keeps the
-    sandbox executor's refusal. Nothing changes for any other executor, or when the pool's image
-    (`TRANIBOR_RUNNER_IMAGE`) is unknown, because an override cannot then be told from the default."""
+    `TRANIBOR_CUSTOM_IMAGE_EXECUTOR` (chart `runner.customImageExecutor`) names it. Behind `agent_sandbox`
+    only when the pool's image (`TRANIBOR_RUNNER_IMAGE`) is known, because an override cannot otherwise be
+    told from the default; behind `tekton` always (S87-02), since only the agent's isolation routes there.
+    `/readiness` asks the same question, so it judges the executor a run really reaches."""
     secondary = os.environ.get("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "")
-    pool_image = os.environ.get("TRANIBOR_RUNNER_IMAGE", "")
-    if not secondary or not pool_image or str(getattr(executor, "kind", "")) != "agent_sandbox":
+    if not secondary:
+        return None
+    if primary == "agent_sandbox":
+        return secondary if os.environ.get("TRANIBOR_RUNNER_IMAGE", "") else None
+    if primary == "tekton":
+        return secondary
+    return None
+
+
+def with_custom_image_executor(executor: Any) -> Any:
+    """Puts a second executor behind the ones that cannot run every step (ADR 0072, S87-02).
+
+    On `agent_sandbox`, a step that names its own image, or that the pool cannot isolate, goes to it. On
+    `tekton`, which runs any image, only a step under `container` it cannot isolate (it does not declare
+    `separate_agent`) goes to it: a `job` step with its own image stays on Tekton. Empty
+    (`TRANIBOR_CUSTOM_IMAGE_EXECUTOR`) keeps the primary's refusal; any other executor is left as it is."""
+    kind = str(getattr(executor, "kind", ""))
+    secondary = second_executor_kind(kind)
+    if secondary is None:
         return executor
     from .executor.routing import RoutingExecutor
 
+    pool_image = os.environ.get("TRANIBOR_RUNNER_IMAGE", "") if kind == "agent_sandbox" else None
     return RoutingExecutor(executor, build("runtime", secondary, {}), pool_image)
 
 

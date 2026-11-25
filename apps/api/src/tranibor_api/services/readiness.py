@@ -113,6 +113,9 @@ class IsolationFact:
     #: The operator named the opt-out (`TRANIBOR_AGENT_ISOLATION=none-accepted`, ADR 0222): in staging or
     #: prod the agent runs beside the runner's credentials, by decision.
     accepted: bool = False
+    #: The second executor a run under `container` goes to because `executor` cannot isolate its agent and
+    #: this one can (`runner.customImageExecutor`, S87-02); None when `executor` keeps its runs.
+    routed_to: str | None = None
 
 
 @dataclass(frozen=True)
@@ -698,6 +701,19 @@ def item_agent_isolation(f: Facts) -> list[ReadinessItem]:
                 fix,
             )
         ]
+    if f.isolation.refusal is None and f.isolation.routed_to is not None:
+        return [
+            _item(
+                "agent-isolation",
+                "connections",
+                title,
+                "done",
+                f"the `{f.isolation.executor}` executor cannot start the agent's container, so an agent "
+                f"step goes to `{f.isolation.routed_to}` (`runner.customImageExecutor`), which starts the "
+                "agent in a container of its own.",
+                fix,
+            )
+        ]
     if f.isolation.refusal is None:
         return [
             _item(
@@ -1007,12 +1023,14 @@ def isolation_fact(connectors: dict[str, ConnectorFact]) -> IsolationFact | None
     Under `process` nothing is judged outside staging and prod (nor under the fakes); there (ADR 0222) it is
     refused with the sentence `start` raises, or `accepted` when the operator named the opt-out. The executor
     is the project's `runtime` connector, else the deployment's; what it declares is read from its class
-    (`declared_capabilities`), and the sentence is the one its `start` raises."""
+    (`declared_capabilities`), and the sentence is the one its `start` raises. An executor that cannot isolate
+    the agent but has a second executor behind it that can (`second_executor_kind`, S87-02) is done: its
+    runs under `container` go there."""
     import os
 
     from tranibor_adapters import fakes_enabled
     from tranibor_adapters.executor.isolation import declared_capabilities
-    from tranibor_adapters.registry import default_executor_kind
+    from tranibor_adapters.registry import default_executor_kind, second_executor_kind
     from tranibor_core.agent_isolation import (
         AGENT_ISOLATION_ACCEPT_ENV,
         agent_isolation_none_accepted,
@@ -1040,8 +1058,14 @@ def isolation_fact(connectors: dict[str, ConnectorFact]) -> IsolationFact | None
             unisolated_agent_refusal(environment, asked, kind, accepted=accepted),
             accepted=accepted,
         )
-    capabilities = declared_capabilities(kind, agent_isolation=asked)
-    return IsolationFact(kind, agent_isolation_refusal(asked, kind, capabilities))
+    refusal = agent_isolation_refusal(asked, kind, declared_capabilities(kind, agent_isolation=asked))
+    second = second_executor_kind(kind) if refusal is not None else None
+    if second is not None and (
+        agent_isolation_refusal(asked, second, declared_capabilities(second, agent_isolation=asked)) is None
+    ):
+        # The routing's own choice (`RoutingExecutor._route`): the run goes where its agent is isolated.
+        return IsolationFact(kind, None, routed_to=second)
+    return IsolationFact(kind, refusal)
 
 
 async def template_workflow_facts(
