@@ -243,6 +243,10 @@ async def update_knowledge_base(
 ) -> KnowledgeBaseDto:
     base = await _base(session, principal, org, slug)
     changes = body.model_dump(exclude_unset=True)
+    if changes.get("scope") is None:
+        # `"scope": null` means "unchanged", like an absent one: a base always has a scope (the column is
+        # NOT NULL), and the null used to reach it as a 500.
+        changes.pop("scope", None)
     widens = any(field in changes for field in ("scope", "projects", "groups"))
     # Who reads and who is served a base is for the administrator and the owners of its project to
     # decide, nobody else (ADR 0081, amended): `restricted` is part of the reach.

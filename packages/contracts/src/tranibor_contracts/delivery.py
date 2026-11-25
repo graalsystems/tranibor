@@ -355,6 +355,47 @@ class PolicyDelivery(_Section):
     release_train: dict[str, TrainEnvPolicy] = Field(default_factory=dict)
 
 
+# --- The organisation's policy ceiling ---------------------------------------------------------------
+
+
+class CeilingDiffBounds(_Section):
+    """The organisation's caps on a policy's diff bounds (`delivery.scope`): a cap left out leaves the
+    project free."""
+
+    max_diff_files: int | None = Field(default=None, ge=1)
+    max_diff_lines: int | None = Field(default=None, ge=1)
+
+
+class CeilingDelivery(_Section):
+    """The `delivery` section of an organisation's policy ceiling (S83-13): it caps the policy's section of
+    the same name, field by field (`tranibor_core.policy_ceiling`)."""
+
+    scope: CeilingDiffBounds = Field(default_factory=CeilingDiffBounds)
+
+
+#: The fields of a ceiling the section holds since S83-13, as (section, name).
+CEILING_FIELDS: tuple[tuple[str, str], ...] = (("scope", "max_diff_files"), ("scope", "max_diff_lines"))
+
+
+def refuse_former_ceiling(data: Any) -> Any:
+    """A ceiling that caps a former field is refused, naming where it lives now."""
+    if not isinstance(data, dict):
+        return data
+    found = [
+        f"{parent}.{name}"
+        for parent, name in CEILING_FIELDS
+        if isinstance(data.get(parent), dict) and name in data[parent]
+    ]
+    if found:
+        raise ValueError(
+            ", ".join(f"`{path}`" for path in found)
+            + " moved to the `delivery` section of the policy ceiling (`delivery."
+            + found[0]
+            + "`, ADR 0181): the software-delivery plugin's"
+        )
+    return data
+
+
 #: The fields of a policy the section holds since ADR 0181 C2, as (section, name): `None` for the root.
 POLICY_FIELDS: tuple[tuple[str | None, str], ...] = (
     ("scope", "max_diff_files"),
@@ -384,11 +425,14 @@ def refuse_former_policy(data: Any) -> Any:
 
 
 __all__ = [
+    "CEILING_FIELDS",
     "EVIDENCE_FACTS",
     "PLUGIN",
     "POLICY_FIELDS",
     "PROJECT_FIELDS",
     "CanarySpec",
+    "CeilingDelivery",
+    "CeilingDiffBounds",
     "Commands",
     "DeliveryApprovals",
     "DiffBounds",
@@ -408,6 +452,7 @@ __all__ = [
     "commands_of",
     "commits_of",
     "name_of_url",
+    "refuse_former_ceiling",
     "refuse_former_policy",
     "refuse_former_project",
     "repository_of",

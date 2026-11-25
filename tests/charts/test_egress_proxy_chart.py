@@ -68,7 +68,7 @@ def test_enabled_renders_a_restricted_deployment_and_a_service_named_choregos_eg
     assert container["securityContext"]["allowPrivilegeEscalation"] is False
     assert container["securityContext"]["capabilities"] == {"drop": ["ALL"]}
     assert container["resources"]["limits"] == {"cpu": "500m", "memory": "256Mi"}
-    assert container["image"].startswith(PUBLISHING.image("choregos-api") + ":")
+    assert container["image"].startswith(PUBLISHING.image_name("api") + ":")
     env = _env(deployment)
     assert env["CHOREGOS_EGRESS_API_URL"] == "http://choregos-api:8000/api/v1"
     assert json.loads(env["CHOREGOS_EGRESS_PORTS"]) == [443, 80]

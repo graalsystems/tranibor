@@ -16,7 +16,7 @@ CEILING = PolicyCeiling.model_validate(
             "daily_project_usd": 100,
         },
         "attempts": {"default_max": 2, "by_role": {"implement": 2}},
-        "scope": {"max_diff_lines": 2000},
+        "delivery": {"scope": {"max_diff_lines": 2000}},
         "findings": {"max_per_run": 3},
     }
 )
@@ -101,3 +101,24 @@ def test_a_ceiling_that_allows_or_omits_scripts_leaves_the_project_free() -> Non
     offering = _offering(scripts="offer")
     for ceiling in ({}, {"tools": {}}, {"tools": {"scripts": "offer"}}, {"tools": {"scripts": None}}):
         assert widenings(offering, PolicyCeiling.model_validate(ceiling)) == [], ceiling  # type: ignore[arg-type]
+
+
+def test_the_diff_bounds_are_the_plugin_s_section_of_the_ceiling() -> None:
+    """S83-13 (ADR 0181): the ceiling caps the diff bounds in its `delivery` section, the software-delivery
+    plugin's, and clamps the policy's section of the same name; the former place is refused, naming it."""
+    import pytest
+    from pydantic import ValidationError
+    from tranibor_contracts.delivery import PLUGIN, CeilingDelivery
+
+    assert CEILING.delivery.scope.max_diff_lines == 2000 and CeilingDelivery.__plugin__ == PLUGIN
+    clamped, said = clamp(load_preset("solo"), CEILING)
+    assert clamped.delivery.scope.max_diff_lines == 2000 and clamped.delivery.scope.max_diff_files == 60
+    assert any(line.startswith("delivery.scope.max_diff_lines") for line in said)
+    capped = PolicyCeiling.model_validate({"delivery": {"scope": {"max_diff_files": 10}}})
+    assert "delivery.scope.max_diff_files: 60 exceeds the organisation's ceiling of 10" in widenings(
+        load_preset("solo"), capped
+    )
+    for former in ("max_diff_files", "max_diff_lines"):
+        with pytest.raises(ValidationError, match=f"`scope.{former}` moved to the `delivery` section"):
+            PolicyCeiling.model_validate({"scope": {former: 10}})
+    assert "max_diff_files" not in PolicyCeiling.model_json_schema()["$defs"]["CeilingScope"]["properties"]

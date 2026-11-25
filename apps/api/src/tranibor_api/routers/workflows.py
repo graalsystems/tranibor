@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,7 @@ from tranibor_core.policy_ceiling import PolicyCeiling, widenings
 
 from ..audit import record
 from ..db.models import Organization, PolicyDef, Project, WorkflowDef, WorkItem
-from ..deps import Db, Me, Pagination, ProjectCtx
+from ..deps import Db, Me, Pagination, ProjectCtx, current_principal
 from ..errors import conflict, forbidden, not_found, unprocessable
 from ..keyset import keyset_page
 from ..rbac import Permission, Principal
@@ -76,7 +76,10 @@ router = APIRouter(tags=["workflows"])
 
 
 @router.get(
-    "/workflows/templates", response_model=list[WorkflowTemplateDto], operation_id="listWorkflowTemplates"
+    "/workflows/templates",
+    response_model=list[WorkflowTemplateDto],
+    operation_id="listWorkflowTemplates",
+    dependencies=[Depends(current_principal)],
 )
 async def list_templates() -> list[WorkflowTemplateDto]:
     out: list[WorkflowTemplateDto] = []
@@ -94,7 +97,12 @@ async def list_templates() -> list[WorkflowTemplateDto]:
     return out
 
 
-@router.post("/workflows/validate", response_model=WorkflowValidation, operation_id="validateWorkflow")
+@router.post(
+    "/workflows/validate",
+    response_model=WorkflowValidation,
+    operation_id="validateWorkflow",
+    dependencies=[Depends(current_principal)],
+)
 async def validate(body: WorkflowValidateRequest) -> WorkflowValidation:
     """Validation without side effects: what the front-end editor calls on every keystroke."""
     import yaml as yaml_lib
@@ -158,7 +166,12 @@ async def validate_for_project(
     return validation
 
 
-@router.post("/workflows/edit", response_model=WorkflowEditResult, operation_id="editWorkflow")
+@router.post(
+    "/workflows/edit",
+    response_model=WorkflowEditResult,
+    operation_id="editWorkflow",
+    dependencies=[Depends(current_principal)],
+)
 async def edit(body: WorkflowEditRequest) -> WorkflowEditResult:
     """Typed operations, grafted into the text; nothing is saved (ADR 0031).
 

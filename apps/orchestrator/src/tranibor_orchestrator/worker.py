@@ -45,7 +45,8 @@ async def start_reconciliation_loops() -> list[str]:
     The start is idempotent: restarting a worker does not create a second loop, and a project added
     afterwards is picked up at the next restart or by the API.
     """
-    from tranibor_api.services.projects import active_project_slugs
+    from tranibor_api.services.projects import active_projects
+    from tranibor_core.temporal_connection import organisation_scope
 
     from .train_client import start_reconciliation_loop
 
@@ -53,10 +54,12 @@ async def start_reconciliation_loops() -> list[str]:
     if settings.reconcile_interval_seconds <= 0:
         logger.info("tracker catch-up disabled")
         return []
-    slugs = await active_project_slugs()
+    slugs = await active_projects()
     started: list[str] = []
-    for slug in slugs:
-        fresh = await start_reconciliation_loop(slug)
+    for slug, org_id in slugs:
+        # The loop's payloads under its organisation's key (ADR 0225).
+        with organisation_scope(org_id):
+            fresh = await start_reconciliation_loop(slug)
         if fresh:
             started.append(slug)
     logger.info("tracker catch-up", projects=len(slugs), started=len(started))
@@ -69,14 +72,17 @@ async def start_memory_loops() -> list[str]:
     Idempotent like the tracker loops: restarting a worker does not create a second loop, and a loop
     that died in failure starts again. A project whose policy says `memory.enabled: false` gets none.
     """
-    from tranibor_api.services.projects import active_project_slugs
+    from tranibor_api.services.projects import active_projects
+    from tranibor_core.temporal_connection import organisation_scope
 
     from .train_client import start_memory_loop
 
-    slugs = await active_project_slugs(keeping_memory=True)
+    slugs = await active_projects(keeping_memory=True)
     started: list[str] = []
-    for slug in slugs:
-        if await start_memory_loop(slug):
+    for slug, org_id in slugs:
+        with organisation_scope(org_id):
+            fresh = await start_memory_loop(slug)
+        if fresh:
             started.append(slug)
     logger.info("memory loops", projects=len(slugs), started=len(started))
     return started
@@ -89,26 +95,32 @@ async def start_knowledge_sync_loops() -> list[str]:
     from tranibor_api.db.models import KnowledgeSource, Organization
     from tranibor_api.db.session import session_scope
     from tranibor_api.temporal import knowledge_sync_id
+    from tranibor_core.temporal_connection import organisation_scope
 
     from .train_client import start_workflow_once
 
     async with session_scope(orgs="*") as session:
         rows = (
             await session.execute(
-                select(Organization.slug, KnowledgeSource.id, KnowledgeSource.interval_minutes).join(
-                    Organization, Organization.id == KnowledgeSource.org_id
-                )
+                select(
+                    Organization.slug,
+                    KnowledgeSource.id,
+                    KnowledgeSource.interval_minutes,
+                    KnowledgeSource.org_id,
+                ).join(Organization, Organization.id == KnowledgeSource.org_id)
             )
         ).tuples()
         sources = list(rows)
     started: list[str] = []
-    for org, source_id, minutes in sources:
-        if await start_workflow_once(
-            "KnowledgeSync",
-            knowledge_sync_id(source_id),
-            {"org": org, "source_id": source_id, "interval_seconds": minutes * 60},
-            relancer_si_echoue=True,  # lang: fr-ok (the keyword test_reconciliation pins)
-        ):
+    for org, source_id, minutes, org_id in sources:
+        with organisation_scope(org_id):
+            fresh = await start_workflow_once(
+                "KnowledgeSync",
+                knowledge_sync_id(source_id),
+                {"org": org, "source_id": source_id, "interval_seconds": minutes * 60},
+                relancer_si_echoue=True,  # lang: fr-ok (the keyword test_reconciliation pins)
+            )
+        if fresh:
             started.append(source_id)
     logger.info("knowledge sync loops", sources=len(sources), started=len(started))
     return started
@@ -161,6 +173,11 @@ async def run_worker(queues: list[str]) -> None:
     settings = get_settings()
     # Before anything connects: no fakes in staging and prod (S80-03).
     settings.refuse_fakes_in_production()
+    # An organisation's payloads under its own data key, read through the deployment's key wrapper
+    # (ADR 0225): installed before the converter is built, so every client of this process carries it.
+    from tranibor_api.services.temporal_keys import install_organisation_data_keys
+
+    data_keys = install_organisation_data_keys()
     # The workers decode what the clients encode: one converter for the whole deployment (ADR 0183).
     security = TemporalSecurity.from_env()
     # No clear payloads in staging and prod unless the operator said so (ADR 0220).
@@ -174,6 +191,7 @@ async def run_worker(queues: list[str]) -> None:
         **concurrency_options(settings),
         tls=security.tls,
         payload_codec=security.encrypts,
+        organisation_data_keys=data_keys is not None,
     )
     async with contextlib.AsyncExitStack() as stack:
         for worker in workers:

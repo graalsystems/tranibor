@@ -498,13 +498,18 @@ async def post_decision(
     request_row.decided_by = principal.email
     request_row.decision = decision.model_dump(mode="json")
 
-    try:
-        await deliver_decision(project.slug, item.tracker_key, decision)
-    except InterpreterNotRunningError as gone:
-        # The request transaction rolls back: the request stays pending, and the same request is
-        # answered once the interpreter runs again. Restarting it here would undo a `stop`, and would
-        # not restart one that completed (ALLOW_DUPLICATE_FAILED_ONLY) while saying it had.
-        raise await _interpreter_not_running(gone, "this decision") from gone
+    # A work item a demonstration history imported has no workflow (ADR 0216): its decision is recorded
+    # and audited, and passed to nothing — no interpreter is signalled, so no agent runs and nothing is
+    # written outside the platform. The column is the import's alone to set; a payload is not trusted.
+    imported = {"imported": True} if item.imported else {}
+    if not item.imported:
+        try:
+            await deliver_decision(project.slug, item.tracker_key, decision)
+        except InterpreterNotRunningError as gone:
+            # The request transaction rolls back: the request stays pending, and the same request is
+            # answered once the interpreter runs again. Restarting it here would undo a `stop`, and would
+            # not restart one that completed (ALLOW_DUPLICATE_FAILED_ONLY) while saying it had.
+            raise await _interpreter_not_running(gone, "this decision") from gone
     await persist_event(
         session,
         EventType.WORKITEM_HUMAN_DECIDED,
@@ -515,6 +520,7 @@ async def post_decision(
         kind=body.kind,
         by=principal.email,
         **({"fields": sorted(values), "attestation": attested_sentence} if is_task else {}),
+        **imported,
     )
     # Whether the person decided what their client drafted (ADR 0163 point 7): how often a draft is taken.
     drafted = compared(request_row.draft, body.kind, body.model_dump(mode="json"))
@@ -527,6 +533,7 @@ async def post_decision(
         target_id=item.id,
         kind=body.kind,
         **({"draft": drafted} if drafted else {}),
+        **imported,
     )
     return human_request_dto(request_row)
 
@@ -799,6 +806,13 @@ async def post_action(id: str, body: WorkItemAction, session: Db, principal: Me)
     _, org_slug = await resolve_project(session, project.id)
     if not principal.can(Permission.ITEM_CONTROL, org_slug, project.slug):
         raise forbidden("controlling a work item needs at least the developer role")
+    if item.imported:
+        # Imported for a demonstration (ADR 0216): no workflow runs it, and none is started for it here —
+        # `mark_agent_ready` would start an interpreter, and its agents, on a past nobody lived.
+        raise conflict(
+            f"`{item.tracker_key}` was imported from a demonstration history: no workflow runs it, so it "
+            "takes no action; its waiting request, if any, is decided as any other"
+        )
 
     if body.action == "reroute":
         await _reroute(session, principal, project, item, body)

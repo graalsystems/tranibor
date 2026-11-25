@@ -10,9 +10,9 @@ The identity is `packages/core/src/tranibor_core/publishing.json`. The code read
 cannot read a JSON file — a chart's values, a Kyverno policy, a workflow, a Dockerfile, a page of
 documentation — spells the values out, and is listed in `DERIVED` below.
 
-The image prefixes (`image_prefix`, and `image_alias_prefix` for the deprecation window of ADR 0176
-R3) are words, not addresses: they count only inside an image or chart name under the registry,
-`<registry>/<prefix>-api` or `<registry>/charts/<prefix>`, and are rewritten there with the registry.
+The image prefix (`image_prefix`, ADR 0176 R3) is a word, not an address: it counts only inside an
+image or chart name under the registry, `<registry>/<prefix>-api` or `<registry>/charts/<prefix>`,
+and is rewritten there with the registry.
 
 The check refuses:
 
@@ -211,7 +211,7 @@ def is_owner(key: str) -> bool:
 
 
 def is_prefix(key: str) -> bool:
-    """An image prefix (`image_prefix`, `image_alias_prefix`, or one of them as it was before a move)."""
+    """The image prefix (`image_prefix`, or as it was before a move; `image_alias_prefix` until R3 (e))."""
     return "prefix" in key
 
 

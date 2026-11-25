@@ -24,7 +24,7 @@ sidebar_position: 5
 The same command as the install, with the new version:
 
 ```shell
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
+helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
   --version 0.29.4 --namespace choregos -f my-values.yaml
 ```
 

@@ -59,3 +59,28 @@ describe("the findings page", () => {
     expect(screen.queryByText("duplicate-claim")).toBeNull();
   });
 });
+
+describe("an imported finding (ADR 0216)", () => {
+  it("carries the badge, and a live one does not", async () => {
+    vi.mocked(api.findings).mockResolvedValue({
+      items: [
+        { ...base, id: "f3", title: "Imported one", type: "security", imported: true },
+        { ...base, id: "f4", title: "Live one", type: "security" },
+      ],
+      meta: { has_more: false },
+    } as never);
+    await act(async () => {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Suspense fallback={null}>
+            <FindingsPage params={Promise.resolve({ slug: "warranty" })} />
+          </Suspense>
+        </QueryClientProvider>,
+      );
+    });
+    const imported = await waitFor(() => screen.getByText("Imported one"));
+    expect(imported.closest("td")).toHaveTextContent("Imported");
+    expect(screen.getByText("Live one").closest("td")).not.toHaveTextContent("Imported");
+    expect(screen.getAllByTestId("imported-badge")).toHaveLength(1);
+  });
+});

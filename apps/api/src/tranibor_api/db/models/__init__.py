@@ -110,7 +110,7 @@ from .runs import (
     WebhookDelivery,
 )
 from .saml import OrgSamlIdp, SamlConsumedAssertion
-from .secrets import OrgSecret, RemoteCredential
+from .secrets import OrgSecret, RemoteCredential, TemporalDataKey
 from .skills import Skill, SkillVersion
 from .tasks import Delegation, TaskEvent, TaskSubscription
 from .work_items import Event, Finding, HumanRequest, Run, RunEvent, WorkItem
@@ -305,6 +305,7 @@ __all__ = [
     "TaskEvent",
     "TaskSubscription",
     "Template",
+    "TemporalDataKey",
     "Text",
     "TimestampMixin",
     "TriggerToken",

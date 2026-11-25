@@ -4,7 +4,7 @@ image:
   # Empty: `global.imageRegistry`. Another registry — the `-ee` images of the enterprise edition,
   # served by a private project — is set here, component by component.
   registry: ""
-  repository: choregos-api
+  repository: tranibor-api
   tag: ""
   digest: ""
 # Verbatim pod volumes and container mounts for the API, so that a deployment can hand files to a

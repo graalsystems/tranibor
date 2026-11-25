@@ -457,6 +457,8 @@ def test_under_the_fakes_nothing_is_judged(isolated: pytest.MonkeyPatch) -> None
 def test_an_executor_that_cannot_isolate_is_to_do_with_the_sentence_start_raises(
     isolated: pytest.MonkeyPatch,
 ) -> None:
+    # Every shipped executor isolates since S87-08: an ACA that cannot, as before it, is the example.
+    isolated.setattr(AcaExecutor, "capabilities", frozenset())
     fact = isolation_fact({"runtime": connector("runtime", "aca")})
     assert fact is not None and fact.executor == "aca"
     assert fact.refusal == agent_isolation_refusal("container", "aca", AcaExecutor.capabilities)
@@ -513,6 +515,8 @@ def test_without_a_second_executor_or_behind_one_that_cannot_it_is_to_do(
     alone = isolation_fact({})
     assert alone is not None and alone.routed_to is None
     assert alone.refusal == agent_isolation_refusal("container", "tekton", frozenset())
+    # Behind a second executor that cannot isolate either (an ACA as before S87-08).
+    tekton_without_the_sidecar.setattr(AcaExecutor, "capabilities", frozenset())
     tekton_without_the_sidecar.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "aca")
     behind_aca = isolation_fact({})
     assert behind_aca is not None and behind_aca.routed_to is None and behind_aca.refusal == alone.refusal

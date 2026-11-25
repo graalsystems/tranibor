@@ -159,12 +159,12 @@ export type Problem = {
   detail?: string;
   instance?: string;
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     /** Machine code of a workflow or policy issue */
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   /** A machine code on some 409s: `stale_base` (from an agent publication, or from `updateProject`), `no_change`, `eval_failed` (S40-12), `action_not_in_doubt` and `action_already_settled` (`settleAction`); on the 403 of `approveOutpostInstance`, `approval_requires_session` */
@@ -1371,10 +1371,10 @@ export type WorkflowValidation = {
   valid: boolean;
   errors: Array<WorkflowIssue>;
   warnings: Array<WorkflowIssue>;
-  graph?: WorkflowGraph;
+  graph?: WorkflowGraph | null;
   process?: Array<ProcessStep>;
-  /** the workflow as the engine read it (ADR 0112) */
-  document?: S.Workflow;
+  /** the workflow as the engine read it (ADR 0112); null when the document does not parse */
+  document?: S.Workflow | null;
 };
 
 /** A transition in plain words — the process view (ADR 0031). */
@@ -3703,8 +3703,6 @@ export type PolicyCeiling = {
   };
   scope?: {
     auto_grant_max_files?: number | null;
-    max_diff_files?: number | null;
-    max_diff_lines?: number | null;
   };
   findings?: {
     max_per_run?: number | null;
@@ -3721,6 +3719,13 @@ export type PolicyCeiling = {
   /** Tool scripts (ADR 0122 §6): the ceiling can only forbid them. `off` refuses a project policy that offers them, for any role (422 at PUT, clamped to `off` for a policy saved earlier); `offer` or null leaves each project to choose. */
   tools?: {
     scripts?: "off" | "offer" | null;
+  };
+  /** The software-delivery plugin's section (ADR 0181, S83-13): it caps the project policy's `delivery` section, field by field. A ceiling that writes a cap of this section at its former place is refused (422, naming the section). */
+  delivery?: {
+    scope?: {
+      max_diff_files?: number | null;
+      max_diff_lines?: number | null;
+    };
   };
 };
 
@@ -4143,11 +4148,11 @@ export type OutpostConflict = {
   instance?: string;
   /** the problem's `errors` list, as on `Problem` (an API refusal may carry it) */
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   code: "outposts_disabled" | "door_key_missing" | "outpost_exists" | "outpost_revoked" | "outpost_not_revoked" | "outpost_in_use" | "instance_not_pending" | "fingerprint_mismatch" | "enrolment_used" | "outpost_paused" | "outpost_offline" | "outpost_refused" | "outpost_timeout";
@@ -5603,7 +5608,7 @@ export type WorkItemJourney = {
   /** The state the item is in now. */
   state: string;
   closed?: boolean;
-  graph: WorkflowGraph;
+  graph: WorkflowGraph | null;
   process: Array<ProcessStep>;
   moves: Array<JourneyMove>;
   steps: Array<JourneyStep>;
@@ -6053,11 +6058,11 @@ export type McpGatewayConflict = {
   instance?: string;
   /** the problem's `errors` list, as on `Problem` (an API refusal may carry it) */
   errors?: Array<{
-    loc?: Array<string>;
+    loc?: Array<string | number>;
     msg?: string;
     code?: string;
     line?: number;
-    column?: number;
+    column?: number | null;
   }>;
   retry_after?: number;
   code: "gateway_in_use" | "gateway_required" | "gateway_not_configured" | "gateway_assertion_key_missing";
@@ -6467,6 +6472,38 @@ export type SessionsRevoked = {
   ended: number;
 };
 
+export type TemporalKeyInfo = {
+  /** what each payload carries in `encryption-key-id` */
+  key_id: string;
+  state: "active" | "retired" | "shredded";
+  /** the key wrapper's key that wraps it */
+  kek_id: string;
+  created_at: string;
+  created_by?: string | null;
+  shredded_at?: string | null;
+  shredded_by?: string | null;
+};
+
+export type TemporalKeys = {
+  org: string;
+  /** a key wrapper is configured; false: the keys are derived (ADR 0220) and cannot be shredded */
+  available: boolean;
+  keys: Array<TemporalKeyInfo>;
+};
+
+export type TemporalKeyShredding = {
+  /** the organisation's slug, typed again */
+  confirm: string;
+  reason: string;
+};
+
+export type TemporalKeysShredded = {
+  org: string;
+  /** the key ids destroyed by this call */
+  shredded: Array<string>;
+  not_erased: Array<string>;
+};
+
 export type SamlProviderIn = {
   idp_entity_id: string;
   /** https only */
@@ -6797,6 +6834,20 @@ export type DemoHistoryCounts = {
   runs: number;
   decisions: number;
   findings: number;
+  /** Requests that wait for a person (`pending`). */
+  pending: number;
+};
+
+/** What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported. */
+export type DemoHistoryRemoval = {
+  work_items: number;
+  runs: number;
+  /** Human requests, decided or waiting, of the imported work items. */
+  requests: number;
+  findings: number;
+  cost_lines: number;
+  /** The declared cost of the removed cost lines, in USD. */
+  cost_usd?: number;
 };
 
 export type InboundEvent = S.InboundEvent;
@@ -6901,6 +6952,7 @@ export interface Operations {
   decidePendingMemory: { method: "POST"; path: "/projects/{id}/memory/pending"; body: MemoryDecision; response: void };
   declareMemberLinkedAccount: { method: "POST"; path: "/orgs/{org}/members/{user_id}/linked-accounts"; body: LinkedAccountDeclare; response: LinkedAccount };
   deleteAgent: { method: "DELETE"; path: "/orgs/{org}/agents/{slug}"; body: never; response: void };
+  deleteDemoHistory: { method: "DELETE"; path: "/projects/{id}/demo-history"; body: never; response: DemoHistoryRemoval };
   deleteKnowledgeDocument: { method: "DELETE"; path: "/orgs/{org}/knowledge/{slug}/documents/{document_id}"; body: never; response: void };
   deleteKnowledgeSource: { method: "DELETE"; path: "/orgs/{org}/knowledge/{slug}/sources/{source_id}"; body: never; response: void };
   deleteMcpGateway: { method: "DELETE"; path: "/orgs/{org}/mcp-gateway"; body: never; response: void };
@@ -7224,6 +7276,7 @@ export interface Operations {
   listSkills: { method: "GET"; path: "/orgs/{org}/skills"; body: never; response: SkillPage };
   listTaskEvents: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/task-events"; body: never; response: TaskEventList };
   listTemplates: { method: "GET"; path: "/templates"; body: never; response: Array<TemplateSummary> };
+  listTemporalKeys: { method: "GET"; path: "/orgs/{org}/temporal-keys"; body: never; response: TemporalKeys };
   listTrackerIdentities: { method: "GET"; path: "/orgs/{org}/members/{user_id}/tracker-identities"; body: never; response: Array<TrackerIdentity> };
   listTriggers: { method: "GET"; path: "/projects/{id}/triggers"; body: never; response: TriggerPage };
   listUsableModels: { method: "GET"; path: "/orgs/{org}/models/usable"; body: never; response: UsableModelPage };
@@ -7334,6 +7387,7 @@ export interface Operations {
   revokeRemoteCredential: { method: "DELETE"; path: "/orgs/{org}/remote-credentials/{name}"; body: never; response: void };
   rewrapSecrets: { method: "POST"; path: "/platform/secrets/rewrap"; body: never; response: SecretsRewrap };
   rotateMcpGatewayAssertionKey: { method: "POST"; path: "/orgs/{org}/mcp-gateway/assertion-key"; body: never; response: McpGatewayAssertion };
+  rotateTemporalKey: { method: "POST"; path: "/orgs/{org}/temporal-keys/rotation"; body: never; response: TemporalKeyInfo };
   rotateTriggerToken: { method: "POST"; path: "/projects/{id}/triggers/{name}/token"; body: never; response: TriggerToken };
   runKnowledgeEval: { method: "POST"; path: "/orgs/{org}/knowledge/{slug}/eval/run"; body: never; response: KnowledgeBase };
   runMyTask: { method: "POST"; path: "/me/assistants/{org}/{slug}/tasks/{task}/run"; body: never; response: TaskRun };
@@ -7355,6 +7409,7 @@ export interface Operations {
   setTrackerIdentity: { method: "PUT"; path: "/orgs/{org}/members/{user_id}/tracker-identities/{tracker}"; body: TrackerIdentityPut; response: TrackerIdentity };
   settleAction: { method: "POST"; path: "/projects/{id}/actions/{action_id}/settlement"; body: ActionSettlementRequest; response: Action };
   shareWorkflow: { method: "POST"; path: "/orgs/{org}/workflow-catalogue"; body: WorkflowShare; response: WorkflowCatalogueEntry };
+  shredTemporalKeys: { method: "POST"; path: "/orgs/{org}/temporal-keys/shredding"; body: TemporalKeyShredding; response: TemporalKeysShredded };
   starAgent: { method: "PUT"; path: "/orgs/{org}/agents/{slug}/star"; body: never; response: AgentSocial };
   startAgentEvaluation: { method: "POST"; path: "/orgs/{org}/agents/{slug}/versions/{version}/evaluations"; body: AgentEvaluationCreate; response: AgentEvaluation };
   startAgentTrial: { method: "POST"; path: "/orgs/{org}/agent-trials"; body: AgentTrialCreate; response: AgentTrial };

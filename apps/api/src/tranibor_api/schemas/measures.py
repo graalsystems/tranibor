@@ -195,10 +195,25 @@ class DemoHistoryCounts(Dto):
     runs: int = 0
     decisions: int = 0
     findings: int = 0
+    #: Requests that still wait for a person: the inbox lists them.
+    pending: int = 0
 
 
 class DemoHistoryImport(Dto):
     created: DemoHistoryCounts
     unchanged: DemoHistoryCounts
     #: The cost the created runs carry, in USD: declared by the document, never measured.
+    cost_usd: float = 0.0
+
+
+class DemoHistoryRemoval(Dto):
+    """What removing a project's imported demonstration history deleted (ADR 0216): marked rows only."""
+
+    work_items: int = 0
+    runs: int = 0
+    #: Human requests of the imported work items, decided or still waiting.
+    requests: int = 0
+    findings: int = 0
+    cost_lines: int = 0
+    #: The declared cost of the removed cost lines, in USD.
     cost_usd: float = 0.0

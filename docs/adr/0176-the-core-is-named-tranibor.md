@@ -6,8 +6,9 @@
   2026-11-17: "do the renames now", the trademark gate being skipped); R1 is implemented by S75-01,
   R3 steps (a) and (b) by S75-03 (2026-11-18), R2 by S75-02 (2026-11-18), shipped by release 0.27.14,
   and R3 step (c) on the first operator's deployments (2026-11-18, see the amendment "0.27.14 on a real
-  release"), and R3 step (d) (2026-11-18, see the amendment "step (d)"); R4 by S75-04 (2026-11-19); R3 step (e) is not
-  started
+  release"), and R3 step (d) (2026-11-18, see the amendment "step (d)"); R4 by S75-04 (2026-11-19); R3 step (e) by
+  S75-05 (2026-11-25, see the amendment "step (e)"), for the publication; the policies drop the former
+  names after the first release without them is deployed
 - **Concerns**: the whole repository (25,000 occurrences of the old name in 4,600 files, counted on
   2026-11-17), and above all `packages/*` (the distributions and import packages), `publishing.json` and
   `tools/publishing_identity.py`, `charts/`, `docker/`, `infra/policies/`, the `CHOREGOS_*` variables;
@@ -332,3 +333,41 @@ One commit cannot rename all four, and the fourth layer must not be renamed by a
   `choregos-<component>:<commit>`, because `main`'s per-commit images carry only the former name; it moves
   when those images gain the new name. Step (e) may start counting: the old names stop being published
   two minors after this step, so not before 0.29.
+
+## Amendment (2026-11-25, S75-05): R3 step (e), the former names are no longer published
+
+- **Due.** Step (d) shipped with 0.27.14; two minors later, after 0.29.4, the release stops publishing
+  `choregos-*`. Checked first, on 2026-11-25, that nothing still pulled them: the first operator's dev and
+  prod clusters run no core image under the former name (their Harbor copy is `tranibor-*` only, the
+  enterprise images keep their own `choregos-*-ee` names, point 9); its build cluster pulled
+  `choregos-api:<commit>` in the enterprise edition's per-commit pipeline and vendored the chart as
+  `choregos`, both moved to the new names in the operator's deployment repository and the enterprise
+  edition's per-commit probe before this change; the enterprise edition's images are built FROM
+  `tranibor-*` since (d).
+- **What the release and `main` push.** `release.yml` gives each image's manifest list one name,
+  `<registry>/<image_prefix>-<component>`, and signs it once; `tools/package_charts.py` packages each
+  chart once (`tranibor`, `tranibor-outpost`); `ci.yml` tags and signs `main`'s per-commit images under
+  `tranibor-*` only. The publishing identity loses `image_alias_prefix` (a definition that still carries
+  it is refused with the reason), and `Publishing.image_names` / `chart_names` become `image_name` /
+  `chart_name`, one name each.
+- **The defaults move with it**, since a default that names an image no release pushes is an install that
+  does not pull: every chart's `image.repository` default (`tranibor-api`, `-web`, `-orchestrator`,
+  `-tools`, `-laya`, the web search's relay, the outpost chart's) and `runner.image` (`tranibor-runner`),
+  the orchestrator's own default runner image, `compose.yaml`'s runner, the single-node proof's images,
+  the Tekton template, and the documentation's install commands (`oci://<registry>/charts/tranibor`).
+  The objects the chart renders do not follow its name, so a deployment that vendored `choregos` and
+  vendors `tranibor` renders the same objects (checked on 0.29.4 with the first operator's dev and prod
+  values: no line differs but the `# Source:` comments).
+- **Left as they are.** The versions already published under `choregos-*` stay on the registry, signed;
+  nothing is deleted. The reference policy `infra/policies/images.yaml` (and the operator's policies)
+  still admit `choregos-*` with the same signer, so that a pod still running a former-name image is not
+  refused by a policy applied before its upgrade: they drop them last, once the first release without
+  them is deployed, each in its own change. The native CLI files keep their names, `choregos-<platform>`:
+  no second name was ever published for them (the install scripts and the self-update know only those),
+  so there is nothing to stop; a rename needs the manifest to carry two names first.
+- **Guards** (`tests/charts/test_chart_names.py`, each red on the former tree): the release's manifest
+  job carries one name and signs once, and neither workflow names a former image or chart; the charts are
+  packaged under one name each; the chart's defaults, rendered, pull no former image, and every
+  `image.repository` / `image:` default of the charts and the orchestrator's runner image are the
+  published name; no tracked file but history and the reference policy names
+  `<registry>/choregos-<component>` or `<registry>/charts/choregos`.

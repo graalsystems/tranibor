@@ -34,6 +34,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import KnowledgeBase, KnowledgeSource, Organization, Project
@@ -365,19 +366,20 @@ async def _add_missing_sources(
         await record(session, SYSTEM, "knowledge.source.create", org_id=base.org_id,
                      target_type="knowledge_source", target_id=source.id, kind=source.kind,
                      via=birth.author)  # fmt: skip
-        after_commit(session, _sync_loop_starter(birth.org, source.id, source.interval_minutes))
+        after_commit(session, _sync_loop_starter(birth.org, source.id, source.interval_minutes, base.org_id))
 
 
-def _sync_loop_starter(org: str, source_id: str, minutes: int) -> Any:
+def _sync_loop_starter(org: str, source_id: str, minutes: int, org_id: str | None = None) -> Any:
     """Starts the source's loop, as `POST …/sources` does; the worker restarts a lost start."""
 
     async def start() -> None:
         from ..temporal import get_temporal, knowledge_sync_id
 
-        await get_temporal().start_knowledge_sync(
-            knowledge_sync_id(source_id),
-            {"org": org, "source_id": source_id, "interval_seconds": minutes * 60},
-        )
+        with organisation_scope(org_id):
+            await get_temporal().start_knowledge_sync(
+                knowledge_sync_id(source_id),
+                {"org": org, "source_id": source_id, "interval_seconds": minutes * 60},
+            )
 
     return start
 

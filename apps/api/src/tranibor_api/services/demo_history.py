@@ -14,7 +14,11 @@ workflow's own states and field validation), then marks every row `imported`.
   item keeps the digest of what it was imported from. The same document again writes nothing; an id that
   already holds other content is a 409, never a silent overwrite.
 - **Never mistaken for measured**: `imported` on the work item, its runs, its findings and its cost lines;
-  `imported_usd` in every cost report; no budget counts an imported line.
+  `imported_usd` in every cost report; no budget and no agent metric counts an imported line.
+- **A request may still wait** (`pending`): it is the same row a live step writes, so the inbox lists it
+  and the decision route decides it; the route passes the decision of an imported work item to no workflow
+  (`routers/workitems.py`), and refuses every control on it, so no interpreter ever starts for it.
+- **Removable** (`remove_history`): the marked rows of a project, and nothing else.
 
 The gate (`TRANIBOR_DEMO_HISTORY_IMPORT`, never in production) is the router's, `tranibor_core.production`.
 """
@@ -28,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import (
     DemoHistory,
@@ -50,6 +54,7 @@ from ..db.models import (
     CostLedger,
     Event,
     Finding,
+    HumanRequest,
     Membership,
     Project,
     Run,
@@ -58,7 +63,7 @@ from ..db.models import (
 )
 from ..errors import conflict, unprocessable
 from ..rbac import Principal
-from ..schemas import DemoHistoryCounts, DemoHistoryImport
+from ..schemas import DemoHistoryCounts, DemoHistoryImport, DemoHistoryRemoval
 from .definitions import workflow_model
 from .human_requests import new_human_request
 from .initiator import initiator
@@ -111,7 +116,12 @@ def cost_of(run: DemoRun, prices: dict[str, DemoPrice]) -> float:
 def digest_of(item: DemoWorkItem, workflow: str, prices: dict[str, DemoPrice]) -> str:
     """What an import of this work item stands for: its content, the workflow and the prices of its models."""
     used = {run.model: prices[run.model].model_dump() for run in item.runs if run.model in prices}
-    document = {"item": item.model_dump(mode="json"), "workflow": workflow, "prices": used}
+    dumped = item.model_dump(mode="json")
+    if dumped.get("pending") is None:
+        # A work item without a waiting request keeps the digest it had before `pending` existed: a document
+        # imported then is still the same document now, not a 409.
+        dumped.pop("pending", None)
+    document = {"item": dumped, "workflow": workflow, "prices": used}
     return hashlib.sha256(json.dumps(document, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -139,6 +149,7 @@ def _counts(item: DemoWorkItem) -> dict[str, int]:
         "runs": len(item.runs),
         "decisions": len(item.decisions),
         "findings": len(item.findings),
+        "pending": 1 if item.pending is not None else 0,
     }
 
 
@@ -168,7 +179,8 @@ def _refuse_duplicates(document: DemoHistory) -> None:
         seen.add(item.id)
         for kind, ids in (
             ("run", [r.id for r in item.runs]),
-            ("decision", [d.id for d in item.decisions]),
+            # A waiting request is a decision not taken yet: one id space with the decisions.
+            ("decision", [d.id for d in item.decisions] + ([item.pending.id] if item.pending else [])),
             ("finding", [f.id for f in item.findings]),
         ):
             for found in {i for i in ids if ids.count(i) > 1}:
@@ -197,6 +209,19 @@ def _states_of(item: DemoWorkItem, engine: WorkflowEngine, states: set[str]) -> 
             f"`state` of `{item.id}` is `{item.state}` and its history ends in `{last}`: they must agree"
         )
     return (item.state or last or engine.initial_state), list(item.history)
+
+
+def _check_pending(item: DemoWorkItem, engine: WorkflowEngine, state: str) -> None:
+    """A waiting request on a work item that can still wait: not ended, and not asked before it existed."""
+    if item.pending is None:
+        return
+    if engine.is_terminal(state):
+        raise unprocessable(
+            f"`pending` of `{item.id}`: the work item is in `{state}`, a terminal state, and an ended "
+            "work item waits for no one"
+        )
+    if _utc(item.pending.requested_at) < _utc(item.created_at):
+        raise unprocessable(f"`pending` of `{item.id}` is asked before the work item was created")
 
 
 async def _plan(session: AsyncSession, project: Project, document: DemoHistory) -> _Plan:
@@ -230,6 +255,7 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
 
     for item in document.work_items:
         state, history = _states_of(item, engine, states)
+        _check_pending(item, engine, state)
         for finding in item.findings:
             if finding.run is not None and finding.run not in {r.id for r in item.runs}:
                 raise unprocessable(
@@ -400,6 +426,30 @@ def _write_decisions(session: AsyncSession, project: Project, planned: _Planned,
         session.add(row)
 
 
+def _write_pending(session: AsyncSession, project: Project, planned: _Planned, item: WorkItem) -> None:
+    """The request that still waits: the row a live step writes, so the inbox lists it as any other.
+
+    No transition: no workflow runs the work item, so no actor is named and anyone who may decide in the
+    project may answer it. The payload says it was imported; the work item's own flag is what the decision
+    route reads (a payload is the workflow's to write, a column is not)."""
+    pending = planned.item.pending
+    if pending is None:
+        return
+    asked = _utc(pending.requested_at)
+    row = new_human_request(
+        work_item_id=item.id,
+        project_id=project.id,
+        transition_id=None,
+        kind=pending.kind,
+        payload={"summary": pending.summary, "question": pending.summary, "imported": True},
+    )
+    row.id = derived_id(project.id, "decision", planned.item.id, pending.id)
+    row.requested_at = asked
+    row.due_at = _utc(pending.due_at) if pending.due_at else asked + timedelta(hours=24)
+    row.created_at = asked
+    session.add(row)
+
+
 def _write_findings(session: AsyncSession, project: Project, planned: _Planned, item: WorkItem) -> None:
     for finding in planned.item.findings:
         row = Finding(
@@ -484,6 +534,7 @@ async def _write_item(
     item.totals = totals
     item.documents = {**(item.documents or {}), MARKER: {"id": source.id, "digest": planned.digest}}
     _write_decisions(session, project, planned, item)
+    _write_pending(session, project, planned, item)
     _write_findings(session, project, planned, item)
     await session.flush()
 
@@ -493,7 +544,7 @@ async def import_history(
 ) -> DemoHistoryImport:
     """Checks the whole document, then writes what the project does not hold yet; audits the import."""
     plan = await _plan(session, project, document)
-    created = {"work_items": 0, "runs": 0, "decisions": 0, "findings": 0}
+    created = {"work_items": 0, "runs": 0, "decisions": 0, "findings": 0, "pending": 0}
     unchanged = dict(created)
     cost_usd = 0.0
     for planned in plan.items:
@@ -522,3 +573,52 @@ async def import_history(
         unchanged=DemoHistoryCounts(**unchanged),
         cost_usd=round(cost_usd, 6),
     )
+
+
+async def _count(session: AsyncSession, model: Any, *where: Any) -> int:
+    return int((await session.execute(select(func.count()).select_from(model).where(*where))).scalar_one())
+
+
+async def remove_history(session: AsyncSession, principal: Principal, project: Project) -> DemoHistoryRemoval:
+    """Deletes what imports wrote into the project: the rows marked `imported`, and nothing else; audited.
+
+    The findings and the cost lines go first, by their own mark (their key to a work item is `SET NULL`, so a
+    work item's deletion would leave them behind, unattached); then the imported work items, whose runs,
+    requests and events go with them (`CASCADE`). A row that is not marked is never touched, whatever it
+    points at.
+    """
+    items = select(WorkItem.id).where(WorkItem.project_id == project.id, WorkItem.imported.is_(True))
+    cost_where = (CostLedger.project_id == project.id, CostLedger.imported.is_(True))
+    cost_usd = float(
+        (
+            await session.execute(
+                select(func.coalesce(func.sum(CostLedger.cost_usd), 0.0)).where(*cost_where)
+            )
+        ).scalar_one()
+    )
+    removed = DemoHistoryRemoval(
+        work_items=await _count(session, WorkItem, WorkItem.id.in_(items)),
+        runs=await _count(session, Run, Run.project_id == project.id, Run.imported.is_(True)),
+        requests=await _count(session, HumanRequest, HumanRequest.work_item_id.in_(items)),
+        findings=await _count(session, Finding, Finding.project_id == project.id, Finding.imported.is_(True)),
+        cost_lines=await _count(session, CostLedger, *cost_where),
+        cost_usd=round(cost_usd, 6),
+    )
+    await session.execute(delete(CostLedger).where(*cost_where))
+    await session.execute(delete(Finding).where(Finding.project_id == project.id, Finding.imported.is_(True)))
+    await session.execute(delete(Run).where(Run.project_id == project.id, Run.imported.is_(True)))
+    await session.execute(delete(HumanRequest).where(HumanRequest.work_item_id.in_(items)))
+    await session.execute(delete(Event).where(Event.work_item_id.in_(items)))
+    await session.execute(
+        delete(WorkItem).where(WorkItem.project_id == project.id, WorkItem.imported.is_(True))
+    )
+    await record(
+        session,
+        principal,
+        "demo_history.delete",
+        org_id=project.org_id,
+        target_type="project",
+        target_id=project.id,
+        **removed.model_dump(),
+    )
+    return removed

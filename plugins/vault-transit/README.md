@@ -29,6 +29,12 @@ manifest sense.
   rewrites). Tokens are registered with the platform's redaction.
 - `bind_context` sends the row's additional data as the transit `context` (key created with `derived=true`).
 - `FakeVault` (`fake.py`) is a scriptable transport that really encrypts; tests never need a Vault.
+- **Temporal data keys** ([ADR 0225](../../docs/adr/0225-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md)):
+  once the extension sets the store, the API and the workers wrap each organisation's Temporal data key with
+  the same transit key (no other setting). `choregos admin secrets rewrap` re-wraps them after a transit
+  rotation (through `decrypt` then `encrypt`, not transit `rewrap`: the data key passes through the process),
+  and `choregos admin temporal-keys shred` destroys an organisation's wrapped keys. Proven against a real Vault
+  1.18.5 dev server by `tests/live/test_vault_transit_temporal_keys_live.py`.
 
 Configuration is the environment, documented in `extension.py` and in
 [Deployment, "Connector secrets sealed under Vault"](../../docs/deployment.md#connector-secrets-sealed-under-vault-transit).
@@ -39,7 +45,9 @@ Configuration is the environment, documented in `extension.py` and in
   loop in a daemon thread, but `put` and `get_many` wait for it: each blocks the API's event loop for one
   Vault round trip per secret. Only `rewrap` is async end to end. Making the protocol async is a change of
   the seam, not done here.
-- Tested against `FakeVault`, written from Vault's documented API. No real Vault, no real Kubernetes
-  auth backend, no Vault namespaces or token renewal semantics beyond what the fake models.
+- Tested against `FakeVault`, written from Vault's documented API; the Temporal data keys' wrap, unwrap,
+  rotation, rewrap and shredding also against a real Vault 1.18.5 dev server with token auth
+  (`tests/live/test_vault_transit_temporal_keys_live.py`, skipped without `TRANIBOR_LIVE_VAULT_ADDR`). No real
+  Kubernetes auth backend, no Vault namespaces or token renewal semantics beyond what the fake models.
 - The wheel is built from this repository (`uv build --package tranibor-vault-transit`); the release
   workflow does not publish it, nor an image carrying it.

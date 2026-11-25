@@ -9,7 +9,7 @@ from httpx import AsyncClient
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
-async def test_validation_states_each_transition_in_plain_words(client: AsyncClient) -> None:
+async def test_validation_states_each_transition_in_plain_words(client: AsyncClient, admin: str) -> None:
     source = (ROOT / "demo/workflows/staffing.yaml").read_text(encoding="utf-8")
     response = await client.post("/api/v1/workflows/validate", json={"yaml": source})
     assert response.status_code == 200, response.text

@@ -50,7 +50,7 @@ class OrchestratorSettings(BaseSettings):
     #: starts the server if nothing answers); Tekton's former `choregos-tools` sidecar is gone with
     #: the Task it was in (S87-05).
     tools_mcp_url: str = "http://localhost:7777/mcp"
-    runner_image: str = PUBLISHING.image("choregos-runner", "1.0.0")
+    runner_image: str = PUBLISHING.image_name("runner") + ":1.0.0"
     #: The images a job step may name (ADR 0056), as JSON in `TRANIBOR_JOB_IMAGES`: name → reference,
     #: pinned by digest. A workflow names an image, never pulls one: the operator decides what runs.
     #: Each is built FROM the runner image — the runner is what runs the job's command.

@@ -37,6 +37,7 @@ from .neutral_names import change_request_of
 from .outposts import outposts_app
 from .plugins import plugin_app
 from .self_update import self_app
+from .temporal_keys import temporal_keys_app
 
 app = typer.Typer(
     add_completion=True, help="Tranibor — a work item comes in, a controlled release comes out."
@@ -57,6 +58,7 @@ secrets_app = typer.Typer(help="Sealed connector secrets")
 identity_app = typer.Typer(help="How people sign in to the instance")
 admin_app.add_typer(secrets_app, name="secrets")
 admin_app.add_typer(identity_app, name="identity")
+admin_app.add_typer(temporal_keys_app, name="temporal-keys")
 app.add_typer(orgs_app, name="orgs")
 app.add_typer(tokens_app, name="tokens")
 app.add_typer(machines_app, name="machines")
@@ -1120,8 +1122,29 @@ def demo_import(
         f"{created['decisions']} decisions, {created['findings']} findings "
         f"(${answer['cost_usd']:.2f} declared, not measured)"
     )
+    if created.get("pending"):
+        console.print(f"waiting for a person, in the inbox: {created['pending']} requests")
     if any(unchanged.values()):
         console.print(f"already there, left as they were: {unchanged['work_items']} work items")
+
+
+@demo_app.command("remove")
+def demo_remove(
+    project: Annotated[str, typer.Argument(help="The project: `org/slug` or its id.")],
+) -> None:
+    """Remove what demonstration history imports wrote into a project, and nothing else.
+
+    Only the rows marked imported go: the work items with their runs, requests and events, the findings
+    and the cost lines. The import's gate applies (the organisation administrator,
+    `TRANIBOR_DEMO_HISTORY_IMPORT=1`, outside staging and prod); the removal is audited, and a second one
+    removes nothing.
+    """
+    removed = client().delete(f"/projects/{project}/demo-history")
+    console.print(
+        f"removed: {removed['work_items']} work items, {removed['runs']} runs, "
+        f"{removed['requests']} requests, {removed['findings']} findings, {removed['cost_lines']} cost lines "
+        f"(${removed.get('cost_usd', 0.0):.2f} declared)"
+    )
 
 
 @dev_app.command("up")

@@ -1,9 +1,11 @@
 # 0216 — A demonstration history is taken in through the API, and marked imported
 
-- **Status**: accepted, 2026-11-24
+- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11)
 - **Concerns**: `apps/api` (`routers/demo_history.py`, `services/demo_history.py`, `rbac.py`, `services/budgets.py`,
-  `routers/costs.py`), `packages/contracts` (`demo-history.schema.json`, `DemoHistory`, `openapi.yaml`),
-  `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`); follows
+  `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`), `apps/web`
+  (`components/imported-badge.tsx`), `packages/contracts` (`demo-history.schema.json`, `DemoHistory`,
+  `openapi.yaml`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
+  remove`); follows
   [ADR 0212](0212-the-api-can-run-the-workers-inline-for-a-demonstration.md) and
   [ADR 0213](0213-the-demonstration-mcp-server-is-the-fakes-with-tools-declared-in-a-file.md)
 
@@ -56,10 +58,40 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
   a new "import" path that skips validation (a demo that a live ticket could not reach would teach the wrong
   thing); a separate table of imported cost (the reports and exports would need a second source).
 
+## Amendment, 2026-11-25: a request that still waits, the badge, the removal, the metrics
+
+7. **A request may still wait** (`pending`, one per work item, `approval`, `question` or `scope_change`): the
+   import writes the `human_requests` row a live step writes, without a transition, so the inbox
+   (`pending_request`, `GET /me/pending`) lists it and anyone who may decide in the project answers it through
+   `POST /work-items/{id}/decisions`. Refused (422) on a work item in a terminal state, asked before the work
+   item was created, or under the id of one of its decisions. A `task` is not importable: its form writes the
+   work item's fields.
+8. **Deciding an imported request does nothing but record it.** The decision route reads the work item's
+   `imported` column (the import's alone to set; a request's payload is not trusted) and, for an imported work
+   item, passes the decision to no interpreter: the request is decided, the `human_decided` event and the
+   `workitem.decision` audit entry carry `imported: true`, and nothing follows — no agent runs, nothing is
+   written outside the platform, the work item stays in its state. Rejected: moving the work item along a
+   transition the document would declare (a state the workflow did not reach, written by no workflow).
+   `POST /work-items/{id}/actions` refuses every action on an imported work item (409), so `mark_agent_ready`
+   can never start an interpreter, and its agents, on a past nobody lived.
+9. **The console marks it**: an *Imported* badge on the board's cards, the ticket's page and its runs, the run's
+   page, the agent's runs, the findings and the inbox; the ticket's page and the inbox say what deciding an
+   imported request does.
+10. **Removable**: `DELETE /projects/{id}/demo-history` and `tranibor demo remove` delete the rows marked
+    `imported` in the project — the work items with their runs, requests, decisions and events (cascade), and
+    the findings and cost lines by their own mark — and nothing else; the import's gate (permission
+    `demo_history:import`, opt-in, never `staging` or `prod`); audited as `demo_history.delete` with the counts.
+11. **Out of the agents' metrics**: `getAgentMetrics` and `listAgentMetrics` count no imported run and no
+    imported cost line, and neither does the agent's spend (`spend_since`), which its daily and monthly budgets
+    read. The DORA measures read deployments and releases, which an import never writes: nothing to exclude.
+    The minimal option was chosen over a label in the response: a demonstration that showed an agent's lived
+    metrics made of declared numbers would teach the wrong thing, and the history is still listed, marked.
+
 ## Not done
 
-- The console shows no "imported" badge yet (the API serves the flag; `imported_usd` is in the Spend page's data).
-- Agent metrics, the DORA measures and the other readers of the ledger count imported lines as spend: only the
-  budgets and their alerts exclude them.
-- No removal of an imported history; delete the work items, or the project.
+- The Prometheus gauges (`metrics.py`: run counts, cost by project, today's cost, lead time) and the other
+  readers of the ledger (exports, member spend) still count imported rows; the cost reports show them apart
+  (`imported_usd`).
+- A finding imported as `pending` can still be turned into a live work item ("Create the ticket"), which runs
+  as any live one: that is a person's choice, not the import's.
 - No version of the document beyond `v1`; a run's tool calls, artifacts and transcripts are not importable.

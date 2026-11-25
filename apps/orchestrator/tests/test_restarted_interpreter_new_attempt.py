@@ -30,7 +30,8 @@ FAILURE = StageResult(status=StageStatus.FAILED, summary="the smoke test failed"
 
 #: The tail of `dev-simple` the dev tenant's work items stood in, on the core's gates: `t-verify-prod`
 #: from `live`, one attempt, then a person. How the change reached production (`dev-simple`'s pull
-#: request and release train, the `software-delivery` plugin's) is not this test's: a person says so.
+#: request and release train, the `software-delivery` plugin's) is not this test's: a person says so. The
+#: agent holds the core's `verify` role: `verify_prod` and its playbook are the plugin's (S83-12).
 VERIFY_IN_PRODUCTION = """\
 apiVersion: choregos/v1
 kind: Workflow
@@ -40,7 +41,7 @@ metadata:
   description: A change in production is verified by an agent, read-only.
 initial: inbox
 actors:
-  prod_verifier: { type: agent, role: verify_prod, model: "profile:standard" }
+  prod_verifier: { type: agent, role: verify, model: "profile:standard" }
   maintainers: { type: human, group: maintainers, sla_hours: 24 }
 states:
   inbox: { display: To verify, kind: wait, tracker: { status: Todo } }

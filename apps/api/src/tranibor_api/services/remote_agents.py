@@ -49,6 +49,10 @@ async def read_card(url: str) -> AgentCard:
         raise unprocessable(f"the agent card cannot be used: {exc}") from exc
     except httpx.HTTPError as exc:
         raise unprocessable(f"the agent card is unreachable ({type(exc).__name__})") from exc
+    except (httpx.InvalidURL, ValueError) as exc:
+        # A URL that parses as https but names no usable host (a space, a wildcard): the egress guard and
+        # the HTTP client refuse it with a ValueError, which used to end as a 500.
+        raise unprocessable(f"the agent card URL cannot be used: {exc}") from exc
 
 
 async def credential_named(session: AsyncSession, org_id: str, name: str) -> RemoteCredential | None:

@@ -3,7 +3,7 @@ image:
   # Empty: `global.imageRegistry`. Another registry — the `-ee` images of the enterprise edition,
   # served by a private project — is set here, component by component.
   registry: ""
-  repository: choregos-orchestrator
+  repository: tranibor-orchestrator
   tag: ""
   digest: ""
 # What one worker pod takes on at once (S80-07a): see the umbrella chart's values.
@@ -26,7 +26,7 @@ queues:
     replicas: 1
     resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
 runner:
-  image: choregos-runner
+  image: tranibor-runner
   # Empty, like `image.tag` just above: the tag follows `global.imageTag`. It used to be `1.0.0`
   # hardcoded — a version that exists in no installation — and only held because
   # the umbrella rewrote it to `""`. The day that rewrite disappeared (2026-09-27, a slightly

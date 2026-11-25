@@ -198,6 +198,53 @@ Options:
   --help  Show this message and exit.
 ```
 
+## `choregos admin temporal-keys`
+
+An organisation's Temporal data keys: list, rotate, shred (ADR 0225)
+
+### `choregos admin temporal-keys list`
+
+```text
+Usage: choregos admin temporal-keys list [OPTIONS]
+
+  The organisation's Temporal data keys: id, state, wrapping key, dates.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `choregos admin temporal-keys rotate`
+
+```text
+Usage: choregos admin temporal-keys rotate [OPTIONS]
+
+  A new data key for the organisation's new Temporal payloads; the retired
+  ones still open theirs.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `choregos admin temporal-keys shred`
+
+```text
+Usage: choregos admin temporal-keys shred [OPTIONS]
+
+  Destroy every Temporal data key of the organisation: its Temporal payloads
+  can never be read again.
+
+  Irreversible. Terminate the organisation's open workflows first: they fail
+  their next task.
+
+Options:
+  --reason <str>   why, kept in the audit log  [required]
+  --confirm <str>  the organisation's slug again; asked for when absent
+  --org <str>      the organisation; the profile's otherwise
+  --help           Show this message and exit.
+```
+
 ## `choregos artifacts`
 
 A work item's artefacts, your inbox and a run's diff: list, download, open, compare.
@@ -488,6 +535,26 @@ Usage: choregos demo import [OPTIONS] {project} {file}
 Arguments:
   project  The project: `org/slug` or its id.  [required]
   file     A demonstration history, YAML or JSON.  [required]
+
+Options:
+  --help  Show this message and exit.
+```
+
+### `choregos demo remove`
+
+```text
+Usage: choregos demo remove [OPTIONS] {project}
+
+  Remove what demonstration history imports wrote into a project, and nothing
+  else.
+
+  Only the rows marked imported go: the work items with their runs, requests
+  and events, the findings and the cost lines. The import's gate applies (the
+  organisation administrator, `TRANIBOR_DEMO_HISTORY_IMPORT=1`, outside
+  staging and prod); the removal is audited, and a second one removes nothing.
+
+Arguments:
+  project  The project: `org/slug` or its id.  [required]
 
 Options:
   --help  Show this message and exit.

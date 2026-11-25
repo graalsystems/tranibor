@@ -1,5 +1,5 @@
 enabled: true
 image:
-  repository: choregos-tools
+  repository: tranibor-tools
   tag: ""
   digest: ""

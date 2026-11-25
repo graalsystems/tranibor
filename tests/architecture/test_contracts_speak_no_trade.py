@@ -139,7 +139,6 @@ ALLOWED: dict[str, dict[str, int]] = {
         "branch": 2,
         "ci": 2,
         "coverage": 1,
-        "max_diff": 2,
         "release_train": 1,
         "repo": 16,
         "repositories": 2,
@@ -275,6 +274,7 @@ def test_the_excluded_delivery_module_holds_only_the_plugin_s_sections() -> None
         "_same_url",
         "refuse_former_project",
         "refuse_former_policy",
+        "refuse_former_ceiling",
         "stage_section",
     }
 
