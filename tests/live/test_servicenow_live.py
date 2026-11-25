@@ -16,12 +16,17 @@ the instance with the integration user of the plugin's procedure:
 
 Every record it files carries `[choregos-live <run>]` in its title and is left resolved; the plugin's own
 live suite (`server/tests/live`) deletes its records when given a cleanup user, this one does not hold
-one. First run: a Personal Developer Instance of the Australia release, patch 7, 2026-11-21.
+one. It files in `TRANIBOR_LIVE_SERVICENOW_GROUP` (`Service Desk` by default), the group the server's
+`SERVICENOW_ASSIGNMENT_GROUPS` must name: on an instance a deployment also watches, a group it does not,
+or its triage project opens the suite's incidents as work items and moves them while the suite does
+(graalsystems/tranibor-agents#66). First run: a Personal Developer Instance of the Australia release,
+patch 7, 2026-11-21.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -42,7 +47,7 @@ pytestmark = pytest.mark.live
 
 RUN = uuid4().hex[:8]
 TAG = f"[choregos-live {RUN}]"
-GROUP = "Service Desk"
+GROUP = os.environ.get("TRANIBOR_LIVE_SERVICENOW_GROUP") or "Service Desk"
 
 
 @pytest.fixture

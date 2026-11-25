@@ -2277,6 +2277,8 @@ gives the administrator's password; sign in at `global.publicUrl` as the first b
 (requests 250m and 768 MiB, limit 2 GiB) and RustFS (requests 100m and 256 MiB, 20 GiB volume); the PostgreSQL volume
 is 50 GiB, the backup volume 50 GiB. The volumes use the default StorageClass.
 
+**What one node serves.** The only load measurement is [Load testing](load-testing.md): one API process on 4 shared vCPUs, in fakes mode, answered about 13 requests per second of the console's read mix before slowing (the board's p95 passed one second at about 10 concurrent users). It says nothing about the 8 vCPU profile above, a cluster, real models or high availability: size from your own run of `tools/load/single_node_load.py`, not from that page.
+
 **What is not production-grade.** Single replicas everywhere, no high availability, no rolling upgrade of the
 volumes' owners (`Recreate`). The recovery point is the backup interval (24 h), and the backup lands on a volume
 of the same cluster until `backup.target` points off it (`kind: s3`). The backup pod mounts the embedded volumes

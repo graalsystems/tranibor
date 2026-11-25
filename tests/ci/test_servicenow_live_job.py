@@ -82,6 +82,16 @@ def test_the_server_image_and_the_plugin_source_are_pinned() -> None:
     assert agents[0]["with"]["ref"] == "${{ env.AGENTS_REF }}"
 
 
+def test_both_suites_file_in_a_group_no_deployment_watches() -> None:
+    """graalsystems/tranibor-agents#66: a deployment's triage project watches the instance's Service Desk; it
+    opened the suites' incidents as work items and reopened one a second after the suite resolved it."""
+    group = str(_job()["env"]["TRANIBOR_LIVE_SERVICENOW_GROUP"])
+    assert group and group != "Service Desk", group
+    runs = [str(s.get("run", "")) for s in _job()["steps"]]
+    served = [r for r in runs if "$SERVICENOW_IMAGE" in r]
+    assert served and 'SERVICENOW_ASSIGNMENT_GROUPS="$TRANIBOR_LIVE_SERVICENOW_GROUP"' in served[0]
+
+
 def test_both_suites_run_and_every_step_past_the_gate_waits_for_it() -> None:
     steps = _job()["steps"]
     assert steps[0].get("id") == "gate", "the gate decides before anything is checked out"
