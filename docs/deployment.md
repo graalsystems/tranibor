@@ -23,6 +23,50 @@ and an optional MCP tools sidecar — plus four dependencies it can either **emb
 Optional but recommended in production: a model gateway (LiteLLM), a memory service
 (Ecphoria), Tekton for CI, Argo CD for CD, gVisor as a `RuntimeClass` for agent sandboxes.
 
+## Before installing: check the cluster
+
+The chart can only assume what the cluster gives: `helm template` and Argo CD render offline, where a
+`lookup` answers nothing. `tranibor cluster check` asks the cluster itself, through your kubeconfig's
+current context (or `--context`), before the first install:
+
+```bash
+tranibor cluster check -f my-values.yaml          # the settings come from the values you will install
+tranibor cluster check --executor k8s_job --no-monitoring --json
+```
+
+| Check | Fails when | The fix it names |
+| :-- | :-- | :-- |
+| `kubernetes-version` | the API server is older than 1.29 (native sidecars: the agent's own container, hosted agents) | upgrade the control plane, then the nodes |
+| `agent-sandbox-crds`, `agent-sandbox-version` | `executor: agent_sandbox` and the operator's `v1beta1` APIs are not served, or its controller is not the pinned v1.0.6 | install the pinned operator (`infra/operators/agent-sandbox`), or `global.runner.executor: k8s_job` |
+| `runtime-class` | `global.runner.runtimeClass` names a class the cluster lacks (it lists the ones it has) | install the runtime and its class, or leave the setting empty |
+| `default-storage-class` | no StorageClass is marked default | the `kubectl patch storageclass` line, or a provisioner |
+| `monitoring-crds` | `monitoring.serviceMonitor` or `alerts` is on and the flavour's CRDs are absent | install the operator's CRDs, or turn both off |
+| `network-policy-enforced` | the API server accepts a deny policy and the pod it denies still reaches a server pod | a CNI that enforces NetworkPolicy (Calico, Cilium, the provider's setting) |
+| `egress-gate` | a new pod with the runner's labels and policy still reaches the gate's `target` at its deadline: every agent pod would exit 115 ([The egress gate](#the-egress-gate)) | the same engine, or a longer `deadlineSeconds` |
+| `object-store` | given an endpoint (`--object-store-endpoint`, or `global.objectStore.endpoint` when not embedded), a pod cannot open a connection to it | the endpoint and the firewall between them |
+
+A check that does not apply to the settings (another executor, no RuntimeClass, monitoring off, the gate
+off, no endpoint) says `not applicable` and why. The command exits 1 when any check fails, 2 when it cannot
+reach the API server.
+
+The last three checks need pods, so the command creates one namespace of its own
+(`tranibor-preflight-…`), a NetworkPolicy that mirrors `choregos-runner-egress` (DNS to `kube-system`,
+nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
+under no policy (the baseline: without it, "denied" could mean "down"), and a probe with the runner pods'
+labels, which runs the egress gate's own loop (three failed attempts in a row, one-second connection
+timeouts, 0.25 s apart) against the gate's target, then against the server. The namespace is deleted at the
+end, failure or not. The pods' image is `registry.k8s.io/e2e-test-images/agnhost:2.56`, the Kubernetes
+project's network test image; `--probe-image` names a mirror where the nodes cannot pull it, and
+`--read-only` starts no pod at all (the three checks are then not applicable). The account needs to read
+the cluster's APIs, Deployments, RuntimeClasses and StorageClasses, and to create and delete a namespace.
+
+What it was run on (2026-11-25, kind v0.30.0, node image v1.34.0): with kind's default `kindnet`,
+`network-policy-enforced` fails ("NetworkPolicy is not enforced") and `egress-gate` fails (`1.1.1.1:443`
+still reached after 30 s); with Calico v3.28.2 (as `make cluster-up` installs it), both pass, the gate
+closed after 3.5 s with no attempt through. `tests/cluster/test_cluster_preflight.py` holds both outcomes.
+A Helm test hook is not shipped: run from inside the release, the check would need a service account
+allowed to create a namespace and to read cluster-scoped APIs, rights the chart grants nobody.
+
 ## Install
 
 ```bash
