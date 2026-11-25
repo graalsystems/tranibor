@@ -19,6 +19,12 @@ that spells both forms of each family, so no other module writes the former name
 * (R9a) the run workspace: `.tranibor/` inside a step's sandbox, formerly `.choregos/` (`run_path`,
   `run_paths`, `run_relative`); the stage documents' `schema`: `tranibor/<Name>/v1`, formerly
   `choregos/<Name>/v1` (`schema_id`, `schema_ids`).
+* (round R9c) what the product shows, posts or loads at a tracker, a chat tool, a plugin or a subscriber:
+  the A2A task's metadata key, the tracker comment command `/tranibor …`, the tracker state labels
+  `tranibor:<state>` (and GitLab's scoped `tranibor::<state>`), the check runs `tranibor/<check>`, the
+  chat buttons' `action_id`, the MCP client's `clientInfo.name`, the internal event types
+  `tranibor.<object>.<event>` and the Python entry-point groups `tranibor.plugins`, `tranibor.migrations`
+  and `tranibor.procedures`.
 
 The former forms are removed in the minor that closes the window, in their own PR (ADR 0226 §1).
 """
@@ -27,8 +33,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from importlib import metadata
+from typing import Any
 
 __all__ = [
+    "A2A_METADATA_KEY",
+    "A2A_METADATA_KEYS",
     "A2A_SKILL_FIELDS_EXTENSION",
     "A2A_SKILL_FIELDS_EXTENSIONS",
     "ACCESS_KEY",
@@ -36,9 +46,15 @@ __all__ = [
     "ANY_MARKER",
     "API_VERSION",
     "API_VERSIONS",
+    "CHAT_ACTION_PREFIXES",
+    "COMMAND_WORDS",
+    "EVENT_TYPE_PREFIX",
+    "EVENT_TYPE_PREFIXES",
+    "FORMER_A2A_METADATA_KEY",
     "FORMER_A2A_SKILL_FIELDS_EXTENSION",
     "FORMER_ACCESS_KEY",
     "FORMER_API_VERSION",
+    "FORMER_EVENT_TYPE_PREFIX",
     "FORMER_KUBE_API_VERSION",
     "FORMER_MCP_SERVER_NAME",
     "FORMER_NAME",
@@ -48,6 +64,7 @@ __all__ = [
     "GROUP_PREFIXES",
     "KUBE_API_VERSION",
     "KUBE_API_VERSIONS",
+    "MCP_CLIENT_NAME",
     "MCP_SERVER_NAME",
     "MCP_SERVER_NAMES",
     "NAME",
@@ -58,10 +75,19 @@ __all__ = [
     "RUN_DIRECTORY",
     "SCHEMA_ID_BASE",
     "SCHEMA_ID_BASES",
+    "STATE_LABEL_PREFIXES",
+    "a2a_metadata",
     "both_headers",
     "carries_marker",
+    "chat_action",
+    "chat_action_name",
+    "check_names",
     "cookie",
     "cookie_names",
+    "entry_point_groups",
+    "entry_points",
+    "event_type",
+    "event_type_twins",
     "former_cookie",
     "former_header",
     "former_label",
@@ -74,12 +100,14 @@ __all__ = [
     "header_names",
     "is_api_version",
     "is_kube_api_version",
+    "is_state_label",
     "label",
     "label_keys",
     "labels_with_former",
     "marker",
     "marker_twins",
     "markers",
+    "read_a2a_metadata",
     "read_access",
     "read_cookie",
     "read_header",
@@ -89,6 +117,8 @@ __all__ = [
     "run_relative",
     "schema_id",
     "schema_ids",
+    "state_label",
+    "state_label_twins",
     "strip_group_prefix",
     "with_twin_headers",
 ]
@@ -417,3 +447,132 @@ def schema_ids(name: str) -> tuple[str, str]:
     """Both ids of one stage document, the new one first: either is accepted on input, and a stored
     document keeps the one it was written with."""
     return schema_id(name), f"{FORMER_NAME}/{name}/v1"
+
+
+# ─── round R9c: what the product shows, posts and loads ─────────────────────────────────────────────
+
+
+def _twin_prefix(value: str, new: str, former: str) -> tuple[str, ...]:
+    """Both forms of `value` when it starts with `new` or `former`, the new one first; else itself."""
+    if value.startswith(new):
+        return value, former + value.removeprefix(new)
+    if value.startswith(former):
+        return new + value.removeprefix(former), value
+    return (value,)
+
+
+#: The key of the platform's own block in an A2A task's (and artefact's, and message's) `metadata`. Clients
+#: of the previous release read `metadata.choregos`, so the A2A door writes the block under both keys for
+#: the window, and reads a caller's under either.
+A2A_METADATA_KEY = NAME
+FORMER_A2A_METADATA_KEY = FORMER_NAME
+A2A_METADATA_KEYS = (A2A_METADATA_KEY, FORMER_A2A_METADATA_KEY)
+
+
+def a2a_metadata(block: Mapping[str, Any]) -> dict[str, Any]:
+    """`{"tranibor": block, "choregos": block}`: the platform's block of an A2A `metadata`, under both keys
+    (two equal copies, so a client that reads either finds the same values)."""
+    return {A2A_METADATA_KEY: dict(block), FORMER_A2A_METADATA_KEY: dict(block)}
+
+
+def read_a2a_metadata(meta: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The platform's block of an A2A `metadata` under its new key, else its former one, else `{}`."""
+    for key in A2A_METADATA_KEYS:
+        block = (meta or {}).get(key)
+        if isinstance(block, Mapping):
+            return dict(block)
+    return {}
+
+
+#: The word of a tracker comment command: `/tranibor approve`, formerly `/choregos approve` (both parsed).
+COMMAND_WORDS = (NAME, FORMER_NAME)
+
+#: A tracker state label: `tranibor:<state>` (GitLab's scoped `tranibor::<state>` starts the same way),
+#: formerly `choregos:<state>`. Labels are stored state at the tracker: an issue labelled before the
+#: upgrade keeps its former label until its next state change, which removes it with the previous one.
+STATE_LABEL_PREFIXES = (f"{NAME}:", f"{FORMER_NAME}:")
+
+
+def state_label(state: str) -> str:
+    """`tranibor:<state>`: the label a state the workflow does not label itself is written under."""
+    return f"{NAME}:{state}"
+
+
+def is_state_label(name: str) -> bool:
+    """Whether a tracker label is a platform state label, under either prefix (`:` or GitLab's `::`)."""
+    return name.startswith(STATE_LABEL_PREFIXES)
+
+
+def state_label_twins(name: str) -> tuple[str, ...]:
+    """Both forms of a state label (`tranibor:implement`, `choregos:implement`), the new one first; a label
+    under neither prefix is its own only form."""
+    return _twin_prefix(name, f"{NAME}:", f"{FORMER_NAME}:")
+
+
+def check_names(check: str) -> tuple[str, str]:
+    """`(tranibor/<check>, choregos/<check>)`: a check run or commit status the platform posts on a pull
+    request. Both are posted for the window, because a branch protection may require the former by name."""
+    return f"{NAME}/{check}", f"{FORMER_NAME}/{check}"
+
+
+#: The `action_id` prefix of a chat message's buttons (Slack): `tranibor:<id>`, formerly `choregos:<id>`.
+CHAT_ACTION_PREFIXES = (f"{NAME}:", f"{FORMER_NAME}:")
+
+
+def chat_action(action: str) -> str:
+    """`tranibor:<action>`: the `action_id` the platform gives a button it posts."""
+    return f"{NAME}:{action}"
+
+
+def chat_action_name(action_id: str) -> str | None:
+    """The platform's action of a button's `action_id` under either prefix (a message posted before the
+    upgrade carries the former), `None` for a button that is not the platform's."""
+    for prefix in CHAT_ACTION_PREFIXES:
+        if action_id.startswith(prefix):
+            return action_id.removeprefix(prefix)
+    return None
+
+
+#: The `clientInfo.name` the platform's MCP client announces to a server.
+MCP_CLIENT_NAME = NAME
+
+#: An internal event's type (CloudEvents `type`): `tranibor.<object>.<event>`, formerly `choregos.…`.
+#: Events are emitted under the new type only; an event stored or published under the former one is read
+#: as the new one (`event_type`), and a filter written with either spelling matches both.
+EVENT_TYPE_PREFIX = f"{NAME}."
+FORMER_EVENT_TYPE_PREFIX = f"{FORMER_NAME}."
+EVENT_TYPE_PREFIXES = (EVENT_TYPE_PREFIX, FORMER_EVENT_TYPE_PREFIX)
+
+
+def event_type(value: object) -> str:
+    """The type `value` under its new name (`choregos.run.finished` -> `tranibor.run.finished`); any other
+    string as it is."""
+    text = str(value)
+    if text.startswith(FORMER_EVENT_TYPE_PREFIX):
+        return EVENT_TYPE_PREFIX + text.removeprefix(FORMER_EVENT_TYPE_PREFIX)
+    return text
+
+
+def event_type_twins(value: object) -> tuple[str, ...]:
+    """Both spellings of an event type, the new one first: what a query on stored events matches, since
+    rows written before the upgrade carry the former."""
+    return _twin_prefix(event_type(value), EVENT_TYPE_PREFIX, FORMER_EVENT_TYPE_PREFIX)
+
+
+def entry_point_groups(group: str) -> tuple[str, ...]:
+    """Both names of a Python entry-point group (`tranibor.plugins`, `choregos.plugins`), the new first."""
+    return _twin_prefix(group, f"{NAME}.", f"{FORMER_NAME}.")
+
+
+def entry_points(group: str) -> list[metadata.EntryPoint]:
+    """The entry points of `group` under its new name and its former one, the new group first, each name
+    once: a package installed from outside the repository may still register under the former group, and
+    one that registers under both is loaded once."""
+    found: list[metadata.EntryPoint] = []
+    seen: set[str] = set()
+    for name in entry_point_groups(group):
+        for point in metadata.entry_points(group=name):
+            if point.name not in seen:
+                seen.add(point.name)
+                found.append(point)
+    return found

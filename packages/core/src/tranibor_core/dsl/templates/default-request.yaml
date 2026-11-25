@@ -12,7 +12,7 @@ actors:
   owner: { type: human, group: product-owners, sla_hours: 24 }
   assistant: { type: agent, role: deliver, model: "profile:by_size" }
 states:
-  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "choregos:inbox" } }
+  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "tranibor:inbox" } }
   refining: { display: Refining, tracker: { status: Refining } }
   awaiting_brief_approval: { display: Brief to approve, kind: wait, tracker: { status: Needs review } }
   ready: { display: Ready, tracker: { status: Ready } }

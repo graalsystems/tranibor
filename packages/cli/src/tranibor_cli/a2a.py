@@ -5,7 +5,8 @@ The door is A2A 0.3.0 JSON-RPC at `/a2a/orgs/<org>` (ADR 0078); `docs/starting-a
 says what each call does. This module is the CLI's own small client of that door rather than
 `tranibor_adapters.a2a.A2aClient`: the CLI depends on `tranibor-core` and httpx only, and the adapters'
 client parses a task into dataclasses that drop what a script reads here (the raw task for `--json`,
-`error.data.errors`, `metadata.choregos`), and has neither the card nor `tasks/resubscribe`.
+`error.data.errors`, `metadata.tranibor`, or the former `metadata.choregos`), and has neither the card
+nor `tasks/resubscribe`.
 
 Exit codes of the commands that wait for the end: 0 completed, 3 failed (or rejected), 4 canceled,
 1 when the door refused a call or could not be reached, 130 when interrupted.
@@ -386,21 +387,21 @@ class Printer:
     @staticmethod
     def mark(result: dict[str, Any]) -> tuple[str, str, Any]:
         """What makes a status worth a line: the A2A state, the workflow's state, the request."""
-        choregos = (result.get("metadata") or {}).get("choregos") or {}
+        platform = wire.read_a2a_metadata(result.get("metadata"))
         return (
             state_of(result),
-            str(choregos.get("state") or ""),
+            str(platform.get("state") or ""),
             (decision_of(result) or {}).get("request_id"),
         )
 
     def __call__(self, result: dict[str, Any]) -> None:
-        choregos = (result.get("metadata") or {}).get("choregos") or {}
+        platform = wire.read_a2a_metadata(result.get("metadata"))
         decision = decision_of(result)
         mark = self.mark(result)
         if mark == self.seen:
             return
         self.seen = mark
-        where = f" (workflow state `{choregos['state']}`)" if choregos.get("state") else ""
+        where = f" (workflow state `{platform['state']}`)" if platform.get("state") else ""
         self.out.print(f"· {mark[0]}{where}", markup=False, highlight=False, soft_wrap=True)
         if decision:
             self.out.print(
@@ -421,7 +422,7 @@ def save_artifacts(task: dict[str, Any], directory: Path) -> list[tuple[str, Pat
     written: list[tuple[str, Path | None, str]] = []
     for artifact in task.get("artifacts") or []:
         name = str(artifact.get("name") or artifact.get("artifactId") or "artifact")
-        described = ((artifact.get("metadata") or {}).get("choregos") or {}).get("content")
+        described = wire.read_a2a_metadata(artifact.get("metadata")).get("content")
         if described:
             written.append((name, None, str(described)))
             continue
@@ -503,12 +504,12 @@ def _print_json(value: Any) -> None:
 
 
 def _summary(task: dict[str, Any], out: Console) -> None:
-    choregos = (task.get("metadata") or {}).get("choregos") or {}
-    key = f", {choregos['key']}" if choregos.get("key") else ""
-    where = f", workflow state `{choregos['state']}`" if choregos.get("state") else ""
+    platform = wire.read_a2a_metadata(task.get("metadata"))
+    key = f", {platform['key']}" if platform.get("key") else ""
+    where = f", workflow state `{platform['state']}`" if platform.get("state") else ""
     out.print(f"task {task.get('id')} — {state_of(task)}{key}{where}", markup=False, highlight=False)
-    if choregos.get("console_url"):
-        out.print(f"  console: {choregos['console_url']}", markup=False, highlight=False, soft_wrap=True)
+    if platform.get("console_url"):
+        out.print(f"  console: {platform['console_url']}", markup=False, highlight=False, soft_wrap=True)
     decision = decision_of(task)
     if decision:
         out.print(

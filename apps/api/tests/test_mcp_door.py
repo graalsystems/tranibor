@@ -241,7 +241,8 @@ async def test_an_external_tracker_files_the_issue_through_mcp(
     ]
     assert result.get("isError") is not True, result
     assert result["structuredContent"]["key"] == "billing-api#1"
-    assert "source:choregos" in fake.items["billing-api#1"].labels
+    labels = fake.items["billing-api#1"].labels
+    assert "source:tranibor" in labels and "source:choregos" in labels, "both until 0.32.0 (ADR 0226, R9c)"
 
 
 async def test_a_token_bound_to_a_project_sees_only_that_project(

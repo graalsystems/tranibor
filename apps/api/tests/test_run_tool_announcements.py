@@ -4,7 +4,7 @@
 `annotations.readOnlyHint`, the platform's `x-choregos-access` (`read`, `write`, `approval`) and the
 `outputSchema` an operation declares: what the generated client of a script reads (S57-08).
 `callRunTool` reads `X-Choregos-Tool-Origin` and `X-Choregos-Script` and records them on
-`choregos.tool.called` (and, since S57-06, on the ledger line and the span); nothing else reads them.
+`tranibor.tool.called` (and, since S57-06, on the ledger line and the span); nothing else reads them.
 """
 
 from __future__ import annotations
@@ -190,7 +190,7 @@ async def _call(
     )
     async with session_scope() as session:
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     return response, [dict(e.payload) for e in events if e.subject == run_id]
 

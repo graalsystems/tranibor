@@ -155,7 +155,7 @@ async def test_a_parked_ticket_migrates_and_ends_on_its_new_definition(
         assert item.workflow_def_id == arrival, "the pin follows: a continue_as_new would reload the target"
         assert item.failure is None
     (migration,) = await _events(setup)
-    assert migration.type == "choregos.workitem.migrated"
+    assert migration.type == "tranibor.workitem.migrated"
     assert (migration.payload["from_state"], migration.payload["to_state"]) == ("parked", "request")
 
     # The new history replays against the current code, and is archived for those to come.
@@ -195,7 +195,7 @@ async def test_an_impossible_migration_leaves_the_ticket_alive(
 
     assert result["state"] == "parked"
     (refusal,) = await _events(setup)
-    assert refusal.type == "choregos.workitem.migration_refused"
+    assert refusal.type == "tranibor.workitem.migration_refused"
     assert "parked" in refusal.payload["reason"]
     async with session_scope() as session:
         item = await session.get(WorkItem, setup.work_item_id)

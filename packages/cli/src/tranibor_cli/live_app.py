@@ -479,7 +479,7 @@ class LiveFlowPane(Vertical, can_focus=True):
 class LiveApp(App[None]):
     """`tranibor live`: the pane alone, full screen."""
 
-    TITLE = "choregos live"
+    TITLE = "tranibor live"
     ENABLE_COMMAND_PALETTE = False
     CSS = "Screen { layout: vertical; }"
     BINDINGS: ClassVar[list[BindingType]] = [

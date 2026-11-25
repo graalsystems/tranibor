@@ -247,7 +247,7 @@ describe("a pending instance is approved against its fingerprint (ADR 0147 §4)"
     fireEvent.click(approve(block));
     expect(api.approveOutpostInstance).not.toHaveBeenCalled();
 
-    const confirmation = block.getByRole("checkbox", { name: /this is the fingerprint choregos-outpost enrol printed/ });
+    const confirmation = block.getByRole("checkbox", { name: /this is the fingerprint tranibor-outpost enrol printed/ });
     expect(confirmation).not.toBeChecked();
     fireEvent.click(confirmation);
     expect(approve(block)).toBeEnabled();
@@ -284,7 +284,7 @@ describe("a pending instance is approved against its fingerprint (ADR 0147 §4)"
 
   it("says that approving needs a recent sign-in, and shows the API's refusal as it is", async () => {
     given();
-    const words = "the fingerprint sent is not the one this instance enrolled with: compare it with what `choregos-outpost enrol` printed, and approve nothing that differs";
+    const words = "the fingerprint sent is not the one this instance enrolled with: compare it with what `tranibor-outpost enrol` printed, and approve nothing that differs";
     vi.mocked(api.approveOutpostInstance).mockRejectedValue(new ApiError(409, { detail: words, code: "fingerprint_mismatch" }));
     await view();
     const block = await pendingBlock();
@@ -448,7 +448,7 @@ describe("enrolling an instance (ADR 0147 §4, ADR 0148 §13)", () => {
     expect(shown.getByTestId("outpost-policy-lines").textContent).toBe(
       `control_plane: https://outposts.example.com\ndoor_keys: ["${KEYS[0]}", "${KEYS[1]}"]`,
     );
-    expect(shown.getByTestId("outpost-enrol-command").textContent).toBe(`choregos-outpost enrol --token ${created.token}`);
+    expect(shown.getByTestId("outpost-enrol-command").textContent).toBe(`tranibor-outpost enrol --token ${created.token}`);
     // One token at a time: a second one is asked for once this one is put away.
     expect(card.queryByRole("button", { name: "Create an enrolment token" })).toBeNull();
 

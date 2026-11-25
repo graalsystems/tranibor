@@ -556,7 +556,7 @@ jobs:
           # Run by the id of the image just built: nothing pulled, nothing named that could move.
           docker buildx build --builder default --load -f plugins/investment-research/Dockerfile \
             --build-arg "RUNNER_IMAGE=${RUNNER_IMAGE}" --iidfile /tmp/investment-research.iid .
-          docker run --rm --entrypoint choregos-quant "$(cat /tmp/investment-research.iid)" --help >/dev/null
+          for command in tranibor-quant choregos-quant; do docker run --rm --entrypoint "$command" "$(cat /tmp/investment-research.iid)" --help >/dev/null; done
       # The `procurement` job image, the same way (ADR 0202): FROM this runner, and its command reads a real
       # PDF inside the image, handed where a job step finds its inputs. `job.json` must say the file was read.
       - name: the procurement job image builds FROM this runner, and its command reads a PDF

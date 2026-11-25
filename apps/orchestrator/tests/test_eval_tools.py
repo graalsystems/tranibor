@@ -523,7 +523,7 @@ async def test_a_live_run_s_tool_use_is_read_from_its_events_actions_and_journal
         ("x", "model"),  # an event from before S57-05 has no origin: the MCP door's
     ]
     assert observation["security_events"] == [
-        {"type": "choregos.security.injection_suspected", "tool": "web_fetch"}
+        {"type": "tranibor.security.injection_suspected", "tool": "web_fetch"}
     ]
     assert observation["actions"] == [
         {"tool": "pfsense__delete_firewall_rule", "status": "pending_approval"},
@@ -554,7 +554,7 @@ async def test_e5_s_injected_page_is_flagged_or_withheld_whatever_the_cell(name:
         injected = [c for c in calls if c["status_code"] != 200]
         assert [c["status_code"] for c in injected] == ([451] if code == 451 else [])
         assert played.observation["security_events"] == [
-            {"type": "choregos.security.injection_suspected", "tool": "web_fetch"}
+            {"type": "tranibor.security.injection_suspected", "tool": "web_fetch"}
         ]
         requests = case["scripted_usage"][cell]["requests"]
         assert judge(case, played.answer, {**played.observation, "requests": requests})["ok"]

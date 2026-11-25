@@ -536,8 +536,8 @@ async def _audit(door: Door, method: str, outcome: str) -> None:
 
 
 def _pick_skill(served: list[Skill], metadata: dict[str, Any]) -> Skill:
-    nested = metadata.get("choregos")
-    wanted = metadata.get("skill") or (nested.get("skill") if isinstance(nested, dict) else None)
+    # The platform's block under `metadata.tranibor`, or the former `metadata.choregos` (ADR 0226, R9c).
+    wanted = metadata.get("skill") or wire.read_a2a_metadata(metadata).get("skill")
     if wanted is None:
         if len(served) == 1:
             return served[0]
@@ -845,15 +845,16 @@ async def task_of(door: Door, item: WorkItem, project: Project) -> dict[str, Any
         "contextId": item.id,
         "status": {"state": state, "message": _status_message(item, state, parts)},
         "artifacts": artifacts,
-        "metadata": {
-            "choregos": {
+        # Under both keys until 0.32.0: a client of the previous release reads `metadata.choregos` (R9c).
+        "metadata": wire.a2a_metadata(
+            {
                 "work_item": item.id,
                 "key": item.tracker_key,
                 "project": f"{door.org.slug}:{project.slug}",
                 "state": item.state,
                 "console_url": link,
             }
-        },
+        ),
     }
 
 
@@ -902,7 +903,7 @@ async def _artifacts(door: Door, item: WorkItem, link: str) -> list[dict[str, An
                 "artifactId": f"{row.name}@{row.version}",
                 "name": row.name,
                 "parts": [part or {"kind": "data", "data": description}],
-                "metadata": {"choregos": description},
+                "metadata": wire.a2a_metadata(description),
             }
         )
     return served
@@ -1003,7 +1004,7 @@ def _mark(task: dict[str, Any]) -> tuple[str, str, Any]:
     """What makes a new status worth sending: the A2A state, the workflow's state, the request."""
     data = [p.get("data") for p in task["status"]["message"]["parts"] if p.get("kind") == "data"]
     request = data[0].get("request_id") if data and isinstance(data[0], dict) else None
-    return task["status"]["state"], task["metadata"]["choregos"]["state"], request
+    return task["status"]["state"], wire.read_a2a_metadata(task["metadata"])["state"], request
 
 
 async def _follow(

@@ -3960,7 +3960,7 @@ export type OutpostEnrolmentCreate = {
 /** An enrolment token, shown once. The platform keeps its digest. */
 export type OutpostEnrolmentCreated = {
   id: string;
-  /** The plaintext token, returned only once: what `choregos-outpost enrol` presents. */
+  /** The plaintext token, returned only once: what `tranibor-outpost enrol` presents. */
   token: string;
   expires_at: string;
   /** the door's origin, as the outpost's policy file names it (`control_plane`); null when the deployment declares none */
@@ -3983,7 +3983,7 @@ export type OutpostEnrolmentList = {
   items: Array<OutpostEnrolment>;
 };
 
-/** One copy of the daemon `choregos-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance. */
+/** One copy of the daemon `tranibor-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance. */
 export type OutpostInstance = {
   id: string;
   status: OutpostInstanceStatus;
@@ -5246,9 +5246,9 @@ export type BrowserSession = {
   id: string;
   /** How the session was opened: `oidc`, `saml`, `dev`... */
   channel: string;
-  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie. */
+  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`tranibor login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie. */
   kind: "browser" | "cli" | "editor";
-  /** What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser. */
+  /** What the surface called itself when it asked for its code (`tranibor 0.30.0 on host`), for the person to recognise it; null for a browser. */
   client_name?: string | null;
   /** When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known. */
   auth_time?: string | null;

@@ -1013,7 +1013,7 @@ Arguments:
             [required]
 
 Options:
-  --fingerprint <str>  the fingerprint `choregos-outpost enrol` printed on the
+  --fingerprint <str>  the fingerprint `tranibor-outpost enrol` printed on the
                        outpost's machine, as read there  [required]
   --org <str>          the organisation; the profile's otherwise
   --help               Show this message and exit.
@@ -1228,7 +1228,7 @@ Usage: tranibor outposts token [OPTIONS] {slug}
 
   Single use, valid 15 minutes at most. It is printed with what the outpost's
   operator needs: the lines of the policy file (the door's origin and the
-  door's keys to pin) and the `choregos-outpost enrol` command to run there.
+  door's keys to pin) and the `tranibor-outpost enrol` command to run there.
   The instance it enrols is born pending, and is handed nothing until a person
   approves it in the console.
 

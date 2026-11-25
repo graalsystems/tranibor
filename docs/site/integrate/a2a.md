@@ -185,7 +185,7 @@ tranibor a2a send billing-api/ship-a-change --message-id order-2026-0042 --title
     "contextId": "5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001",
     "status": { "state": "working" },
     "metadata": {
-      "choregos": {
+      "tranibor": {
         "work_item": "5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001",
         "key": "BIL-12",
         "project": "acme:billing-api",
@@ -268,10 +268,14 @@ canceled, `1` when the door refused a call or could not be reached: a script can
 | `working` | a step is running or queued | wait |
 | `input-required` | a person must decide | send them the `decision_url` of the status message; the task goes on once they have decided in the console |
 | `completed` | the workflow reached a final state | read `artifacts` |
-| `failed` | the work item failed | open `metadata.choregos.console_url` |
+| `failed` | the work item failed | open `metadata.tranibor.console_url` |
 | `canceled` | it was stopped or closed | nothing more will come |
 
-`metadata.choregos.state` gives the workflow's own state, finer than these five.
+`metadata.tranibor.state` gives the workflow's own state, finer than these five.
+
+Until 0.32.0 the platform's block is written twice, under `metadata.tranibor` and under its former key, with the
+same values, and a message's `metadata.tranibor.skill` may be sent under the former key too: a client written for
+0.29 keeps working. The response above shows the new key only. Read `metadata.tranibor`.
 
 ## 7. Be called back instead
 

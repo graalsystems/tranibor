@@ -41,7 +41,7 @@ COPY tests/testkit/pyproject.toml tests/testkit/
 COPY apps/api apps/api
 COPY apps/orchestrator apps/orchestrator
 # The first-party plugins' extensions (ADR 0181): the published API and worker load them from the
-# `choregos.plugins` entry point, so no deployment loses a connector type when it leaves the core.
+# `tranibor.plugins` entry point, so no deployment loses a connector type when it leaves the core.
 COPY plugins/investment-research plugins/investment-research
 COPY plugins/software-delivery plugins/software-delivery
 COPY plugins/vault-transit plugins/vault-transit

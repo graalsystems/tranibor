@@ -1225,7 +1225,7 @@ code, not judgement: give it to a `job`, not to an agent.
 
 ```yaml
 actors:
-  engine: { type: job, role: backtest, command: [choregos-quant, backtest, --out, out], image: investment-research, max_minutes: 20 }
+  engine: { type: job, role: backtest, command: [tranibor-quant, backtest, --out, out], image: investment-research, max_minutes: 20 }
 ```
 
 `command` is an argv, never a shell line. `image` names an image the operator mapped in
@@ -1273,7 +1273,7 @@ The step runs in the orchestrator, in one activity (`decide`), with no pod and n
   that is empty or missing is left out rather than failing the step. Secrets are masked first
   (`[REDACTED]`, the shapes of the LLM guard, ADR 0084), and the policy's
   `sandbox.prompt_injection` reads the state before it leaves (`warn` records an event, `block`
-  stops the step). The `choregos.run.started` event names the sources sent and how many secrets were
+  stops the step). The `tranibor.run.started` event names the sources sent and how many secrets were
   masked, never their values.
 - **Where it goes**: `POST {gateway}/v1/systemone` on the project's gateway (its own connector, else
   the organisation's, else the deployment's: the URL a run of the project is given), never to a model
@@ -3070,7 +3070,7 @@ routes to no outpost of the organisation names none. A tool of a direct connecto
 `GET /orgs/{org}/network-activity` (`audit:read`: the organisation's administrators and owners) groups
 it by host, layer, decision and reason (`allowed`, `denied`, `rate_limited`, `unreachable`) for the last
 24 hours, or since `since`, optionally for one `decision` or `project`. The first refusal of a host for a
-run is also an event on the work item (`choregos.network.denied`).
+run is also an event on the work item (`tranibor.network.denied`).
 
 The `opencode` backend would otherwise call home from every run: it fetches its model catalogue
 (`models.opencode.ai`), checks for updates and may download language servers, and on the dev tenant each run
@@ -3150,7 +3150,7 @@ pattern, the call is refused with 422 `url_redacted` before any DNS lookup or re
 (`denied`, `redacted`) and not counted. Nothing is rewritten; the agent writes the address without it.
 
 Every fetch is a tool call: it counts in `tool_calls_per_run`, writes a ledger row (`provider:
-web:<host>`) and a `choregos.tool.called` event, and is journaled under Network activity with layer
+web:<host>`) and a `tranibor.tool.called` event, and is journaled under Network activity with layer
 `broker`. `web_fetch` is the only place where method and robots.txt can hold for what an agent reads:
 the egress proxy cannot see inside TLS. An agent that is still allowed its built-in `WebFetch`
 (`builtin_web_tools`) can bypass it, so organisations that want every read governed set the ceiling's
@@ -3189,7 +3189,7 @@ secret is refused (`query_redacted`) and nothing is sent. The backend's host sta
 organisation's network ceiling; `requests_per_minute` on the connector (30 by default) bounds the
 organisation's queries per backend (`429`, `retry_after_s`). Each search counts in
 `tool_calls_per_run`, writes a ledger row `search:<type>` at the connector's `price_usd_per_query`, and
-emits `choregos.tool.called` with the query's SHA-256 and length, never its text. Snippets are
+emits `tranibor.tool.called` with the query's SHA-256 and length, never its text. Snippets are
 third-party text and go through the prompt-injection guard.
 
 **Turn and loop limits are enforced by the runner**, not only written in the prompt. Each tool call
@@ -3426,21 +3426,21 @@ curl -X POST $API/projects/acme:hr/actions/<id>/decision -d '{"decision": "appro
   as approving is (a recent sign-in in a human session, an approver's rank and group, and whoever
   proposed the action, or owns the agent that did, does not settle it); the effect keeps what was
   sent with the settlement; settling again with the same outcome changes nothing, the other is a
-  `409 action_already_settled`. The event is `choregos.action.settled`, the audit line
+  `409 action_already_settled`. The event is `tranibor.action.settled`, the audit line
   `action.settle`. Until it is settled, a work item whose transition proposed it waits where it
   is, as it waits for an approval nobody gave: reading the doubt as a failure would follow
   `on_fail` and propose the action again, a second delivery of the write. Once settled, the
   action's end (`succeeded` or `failed`) moves the work item on. The one exception is a write whose rule says its tool takes the platform's
   idempotency key (`platform_arguments: ["action_key"]`): after a doubt the effect's own retries
   deliver it again with the same key, and the action is in doubt only if every delivery was.
-  The event is `choregos.action.failed` with `status: in_doubt` in its data; `GET
+  The event is `tranibor.action.failed` with `status: in_doubt` in its data; `GET
   /projects/{id}/actions?status=in_doubt` lists them.
 - **Proving**: an effect can make the action wait for the proof that it served — the next report
   of a collector, say — until a deadline: the action shows `awaiting_evidence`; a contrary proof, or
   none in time, fails it and compensates what was done.
 - **Reading**: `GET /projects/{id}/actions/{id}` gives the decisions (who, when, how fresh their
   authentication was) and the **journal** — every effect's key, attempts, answer or error. Events
-  `choregos.action.*` tell the same story on the ticket. In the console, every action has its page,
+  `tranibor.action.*` tell the same story on the ticket. In the console, every action has its page,
   `/p/<project>/actions/<id>`, where it is decided. An action the ontology persisted before it was
   removed (origin `ontology`, ADR 0181 O4-1) is read there like any other, and the former
   `/p/<project>/proposals[/<id>]` links redirect there.
@@ -3582,16 +3582,16 @@ pass every 60 seconds catches up.
 
 You can also file a work item yourself. On a project's board, **New work item** opens a drawer: the workflow, the inputs that workflow declares, a title, a description, a size and an optional budget (which only tightens the workflow's). MCP does the same with `create_work_item`. With
 an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards or GitLab it creates
-the issue there first (Azure Boards: a work item, tagged), labelled `source:choregos` and never `agent-ready`, and records the work
+the issue there first (Azure Boards: a work item, tagged), labelled `source:tranibor` and never `agent-ready`, and records the work
 item under the issue's key, with its creation inputs, workflow and budget (ADR 0059). The tracker's
 credentials need the right to create issues (GitHub App: *Issues: read and write*; Jira: create
 issue on the project; Azure Boards: *Create work items* on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
 
-A `/choregos approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
+A `/tranibor approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
 workflow: a decision stays in the console, after a fresh sign-in. Tranibor replies on the ticket with a
 link to the inbox and records a `tracker.command.redirected` audit entry (ADR 0102).
 
-`/choregos pause`, `resume` and `stop` are honoured in one case only: a GitHub comment, in a delivery
+`/tranibor pause`, `resume` and `stop` are honoured in one case only: a GitHub comment, in a delivery
 verified by its HMAC (`TRANIBOR_GITHUB_WEBHOOK_SECRET` is set), by a github.com account linked to a member
 of the project's organisation. The command runs with that member's own rights (a developer or
 above), is audited as `workitem.pause`, `workitem.resume` or `workitem.stop` on the channel `tracker`,

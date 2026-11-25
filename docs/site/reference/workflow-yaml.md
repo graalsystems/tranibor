@@ -46,7 +46,7 @@ actors:
   ci: { type: system }
   captain: { type: human, group: release-captains, sla_hours: 4 }
 states:
-  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "choregos:inbox" } }
+  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "tranibor:inbox" } }
   refining: { display: Refining, tracker: { status: Refining } }
   awaiting_spec_approval: { display: Spec to approve, kind: wait, tracker: { status: Needs review } }
   ready: { display: Ready, tracker: { status: Ready } }

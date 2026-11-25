@@ -113,7 +113,9 @@ expires, the button shows again.
 ### Events
 
 The frame sends messages to your page with `postMessage`, only to the origin that framed it. Check
-`event.origin` (the console's) and `event.data.source === "choregos.assistant"`. Each message is
+`event.origin` (the console's) and `event.data.source === "tranibor.assistant"`. Until 0.32.0 each event is
+also posted a second time under the former source, for host pages written before 0.30.0: a page that checks
+`source` receives each event once. Each message is
 `{ source, type, org, installation, ...payload }`:
 
 | `type` | When | Payload |

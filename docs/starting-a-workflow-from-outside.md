@@ -238,10 +238,10 @@ call. For a server that would rather be called back, see
 | `working` | a step is running or queued | wait |
 | `input-required` | a person must decide | send them `decision_url`, from the status message; the task goes on by itself once they have decided in the console |
 | `completed` | the workflow reached a final state | read `artifacts` |
-| `failed` | the work item failed | open `metadata.choregos.console_url` |
+| `failed` | the work item failed | open `metadata.tranibor.console_url` |
 | `canceled` | it was stopped or closed | nothing more will come |
 
-`metadata.choregos.state` gives the workflow's own state, finer than these five.
+`metadata.tranibor.state` gives the workflow's own state, finer than these five.
 
 With the CLI, `get` reads the task once and `follow` keeps the stream open until a final state, opening it
 again when the door cuts it after the hour. `send --wait` starts the task and follows it in one command.

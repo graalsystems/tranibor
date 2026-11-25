@@ -115,7 +115,8 @@ class FakeTracker:
         if state_mapping.status:
             item.state = state_mapping.status
         if state_mapping.label:
-            item.labels = [label for label in item.labels if not label.startswith("choregos:")]
+            # Like GitHub: one state label at a time, under either prefix (ADR 0226, R9c).
+            item.labels = [label for label in item.labels if not wire.is_state_label(label)]
             item.labels.append(state_mapping.label)
         for label in state_mapping.remove_labels:
             if label in item.labels:

@@ -119,7 +119,7 @@ async def test_the_switch_and_the_missing_key_are_said_in_the_apis_words(
     no_key = await cli(token_holder, "token", SLUG)
     assert no_key.exit_code == 1
     assert "409 — the outposts' door has no signing key on this deployment" in said(no_key)
-    assert "choregos-outpost enrol" not in no_key.output
+    assert "outpost enrol" not in no_key.output
     shown = await cli(token_holder, "show", SLUG)
     assert shown.exit_code == 0 and "No key to pin" in shown.output and "door_keys:" not in shown.output
 
@@ -178,9 +178,9 @@ async def test_the_token_command_prints_what_the_operator_pastes(
     )
     assert policy.door_keys == door.keys
 
-    (command,) = [line for line in lines if line.startswith("choregos-outpost ")]
+    (command,) = [line for line in lines if line.startswith("tranibor-outpost ")]
     words = command.split()
-    assert words[:3] == ["choregos-outpost", "enrol", "--token"] and len(words) == 4
+    assert words[:3] == ["tranibor-outpost", "enrol", "--token"] and len(words) == 4
     token = words[3]
     assert token in lines, "the token is also on a line of its own"
     # The command is one the daemon's own command line takes. Its options are read from its declaration:

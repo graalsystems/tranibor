@@ -31,6 +31,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy import exists, func, or_, select
+from tranibor_contracts import wire
 from tranibor_contracts.wire import both_headers, header
 from tranibor_core import utcnow
 from tranibor_core.egress import EgressRefusedError, host_port_of
@@ -201,13 +202,13 @@ def _view(config: A2aPushConfig) -> dict[str, Any]:
     return {
         "taskId": config.work_item_id,
         "pushNotificationConfig": {"id": config.config_id, "url": config.url},
-        "metadata": {
-            "choregos": {
+        "metadata": wire.a2a_metadata(
+            {
                 "delivered_event": config.cursor_event_id,
                 "finished": config.finished_at is not None,
                 "last_error": config.last_error,
             }
-        },
+        ),
     }
 
 
@@ -279,7 +280,7 @@ async def _deliver(session: Any, config: A2aPushConfig) -> bool:
     view = json.dumps(
         [
             task["status"]["state"],
-            task["metadata"]["choregos"]["state"],
+            wire.read_a2a_metadata(task["metadata"])["state"],
             next(
                 (
                     p["data"].get("request_id")

@@ -1,6 +1,6 @@
 # `tranibor-vault-transit`: a HashiCorp Vault Transit key wrapper
 
-An **extension** (a wheel loaded through the `choregos.plugins` entry point, [ADR 0093](../../docs/adr/0093-an-agent-ships-as-a-plugin.md)),
+An **extension** (a wheel loaded through the `tranibor.plugins` entry point, [ADR 0093](../../docs/adr/0093-an-agent-ships-as-a-plugin.md)),
 not a plugin: it ships no catalogue content. It closes the "no native Vault adapter" gap **without**
 breaking [ADR 0103](../../docs/adr/0103-secret-keks-sit-behind-a-key-wrapper.md), which says the core ships
 no KMS or Vault client: the wrapper lives here, behind the core's `KeyWrapper` seam, and the core gains no
@@ -10,7 +10,7 @@ dependency on it (`tests/architecture/test_core_ships_no_vault_client.py`).
 
 `plugins/vault-transit`, next to `plugins/investment-research`: the repository's one existing practice
 for a wheel with its own `pyproject.toml` that a deployment installs beside the core and that registers
-through `choregos.plugins`, as a member of the uv workspace, released from the core's repository so that a
+through `tranibor.plugins`, as a member of the uv workspace, released from the core's repository so that a
 change to a seam and the extension that calls it land in one pull request. `integrations/` holds editor
 and agent-host adapters, `examples/` holds teaching material, `packages/` is what the core itself
 imports. The directory name `plugins/` is the repository's, not a claim that this is a plugin in the

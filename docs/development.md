@@ -632,7 +632,7 @@ test plugin's extension that declares one of each and checks each reader takes i
 
 Software delivery's values (the `scm.*`, `ci.*`, `cd.*` event types, the finding types `bug`, `perf`,
 `tech-debt`, `flaky-test`, the memory kinds `flaky_test` and `hotspot`, the connector kinds `scm`, `ci`,
-`cd` and the release train's `choregos.release.*`) are not the core's: only the `software-delivery`
+`cd` and the release train's `tranibor.release.*`) are not the core's: only the `software-delivery`
 extension declares them (`tranibor_software_delivery.lists`, its enumerations in `names.py`). The readers
 that load no extension, the runner and its tools in a job's image, read a value that matches a list's
 pattern and leave the platform to judge it; the interpreter reads a recorded result as a stored document,
@@ -643,14 +643,14 @@ GitLab and Azure DevOps webhooks deliver their issue events and no pull request 
 ## Shipping a connector from outside this tree
 
 A package installed next to Tranibor can register its own connectors — no fork, no patch to the
-core. Declare an entry point in the `choregos.plugins` group. A package loaded that way is an
+core. Declare an entry point in the `tranibor.plugins` group. A package loaded that way is an
 **extension**; "plugin" means the package of [ADR 0093](adr/0093-an-agent-ships-as-a-plugin.md), see
 [plugins.md](plugins.md). An extension that brings a trade's code is that trade's plugin's code half, with
 the plugin's name ([Plugins, extensions and editions](site/build/plugins-and-trades.md)):
 
 ```toml
 # pyproject.toml of your package
-[project.entry-points."choregos.plugins"]
+[project.entry-points."tranibor.plugins"]
 my-tracker = "my_package:register_extension"
 ```
 
@@ -834,11 +834,11 @@ python -m tranibor_api.migrate downgrade <extension_label>@base
 
 The former name of the same command was removed in 0.24.0 (`docs/deployment.md`, "Upgrading to 0.24").
 
-An extension that needs tables declares a directory of Alembic revisions in the `choregos.migrations`
+An extension that needs tables declares a directory of Alembic revisions in the `tranibor.migrations`
 entry-point group; the value it points to is a path:
 
 ```toml
-[project.entry-points."choregos.migrations"]
+[project.entry-points."tranibor.migrations"]
 mine = "my_package:MIGRATIONS_PATH"   # pathlib.Path to a versions directory
 ```
 
@@ -998,7 +998,7 @@ table below is the rename record, and none of the former names resolves any more
 A `GestureRequest` also reads `geste` and `cible`, a `GestureRefused` reads `raison`, and a `Quota`
 reads `memoire`, under the same warning. Not renamed here: the DSL value `verifier` of an action
 (a workflow written with it keeps running), the persisted `greffon:` prefixes and the entry-point
-group `choregos.plugins`. `load_extensions` follows in S45-10.
+group `tranibor.plugins`. `load_extensions` follows in S45-10.
 
 The edition API (`tranibor_api.edition`) and the `Principal` followed in 0.21 (S45-12):
 

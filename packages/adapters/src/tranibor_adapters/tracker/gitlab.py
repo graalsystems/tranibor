@@ -2,7 +2,7 @@
 """The GitLab TrackerAdapter: issues, scoped labels, notes, fields in the description.
 
 GitLab looks more like GitHub than Jira: numbered issues, labels, notes. Two differences
-matter: the **scoped** labels (`choregos::implement`) are mutually exclusive on the GitLab side,
+matter: the **scoped** labels (`tranibor::implement`) are mutually exclusive on the GitLab side,
 which reflects a workflow state exactly; and there are no board fields, so the cost, the size
 and the risk live in a metadata block at the end of the description, rewritten every time.
 """
@@ -45,7 +45,7 @@ class GitLabTracker:
         project: str,
         *,
         webhook_secret: str = "",
-        label_prefix: str = "choregos::",
+        label_prefix: str = f"{wire.NAME}::",
     ) -> None:
         if not project:
             raise ConfigurationError("`project` is required for the GitLab tracker")
@@ -129,7 +129,9 @@ class GitLabTracker:
         return self._key(int(issue["iid"]))
 
     async def set_state(self, key: str, state_mapping: TrackerStateMapping) -> None:
-        """A scoped label `choregos::<state>`: GitLab itself guarantees the exclusivity."""
+        """A scoped label `tranibor::<state>`: GitLab itself guarantees the exclusivity within one scope;
+        the previous state's label under the former scope (`choregos::<state>`, before 0.30.0) is in
+        `remove_labels` (ADR 0226, R9c)."""
         iid = self._iid(key)
         payload: dict[str, Any] = {}
         if state_mapping.label:

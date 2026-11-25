@@ -307,7 +307,7 @@ organisation** of its own, where the connector names and agent slugs are free.
 
 **How it is judged.** The run's answer is its output (`case.output`, else its summary), a decision path
 `/p/<case project>/actions/…` read as the scripted matrix's `/p/evals/actions/…`; what the run did is read
-from the API: its `choregos.tool.called` events (calls by origin), its actions (proposed, executed), its
+from the API: its `tranibor.tool.called` events (calls by origin), its actions (proposed, executed), its
 security events, its journal's scripts, its model calls (`tokens.requests`). The case's judge
 (`tranibor_playbooks.evals.agents.judge`) checks `answer_must_contain`, `answer_must_not_contain`,
 `answer_sections`, `min_score` and every guarantee of the case (`proposed_actions`, `executed_actions`,
@@ -318,7 +318,7 @@ prompt holds "Calling tools from a script" (S57-11b).
 
 **Governance parity.** Before it is judged, a live agent-case run must agree with itself on its tool
 calls (the plan's §4.2): its booked `tool` lines of the ledger (an `in_flight` line is not a call) equal
-its `choregos.tool.called` events, per tool and origin; every event of a call from a script has its tool
+its `tranibor.tool.called` events, per tool and origin; every event of a call from a script has its tool
 bridge `tools.script.call` line (same tool, digest and outcome); a bridge line without an event is a call
 the API refused before booking it (404, the cap, a refused schema, a timeout: 400 or more), never one it
 served. A run that breaks it is **invalid**: its line in `details` says `invalid: true` and why, the

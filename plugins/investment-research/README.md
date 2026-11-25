@@ -8,7 +8,7 @@ A plugin is the one unit a trade ships, with two halves under one name
   procedures of its connectors) is published from the platform's plugin repository as the plugin
   `investment-research`, and an organisation administrator installs it;
 - **its extension**, this distribution, is the code the trade runs inside the platform's processes. The
-  API and the workers load it from the `choregos.plugins` entry point `investment-research`
+  API and the workers load it from the `tranibor.plugins` entry point `investment-research`
   (`tranibor_investment_research.extension:register`); the published API and worker images install it.
 
 It lives in the core's repository and is released with the core, as its own wheel (ADR 0181 point 5):
@@ -25,7 +25,7 @@ one pull request, tested against one commit.
 
 ## The job image
 
-The template's three job steps (snapshot, profile, backtest; ADR 0056) run `choregos-quant`
+The template's three job steps (snapshot, profile, backtest; ADR 0056) run `tranibor-quant`
 (`quant/`, standard library only) in the plugin's job image, `image: investment-research`. The image is
 [`Dockerfile`](Dockerfile): the same release's runner image, which runs the step, plus this distribution
 installed without its dependencies. Each release builds it FROM the runner it has just published and

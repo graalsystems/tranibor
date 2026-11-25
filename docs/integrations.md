@@ -124,8 +124,8 @@ no transcript: the person signs in to Tranibor, and the conversation is theirs (
   console's partition, not the host's, and Safari refuses third-party cookies whatever their attributes. The browser
   journey (`pnpm e2e:embed`, and `pnpm e2e:assistants` for the console's own screens) runs against fake APIs in CI.
 - **Events.** The frame posts messages to the host with `postMessage`, to the allowed origin that framed it (never
-  `*`; your listener should check `event.origin` is the console's and `event.data.source === "choregos.assistant"`).
-  Every message is `{ source: "choregos.assistant", type, org, installation, ...payload }`:
+  `*`; your listener should check `event.origin` is the console's and `event.data.source === "tranibor.assistant"`).
+  Every message is `{ source: "tranibor.assistant", type, org, installation, ...payload }`:
 
 | `type` | When | Payload |
 |---|---|---|
@@ -366,7 +366,7 @@ the door does:
   is in its part while it is small — markdown as text, a JSON object as data, anything else as a file
   in base64 — up to 256 KiB each and 1 MiB per task, and only when its bytes still match its digest;
   otherwise the part describes it (`content` says why) and the console serves it. Its description is
-  in the artefact's `metadata.choregos` either way.
+  in the artefact's `metadata.tranibor` either way.
 - `tasks/cancel` stops the work item, for a person who may control it.
 - `message/stream` (a `message/send` that stays open) and `tasks/resubscribe` answer server-sent
   events: the task, then a `status-update` each time its state, its workflow state or its pending

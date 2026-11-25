@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-quant` command line: profile, backtest, snapshot.
+"""`tranibor-quant` command line: profile, backtest, snapshot.
 
 Exit codes: 0 ok, 2 invalid input, 3 snapshot with too many missing symbols.
 
@@ -24,7 +24,7 @@ from tranibor_investment_research.quant.strategies import validate_strategies
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="choregos-quant", description="Deterministic backtest engine")
+    p = argparse.ArgumentParser(prog="tranibor-quant", description="Deterministic backtest engine")
     sub = p.add_subparsers(dest="command", required=True)
     for name in ("profile", "backtest", "snapshot"):
         s = sub.add_parser(name)
@@ -74,10 +74,10 @@ def main(argv: list[str] | None = None, fetcher: Fetcher | None = None) -> int:
         if root is not None:
             publish(args.command, args.out, root)
     except InputError as exc:
-        print(f"choregos-quant: invalid input: {exc}", file=sys.stderr)
+        print(f"tranibor-quant: invalid input: {exc}", file=sys.stderr)
         return 2
     except SnapshotError as exc:
-        print(f"choregos-quant: snapshot incomplete: {exc}", file=sys.stderr)
+        print(f"tranibor-quant: snapshot incomplete: {exc}", file=sys.stderr)
         return 3
     return 0
 

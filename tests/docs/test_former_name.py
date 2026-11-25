@@ -111,10 +111,6 @@ KEPT = (
         "the policy denies agents the former repository directory beside `.tranibor/**` (the templates do)",
     ),
     _kept(
-        r'"choregos": \{|metadata\.choregos\.',
-        "the A2A task's metadata key, the only one the door writes (apps/api/src/tranibor_api/a2a/door.py)",
-    ),
-    _kept(
         r"\bchoregos-(?:api-secrets|db|gateway-secrets|oidc|object-store|backup-target)\b",
         "the chart's default Secret names: stored state (ADR 0226 §6, R6 notes)",
     ),
@@ -132,30 +128,18 @@ KEPT = (
     ),
     _kept(
         r"\bchoregos@choregos\b",
-        "the Claude Code plugin and its marketplace (.claude-plugin/marketplace.json)",
+        "the Claude Code plugin and its marketplace, published from this repository: each install is stored"
+        " under that key and a marketplace has one name (R9c notes)",
     ),
     _kept(
-        r'"choregos\.assistant"', "the embedded assistant's postMessage source (apps/web/src/lib/embed.ts)"
-    ),
-    _kept(
-        r'"choregos:inbox"', "a tracker state label of the shipped templates (R6 notes: state labels stay)"
-    ),
-    _kept(r"`choregos\.(?:plugins|migrations)`", "the Python entry-point groups extensions register under"),
-    _kept(r"`choregos\.release\.\*`", "event types, which history and subscribers key on (ADR 0226 §6)"),
-    _kept(r"`choregos-quant`", "the investment-research plugin's job command, under that name only"),
-    _kept(r"`admin@choregos\.local`", "the demo administrator compose.yaml signs in"),
-    _kept(
-        r"`/choregos approve`", "the tracker comment command, parsed under that name only (github_events.py)"
+        r"`admin@choregos\.local`",
+        "the local demo's administrator: the local install's database holds that user and its memberships"
+        " (R9c)",
     ),
     _kept(
         r"named `choregos` before|`choregos` still runs it"
         r"|The former file, `~/\.config/choregos/config\.json`",
         "the generated CLI reference names the former command and profile once, for the window (R5)",
-        "cli/reference.md",
-    ),
-    _kept(
-        r"`choregos-outpost enrol`",
-        "the CLI's own help, which prints the enrolment command under the former name (cli/outposts.py)",
         "cli/reference.md",
     ),
 )
@@ -213,13 +197,23 @@ def test_every_kept_name_is_still_shown(kept: Kept) -> None:
         "kubectl -n tranibor exec deploy/tranibor-api -- choregos-admin tokens create",
         "`.choregos/workflow.yaml`",
         "finds it in `.choregos/inputs/`.",  # the run directory has its twin (R9a)
-        "`choregos-outpost enrol`",  # kept on the generated reference only
+        # Round R9c: each has its twin since 0.30.0, on every page, the generated CLI reference included.
+        "`choregos-outpost enrol`",
+        "`/choregos approve`",
+        '`event.data.source === "choregos.assistant"`',
+        "open `metadata.choregos.console_url`",
+        "from the `choregos.plugins` entry point",
+        "the release train's `choregos.release.*` events",
+        "run `choregos-quant` in the plugin's job image",
+        'label: "choregos:inbox"',
     ],
 )
 def test_the_site_check_refuses_a_name_that_has_its_twin(line: str) -> None:
     assert unexplained("use/a-page.md", line), f"the check let `{line}` through"
+    assert unexplained("cli/reference.md", line), f"the check let `{line}` through on the CLI reference"
 
 
 def test_the_site_check_lets_a_kept_name_through() -> None:
     assert unexplained("host/secrets.md", "| `choregos-api-secrets` (`global.apiSecretRef`) |") == []
-    assert unexplained("cli/reference.md", "the `choregos-outpost enrol` command to run there.") == []
+    assert unexplained("get-started.md", "administrator, `admin@choregos.local`, already filled in.") == []
+    assert unexplained("integrate/mcp.md", "/plugin install choregos@choregos") == []

@@ -5,7 +5,7 @@ A plugin packages agents and what they need, in one format the platform understa
 locally with the CLI, how a deployment declares the sources it fetches plugins from and how it trusts
 them, what installing one into an organisation does, and the plugins a deployment installs by default.
 
-"Plugin" here means this package. A Python wheel loaded through the `choregos.plugins` entry point is an
+"Plugin" here means this package. A Python wheel loaded through the `tranibor.plugins` entry point is an
 **extension**. A plugin is the one unit a trade ships: when its trade needs code inside the platform (a
 connector type, gates, effects), that code is the plugin's extension, under the plugin's name and
 version; the enterprise edition is an extension that is no plugin. The public page

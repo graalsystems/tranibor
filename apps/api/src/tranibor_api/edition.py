@@ -16,7 +16,7 @@ Deliberately **without a licence key**: the enterprise edition is pulled from a 
 and the access control is the `imagePullSecret`. A key signed offline will be the question the day a
 customer hosts it themselves (ADR 0024, decision 5).
 
-This module is the extension API of the edition (an entry-point package of the `choregos.plugins`
+This module is the extension API of the edition (an entry-point package of the `tranibor.plugins`
 group is an *extension*). Its French names of before 0.21 were removed in 0.24.0 (S45-49).
 """
 

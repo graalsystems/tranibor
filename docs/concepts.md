@@ -302,8 +302,8 @@ than no guarantee, because it reassures.
 **A gate judges a commit, and the merge names it** (ADR 0171). An evaluation reads the head of the
 work item's branch once: the diff and the run's scope are compared at that commit, the pull request's
 checks, review and scans count only when its head is that commit (otherwise they stay pending and are
-read again), and each verdict is journaled with it (`head_sha`); `choregos/scope` and
-`choregos/evidence` are published on it. `does: merge_pr` then merges the pull request **at the commit
+read again), and each verdict is journaled with it (`head_sha`); `tranibor/scope` and
+`tranibor/evidence` are published on it. `does: merge_pr` then merges the pull request **at the commit
 its transition's gates judged**: a head that has moved since is refused by the forge, nothing is
 merged, and the work item's workflow stops with that reason — started again (the `mark_agent_ready`
 action), its gates judge the new head. A merge transition without gates names the head it reads when it
@@ -493,7 +493,7 @@ The core names no trade (ADR 0029, [ADR 0181](adr/0181-the-contracts-speak-no-tr
 trade needs comes in a **plugin**, the one unit a trade ships: its content (agents, assistants, skills,
 templates, procedures, MCP servers; [Writing a plugin](plugins.md)) and, when the trade needs code inside
 the platform (a connector type, gates and the facts they read, effects, event types), its **extension**,
-a Python distribution on the `choregos.plugins` entry point that calls the core's **extension seams**. A
+a Python distribution on the `tranibor.plugins` entry point that calls the core's **extension seams**. A
 **first-party plugin** (`software-delivery`, `servicenow`) is published by GRAAL.SYSTEMS through the same
 formats and seams. An **edition** (community or enterprise, ADR 0024) changes what the platform allows,
 never what work it does; the enterprise edition is an extension and no plugin. The public page

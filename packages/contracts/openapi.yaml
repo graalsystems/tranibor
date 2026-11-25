@@ -109,7 +109,7 @@ paths:
       operationId: endMySession
       summary: End one of the caller's sessions (browser or developer surface); its credential is refused from its next request
       description: >-
-        The same route ends a developer-surface session (`choregos logout` calls it on the session it holds):
+        The same route ends a developer-surface session (`tranibor logout` calls it on the session it holds):
         the next call with that credential is a 401.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -169,7 +169,7 @@ paths:
       security: []
       summary: Start a developer-surface sign-in (RFC 8628 device authorisation, ADR 0154 §6)
       description: >-
-        The terminal (`choregos login`) or an editor extension asks for a code, then sends the person to
+        The terminal (`tranibor login`) or an editor extension asks for a code, then sends the person to
         `verification_uri` (the console's `/device` page), where they sign in through their organisation's
         identity provider (ADR 0108) and approve the code. Meanwhile the surface polls
         `POST /auth/device/token`. The request is JSON, not form-encoded as RFC 8628 has it. Nothing is
@@ -1560,10 +1560,10 @@ paths:
     post:
       tags: [work-items]
       operationId: createWorkItem
-      summary: File a work item, in Choregos and in the project's tracker when it is external
+      summary: File a work item, in Tranibor and in the project's tracker when it is external
       description: >-
         With an internal tracker (or none) the platform mints the key. With an external tracker
-        (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:choregos` plus the
+        (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:tranibor` (and, until 0.32.0, the former `source:choregos`) plus the
         request's labels and never `agent-ready`, and records the work item under the issue's key.
         Fields, workflow and budget are validated before the issue is created, so a 422 leaves
         nothing behind. If the tracker refuses or does not answer, nothing is created (502).
@@ -3278,7 +3278,7 @@ paths:
       operationId: createOutpostEnrolment
       description: >-
         Issues an enrolment token for one instance of this outpost: single use, valid 15 minutes at most, stored
-        as a digest, and its plaintext is returned only once (ADR 0147 §4). `choregos-outpost enrol` presents
+        as a digest, and its plaintext is returned only once (ADR 0147 §4). `tranibor-outpost enrol` presents
         it; the instance it enrols is born pending. A stolen token enrols an instance nobody approves. The
         answer also carries what the operator writes in the outpost's policy file: the door's origin and the
         door's keys to pin (ADR 0148 §13).
@@ -3502,7 +3502,7 @@ paths:
       description: >-
         Deprecated (ADR 0161): use `declareMemberLinkedAccount`. Link the member to their account on the tracker by the provider's numeric user id (S47-14, ADR 0102).
         Asserted by an organisation administrator: nothing proves the member owns the account. A
-        `/choregos pause|resume|stop` comment is honoured only from a signed GitHub delivery by this id.
+        `/tranibor pause|resume|stop` comment (or the former `/choregos …`) is honoured only from a signed GitHub delivery by this id.
         Replaces the member's previous link on that tracker. 409 when the id is linked to another member.
       requestBody:
         required: true
@@ -6559,7 +6559,7 @@ paths:
         The two `X-Tranibor-*` headers (or their former `X-Choregos-*` names, read until 0.32.0, ADR 0226)
         say which door the call came through (ADR 0122 §4): they
         are attribution, recorded on the call's ledger line (`group_by=origin` of the cost
-        reports), on `choregos.tool.called` (`origin`, `script_sha256`) and on its `execute_tool`
+        reports), on `tranibor.tool.called` (`origin`, `script_sha256`) and on its `execute_tool`
         span (`choregos.tool.origin`, `choregos.tool.script_sha256`), and no authorisation reads
         them — a call is governed the same way whatever its origin. A job step's calls are `job`
         whatever they send, read from the run (S57-06).
@@ -6864,7 +6864,7 @@ paths:
       description: >-
         What the egress proxy or the runner let through or refused for this run. Counters are CUMULATIVE per
         (layer, host, decision, reason): a replayed batch replaces the totals and never adds twice. The first
-        `denied` of a host for the run is journaled as `choregos.network.denied`. With the egress token, the
+        `denied` of a host for the run is journaled as `tranibor.network.denied`. With the egress token, the
         proxy's own key must come too (ADR 0145): the agent inherits the egress token, not the key, so it cannot
         rewrite its run's counters. A deployment that configured no key accepts the egress token alone, as before.
       requestBody:
@@ -11031,7 +11031,7 @@ components:
       required: [id, token, expires_at, control_plane, door_keys]
       properties:
         id: { type: string }
-        token: { type: string, description: "The plaintext token, returned only once: what `choregos-outpost enrol` presents." }
+        token: { type: string, description: "The plaintext token, returned only once: what `tranibor-outpost enrol` presents." }
         expires_at: { type: string, format: date-time }
         control_plane: { type: [string, "null"], description: "the door's origin, as the outpost's policy file names it (`control_plane`); null when the deployment declares none" }
         door_keys: { type: array, minItems: 1, maxItems: 4, items: { type: string, pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$" }, description: "the door's public signing keys to pin in the outpost's policy file (`door_keys`) before the daemon starts: the first is the one that signs now, the others are announced for a rotation. The console and the CLI print them beside the enrolment command; no answer of the door itself carries them (ADR 0148 §13)" }
@@ -11054,7 +11054,7 @@ components:
     OutpostInstance:
       type: object
       additionalProperties: false
-      description: "One copy of the daemon `choregos-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance."
+      description: "One copy of the daemon `tranibor-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance."
       required: [id, status, fingerprint, daemon_version, protocol, capabilities, endpoints, facts, enrolment_id, enrolled_by, enrolled_at, approval_step_up_minutes, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, in_flight]
       properties:
         id: { type: string }
@@ -12379,8 +12379,8 @@ components:
       properties:
         id: { type: string }
         channel: { type: string, description: "How the session was opened: `oidc`, `saml`, `dev`..." }
-        kind: { type: string, enum: [browser, cli, editor], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie." }
-        client_name: { type: [string, "null"], description: "What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser." }
+        kind: { type: string, enum: [browser, cli, editor], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`tranibor login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie." }
+        client_name: { type: [string, "null"], description: "What the surface called itself when it asked for its code (`tranibor 0.30.0 on host`), for the person to recognise it; null for a browser." }
         auth_time: { type: [string, "null"], format: date-time, description: "When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known." }
         idle_expires_at: { type: [string, "null"], format: date-time, description: "A surface session ends after this much inactivity; null for a browser session (its `expires_at` is absolute)." }
         created_at: { type: string, format: date-time }

@@ -239,20 +239,20 @@ async def _control_from_a_signed_comment(
             item,
             org_slug,
             verb,  # type: ignore[arg-type]
-            f"/choregos {verb} on the tracker",
+            f"/{wire.NAME} {verb} on the tracker",
             "tracker",
         )
     except ApiError as refused:
-        return f"`/choregos {verb}` was not applied: {refused.detail}"
+        return f"`/{wire.NAME} {verb}` was not applied: {refused.detail}"
     except InterpreterNotRunningError:
-        return f"`/choregos {verb}` was not applied: the work item is not running"
+        return f"`/{wire.NAME} {verb}` was not applied: the work item is not running"
     return f"Done: {verb} by {user.email}"
 
 
 async def _answer_tracker_command(
     session: Any, project: Project, item: WorkItem, event: InboundEvent
 ) -> None:
-    """Answer a `/choregos ...` comment on the tracker with a console link, and audit it.
+    """Answer a `/tranibor ...` comment (or the former `/choregos ...`) with a console link, and audit it.
 
     Nothing reaches the interpreter. The reply never starts with the command, so it is not read as one,
     and a tracker that cannot be reached or built never fails the delivery."""
@@ -263,7 +263,7 @@ async def _answer_tracker_command(
     if verb in DECISION_VERBS:
         link = f"{base}/inbox"
         text = (
-            f"`/choregos {verb}` is not taken from a comment: a decision is made in the console, "
+            f"`/{wire.NAME} {verb}` is not taken from a comment: a decision is made in the console, "
             f"after a fresh sign-in: {link}"
         )
     else:
@@ -271,7 +271,7 @@ async def _answer_tracker_command(
         answered_by_a_member = done is not None
         link = f"{base}/p/{project.slug}/items/{item.id}"
         text = done or (
-            f"`/choregos {verb}` is not taken from this comment: pause, resume and stop are done from "
+            f"`/{wire.NAME} {verb}` is not taken from this comment: pause, resume and stop are done from "
             f"the work item in the console: {link}. {LINK_HINT[0].upper()}{LINK_HINT[1:]}."
         )
     try:

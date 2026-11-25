@@ -25,7 +25,7 @@ actors:
   owner: { type: human, group: product-owners, sla_hours: 24 }
   assistant: { type: agent, role: deliver, model: "profile:by_size" }
 states:
-  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "choregos:inbox" } }
+  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "tranibor:inbox" } }
   classified: { display: Classified, tracker: { status: Triaged } }
   awaiting_triage: { display: A person decides, kind: wait, tracker: { status: Needs review } }
   needs_clarification: { display: Waiting for the requester, kind: wait, tracker: { status: Blocked } }

@@ -269,7 +269,7 @@ COPY --from=builder --chown=1000:1000 /app /app
 # (it happened with `pydantic-settings`). Here, the build fails.
 RUN /app/.venv/bin/tranibor-runner --help >/dev/null
 # A job step's command comes from the image the operator maps for it (`CHOREGOS_JOB_IMAGES`, ADR 0056),
-# built FROM this one: the `investment-research` plugin's `choregos-quant` is in its own job image
+# built FROM this one: the `investment-research` plugin's `tranibor-quant` is in its own job image
 # (`plugins/investment-research/Dockerfile`, ADR 0181 O4-3), not here.
 # The platform's commands, by name, for whoever calls them so (a Tekton step's `tranibor-runner run`),
 # without putting the venv's `python3` in front of the workspace (#713). The former names

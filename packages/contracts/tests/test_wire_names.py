@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pathlib
+
+import pytest
 from tranibor_contracts import wire
 
 
@@ -113,3 +116,90 @@ def test_a_whole_marker_has_two_forms_and_is_found_under_either() -> None:
     assert wire.carries_marker("x\n<!-- choregos:status -->\nold", "<!-- tranibor:status -->")
     assert not wire.carries_marker("<!-- tranibor:human -->", "<!-- tranibor:status -->")
     assert not wire.carries_marker(None, "<!-- tranibor:status -->")
+
+
+# ─── round R9c: what the product shows, posts and loads (ADR 0226) ──────────────────────────────────
+
+
+def test_the_a2a_block_is_written_under_both_keys_and_read_under_either() -> None:
+    assert wire.a2a_metadata({"state": "inbox"}) == {
+        "tranibor": {"state": "inbox"},
+        "choregos": {"state": "inbox"},
+    }
+    assert wire.read_a2a_metadata({"tranibor": {"skill": "new"}, "choregos": {"skill": "old"}}) == {
+        "skill": "new"
+    }
+    assert wire.read_a2a_metadata({"choregos": {"skill": "old"}}) == {"skill": "old"}
+    assert wire.read_a2a_metadata({"tranibor": "not a block", "choregos": {"skill": "old"}}) == {
+        "skill": "old"
+    }
+    assert wire.read_a2a_metadata(None) == {}
+
+
+def test_a_state_label_is_written_new_and_recognised_under_either_prefix() -> None:
+    assert wire.state_label("inbox") == "tranibor:inbox"
+    assert wire.is_state_label("tranibor:inbox") and wire.is_state_label("choregos:inbox")
+    assert wire.is_state_label("choregos::implement") and wire.is_state_label("tranibor::implement")
+    assert not wire.is_state_label("agent-ready") and not wire.is_state_label("source:tranibor")
+    assert wire.state_label_twins("choregos::implement") == ("tranibor::implement", "choregos::implement")
+    assert wire.state_label_twins("tranibor:inbox") == ("tranibor:inbox", "choregos:inbox")
+    assert wire.state_label_twins("agent-ready") == ("agent-ready",)
+
+
+def test_a_check_is_posted_under_both_names_and_a_chat_button_read_under_either() -> None:
+    assert wire.check_names("scope") == ("tranibor/scope", "choregos/scope")
+    assert wire.chat_action("approve") == "tranibor:approve"
+    assert wire.chat_action_name("tranibor:approve") == "approve"
+    assert wire.chat_action_name("choregos:open") == "open"
+    assert wire.chat_action_name("someone-else") is None
+    assert wire.MCP_CLIENT_NAME == "tranibor"
+    assert wire.COMMAND_WORDS == ("tranibor", "choregos")
+
+
+def test_an_event_type_reads_as_its_new_name_and_is_queried_under_both() -> None:
+    assert wire.event_type("choregos.run.finished") == "tranibor.run.finished"
+    assert wire.event_type("tranibor.run.finished") == "tranibor.run.finished"
+    assert wire.event_type("run.result") == "run.result"
+    assert wire.event_type_twins("choregos.release.frozen") == (
+        "tranibor.release.frozen",
+        "choregos.release.frozen",
+    )
+    assert wire.event_type_twins("tranibor.run.finished") == (
+        "tranibor.run.finished",
+        "choregos.run.finished",
+    )
+
+
+def test_both_entry_point_groups_are_read_and_a_name_registered_under_both_loads_once(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert wire.entry_point_groups("tranibor.plugins") == ("tranibor.plugins", "choregos.plugins")
+    assert wire.entry_point_groups("choregos.migrations") == ("tranibor.migrations", "choregos.migrations")
+    for name, groups in {
+        "r9c_new": ["tranibor.r9c"],
+        "r9c_former": ["choregos.r9c"],
+        "r9c_both": ["tranibor.r9c", "choregos.r9c"],
+    }.items():
+        info = tmp_path / f"{name}-1.0.dist-info"
+        info.mkdir()
+        (info / "METADATA").write_text(
+            f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n", encoding="utf-8"
+        )
+        sections = "".join(f"[{group}]\n{name} = {name}:{group.split('.')[0]}\n" for group in groups)
+        (info / "entry_points.txt").write_text(sections, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    found = wire.entry_points("tranibor.r9c")
+    assert sorted(p.name for p in found) == ["r9c_both", "r9c_former", "r9c_new"], "each name once"
+    assert next(p for p in found if p.name == "r9c_both").value == "r9c_both:tranibor", "the new group wins"
+    assert [p.name for p in wire.entry_points("choregos.r9c")] == [p.name for p in found]
+
+
+@pytest.mark.parametrize("written", ["tranibor.run.finished", "choregos.run.finished"], ids=["new", "former"])
+def test_an_event_read_back_under_either_type_is_the_core_s_member(written: str) -> None:
+    """An `events` row or a notification from a replica of the previous release carries the former type."""
+    from tranibor_contracts import EVENT_TYPES, ChoregosEvent, EventType
+
+    assert EVENT_TYPES.check(written) is EventType.RUN_FINISHED
+    event = ChoregosEvent.model_validate({"source": "/choregos/api", "type": written, "data": {}})
+    assert event.type == EventType.RUN_FINISHED == "tranibor.run.finished"
+    assert ChoregosEvent.emit(EventType.RUN_FINISHED).type == "tranibor.run.finished", "emitted new only"

@@ -12,10 +12,10 @@ head`, which had two defects:
    nobody could migrate a database with the published core. They now live INSIDE the package
    (`tranibor_api/migrations`), and this command finds them wherever it is launched from.
 2. **An extension could not bring a schema.** It now declares a versions location in the
-   `choregos.migrations` entry-point group; its revisions form an Alembic BRANCH (`branch_labels`,
-   `depends_on` a core revision) in the same `alembic_version` table, and `upgrade heads` runs the
-   core, then the branch. An extension creates ITS tables; it never alters the core's: two owners
-   for one schema, and the next core migration is what breaks.
+   `tranibor.migrations` entry-point group (or the former `choregos.migrations`); its revisions form an
+   Alembic BRANCH (`branch_labels`, `depends_on` a core revision) in the same `alembic_version` table,
+   and `upgrade heads` runs the core, then the branch. An extension creates ITS tables; it never alters
+   the core's: two owners for one schema, and the next core migration is what breaks.
 
 A declared location that does not exist stops the command: a silently missing extension schema
 would give a platform that starts and fails at the first request touching its tables.
@@ -32,17 +32,18 @@ import os
 import pathlib
 import sys
 from collections.abc import Sequence
-from importlib import metadata
 
 import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.script.revision import Revision
+from tranibor_contracts import wire
 
 #: The entry-point group where an extension declares its migrations. The value it points to is a
-#: path (`str` or `pathlib.Path`) to a directory of Alembic revisions.
-MIGRATIONS_GROUP = "choregos.migrations"
+#: path (`str` or `pathlib.Path`) to a directory of Alembic revisions. The former group
+#: `choregos.migrations` is read too until 0.32.0 (ADR 0226, R9c).
+MIGRATIONS_GROUP = "tranibor.migrations"
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parent / "migrations"
 
@@ -106,7 +107,7 @@ def forget_retired_revisions(connection: sa.Connection, script: ScriptDirectory)
 
 def extension_locations(group: str = MIGRATIONS_GROUP) -> list[pathlib.Path]:
     locations: list[pathlib.Path] = []
-    for point in metadata.entry_points(group=group):
+    for point in wire.entry_points(group):
         value = point.load()
         if not isinstance(value, str | os.PathLike):
             raise TypeError(

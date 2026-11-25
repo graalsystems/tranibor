@@ -280,7 +280,7 @@ async def _surface_principal(
     payload = read_session(raw[len(SURFACE_PREFIX) :], settings, purpose=SURFACE_PURPOSE)
     sid = payload.get("sid") if payload else None
     if payload is None or not isinstance(sid, str):
-        raise unauthorized("unknown or expired session: run `choregos login`")
+        raise unauthorized("unknown or expired session: run `tranibor login`")
     user = await session.get(User, str(payload.get("sub", "")))
     if user is None:
         raise unauthorized("expired session")

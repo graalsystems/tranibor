@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-outpost`: the daemon an outpost's operator installs (ADRs 0147, 0148, 0149).
+"""`tranibor-outpost`: the daemon an outpost's operator installs (ADRs 0147, 0148, 0149).
 
 An outpost is a place a person enrols, of one organisation, that only dials out. This program holds
 a key pair it generated, polls the platform's door for the calls routed to it, makes them against

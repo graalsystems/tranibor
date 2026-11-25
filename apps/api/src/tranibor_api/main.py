@@ -344,7 +344,7 @@ def _check_the_edition(settings: Any) -> None:
         raise RuntimeError(
             "global.edition=enterprise but no enterprise edition extension declared itself. "
             "The image is the community edition's, or the `choregos-ee` package is not "
-            "installed, or its `choregos.plugins` entry point does not call `declare`. "
+            "installed, or its `tranibor.plugins` entry point does not call `declare`. "
             "Fix the image, or set global.edition=community again."
         )
 

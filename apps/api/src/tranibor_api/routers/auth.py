@@ -1215,7 +1215,7 @@ async def create_my_token(body: ApiTokenCreate, session: Db, principal: Me) -> A
     """Issue a bearer token for the caller. The plain text is returned HERE only, once.
 
     `generate_api_token` existed with no route calling it: the documentation
-    said `choregos login --token` and nothing could produce that token.
+    said `tranibor login --token` and nothing could produce that token.
     """
     if principal.kind != "user":
         raise unauthorized("only a human session can issue a token")

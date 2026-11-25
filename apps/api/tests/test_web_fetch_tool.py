@@ -163,7 +163,7 @@ async def test_a_page_is_read_as_text_with_the_platforms_user_agent_and_counted(
 
     async with session_scope() as session:
         called = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     (event,) = [e for e in called if e.subject == "run-web-1"]
     assert event.payload["tool"] == "web_fetch" and event.payload["provider"] == "web:docs.example.com"

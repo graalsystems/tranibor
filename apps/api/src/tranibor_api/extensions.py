@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The routes an extension adds to the API, without forking `main.py`.
 
-An extension (a `choregos.plugins` entry-point package, loaded by the adapters' extension loader)
+An extension (a `tranibor.plugins` entry-point package, loaded by the adapters' extension loader)
 could already register a connector, a guarantee, declare an edition or a group mapper. It could not
 **serve** anything: `create_app()` only included its own routers. Any feature that needs a route (an
 organisation's life cycle, an in-house integration) therefore asked for a patch of the core.

@@ -331,8 +331,8 @@ jobs:
 
   job-image:
     # The `investment-research` plugin's job image (ADR 0181 O4-3, ADR 0056): the runner image this
-    # release has just published and signed, plus the plugin's `choregos-quant`. Built HERE, not in the
-    # plugin's content repository, so that one tag gives the runner, the plugin's extension (the
+    # release has just published and signed, plus the plugin's `tranibor-quant` (and the former
+    # `choregos-quant`). Built HERE, not in the plugin's content repository, so that one tag gives the runner, the plugin's extension (the
     # `marketdata` connectors its snapshot calls) and the job image built FROM that runner: a job image
     # carrying another release's runner would speak another version of the stage protocol.
     name: job image (investment-research, ${{ matrix.platform }})

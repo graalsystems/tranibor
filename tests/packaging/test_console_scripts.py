@@ -22,6 +22,8 @@ COMMANDS = {
     "packages/outpost": {"tranibor-outpost": "choregos-outpost"},
     "packages/tools-mcp": {"tranibor-tools": "choregos-tools"},
     "packages/cli": {"tranibor": "choregos"},
+    # Round R9c: a job step of a template stored before 0.30.0 runs `choregos-quant`.
+    "plugins/investment-research": {"tranibor-quant": "choregos-quant"},
 }
 
 

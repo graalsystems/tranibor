@@ -7,10 +7,14 @@
  * (the API still reads the former `X-Choregos-Embed`, ADR 0226).
  * The host application never sees it.
  */
+import { storedName } from "./stored-names";
+
 /** What the sign-in popup says to the frame that opened it. */
-export const SIGNED_IN_MESSAGE = "choregos.embed.signed-in";
+export const SIGNED_IN_MESSAGE = "tranibor.embed.signed-in";
+/** What a popup of the previous release says (ADR 0226, R9c): accepted too until 0.32.0, during a rolling upgrade. */
+export const SIGNED_IN_MESSAGES: readonly string[] = [SIGNED_IN_MESSAGE, "choregos.embed.signed-in"];
 export const EMBED_HEADER = "X-Tranibor-Embed";
-const KEY = "choregos.embed.token";
+const KEY = storedName("embed.token");
 
 type Held = { token: string; expiresAt: number };
 let held: Held | null = null;

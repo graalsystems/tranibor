@@ -88,6 +88,30 @@ async def test_a_state_replaces_the_scoped_label_and_keeps_the_others() -> None:
     assert wire.body(-1) == {"labels": ["bug", "choregos:in_progress"]}
 
 
+@pytest.mark.parametrize("held", ["tranibor:inbox", "choregos:inbox"], ids=["new", "former"])
+async def test_a_new_state_label_replaces_a_state_label_under_either_prefix(held: str) -> None:
+    """ADR 0226, R9c: an issue labelled before 0.30.0 has `choregos:<state>`; the next state removes it."""
+    wire = Wire(
+        {
+            ("GET", f"/repos/{REPO}/issues/12"): (200, {"labels": [{"name": held}, {"name": "bug"}]}),
+            ("PUT", f"/repos/{REPO}/issues/12/labels"): (200, {}),
+        }
+    )
+    await tracker(wire).set_state(f"{REPO}#12", TrackerStateMapping(label="tranibor:in_progress"))
+    assert wire.body(-1) == {"labels": ["bug", "tranibor:in_progress"]}, "one state label, never two"
+
+
+async def test_a_replayed_state_adds_its_label_once() -> None:
+    wire = Wire(
+        {
+            ("GET", f"/repos/{REPO}/issues/12"): (200, {"labels": [{"name": "tranibor:in_progress"}]}),
+            ("PUT", f"/repos/{REPO}/issues/12/labels"): (200, {}),
+        }
+    )
+    await tracker(wire).set_state(f"{REPO}#12", TrackerStateMapping(label="tranibor:in_progress"))
+    assert wire.body(-1) == {"labels": ["tranibor:in_progress"]}
+
+
 async def test_closing_an_open_issue_closes_it_as_completed() -> None:
     wire = Wire(
         {
@@ -432,6 +456,14 @@ def test_the_webhook_signature_is_verified_in_constant_time() -> None:
     assert not GitHubTracker(GitHubClient(token="t"), REPO).verify_webhook(
         {"X-Hub-Signature-256": bonne}, request_bodies
     )
+
+
+def test_the_command_is_read_under_its_new_word_and_its_former_one() -> None:
+    """ADR 0226, R9c: `/tranibor <verb>`, and until 0.32.0 the former `/choregos <verb>`."""
+    assert parse_command("thanks\n/tranibor approve") == {"verb": "approve", "argument": ""}
+    assert parse_command("/Tranibor pause now") == {"verb": "pause", "argument": "now"}
+    assert parse_command("/choregos stop") == {"verb": "stop", "argument": ""}
+    assert parse_command("/tranibors approve") is None and parse_command("/tranibor fly") is None
 
 
 def test_commands_in_comments_become_decisions() -> None:

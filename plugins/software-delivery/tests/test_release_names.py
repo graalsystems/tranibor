@@ -1,7 +1,7 @@
 """The release train's event types and statuses are the plugin's (ADR 0181, round D).
 
 The contracts' internal event types are an open list since this round (`EVENT_TYPES`, the schema a pattern):
-the extension declares `choregos.release.*`, under the strings subscribers and the `events` rows key on, and
+the extension declares `tranibor.release.*`, under the strings subscribers and the `events` rows key on, and
 holds its own `ReleaseStatus`. The core kept the eight types, `EventType.RELEASE_*`, `ReleaseStatus` and two
 unused domain models for the window `D-train`, which closed early on 2026-11-23 (S83-04r): they are gone.
 """
@@ -49,8 +49,19 @@ def test_the_core_keeps_none_of_them() -> None:
 
 def test_a_type_no_one_declares_is_refused_and_a_stored_one_is_read() -> None:
     with pytest.raises(ValidationError, match="unknown event type"):
-        ChoregosEvent(type="choregos.incident.opened", source="/test")
+        ChoregosEvent(type="tranibor.incident.opened", source="/test")
     stored = ChoregosEvent.model_validate(
+        {"type": "tranibor.incident.opened", "source": "/test"}, context={STORED: True}
+    )
+    assert stored.type == "tranibor.incident.opened"
+    # Stored before 0.30.0 under the former prefix, it reads as its twin (ADR 0226, R9c).
+    former = ChoregosEvent.model_validate(
         {"type": "choregos.incident.opened", "source": "/test"}, context={STORED: True}
     )
-    assert stored.type == "choregos.incident.opened"
+    assert former.type == "tranibor.incident.opened"
+
+
+def test_a_release_event_stored_under_the_former_prefix_is_the_plugin_s() -> None:
+    """ADR 0226, R9c: an `events` row of the train written before 0.30.0 carries `choregos.release.*`."""
+    assert EVENT_TYPES.check("choregos.release.frozen") == ReleaseEvent.FROZEN == "tranibor.release.frozen"
+    assert EVENT_TYPES.plugin_of("choregos.release.frozen") == NAME

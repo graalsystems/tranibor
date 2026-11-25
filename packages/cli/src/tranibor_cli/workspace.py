@@ -461,7 +461,7 @@ class PaletteScreen(ModalScreen[Entry | None]):
 
 
 class Workspace(App[None]):
-    TITLE = "choregos"
+    TITLE = "tranibor"
     ENABLE_COMMAND_PALETTE = False
     CSS = """
     Screen { layout: vertical; background: ansi_default; }

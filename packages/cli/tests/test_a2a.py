@@ -394,3 +394,14 @@ def test_cancel_stops_the_task() -> None:
     assert stopped.exit_code == 0, stopped.output
     assert door.calls[0]["body"]["params"] == {"id": "t-1"}
     assert "stop sent to task t-1" in stopped.stdout
+
+
+@pytest.mark.parametrize("key", ["tranibor", "choregos"], ids=["new", "former"])
+def test_the_workflow_state_is_read_under_either_metadata_key(key: str) -> None:
+    """ADR 0226, R9c: the door of 0.30.0 writes `metadata.tranibor` (and the former key); one of 0.29 only
+    `metadata.choregos`. The CLI reads the block under either."""
+    from tranibor_cli.a2a import Printer
+
+    read = task("working", workflow_state="review")
+    read["metadata"] = {key: read["metadata"]["choregos"]}
+    assert Printer.mark(read) == ("working", "review", None)

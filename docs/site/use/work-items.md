@@ -188,7 +188,7 @@ finding turned into a ticket becomes a new work item, the others are marked dupl
 | Symptom | Likely cause | What to do |
 | :-- | :-- | :-- |
 | The work item is in **Needs a human** | A step failed its gates too many times, an agent asked a question, the budget ran out, or a step timed out | Open the step's run to see which; answer, replay the stage, or stop it |
-| A `/choregos approve` comment on the issue did nothing | Decisions are taken in the console, not in tracker comments | Follow the link Tranibor replies with |
+| A `/tranibor approve` comment on the issue did nothing | Decisions are taken in the console, not in tracker comments | Follow the link Tranibor replies with |
 | "Replay the stage" is refused | The work item's budget is spent | Replay with a top-up, from the command line |
 | The run failed before the agent said anything | The sandbox did not start: an image, memory, the network | Read **Pod logs**: they say how the sandbox ended |
 

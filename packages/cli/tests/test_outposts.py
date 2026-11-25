@@ -263,7 +263,9 @@ def test_token_prints_the_token_once_its_expiry_the_policy_lines_and_the_enrol_c
         "\n".join(text for text in lines if re.match(r"(control_plane|door_keys):", text))
     )
     assert policy == {"control_plane": "https://outposts.example.com", "door_keys": KEYS}
-    assert f"choregos-outpost enrol --token {TOKEN}" in lines, "the command, ready to run"
+    assert f"tranibor-outpost enrol --token {TOKEN}" in lines, "the command, ready to run"
+    # An outpost installed before 0.30.0 has the daemon under its former name only (ADR 0226, R9c).
+    assert any("former name, choregos-outpost" in line for line in lines)
     assert "/etc/choregos-outpost/policy.yaml" in issued.output
     assert "Administration → Outposts → factory-floor" in issued.output
     assert "only if the fingerprint shown there is that one" in issued.output
@@ -277,7 +279,7 @@ def test_what_is_pasted_is_never_cut_by_the_terminals_width(monkeypatch: pytest.
     respx.get(ONE).mock(return_value=Response(200, json=_outpost()))
     respx.get(f"{ONE}/instances").mock(return_value=Response(200, json={"items": [_instance()]}))
     issued = _run("token", "factory-floor").output.splitlines()
-    assert TOKEN in issued and f"choregos-outpost enrol --token {TOKEN}" in issued
+    assert TOKEN in issued and f"tranibor-outpost enrol --token {TOKEN}" in issued
     assert 'door_keys: ["' + '", "'.join(KEYS) + '"]' in issued
     assert 'door_keys: ["' + '", "'.join(KEYS) + '"]' in _run("show", "factory-floor").output.splitlines()
     listed = _run("instances", "factory-floor").output.splitlines()
@@ -313,7 +315,7 @@ def test_a_token_refused_for_want_of_a_door_key_prints_the_apis_words() -> None:
     refused = _run("token", "factory-floor")
     assert refused.exit_code == 1
     assert f"409 — {words}" in " ".join(refused.output.split())
-    assert "choregos-outpost enrol" not in refused.output
+    assert "outpost enrol" not in refused.output
 
 
 # ───────────────────────── instances ─────────────────────────

@@ -2,7 +2,7 @@
 
 ADR 0122 §4: the door — `model` (the agent's MCP client), `script` (a script, through the runner's
 tool bridge), `job` (a job step, ADR 0056) — and the script's digest land on the call's ledger line,
-its `choregos.tool.called` event and its `execute_tool` span. A job step's calls are `job` whatever
+its `tranibor.tool.called` event and its `execute_tool` span. A job step's calls are `job` whatever
 they send: the API reads it from the run. A run that is not a job step cannot claim `job` (400). The
 cost reports group by it (`group_by=origin`).
 
@@ -106,7 +106,7 @@ async def _events(run_id: str) -> list[dict[str, Any]]:
     from tranibor_api.db.session import session_scope
 
     async with session_scope() as session:
-        rows = (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars()
+        rows = (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars()
         return [dict(e.payload) for e in rows if e.subject == run_id]
 
 

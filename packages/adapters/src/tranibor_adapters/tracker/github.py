@@ -137,7 +137,7 @@ class GitHubTracker:
         project_number: int | None = None,
         org: str | None = None,
         webhook_secret: str = "",
-        label_prefix: str = "choregos:",
+        label_prefix: str = wire.state_label(""),
     ) -> None:
         if "/" not in repo:
             raise ConfigurationError(f"`repo` must be owner/name (got: {repo})")
@@ -229,13 +229,19 @@ class GitHubTracker:
         if state_mapping.label:
             issue = await self.client.request("GET", f"/repos/{self.repo}/issues/{number}", repo=self.repo)
             current = [label["name"] for label in issue.get("labels", [])]
-            keep = [name for name in current if not name.startswith(self.label_prefix)]
+            # One state at a time: the previous state's label goes, under the new prefix or the former
+            # `choregos:` one an issue labelled before 0.30.0 carries (ADR 0226, R9c).
+            keep = [
+                name
+                for name in current
+                if not (name.startswith(self.label_prefix) or wire.is_state_label(name))
+            ]
             keep = [name for name in keep if name not in state_mapping.remove_labels]
             await self.client.request(
                 "PUT",
                 f"/repos/{self.repo}/issues/{number}/labels",
                 repo=self.repo,
-                json={"labels": [*keep, state_mapping.label]},
+                json={"labels": [*[n for n in keep if n != state_mapping.label], state_mapping.label]},
             )
         if state_mapping.status and self.project_number:
             await self._set_board_field(number, "Status", state_mapping.status)

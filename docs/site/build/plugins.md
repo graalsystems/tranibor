@@ -58,7 +58,7 @@ A setup procedure for a server applies to `connector: mcp/<plugin>` or `mcp/<ser
 it on that server's connector, and the site publishes it under [Connector setup](../connectors/index.md).
 
 A plugin whose trade needs code inside the platform (its gates, its step effects, its connector types)
-names that code's extension in `requires.extensions`, by the name of its `choregos.plugins` entry point:
+names that code's extension in `requires.extensions`, by the name of its `tranibor.plugins` entry point:
 `requires: { extensions: [software-delivery] }` for the `software-delivery` plugin. A deployment that has
 not installed the extension refuses the plugin, naming it ([Plugins, extensions and
 editions](plugins-and-trades.md)).

@@ -11,9 +11,11 @@
  * Before ADR 0226 the cookie was `choregos_org`: the server still reads it when the new one is absent, and
  * the next choice writes the new one and clears it.
  */
+import { storedName } from "./stored-names";
+
 export const ORG_COOKIE = "tranibor_org";
 export const FORMER_ORG_COOKIE = "choregos_org";
-export const ORG_STORAGE_KEY = "choregos.org";
+export const ORG_STORAGE_KEY = storedName("org");
 
 /** The same shape the API accepts for an organisation slug (`theme.ORG_SLUG`). */
 const SLUG = /^[a-z0-9][a-z0-9-]{0,62}$/;

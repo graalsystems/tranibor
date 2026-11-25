@@ -91,7 +91,7 @@ spec:
         - name: migrations
           image: {{ include "tranibor.image" (dict "global" .Values.global "image" .Values.image) }}
           # `migrate` finds the migrations INSIDE the package, wherever it is launched from, and also runs the
-          # branches declared by plugins (`choregos.migrations`): `upgrade heads`, not
+          # branches declared by plugins (`tranibor.migrations`): `upgrade heads`, not
           # `head`. The former `alembic -c alembic.ini upgrade head` required `/app/apps/api` as the
           # working directory, and only saw the core.
           command: ["python", "-m", "tranibor_api.migrate"]

@@ -156,7 +156,7 @@ the audit log as an override (`workitem.decision.group_override`), with the grou
 
 ## Decisions stay in the console
 
-A `/choregos approve`, `reject` or `answer` comment on an issue does not decide anything. Tranibor
+A `/tranibor approve`, `reject` or `answer` comment on an issue does not decide anything. Tranibor
 replies on the issue with a link to the inbox. A decision is taken by a signed-in person, in the
 console or with their own token.
 

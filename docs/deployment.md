@@ -1296,7 +1296,7 @@ action `in_doubt` ([Security](security.md#a-connector-at-an-outpost)). A worker 
 outpost's claim and the record of its answer loses nothing for fifteen minutes: the retry reads the
 answer where the door stored it. After that the answer is gone and the action ends in doubt rather
 than being sent again. Watch the actions in doubt (`GET /api/v1/projects/{id}/actions?status=in_doubt`,
-or the `choregos.action.failed` events whose `status` is `in_doubt`): a count that rises says the link
+or the `tranibor.action.failed` events whose `status` is `in_doubt`): a count that rises says the link
 between an outpost and the platform loses answers. Upgrade the API and the workers together before an
 administrator opens a write: a worker of an earlier version places no write through an outpost, and
 the action fails saying so. The upgrade adds two columns to `connector_operations`
@@ -1671,7 +1671,7 @@ tranibor-api:
   front matter of the shipped ones. It cannot replace a shipped id.
 
 A refused file is logged (`procedures.file.refused`) and skipped: the API still starts and the other
-files still apply. A plugin can supply the same directory through a `choregos.procedures` entry point
+files still apply. A plugin can supply the same directory through a `tranibor.procedures` entry point
 whose value is a path. Outside the chart, the setting is `TRANIBOR_PROCEDURES_EXTRA`.
 
 ## Where the console's help links point
@@ -2639,7 +2639,7 @@ with no visible connection to its cause. Two guards now close that gap:
 | Where | What it refuses | Why there |
 |---|---|---|
 | `helm template` | `edition: enterprise` with no `global.imagePullSecrets` | the enterprise images live in a private registry; that pull secret **is** the access control in phase 1 ([ADR 0024](adr/0024-two-editions.md), decision 5). Without it the pods sit in `ImagePullBackOff`, which never names the cause |
-| API start-up | `TRANIBOR_EDITION=enterprise` while no extension declared itself | the image is the community one, or `choregos-ee` is not installed, or its `choregos.plugins` entry point does not call `declare`. The refusal names all three |
+| API start-up | `TRANIBOR_EDITION=enterprise` while no extension declared itself | the image is the community one, or `choregos-ee` is not installed, or its `tranibor.plugins` entry point does not call `declare`. The refusal names all three |
 
 The reverse is **not** refused: a deployment that announces nothing and loads the enterprise
 plugin is simply one that forgot to say so, and denying it start-up would help no one. `/edition`
@@ -2946,6 +2946,43 @@ the day after.
 | The runners' `app.kubernetes.io/name: choregos-runner` | The code writes it on every run pod, with no switch, and a platform's run-pod policy may select it | 0.32.0, with the switch's default |
 | The default namespaces of external dependencies (`choregos-data`, `choregos-temporal`, `choregos-gateway`, `choregos-memory`, `choregos-plugins`), the platform's namespace provisioning assumes when the deployment does not say (`choregos-system`), the default hostnames (`*.choregos.local`), the Gateway API gateway `choregos-gateway`, the audit export's `source: choregos` and index `choregos-audit` | Deployed things live under these names: a changed default would point an upgraded release at a namespace, a host or an index that does not exist, or split a SIEM's history | They are values: set them to move |
 | A project's `choregos-executor` Role and binding, `choregos-quota` and `choregos-limits`, the Tekton pipeline `choregos-agent`, the plugin servers' `app.kubernetes.io/name: choregos-plugin-server`, the egress token's audience, the proxy's messages, the images' `/opt/choregos/plugins` and `/opt/choregos/docs` | Not in this round's scope | A later round of ADR 0226 |
+
+## Upgrading to 0.30.0: what the product shows, posts and loads takes the name tranibor (ADR 0226, R9c)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R9c.) The names the platform
+shows to a person or exchanges with a tracker, a chat tool, a plugin or an event subscriber get their `tranibor`
+form in 0.30.0. As in R7, the platform **reads both** and **writes the new one**; it sends or posts both where a
+reader of the former may sit outside the repository (a branch protection, a client of the A2A door, a host page,
+a tracker's saved search). The former names are read **until 0.32.0** and removed in that minor. Nothing that
+worked the day before the upgrade stops working the day after.
+
+| Family | Accepted on input | Written / sent | Before 0.32.0 |
+| :-- | :-- | :-- | :-- |
+| The A2A task's metadata block `metadata.choregos` | A message whose `metadata.tranibor.skill` (or the former `metadata.choregos.skill`) names the skill. | The task, its artefacts and a push configuration carry the block under **both** `metadata.tranibor` and `metadata.choregos`, the same values. A remote A2A step sends both. `tranibor a2a` reads either. | Read `metadata.tranibor`. |
+| The tracker comment command `/choregos approve` (`reject`, `answer`, `scope`, `pause`, `resume`, `stop`) | `/tranibor <verb>` and `/choregos <verb>`, on GitHub, GitLab, Jira and Azure Boards. | The platform's answers and its request comments name `/tranibor <verb>`; a control done from a comment is audited as `/tranibor <verb> on the tracker`. | Type `/tranibor`. |
+| Tracker state labels `choregos:<state>` (GitLab's scoped `choregos::<state>`) | A state label under either prefix is the platform's: the next state change removes it. | A state the workflow does not label is written `tranibor:<state>`; the shipped templates label their inbox `tranibor:inbox`, and project provisioning creates that label. On every state change the previous state's label is removed **and** the former twin of each (`choregos:<state>`), on GitHub, GitLab (`remove_labels`), Jira and Azure Boards, so an issue never carries two states; a replayed change removes nothing more and adds nothing twice. A label a workflow names itself is written as the workflow names it. | Rename the `choregos:` labels your own workflows declare, and the tracker filters and automations that key on them. |
+| The label of an issue the platform files, `source:choregos` | — | `source:tranibor` **and** `source:choregos`. | Move saved searches to `source:tranibor`. |
+| Check runs `choregos/scope`, `choregos/evidence` (GitHub), commit statuses `choregos/<check>` of genre `choregos` (Azure Repos) | — | **Both** names, with the same verdict: `tranibor/scope` and `choregos/scope`, `tranibor/evidence` and `choregos/evidence` (on Azure Repos, genre `tranibor` and genre `choregos`). | Make branch protections and branch policies require `tranibor/scope` and `tranibor/evidence`. |
+| Slack buttons' `action_id` `choregos:<action>` | Nothing in the platform reads a button back today; a reader names the action under either prefix (`wire.chat_action_name`). | `tranibor:<action>` (`tranibor:open`). | A Slack app of yours that handles the buttons accepts `tranibor:`. |
+| The MCP client's `clientInfo.name` | — | `tranibor`. | An MCP server that keys on the client's name accepts `tranibor`. |
+| Event types `choregos.<object>.<event>` (`choregos.run.finished`, `choregos.release.promoted`…) and the CloudEvents `source` `/choregos/api` | A stored event, a notification from another replica or an extension's declared type under `choregos.` reads as its `tranibor.` twin; every query on stored events matches both spellings; an extension that declares a `choregos.` type gets its `tranibor.` twin. | **The new type only**, `tranibor.<object>.<event>`, with `source` `/tranibor/api` (or `/tranibor/orchestrator`): in the `events` rows, on the SSE streams (the named event of a run's and a provisioning stream) and in the schema. It is not sent twice: a reader that takes every message (the CLI's `--follow`, an SSE client's `onmessage`) would see each event twice, and the `events` table and its counts would double. | A subscriber that compares the type (an SSE listener named after it, a filter) compares `tranibor.*`, or strips either prefix. |
+| Python entry-point groups `choregos.plugins`, `choregos.migrations`, `choregos.procedures` | Both groups are loaded, the new one first; a plugin registered under both is loaded once (by its name). | The plugins of this repository register under `tranibor.plugins`. | A plugin you build (`graalsystems/tranibor-agents`, an in-house extension) registers under `tranibor.plugins` (and `tranibor.migrations`, `tranibor.procedures`). |
+| The console's browser storage `choregos.theme`, `choregos.sidebar`, `choregos.org`, a workflow draft, the procedures seen, a frame's token | The head script moves every `choregos.*` key of `localStorage` and `sessionStorage` to its `tranibor.*` name before the first paint (the new one wins when both exist). | `tranibor.*`. | Nothing: browsers move at their next page. |
+| The embedded assistant's `postMessage` source `"choregos.assistant"`; the sign-in popup's message | The frame accepts the popup's `tranibor.embed.signed-in` and the former `choregos.embed.signed-in` (a popup of the previous release during a rolling upgrade). | Each event is posted **twice**, once with `source: "tranibor.assistant"` and once with the former source, the new first: a host page that checks `source`, as the documentation asks, receives each event once. | Make the host page check `event.data.source === "tranibor.assistant"`. |
+| The Integrations snippets, the CLI download page, the A2A snippets | — | The MCP server is named `tranibor` in the `claude mcp add`, Claude Desktop, Cursor and VS Code snippets (`tranibor-token` for VS Code's input), and the commands are `tranibor …`. A client already configured under the name `choregos` keeps working: the name is the client's own. | Nothing. |
+| `choregos-outpost enrol`, printed by `tranibor outposts enrol`, the console and the API's descriptions | — | `tranibor-outpost enrol` (the outpost image has both commands since 0.30.0, R5); the CLI says once that an outpost installed before 0.30.0 has it under `choregos-outpost`. | Nothing. |
+| The investment-research plugin's job command `choregos-quant` | A workflow stored before 0.30.0 runs `choregos-quant`: the plugin's job image installs both commands. | `tranibor-quant` (its usage, its summaries). | Rewrite `command: [choregos-quant, …]` to `tranibor-quant`. |
+| The terminal workspaces' titles | — | `tranibor` and `tranibor live`. | — |
+
+**What keeps its former name, and why**: the session signing domain, the A2A task ids' namespace and the outpost
+protocol's `typ`, `Upgrade` token and nonce label (inputs to a hash or a signature); the audit chain's `choregos.audit/1`
+(hashed into every entry); the local demo's administrator `admin@choregos.local` (the local install's database
+holds that user with its memberships: renaming the default would sign a returning person in as a new user with none
+of their projects); the Claude Code plugin and its marketplace, `choregos@choregos` (published from this public
+repository: each user's Claude Code stored the install under that key, a marketplace has one name, and renaming it
+orphans every install; it moves in 0.32.0 with a re-install named in those notes); the Slack notifier's default channel `#choregos` (a channel in your workspace: a renamed default would post where no channel exists; set `channel` to move); the database, its role, the
+Keycloak realm and clients, the Temporal names (ADR 0226 §6). The run's workspace directory, the stage schema ids,
+the chart's labels, environment variables and metrics move in their own rounds (R9a, R9b).
 
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 

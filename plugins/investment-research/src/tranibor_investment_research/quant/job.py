@@ -79,7 +79,7 @@ def publish(command: str, out: Path, root: Path) -> dict[str, Any]:
         shutil.copyfile(out / name, published / name)
     facts = dict(result.get("facts") or {})
     doc = {
-        "summary": f"choregos-quant {command}: " + ", ".join(f"{k}={facts[k]}" for k in sorted(facts))[:3500],
+        "summary": f"tranibor-quant {command}: " + ", ".join(f"{k}={facts[k]}" for k in sorted(facts))[:3500],
         "facts": facts,
         "outputs": outputs,
     }

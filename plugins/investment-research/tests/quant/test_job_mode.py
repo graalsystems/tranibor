@@ -41,7 +41,7 @@ def test_a_backtest_job_publishes_metrics_inline_and_its_files(ws: Path) -> None
     assert isinstance(outputs, dict) and set(outputs) == {"metrics"}
     assert outputs["metrics"]["facts"] == job["facts"]
     assert _published(ws) == {"results.csv", "report.html"}, "result.json is never an artifact"
-    assert str(job["summary"]).startswith("choregos-quant backtest: ")
+    assert str(job["summary"]).startswith("tranibor-quant backtest: ")
 
 
 def test_a_profile_job_publishes_its_two_documents(ws: Path) -> None:

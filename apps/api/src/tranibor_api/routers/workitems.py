@@ -177,8 +177,8 @@ async def create_work_item(ctx: ProjectCtx, body: WorkItemCreate, session: Db) -
     """Files a work item, whatever the project's tracker (ADR 0059).
 
     Internal tracker: the platform mints the key. External tracker: the issue is created there
-    first (labelled `source:choregos`, never `agent-ready`), and the work item is recorded under
-    its key; a tracker that refuses gives a 502 and nothing is created.
+    first (labelled `source:tranibor` and the former `source:choregos`, never `agent-ready`), and the work
+    item is recorded under its key; a tracker that refuses gives a 502 and nothing is created.
     """
     ctx.require(Permission.ITEM_CONTROL)
     item = await file_work_item(session, ctx.principal, ctx.project, body)

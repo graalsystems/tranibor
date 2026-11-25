@@ -387,7 +387,10 @@ async def project_tracker(session: AsyncSession, project: Project) -> tuple[Conn
 
 
 ORIGIN_MARKER = wire.marker("origin")  # formerly `<!-- choregos:origin -->` (ADR 0226)
-FILED_LABEL = "source:choregos"
+#: The label of an issue the platform files: `source:tranibor`, and until 0.32.0 the former `source:choregos`
+#: beside it, which a tracker's saved search or automation may still filter on (ADR 0226, R9c).
+FILED_LABEL = f"source:{wire.NAME}"
+FILED_LABELS = (FILED_LABEL, f"source:{wire.FORMER_NAME}")
 
 
 SOFTWARE_DOCUMENTS = ("spec_markdown", "plan_markdown", "review_markdown", "release_notes_markdown")
@@ -440,10 +443,10 @@ async def create_work_item(  # noqa: PLR0913 - one creation path, the birth fact
     The only creation path of a person's request: the REST route and the MCP door (ADR 0030) both
     use it, so a work item created from Claude differs in nothing from one created in the console.
     With an internal tracker the platform mints the key (`<PREFIX>-<n>`). With an external one
-    (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:choregos` and NOT
-    `agent-ready` (the webhook must not race this transaction), and records the work item under
-    the issue's key. The initial state is the chosen workflow's, and the interpreter starts at once
-    unless `start=False`. `item_id` is a caller-derived id (ADR 0008), the A2A door's (ADR 0078).
+    (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:tranibor` (and the former
+    `source:choregos`) and NOT `agent-ready` (the webhook must not race this transaction), and records the
+    work item under the issue's key. The initial state is the chosen workflow's, and the interpreter starts at
+    once unless `start=False`. `item_id` is a caller-derived id (ADR 0008), the A2A door's (ADR 0078).
 
     `initiated_by` names who started it when the principal does not (a schedule, a parent work
     item); otherwise it is the principal through `canal` (ADR 0077 §2).
@@ -569,7 +572,7 @@ async def _file_in_tracker(
 ) -> tuple[str, str | None]:
     """Creates the issue in the external tracker; returns its key and, best effort, its URL."""
     body = f"{request.body or ''}\n\n{ORIGIN_MARKER}Filed from Tranibor by {principal.email}".strip()
-    labels = [*dict.fromkeys([*request.labels, FILED_LABEL])]
+    labels = [*dict.fromkeys([*request.labels, *FILED_LABELS])]
     try:
         key = str(await adapter.create_item(NewItem(title=request.title, body=body, labels=labels)))
     except (AdapterError, SecretNotFound, httpx.HTTPError) as error:
@@ -633,7 +636,7 @@ def _decision_entry(req: HumanRequest) -> TimelineEntry:
 
 
 def _event_entry(event: Event) -> TimelineEntry | None:
-    if event.type == str(EventType.WORKITEM_STATE_CHANGED):
+    if wire.event_type(event.type) == EventType.WORKITEM_STATE_CHANGED:
         return TimelineEntry(
             ts=event.ts,
             kind="state_change",
@@ -643,7 +646,7 @@ def _event_entry(event: Event) -> TimelineEntry | None:
             actor_kind="system",
             via=_via(event.payload.get("via")),
         )
-    if event.type == str(EventType.WORKITEM_STATUS_COMMENT_MISSED):
+    if wire.event_type(event.type) == EventType.WORKITEM_STATUS_COMMENT_MISSED:
         # The work item went on (S62-17): the board may lag until the next state rewrites it (S62-20).
         return TimelineEntry(
             ts=event.ts,
@@ -668,7 +671,10 @@ def _finding_entry(finding: Finding) -> TimelineEntry:
 
 
 #: The events a timeline shows (the others are the platform's own bookkeeping).
-_TIMELINE_EVENTS = (str(EventType.WORKITEM_STATE_CHANGED), str(EventType.WORKITEM_STATUS_COMMENT_MISSED))
+_TIMELINE_EVENTS = (
+    *wire.event_type_twins(EventType.WORKITEM_STATE_CHANGED),
+    *wire.event_type_twins(EventType.WORKITEM_STATUS_COMMENT_MISSED),
+)
 
 
 async def timeline(session: AsyncSession, item: WorkItem) -> list[TimelineEntry]:
@@ -704,7 +710,7 @@ async def timeline(session: AsyncSession, item: WorkItem) -> list[TimelineEntry]
     via_of_request = {
         str(e.payload.get("request_id")): e.payload.get("via")
         for e in events
-        if e.type == str(EventType.WORKITEM_HUMAN_REQUESTED) and e.payload.get("via")
+        if wire.event_type(e.type) == EventType.WORKITEM_HUMAN_REQUESTED and e.payload.get("via")
     }
     for req in requests:
         entries.append(_request_entry(req, via_of_request.get(req.id)))
@@ -768,7 +774,7 @@ async def timeline_page(session: AsyncSession, item: WorkItem, page: Page) -> Ti
             await session.execute(
                 select(Event).where(
                     Event.work_item_id == item.id,
-                    Event.type == str(EventType.WORKITEM_HUMAN_REQUESTED),
+                    Event.type.in_(wire.event_type_twins(EventType.WORKITEM_HUMAN_REQUESTED)),
                     Event.payload["request_id"].as_string().in_(wanted["request"]),
                 )
             )

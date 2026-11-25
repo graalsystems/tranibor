@@ -60,6 +60,7 @@ from typing import Any
 from urllib.parse import unquote
 
 import httpx
+from tranibor_contracts import EventType
 from tranibor_contracts.wire import ACCESS_KEYS, read_header
 from tranibor_core import mcp
 
@@ -361,7 +362,7 @@ class EvalApi:
         suspected = [] if mode == "ignore" else find_suspicions(_readable(result), source=f"tool.{tool.name}")
         if not suspected:
             return code, result, []
-        self.security_events.append({"type": "choregos.security.injection_suspected", "tool": tool.name})
+        self.security_events.append({"type": str(EventType.SECURITY_INJECTION_SUSPECTED), "tool": tool.name})
         found = [s.to_dict() for s in suspected]
         if mode == "block":
             withheld = {"error": f"result of {tool.name} withheld: suspected injection — a human reviews it"}
