@@ -1,5 +1,5 @@
 # The default workflow (D14): a framing reviewed by a human, then the agent unrolls.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: default-simple

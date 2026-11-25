@@ -112,7 +112,7 @@ CARD: dict[str, Any] = {
     },
 }
 BROKEN_WORKFLOW = """\
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: broken

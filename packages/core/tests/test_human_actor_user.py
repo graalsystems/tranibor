@@ -34,6 +34,19 @@ def test_the_digest_of_a_group_only_workflow_does_not_move() -> None:
     assert checksum(Workflow.model_validate(_example())) == GROUP_ONLY_DIGEST
 
 
+def test_the_digest_does_not_move_with_the_name_of_the_api_version() -> None:
+    """ADR 0224: `tranibor/v1` and `choregos/v1` are one document; a pin made before the rename holds."""
+    document = _example()
+    assert document["apiVersion"] == "tranibor/v1", "the example is written with the new name"
+    former = {**document, "apiVersion": "choregos/v1"}
+    assert Workflow.model_validate(former).apiVersion == "choregos/v1", "read as it was written"
+    assert checksum(Workflow.model_validate(former)) == GROUP_ONLY_DIGEST
+    assert checksum(former) == checksum(document)
+    assert Workflow.model_validate({k: v for k, v in document.items() if k != "apiVersion"}).apiVersion == (
+        "tranibor/v1"
+    ), "a new document is written with the new name"
+
+
 def test_the_process_view_says_the_person_is_asked_first() -> None:
     document = _example()
     document["actors"]["owner"] = {"type": "human", "user": "lea@northwind.dev", "group": "product-owners"}

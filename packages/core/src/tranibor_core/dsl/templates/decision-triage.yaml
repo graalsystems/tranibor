@@ -2,7 +2,7 @@
 # what should happen to it, with a probability. Above the threshold the platform routes it; below it,
 # or when the model says nothing usable, a person decides. Declining is never automatic.
 # Needs a decision model in the catalogue (usage `decide`) and a gateway that serves `/v1/systemone`.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: decision-triage
