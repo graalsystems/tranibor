@@ -97,7 +97,7 @@ class FakeExecutor:
         self.start_calls_by_run[spec.run_id] = self.start_calls_by_run.get(spec.run_id, 0) + 1
         if self.start_error is not None:
             raise self.start_error
-        refuse_unless_separate(str(self.kind), self.capabilities, spec)
+        refuse_unless_separate(str(self.kind), self.capabilities, spec, runs_an_agent=False)
         if spec.agent_container is not None and self.server_version is not None:
             refusal = native_sidecars_refusal(self.server_version)
             if refusal is not None:

@@ -126,7 +126,18 @@ refused with where it went: a value silently ignored would leave the agent besid
 {{- with .Values.runner -}}{{- with .sandbox -}}{{- if hasKey . "agentIsolation" -}}
 {{- fail "choregos-orchestrator.runner.sandbox.agentIsolation moved to global.runner.agentIsolation (S65-04d): one setting for every executor, the API and the workers; set it there and remove this one" -}}
 {{- end -}}{{- end -}}{{- end -}}
+{{- if and (eq $value "process") (has (.Values.global.environment | default "dev") (list "staging" "prod")) (not ((.Values.global.runner | default dict).acceptUnisolatedAgent | default false)) -}}
+{{- fail (printf "global.runner.agentIsolation=process with global.environment=%s: the agent would run in the runner's container and read its run token, git token and egress report key (ADR 0146). Use `container` (k8s_job, agent_sandbox, local_docker), or accept the risk by name with global.runner.acceptUnisolatedAgent: true (TRANIBOR_AGENT_ISOLATION=none-accepted, logged on every run, ADR 0222)." .Values.global.environment) -}}
+{{- end -}}
 {{- $value -}}
+{{- end -}}
+
+{{/*
+Whether the operator named the opt-out of ADR 0222: an agent beside the runner's credentials, in staging or
+prod, accepted. Only meaningful under `process`; rendered as `CHOREGOS_AGENT_ISOLATION=none-accepted`.
+*/}}
+{{- define "choregos.unisolatedAgentAccepted" -}}
+{{- if and (eq (include "choregos.agentIsolation" .) "process") ((.Values.global.runner | default dict).acceptUnisolatedAgent | default false) -}}true{{- end -}}
 {{- end -}}
 
 {{/*
@@ -147,6 +158,9 @@ proj-{slug}-runners
 {{/* Common environment variables: 12-factor configuration, secrets by reference. */}}
 {{- define "choregos.commonEnv" -}}
 {{- $poses := list "CHOREGOS_ENV" "CHOREGOS_EDITION" "CHOREGOS_LOG_LEVEL" "CHOREGOS_FAKES" "CHOREGOS_EGRESS_MODE" "CHOREGOS_EGRESS_CEILING" "CHOREGOS_EGRESS_PLATFORM_CHANGE" "CHOREGOS_TEMPORAL_ADDRESS" "CHOREGOS_TEMPORAL_NAMESPACE" "CHOREGOS_GATEWAY_URL" "CHOREGOS_MEMORY_URL" "CHOREGOS_MEMORY_TOKEN" "CHOREGOS_OBJECT_STORE_URL" "CHOREGOS_OBJECT_STORE_ENDPOINT" "CHOREGOS_OBJECT_STORE_REGION" "CHOREGOS_OBJECT_STORE_ACCESS_KEY" "CHOREGOS_OBJECT_STORE_SECRET_KEY" "CHOREGOS_PUBLIC_URL" "CHOREGOS_API_URL" "CHOREGOS_DB_POOL_SIZE" "CHOREGOS_DB_MAX_OVERFLOW" "CHOREGOS_DB_POOL_TIMEOUT_S" "CHOREGOS_DATABASE_PASSWORD" "CHOREGOS_DATABASE_URL" "CHOREGOS_SECRET_ENV_PATTERN" "CHOREGOS_EXECUTOR_KIND" "CHOREGOS_RUNNER_RUNTIME_CLASS" "CHOREGOS_EXECUTORS_ALLOWED" "CHOREGOS_RUNNER_AGENT_ISOLATION" }}
+{{- if include "choregos.unisolatedAgentAccepted" . }}
+{{- $poses = append $poses "CHOREGOS_AGENT_ISOLATION" }}
+{{- end }}
 {{- /* Before S40-20b the endpoint went through `extraEnv`: still accepted, unless the chart sets it. */}}
 {{- if (.Values.global.tracing | default dict).otlpEndpoint }}
 {{- $poses = append $poses "OTEL_EXPORTER_OTLP_ENDPOINT" }}
@@ -218,6 +232,12 @@ proj-{slug}-runners
 # each run's executor, which refuses a run it cannot isolate.
 - name: CHOREGOS_RUNNER_AGENT_ISOLATION
   value: {{ include "choregos.agentIsolation" . | quote }}
+{{- if include "choregos.unisolatedAgentAccepted" . }}
+# The named opt-out (ADR 0222): `process` in staging or prod, accepted. The workers log it on every run,
+# `/readiness` shows it, and the runner finds it beside its `TRANIBOR_ENV`.
+- name: CHOREGOS_AGENT_ISOLATION
+  value: none-accepted
+{{- end }}
 {{- with (.Values.global.tracing | default dict).otlpEndpoint }}
 # ADR 0018: the collector the traces go to; absent, `configure_tracing` leaves tracing off.
 - name: OTEL_EXPORTER_OTLP_ENDPOINT

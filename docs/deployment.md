@@ -2594,6 +2594,25 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
+
+([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md).) The chart has run
+the agent in its own container by default since 0.27.17; this closes the other doors. In `staging` and `prod`
+an agent that would share the runner's container (`agentIsolation: process`) is **refused**, by the chart at render
+and by every executor and the runner at run time, unless the operator names the risk:
+`global.runner.acceptUnisolatedAgent: true` (`TRANIBOR_AGENT_ISOLATION=none-accepted`). Each run then logs
+`agent_isolation.none_accepted`, the runner journals `agent.isolation` with `accepted: none-accepted`, and
+`/readiness` shows `agent-isolation` as `check`.
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A deployment on `tekton` or `aca` in `staging`/`prod` with `agentIsolation: process` | The render fails and names `global.runner.acceptUnisolatedAgent`; a deployment that is not rendered by the chart has each run refused (`agent_isolation_unavailable`). Neither executor can start the agent's container. | Move the project to `k8s_job`, `agent_sandbox` or `local_docker` and keep `container`; or set `acceptUnisolatedAgent: true`, knowing the agent can read the run token, the git token and the egress report key. |
+| Any other deployment on `process` in `staging`/`prod` | Same. | Set `agentIsolation: container` (the default), or accept by name. |
+| A process started without the chart in `staging`/`prod` (the code's default is `process`) | Each run is refused, naming the setting. | Set `TRANIBOR_RUNNER_AGENT_ISOLATION=container`, or `TRANIBOR_AGENT_ISOLATION=none-accepted`. |
+| `dev`, `test`, the fakes, `make demo` | Unchanged. | Nothing. |
+| `docker compose up` | Runs each agent in a container of its own (`TRANIBOR_RUNNER_AGENT_ISOLATION=container`), and the default `TRANIBOR_RUNNER_VERSION` is now `0.29.3` (it was `0.17.12`, which has no launcher): the first run pulls that runner image. | Update a `TRANIBOR_RUNNER_VERSION` pinned in `.env`: below `0.27.17` the image cannot isolate the agent. |
+| A cluster that has gVisor | Not defaulted: a pod naming a RuntimeClass the cluster lacks is never admitted, and the chart cannot look the class up under `helm template` or Argo CD. | Set `global.runner.runtimeClass: gvisor` (Landlock does not exist under gVisor, ADR 0094). |
+
 ## Upgrading to 0.29.0: software delivery lives in the `delivery` sections only
 
 The window `C2-delivery` of [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) closed early (2026-11-23):

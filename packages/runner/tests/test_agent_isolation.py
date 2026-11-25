@@ -132,3 +132,64 @@ async def test_the_process_mode_is_unchanged_and_says_so(
 def test_the_refusal_has_its_own_exit_code_and_explanation() -> None:
     assert Exit.AGENT_ISOLATION_UNAVAILABLE == 100
     assert explanation(100)
+
+
+# ADR 0222: in staging and prod the runner does not start the agent as its own child unless the operator
+# named the opt-out. The orchestrator refuses first; this is for a runner started by anything else.
+
+
+async def _process_run(
+    stage_input: StageInput, runner_settings: Any, monkeypatch: pytest.MonkeyPatch, **env: str
+) -> tuple[Any, FakeInternalClient, list[Any]]:
+    started: list[Any] = []
+    real = asyncio.create_subprocess_exec
+
+    async def watch(*argv: Any, **kwargs: Any) -> Any:
+        started.append(argv)
+        return await real(*argv, **kwargs)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", watch)
+    monkeypatch.delenv("TRANIBOR_AGENT_ISOLATION", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    settings = runner_settings.model_copy(update={"agent_isolation": "process"})
+    outcome, client, _ = await _execute(stage_input, settings)
+    return outcome, client, started
+
+
+@pytest.mark.parametrize("environment", ["staging", "prod"])
+async def test_in_production_process_is_refused_and_the_agent_never_starts(
+    stage_input: StageInput, runner_settings: Any, monkeypatch: pytest.MonkeyPatch, environment: str
+) -> None:
+    outcome, client, started = await _process_run(
+        stage_input, runner_settings, monkeypatch, TRANIBOR_ENV=environment
+    )
+    assert outcome.exit_code is Exit.AGENT_ISOLATION_UNAVAILABLE
+    assert "TRANIBOR_AGENT_ISOLATION=none-accepted" in outcome.detail
+    assert [a for a in started if "fake_agent" in " ".join(map(str, a))] == []
+    failed = [e for e in client.events if e["type"] == "run.failed"]
+    assert failed and failed[0]["payload"]["phase"] == "isolation"
+
+
+async def test_in_production_the_named_opt_out_runs_and_is_on_the_record(
+    stage_input: StageInput, runner_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outcome, client, _ = await _process_run(
+        stage_input,
+        runner_settings,
+        monkeypatch,
+        TRANIBOR_ENV="prod",
+        TRANIBOR_AGENT_ISOLATION="none-accepted",
+    )
+    assert outcome.exit_code is Exit.OK, outcome.detail
+    (isolation,) = [e for e in client.events if e["type"] == "agent.isolation"]
+    assert isolation["payload"] == {"mode": "process", "accepted": "none-accepted"}
+
+
+async def test_outside_production_process_runs_as_before(
+    stage_input: StageInput, runner_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outcome, client, _ = await _process_run(stage_input, runner_settings, monkeypatch, TRANIBOR_ENV="dev")
+    assert outcome.exit_code is Exit.OK, outcome.detail
+    (isolation,) = [e for e in client.events if e["type"] == "agent.isolation"]
+    assert isolation["payload"] == {"mode": "process"}

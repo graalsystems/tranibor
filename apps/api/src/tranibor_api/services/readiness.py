@@ -110,6 +110,9 @@ class IsolationFact:
 
     executor: str
     refusal: str | None = None
+    #: The operator named the opt-out (`TRANIBOR_AGENT_ISOLATION=none-accepted`, ADR 0222): in staging or
+    #: prod the agent runs beside the runner's credentials, by decision.
+    accepted: bool = False
 
 
 @dataclass(frozen=True)
@@ -682,6 +685,19 @@ def item_agent_isolation(f: Facts) -> list[ReadinessItem]:
         return []
     title = "Agent runs in its own container"
     fix = ReadinessFix(href=None, by="platform_operator")
+    if f.isolation.accepted:
+        return [
+            _item(
+                "agent-isolation",
+                "connections",
+                title,
+                "check",
+                f"the `{f.isolation.executor}` executor runs the agent in the runner's container, which "
+                "holds the run token, the git token and the egress report key: the operator accepted it by "
+                "name (`TRANIBOR_AGENT_ISOLATION=none-accepted`, ADR 0222), and every run logs it.",
+                fix,
+            )
+        ]
     if f.isolation.refusal is None:
         return [
             _item(
@@ -988,21 +1004,42 @@ def runtime_fact(connectors: dict[str, ConnectorFact], policy: Any) -> RuntimeFa
 def isolation_fact(connectors: dict[str, ConnectorFact]) -> IsolationFact | None:
     """Can the project's executor start the agent's own container, when the deployment asks for it?
 
-    No judgment (None) under `process`, the default, or under the fakes. The executor is the project's
-    `runtime` connector, else the deployment's; what it declares is read from its class
+    Under `process` nothing is judged outside staging and prod (nor under the fakes); there (ADR 0222) it is
+    refused with the sentence `start` raises, or `accepted` when the operator named the opt-out. The executor
+    is the project's `runtime` connector, else the deployment's; what it declares is read from its class
     (`declared_capabilities`), and the sentence is the one its `start` raises."""
     import os
 
     from tranibor_adapters import fakes_enabled
     from tranibor_adapters.executor.isolation import declared_capabilities
     from tranibor_adapters.registry import default_executor_kind
-    from tranibor_core.agent_isolation import agent_isolation_refusal, deployment_agent_isolation
+    from tranibor_core.agent_isolation import (
+        AGENT_ISOLATION_ACCEPT_ENV,
+        agent_isolation_none_accepted,
+        agent_isolation_refusal,
+        deployment_agent_isolation,
+        unisolated_agent_refusal,
+    )
+    from tranibor_core.production import ENVIRONMENT_VARIABLE, is_production
 
     asked = deployment_agent_isolation(os.environ)
-    if asked == "process" or fakes_enabled():
+    if fakes_enabled():
         return None
     runtime = connectors.get("runtime")
     kind = runtime.type if runtime else default_executor_kind()
+    if asked == "process":
+        environment = os.environ.get(ENVIRONMENT_VARIABLE)
+        if not is_production(environment):
+            return None
+        try:
+            accepted = agent_isolation_none_accepted(os.environ.get(AGENT_ISOLATION_ACCEPT_ENV))
+        except ValueError:
+            accepted = False
+        return IsolationFact(
+            kind,
+            unisolated_agent_refusal(environment, asked, kind, accepted=accepted),
+            accepted=accepted,
+        )
     capabilities = declared_capabilities(kind, agent_isolation=asked)
     return IsolationFact(kind, agent_isolation_refusal(asked, kind, capabilities))
 
