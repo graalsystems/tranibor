@@ -340,10 +340,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # servicenow 0.2.18 as the agents repository published it (publish.yml), by its registry digest
+      # servicenow 0.2.19 as the agents repository published it (publish.yml), by its registry digest
       # (tests/architecture/test_supply_chain_pinned.py), and the commit it was built from.
-      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.18@sha256:e0736bd6af1b249a12c7fb03dba5e211a4eb284fab0b97f39db3e0f8040bb5d9
-      AGENTS_REF: 90e9744f0d0916edefe250e6322c263e0acacbb5
+      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.19@sha256:78b2baa9ad042a8903aac93d281a92fde2ce9c0258222a623cb3813685d927e7
+      AGENTS_REF: 20bdba0d1cb52b088a10615995f7bf1bcb271e2b
       TRANIBOR_LIVE_SERVICENOW_URL: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_URL }}
       TRANIBOR_LIVE_SERVICENOW_USERNAME: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_USERNAME }}
       TRANIBOR_LIVE_SERVICENOW_PASSWORD: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_PASSWORD }}
