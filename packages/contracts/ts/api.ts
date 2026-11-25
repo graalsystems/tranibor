@@ -1918,13 +1918,15 @@ export type RunTool = {
   outputSchema?: {
     [key: string]: unknown;
   };
-  /** MCP tool annotations. `readOnlyHint` is true only for `x-choregos-access: read`. */
+  /** MCP tool annotations. `readOnlyHint` is true only for `x-tranibor-access: read`. */
   annotations: {
     readOnlyHint?: boolean;
     [key: string]: unknown;
   };
-  /** `read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name`. */
+  /** @deprecated The same value as `x-tranibor-access`, under its former name (ADR 0224), listed until 0.32.0 for a runner of an earlier release. A plugin tool may still declare it. */
   "x-choregos-access": "read" | "write" | "approval";
+  /** `read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name` (under this key or the former `x-choregos-access`). */
+  "x-tranibor-access": "read" | "write" | "approval";
   [key: string]: unknown;
 };
 
@@ -4088,7 +4090,7 @@ export type OrgGroupUpdate = {
   description?: string | null;
 };
 
-/** A group that belongs to the organisation (ADR 0160). A person in it carries it as `choregos:<org>:<slug>` wherever a group is checked. */
+/** A group that belongs to the organisation (ADR 0160). A person in it carries it as `tranibor:<org>:<slug>` (formerly `choregos:<org>:<slug>`, read until 0.32.0, ADR 0224) wherever a group is checked. */
 export type OrgGroup = {
   slug: string;
   name: string;
@@ -5461,7 +5463,7 @@ export type TriggerToken = {
   name: string;
   url: string;
   token: string;
-  /** The HMAC-SHA256 key of `X-Choregos-Signature`; it changes with the token. */
+  /** The HMAC-SHA256 key of `X-Tranibor-Signature`; it changes with the token. */
   signing_secret: string;
 };
 

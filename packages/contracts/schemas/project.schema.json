@@ -130,7 +130,7 @@
           "fields": { "description": "The work item's fields: a field name to a JSON pointer, whose value keeps its JSON type; validated by the workflow's `metadata.inputs`.", "type": "object", "additionalProperties": { "type": "string", "pattern": "^(/([^~/]|~[01])*)+$" }, "default": {} },
           "workflow": { "description": "The workflow of the work item; the project's routing when absent.", "type": ["string", "null"], "default": null },
           "when": { "description": "A JSON pointer to the text, or one of the texts, the payload must hold there (S56-05); a payload that does not match is acknowledged and recorded `ignored`.", "type": "object", "propertyNames": { "pattern": "^(/([^~/]|~[01])*)+$" }, "additionalProperties": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 } ] }, "default": {} },
-          "auth": { "description": "`token`: the bearer token; `signature`: `X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>` keyed by the signing secret (S56-04).", "enum": ["token", "signature"], "default": "token" }
+          "auth": { "description": "`token`: the bearer token; `signature`: `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>` (or the former `X-Choregos-Signature`) keyed by the signing secret (S56-04).", "enum": ["token", "signature"], "default": "token" }
         }
       },
       "default": []

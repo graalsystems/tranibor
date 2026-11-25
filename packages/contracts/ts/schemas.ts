@@ -1301,7 +1301,7 @@ export type Project = {
     when?: {
       [key: string]: string | Array<string>;
     };
-    /** `token`: the bearer token; `signature`: `X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>` keyed by the signing secret (S56-04). */
+    /** `token`: the bearer token; `signature`: `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>` (or the former `X-Choregos-Signature`) keyed by the signing secret (S56-04). */
     auth?: "token" | "signature";
   }>;
   /** Tracker items that start their work item without the `agent-ready` label (S56-03, ADR 0113): the first rule whose every condition holds starts an item the project does not hold yet. */
