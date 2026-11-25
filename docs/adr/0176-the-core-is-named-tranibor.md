@@ -1,5 +1,7 @@
 # 0176 — The core is named Tranibor: the visible name first, then packages, images and variables, each behind a compatibility rule
 
+> **Amended by [ADR 0224](0224-the-former-name-leaves-every-layer-wire-included.md)** (2026-11-25): §6 no longer holds; every name it kept gets its Tranibor twin and a window, the wire included.
+>
 > **Amended by [ADR 0186](0186-the-publisher-is-graal-systems-sas.md)** (2026-11-18): the publisher is GRAAL.SYSTEMS SAS and the product no longer names the Varga Foundation; the text below is kept as the history of the earlier decision.
 
 - **Status**: accepted, 2026-11-17 (decided by the product owner on 2026-11-15, D6, and confirmed on
