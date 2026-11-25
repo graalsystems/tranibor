@@ -20,8 +20,11 @@ from typer.testing import CliRunner
 API = "http://api.test"
 DOOR = f"{API}/a2a/orgs/acme"
 CARD = f"{DOOR}/.well-known/agent-card.json"
-CONSOLE = "https://choregos.example.com/p/billing-api/items/t-1"
-FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+CONSOLE = "https://tranibor.example.com/p/billing-api/items/t-1"
+#: The card's skill-fields extension (ADR 0224 R7): the door announces it under its URI and, for the
+#: window, under the former one too; a door of an earlier release announces only the former one.
+FIELDS_EXTENSION = "https://tranibor.dev/a2a/extensions/skill-fields/v1"
+FORMER_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
 
 
 @pytest.fixture(autouse=True)
@@ -116,8 +119,9 @@ def _door(**answers: list[Callable[[Any], Response]]) -> Door:
     return door
 
 
+@pytest.mark.parametrize("uri", [FIELDS_EXTENSION, FORMER_FIELDS_EXTENSION], ids=["tranibor", "former"])
 @respx.mock
-def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension() -> None:
+def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension(uri: str) -> None:
     card = {
         "skills": [
             {"id": "billing-api/ship-a-change", "description": "Ship it", "inputModes": ["application/json"]},
@@ -126,7 +130,7 @@ def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension() -> Non
         "capabilities": {
             "extensions": [
                 {
-                    "uri": FIELDS_EXTENSION,
+                    "uri": uri,
                     "params": {
                         "skills": {
                             "billing-api/ship-a-change": {
