@@ -35,7 +35,7 @@ Images are published under `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,
 multi-arch and signed; the chart is published as `oci://ghcr.io/graalsystems/charts/tranibor` and, for the
 window, under its former name `…/charts/choregos`, with the same content. The former image names,
 `choregos-*`, carry the same digests for the ADR 0176 window (see "Upgrading past 0.27.13"); the chart's
-defaults name the `tranibor-*` ones (see "Upgrading to the next release: the chart takes the name tranibor").
+defaults name the `tranibor-*` ones (see "Upgrading to 0.30.0: the chart takes the name tranibor").
 The published packages are public: pulls are anonymous. The chart's `global.imageTag` follows the chart
 version.
 
@@ -2621,14 +2621,13 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
-## Upgrading to the next release: the commands and files take the name tranibor (ADR 0224, R5)
+## Upgrading to 0.30.0: the commands and files take the name tranibor (ADR 0224, R5)
 
 ([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R5.) The commands a person
 or a script types, and the files the CLI and a repository keep, are named `tranibor`. Each former name keeps
 working for the window of ADR 0224 §1: it is read (or still installed, or still served) for two minor
-versions from the release that ships this change, and removed in the minor after, in a PR of its own. If
-this change ships in 0.30.0, the former names work through 0.31.x and go in 0.32.0; this section will say so
-again when the removal is scheduled. Nothing an installation, a script or a repository does today stops
+versions from the release that ships this change, and removed in the minor after, in a PR of its own. This
+change ships in 0.30.0: the former names work through 0.31.x and go in 0.32.0. Nothing an installation, a script or a repository does today stops
 working on upgrade.
 
 | What | From this release | The former name, for the window | What to do |
@@ -2647,12 +2646,12 @@ the step's sandbox: `result.json`, `task.md`, `inputs/`, `fields.json`, `job.jso
 which agents and job images built before the change read and write (the chart and the objects it renders
 move in R6, the next section); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
 
-## Upgrading to the next release: the chart takes the name tranibor (ADR 0224, R6)
+## Upgrading to 0.30.0: the chart takes the name tranibor (ADR 0224, R6)
 
 ([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R6.) The chart, its
 subcharts, the objects it renders and its values keys take the name `tranibor`. The former names are
-read for a window of **two minor versions** from this release, then go in their own release, announced
-here. What holds data keeps its name, and so do the Secret names the chart defaults to.
+read for a window of **two minor versions** from this release (0.30.x and 0.31.x), then go in 0.32.0.
+What holds data keeps its name, and so do the Secret names the chart defaults to.
 
 **The chart's address.** The directories are `charts/tranibor` and `charts/tranibor-outpost`, the charts
 are named `tranibor` and `tranibor-outpost`. Each release still publishes both under their former names
@@ -2776,7 +2775,7 @@ and `tranibor-*` as it judges `choregos` and `choregos-*`, and takes a project's
 `tranibor/project` or `choregos/project`. Apply them before you install into a namespace named after
 `tranibor`.
 
-## Upgrading to the next release: the wire names take the name tranibor (ADR 0224, R7)
+## Upgrading to 0.30.0: the wire names take the name tranibor (ADR 0224, R7)
 
 ([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R7.) Every name the platform puts on the wire or in a tracker gets its `tranibor` twin. From
 the release that ships this round (0.30.0) the platform **reads both** names and **writes the new one**; where a

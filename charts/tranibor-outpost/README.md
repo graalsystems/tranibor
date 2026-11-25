@@ -79,7 +79,7 @@ probe. `<name>` is the release's name, followed by `-tranibor-outpost` when it h
 nor `choregos-outpost` (`fullnameOverride` sets it). `<statefulset>` keeps the name the chart gave it
 before ADR 0224, `<release>-choregos-outpost` (or `fullnameOverride`), because its claims follow it
 (`data-<statefulset>-<n>`): `persistence.statefulSetName` renames it once the claims are moved
-(`docs/deployment.md`, "Upgrading to the next release: the chart takes the name tranibor"). The chart
+(`docs/deployment.md`, "Upgrading to 0.30.0: the chart takes the name tranibor"). The chart
 is also published as `choregos-outpost` for the window, with the same content.
 
 **One identity and one journal per instance.** An instance makes its two key pairs itself and
