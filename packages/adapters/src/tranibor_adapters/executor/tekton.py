@@ -7,7 +7,7 @@ labels that make it possible to find the run again from a Tekton event.
 The run's Secret belongs to its PipelineRun (`ownerReferences`), and goes with it however the
 run ends (#501).
 
-The PipelineRun carries its Pipeline inline (`pipelineSpec`, S86-05): the clone (the catalogue's
+The PipelineRun carries its Pipeline inline (`pipelineSpec`, S87-05): the clone (the catalogue's
 `git-clone`, by reference, when the project has a repository), then the agent stage, whose Task is
 inline too (`taskSpec`). Nothing of the agent stage is read from the project's namespace, so no
 older copy of a Task can run the agent beside the runner. Tekton Chains signs a PipelineRun whose
@@ -125,7 +125,7 @@ class TektonExecutor:
     """Creates and follows the `PipelineRun`s of agent steps."""
 
     kind = ExecutorKind.TEKTON
-    #: `separate_agent` (ADR 0146 §9, S86-05): under `container` the agent stage's Task carries the agent's
+    #: `separate_agent` (ADR 0146 §9, S87-05): under `container` the agent stage's Task carries the agent's
     #: own container as a sidecar. Tekton's own sidecar mechanism, so no Kubernetes version is required.
     capabilities: frozenset[str] = frozenset({SEPARATE_AGENT})
 
@@ -284,7 +284,7 @@ class TektonExecutor:
                 },
             },
             "spec": {
-                # Inline (S86-05): no Pipeline nor Task of the namespace is read to run the agent stage.
+                # Inline (S87-05): no Pipeline nor Task of the namespace is read to run the agent stage.
                 "pipelineSpec": self._pipeline_spec(spec, name, cloned=depot is not None),
                 "taskRunTemplate": {"serviceAccountName": self.service_account, "podTemplate": pod_template},
                 "timeouts": {"pipeline": f"{spec.timeout_minutes}m"},

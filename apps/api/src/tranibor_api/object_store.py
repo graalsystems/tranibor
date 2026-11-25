@@ -2,7 +2,7 @@
 """The platform's object store, built once from the settings (ADR 0049).
 
 `TRANIBOR_FAKES=1` or a `memory://` URL gives the in-memory fake (ADR 0005); otherwise
-`TRANIBOR_OBJECT_STORE_KIND` picks the adapter (`s3` by default, `azure-blob`, `gcs`, S86-17), with the
+`TRANIBOR_OBJECT_STORE_KIND` picks the adapter (`s3` by default, `azure-blob`, `gcs`, S87-17), with the
 endpoint and credentials of `TRANIBOR_OBJECT_STORE_*`, or the pod's cloud identity when none is given.
 Tests replace it with `use_object_store`.
 """

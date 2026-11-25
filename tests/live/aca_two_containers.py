@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The two programs of the two-container ACA measurement (S86-07), as text for a job definition.
+"""The two programs of the two-container ACA measurement (S87-07), as text for a job definition.
 
 `RUNNER_SIDE` runs in the runner's container of a Container Apps job, with the runner image's own
 Python and its `tranibor_runner.launcher` client. It holds a marker secret in its environment, as a
 runner holds the run token, waits for the launcher of the agent's container on loopback, writes into
 the shared `EmptyDir`, has `AGENT_SIDE` started in the agent's container through the launcher, and
-prints one line `S86-07 {json}` with what both sides saw. Its exit code says whether the shape holds:
+prints one line `S87-07 {json}` with what both sides saw. Its exit code says whether the shape holds:
 0 when loopback, the volume both ways and the separation all hold; otherwise the first check that
 failed (see `CHECKS`).
 
@@ -57,17 +57,17 @@ RUNNER_SIDE = r"""
 import asyncio, json, os, pathlib, sys
 from tranibor_runner.launcher import Launcher
 
-AGENT_SIDE = os.environ["S86_AGENT_SIDE"]
-MARKER = os.environ["S86_MARKER"]
-CHECKS = json.loads(os.environ["S86_CHECKS"])
+AGENT_SIDE = os.environ["S87_AGENT_SIDE"]
+MARKER = os.environ["S87_MARKER"]
+CHECKS = json.loads(os.environ["S87_CHECKS"])
 # Where the agent's side runs: the exchange directory, or the working tree where the platform shares one
-# (Tekton's workspace, S86-06): a tree the agent's container does not see makes the launcher fail (22).
+# (Tekton's workspace, S87-06): a tree the agent's container does not see makes the launcher fail (22).
 
 
 def finish(code: int, report: dict) -> None:
     report["exit"] = code
     report["verdict"] = CHECKS[str(code)]
-    print("S86-07 " + json.dumps(report), flush=True)
+    print("S87-07 " + json.dumps(report), flush=True)
     pathlib.Path("/exchange/.runner-done").write_text(str(code))
     sys.exit(code)
 
@@ -81,7 +81,7 @@ async def main() -> None:
     half = len(MARKER) // 2
     process = await launcher.spawn(
         ["python3", "-c", AGENT_SIDE, MARKER[:half], MARKER[half:]],
-        cwd=os.environ.get("S86_AGENT_CWD", "/exchange"),
+        cwd=os.environ.get("S87_AGENT_CWD", "/exchange"),
         env={"PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin"},
     )
     out, err = await process.communicate()

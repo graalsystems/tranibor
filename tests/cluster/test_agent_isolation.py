@@ -69,7 +69,7 @@ WARM_POOL_TEMPLATE = os.environ.get("TRANIBOR_ISOLATION_TEMPLATE", "choregos-run
 #: In-namespace services the agent's container must not reach, and those it must (finding #2082).
 CLOSED = [t for t in os.environ.get("TRANIBOR_ISOLATION_CLOSED", "").split(",") if t]
 OPEN = [t for t in os.environ.get("TRANIBOR_ISOLATION_OPEN", "").split(",") if t]
-#: Outside a platform, the RuntimeClass the two probe pods run under (S86-13: `kata-vm-isolation` on
+#: Outside a platform, the RuntimeClass the two probe pods run under (S87-13: `kata-vm-isolation` on
 #: AKS); empty leaves the cluster's default (runc).
 RUNTIME_CLASS = os.environ.get("TRANIBOR_ISOLATION_RUNTIME_CLASS", "")
 #: Objects of this test, in a namespace it does not own: a suffix of their own.

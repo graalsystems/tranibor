@@ -1,4 +1,4 @@
-"""S86-17: `TRANIBOR_OBJECT_STORE_KIND` picks the store the API writes the files to, and a store with no
+"""S87-17: `TRANIBOR_OBJECT_STORE_KIND` picks the store the API writes the files to, and a store with no
 credentials in the settings takes the pod's cloud identity."""
 
 from __future__ import annotations

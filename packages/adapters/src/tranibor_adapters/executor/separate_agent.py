@@ -6,7 +6,7 @@ Under `container` the agent of an ACP step runs beside the runner, never as its 
 (`choregos-runner launcher`) and nothing else. The runner connects to it over the pod's loopback and
 asks it for the harness and the project's checks. The same shape as the warm pool's template
 (`sandbox.yaml`), built here for `k8s_job` and, as a sidecar of the agent stage's Task, for `tekton`
-(S86-05, `tekton_sidecar`):
+(S87-05, `tekton_sidecar`):
 
 - another uid (1001) in the runner's group (1000, the pod's `fsGroup`), a read-only root file system,
   every capability dropped; no Secret, no `envFrom`, no variable but `TMPDIR` and `HOME`;
@@ -39,7 +39,7 @@ LAUNCHER_BESIDE_HOSTED = "launcher"
 EXCHANGE = "/exchange"
 EXCHANGE_VOLUME = "exchange"
 AGENT_TMP_VOLUME = "agent-tmp"
-#: Where a platform ends a run only once every container has ended (a Container Apps job, S86-08), the
+#: Where a platform ends a run only once every container has ended (a Container Apps job, S87-08), the
 #: runner writes its exit code to this file and the launcher (`--until-file`) ends on it.
 RUNNER_DONE_ENV = "TRANIBOR_RUNNER_DONE_FILE"
 RUNNER_DONE_FILE = f"{EXCHANGE}/.runner-done"
@@ -154,7 +154,7 @@ def _tell_runner(
 
 
 def tekton_sidecar(image: str, *, requests: dict[str, str], limits: dict[str, str]) -> dict[str, Any]:
-    """The agent's container as a sidecar of a Tekton Task (S86-05): `launcher_container`, the same image,
+    """The agent's container as a sidecar of a Tekton Task (S87-05): `launcher_container`, the same image,
     uid, read-only root, dropped capabilities, environment and probe, with three differences Tekton
     imposes and nothing else:
 
@@ -182,7 +182,7 @@ def add_to_task(
     runner_requests: dict[str, str] | None = None,
     runner_limits: dict[str, str] | None = None,
 ) -> None:
-    """`add_to_pod` for a Tekton Task (S86-05): the agent's container among the Task's sidecars, the
+    """`add_to_pod` for a Tekton Task (S87-05): the agent's container among the Task's sidecars, the
     exchange directory and the agent's `/tmp` among its volumes, and the runner's step (`run`) told where
     the launcher is, with its own requests and limits."""
     task_spec.setdefault("sidecars", []).append(

@@ -475,7 +475,7 @@ def test_a_warm_pool_rendered_with_the_agents_container_is_done(isolated: pytest
 
 
 def test_tekton_starts_the_agents_container_itself_and_is_done(isolated: pytest.MonkeyPatch) -> None:
-    """S86-05: the agent stage's Task carries the agent's sidecar; nothing is routed."""
+    """S87-05: the agent stage's Task carries the agent's sidecar; nothing is routed."""
     isolated.setenv("TRANIBOR_EXECUTOR_KIND", "tekton")
     isolated.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "k8s_job")
     fact = isolation_fact({})
@@ -487,8 +487,8 @@ def test_tekton_starts_the_agents_container_itself_and_is_done(isolated: pytest.
 
 @pytest.fixture
 def tekton_without_the_sidecar(isolated: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    """A Tekton that cannot start the agent's container, as before S86-05: what the second executor
-    (S86-02) is for, and what an executor declaring nothing still gets."""
+    """A Tekton that cannot start the agent's container, as before S87-05: what the second executor
+    (S87-02) is for, and what an executor declaring nothing still gets."""
     isolated.setattr(TektonExecutor, "capabilities", frozenset())
     isolated.setenv("TRANIBOR_EXECUTOR_KIND", "tekton")
     return isolated
@@ -497,7 +497,7 @@ def tekton_without_the_sidecar(isolated: pytest.MonkeyPatch) -> pytest.MonkeyPat
 def test_an_executor_with_a_second_executor_that_isolates_is_done_naming_it(
     tekton_without_the_sidecar: pytest.MonkeyPatch,
 ) -> None:
-    """S86-02: the chart renders `k8s_job` behind `tekton` under `container`; the run goes there."""
+    """S87-02: the chart renders `k8s_job` behind `tekton` under `container`; the run goes there."""
     tekton_without_the_sidecar.setenv("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "k8s_job")
     fact = isolation_fact({})
     assert fact is not None and fact.executor == "tekton"

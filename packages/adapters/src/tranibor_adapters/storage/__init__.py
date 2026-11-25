@@ -14,7 +14,7 @@ Four implementations of one port, `ObjectStore`, each over `httpx` with no cloud
 - `FakeObjectStore` (`tranibor_adapters.fakes.storage`), in memory, scriptable, for
   `TRANIBOR_FAKES=1` and tests.
 
-`build_object_store` picks one from the settings (S86-17).
+`build_object_store` picks one from the settings (S87-17).
 """
 
 from __future__ import annotations

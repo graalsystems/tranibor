@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The Azure Blob store (S86-17): Azure Blob Storage has no S3 API, so it is spoken to in its own REST
+"""The Azure Blob store (S87-17): Azure Blob Storage has no S3 API, so it is spoken to in its own REST
 API (Put Blob, Get Blob, Delete Blob, List Blobs), over `httpx` like the S3 store — no SDK in the core.
 
 The store URL is `azblob://<container>/<prefix>`; the endpoint is the account's blob endpoint,

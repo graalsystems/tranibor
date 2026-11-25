@@ -188,7 +188,7 @@ async def serve(
     nothing before a request: a warm sandbox's agent container is idle (ADR 0146 §2).
 
     `until` is for a platform that ends a run only when every container of it has ended (a Container Apps
-    job, ADR 0224 §2, measured by S86-07): the runner writes the file when it is done, and the agent's
+    job, ADR 0226 §2, measured by S87-07): the runner writes the file when it is done, and the agent's
     container ends with it instead of holding the execution open until its timeout."""
     os.umask(SHARED_UMASK)
     server = await asyncio.start_server(handle, host, port)

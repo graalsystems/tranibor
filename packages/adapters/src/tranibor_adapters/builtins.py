@@ -586,7 +586,7 @@ def _register_runtimes() -> None:
     register("runtime", "tekton", _SHIPPED_SPECS[("runtime", "tekton")])(
         lambda cfg: TektonExecutor(
             KubernetesClient(**cfg.get("kubernetes", {})),
-            # The PipelineRun carries its Pipeline inline (S86-05): no `pipeline` to name. A stored
+            # The PipelineRun carries its Pipeline inline (S87-05): no `pipeline` to name. A stored
             # configuration that still names one is read and ignored.
             cpu_limit=os.environ.get("TRANIBOR_RUNNER_CPU_LIMIT", "") or "2",
             memory_limit=os.environ.get("TRANIBOR_RUNNER_MEMORY_LIMIT", "") or "6Gi",

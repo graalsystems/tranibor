@@ -523,7 +523,7 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
     ("runtime", "tekton"): ConnectorTypeSpec(
         "Tekton PipelineRun",
         ("runtime",),
-        # No field: the PipelineRun carries its Pipeline inline (S86-05), so there is none to name.
+        # No field: the PipelineRun carries its Pipeline inline (S87-05), so there is none to name.
         _object_schema({}),
     ),
     ("runtime", "k8s_job"): ConnectorTypeSpec(

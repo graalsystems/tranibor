@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The support matrix (S86-04): `docs/support/clusters.yaml` is the record, `docs/deployment.md` reads it.
+"""The support matrix (S87-04): `docs/support/clusters.yaml` is the record, `docs/deployment.md` reads it.
 
     uv run python tools/support_matrix.py            # writes the section between the markers
     uv run python tools/support_matrix.py --check    # fails if the section differs from the record
@@ -11,7 +11,7 @@ record that does is refused, and so is a page that calls a provider supported wi
 computes to it (`unsupported_claims`).
 
 `as_of` is the day the record was last brought up to date, written in the record and moved forward by
-whoever records a proof (and by the scheduled proofs, S86-15): the word never changes on its own, so the
+whoever records a proof (and by the scheduled proofs, S87-15): the word never changes on its own, so the
 docs test never turns red on a day nobody committed anything. A record whose `as_of` is in the future,
 or older than one of its proofs, is refused.
 """

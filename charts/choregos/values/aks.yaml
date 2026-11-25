@@ -1,4 +1,4 @@
-# AKS profile (S86-10, ADR 0224): what differs on Azure Kubernetes Service, and nothing else.
+# AKS profile (S87-10, ADR 0226): what differs on Azure Kubernetes Service, and nothing else.
 # Layer it after the base profile and before the site's own file:
 #
 #   helm install choregos charts/choregos -n choregos --create-namespace \

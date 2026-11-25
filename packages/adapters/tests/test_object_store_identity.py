@@ -1,4 +1,4 @@
-"""S86-17: the object store takes a cloud identity — temporary AWS credentials, signed with their
+"""S87-17: the object store takes a cloud identity — temporary AWS credentials, signed with their
 session token, and the token sources of Azure and Google, each one against a scripted transport."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# Where the platform is proved (S86-04, plan 2026-11-25 D4): one entry per kind of cluster, and its last
+# Where the platform is proved (S87-04, plan 2026-11-25 D4): one entry per kind of cluster, and its last
 # green proof. `make docs-support` writes the "Where the platform is proved" section of
 # docs/deployment.md from this file; tests/docs/test_support_matrix.py refuses a page that differs.
 #
@@ -82,9 +82,9 @@ clusters:
     proof:
       date: 2026-11-25
       version: 0.29.4 (runner image with `launcher --until-file`, built from this tree)
-      what: the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S86-07, S86-08); the six earlier live tests of S13-05
+      what: the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S87-07, S87-08); the six earlier live tests of S13-05
       evidence:
-        - docs/plan/status/S86.md
+        - docs/plan/status/S87.md
         - tests/live/test_aca_two_containers_live.py
         - docs/runbooks/aca-live.md
   - id: eks
@@ -112,11 +112,11 @@ clusters:
     executors: [k8s_job]
     proof:
       date: 2026-11-25
-      version: chart 0.29.4 with S86 (values/all-in-one.yaml + values/aks.yaml)
-      what: tools/cluster-proof/proof.sh from a clean install - the preflight, the chart, an agent pod's reach, the egress gate's first packets under Kata, the agent's own container under Kata, one work item to approved (S86-13)
+      version: chart 0.29.4 with S87 (values/all-in-one.yaml + values/aks.yaml)
+      what: tools/cluster-proof/proof.sh from a clean install - the preflight, the chart, an agent pod's reach, the egress gate's first packets under Kata, the agent's own container under Kata, one work item to approved (S87-13)
       evidence:
         - docs/support/evidence/2026-11-25-aks.md
-        - docs/plan/status/S86.md
+        - docs/plan/status/S87.md
   - id: openshift
     provider: Red Hat OpenShift
     names: [OpenShift]

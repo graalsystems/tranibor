@@ -88,8 +88,8 @@ def deployment_agent_isolation(environ: Mapping[str, str]) -> AgentIsolation:
 #: Why an executor that will not start the agent's container does not (S65-04l), added to its refusal
 #: so that the operator reads the reason, not only the missing word.
 WHY_NOT_SEPARATE: dict[str, str] = {
-    # Empty since S86-08: every shipped executor that runs agents starts the agent's container (`tekton`
-    # since S86-05, `aca` since S86-08). An executor added without it names its reason here.
+    # Empty since S87-08: every shipped executor that runs agents starts the agent's container (`tekton`
+    # since S87-05, `aca` since S87-08). An executor added without it names its reason here.
 }
 
 

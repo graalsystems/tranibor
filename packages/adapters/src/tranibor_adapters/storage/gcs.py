@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The Google Cloud Storage store (S86-17), in the JSON API over `httpx` — no SDK in the core.
+"""The Google Cloud Storage store (S87-17), in the JSON API over `httpx` — no SDK in the core.
 
 GCS speaks S3 only with HMAC keys, which a Workload Identity does not have: this store takes the
 bearer token of the pod's Google service account instead (`tokens.GceMetadataToken`, GKE Workload

@@ -454,7 +454,7 @@ def second_executor_kind(primary: str) -> str | None:
 
     `TRANIBOR_CUSTOM_IMAGE_EXECUTOR` (chart `runner.customImageExecutor`) names it. Behind `agent_sandbox`
     only when the pool's image (`TRANIBOR_RUNNER_IMAGE`) is known, because an override cannot otherwise be
-    told from the default; behind `tekton` always (S86-02), since only the agent's isolation routes there.
+    told from the default; behind `tekton` always (S87-02), since only the agent's isolation routes there.
     `/readiness` asks the same question, so it judges the executor a run really reaches."""
     secondary = os.environ.get("TRANIBOR_CUSTOM_IMAGE_EXECUTOR", "")
     if not secondary:
@@ -467,7 +467,7 @@ def second_executor_kind(primary: str) -> str | None:
 
 
 def with_custom_image_executor(executor: Any) -> Any:
-    """Puts a second executor behind the ones that cannot run every step (ADR 0072, S86-02).
+    """Puts a second executor behind the ones that cannot run every step (ADR 0072, S87-02).
 
     On `agent_sandbox`, a step that names its own image, or that the pool cannot isolate, goes to it. On
     `tekton`, which runs any image, only a step under `container` it cannot isolate (it does not declare

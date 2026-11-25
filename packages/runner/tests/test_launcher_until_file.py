@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-08: the agent's container ends with the runner where the platform waits for every container.
+"""S87-08: the agent's container ends with the runner where the platform waits for every container.
 
 A Container Apps execution ends only once every container of its replica has ended (measured on a real
-subscription, S86-07): a launcher that serves forever held the execution open until its timeout, then
+subscription, S87-07): a launcher that serves forever held the execution open until its timeout, then
 reported it failed. The runner writes its exit code to the file the executor names, and the launcher,
 watching that file, ends.
 """

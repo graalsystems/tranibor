@@ -99,7 +99,7 @@ def test_only_agent_sandbox_starts_every_run_from_a_clean_sandbox(monkeypatch: p
 async def test_tekton_declares_the_agents_own_container_and_starts_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """S86-05: the agent stage's Task carries the agent's container as a sidecar (ADR 0146 §9). Tekton
+    """S87-05: the agent stage's Task carries the agent's container as a sidecar (ADR 0146 §9). Tekton
     declares `separate_agent`, has no reason left in `WHY_NOT_SEPARATE`, and a run under `container`
     reaches its backend with the sidecar in the PipelineRun it sends."""
     from tranibor_core.agent_isolation import SEPARATE_AGENT, WHY_NOT_SEPARATE, agent_isolation_refusal
@@ -133,7 +133,7 @@ async def test_tekton_declares_the_agents_own_container_and_starts_it(
 
 
 async def test_aca_declares_the_agents_own_container_and_starts_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    """S86-08: a Container Apps job carries the agent's container beside the runner's (ADR 0146, ADR 0224
+    """S87-08: a Container Apps job carries the agent's container beside the runner's (ADR 0146, ADR 0226
     §2): ACA declares `separate_agent`, has no reason left in `WHY_NOT_SEPARATE`, and a run under
     `container` reaches ARM with a job whose second container is the launcher, ending on the runner's
     done file, with no secret; the two share the working tree and the exchange directory."""

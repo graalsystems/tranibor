@@ -1,4 +1,4 @@
-"""S86-03 — `tranibor cluster check` on a real cluster: what the CNI does, not what the API accepts.
+"""S87-03 — `tranibor cluster check` on a real cluster: what the CNI does, not what the API accepts.
 
 The check is run as an operator runs it, against the kube context the suite names. Which outcome is
 right depends on the cluster's CNI, read from `kube-system`:

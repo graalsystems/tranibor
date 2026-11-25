@@ -111,7 +111,7 @@ def _rendered_for(kube_version: str, *overrides: str) -> dict[str, str]:
 
 def test_the_cluster_version_reaches_the_api_from_the_cluster_or_the_operator() -> None:
     """S41-16: the API refuses a hosted version below 1.29 from the version the chart renders for.
-    Since S86-16 the chart itself refuses to render for a cluster below 1.29
+    Since S87-16 the chart itself refuses to render for a cluster below 1.29
     (`test_cluster_assumptions.py`): the version reaches the API from a cluster it accepts."""
     assert _rendered_for("1.29.0")["CHOREGOS_CLUSTER_VERSION"] == "v1.29.0"
     assert _rendered_for("1.30.1")["CHOREGOS_CLUSTER_VERSION"] == "v1.30.1"

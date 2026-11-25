@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-13: the embedded Keycloak is admitted to the embedded PostgreSQL that holds its realm.
+"""S87-13: the embedded Keycloak is admitted to the embedded PostgreSQL that holds its realm.
 
 The all-in-one profile walls the PostgreSQL to a list of clients; Keycloak was not on it. Where
 NetworkPolicies are enforced (AKS with Cilium, the first real install of the profile) Keycloak never

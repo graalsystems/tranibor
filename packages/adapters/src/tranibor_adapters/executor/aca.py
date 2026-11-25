@@ -129,8 +129,8 @@ class AcaExecutor:
     """One ACA job per run, triggered manually, cleaned up by the ACA lifecycle."""
 
     kind = ExecutorKind.ACA
-    #: The agent's own container (ADR 0146, ADR 0224 §2, S86-08): measured on a real subscription by
-    #: S86-07 (`tests/live/test_aca_two_containers_live.py`): the two containers of a job's replica share
+    #: The agent's own container (ADR 0146, ADR 0226 §2, S87-08): measured on a real subscription by
+    #: S87-07 (`tests/live/test_aca_two_containers_live.py`): the two containers of a job's replica share
     #: loopback and an `EmptyDir`, each has its own process namespace, and an execution ends only once
     #: every container has ended, so the launcher ends on the runner's done file.
     capabilities: frozenset[str] = frozenset({SEPARATE_AGENT})
@@ -260,18 +260,18 @@ class AcaExecutor:
         return definition
 
     def _separate_the_agent(self, spec: StageJobSpec, template: dict[str, Any]) -> None:
-        """The agent's own container beside the runner's (ADR 0146, S86-08), in ACA's terms.
+        """The agent's own container beside the runner's (ADR 0146, S87-08), in ACA's terms.
 
         What differs from a pod (`separate_agent.add_to_pod`), because Container Apps has no
         `securityContext` and no native sidecar:
 
         - the uid is the image's own `USER`: the runner image runs both as 1000. What keeps the run's
           credentials from the agent is that each container of a replica has its own process namespace
-          (measured, S86-07) and that the agent's container is given no secret, only `TMPDIR` and `HOME`;
+          (measured, S87-07) and that the agent's container is given no secret, only `TMPDIR` and `HOME`;
         - the working tree and the exchange directory are two `EmptyDir` volumes of the replica;
         - the launcher ends when the runner writes `/exchange/.runner-done` (`--until-file`): an execution
           ends only once every container has ended, and a launcher left running held it open until its
-          timeout, then reported `Failed` (S86-07).
+          timeout, then reported `Failed` (S87-07).
         """
         runner = template["containers"][0]
         runner["env"] = (

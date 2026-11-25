@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Where the S3 store's credentials come from (S86-17): static keys, or the pod's AWS identity.
+"""Where the S3 store's credentials come from (S87-17): static keys, or the pod's AWS identity.
 
 In order, as `aws_credentials` chooses them:
 

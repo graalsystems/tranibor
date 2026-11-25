@@ -1,8 +1,8 @@
-"""S86-05: Tekton's PipelineRun carries its Pipeline and the agent stage's Task inline, and under `container`
+"""S87-05: Tekton's PipelineRun carries its Pipeline and the agent stage's Task inline, and under `container`
 the agent stage carries the agent's own container as a sidecar, the one `k8s_job` starts.
 
 Not proved here: that Tekton's controller starts the sidecar before the runner's step, mounts the workspace
-in it, and stops it after the last step, with or without `enable-kubernetes-sidecar` (S86-06, a cluster).
+in it, and stops it after the last step, with or without `enable-kubernetes-sidecar` (S87-06, a cluster).
 """
 
 from __future__ import annotations

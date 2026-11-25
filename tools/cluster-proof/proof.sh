@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# The install proof on ANY cluster (S86-09, ADR 0224 §3): the single-node proof's checks, made portable.
+# The install proof on ANY cluster (S87-09, ADR 0226 §3): the single-node proof's checks, made portable.
 #
 #   PROOF_CONTEXT=<kube context> tools/cluster-proof/proof.sh [extra values files...]
 #
@@ -56,7 +56,7 @@ kubectl --context "$PROOF_CONTEXT" get nodes -o wide | record
 kubectl --context "$PROOF_CONTEXT" get runtimeclass,storageclass,ingressclass | record
 
 if uv run --project "$ROOT" tranibor cluster check --help >/dev/null 2>&1; then
-  step "preflight: what the chart needs, asked of the cluster (S86-03)"
+  step "preflight: what the chart needs, asked of the cluster (S87-03)"
   values=(-f "$ROOT/charts/choregos/values/all-in-one.yaml")
   [ -n "${PROOF_PROFILE:-}" ] && values+=(-f "$ROOT/charts/choregos/values/$PROOF_PROFILE.yaml")
   uv run --project "$ROOT" tranibor cluster check --context "$PROOF_CONTEXT" "${values[@]/#-f/--values}" | record

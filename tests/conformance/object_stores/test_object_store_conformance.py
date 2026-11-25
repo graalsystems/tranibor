@@ -1,4 +1,4 @@
-"""S86-17: every object store behaves as the port says, whichever cloud holds the bytes.
+"""S87-17: every object store behaves as the port says, whichever cloud holds the bytes.
 
 One suite (`exercise`), run against each implementation: the fake, the three stores against
 in-memory emulators of their protocol (always), and — when Docker is asked for (`conftest.py`) — the
@@ -6,7 +6,7 @@ Azure Blob store against Azurite with a shared key, the GCS store against fake-g
 store against RustFS with static keys and with temporary credentials signed with their session token.
 
 What it does not prove: no real AWS, Azure or Google account; the cloud identities are proved by
-their unit tests against scripted transports, and on a cluster by S86-11 to S86-13.
+their unit tests against scripted transports, and on a cluster by S87-11 to S87-13.
 """
 
 from __future__ import annotations

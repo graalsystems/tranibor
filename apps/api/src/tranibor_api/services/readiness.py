@@ -114,7 +114,7 @@ class IsolationFact:
     #: prod the agent runs beside the runner's credentials, by decision.
     accepted: bool = False
     #: The second executor a run under `container` goes to because `executor` cannot isolate its agent and
-    #: this one can (`runner.customImageExecutor`, S86-02); None when `executor` keeps its runs.
+    #: this one can (`runner.customImageExecutor`, S87-02); None when `executor` keeps its runs.
     routed_to: str | None = None
 
 
@@ -1024,7 +1024,7 @@ def isolation_fact(connectors: dict[str, ConnectorFact]) -> IsolationFact | None
     refused with the sentence `start` raises, or `accepted` when the operator named the opt-out. The executor
     is the project's `runtime` connector, else the deployment's; what it declares is read from its class
     (`declared_capabilities`), and the sentence is the one its `start` raises. An executor that cannot isolate
-    the agent but has a second executor behind it that can (`second_executor_kind`, S86-02) is done: its
+    the agent but has a second executor behind it that can (`second_executor_kind`, S87-02) is done: its
     runs under `container` go there."""
     import os
 

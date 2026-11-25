@@ -67,7 +67,7 @@ global:
   # 1.29, which cannot run its native sidecar (S41-16). Empty: the version Helm or Argo CD renders
   # for (`.Capabilities.KubeVersion`, the cluster's own on `helm install`). Set it when rendering
   # offline for an older cluster. The executor checks the API server itself at every start anyway.
-  # The chart itself declares `kubeVersion: >=1.29.0-0` (S86-16): Helm and Argo CD refuse to render it
+  # The chart itself declares `kubeVersion: >=1.29.0-0` (S87-16): Helm and Argo CD refuse to render it
   # for an older cluster, so this value only matters for an offline render or a version Helm misreads.
   kubernetesVersion: ""
   # What runs agent stages (ADR 0072): one setting for the API and for the workers.
@@ -99,7 +99,7 @@ global:
     # start that container (it does not declare `separate_agent`) refuses the run, and `/readiness`
     # says so first (`agent-isolation`); the runner refuses too (exit 100) rather than fall back to
     # `process`. Needs Kubernetes >= 1.29 (native sidecar). `container` is the default from 0.27.17
-    # (S65-04m); `tekton` starts it as a sidecar of the agent stage's Task (S86-05). `aca` cannot start the
+    # (S65-04m); `tekton` starts it as a sidecar of the agent stage's Task (S87-05). `aca` cannot start the
     # agent's container, so a deployment on it sets `process`, which stays a choice, journaled on every run
     # (`agent.isolation`). Roll back the same way.
     agentIsolation: container
@@ -416,7 +416,7 @@ global:
       # field is not rendered, for a Gateway API whose HTTPRoute has no `timeouts` yet.
       requestTimeout: 60s
       # `kind: ingress`: there is no portable annotation for a timeout. `ingressController` names the
-      # controller whose timeout annotations the chart writes on the door's Ingress (S86-16):
+      # controller whose timeout annotations the chart writes on the door's Ingress (S87-16):
       # `ingress-nginx` (the default) writes `nginx.ingress.kubernetes.io/proxy-read-timeout: "60"` and
       # `nginx.ingress.kubernetes.io/proxy-buffering: "off"`; `""` writes none, for another
       # controller, whose own equivalents (a read timeout above 25 seconds, no response buffering)
@@ -557,7 +557,7 @@ global:
     # Secret (key `token`) of a memory that requires an API key. Empty: no header.
     tokenSecret: ""
   objectStore:
-    # The store's protocol (S86-17), as `CHOREGOS_OBJECT_STORE_KIND`:
+    # The store's protocol (S87-17), as `CHOREGOS_OBJECT_STORE_KIND`:
     #   s3          AWS S3 and S3-compatible servers (RustFS, MinIO, Ceph); `url: s3://bucket/prefix`.
     #   azure-blob  Azure Blob Storage (no S3 API); `url: azblob://container/prefix`, `endpoint` required.
     #   gcs         Google Cloud Storage, JSON API; `url: gs://bucket/prefix`; GKE Workload Identity only.
@@ -843,9 +843,9 @@ choregos-orchestrator:
     # Skip the render-time check that the agent-sandbox operator is installed, for an offline
     # rendering (CI, a preview). Never needed under Argo CD or `helm install`.
     skipOperatorCheck: false
-    # The second executor (ADR 0072, S86-02). On `agent_sandbox`: it runs a step naming its own image,
+    # The second executor (ADR 0072, S87-02). On `agent_sandbox`: it runs a step naming its own image,
     # since a warm pool is made from one image. On `tekton` with `global.runner.agentIsolation: container`:
-    # it would run an agent step Tekton cannot isolate (S86-02); since S86-05 Tekton isolates every one
+    # it would run an agent step Tekton cannot isolate (S87-02); since S87-05 Tekton isolates every one
     # itself, so it takes none. Add it to `global.runner.allowedExecutors` too. Empty: such a step is refused.
     customImageExecutor: k8s_job
     # What each agent pod receives in addition. `env` carries plain values (never a
@@ -1000,7 +1000,7 @@ monitoring:
   # deployment looks monitored and is not. Observed on a real tenant on 2026-09-26.
   flavour: prometheus
   # The scrape object (`ServiceMonitor`, or `VMServiceScrape`) and the alert rules (`PrometheusRule`,
-  # or `VMRule`) are rendered only when the cluster serves their type (S86-16): a cluster without the
+  # or `VMRule`) are rendered only when the cluster serves their type (S87-16): a cluster without the
   # operator would refuse the whole install. Argo CD and `helm install` tell the chart what the
   # cluster serves; an offline render (`helm template` in CI, a preview, `helm template | kubectl
   # apply`) does not, and leaves them out unless `skipCrdCheck` is true.
@@ -1053,7 +1053,7 @@ netops:
 
 networkPolicies:
   enabled: true
-  # The cluster's DNS resolver, which every egress policy of the chart opens (S86-16). The defaults
+  # The cluster's DNS resolver, which every egress policy of the chart opens (S87-16). The defaults
   # are the upstream layout: the pods of `kube-system`, UDP 53 for the platform's own pods and UDP and
   # TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder.
   #   OpenShift: `{namespace: openshift-dns, ports: [{port: 5353, protocol: UDP}, {port: 5353, protocol: TCP}]}`

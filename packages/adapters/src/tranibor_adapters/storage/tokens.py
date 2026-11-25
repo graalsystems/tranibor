@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Bearer tokens from the pod's cloud identity (S86-17), for the Azure Blob and the GCS stores.
+"""Bearer tokens from the pod's cloud identity (S87-17), for the Azure Blob and the GCS stores.
 
 - `AzureWorkloadIdentity`: Azure Workload Identity. The webhook sets `AZURE_CLIENT_ID`,
   `AZURE_TENANT_ID`, `AZURE_FEDERATED_TOKEN_FILE` (and `AZURE_AUTHORITY_HOST`); the projected service

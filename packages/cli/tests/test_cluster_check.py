@@ -1,4 +1,4 @@
-"""`tranibor cluster check` (S86-03) against a fake API server: each check's three outcomes, the
+"""`tranibor cluster check` (S87-03) against a fake API server: each check's three outcomes, the
 namespace always deleted, the values file read, the exit code and the JSON.
 
 The fake serves what a real API server answers on the paths the checks read and the objects they
@@ -213,7 +213,7 @@ async def test_monitoring_crds_follow_the_flavour() -> None:
 
 
 async def test_a_policy_accepted_but_not_enforced_fails_and_names_it() -> None:
-    """The acceptance criterion of S86-03: kind without a NetworkPolicy engine accepts the policy, and the
+    """The acceptance criterion of S87-03: kind without a NetworkPolicy engine accepts the policy, and the
     pod it denies still gets through."""
     cluster = FakeCluster()
     cluster.logs["fenced"] = FENCED_OPEN

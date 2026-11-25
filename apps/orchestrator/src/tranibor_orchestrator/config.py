@@ -48,7 +48,7 @@ class OrchestratorSettings(BaseSettings):
     #: The address of the tool catalogue's MCP server, as the agent sees it. It is LOCAL to the
     #: agent pod, and the runner itself serves it on every executor (`runner/local_tools.py`, which
     #: starts the server if nothing answers); Tekton's former `choregos-tools` sidecar is gone with
-    #: the Task it was in (S86-05).
+    #: the Task it was in (S87-05).
     tools_mcp_url: str = "http://localhost:7777/mcp"
     runner_image: str = PUBLISHING.image("choregos-runner", "1.0.0")
     #: The images a job step may name (ADR 0056), as JSON in `TRANIBOR_JOB_IMAGES`: name → reference,

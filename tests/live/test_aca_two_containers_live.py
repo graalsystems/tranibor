@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-07: what a Container Apps job does with two containers, on a real subscription.
+"""S87-07: what a Container Apps job does with two containers, on a real subscription.
 
-ADR 0224 §2 lets `aca` start the agent's own container only if a two-container job gives the shape
+ADR 0226 §2 lets `aca` start the agent's own container only if a two-container job gives the shape
 the other executors give (ADR 0146): the runner and the agent's launcher share loopback and an
 `EmptyDir`, the agent's container cannot read the runner's secrets, and the execution ends when the
 runner ends. Microsoft's documentation allows several containers in a job and shares an `EmptyDir`
@@ -14,7 +14,7 @@ the program an isolated agent's container runs everywhere else. The runner holds
 secret, as it holds the run token.
 
 Prerequisites: those of `test_aca_live.py` (`docs/runbooks/aca-live.md`). Each test prints one line
-`S86-07 …` with what it observed; the runner's own report (`S86-07 {json}`) is in the job's console
+`S87-07 …` with what it observed; the runner's own report (`S87-07 {json}`) is in the job's console
 log (Log Analytics, `ContainerAppConsoleLogs_CL`).
 """
 
@@ -36,12 +36,12 @@ from .conftest import require
 
 pytestmark = pytest.mark.live
 
-#: The runner image; S86-08 needs one carrying `launcher --until-file` (0.29.5 and later, or a build of this
+#: The runner image; S87-08 needs one carrying `launcher --until-file` (0.29.5 and later, or a build of this
 #: tree pushed to a registry the subscription can read: `TRANIBOR_LIVE_AZURE_REGISTRY_*`).
 IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
 LAUNCHER = "/app/.venv/bin/choregos-runner"
 PYTHON = "/app/.venv/bin/python"
-#: The agent's container when it ends itself once the runner says it is done (ADR 0224 §2, S86-08).
+#: The agent's container when it ends itself once the runner says it is done (ADR 0226 §2, S87-08).
 LAUNCHER_UNTIL_DONE = (
     f"{LAUNCHER} launcher & pid=$!; until [ -f /exchange/.runner-done ]; do sleep 1; done; kill $pid; exit 0"
 )
@@ -74,7 +74,7 @@ def definition(
     checks = json.dumps({str(code): verdict for code, verdict in probe.CHECKS.items()})
     return {
         "location": os.environ.get("TRANIBOR_LIVE_AZURE_LOCATION", "westeurope"),
-        "tags": {"choregos-live": "s86-07"},
+        "tags": {"choregos-live": "s87-07"},
         "properties": {
             "environmentId": environment_id,
             "configuration": {
@@ -91,9 +91,9 @@ def definition(
                         "image": IMAGE,
                         "command": [PYTHON, "-c", probe.RUNNER_SIDE],
                         "env": [
-                            {"name": "S86_MARKER", "secretRef": "marker"},
-                            {"name": "S86_AGENT_SIDE", "value": probe.AGENT_SIDE},
-                            {"name": "S86_CHECKS", "value": checks},
+                            {"name": "S87_MARKER", "secretRef": "marker"},
+                            {"name": "S87_AGENT_SIDE", "value": probe.AGENT_SIDE},
+                            {"name": "S87_CHECKS", "value": checks},
                         ],
                         "resources": {"cpu": 0.5, "memory": "1Gi"},
                         "volumeMounts": exchange,
@@ -116,9 +116,9 @@ async def run_job(
     arm: AzureArmClient, environment_id: str, *, agent_command: list[str], timeout_s: int
 ) -> str:
     """Create, start and follow a two-container job to its terminal state; delete it after."""
-    name = f"s86-{uuid.uuid4().hex[:10]}"
+    name = f"s87-{uuid.uuid4().hex[:10]}"
     path = f"{arm.scope}/providers/Microsoft.App/jobs/{name}"
-    marker = f"s86-marker-{uuid.uuid4().hex}"
+    marker = f"s87-marker-{uuid.uuid4().hex}"
     await arm.request(
         "PUT",
         path,
@@ -136,7 +136,7 @@ async def run_job(
                 if status in {"succeeded", "failed", "stopped", "degraded"}:
                     break
             await asyncio.sleep(10)
-        print(f"S86-07 job={name} agent={agent_command[-1][:40]!r} status={status}")
+        print(f"S87-07 job={name} agent={agent_command[-1][:40]!r} status={status}")
         return status
     finally:
         await arm.request("DELETE", path)
@@ -151,7 +151,7 @@ async def test_the_shape_holds_when_the_agent_ends_with_the_runner(arm: tuple[Az
         client, environment_id, agent_command=["/bin/sh", "-c", LAUNCHER_UNTIL_DONE], timeout_s=600
     )
     assert status == "succeeded", (
-        f"the two-container job ended {status}: read the runner's `S86-07` line in the console log; "
+        f"the two-container job ended {status}: read the runner's `S87-07` line in the console log; "
         f"its exit code is one of {probe.CHECKS}"
     )
 
@@ -170,7 +170,7 @@ async def test_what_the_execution_does_when_the_agent_outlives_the_runner(
 async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
     arm: tuple[AzureArmClient, str],
 ) -> None:
-    """S86-08: the definition `AcaExecutor` writes under `container` (its agent container, its volumes, its
+    """S87-08: the definition `AcaExecutor` writes under `container` (its agent container, its volumes, its
     launcher with `--until-file`, the runner told where the agent is), on a real subscription. Only the
     runner's command is replaced by the probe's runner side, which holds the run token as the runner does
     (a job secret) and writes the done file the real runner writes. `Succeeded` means: loopback reached,
@@ -187,14 +187,14 @@ async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
         cpu=0.5,
         memory="1Gi",
     )
-    run_id = f"s86-08-{uuid.uuid4().hex[:8]}"
+    run_id = f"s87-08-{uuid.uuid4().hex[:8]}"
     spec = StageJobSpec(
         run_id=run_id,
         project_slug="live-test",
         namespace="choregos",
         runner_image=IMAGE,
         api_url="https://choregos.invalid/api",
-        run_token=f"s86-run-token-{uuid.uuid4().hex}",
+        run_token=f"s87-run-token-{uuid.uuid4().hex}",
         agent_isolation="container",
         timeout_minutes=10,
     )
@@ -210,9 +210,9 @@ async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
     runner.pop("args", None)
     runner["env"] = [
         *runner["env"],
-        {"name": "S86_MARKER", "secretRef": "run-token"},
-        {"name": "S86_AGENT_SIDE", "value": probe.AGENT_SIDE},
-        {"name": "S86_CHECKS", "value": checks},
+        {"name": "S87_MARKER", "secretRef": "run-token"},
+        {"name": "S87_AGENT_SIDE", "value": probe.AGENT_SIDE},
+        {"name": "S87_CHECKS", "value": checks},
     ]
     server = os.environ.get("TRANIBOR_LIVE_AZURE_REGISTRY_SERVER", "")
     if server:
@@ -241,9 +241,9 @@ async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
                 if status in {"succeeded", "failed", "stopped", "degraded"}:
                     break
             await asyncio.sleep(10)
-        print(f"S86-08 job={name} status={status}")
+        print(f"S87-08 job={name} status={status}")
     finally:
         await client.request("DELETE", path)
     assert status == "succeeded", (
-        f"the executor's own two-container job ended {status}: see its `S86-07` line"
+        f"the executor's own two-container job ended {status}: see its `S87-07` line"
     )

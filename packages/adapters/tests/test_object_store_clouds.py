@@ -1,4 +1,4 @@
-"""S86-17: the Azure Blob and GCS stores — their requests, their credentials and what they say when
+"""S87-17: the Azure Blob and GCS stores — their requests, their credentials and what they say when
 refused. The port's contract itself is the conformance suite's (`tests/conformance/object_stores`)."""
 
 from __future__ import annotations

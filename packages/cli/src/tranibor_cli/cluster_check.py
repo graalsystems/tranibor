@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`tranibor cluster check`: what the chart needs, asked of the cluster before the first install (S86-03).
+"""`tranibor cluster check`: what the chart needs, asked of the cluster before the first install (S87-03).
 
 The chart can only assume what a cluster gives: `helm template` and Argo CD render offline, and a
 `lookup` answers nothing there. What it assumes is asked here, of the API server the operator's

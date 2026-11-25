@@ -12,7 +12,7 @@ the feeling of being monitored.
 On the VictoriaMetrics side: ONE `VMRule` only. Two in the same vmalert scope make
 the operator loop, which the platform operator has already paid for once.
 
-Each object is rendered only when the cluster serves its type (S86-16): on a cluster without the
+Each object is rendered only when the cluster serves its type (S87-16): on a cluster without the
 operator, a ServiceMonitor or a PrometheusRule fails the whole install with `no matches for kind`.
 Argo CD and `helm install` hand the cluster's API versions over; an offline render that targets a
 cluster with the operator sets `monitoring.skipCrdCheck: true` (`choregos.monitoringServed`).

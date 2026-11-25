@@ -9,7 +9,7 @@ its run token, by name (ADR 0056).
 
 The environments are the executors' own, read from what each one builds: the Job's runner container
 (`k8s_job`), the Container Apps job's definition (ACA), `docker run`'s variables (local Docker) and the
-runner's step of the agent stage's Task, inline in Tekton's PipelineRun (S86-05). The hosted container's
+runner's step of the agent stage's Task, inline in Tekton's PipelineRun (S87-05). The hosted container's
 environment is built from nothing (`sidecar_env`): `packages/adapters/tests/test_hosted_executors.py` and
 `test_local_docker.py` hold that one.
 """

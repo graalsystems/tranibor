@@ -90,7 +90,7 @@ cut a request before that, nor hold its answer back. The HTTPRoute says so with 
 (`door.requestTimeout`); an Ingress has no portable field for it, and carries the door's own
 annotations: the timeout annotations of `door.ingressController` (ingress-nginx's by default; none
 for `""`), under the door's own `door.annotations`, which are also where another controller's
-timeouts, its rate limit and its source restriction go (S86-16).
+timeouts, its rate limit and its source restriction go (S87-16).
 */ -}}
 {{- $controller := "ingress-nginx" }}
 {{- if hasKey $door "ingressController" }}{{ $controller = toString ($door.ingressController | default "") }}{{ end }}

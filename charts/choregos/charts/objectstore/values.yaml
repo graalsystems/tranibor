@@ -26,7 +26,7 @@ persistence:
 # The image's own user is named (`rustfs`), uid and gid 10001 in the pinned 1.0.1 image: numbered here so
 # that `runAsNonRoot` holds and, above all, so that the volume is the user's. Without `fsGroup` a fresh
 # block volume is root's and RustFS stops at start with `Permission denied` (found on AKS, Azure Disk,
-# S86-13; k3s's `local-path` hands out world-writable directories and hid it). Another image: its own ids.
+# S87-13; k3s's `local-path` hands out world-writable directories and hid it). Another image: its own ids.
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 10001

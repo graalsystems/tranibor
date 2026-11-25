@@ -960,7 +960,7 @@ own `embedded` and each one overridable by the setting that names the site's own
 {{- end -}}
 
 {{/*
-The object store's protocol (S86-17): `s3` (default), `azure-blob` or `gcs`, checked against the
+The object store's protocol (S87-17): `s3` (default), `azure-blob` or `gcs`, checked against the
 URL's scheme and what each one needs. A `memory://` URL (the fake) goes with any kind.
 */}}
 {{- define "choregos.objectStoreKind" -}}
@@ -1035,7 +1035,7 @@ what the chart always rendered.
 {{- end -}}
 
 {{/*
-The DNS rule of every egress policy of this chart (S86-16), from `networkPolicies.dns`. A cluster's
+The DNS rule of every egress policy of this chart (S87-16), from `networkPolicies.dns`. A cluster's
 resolver is not always `kube-system`:53: OpenShift serves it from `openshift-dns` on 5353 (a policy
 is matched after the Service's port is translated), and GKE's NodeLocal DNSCache answers at a
 link-local address no namespace holds. `.tcp`: whether this policy's default ports include TCP 53
@@ -1082,7 +1082,7 @@ The defaults render the rule each policy always rendered, byte for byte.
 
 {{/*
 Whether the cluster serves the monitoring operator's type `.kind` (`scrape` or `rules`) of the chosen
-`monitoring.flavour` (S86-16): `true` or empty. Without the CRD, a ServiceMonitor or a PrometheusRule
+`monitoring.flavour` (S87-16): `true` or empty. Without the CRD, a ServiceMonitor or a PrometheusRule
 fails the whole install (`no matches for kind`), so the chart renders it only when Helm or Argo CD
 says the cluster serves it, or when `monitoring.skipCrdCheck` says so for an offline render.
 */}}

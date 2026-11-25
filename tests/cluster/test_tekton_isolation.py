@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-06: Tekton's agent stage carries the agent's own container, on a cluster with Tekton Pipelines.
+"""S87-06: Tekton's agent stage carries the agent's own container, on a cluster with Tekton Pipelines.
 
-S86-05 built it and proved its shape in unit tests: the PipelineRun carries its Task inline, and the
+S87-05 built it and proved its shape in unit tests: the PipelineRun carries its Task inline, and the
 agent stage's Task an `agent` sidecar (the launcher, uid 1001, read-only root, no secret) beside the
 runner's step. What only Tekton's controller can say, run here:
 
@@ -19,7 +19,7 @@ replaced by the probe's runner side (`tests/live/aca_two_containers.py`, the sam
 Apps), and the node selector the runner nodes carry in production is dropped. Run on a cluster with
 Tekton Pipelines and the runner image:
 
-    TRANIBOR_CLUSTER_CONTEXT=kind-s86-tekton TRANIBOR_CLUSTER_ALLOW_SHARED=kind-s86-tekton \\
+    TRANIBOR_CLUSTER_CONTEXT=kind-s87-tekton TRANIBOR_CLUSTER_ALLOW_SHARED=kind-s87-tekton \\
         uv run pytest tests/cluster/test_tekton_isolation.py -m cluster -s
 """
 
@@ -43,7 +43,7 @@ pytestmark = pytest.mark.cluster
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 IMAGE = os.environ.get("TRANIBOR_TEKTON_RUNNER_IMAGE", "ghcr.io/graalsystems/tranibor-runner:0.29.4")
 PYTHON = "/app/.venv/bin/python"
-#: The RuntimeClass of the run's pod (`gvisor` for the second run of S86-06); empty: the cluster's default.
+#: The RuntimeClass of the run's pod (`gvisor` for the second run of S87-06); empty: the cluster's default.
 RUNTIME_CLASS = os.environ.get("TRANIBOR_TEKTON_RUNTIME_CLASS", "")
 
 
@@ -89,7 +89,7 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     step["command"] = [
         "/bin/sh",
         "-c",
-        f'{PYTHON} -c "$S86_RUNNER_SIDE"; code=$?; : > $(results.result-url.path); '
+        f'{PYTHON} -c "$S87_RUNNER_SIDE"; code=$?; : > $(results.result-url.path); '
         "echo probed > $(results.status.path); exit $code",
     ]
     step.pop("args", None)
@@ -97,11 +97,11 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     token = next(e for e in step["env"] if e["name"] == "TRANIBOR_RUN_TOKEN")
     step["env"] = [
         *step["env"],
-        {"name": "S86_MARKER", "valueFrom": token["valueFrom"]},
-        {"name": "S86_RUNNER_SIDE", "value": probe.RUNNER_SIDE},
-        {"name": "S86_AGENT_SIDE", "value": probe.AGENT_SIDE},
-        {"name": "S86_CHECKS", "value": checks},
-        {"name": "S86_AGENT_CWD", "value": "$(workspaces.source.path)"},
+        {"name": "S87_MARKER", "valueFrom": token["valueFrom"]},
+        {"name": "S87_RUNNER_SIDE", "value": probe.RUNNER_SIDE},
+        {"name": "S87_AGENT_SIDE", "value": probe.AGENT_SIDE},
+        {"name": "S87_CHECKS", "value": checks},
+        {"name": "S87_AGENT_CWD", "value": "$(workspaces.source.path)"},
     ]
     return run
 
@@ -109,9 +109,9 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def outcome() -> dict[str, Any]:
     _tekton_installed()
-    namespace = f"s86-tekton-{secrets.token_hex(3)}"
+    namespace = f"s87-tekton-{secrets.token_hex(3)}"
     run_id = secrets.token_hex(4)
-    token = f"s86-run-token-{secrets.token_hex(16)}"
+    token = f"s87-run-token-{secrets.token_hex(16)}"
     kubectl_shared("create", "namespace", namespace)
     try:
         kubectl_shared("create", "serviceaccount", "choregos-runner", "-n", namespace)
@@ -144,7 +144,7 @@ def outcome() -> dict[str, Any]:
             pytest.fail(f"no agent-stage pod ran ({condition}); the namespace's events:\n{events[-2000:]}")
         [pod] = stages
         logs = kubectl_shared("-n", namespace, "logs", pod["metadata"]["name"], "-c", "step-run", check=False)
-        lines = [line for line in logs.splitlines() if line.startswith("S86-07 ")]
+        lines = [line for line in logs.splitlines() if line.startswith("S87-07 ")]
         flags = kubectl_shared(
             "-n",
             "tekton-pipelines",
@@ -161,7 +161,7 @@ def outcome() -> dict[str, Any]:
         )
         return {
             "condition": condition,
-            "report": json.loads(lines[-1].removeprefix("S86-07 ")) if lines else {},
+            "report": json.loads(lines[-1].removeprefix("S87-07 ")) if lines else {},
             "pod": pod,
         }
     finally:

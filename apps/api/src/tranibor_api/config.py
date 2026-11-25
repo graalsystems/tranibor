@@ -386,7 +386,7 @@ class Settings(BaseSettings):
     #: other private or plain-http gateway address is refused when the setting is written.
     mcp_gateway_internal_hosts: list[str] = Field(default_factory=list)
     memory_url: str = "http://localhost:8432"
-    #: The store's protocol (S86-17): `s3` (AWS and S3-compatible servers), `azure-blob` or `gcs`.
+    #: The store's protocol (S87-17): `s3` (AWS and S3-compatible servers), `azure-blob` or `gcs`.
     object_store_kind: Literal["s3", "azure-blob", "gcs"] = "s3"
     #: `s3://bucket/prefix`, `azblob://container/prefix` or `gs://bucket/prefix` (`memory://` is the fake).
     object_store_url: str = "s3://choregos"

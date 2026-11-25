@@ -466,7 +466,7 @@ jobs:
         run: uv run pytest tests/conformance/backends -m conformance -q -k "default or protocol or code_agent"
       - name: conformance of the templates (connectors, stages, scaffold)
         run: uv run pytest tests/conformance/templates -m conformance -q
-      - name: conformance of the object stores against Azurite, fake-gcs-server and RustFS (S86-17)
+      - name: conformance of the object stores against Azurite, fake-gcs-server and RustFS (S87-17)
         # Asked for: a missing Docker daemon or image is then a failure, never a skip.
         env:
           TRANIBOR_TEST_OBJECT_STORE_DOCKER: "1"

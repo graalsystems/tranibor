@@ -1,4 +1,4 @@
-"""The real servers the object store conformance suite runs against (S86-17), in Docker.
+"""The real servers the object store conformance suite runs against (S87-17), in Docker.
 
 Opt-in, like the other Docker suites (`tests/conformance/hosted_real`): the general CI job has a
 daemon too and must not pull these images. `TRANIBOR_TEST_OBJECT_STORE_DOCKER=1` asks for them; it

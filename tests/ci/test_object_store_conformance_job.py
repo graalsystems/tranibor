@@ -1,4 +1,4 @@
-"""S86-17: the CI runs the object store conformance suite against the real servers.
+"""S87-17: the CI runs the object store conformance suite against the real servers.
 
 Without `TRANIBOR_TEST_OBJECT_STORE_DOCKER=1` the Docker tests skip, and a skipped test is a green job:
 this keeps the step asking for them (with it, a missing daemon fails the step).

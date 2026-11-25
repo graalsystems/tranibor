@@ -12,7 +12,7 @@ cannot isolate (it does not declare `separate_agent`) goes to the second one whe
 refused, naming both, when neither can. A step that must go to the second executor is never sent back
 to the first for it: the first cannot honour its image.
 
-A primary that runs any image (`tekton`, S86-02) is wrapped without a pool image (`pool_image=None`): its
+A primary that runs any image (`tekton`, S87-02) is wrapped without a pool image (`pool_image=None`): its
 steps are never custom, so a `job` step with its own image stays on it, and only the agent's isolation
 routes, a run under `container` it cannot isolate going to the second executor.
 

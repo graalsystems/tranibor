@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-00: the isolation-and-clouds plan and the backlog describe the same stories, in an order that can run.
+"""S87-00: the isolation-and-clouds plan and the backlog describe the same stories, in an order that can run.
 
 `docs/plan/PLAN-2026-11-25-isolation-everywhere-and-clouds.md` is handed to parallel workers one story
 block at a time, and its waves are only safe if every story's dependencies are done before it starts.
-Three properties: every `S86` story heading of the plan is a backlog story, the backlog holds no `S86`
+Three properties: every `S87` story heading of the plan is a backlog story, the backlog holds no `S87`
 story the plan does not describe, and in the backlog every dependency of a story comes before it.
 "Before" is the backlog's own order: a lower `sprint` (the plan's wave), or the same wave and a lower
 `priority`, since stories of one wave and one stream are sequential.
@@ -20,8 +20,8 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PLAN = ROOT / "docs" / "plan" / "PLAN-2026-11-25-isolation-everywhere-and-clouds.md"
 BACKLOG = ROOT / "docs" / "plan" / "08-backlog.yaml"
-STREAM = "S86"
-#: `### S86-04 · feat(api): …`
+STREAM = "S87"
+#: `### S87-04 · feat(api): …`
 HEADING = re.compile(rf"^### ({STREAM}-\d+[a-z]?) ·", re.M)
 
 

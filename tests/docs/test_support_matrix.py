@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-04: the support matrix is a record, and the documentation reads it.
+"""S87-04: the support matrix is a record, and the documentation reads it.
 
 `docs/support/clusters.yaml` holds each kind of cluster and its last green proof; `tools/support_matrix.py`
 computes the word (plan 2026-11-25, D4) and writes the section of `docs/deployment.md`. Refused here: a
@@ -60,7 +60,7 @@ def test_the_generated_section_is_the_records() -> None:
 
 def test_the_record_names_every_kind_the_plan_lists_and_claims_no_cloud_it_did_not_run() -> None:
     """Every managed cloud of the plan has an entry; one with no proof reads `unknown`, and one with a
-    proof names evidence that exists (`test_every_evidence_path_exists`). AKS ran on 2026-11-25 (S86-13);
+    proof names evidence that exists (`test_every_evidence_path_exists`). AKS ran on 2026-11-25 (S87-13);
     the others wait for their accounts."""
     entries = {entry.id: entry for entry in sm.load()}
     as_of = sm.as_of()

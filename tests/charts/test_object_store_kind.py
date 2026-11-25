@@ -1,4 +1,4 @@
-"""S86-17: `global.objectStore.kind` renders the store the API and the workers write the files to, and
+"""S87-17: `global.objectStore.kind` renders the store the API and the workers write the files to, and
 what its identity needs.
 
 Read from the render, as `helm template` produces it: `CHOREGOS_OBJECT_STORE_KIND` and the credentials

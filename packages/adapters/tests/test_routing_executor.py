@@ -104,7 +104,7 @@ def test_the_wiring_wraps_only_a_sandbox_with_a_known_pool_and_a_named_second_ex
     assert with_custom_image_executor(sandbox) is sandbox, "an unknown pool image: an override cannot be told"
 
 
-# S86-02: a deployment on `tekton` sends an agent step Tekton cannot isolate to the second executor ─────
+# S87-02: a deployment on `tekton` sends an agent step Tekton cannot isolate to the second executor ─────
 
 
 class _Tekton(FakeExecutor):

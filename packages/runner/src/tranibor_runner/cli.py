@@ -97,7 +97,7 @@ def run(
 
 
 def _tell_the_agents_container(code: int) -> None:
-    """Where the platform ends a run only once every container has ended (a Container Apps job, ADR 0224
+    """Where the platform ends a run only once every container has ended (a Container Apps job, ADR 0226
     §2), the executor names a file in the exchange directory: the runner writes its exit code there and
     the agent's launcher, watching for it (`--until-file`), ends too."""
     import os

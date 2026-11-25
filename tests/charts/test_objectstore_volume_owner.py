@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S86-13: the embedded object store owns its volume on a block device.
+"""S87-13: the embedded object store owns its volume on a block device.
 
 On AKS (Azure Disk) a fresh volume is root's; RustFS runs as its image's user (10001) and stopped at
 start with `Permission denied` until the pod named an `fsGroup`. k3s's `local-path` hands out

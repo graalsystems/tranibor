@@ -28,7 +28,7 @@ pytestmark = pytest.mark.conformance
 
 CLUSTER = pathlib.Path(__file__).resolve().parents[2] / "cluster"
 #: An executor that does not run on a cluster proves its capabilities where it runs: a Container Apps job
-#: on a real subscription (S86-08), in a module of `tests/live` marked `live` as a whole.
+#: on a real subscription (S87-08), in a module of `tests/live` marked `live` as a whole.
 LIVE = pathlib.Path(__file__).resolve().parents[2] / "live"
 OUTSIDE_A_CLUSTER = frozenset({"aca"})
 

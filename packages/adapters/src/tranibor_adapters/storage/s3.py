@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The S3 store: AWS, RustFS, MinIO, Ceph, with a hand-written SigV4 signature over `httpx`.
 
-The credentials are static keys or the pod's AWS identity (`aws.py`, S86-17); temporary ones carry a
+The credentials are static keys or the pod's AWS identity (`aws.py`, S87-17); temporary ones carry a
 session token, sent as `x-amz-security-token` and signed with the other headers.
 """
 

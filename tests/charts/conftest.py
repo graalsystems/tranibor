@@ -6,7 +6,7 @@ versions over; an offline `helm template` does not. Every test of this directory
 renders as if the operator were installed, except a test marked `no_operator`, which renders
 the way a cluster without it would.
 
-The monitoring objects follow the same rule (S86-16): a `ServiceMonitor` or a `PrometheusRule` (or
+The monitoring objects follow the same rule (S87-16): a `ServiceMonitor` or a `PrometheusRule` (or
 their VictoriaMetrics twins) is rendered only when the cluster serves its type. The tests render
 for a cluster that does, as the operator's own; a test that passes its own `--api-versions` renders
 for exactly the cluster it names.

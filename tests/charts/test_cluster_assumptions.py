@@ -1,4 +1,4 @@
-"""What the chart assumed about a cluster is a setting, or follows the cluster (S86-16).
+"""What the chart assumed about a cluster is a setting, or follows the cluster (S87-16).
 
 The audit of 2026-11-25 (`docs/plan/PLAN-2026-11-25-isolation-everywhere-and-clouds.md`, "The
 clusters") found that a managed cloud would refuse the chart's defaults before the first run: no

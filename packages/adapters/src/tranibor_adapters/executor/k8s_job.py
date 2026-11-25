@@ -306,7 +306,7 @@ class KubernetesJobExecutor:
                     "image": spec.runner_image,
                     "args": list(spec.runner_command),
                     # The run's token, gateway key (#523) and remote agent's token (ADR 0062) by reference
-                    # to the run's Secret: the same entries as a Tekton step's (S86-05).
+                    # to the run's Secret: the same entries as a Tekton step's (S87-05).
                     "env": runner_env_entries(spec, name),
                     "resources": {
                         "requests": {"cpu": spec.cpu, "memory": spec.memory},
