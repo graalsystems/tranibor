@@ -4,6 +4,12 @@
 # The multilingual checkpoint (`convaiinnovations/laya-multilingual`, mmBERT-base, 322M parameters,
 # Apache-2.0) is fetched HERE, at the commit Laya itself lists as reviewed, then loaded again with the
 # network forbidden: the running server never downloads anything (`HF_HUB_OFFLINE=1`).
+# Extra certificate authorities for the downloads below, EMPTY here (`docker/build-ca.sh`): a build
+# behind a TLS-inspecting proxy passes its authority with `--build-context build-ca=<directory>`
+# (`docs/deployment.md`, "Building behind a TLS-inspecting proxy"). Only the stages that download
+# mount it, and none of them is shipped: no published image carries the authority.
+FROM scratch AS build-ca
+
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.5.11@sha256:0ac957607303916420297a4c9c213bb33fbd3c888f9cd7f4f7273596ebf42b85 /uv /usr/local/bin/uv
 # `LAYA_REVISION`: the commit `laya.revisions.PINNED_REVISIONS` names for
@@ -17,13 +23,15 @@ ENV UV_PYTHON_DOWNLOADS=never UV_COMPILE_BYTECODE=1 \
 COPY docker/laya/requirements.txt /tmp/laya-requirements.txt
 # `--require-hashes` checks every wheel against `docker/laya/requirements.txt` (`make laya-lock`).
 # torch is the `+cpu` build, which lives on PyTorch's own index; the hashes pin it whatever the index.
-RUN uv venv /opt/laya/venv --python /usr/local/bin/python3.12 \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && uv venv /opt/laya/venv --python /usr/local/bin/python3.12 \
  && VIRTUAL_ENV=/opt/laya/venv uv pip install --require-hashes --no-deps \
       --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
       -r /tmp/laya-requirements.txt
 # `build_router` is what `laya-serve` runs at start-up: the same code path downloads, then proves
 # that everything it needs is on disk once the Hub is out of reach.
-RUN set -eux; \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && set -eux; \
     warm='from laya.serve import build_router; r = build_router(); assert r.loaded == ["multilingual"], r.loaded'; \
     /opt/laya/venv/bin/python -c "$warm"; \
     HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 /opt/laya/venv/bin/python -c "$warm"
