@@ -46,4 +46,14 @@ regexes = [
   # refused with base64("wrong-key"). Neither opens anything. These two values only.
   '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
   '''d3Jvbmcta2V5''',
+  # The chart's rename test (ADR 0224 R6, branch claude/bold-noether-q3hoem) seeds a release of the former chart
+  # with a Secret whose values are base64 of `former-session`, `former-hook`, `former-key` and `k1:former-kek`,
+  # and a chart test reads the internal API's URL under its new name, as the line above does under the old one.
+  # The `secrets` job scans every branch, so that branch turned it red on every open pull request (2026-11-25).
+  # These values only.
+  '''Zm9ybWVyLXNlc3Npb24=''',
+  '''Zm9ybWVyLWhvb2s=''',
+  '''Zm9ybWVyLWtleQ==''',
+  '''azE6Zm9ybWVyLWtlaw==''',
+  '''tranibor-api:8000/api/v1/internal''',
 ]
