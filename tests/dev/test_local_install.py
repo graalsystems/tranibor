@@ -142,7 +142,8 @@ def test_the_workers_run_agents_as_local_containers() -> None:
     assert "/var/run/docker.sock:/var/run/docker.sock" in worker["volumes"]
     env = _env(worker)
     assert env["TRANIBOR_EXECUTOR_KIND"] == "local_docker"
-    assert env["TRANIBOR_RUNNER_IMAGE"].startswith(PUBLISHING.image("choregos-runner") + ":")
+    runner = PUBLISHING.image(f"{PUBLISHING.image_prefix}-runner")
+    assert env["TRANIBOR_RUNNER_IMAGE"].startswith(runner + ":")
     # The run containers join the network by name: it must not depend on the project name.
     assert compose["networks"]["default"]["name"] == LOCAL_NETWORK
 
