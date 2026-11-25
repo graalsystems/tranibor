@@ -38,7 +38,7 @@ def _porteurs(rendu: str, name: str) -> tuple[set[str], set[str]]:
         template = doc["spec"]["template"]["spec"]
         for conteneur in template.get("containers", []):
             names = {v["name"] for v in (conteneur.get("env") or [])}
-            if "CHOREGOS_ENV" not in names:
+            if "TRANIBOR_ENV" not in names:
                 continue
             readers.add(doc["metadata"]["name"])
             if name in names:
@@ -63,10 +63,10 @@ def test_without_a_value_nothing_is_added() -> None:
 
 def test_a_variable_already_set_by_the_chart_is_refused() -> None:
     rendu = _render(
-        "global.extraEnv[0].name=CHOREGOS_DATABASE_URL", "global.extraEnv[0].value=postgresql://x"
+        "global.extraEnv[0].name=TRANIBOR_DATABASE_URL", "global.extraEnv[0].value=postgresql://x"
     )
-    assert rendu.returncode != 0, "the chart rendered two values for CHOREGOS_DATABASE_URL"
-    assert "CHOREGOS_DATABASE_URL" in rendu.stderr
+    assert rendu.returncode != 0, "the chart rendered two values for TRANIBOR_DATABASE_URL"
+    assert "TRANIBOR_DATABASE_URL" in rendu.stderr
 
 
 def test_the_env_reference_pattern_reaches_every_process_when_set() -> None:
@@ -74,9 +74,9 @@ def test_the_env_reference_pattern_reaches_every_process_when_set() -> None:
     code's default (`^CONNECTOR_…`) applies and nothing is rendered."""
     rendu = _render("global.secrets.envPattern=^(CONNECTOR_|JIRA_)[A-Z0-9_]*$")
     assert rendu.returncode == 0, rendu.stderr[-400:]
-    readers, porteurs = _porteurs(rendu.stdout, "CHOREGOS_SECRET_ENV_PATTERN")
+    readers, porteurs = _porteurs(rendu.stdout, "TRANIBOR_SECRET_ENV_PATTERN")
     assert readers and porteurs == readers, f"without the variable: {sorted(readers - porteurs)}"
-    assert "CHOREGOS_SECRET_ENV_PATTERN" not in _render().stdout
+    assert "TRANIBOR_SECRET_ENV_PATTERN" not in _render().stdout
 
 
 def _secret_ref(rendu: str, name: str) -> list[dict[str, object]]:
@@ -127,3 +127,67 @@ def test_an_entry_needs_exactly_one_of_value_or_value_from(extra: tuple[str, ...
     rendu = _render("global.extraEnv[0].name=CONNECTOR_X", *extra)
     assert rendu.returncode != 0, "the chart rendered an extraEnv entry it cannot fill"
     assert "exactly one of value or valueFrom" in rendu.stderr
+
+
+# ───────────────────── a variable under its former name (ADR 0226, R9b) ─────────────────────
+
+
+def test_a_variable_the_chart_sets_is_refused_under_its_former_name_too() -> None:
+    """The chart renders `TRANIBOR_DATABASE_URL`; beside it a `CHOREGOS_DATABASE_URL` would be read as the
+    same variable, and lose to it without a word. The chart set `CHOREGOS_DATABASE_URL` before 0.30.0, so
+    this entry was refused then too: nothing that rendered is refused now."""
+    rendu = _render(
+        "global.extraEnv[0].name=CHOREGOS_DATABASE_URL", "global.extraEnv[0].value=postgresql://x"
+    )
+    assert rendu.returncode != 0, "a former name shadowed by the chart's variable rendered"
+    assert "CHOREGOS_DATABASE_URL (the former name of TRANIBOR_DATABASE_URL) is already set" in rendu.stderr
+
+
+def test_a_former_name_the_chart_does_not_set_reaches_every_process_as_written() -> None:
+    """An extension may read `CHOREGOS_X` itself; the platform's processes read it as `TRANIBOR_X`."""
+    rendu = _render("global.extraEnv[0].name=CHOREGOS_ACME_MODE", "global.extraEnv[0].value=strict")
+    assert rendu.returncode == 0, rendu.stderr[-400:]
+    readers, porteurs = _porteurs(rendu.stdout, "CHOREGOS_ACME_MODE")
+    assert readers and porteurs == readers
+    assert "TRANIBOR_ACME_MODE" not in rendu.stdout
+
+
+@pytest.mark.parametrize(
+    ("second", "refused"), [("strict", False), ("lax", True)], ids=["same-value", "two-values"]
+)
+def test_both_names_of_one_variable_need_one_value(second: str, refused: bool) -> None:
+    rendu = _render(
+        "global.extraEnv[0].name=CHOREGOS_ACME_MODE",
+        "global.extraEnv[0].value=strict",
+        "global.extraEnv[1].name=TRANIBOR_ACME_MODE",
+        f"global.extraEnv[1].value={second}",
+    )
+    assert (rendu.returncode != 0) is refused, rendu.stderr[-400:]
+    if refused:
+        assert "CHOREGOS_ACME_MODE and TRANIBOR_ACME_MODE are one variable with two values" in rendu.stderr
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (
+            ("global.extraEnv[0].name=CHOREGOS_CORS_ORIGINS", "global.extraEnv[0].value=x"),
+            "CHOREGOS_CORS_ORIGINS (the former name of TRANIBOR_CORS_ORIGINS) is set by the tranibor-api",
+        ),
+        (
+            (
+                "global.temporal.tls.enabled=true",
+                "global.temporal.tls.secretName=t",
+                "global.extraEnv[0].name=CHOREGOS_TEMPORAL_TLS",
+                "global.extraEnv[0].value=false",
+            ),
+            "CHOREGOS_TEMPORAL_TLS (the former name of TRANIBOR_TEMPORAL_TLS) is set by global.temporal",
+        ),
+    ],
+    ids=["api-owned", "temporal-owned"],
+)
+def test_the_other_guards_compare_a_former_name_under_its_new_one(
+    extra: tuple[str, ...], message: str
+) -> None:
+    rendu = _render(*extra)
+    assert rendu.returncode != 0 and message in rendu.stderr, rendu.stderr[-400:]

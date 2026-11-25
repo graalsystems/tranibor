@@ -51,7 +51,7 @@ substitutions (`${NAME}`), never written into it.
   "groups" $groups
   "clients" (list
     (dict "clientId" $console "name" "Choregos console" "enabled" true "publicClient" false "protocol" "openid-connect"
-          "secret" "${CHOREGOS_OIDC_CLIENT_SECRET}" "standardFlowEnabled" true "directAccessGrantsEnabled" false
+          "secret" "${TRANIBOR_OIDC_CLIENT_SECRET}" "standardFlowEnabled" true "directAccessGrantsEnabled" false
           "redirectUris" $redirects "webOrigins" $origins "rootUrl" $publicUrl
           "attributes" (dict "pkce.code.challenge.method" "S256")
           "protocolMappers" (list $groupMapper))
@@ -61,7 +61,7 @@ substitutions (`${NAME}`), never written into it.
           "protocolMappers" (list $groupMapper)))
   "users" (list
     (dict "username" .Values.realm.adminUser "enabled" true "email" $email "emailVerified" true
-          "credentials" (list (dict "type" "password" "value" "${CHOREGOS_REALM_ADMIN_PASSWORD}" "temporary" false))
+          "credentials" (list (dict "type" "password" "value" "${TRANIBOR_REALM_ADMIN_PASSWORD}" "temporary" false))
           "groups" (list (printf "/choregos:%s:org-admins" $org)))) }}
 apiVersion: v1
 kind: Secret
@@ -111,7 +111,7 @@ spec:
       labels:
         app.kubernetes.io/name: choregos-keycloak
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/part-of: choregos
+        app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
         app.kubernetes.io/component: identity
       annotations:
         # A new realm file is a new pod: the import runs at start (and only for a realm that is absent).
@@ -144,9 +144,9 @@ spec:
             - name: KC_DB_PASSWORD
               valueFrom: { secretKeyRef: { name: {{ $dbSecret }}, key: password } }
             # Substituted into the imported realm (`${NAME}`): the client's secret is the very Secret the API reads.
-            - name: CHOREGOS_OIDC_CLIENT_SECRET
+            - name: TRANIBOR_OIDC_CLIENT_SECRET
               valueFrom: { secretKeyRef: { name: {{ $g.oidc.secretRef }}, key: client-secret } }
-            - name: CHOREGOS_REALM_ADMIN_PASSWORD
+            - name: TRANIBOR_REALM_ADMIN_PASSWORD
               valueFrom: { secretKeyRef: { name: {{ $name }}, key: realm-admin-password } }
           ports:
             - { name: http, containerPort: 8080 }

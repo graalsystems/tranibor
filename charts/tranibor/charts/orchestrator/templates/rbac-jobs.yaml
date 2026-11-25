@@ -42,6 +42,11 @@ rules:
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
+  # Which runner account the namespace has (ADR 0226, R9b): `tranibor-runner` when it is there, the
+  # former `choregos-runner` otherwise. Read only, service accounts only.
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get"]
   {{- if eq (include "tranibor.executorKind" .) "agent_sandbox" }}
   # The `agent_sandbox` executor (ADR 0016): one SandboxClaim per run, created, read and
   # deleted; `patch` marks a claim once its run is assigned. `patch` on sandboxes suspends and

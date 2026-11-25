@@ -1,6 +1,6 @@
 """The chart tells the API which browser origins may call it (S47-03).
 
-`CHOREGOS_CORS_ORIGINS` defaults to the console's public URL; `tranibor-api.corsOrigins` lists more.
+`TRANIBOR_CORS_ORIGINS` defaults to the console's public URL; `tranibor-api.corsOrigins` lists more.
 The chart owns the variable, so `global.extraEnv` must not set it a second time.
 """
 
@@ -15,7 +15,7 @@ import pytest
 import yaml
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
-CORS = "CHOREGOS_CORS_ORIGINS"
+CORS = "TRANIBOR_CORS_ORIGINS"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 

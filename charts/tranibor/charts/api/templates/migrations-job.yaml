@@ -52,10 +52,11 @@ spec:
   ttlSecondsAfterFinished: 3600
   template:
     metadata:
-      # `app.kubernetes.io/name: choregos-api`, as before S75-03 made `choregos.name` the same word in
+      # `app.kubernetes.io/name: <prefix>-api` (`global.labelValues`, ADR 0226 R9b), as before S75-03 made
+      # `choregos.name` the same word in
       # every sub-chart: the embedded PostgreSQL admits its clients by that label (ADR 0184), and a
       # migration pod named `choregos` was refused until the hook timed out (single-node proof, #1866).
-      labels: {{- merge (dict "app.kubernetes.io/name" "choregos-api") (include "tranibor.labels" . | fromYaml) | toYaml | nindent 8 }}
+      labels: {{- merge (dict "app.kubernetes.io/name" (include "tranibor.podName" (dict "root" $ "name" "api"))) (include "tranibor.labels" . | fromYaml) | toYaml | nindent 8 }}
     spec:
       enableServiceLinks: false
       restartPolicy: Never

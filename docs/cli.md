@@ -13,7 +13,7 @@ PATH, `tranibor self update` accepts an instance whose files carry the former na
 
 `tranibor` ships as one native, self-contained file per platform: nothing to install first, no
 Python, no SDK, no runtime. Each release attaches them to its GitHub release, under names that
-do not change between versions, and the API image carries the same files in `/opt/choregos/cli/`:
+do not change between versions, and the API image carries the same files in `/opt/tranibor/cli/`:
 
 | Platform | File |
 |:--|:--|

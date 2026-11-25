@@ -5,6 +5,10 @@ metadata:
   namespace: choregos-platform
 spec:
   exceptions:
+  - policyName: tranibor-pod-security
+    ruleNames:
+    - non-root
+    - autogen-non-root
   - policyName: choregos-pod-security
     ruleNames:
     - non-root

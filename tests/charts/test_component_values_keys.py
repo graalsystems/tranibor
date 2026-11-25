@@ -37,15 +37,36 @@ OUTPOSTS = [
 ]
 
 #: The names the chart keeps under the former name, each with the reason (docs/deployment.md, "Upgrading
-#: to the next release: the chart takes the name tranibor").
+#: to 0.30.0: the chart takes the name tranibor", and R9b's section after it). Each is rendered beside its
+#: `tranibor-*` twin, never instead of it (`test_every_kept_name_has_its_twin`).
 KEPT = {
     ("Service", "choregos-api"): "the API's former address, for runs started before the upgrade",
-    ("ServiceAccount", "choregos-orchestrator"): "gitops.py binds it by name in every project namespace",
-    ("ServiceAccount", "choregos-runner"): "the k8s_job executor's default service account (R7)",
-    ("SandboxTemplate", "choregos-runner"): "its claim template holds the suspended sandboxes' workspaces",
-    ("SandboxWarmPool", "choregos-runner"): "the claims name it, and it names the template",
-    ("Deployment", "choregos-egress"): "gitops.py's per-project proxy has the same name (R7)",
-    ("Service", "choregos-egress"): "one default `runner.egressProxy` addresses both proxies",
+    (
+        "ServiceAccount",
+        "choregos-orchestrator",
+    ): "the workers' account: namespaces provisioned before 0.30.0 bind it alone",
+    (
+        "ServiceAccount",
+        "choregos-runner",
+    ): "a namespace provisioned before 0.30.0 has only it (R9b, until 0.32.0)",
+    (
+        "SandboxTemplate",
+        "choregos-runner",
+    ): "its claim template holds the suspended sandboxes' workspaces (R9b)",
+    ("SandboxWarmPool", "choregos-runner"): "the suspended sandboxes' claims name it; kept at size 0 (R9b)",
+    (
+        "Service",
+        "choregos-egress",
+    ): "the default `runner.egressProxy` names it, as every proxy answers to it (R9b)",
+}
+#: The twin each kept object is rendered beside; the orchestrator's has none yet: the workers move to it once
+#: every project has been provisioned again.
+TWINS = {
+    ("Service", "choregos-api"): ("Service", "tranibor-api"),
+    ("ServiceAccount", "choregos-runner"): ("ServiceAccount", "tranibor-runner"),
+    ("SandboxTemplate", "choregos-runner"): ("SandboxTemplate", "tranibor-runner"),
+    ("SandboxWarmPool", "choregos-runner"): ("SandboxWarmPool", "tranibor-runner"),
+    ("Service", "choregos-egress"): ("Service", "tranibor-egress"),
 }
 #: A Secret's default name is stored state (ADR 0226 §6): the Secrets the chart draws, and the
 #: ExternalSecret whose target is one, keep theirs (`test_secret_names_are_stored_state.py`).
@@ -221,6 +242,14 @@ def test_the_objects_are_named_tranibor_or_after_the_release(arguments: list[str
     )
     assert not stray, f"neither tranibor-* nor the release's: {stray}"
     assert ("Deployment", "tranibor-api") in named or not arguments
+
+
+@helm
+def test_every_kept_name_has_its_twin() -> None:
+    named = {(d["kind"], d["metadata"]["name"]) for d in _docs("--set", "global.egress.enabled=true")}
+    for kept, twin in TWINS.items():
+        assert kept not in named or twin in named, f"{kept} is rendered without {twin}"
+    assert set(TWINS) <= named, "every twin pair is rendered by default (the egress proxy on)"
 
 
 @helm

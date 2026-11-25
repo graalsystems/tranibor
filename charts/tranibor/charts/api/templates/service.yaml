@@ -12,7 +12,7 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
   selector:
-    app.kubernetes.io/name: choregos-api
+    app.kubernetes.io/component: api
     app.kubernetes.io/instance: {{ .Release.Name }}
 ---
 # The API's former address, for the window of ADR 0226 (R6): a run that started before the upgrade was
@@ -31,7 +31,7 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
   selector:
-    app.kubernetes.io/name: choregos-api
+    app.kubernetes.io/component: api
     app.kubernetes.io/instance: {{ .Release.Name }}
 ---
 apiVersion: v1

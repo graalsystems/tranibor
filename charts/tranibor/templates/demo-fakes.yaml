@@ -10,25 +10,25 @@ kind: Deployment
 metadata:
   name: tranibor-demo-fakes
   labels:
-    app.kubernetes.io/name: choregos-demo-fakes
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/part-of: choregos
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     app.kubernetes.io/component: demo-fakes
 spec:
   replicas: 1
   strategy: { type: Recreate }
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-demo-fakes
+      app.kubernetes.io/component: demo-fakes
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: choregos-demo-fakes
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/part-of: choregos
+        app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
         app.kubernetes.io/component: demo-fakes
     spec:
       enableServiceLinks: false
@@ -46,11 +46,11 @@ spec:
             - name: http
               containerPort: {{ .Values.demoFakes.port }}
           env:
-            - name: CHOREGOS_DEMO_PORT
+            - name: TRANIBOR_DEMO_PORT
               value: {{ .Values.demoFakes.port | quote }}
             # The deployment's environment, as the API and the workers have it: the installed extensions
             # load here too (an enterprise image built against a core commit starts only in `dev`, #2145).
-            - name: CHOREGOS_ENV
+            - name: TRANIBOR_ENV
               value: {{ .Values.global.environment | quote }}
             {{- with .Values.demoFakes.tokenSecret }}
             # The MCP servers' token, and the fake Graph's application secret: by
@@ -75,15 +75,15 @@ kind: Service
 metadata:
   name: tranibor-demo-fakes
   labels:
-    app.kubernetes.io/name: choregos-demo-fakes
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/part-of: choregos
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     app.kubernetes.io/component: demo-fakes
 spec:
   selector:
-    app.kubernetes.io/name: choregos-demo-fakes
+    app.kubernetes.io/component: demo-fakes
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - name: http

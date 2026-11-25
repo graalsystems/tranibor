@@ -1,7 +1,7 @@
 """The chart tells the API which proxies' X-Forwarded-For entries to believe (S47-02).
 
 The sign-in and webhook rate limit keys on the address the nearest trusted proxy saw. Without
-`CHOREGOS_TRUSTED_PROXY_CIDRS` the API keys on its TCP peer, which behind the gateway and the
+`TRANIBOR_TRUSTED_PROXY_CIDRS` the API keys on its TCP peer, which behind the gateway and the
 console's Next server is an in-cluster pod: every client would share one window. The chart owns the
 variable, so `global.extraEnv` must not set it a second time.
 """
@@ -18,7 +18,7 @@ import pytest
 import yaml
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
-CIDRS = "CHOREGOS_TRUSTED_PROXY_CIDRS"
+CIDRS = "TRANIBOR_TRUSTED_PROXY_CIDRS"
 PRIVATE_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -48,14 +48,14 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
 def test_the_api_trusts_the_private_ranges_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     env = _api_env()
     assert json.loads(env[CIDRS]["value"]) == PRIVATE_RANGES
-    assert env["CHOREGOS_TRUSTED_PROXY_HOPS"]["value"] == "0"
+    assert env["TRANIBOR_TRUSTED_PROXY_HOPS"]["value"] == "0"
     assert json.loads(_api_env("tranibor-api.trustedProxyCidrs=[]")[CIDRS]["value"]) == []
 
     # what the chart writes is what the API settings accept, not merely JSON
     from tranibor_api.config import Settings
 
     monkeypatch.setenv(CIDRS, env[CIDRS]["value"])
-    monkeypatch.setenv("CHOREGOS_TRUSTED_PROXY_HOPS", env["CHOREGOS_TRUSTED_PROXY_HOPS"]["value"])
+    monkeypatch.setenv("TRANIBOR_TRUSTED_PROXY_HOPS", env["TRANIBOR_TRUSTED_PROXY_HOPS"]["value"])
     settings = Settings()
     assert settings.trusted_proxy_cidrs == PRIVATE_RANGES
     assert settings.trusted_proxy_hops == 0

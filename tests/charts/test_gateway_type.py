@@ -25,7 +25,7 @@ def _gateway_types(*overrides: str) -> set[str]:
             continue
         for container in doc["spec"]["template"]["spec"]["containers"]:
             for env in container.get("env", []):
-                if env["name"] == "CHOREGOS_GATEWAY_TYPE":
+                if env["name"] == "TRANIBOR_GATEWAY_TYPE":
                     found.add(env["value"])
     return found
 

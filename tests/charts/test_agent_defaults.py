@@ -35,8 +35,8 @@ def _api_env(*surcharges: str) -> dict[str, str]:
 
 def test_nothing_by_default() -> None:
     env = _api_env()
-    assert not {"CHOREGOS_DEFAULT_AGENT_BACKEND", "CHOREGOS_ALLOWED_AGENT_BACKENDS"} & env.keys()
-    assert "CHOREGOS_DEFAULT_MODEL_PROFILES" not in env
+    assert not {"TRANIBOR_DEFAULT_AGENT_BACKEND", "TRANIBOR_ALLOWED_AGENT_BACKENDS"} & env.keys()
+    assert "TRANIBOR_DEFAULT_MODEL_PROFILES" not in env
 
 
 def test_the_backend_and_profiles_of_the_deployment_reach_the_api() -> None:
@@ -45,6 +45,6 @@ def test_the_backend_and_profiles_of_the_deployment_reach_the_api() -> None:
         "global.agents.allowedBackends={opencode}",
         "global.agents.modelProfiles.standard=platform/standard",
     )
-    assert env["CHOREGOS_DEFAULT_AGENT_BACKEND"] == "opencode"
-    assert json.loads(env["CHOREGOS_ALLOWED_AGENT_BACKENDS"]) == ["opencode"]
-    assert json.loads(env["CHOREGOS_DEFAULT_MODEL_PROFILES"]) == {"standard": "platform/standard"}
+    assert env["TRANIBOR_DEFAULT_AGENT_BACKEND"] == "opencode"
+    assert json.loads(env["TRANIBOR_ALLOWED_AGENT_BACKENDS"]) == ["opencode"]
+    assert json.loads(env["TRANIBOR_DEFAULT_MODEL_PROFILES"]) == {"standard": "platform/standard"}

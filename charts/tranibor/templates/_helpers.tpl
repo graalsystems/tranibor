@@ -4,7 +4,36 @@ is published as `tranibor` and as `choregos` (ADR 0176 R3), and a deployment tha
 to the other must render the same objects (`tests/charts/test_chart_names.py`).
 */}}
 {{- define "tranibor.name" -}}
-{{- default "choregos" .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- default (include "tranibor.labelPrefix" .) .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+The values of `app.kubernetes.io/name` and `app.kubernetes.io/part-of` on the platform's own pods (ADR 0226,
+R9b). A label has one value, and an operator's NetworkPolicies, Cilium policies, log and metric queries may
+select the former one (`choregos-api`, `part-of: choregos`): renamed in place, they would stop matching
+without a word. So the former values stay the default for the window, and `global.labelValues: tranibor`
+moves a deployment to `tranibor-api`, `part-of: tranibor`… once its own selectors admit either. The
+Deployments that carry these pods select on `app.kubernetes.io/component` (and the queue), never on the
+name, so the switch recreates nothing; the chart's own NetworkPolicies and the code admit either value.
+0.32.0 makes `tranibor` the only value. Objects named after the release (`<release>-postgresql`,
+`-litellm`, `-temporal`…) keep their former values: their selectors cannot change.
+*/}}
+{{- define "tranibor.labelPrefix" -}}
+{{- $chosen := (.Values.global | default dict).labelValues | default "former" -}}
+{{- if not (has $chosen (list "former" "tranibor")) -}}
+{{- fail (printf "global.labelValues=%s: `former` (the default until 0.32.0) or `tranibor` (ADR 0226)" $chosen) -}}
+{{- end -}}
+{{- ternary "tranibor" "choregos" (eq $chosen "tranibor") -}}
+{{- end -}}
+
+{{/* `<prefix>-<name>`: the `app.kubernetes.io/name` of one of the platform's pods. `(dict "root" $ "name" "api")`. */}}
+{{- define "tranibor.podName" -}}
+{{- printf "%s-%s" (include "tranibor.labelPrefix" .root) .name -}}
+{{- end -}}
+
+{{/* A selector term that matches one of the platform's pods under either value of its name label. */}}
+{{- define "tranibor.anyPodName" -}}
+{ key: app.kubernetes.io/name, operator: In, values: [tranibor-{{ . }}, choregos-{{ . }}] }
 {{- end -}}
 
 {{/*
@@ -47,7 +76,7 @@ app.kubernetes.io/name: {{ include "tranibor.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: choregos
+app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" . }}
 {{- end -}}
 
 {{/*
@@ -114,7 +143,7 @@ alarm). Both set and different: refused, that is a contradiction.
 {{/*
 Where every run's agent runs (ADR 0146): `container` (the default since S65-04m) or `process`. One value
 for the API (`/readiness`),
-the workers (each run's executor) and the warm pool's template, as `CHOREGOS_RUNNER_AGENT_ISOLATION`.
+the workers (each run's executor) and the warm pool's template, as `TRANIBOR_RUNNER_AGENT_ISOLATION`.
 `runner.sandbox.agentIsolation`, where it lived while only the warm pool had the agent's container, is
 refused with where it went: a value silently ignored would leave the agent beside the runner.
 */}}
@@ -134,7 +163,7 @@ refused with where it went: a value silently ignored would leave the agent besid
 
 {{/*
 Whether the operator named the opt-out of ADR 0222: an agent beside the runner's credentials, in staging or
-prod, accepted. Only meaningful under `process`; rendered as `CHOREGOS_AGENT_ISOLATION=none-accepted`.
+prod, accepted. Only meaningful under `process`; rendered as `TRANIBOR_AGENT_ISOLATION=none-accepted`.
 */}}
 {{- define "tranibor.unisolatedAgentAccepted" -}}
 {{- if and (eq (include "tranibor.agentIsolation" .) "process") ((.Values.global.runner | default dict).acceptUnisolatedAgent | default false) -}}true{{- end -}}
@@ -155,11 +184,64 @@ proj-{slug}-runners
 {{- end -}}
 {{- end -}}
 
+{{/*
+The name a process reads for a variable of `global.extraEnv` (ADR 0226, R9b). The chart renders the
+platform's variables as `TRANIBOR_*` since 0.30.0; a values file may still set one under its former name,
+`CHOREGOS_X`, which the processes have read as `TRANIBOR_X` since 0.27.17 (ADR 0176 R4), `TRANIBOR_X`
+winning when both are set. An entry is rendered under the name it was written with (an extension may read
+`CHOREGOS_X` itself) and compared under this one (`tranibor.extraEnvChecked`).
+*/}}
+{{- define "tranibor.envName" -}}
+{{- if hasPrefix "CHOREGOS_" . -}}
+{{- printf "TRANIBOR_%s" (trimPrefix "CHOREGOS_" .) -}}
+{{- else -}}
+{{- . -}}
+{{- end -}}
+{{- end -}}
+
+{{/* `X (the former name of TRANIBOR_X)` for a former name, the name alone otherwise: what a refusal says. */}}
+{{- define "tranibor.envNameSaid" -}}
+{{- $new := include "tranibor.envName" . -}}
+{{- if eq $new . -}}{{ . }}{{- else -}}{{ printf "%s (the former name of %s)" . $new }}{{- end -}}
+{{- end -}}
+
+{{/*
+The checks on a list of extra variables (`global.extraEnv`, `global.outposts.door.extraEnv`):
+`(dict "entries" <list> "owned" <names the chart sets> "key" <the values key> "by" <who sets them>)`.
+- A name the chart sets is refused, under its former name too: `CHOREGOS_X` beside the chart's `TRANIBOR_X`
+  would be shadowed by it without a word (ADR 0226, R9b). Before 0.30.0 the chart set `CHOREGOS_X`, so the
+  same entry was refused already: nothing that rendered is refused now.
+- `CHOREGOS_X` and `TRANIBOR_X` both listed with different values are two values for one variable, of which
+  the process would keep `TRANIBOR_X` without a word: refused. With the same value they are harmless.
+- `value` or `valueFrom`, exactly one (S38-18): an entry with neither rendered `value: ""`, a key that
+  reached every pod empty without anything saying so.
+*/}}
+{{- define "tranibor.extraEnvChecked" -}}
+{{- $seen := dict -}}
+{{- range .entries -}}
+{{- $name := include "tranibor.envName" .name -}}
+{{- if has $name $.owned -}}
+{{- fail (printf "%s: %s is already set by %s; two values for the same name, Kubernetes would keep the last one without saying anything" $.key (include "tranibor.envNameSaid" .name) $.by) -}}
+{{- end -}}
+{{- if eq (hasKey . "value") (hasKey . "valueFrom") -}}
+{{- fail (printf "%s: %s needs exactly one of value or valueFrom" $.key .name) -}}
+{{- end -}}
+{{- $given := toJson (pick . "value" "valueFrom") -}}
+{{- if hasKey $seen $name -}}
+{{- $other := get $seen $name -}}
+{{- if ne (get $other "given") $given -}}
+{{- fail (printf "%s: %s and %s are one variable with two values (ADR 0226: CHOREGOS_X is read as TRANIBOR_X, and TRANIBOR_X wins); keep %s" $.key (get $other "name") .name $name) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $seen $name (dict "name" .name "given" $given) -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Common environment variables: 12-factor configuration, secrets by reference. */}}
 {{- define "tranibor.commonEnv" -}}
-{{- $poses := list "CHOREGOS_ENV" "CHOREGOS_EDITION" "CHOREGOS_LOG_LEVEL" "CHOREGOS_FAKES" "CHOREGOS_EGRESS_MODE" "CHOREGOS_EGRESS_CEILING" "CHOREGOS_EGRESS_PLATFORM_CHANGE" "CHOREGOS_TEMPORAL_ADDRESS" "CHOREGOS_TEMPORAL_NAMESPACE" "CHOREGOS_GATEWAY_URL" "CHOREGOS_MEMORY_URL" "CHOREGOS_MEMORY_TOKEN" "CHOREGOS_OBJECT_STORE_URL" "CHOREGOS_OBJECT_STORE_ENDPOINT" "CHOREGOS_OBJECT_STORE_REGION" "CHOREGOS_OBJECT_STORE_ACCESS_KEY" "CHOREGOS_OBJECT_STORE_SECRET_KEY" "CHOREGOS_PUBLIC_URL" "CHOREGOS_API_URL" "CHOREGOS_DB_POOL_SIZE" "CHOREGOS_DB_MAX_OVERFLOW" "CHOREGOS_DB_POOL_TIMEOUT_S" "CHOREGOS_DATABASE_PASSWORD" "CHOREGOS_DATABASE_URL" "CHOREGOS_SECRET_ENV_PATTERN" "CHOREGOS_EXECUTOR_KIND" "CHOREGOS_RUNNER_RUNTIME_CLASS" "CHOREGOS_EXECUTORS_ALLOWED" "CHOREGOS_RUNNER_AGENT_ISOLATION" }}
+{{- $poses := list "TRANIBOR_ENV" "TRANIBOR_EDITION" "TRANIBOR_LOG_LEVEL" "TRANIBOR_FAKES" "TRANIBOR_EGRESS_MODE" "TRANIBOR_EGRESS_CEILING" "TRANIBOR_EGRESS_PLATFORM_CHANGE" "TRANIBOR_TEMPORAL_ADDRESS" "TRANIBOR_TEMPORAL_NAMESPACE" "TRANIBOR_GATEWAY_URL" "TRANIBOR_MEMORY_URL" "TRANIBOR_MEMORY_TOKEN" "TRANIBOR_OBJECT_STORE_URL" "TRANIBOR_OBJECT_STORE_ENDPOINT" "TRANIBOR_OBJECT_STORE_REGION" "TRANIBOR_OBJECT_STORE_ACCESS_KEY" "TRANIBOR_OBJECT_STORE_SECRET_KEY" "TRANIBOR_PUBLIC_URL" "TRANIBOR_API_URL" "TRANIBOR_DB_POOL_SIZE" "TRANIBOR_DB_MAX_OVERFLOW" "TRANIBOR_DB_POOL_TIMEOUT_S" "TRANIBOR_DATABASE_PASSWORD" "TRANIBOR_DATABASE_URL" "TRANIBOR_SECRET_ENV_PATTERN" "TRANIBOR_EXECUTOR_KIND" "TRANIBOR_RUNNER_RUNTIME_CLASS" "TRANIBOR_EXECUTORS_ALLOWED" "TRANIBOR_RUNNER_AGENT_ISOLATION" }}
 {{- if include "tranibor.unisolatedAgentAccepted" . }}
-{{- $poses = append $poses "CHOREGOS_AGENT_ISOLATION" }}
+{{- $poses = append $poses "TRANIBOR_AGENT_ISOLATION" }}
 {{- end }}
 {{- /* Before S40-20b the endpoint went through `extraEnv`: still accepted, unless the chart sets it. */}}
 {{- if (.Values.global.tracing | default dict).otlpEndpoint }}
@@ -167,33 +249,24 @@ proj-{slug}-runners
 {{- end }}
 {{- $gw := .Values.global.mcpGateway | default dict }}
 {{- if $gw.internalHosts }}
-{{- $poses = append $poses "CHOREGOS_MCP_GATEWAY_INTERNAL_HOSTS" }}
+{{- $poses = append $poses "TRANIBOR_MCP_GATEWAY_INTERNAL_HOSTS" }}
 {{- end }}
 {{- /* Before S65-16 the outposts' settings went through `extraEnv` too: still accepted while
        `global.outposts.enabled` is false, refused once the chart sets them. */}}
 {{- if include "tranibor.outpostsEnabled" . }}
 {{- $poses = concat $poses (splitList " " (include "tranibor.outpostsOwnedEnv" "common")) }}
 {{- end }}
-{{- range (.Values.global.extraEnv | default list) }}
-{{- if has .name $poses }}
-{{- fail (printf "global.extraEnv: %s is already set by the chart; two values for the same name, Kubernetes would keep the last one without saying anything" .name) }}
-{{- end }}
-{{- /* S38-18: `value` or `valueFrom`, exactly one — an entry with neither rendered `value: ""`, a
-     key that reached every pod empty without anything saying so. */}}
-{{- if eq (hasKey . "value") (hasKey . "valueFrom") }}
-{{- fail (printf "global.extraEnv: %s needs exactly one of value or valueFrom" .name) }}
-{{- end }}
-{{- end }}
-- name: CHOREGOS_ENV
+{{- include "tranibor.extraEnvChecked" (dict "entries" (.Values.global.extraEnv | default list) "owned" $poses "key" "global.extraEnv" "by" "the chart") }}
+- name: TRANIBOR_ENV
   value: {{ .Values.global.environment | quote }}
-- name: CHOREGOS_EDITION
+- name: TRANIBOR_EDITION
   value: {{ .Values.global.edition | default "community" | quote }}
-- name: CHOREGOS_LOG_LEVEL
+- name: TRANIBOR_LOG_LEVEL
   value: {{ .Values.global.logLevel | quote }}
-- name: CHOREGOS_FAKES
+- name: TRANIBOR_FAKES
   value: {{ .Values.global.fakes | quote }}
 {{- $egress := .Values.global.egress | default dict }}
-- name: CHOREGOS_EGRESS_MODE
+- name: TRANIBOR_EGRESS_MODE
   value: {{ $egress.mode | default "enforce" | quote }}
 {{- /* ADR 0105: the gateway hosts join the families the organisation declared, never `runners`. */}}
 {{- $ceiling := deepCopy ($egress.ceiling | default dict) }}
@@ -203,39 +276,39 @@ proj-{slug}-runners
 {{- end }}
 {{- end }}
 {{- if $ceiling }}
-- name: CHOREGOS_EGRESS_CEILING
+- name: TRANIBOR_EGRESS_CEILING
   value: {{ toJson $ceiling | quote }}
 {{- end }}
 {{- if $gw.internalHosts }}
-- name: CHOREGOS_MCP_GATEWAY_INTERNAL_HOSTS
+- name: TRANIBOR_MCP_GATEWAY_INTERNAL_HOSTS
   value: {{ toJson $gw.internalHosts | quote }}
 {{- end }}
 {{- with $egress.platformChange }}
-- name: CHOREGOS_EGRESS_PLATFORM_CHANGE
+- name: TRANIBOR_EGRESS_PLATFORM_CHANGE
   value: {{ toJson . | quote }}
 {{- end }}
-- name: CHOREGOS_TEMPORAL_ADDRESS
+- name: TRANIBOR_TEMPORAL_ADDRESS
   value: {{ include "tranibor.temporalAddress" . | quote }}
-- name: CHOREGOS_TEMPORAL_NAMESPACE
+- name: TRANIBOR_TEMPORAL_NAMESPACE
   value: {{ .Values.global.temporal.namespace | quote }}
-- name: CHOREGOS_EXECUTOR_KIND
+- name: TRANIBOR_EXECUTOR_KIND
   value: {{ include "tranibor.executorKind" . | quote }}
 {{- if hasKey (.Values.global.runner | default dict) "runtimeClass" }}
 # The warm pool's RuntimeClass, for the API and the workers alike (empty: the cluster's default).
 # Absent when `global.runner.runtimeClass` is never set: the API then knows nothing.
-- name: CHOREGOS_RUNNER_RUNTIME_CLASS
+- name: TRANIBOR_RUNNER_RUNTIME_CLASS
   value: {{ include "tranibor.runtimeClass" . | quote }}
 {{- end }}
-- name: CHOREGOS_EXECUTORS_ALLOWED
+- name: TRANIBOR_EXECUTORS_ALLOWED
   value: {{ (.Values.global.runner | default dict).allowedExecutors | default list | join "," | quote }}
 # Where every run's agent runs (ADR 0146): the API judges `/readiness` with it, the workers hand it to
 # each run's executor, which refuses a run it cannot isolate.
-- name: CHOREGOS_RUNNER_AGENT_ISOLATION
+- name: TRANIBOR_RUNNER_AGENT_ISOLATION
   value: {{ include "tranibor.agentIsolation" . | quote }}
 {{- if include "tranibor.unisolatedAgentAccepted" . }}
 # The named opt-out (ADR 0222): `process` in staging or prod, accepted. The workers log it on every run,
 # `/readiness` shows it, and the runner finds it beside its `TRANIBOR_ENV`.
-- name: CHOREGOS_AGENT_ISOLATION
+- name: TRANIBOR_AGENT_ISOLATION
   value: none-accepted
 {{- end }}
 {{- with (.Values.global.tracing | default dict).otlpEndpoint }}
@@ -243,54 +316,54 @@ proj-{slug}-runners
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
   value: {{ . | quote }}
 {{- end }}
-- name: CHOREGOS_GATEWAY_TYPE
+- name: TRANIBOR_GATEWAY_TYPE
   value: {{ .Values.global.gateway.type | default "litellm" | quote }}
-- name: CHOREGOS_GATEWAY_URL
+- name: TRANIBOR_GATEWAY_URL
   value: {{ include "tranibor.gatewayUrl" . | quote }}
-- name: CHOREGOS_MEMORY_URL
+- name: TRANIBOR_MEMORY_URL
   value: {{ include "tranibor.memoryUrl" . | quote }}
 {{- with (include "tranibor.memoryTokenSecret" .) }}
-- name: CHOREGOS_MEMORY_TOKEN
+- name: TRANIBOR_MEMORY_TOKEN
   valueFrom:
     secretKeyRef:
       name: {{ . }}
       key: token
 {{- end }}
-- name: CHOREGOS_OBJECT_STORE_URL
+- name: TRANIBOR_OBJECT_STORE_URL
   value: {{ .Values.global.objectStore.url | quote }}
-- name: CHOREGOS_OBJECT_STORE_ENDPOINT
+- name: TRANIBOR_OBJECT_STORE_ENDPOINT
   value: {{ include "tranibor.objectStoreEndpoint" . | quote }}
-- name: CHOREGOS_OBJECT_STORE_REGION
+- name: TRANIBOR_OBJECT_STORE_REGION
   value: {{ .Values.global.objectStore.region | default "us-east-1" | quote }}
 {{- with .Values.global.objectStore.secretRef }}
-- name: CHOREGOS_OBJECT_STORE_ACCESS_KEY
+- name: TRANIBOR_OBJECT_STORE_ACCESS_KEY
   valueFrom:
     secretKeyRef:
       name: {{ . }}
       key: access-key
-- name: CHOREGOS_OBJECT_STORE_SECRET_KEY
+- name: TRANIBOR_OBJECT_STORE_SECRET_KEY
   valueFrom:
     secretKeyRef:
       name: {{ . }}
       key: secret-key
 {{- end }}
-- name: CHOREGOS_PUBLIC_URL
+- name: TRANIBOR_PUBLIC_URL
   value: {{ .Values.global.publicUrl | default (printf "https://app.%s" .Values.global.domain) | quote }}
-- name: CHOREGOS_API_URL
+- name: TRANIBOR_API_URL
   value: {{ .Values.global.apiUrl | default (printf "https://api.%s" .Values.global.domain) | quote }}
 {{- /* The connection pool, BOUNDED: `pool_size` alone let SQLAlchemy open ten
        overflow connections per process with no wait-time limit (status review
        of 2026-09-24). Each API replica and each worker holds at most size+maxOverflow
        connections; multiply by the replicas to size `max_connections`. */}}
-- name: CHOREGOS_DB_POOL_SIZE
+- name: TRANIBOR_DB_POOL_SIZE
   value: {{ .Values.global.database.pool.size | quote }}
-- name: CHOREGOS_DB_MAX_OVERFLOW
+- name: TRANIBOR_DB_MAX_OVERFLOW
   value: {{ .Values.global.database.pool.maxOverflow | quote }}
-- name: CHOREGOS_DB_POOL_TIMEOUT_S
+- name: TRANIBOR_DB_POOL_TIMEOUT_S
   value: {{ .Values.global.database.pool.timeoutSeconds | quote }}
 {{- include "tranibor.databaseEnv" . }}
 {{- with (.Values.global.secrets | default dict).envPattern }}
-- name: CHOREGOS_SECRET_ENV_PATTERN
+- name: TRANIBOR_SECRET_ENV_PATTERN
   value: {{ . | quote }}
 {{- end }}
 {{- if include "tranibor.outpostsEnabled" . }}
@@ -310,7 +383,7 @@ proj-{slug}-runners
 {{- end -}}
 
 {{/*
-Where the database is, as a process reads it (`CHOREGOS_DATABASE_URL`). Its own template: the
+Where the database is, as a process reads it (`TRANIBOR_DATABASE_URL`). Its own template: the
 outposts' door served alone (`templates/outposts-door.yaml`) takes it without the rest of
 `choregos.commonEnv`.
 */}}
@@ -318,17 +391,17 @@ outposts' door served alone (`templates/outposts-door.yaml`) takes it without th
 {{- with (include "tranibor.databasePasswordSecret" .) }}
 {{- /* The password comes from a secret laid down by an operator (Zalando: `password` key),
        the URL is composed here — Kubernetes expands `$(VAR)` of a variable declared earlier. */}}
-- name: CHOREGOS_DATABASE_PASSWORD
+- name: TRANIBOR_DATABASE_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ . }}
       key: password
-- name: CHOREGOS_DATABASE_URL
+- name: TRANIBOR_DATABASE_URL
   {{- /* Embedded: the application role without SUPERUSER created at initdb. External: the role
          the operator created (Zalando, CNPG), already without SUPERUSER — `choregos_app` does not exist there. */}}
-  value: {{ printf "postgresql+asyncpg://%s:$(CHOREGOS_DATABASE_PASSWORD)@%s:%v/%s" (ternary ($.Values.global.database.appUser | default $.Values.global.database.user) $.Values.global.database.user $.Values.global.database.embedded) (include "tranibor.databaseHost" $) $.Values.global.database.port $.Values.global.database.name | quote }}
+  value: {{ printf "postgresql+asyncpg://%s:$(TRANIBOR_DATABASE_PASSWORD)@%s:%v/%s" (ternary ($.Values.global.database.appUser | default $.Values.global.database.user) $.Values.global.database.user $.Values.global.database.embedded) (include "tranibor.databaseHost" $) $.Values.global.database.port $.Values.global.database.name | quote }}
 {{- else }}
-- name: CHOREGOS_DATABASE_URL
+- name: TRANIBOR_DATABASE_URL
   valueFrom:
     secretKeyRef:
       name: {{ .Values.global.database.secretRef }}
@@ -349,7 +422,7 @@ true
 {{- end -}}
 
 {{/*
-The door's public origin (`CHOREGOS_OUTPOSTS_DOOR_URL`): `door.url`, else `https://` and the first of
+The door's public origin (`TRANIBOR_OUTPOSTS_DOOR_URL`): `door.url`, else `https://` and the first of
 the door's hostnames. The API refuses to start with outposts on and no origin, and on one that has
 a path: the render refuses first, and names the value.
 */}}
@@ -358,7 +431,7 @@ a path: the render refuses first, and names the value.
 {{- $hosts := compact ($door.hostnames | default list) -}}
 {{- $url := $door.url | default "" -}}
 {{- if and (not $url) (not $hosts) -}}
-{{- fail "global.outposts.enabled=true needs the door's public origin: set global.outposts.door.hostnames (the door's own hostnames; the origin is https://<the first one>) or global.outposts.door.url (https://outposts.example.com). An outpost signs the URL it calls, and the API refuses to start without the origin it compares it with (CHOREGOS_OUTPOSTS_DOOR_URL)." -}}
+{{- fail "global.outposts.enabled=true needs the door's public origin: set global.outposts.door.hostnames (the door's own hostnames; the origin is https://<the first one>) or global.outposts.door.url (https://outposts.example.com). An outpost signs the URL it calls, and the API refuses to start without the origin it compares it with (TRANIBOR_OUTPOSTS_DOOR_URL)." -}}
 {{- end -}}
 {{- if not $url -}}{{- $url = printf "https://%s" (first $hosts) -}}{{- end -}}
 {{- if not (regexMatch "^https?://[^\\s/@?#]+$" $url) -}}
@@ -382,11 +455,11 @@ flight (`outposts/rendezvous.py`, `place`). Part of `choregos.commonEnv` when ou
 */}}
 {{- define "tranibor.outpostsEnv" -}}
 {{- $flight := (.Values.global.outposts | default dict).callsInFlight | default dict -}}
-- name: CHOREGOS_OUTPOSTS
+- name: TRANIBOR_OUTPOSTS
   value: "on"
-- name: CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST
+- name: TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST
   value: {{ int64 ($flight.perOutpost | default 128) | quote }}
-- name: CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION
+- name: TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION
   value: {{ int64 ($flight.perOrganisation | default 512) | quote }}
 {{- end -}}
 
@@ -411,13 +484,13 @@ its Secret by reference, and is not optional: a door that could sign nothing wou
 {{- if ne (len (uniq $announced)) (len $announced) -}}
 {{- fail "global.outposts.door.announcedKeys: a key is announced once. The API refuses to start on a key listed twice." -}}
 {{- end -}}
-- name: CHOREGOS_OUTPOSTS_DOOR_URL
+- name: TRANIBOR_OUTPOSTS_DOOR_URL
   value: {{ include "tranibor.outpostsDoorUrl" . | quote }}
-- name: CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY
+- name: TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY
   valueFrom: { secretKeyRef: { name: {{ include "tranibor.outpostsDoorKeySecret" . }}, key: {{ $key.key | default "signing-key" }} } }
-- name: CHOREGOS_OUTPOSTS_DOOR_ANNOUNCED_KEYS
+- name: TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS
   value: {{ toJson $announced | quote }}
-- name: CHOREGOS_OUTPOSTS_DOOR_RATE_PER_MINUTE
+- name: TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE
   value: {{ if hasKey $door "ratePerMinute" }}{{ int64 $door.ratePerMinute | quote }}{{ else }}"1200"{{ end }}
 {{- end -}}
 
@@ -443,50 +516,50 @@ it cannot build, so the mistakes the chart can see are refused here, at render t
 {{- fail "global.auditExport.syslog.host: required for the syslog sink" -}}
 {{- end -}}
 {{- $token := $x.token | default dict -}}
-- name: CHOREGOS_AUDIT_EXPORT
+- name: TRANIBOR_AUDIT_EXPORT
   value: "true"
-- name: CHOREGOS_AUDIT_EXPORT_SINK
+- name: TRANIBOR_AUDIT_EXPORT_SINK
   value: {{ $sink | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_NAME
+- name: TRANIBOR_AUDIT_EXPORT_NAME
   value: {{ $x.name | default "siem" | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_FORMAT
+- name: TRANIBOR_AUDIT_EXPORT_FORMAT
   value: {{ $format | quote }}
 {{- if eq $sink "https" }}
-- name: CHOREGOS_AUDIT_EXPORT_URL
+- name: TRANIBOR_AUDIT_EXPORT_URL
   value: {{ $x.url | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_HEADER
+- name: TRANIBOR_AUDIT_EXPORT_HEADER
   value: {{ $token.header | default "Authorization" | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_SCHEME
+- name: TRANIBOR_AUDIT_EXPORT_SCHEME
   value: {{ if hasKey $token "scheme" }}{{ $token.scheme | quote }}{{ else }}"Bearer"{{ end }}
 {{- with $x.index }}
-- name: CHOREGOS_AUDIT_EXPORT_INDEX
+- name: TRANIBOR_AUDIT_EXPORT_INDEX
   value: {{ . | quote }}
 {{- end }}
 {{- else }}
-- name: CHOREGOS_AUDIT_EXPORT_SYSLOG_HOST
+- name: TRANIBOR_AUDIT_EXPORT_SYSLOG_HOST
   value: {{ $x.syslog.host | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_SYSLOG_PORT
+- name: TRANIBOR_AUDIT_EXPORT_SYSLOG_PORT
   value: {{ int (($x.syslog).port | default 6514) | quote }}
 {{- end }}
 {{- with $token.secretRef }}
-- name: CHOREGOS_AUDIT_EXPORT_TOKEN
+- name: TRANIBOR_AUDIT_EXPORT_TOKEN
   valueFrom: { secretKeyRef: { name: {{ . | quote }}, key: {{ $token.key | default "audit-export-token" | quote }} } }
 {{- end }}
 {{- with $x.caFile }}
-- name: CHOREGOS_AUDIT_EXPORT_CA_FILE
+- name: TRANIBOR_AUDIT_EXPORT_CA_FILE
   value: {{ . | quote }}
 {{- end }}
-- name: CHOREGOS_AUDIT_EXPORT_ORGS
+- name: TRANIBOR_AUDIT_EXPORT_ORGS
   value: {{ toJson ($x.organisations | default list) | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_PLATFORM
+- name: TRANIBOR_AUDIT_EXPORT_PLATFORM
   value: {{ ne (toString $x.platform) "false" | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_CANONICAL
+- name: TRANIBOR_AUDIT_EXPORT_CANONICAL
   value: {{ ne (toString $x.canonical) "false" | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_SOURCE
+- name: TRANIBOR_AUDIT_EXPORT_SOURCE
   value: {{ $x.source | default "choregos" | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_INTERVAL_S
+- name: TRANIBOR_AUDIT_EXPORT_INTERVAL_S
   value: {{ $x.intervalSeconds | default 10 | quote }}
-- name: CHOREGOS_AUDIT_EXPORT_BATCH
+- name: TRANIBOR_AUDIT_EXPORT_BATCH
   value: {{ int ($x.batch | default 500) | quote }}
 {{- end -}}
 
@@ -494,7 +567,7 @@ it cannot build, so the mistakes the chart can see are refused here, at render t
 The names `choregos.auditExportEnv` sets: `global.extraEnv` may not set them a second time.
 */}}
 {{- define "tranibor.auditExportOwnedEnv" -}}
-CHOREGOS_AUDIT_EXPORT CHOREGOS_AUDIT_EXPORT_SINK CHOREGOS_AUDIT_EXPORT_NAME CHOREGOS_AUDIT_EXPORT_FORMAT CHOREGOS_AUDIT_EXPORT_URL CHOREGOS_AUDIT_EXPORT_HEADER CHOREGOS_AUDIT_EXPORT_SCHEME CHOREGOS_AUDIT_EXPORT_INDEX CHOREGOS_AUDIT_EXPORT_SYSLOG_HOST CHOREGOS_AUDIT_EXPORT_SYSLOG_PORT CHOREGOS_AUDIT_EXPORT_TOKEN CHOREGOS_AUDIT_EXPORT_CA_FILE CHOREGOS_AUDIT_EXPORT_ORGS CHOREGOS_AUDIT_EXPORT_PLATFORM CHOREGOS_AUDIT_EXPORT_CANONICAL CHOREGOS_AUDIT_EXPORT_SOURCE CHOREGOS_AUDIT_EXPORT_INTERVAL_S CHOREGOS_AUDIT_EXPORT_BATCH
+TRANIBOR_AUDIT_EXPORT TRANIBOR_AUDIT_EXPORT_SINK TRANIBOR_AUDIT_EXPORT_NAME TRANIBOR_AUDIT_EXPORT_FORMAT TRANIBOR_AUDIT_EXPORT_URL TRANIBOR_AUDIT_EXPORT_HEADER TRANIBOR_AUDIT_EXPORT_SCHEME TRANIBOR_AUDIT_EXPORT_INDEX TRANIBOR_AUDIT_EXPORT_SYSLOG_HOST TRANIBOR_AUDIT_EXPORT_SYSLOG_PORT TRANIBOR_AUDIT_EXPORT_TOKEN TRANIBOR_AUDIT_EXPORT_CA_FILE TRANIBOR_AUDIT_EXPORT_ORGS TRANIBOR_AUDIT_EXPORT_PLATFORM TRANIBOR_AUDIT_EXPORT_CANONICAL TRANIBOR_AUDIT_EXPORT_SOURCE TRANIBOR_AUDIT_EXPORT_INTERVAL_S TRANIBOR_AUDIT_EXPORT_BATCH
 {{- end -}}
 
 {{/*
@@ -502,8 +575,8 @@ The names the two templates above set: `global.extraEnv` may not set them a seco
 outposts are on. `only` = "all" (what the API receives) or "common" (what every process receives).
 */}}
 {{- define "tranibor.outpostsOwnedEnv" -}}
-CHOREGOS_OUTPOSTS CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION
-{{- if eq . "all" }} CHOREGOS_OUTPOSTS_DOOR_URL CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY CHOREGOS_OUTPOSTS_DOOR_ANNOUNCED_KEYS CHOREGOS_OUTPOSTS_DOOR_RATE_PER_MINUTE{{ end }}
+TRANIBOR_OUTPOSTS TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION
+{{- if eq . "all" }} TRANIBOR_OUTPOSTS_DOOR_URL TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE{{ end }}
 {{- end -}}
 
 {{/*
@@ -560,8 +633,21 @@ holds a Temporal client must hold the SAME converter, or one side writes what th
 TLS is off by default (dev, kind, compose); the codec is on by default (ADR 0220). Three templates, one switch each: the variables, the mounts and
 the volumes, so a pod that gets the variables always gets the files they name.
 */}}
-{{- define "tranibor.temporalTlsDir" -}}/etc/choregos/temporal-tls{{- end -}}
-{{- define "tranibor.temporalCodecDir" -}}/etc/choregos/temporal-codec{{- end -}}
+{{/*
+A read-only mount of the chart's under `/etc/tranibor/` (ADR 0226, R9b), and the same volume at its former
+path under `/etc/choregos/` until 0.32.0: the variables the chart renders name the new path, but a path an
+operator wrote (a plugins configuration's `key: /etc/choregos/plugins/…`, a variable of `extraEnv`) names the
+former one and must still find its file. A mount path a values file chose is its own: no second mount.
+*/}}
+{{- define "tranibor.etcMount" -}}
+- { name: {{ .name }}, mountPath: {{ .path }}, readOnly: true }
+{{- if hasPrefix "/etc/tranibor/" .path }}
+- { name: {{ .name }}, mountPath: {{ printf "/etc/choregos/%s" (trimPrefix "/etc/tranibor/" .path) }}, readOnly: true }
+{{- end }}
+{{- end -}}
+
+{{- define "tranibor.temporalTlsDir" -}}/etc/tranibor/temporal-tls{{- end -}}
+{{- define "tranibor.temporalCodecDir" -}}/etc/tranibor/temporal-codec{{- end -}}
 {{- /* The Secret holding the master keyring: the operator's, or the one the chart draws (ADR 0220). */ -}}
 {{- define "tranibor.temporalCodecSecret" -}}
 {{- (((.Values.global.temporal).codec).secretName) | default (printf "%s-temporal-codec" .Release.Name) -}}
@@ -576,25 +662,25 @@ the volumes, so a pod that gets the variables always gets the files they name.
 {{- if not $tls.secretName }}
 {{- fail "global.temporal.tls.enabled needs global.temporal.tls.secretName: the Secret holding ca.crt (and tls.crt, tls.key for mutual TLS)" }}
 {{- end }}
-{{- $owned = concat $owned (list "CHOREGOS_TEMPORAL_TLS" "CHOREGOS_TEMPORAL_TLS_CA_FILE" "CHOREGOS_TEMPORAL_TLS_CERT_FILE" "CHOREGOS_TEMPORAL_TLS_KEY_FILE" "CHOREGOS_TEMPORAL_TLS_SERVER_NAME") }}
-- name: CHOREGOS_TEMPORAL_TLS
+{{- $owned = concat $owned (list "TRANIBOR_TEMPORAL_TLS" "TRANIBOR_TEMPORAL_TLS_CA_FILE" "TRANIBOR_TEMPORAL_TLS_CERT_FILE" "TRANIBOR_TEMPORAL_TLS_KEY_FILE" "TRANIBOR_TEMPORAL_TLS_SERVER_NAME") }}
+- name: TRANIBOR_TEMPORAL_TLS
   value: "true"
-- name: CHOREGOS_TEMPORAL_TLS_CA_FILE
+- name: TRANIBOR_TEMPORAL_TLS_CA_FILE
   value: {{ printf "%s/ca.crt" (include "tranibor.temporalTlsDir" .) | quote }}
 {{- if $tls.mutual }}
-- name: CHOREGOS_TEMPORAL_TLS_CERT_FILE
+- name: TRANIBOR_TEMPORAL_TLS_CERT_FILE
   value: {{ printf "%s/tls.crt" (include "tranibor.temporalTlsDir" .) | quote }}
-- name: CHOREGOS_TEMPORAL_TLS_KEY_FILE
+- name: TRANIBOR_TEMPORAL_TLS_KEY_FILE
   value: {{ printf "%s/tls.key" (include "tranibor.temporalTlsDir" .) | quote }}
 {{- end }}
 {{- with $tls.serverName }}
-- name: CHOREGOS_TEMPORAL_TLS_SERVER_NAME
+- name: TRANIBOR_TEMPORAL_TLS_SERVER_NAME
   value: {{ . | quote }}
 {{- end }}
 {{- end }}
 {{- if $codec.enabled }}
-{{- $owned = concat $owned (list "CHOREGOS_TEMPORAL_CODEC_KEYS" "CHOREGOS_TEMPORAL_CODEC_KEYS_FILE") }}
-- name: CHOREGOS_TEMPORAL_CODEC_KEYS_FILE
+{{- $owned = concat $owned (list "TRANIBOR_TEMPORAL_CODEC_KEYS" "TRANIBOR_TEMPORAL_CODEC_KEYS_FILE") }}
+- name: TRANIBOR_TEMPORAL_CODEC_KEYS_FILE
   value: {{ printf "%s/%s" (include "tranibor.temporalCodecDir" .) ($codec.key | default "keys") | quote }}
 {{- else }}
 {{- $production := has (.Values.global.environment | default "dev") (list "staging" "prod") }}
@@ -602,14 +688,14 @@ the volumes, so a pod that gets the variables always gets the files they name.
 {{- fail "global.temporal.codec.enabled is false in a staging or prod release: Temporal's histories would hold every ticket, result and decision in clear. Leave it on, or, knowing that clear histories are acceptable here, set global.temporal.codec.allowClear=true (ADR 0220)" }}
 {{- end }}
 {{- if $codec.allowClear }}
-{{- $owned = concat $owned (list "CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS") }}
-- name: CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS
+{{- $owned = concat $owned (list "TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS") }}
+- name: TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS
   value: "true"
 {{- end }}
 {{- end }}
 {{- range (.Values.global.extraEnv | default list) }}
-{{- if has .name $owned }}
-{{- fail (printf "global.extraEnv: %s is set by global.temporal.tls / global.temporal.codec; two values for the same name, Kubernetes would keep the last one without saying anything" .name) }}
+{{- if has (include "tranibor.envName" .name) $owned }}
+{{- fail (printf "global.extraEnv: %s is set by global.temporal.tls / global.temporal.codec; two values for the same name, Kubernetes would keep the last one without saying anything" (include "tranibor.envNameSaid" .name)) }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -617,10 +703,10 @@ the volumes, so a pod that gets the variables always gets the files they name.
 {{- define "tranibor.temporalSecurityMounts" -}}
 {{- $t := .Values.global.temporal | default dict }}
 {{- if ($t.tls | default dict).enabled }}
-- { name: temporal-tls, mountPath: {{ include "tranibor.temporalTlsDir" . }}, readOnly: true }
+{{- include "tranibor.etcMount" (dict "name" "temporal-tls" "path" (include "tranibor.temporalTlsDir" .)) | nindent 0 }}
 {{- end }}
 {{- if ($t.codec | default dict).enabled }}
-- { name: temporal-codec, mountPath: {{ include "tranibor.temporalCodecDir" . }}, readOnly: true }
+{{- include "tranibor.etcMount" (dict "name" "temporal-codec" "path" (include "tranibor.temporalCodecDir" .)) | nindent 0 }}
 {{- end }}
 {{- end -}}
 
@@ -746,6 +832,12 @@ affinity:
 The alert rules, written once and served in both flavours (PrometheusRule and VMRule).
 The PromQL is the same; only the packaging changes. Since 0.21 (ADR 0098) four alerts have English
 names; the `legacy_alertname` label that carried their former names was removed in 0.24.0 (S45-49).
+
+ADR 0226 (R9b): the alerts query the `tranibor_*` series, which the API serves beside their former
+`choregos_*` twins. Their names keep the former prefix (`Choregos…`): an Alertmanager route, a silence or an
+inhibition matches `alertname`, a renamed alert would leave its route without a word, and the same alert
+under two names would page twice. They move in a later release, after the upgrade notes have asked for
+routes that match either name (`alertname=~"(Choregos|Tranibor)…"`).
 */}}
 {{- define "tranibor.alertRules" -}}
 - alert: ChoregosApi5xxErrors
@@ -755,7 +847,7 @@ names; the `legacy_alertname` label that carried their former names was removed 
   for: 10m
   labels: { severity: critical }
   annotations:
-    summary: "More than 1 % of 5xx on the Choregos API"
+    summary: "More than 1 % of 5xx on the Tranibor API"
     runbook_url: "https://github.com/graalsystems/tranibor/blob/main/docs/runbooks/api-5xx.md"
 - alert: ChoregosBacklogTemporal
   expr: sum(temporal_task_queue_backlog{namespace="default"}) > 100
@@ -770,13 +862,13 @@ names; the `legacy_alertname` label that carried their former names was removed 
   annotations:
     summary: "A PipelineRun has been waiting for 15 min (autoscaling down?)"
 - alert: ChoregosDailyBudgetHigh
-  expr: choregos_project_daily_cost_usd / choregos_project_daily_budget_usd > 0.8
+  expr: tranibor_project_daily_cost_usd / tranibor_project_daily_budget_usd > 0.8
   for: 5m
   labels: { severity: warning }
   annotations:
     summary: "A project's daily budget is more than 80 % consumed"
 - alert: ChoregosTrainFrozen
-  expr: choregos_train_frozen == 1
+  expr: tranibor_train_frozen == 1
   for: 2h
   labels: { severity: warning }
   annotations:
@@ -792,7 +884,7 @@ template: `choregos.alertRules` stays plain YAML, which a test reads as such.
 */}}
 {{- define "tranibor.outpostsAlertRules" -}}
 - alert: ChoregosOutpostPollConflict
-  expr: max by (org) (increase(choregos_outpost_poll_conflicts_total[15m])) > 0
+  expr: max by (org) (increase(tranibor_outpost_poll_conflicts_total[15m])) > 0
   labels: { severity: critical }
   annotations:
     summary: "A second poll arrived under an outpost instance's key: two holders of one key is what a stolen key looks like"
@@ -807,8 +899,8 @@ the other rule lists.
 {{- define "tranibor.auditExportAlertRules" -}}
 - alert: ChoregosAuditExportStalled
   expr: |
-    max by (sink) (choregos_audit_export_lag_entries) > 0
-    and on (sink) (time() - max by (sink) (choregos_audit_export_progress_timestamp_seconds)) > 1800
+    max by (sink) (tranibor_audit_export_lag_entries) > 0
+    and on (sink) (time() - max by (sink) (tranibor_audit_export_progress_timestamp_seconds)) > 1800
   for: 10m
   labels: { severity: warning }
   annotations:

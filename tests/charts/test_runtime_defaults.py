@@ -55,18 +55,18 @@ def _env(deployment: dict[str, Any], container: str | None = None) -> dict[str, 
 @needs_helm
 def test_a_default_install_runs_agents_in_sandboxes() -> None:
     objects = _docs()
-    assert "SandboxTemplate/choregos-runner" in objects
+    assert "SandboxTemplate/tranibor-runner" in objects
     worker = _env(objects["Deployment/tranibor-orchestrator-executor"])
-    assert worker["CHOREGOS_EXECUTOR_KIND"] == "agent_sandbox"
-    assert worker["CHOREGOS_RUNNER_NAMESPACE_PATTERN"] == "choregos", "the release namespace"
+    assert worker["TRANIBOR_EXECUTOR_KIND"] == "agent_sandbox"
+    assert worker["TRANIBOR_RUNNER_NAMESPACE_PATTERN"] == "choregos", "the release namespace"
 
 
 @needs_helm
 def test_the_api_knows_the_executor() -> None:
     objects = _docs("--set", "global.runner.allowedExecutors={agent_sandbox,k8s_job}")
     api = _env(objects["Deployment/tranibor-api"], "api")
-    assert api["CHOREGOS_EXECUTOR_KIND"] == "agent_sandbox"
-    assert api["CHOREGOS_EXECUTORS_ALLOWED"] == "agent_sandbox,k8s_job"
+    assert api["TRANIBOR_EXECUTOR_KIND"] == "agent_sandbox"
+    assert api["TRANIBOR_EXECUTORS_ALLOWED"] == "agent_sandbox,k8s_job"
 
 
 @needs_helm
@@ -80,7 +80,7 @@ def test_without_the_operator_the_render_fails_and_names_it() -> None:
 @needs_helm
 @pytest.mark.no_operator
 def test_the_operator_check_can_be_skipped_for_an_offline_rendering() -> None:
-    assert "SandboxTemplate/choregos-runner" in _docs(
+    assert "SandboxTemplate/tranibor-runner" in _docs(
         "--set", "tranibor-orchestrator.runner.skipOperatorCheck=true"
     )
 
@@ -89,10 +89,10 @@ def test_the_operator_check_can_be_skipped_for_an_offline_rendering() -> None:
 @pytest.mark.no_operator
 def test_other_executors_need_no_operator() -> None:
     objects = _docs("--set", "global.runner.executor=k8s_job")
-    assert "SandboxTemplate/choregos-runner" not in objects
-    assert _env(objects["Deployment/tranibor-api"], "api")["CHOREGOS_EXECUTOR_KIND"] == "k8s_job"
+    assert "SandboxTemplate/tranibor-runner" not in objects
+    assert _env(objects["Deployment/tranibor-api"], "api")["TRANIBOR_EXECUTOR_KIND"] == "k8s_job"
     assert _env(objects["Deployment/tranibor-orchestrator-executor"])[
-        "CHOREGOS_RUNNER_NAMESPACE_PATTERN"
+        "TRANIBOR_RUNNER_NAMESPACE_PATTERN"
     ] == ("proj-{slug}-runners")
 
 
@@ -107,8 +107,8 @@ def test_tekton_objects_only_for_tekton() -> None:
 @needs_helm
 def test_local_values_keep_k8s_job() -> None:
     objects = _docs("-f", str(CHART / "values" / "local.yaml"))
-    assert "SandboxTemplate/choregos-runner" not in objects
-    assert _env(objects["Deployment/tranibor-api"], "api")["CHOREGOS_EXECUTOR_KIND"] == "k8s_job"
+    assert "SandboxTemplate/tranibor-runner" not in objects
+    assert _env(objects["Deployment/tranibor-api"], "api")["TRANIBOR_EXECUTOR_KIND"] == "k8s_job"
 
 
 @needs_helm
@@ -120,14 +120,15 @@ def test_the_orchestrator_cannot_disagree_with_the_global_setting() -> None:
 @needs_helm
 def test_prod_values_write_the_executor_and_warm_the_pool() -> None:
     objects = _docs("-f", str(CHART / "values" / "prod.yaml"))
-    assert objects["SandboxWarmPool/choregos-runner"]["spec"]["replicas"] == 2
+    assert objects["SandboxWarmPool/tranibor-runner"]["spec"]["replicas"] == 2
+    assert objects["SandboxWarmPool/choregos-runner"]["spec"]["replicas"] == 0, "the former pool stays cold"
 
 
 @needs_helm
 def test_custom_image_executor_is_wired() -> None:
     default = _env(_docs()["Deployment/tranibor-orchestrator-executor"])
-    assert default["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
+    assert default["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
     off = _docs("--set", "tranibor-orchestrator.runner.customImageExecutor=")
-    assert _env(off["Deployment/tranibor-orchestrator-executor"])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == ""
+    assert _env(off["Deployment/tranibor-orchestrator-executor"])["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == ""
     jobs = _docs("--set", "global.runner.executor=k8s_job")
-    assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/tranibor-orchestrator-executor"])
+    assert "TRANIBOR_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/tranibor-orchestrator-executor"])

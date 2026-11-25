@@ -419,7 +419,7 @@ def test_the_token_comes_from_the_operators_secret_and_only_the_enrolment_sees_i
     assert "enrolment" not in {m["name"] for m in pod["containers"][0]["volumeMounts"]}
     # Never a value: not in the environment, not in the ConfigMap.
     for container in (enrol, pod["containers"][0]):
-        assert "CHOREGOS_OUTPOST_ENROLMENT_TOKEN" not in _env(container)
+        assert "TRANIBOR_OUTPOST_ENROLMENT_TOKEN" not in _env(container)
     named = _documents(*MINIMAL, 'enrolment={"existingSecret":"my-token","key":"t"}')
     (volume,) = [v for v in _pod(named)["volumes"] if v["name"] == "enrolment"]
     assert volume["secret"]["secretName"] == "my-token"
@@ -449,7 +449,7 @@ def enrolment(tmp_path: pathlib.Path) -> Any:
             ["/bin/sh", "-c", script],
             env={
                 "PATH": f"{tools}:{os.environ['PATH']}",
-                "CHOREGOS_OUTPOST_STATE_DIR": str(state),
+                "TRANIBOR_OUTPOST_STATE_DIR": str(state),
                 "ENROLMENT_TOKEN_FILE": str(token),
             },
             capture_output=True,
@@ -550,25 +550,24 @@ def _daemon_options() -> dict[str, str]:
         for parameter in group.params:
             variable = getattr(parameter, "envvar", None)
             if variable:
-                # The chart still names the former variable (ADR 0176 R4); the daemon adopts it.
-                found[str(variable).replace("TRANIBOR_", "CHOREGOS_", 1)] = parameter.opts[0]
+                found[str(variable)] = parameter.opts[0]
     return found
 
 
 def test_every_variable_the_chart_sets_is_one_the_daemon_reads() -> None:
     known = _daemon_options()
-    assert known["CHOREGOS_OUTPOST_GRACE_S"] == "--grace" and "CHOREGOS_OUTPOST_POLICY" in known
+    assert known["TRANIBOR_OUTPOST_GRACE_S"] == "--grace" and "TRANIBOR_OUTPOST_POLICY" in known
     documents = _documents(
         *MINIMAL, 'proxy.url="http://proxy.example.com:3128"', 'ca.configMap="house-ca"',
         'networkPolicy.controlPlane.cidrs=["203.0.113.7/32"]',
     )  # fmt: skip
     pod = _pod(documents)
     for container in (pod["initContainers"][0], pod["containers"][0]):
-        ours = {name for name in _env(container) if name.startswith("CHOREGOS_OUTPOST_")}
+        ours = {name for name in _env(container) if name.startswith("TRANIBOR_OUTPOST_")}
         assert ours and ours <= set(known), ours - set(known)
     env = _env(pod["containers"][0])
-    assert env["CHOREGOS_OUTPOST_POLICY"]["value"] == f"{CONFIG}/policy/policy.yaml"
-    assert env["CHOREGOS_OUTPOST_STATE_DIR"]["value"] == STATE
+    assert env["TRANIBOR_OUTPOST_POLICY"]["value"] == f"{CONFIG}/policy/policy.yaml"
+    assert env["TRANIBOR_OUTPOST_STATE_DIR"]["value"] == STATE
     (mount,) = [m for m in pod["containers"][0]["volumeMounts"] if m["name"] == "policy"]
     assert mount == {"name": "policy", "mountPath": f"{CONFIG}/policy", "readOnly": True}
     # The script's own flag is the daemon's. Read from the command's declaration, not by running it:
@@ -591,13 +590,13 @@ def test_the_outbound_proxy_and_a_private_authority_reach_the_daemon() -> None:
     pod = _pod(documents)
     for container in (pod["initContainers"][0], pod["containers"][0]):
         env = _env(container)
-        assert env["CHOREGOS_OUTPOST_PROXY"]["value"] == "http://proxy.example.com:3128"
-        assert env["CHOREGOS_OUTPOST_CA_FILE"]["value"] == f"{CONFIG}/ca/bundle.pem"
+        assert env["TRANIBOR_OUTPOST_PROXY"]["value"] == "http://proxy.example.com:3128"
+        assert env["TRANIBOR_OUTPOST_CA_FILE"]["value"] == f"{CONFIG}/ca/bundle.pem"
         assert {"name": "ca", "mountPath": f"{CONFIG}/ca", "readOnly": True} in container["volumeMounts"]
     assert {"name": "ca", "configMap": {"name": "house-ca"}} in pod["volumes"]
     # Neither is set unless asked for: the system's trust store, a direct connection.
     plain = _env(_pod(_documents(*MINIMAL))["containers"][0])
-    assert not {"CHOREGOS_OUTPOST_PROXY", "CHOREGOS_OUTPOST_CA_FILE"} & set(plain)
+    assert not {"TRANIBOR_OUTPOST_PROXY", "TRANIBOR_OUTPOST_CA_FILE"} & set(plain)
     # An authority may come from a Secret; one of the two.
     secret = _documents(*MINIMAL, 'ca.secret="house-ca"')
     assert [v["secret"]["secretName"] for v in _pod(secret)["volumes"] if v["name"] == "ca"] == ["house-ca"]
@@ -612,8 +611,8 @@ def test_a_proxy_that_asks_for_a_password_is_a_secret() -> None:
         'networkPolicy.controlPlane={"cidrs":["10.1.2.3/32"],"port":3128}',
     )  # fmt: skip
     env = _env(_pod(documents)["containers"][0])
-    assert env["CHOREGOS_OUTPOST_PROXY"] == {
-        "name": "CHOREGOS_OUTPOST_PROXY",
+    assert env["TRANIBOR_OUTPOST_PROXY"] == {
+        "name": "TRANIBOR_OUTPOST_PROXY",
         "valueFrom": {"secretKeyRef": {"name": "outbound-proxy", "key": "url"}},
     }
 
@@ -623,10 +622,10 @@ def test_the_grace_period_stays_below_the_pods() -> None:
     is left to finish: the kubelet must not kill the pod before."""
     documents = _documents(*MINIMAL)
     pod = _pod(documents)
-    grace = int(_env(pod["containers"][0])["CHOREGOS_OUTPOST_GRACE_S"]["value"])
+    grace = int(_env(pod["containers"][0])["TRANIBOR_OUTPOST_GRACE_S"]["value"])
     assert grace == 20 < pod["terminationGracePeriodSeconds"] == 30
     longer = _pod(_documents(*MINIMAL, "graceSeconds=60", "terminationGracePeriodSeconds=75"))
-    assert _env(longer["containers"][0])["CHOREGOS_OUTPOST_GRACE_S"]["value"] == "60"
+    assert _env(longer["containers"][0])["TRANIBOR_OUTPOST_GRACE_S"]["value"] == "60"
     assert longer["terminationGracePeriodSeconds"] == 75
     for termination in (60, 45):
         refusal = _refusal(*MINIMAL, "graceSeconds=60", f"terminationGracePeriodSeconds={termination}")

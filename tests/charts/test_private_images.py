@@ -120,10 +120,10 @@ def test_the_runner_account_carries_the_pull_secrets(executor: str) -> None:
 
 def test_every_worker_hands_the_pull_secrets_to_the_runner_pods_it_creates() -> None:
     """The pod a `k8s_job` executor creates is not rendered by the chart: the worker names the
-    secrets in its spec, from `CHOREGOS_RUNNER_IMAGE_PULL_SECRETS`."""
+    secrets in its spec, from `TRANIBOR_RUNNER_IMAGE_PULL_SECRETS`."""
     envs = _worker_envs(_rendered("global.imagePullSecrets={harbor-prive,ghcr-entreprise}"))
     assert envs, "no orchestrator worker rendered: the test no longer checks anything"
     for name, env in envs.items():
-        assert env.get("CHOREGOS_RUNNER_IMAGE_PULL_SECRETS") == "harbor-prive,ghcr-entreprise", name
+        assert env.get("TRANIBOR_RUNNER_IMAGE_PULL_SECRETS") == "harbor-prive,ghcr-entreprise", name
     for name, env in _worker_envs(_rendered()).items():
-        assert env.get("CHOREGOS_RUNNER_IMAGE_PULL_SECRETS") == "", name
+        assert env.get("TRANIBOR_RUNNER_IMAGE_PULL_SECRETS") == "", name

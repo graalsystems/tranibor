@@ -4,6 +4,10 @@ Before 2026-09-24: a ServiceMonitor, four alerts and six dashboards read sixteen
 series that no process emitted. Six empty dashboards, delivered as if they worked. The first test
 prevents that from coming back; the second checks that `/metrics` carries the series, computed
 from the database.
+
+Since 0.30.0 (ADR 0226, R9b) the series are `tranibor_*`, and each is served under its former
+`choregos_*` name too, with the same samples, until 0.32.0: an operator's dashboards and rules read the
+former names. The chart's own dashboards and alerts read the new ones.
 """
 
 from __future__ import annotations
@@ -17,8 +21,10 @@ from httpx import AsyncClient
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 DASHBOARDS = ROOT / "charts" / "tranibor" / "dashboards"
-ALERTS = ROOT / "charts" / "tranibor" / "templates" / "monitoring.yaml"
-CHOREGOS = re.compile(r"choregos_[a-z_]+")
+HELPERS = ROOT / "charts" / "tranibor" / "templates" / "_helpers.tpl"
+SERIES = re.compile(r"\b(?:tranibor|choregos)_[a-z_]+")
+#: The templates that hold the chart's alert rules (`monitoring.yaml` includes them).
+ALERT_RULES = re.compile(r'^"tranibor\.(?:alertRules|[a-zA-Z]+AlertRules)"')
 SUFFIXES = ("_bucket", "_count", "_sum")
 
 
@@ -37,12 +43,20 @@ def test_the_dashboards_and_the_alerts_only_cite_emitted_metrics() -> None:
     NAMES = NAMES | set(PLUGIN_SERIES)  # noqa: N806 - the inventory, plugins' series included
     cited: dict[str, set[str]] = {}
     for file in sorted(DASHBOARDS.glob("*.json")):
-        text = json.dumps(json.loads(file.read_text()))
-        cited[file.name] = {_base(m) for m in CHOREGOS.findall(text)}
-    cited["monitoring.yaml"] = {_base(m) for m in CHOREGOS.findall(ALERTS.read_text())}
+        queries = [
+            t["expr"]
+            for panel in json.loads(file.read_text()).get("panels", [])
+            for t in panel.get("targets", [])
+        ]
+        cited[file.name] = {_base(m) for query in queries for m in SERIES.findall(query)}
+    rules = [chunk for chunk in HELPERS.read_text().split("{{- define ") if ALERT_RULES.match(chunk)]
+    assert len(rules) == 3, "the alert rules' templates moved: follow them"
+    cited["alert rules"] = {_base(m) for rule in rules for m in SERIES.findall(rule)}
     absent = {f: sorted(names - NAMES) for f, names in cited.items() if names - NAMES}
     assert not absent, f"metrics cited but never emitted: {absent}"
     assert sum(len(n) for n in cited.values()) >= 12, "the dashboards must still read series"
+    former = {f: sorted(n for n in names if n.startswith("choregos_")) for f, names in cited.items()}
+    assert not any(former.values()), f"the chart reads the new series (ADR 0226, R9b): {former}"
 
 
 async def test_metrics_exposes_the_series_from_the_database(
@@ -101,13 +115,40 @@ async def test_metrics_exposes_the_series_from_the_database(
     body = response.text
     for name in emitted_names():
         assert name in body, f"series missing from /metrics: {name}"
-    assert "choregos_runs_active 1.0" in body
-    assert (
-        'choregos_cost_usd_total{model="platform/standard",project="billing-api",stage="implement"} 0.5'
-        in body
-    )
-    assert 'choregos_project_daily_cost_usd{project="billing-api"} 0.5' in body
+    for prefix in ("tranibor", "choregos"):  # the new name, and the former for the window (R9b)
+        assert f"{prefix}_runs_active 1.0" in body
+        labels = 'model="platform/standard",project="billing-api",stage="implement"'
+        assert f"{prefix}_cost_usd_total{{{labels}}} 0.5" in body
+        assert f'{prefix}_project_daily_cost_usd{{project="billing-api"}} 0.5' in body
     assert "http_requests_total{" in body
+    assert "choregos_http_requests_total" not in body, "a series the platform does not prefix has no twin"
+
+
+async def test_every_series_is_served_under_its_former_name_with_the_same_samples(
+    client: AsyncClient,
+) -> None:
+    """ADR 0226 (R9b): an operator's dashboards, recording rules and alerts read `choregos_*`. The twin
+    is the same family under the former name, so the two can never disagree."""
+    from prometheus_client.parser import text_string_to_metric_families
+    from tranibor_api.metric_series import CURRENT_NAMES, former_name
+    from tranibor_api.metrics import refresh
+
+    await refresh()
+    response = await client.get("/metrics")
+    families = {f.name: f for f in text_string_to_metric_families(response.text)}
+    platform = {name for name in families if name.startswith("tranibor_")}
+    assert platform, "the platform's series are served"
+    for name in sorted(platform):
+        twin = former_name(name)
+        assert twin is not None and twin in families, f"{name} has no former twin"
+        renamed = [s._replace(name=former_name(s.name) or s.name) for s in families[name].samples]
+        assert families[twin].samples == renamed, name
+        assert families[twin].type == families[name].type and families[twin].documentation
+    # Every inventoried series, under both names (a counter's family drops its `_total` in the parser).
+    for name in CURRENT_NAMES:
+        if name.startswith("tranibor_"):
+            assert name in response.text and str(former_name(name)) in response.text, name
+    assert not [n for n in families if n.startswith("choregos_") and f"tranibor_{n[9:]}" not in families]
 
 
 async def test_every_response_carries_a_request_identifier(client: AsyncClient) -> None:

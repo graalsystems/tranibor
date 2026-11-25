@@ -55,6 +55,10 @@ runner:
     assignmentPort: 8765
     assignmentNetworkPolicy: true
     ttlSecondsAfterFinished: 300
+    # The former template and pool `choregos-runner`, at size 0, kept until no claim names them (ADR 0226,
+    # R9b): the claims of suspended sandboxes do. `false` once none does; 0.32.0 removes them.
+    formerPool: true
+  # The former name, which every proxy answers to for the window (ADR 0226, R9b): see the umbrella's values.
   egressProxy: "http://choregos-egress.{namespace}.svc:3128"
   egressImage: ""
   # The egress gate (S80-07f): see the umbrella chart's values.

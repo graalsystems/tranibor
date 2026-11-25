@@ -94,7 +94,7 @@ enrolment:
   existingSecret: ""
   key: token
 
-# The outbound proxy towards the door (`CHOREGOS_OUTPOST_PROXY`). It carries the connection to the
+# The outbound proxy towards the door (`TRANIBOR_OUTPOST_PROXY`). It carries the connection to the
 # door only: the endpoints are called directly.
 proxy:
   # A URL without credentials (`http://proxy.example.com:3128`).
@@ -103,7 +103,7 @@ proxy:
   existingSecret: ""
   key: url
 
-# An authority to trust besides the system's (`CHOREGOS_OUTPOST_CA_FILE`): an inspecting proxy's, a
+# An authority to trust besides the system's (`TRANIBOR_OUTPOST_CA_FILE`): an inspecting proxy's, a
 # private one. Certificate verification is never switched off. One of the two, with its key.
 ca:
   configMap: ""
@@ -113,7 +113,7 @@ ca:
 logLevel: INFO
 
 # Seconds the calls in progress have to finish when the daemon is told to stop
-# (`CHOREGOS_OUTPOST_GRACE_S`). A write that has begun is left to finish, since stopping the request
+# (`TRANIBOR_OUTPOST_GRACE_S`). A write that has begun is left to finish, since stopping the request
 # would not undo it. The pod is given longer: the render refuses a `terminationGracePeriodSeconds`
 # that is not above it.
 graceSeconds: 20

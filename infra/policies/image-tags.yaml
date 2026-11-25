@@ -1,11 +1,11 @@
 # Refuses image references that move: `:latest`, or no tag and no digest at all.
-# Its own ClusterPolicy, apart from `choregos-verify-images`: the Kyverno CLI skips any policy that
+# Its own ClusterPolicy, apart from `tranibor-verify-images`: the Kyverno CLI skips any policy that
 # holds a `verifyImages` rule (it needs the registry and Sigstore), so this rule could not be
 # tested by the engine while it lived there (`infra/policies/tests`, `make policies-test`).
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-image-tags
+  name: tranibor-image-tags
 spec:
   validationFailureAction: Enforce
   background: false

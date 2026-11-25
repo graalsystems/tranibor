@@ -28,7 +28,7 @@ def _orchestrator_env(*overrides: str) -> set[str]:
             continue
         for container in deployment["spec"]["template"]["spec"]["containers"]:
             for variable in container.get("env", []):
-                if variable["name"] == "CHOREGOS_CONTEXT_REDUCTION":
+                if variable["name"] == "TRANIBOR_CONTEXT_REDUCTION":
                     values.add(variable["value"])
     return values
 

@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-pod-security
+  name: tranibor-pod-security
 spec:
   validationFailureAction: Enforce
   background: true

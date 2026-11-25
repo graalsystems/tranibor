@@ -15,6 +15,8 @@ from typing import Any
 import pytest
 import yaml
 
+from .conftest import both_names, names_selected
+
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 HEC = "https://splunk.example:8088/services/collector/event"
 ON = ["global.auditExport.enabled=true", f"global.auditExport.url={HEC}"]
@@ -51,7 +53,7 @@ def api_env(*sets: str) -> dict[str, dict[str, Any]]:
 
 def test_off_by_default_nothing_is_rendered() -> None:
     env = api_env()
-    assert not [name for name in env if name.startswith("CHOREGOS_AUDIT_EXPORT")]
+    assert not [name for name in env if name.startswith("TRANIBOR_AUDIT_EXPORT")]
     policies = {
         d["metadata"]["name"]
         for d in documents("networkPolicies.enabled=true")
@@ -64,10 +66,10 @@ def test_on_the_api_is_told_and_the_token_is_a_secret_reference() -> None:
     env = api_env(
         *ON, "global.auditExport.token.secretRef=siem-token", "global.auditExport.token.scheme=Splunk"
     )
-    assert env["CHOREGOS_AUDIT_EXPORT"]["value"] == "true"
-    assert env["CHOREGOS_AUDIT_EXPORT_URL"]["value"] == HEC
-    assert env["CHOREGOS_AUDIT_EXPORT_SCHEME"]["value"] == "Splunk"
-    token = env["CHOREGOS_AUDIT_EXPORT_TOKEN"]
+    assert env["TRANIBOR_AUDIT_EXPORT"]["value"] == "true"
+    assert env["TRANIBOR_AUDIT_EXPORT_URL"]["value"] == HEC
+    assert env["TRANIBOR_AUDIT_EXPORT_SCHEME"]["value"] == "Splunk"
+    token = env["TRANIBOR_AUDIT_EXPORT_TOKEN"]
     assert "value" not in token
     assert token["valueFrom"]["secretKeyRef"] == {"name": "siem-token", "key": "audit-export-token"}
 
@@ -87,7 +89,7 @@ def test_the_api_reads_back_what_the_chart_writes(monkeypatch: pytest.MonkeyPatc
         "global.auditExport.batch=100",
     )
     for name, item in env.items():
-        if name.startswith("CHOREGOS_AUDIT_EXPORT") and "value" in item:
+        if name.startswith("TRANIBOR_AUDIT_EXPORT") and "value" in item:
             monkeypatch.setenv(name, item["value"])
     settings = Settings()
     assert settings.audit_export and settings.audit_export_sink == "https"
@@ -105,7 +107,7 @@ def test_the_api_reads_back_what_the_chart_writes(monkeypatch: pytest.MonkeyPatc
         "global.auditExport.format=cef",
     )
     for name, item in syslog.items():
-        if name.startswith("CHOREGOS_AUDIT_EXPORT") and "value" in item:
+        if name.startswith("TRANIBOR_AUDIT_EXPORT") and "value" in item:
             monkeypatch.setenv(name, item["value"])
     built = build_sink(Settings())
     assert isinstance(built, SyslogSink) and built.format == "cef" and built.port == 6514
@@ -120,7 +122,7 @@ def test_the_egress_policy_names_the_api_and_the_sink() -> None:
         if d["kind"] == "NetworkPolicy"
     }
     policy = policies["tranibor-audit-export-egress"]
-    assert policy["spec"]["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": "choregos-api"}
+    assert names_selected(policy["spec"]["podSelector"]) == both_names("api")
     [rule] = policy["spec"]["egress"]
     assert rule["to"] == [{"ipBlock": {"cidr": "10.1.0.0/24"}}]
     assert rule["ports"] == [{"protocol": "TCP", "port": 443}]
@@ -138,7 +140,7 @@ def test_the_egress_policy_names_the_api_and_the_sink() -> None:
         ([*ON, "global.auditExport.sink=udp"], "is not https or syslog"),
         (["global.auditExport.enabled=true", "global.auditExport.sink=syslog"], "syslog.host"),
         (
-            [*ON, "global.extraEnv[0].name=CHOREGOS_AUDIT_EXPORT_URL", "global.extraEnv[0].value=x"],
+            [*ON, "global.extraEnv[0].name=TRANIBOR_AUDIT_EXPORT_URL", "global.extraEnv[0].value=x"],
             "global.auditExport",
         ),
     ],
@@ -167,4 +169,7 @@ def test_the_stalled_export_alert_exists_only_with_the_export_and_cites_emitted_
     ]
     import re
 
-    assert set(re.findall(r"choregos_[a-z_]+", rule_expr := rule["expr"])) <= NAMES, rule_expr
+    queried = set(re.findall(r"(?:tranibor|choregos)_[a-z_]+", rule_expr := rule["expr"]))
+    # The chart's own rule reads the new series (ADR 0226, R9b), which the API serves.
+    assert queried and all(name.startswith("tranibor_") for name in queried), rule_expr
+    assert queried <= NAMES, rule_expr

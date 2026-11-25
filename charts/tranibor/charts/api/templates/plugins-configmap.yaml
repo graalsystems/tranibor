@@ -7,7 +7,7 @@
 {{- end }}
 {{- end }}
 # The plugin sources, default plugins and offline directory (ADR 0093), read by the API from
-# CHOREGOS_PLUGINS_CONFIG. The API checks it at start-up and refuses to start when it is unusable.
+# TRANIBOR_PLUGINS_CONFIG. The API checks it at start-up and refuses to start when it is unusable.
 apiVersion: v1
 kind: ConfigMap
 metadata:

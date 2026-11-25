@@ -1,7 +1,8 @@
 {
-  "title": "Choregos — Platform",
+  "title": "Tranibor — Platform",
   "uid": "choregos-plateforme",
   "tags": [
+    "tranibor",
     "choregos"
   ],
   "timezone": "browser",
@@ -42,7 +43,7 @@
       "title": "Runs in progress",
       "targets": [
         {
-          "expr": "sum(choregos_runs_active)"
+          "expr": "sum(tranibor_runs_active)"
         }
       ],
       "gridPos": {
@@ -57,7 +58,7 @@
       "title": "Run start-up (p95)",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(choregos_run_start_seconds_bucket[30m])) by (le))"
+          "expr": "histogram_quantile(0.95, sum(rate(tranibor_run_start_seconds_bucket[30m])) by (le))"
         }
       ],
       "gridPos": {

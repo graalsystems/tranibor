@@ -41,10 +41,25 @@ pass `--api-versions extensions.agents.x-k8s.io/v1beta1/SandboxTemplate` or set
 {{- $gate := .Values.runner.egressGate | default dict }}
 {{- $gated := ne (toString $gate.enabled) "false" }}
 {{- $image := printf "%s/%s:%s" .Values.global.imageRegistry .Values.runner.image (.Values.runner.tag | default .Values.global.imageTag) }}
+{{- /*
+ADR 0226 (R9b): the template and the pool are `tranibor-runner`, the claims the executor makes name it.
+The former pair, `choregos-runner`, is kept for the window with its pool at size 0: the claim template
+holds the workspace of each suspended sandbox, and the claims of those name the former pool. Set
+`runner.sandbox.formerPool: false` once no claim names it (`kubectl get sandboxclaims -o
+jsonpath='{.items[*].spec.warmPoolRef.name}'`), and 0.32.0 removes it.
+*/}}
+{{- $pools := list "tranibor-runner" }}
+{{- if ne $sandbox.formerPool false }}{{ $pools = append $pools "choregos-runner" }}{{ end }}
+{{- range $index, $pool := $pools }}
+{{- $former := ne $pool "tranibor-runner" }}
+{{- with $ }}
+{{- if $index }}
+---
+{{- end }}
 apiVersion: extensions.agents.x-k8s.io/v1beta1
 kind: SandboxTemplate
 metadata:
-  name: choregos-runner
+  name: {{ $pool }}
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   # The claim never injects environment variables: they would force a cold start, and a token
@@ -69,11 +84,14 @@ spec:
         # These labels are `k8s_job.RUNNER_POD_LABELS`, the labels of a Job's pod: the two sets are
         # the same (`tests/charts/test_run_pod_labels.py`). A Job's pod without `choregos/sandbox`
         # was outside that policy (finding #2082).
+        tranibor/sandbox: "true"
         choregos/sandbox: "true"
     spec:
       enableServiceLinks: false
       restartPolicy: Never
-      serviceAccountName: choregos-runner
+      # `tranibor-runner`, which the chart renders beside the former account (ADR 0226, R9b); the former
+      # template keeps the former account, as the sandboxes made from it have it.
+      serviceAccountName: {{ $pool }}
       automountServiceAccountToken: false
       {{- include "tranibor.imagePullSecrets" $ | nindent 6 }}
       {{- with (include "tranibor.runtimeClass" .) }}
@@ -183,15 +201,15 @@ spec:
             {{- end }}
             {{- if $separate }}
             # ADR 0146: the agent runs in the `agent` container, reached over the pod's loopback.
-            - { name: CHOREGOS_RUNNER_AGENT_ISOLATION, value: container }
-            - { name: CHOREGOS_RUNNER_LAUNCHER_PORT, value: {{ $launcherPort | quote }} }
+            - { name: TRANIBOR_RUNNER_AGENT_ISOLATION, value: container }
+            - { name: TRANIBOR_RUNNER_LAUNCHER_PORT, value: {{ $launcherPort | quote }} }
             # Every temporary file of the runner (the agent's `$HOME`, tool scripts) lands on the
             # surface both containers see.
             - { name: TMPDIR, value: /exchange }
             {{- end }}
             {{- if $gated }}
             # What the egress gate measured, which the runner journals (`egress.gate`).
-            - { name: CHOREGOS_EGRESS_GATE_REPORT, value: /egress-gate/report.json }
+            - { name: TRANIBOR_EGRESS_GATE_REPORT, value: /egress-gate/report.json }
             {{- end }}
           {{- end }}
           {{- if $separate }}
@@ -243,18 +261,22 @@ spec:
 apiVersion: extensions.agents.x-k8s.io/v1beta1
 kind: SandboxWarmPool
 metadata:
-  name: choregos-runner
+  name: {{ $pool }}
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   # 0 is a valid size: every claim then cold-starts from the template, still clean.
-  replicas: {{ int (.Values.runner.warmPool.size | default 0) }}
+  # The former pool is kept at size 0 (ADR 0226, R9b): no new warm sandbox is made from it, and the
+  # claims of suspended sandboxes, which name it, still find it.
+  replicas: {{ if $former }}0{{ else }}{{ int (.Values.runner.warmPool.size | default 0) }}{{ end }}
   sandboxTemplateRef:
-    name: choregos-runner
+    name: {{ $pool }}
   # A warm sandbox made from an older template is deleted at once, not handed to the next claim.
   # The operator's default (`OnReplenish`) keeps it until it is claimed: after an upgrade, the
   # first run of the new version ran in the previous version's runner (dev, 0.18.1 → 0.18.3).
   updateStrategy:
     type: Recreate
+{{- end }}
+{{- end }}
 {{- if ne $sandbox.assignmentNetworkPolicy false }}
 ---
 # Who may push an assignment to a warm sandbox: the orchestrator's `executor` workers, and no one
@@ -272,6 +294,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
+      # The former key: every run pod carries it for the window (ADR 0226, R9b), the new `tranibor/sandbox`
+      # beside it, and a sandbox made before the upgrade carries only this one.
       choregos/sandbox: "true"
   policyTypes: ["Ingress"]
   ingress:
@@ -283,8 +307,10 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: {{ $.Release.Namespace | quote }}
           podSelector:
+            # The workers under either value of their name label (ADR 0226, R9b: `global.labelValues`).
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [tranibor-orchestrator, choregos-orchestrator] }
             matchLabels:
-              app.kubernetes.io/name: choregos-orchestrator
               {{ $queue }}: executor
         {{- end }}
       ports:

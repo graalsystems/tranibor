@@ -1,7 +1,7 @@
 """S64-08b (ADR 0141 §4): the embedded LiteLLM's callback reaches the API it posts the ACP CLIs'
 context breakdowns to.
 
-The callback is off unless `CHOREGOS_CONTEXT_API_URL` names the API's internal routes; the platform
+The callback is off unless `TRANIBOR_CONTEXT_API_URL` names the API's internal routes; the platform
 namespace denies egress by default, so the gateway's pods get a way to the API pods, on the API's port,
 and nowhere else; an external gateway gets neither.
 """
@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 import yaml
+
+from .conftest import both_names, names_selected
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts" / "tranibor"
@@ -44,25 +46,23 @@ def _litellm_env(docs: list[dict[str, Any]]) -> dict[str, Any]:
 
 def test_the_callback_is_told_where_the_apis_internal_routes_are() -> None:
     env = _litellm_env(_docs("global.gateway.embedded=true"))
-    assert env["CHOREGOS_CONTEXT_API_URL"] == "http://tranibor-api:8000/api/v1/internal"
+    assert env["TRANIBOR_CONTEXT_API_URL"] == "http://tranibor-api:8000/api/v1/internal"
     # The callback signs each run's id with the gateway's master key.
     assert "LITELLM_MASTER_KEY" in env
 
     api = "http://api.platform.svc:9000"
     elsewhere = _litellm_env(_docs("global.gateway.embedded=true", f"global.internalApiUrl={api}"))
-    assert elsewhere["CHOREGOS_CONTEXT_API_URL"] == api + "/api/v1/internal"
+    assert elsewhere["TRANIBOR_CONTEXT_API_URL"] == api + "/api/v1/internal"
 
 
 def test_the_gateways_pods_reach_the_api_pods_and_nothing_else() -> None:
     policy = _named(_docs("global.gateway.embedded=true"), "NetworkPolicy", "tranibor-litellm-to-api")
     assert policy is not None
     assert policy["spec"]["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": "choregos-litellm"}}
-    assert policy["spec"]["egress"] == [
-        {
-            "to": [{"podSelector": {"matchLabels": {"app.kubernetes.io/name": "choregos-api"}}}],
-            "ports": [{"protocol": "TCP", "port": 8000}],
-        }
-    ]
+    (rule,) = policy["spec"]["egress"]
+    (peer,) = rule["to"]
+    assert rule["ports"] == [{"protocol": "TCP", "port": 8000}]
+    assert list(peer) == ["podSelector"] and names_selected(peer["podSelector"]) == both_names("api")
 
 
 def test_an_external_gateway_gets_no_policy() -> None:

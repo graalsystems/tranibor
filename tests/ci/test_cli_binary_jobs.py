@@ -2,7 +2,7 @@
 
 The release builds the five targets on runners of their own OS and architecture, smoke-tests each
 where no Python is available, signs every file, attaches them to the GitHub release and puts them in
-the API image under /opt/choregos/cli/; the CI builds the Linux x86_64 one on every pull request that
+the API image under /opt/tranibor/cli/; the CI builds the Linux x86_64 one on every pull request that
 touches what goes into it, and `cli-binaries-weekly.yml` builds the five on main every week with the
 release's steps minus the signatures. These tests read the workflows and the Dockerfile: a job dropped, a step
 that no longer runs the smoke test, or an image built before its binaries turns them red.
@@ -151,7 +151,9 @@ def test_the_api_dockerfile_copies_the_binaries_only_when_given() -> None:
     api = text[text.index("FROM commun AS api") : text.index("FROM commun AS worker-local")]
     assert "RUN --mount=type=bind,from=cli,target=/mnt/cli" in api
     assert "if [ -f /mnt/cli/manifest.json ]; then" in api
-    assert "cp /mnt/cli/* /opt/choregos/cli/" in api
+    assert "cp /mnt/cli/* /opt/tranibor/cli/" in api
+    # The former directory is a link to the new one for the window of ADR 0226 (R9b).
+    assert "ln -s /opt/tranibor/cli /opt/choregos/cli" in api
     assert api.rstrip().count("USER 1000") >= 1
 
 

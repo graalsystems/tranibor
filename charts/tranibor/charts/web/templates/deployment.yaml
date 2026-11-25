@@ -7,19 +7,20 @@ metadata:
     app.kubernetes.io/component: web
 spec:
   replicas: {{ .Values.replicaCount }}
+  # Its component, not its name (ADR 0226, R9b): `global.labelValues` changes the name and recreates nothing.
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-web
+      app.kubernetes.io/component: web
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: choregos-web
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "web") }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: web
     spec:
       enableServiceLinks: false
-      {{- include "tranibor.antiAffinity" (dict "global" .Values.global "labels" (dict "app.kubernetes.io/name" "choregos-web" "app.kubernetes.io/instance" .Release.Name)) | nindent 6 }}
+      {{- include "tranibor.antiAffinity" (dict "global" .Values.global "labels" (dict "app.kubernetes.io/component" "web" "app.kubernetes.io/instance" .Release.Name)) | nindent 6 }}
       securityContext: {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
       {{- include "tranibor.imagePullSecrets" $ | nindent 6 }}
       containers:
@@ -29,7 +30,7 @@ spec:
           securityContext: {{- toYaml .Values.global.securityContext | nindent 12 }}
           ports: [{ name: http, containerPort: {{ .Values.service.port }} }]
           env:
-            - name: CHOREGOS_API_URL
+            - name: TRANIBOR_API_URL
               value: https://api.{{ .Values.global.domain }}
             - name: NEXT_PUBLIC_API_MODE
               value: {{ ternary "mock" "live" .Values.global.fakes | quote }}
@@ -54,7 +55,7 @@ metadata:
 spec:
   ports: [{ name: http, port: {{ .Values.service.port }}, targetPort: http }]
   selector:
-    app.kubernetes.io/name: choregos-web
+    app.kubernetes.io/component: web
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.ingress.enabled }}
 ---

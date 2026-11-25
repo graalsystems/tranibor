@@ -22,10 +22,10 @@ kind: Deployment
 metadata:
   name: tranibor-buildkitd
   labels:
-    app.kubernetes.io/name: choregos-buildkitd
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "buildkitd") }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: builder
-    app.kubernetes.io/part-of: choregos
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   replicas: 1
@@ -33,12 +33,12 @@ spec:
   strategy: { type: Recreate }
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-buildkitd
+      app.kubernetes.io/component: builder
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: choregos-buildkitd
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "buildkitd") }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: builder
         # NOT `part-of: choregos`: `tranibor-allow-ingress` admits every pod of the namespace to the
@@ -125,17 +125,17 @@ kind: Service
 metadata:
   name: tranibor-buildkitd
   labels:
-    app.kubernetes.io/name: choregos-buildkitd
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "buildkitd") }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: builder
-    app.kubernetes.io/part-of: choregos
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   type: ClusterIP
   ports:
     - { name: grpc, port: {{ $port }}, targetPort: grpc }
   selector:
-    app.kubernetes.io/name: choregos-buildkitd
+    app.kubernetes.io/component: builder
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.networkPolicies.enabled }}
 ---
@@ -145,13 +145,13 @@ metadata:
   name: tranibor-buildkitd-net
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
+  # Either value of the builder's name (ADR 0226, R9b: `global.labelValues`), as the platform's policies do.
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-buildkitd
+    matchExpressions: [{{ include "tranibor.anyPodName" "buildkitd" }}]
   policyTypes: ["Ingress", "Egress"]
   ingress:
     # The orchestrator's workers, which run the build activity, and nothing else.
-    - from: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-orchestrator } } }]
+    - from: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "orchestrator" }}] } }]
       ports: [{ protocol: TCP, port: {{ $port }} }]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
@@ -187,9 +187,13 @@ metadata:
   name: tranibor-buildkitd
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
+  # Both names of the policy for the window of ADR 0226 (R9b): `infra/policies` installs `tranibor-pod-security`
+  # beside the former `choregos-pod-security`, which stays until the operator deletes it (docs/deployment.md).
   exceptions:
-    - policyName: choregos-pod-security
+    {{- range $policy := list "tranibor-pod-security" "choregos-pod-security" }}
+    - policyName: {{ $policy }}
       ruleNames: ["non-root", "autogen-non-root"]
+    {{- end }}
   match:
     any:
       - resources:

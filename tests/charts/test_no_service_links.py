@@ -97,7 +97,7 @@ def test_the_widest_render_reaches_the_optional_pods() -> None:
         "CronJob/tranibor-trace-drift",
         "Deployment/tranibor-buildkitd",
         "Deployment/tranibor-demo-fakes",
-        "Deployment/choregos-egress",
+        "Deployment/tranibor-egress",
         "Deployment/choregos-firecrawl",
         "Deployment/choregos-keycloak",
         "Deployment/choregos-laya",
@@ -108,4 +108,6 @@ def test_the_widest_render_reaches_the_optional_pods() -> None:
         "Job/choregos-objectstore-bucket",
         "Rollout/tranibor-api",
     } <= pods
-    assert "SandboxTemplate/choregos-runner" in _pods(RENDERS["prod"])
+    assert {"SandboxTemplate/tranibor-runner", "SandboxTemplate/choregos-runner"} <= set(
+        _pods(RENDERS["prod"])
+    )

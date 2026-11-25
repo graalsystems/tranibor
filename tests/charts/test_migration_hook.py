@@ -96,7 +96,7 @@ def _database_url(pod: dict[str, Any]) -> Any:
     found = [
         variable.get("value") or variable.get("valueFrom")
         for variable in pod["containers"][0].get("env", [])
-        if variable["name"] == "CHOREGOS_DATABASE_URL"
+        if variable["name"] == "TRANIBOR_DATABASE_URL"
     ]
     return found[-1] if found else None
 

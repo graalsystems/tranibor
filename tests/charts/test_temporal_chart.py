@@ -78,7 +78,7 @@ def test_the_clients_dial_the_adopted_service_name() -> None:
     docs = _docs("global.temporal.serviceName=temporal-frontend")
     api = _one(docs, "Deployment", "tranibor-api")["spec"]["template"]["spec"]["containers"][0]
     env = {e["name"]: e.get("value") for e in api["env"]}
-    assert env["CHOREGOS_TEMPORAL_ADDRESS"] == "temporal-frontend:7233"
+    assert env["TRANIBOR_TEMPORAL_ADDRESS"] == "temporal-frontend:7233"
 
 
 def test_dev_with_tls_puts_the_relay_on_7233_and_keeps_start_dev_on_loopback() -> None:

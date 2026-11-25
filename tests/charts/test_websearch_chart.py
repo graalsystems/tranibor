@@ -68,8 +68,8 @@ def test_relay_reads_its_tokens_from_the_secret() -> None:
     container = relay["spec"]["template"]["spec"]["containers"][0]
     assert container["command"] == ["python", "-m", "tranibor_api.relay", "serve"]
     refs = {e["name"]: e["valueFrom"]["secretKeyRef"] for e in container["env"] if "valueFrom" in e}
-    assert refs["CHOREGOS_RELAY_API_TOKEN"] == {"name": "relay-secrets", "key": "api-token"}
-    assert refs["CHOREGOS_RELAY_CLIENT_TOKEN"] == {"name": "relay-secrets", "key": "client-token"}
+    assert refs["TRANIBOR_RELAY_API_TOKEN"] == {"name": "relay-secrets", "key": "api-token"}
+    assert refs["TRANIBOR_RELAY_CLIENT_TOKEN"] == {"name": "relay-secrets", "key": "client-token"}
     config = next(d for d in docs if d["kind"] == "ConfigMap" and d["metadata"]["name"] == "c-searxng-config")
     assert "c-relay:3128" in config["data"]["settings.yml"]
     assert "relay-secrets" not in config["data"]["settings.yml"]

@@ -3,7 +3,7 @@
 
 A person installs the CLI from their own Tranibor, in the exact version it runs, through the host
 of the console: no firewall to open towards GitHub, and it works on a network without internet.
-The native binaries (S62-07) lie in `TRANIBOR_CLI_DIR` (`/opt/choregos/cli` in the API image) with
+The native binaries (S62-07) lie in `TRANIBOR_CLI_DIR` (`/opt/tranibor/cli` in the API image) with
 `SHA256SUMS` and `manifest.json` (the shared contract of S62-07/08):
 
 - `GET /downloads/cli/manifest.json`: the manifest, as the build wrote it, once checked.
@@ -101,8 +101,18 @@ def _broken(detail: str) -> ApiError:
     )
 
 
+#: Where the API image keeps the binaries (ADR 0226, R9b), and where an image built before 0.30.0 kept them.
+CLI_DIR = Path("/opt/tranibor/cli")
+FORMER_CLI_DIR = Path("/opt/choregos/cli")
+
+
 def cli_dir() -> Path:
-    return Path(get_settings().cli_dir)
+    """`TRANIBOR_CLI_DIR`; at its default, `/opt/tranibor/cli/`, else the former `/opt/choregos/cli/` when
+    only that one exists (an image built from an earlier Dockerfile, a volume an operator mounted there)."""
+    configured = Path(get_settings().cli_dir)
+    if configured == CLI_DIR and not CLI_DIR.is_dir() and FORMER_CLI_DIR.is_dir():
+        return FORMER_CLI_DIR
+    return configured
 
 
 def read_manifest(directory: Path) -> tuple[CliManifest, bytes]:

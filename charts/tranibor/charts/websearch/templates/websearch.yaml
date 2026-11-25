@@ -300,12 +300,12 @@ spec:
           image: {{ include "tranibor.image" (dict "global" .Values.global "image" $relay.image) }}
           command: ["python", "-m", "tranibor_api.relay", "serve"]
           env:
-            - { name: CHOREGOS_RELAY_ORG, value: {{ $relay.organisation | quote }} }
-            - { name: CHOREGOS_RELAY_API_URL, value: {{ $relay.apiUrl | default (printf "http://%s-api:8000/api/v1" $r) | quote }} }
-            - { name: CHOREGOS_RELAY_LISTEN, value: "0.0.0.0:3128" }
-            - name: CHOREGOS_RELAY_API_TOKEN
+            - { name: TRANIBOR_RELAY_ORG, value: {{ $relay.organisation | quote }} }
+            - { name: TRANIBOR_RELAY_API_URL, value: {{ $relay.apiUrl | default (printf "http://%s-api:8000/api/v1" $r) | quote }} }
+            - { name: TRANIBOR_RELAY_LISTEN, value: "0.0.0.0:3128" }
+            - name: TRANIBOR_RELAY_API_TOKEN
               valueFrom: { secretKeyRef: { name: {{ $relay.secretName }}, key: api-token } }
-            - name: CHOREGOS_RELAY_CLIENT_TOKEN
+            - name: TRANIBOR_RELAY_CLIENT_TOKEN
               valueFrom: { secretKeyRef: { name: {{ $relay.secretName }}, key: client-token } }
           ports:
             - { name: proxy, containerPort: 3128 }

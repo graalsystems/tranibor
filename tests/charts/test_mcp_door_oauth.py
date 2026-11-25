@@ -39,7 +39,7 @@ def _api_env(*surcharges: str) -> dict[str, str]:
 
 
 def test_switched_off_by_default() -> None:
-    assert not [name for name in _api_env() if name.startswith("CHOREGOS_MCP_OAUTH_")]
+    assert not [name for name in _api_env() if name.startswith("TRANIBOR_MCP_OAUTH_")]
 
 
 def test_switched_on_with_its_clients() -> None:
@@ -49,10 +49,10 @@ def test_switched_on_with_its_clients() -> None:
         "global.mcp.oauth.clients.claude-code.callbackPort=33418",
         "global.mcp.oauth.clients.claude-ai.clientId=choregos-claude-ai",
     )
-    assert env["CHOREGOS_MCP_OAUTH_ENABLED"] == "true"
-    assert env["CHOREGOS_MCP_OAUTH_AUDIENCE"] == "choregos-mcp"
-    assert "CHOREGOS_MCP_OAUTH_ISSUER" not in env, "empty: the console's issuer"
-    assert json.loads(env["CHOREGOS_MCP_OAUTH_CLIENTS"]) == {
+    assert env["TRANIBOR_MCP_OAUTH_ENABLED"] == "true"
+    assert env["TRANIBOR_MCP_OAUTH_AUDIENCE"] == "choregos-mcp"
+    assert "TRANIBOR_MCP_OAUTH_ISSUER" not in env, "empty: the console's issuer"
+    assert json.loads(env["TRANIBOR_MCP_OAUTH_CLIENTS"]) == {
         "claude-ai": {"client_id": "choregos-claude-ai", "callback_port": None},
         "claude-code": {"client_id": "choregos-claude-code", "callback_port": 33418},
     }
@@ -69,7 +69,7 @@ def test_the_api_reads_what_the_chart_writes(monkeypatch: pytest.MonkeyPatch) ->
         "global.mcp.oauth.clients.claude-code.callbackPort=33418",
     )
     for name, value in env.items():
-        if name.startswith("CHOREGOS_MCP_OAUTH_"):
+        if name.startswith("TRANIBOR_MCP_OAUTH_"):
             monkeypatch.setenv(name, value)
     settings = Settings()
     assert settings.mcp_oauth_enabled is True
@@ -80,8 +80,8 @@ def test_the_api_reads_what_the_chart_writes(monkeypatch: pytest.MonkeyPatch) ->
 def test_a_variable_set_twice_is_refused() -> None:
     rendu = _rendered(
         "global.mcp.oauth.enabled=true",
-        "global.extraEnv[0].name=CHOREGOS_MCP_OAUTH_AUDIENCE",
+        "global.extraEnv[0].name=TRANIBOR_MCP_OAUTH_AUDIENCE",
         "global.extraEnv[0].value=autre",
     )
     assert rendu.returncode != 0
-    assert "CHOREGOS_MCP_OAUTH_AUDIENCE" in rendu.stderr
+    assert "TRANIBOR_MCP_OAUTH_AUDIENCE" in rendu.stderr

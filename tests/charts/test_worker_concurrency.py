@@ -14,10 +14,10 @@ CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
 VARIABLES = {
-    "activities": "CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES",
-    "workflowTasks": "CHOREGOS_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS",
-    "localActivities": "CHOREGOS_WORKER_MAX_CONCURRENT_LOCAL_ACTIVITIES",
-    "cachedWorkflows": "CHOREGOS_WORKER_MAX_CACHED_WORKFLOWS",
+    "activities": "TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES",
+    "workflowTasks": "TRANIBOR_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS",
+    "localActivities": "TRANIBOR_WORKER_MAX_CONCURRENT_LOCAL_ACTIVITIES",
+    "cachedWorkflows": "TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS",
 }
 
 
@@ -42,10 +42,10 @@ def test_every_queue_gets_the_values_the_worker_always_had() -> None:
     assert set(env) == {"orchestrator", "executor", "tracker", "memory"}
     for variables in env.values():
         assert {name: variables[name] for name in VARIABLES.values()} == {
-            "CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES": "20",
-            "CHOREGOS_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS": "100",
-            "CHOREGOS_WORKER_MAX_CONCURRENT_LOCAL_ACTIVITIES": "100",
-            "CHOREGOS_WORKER_MAX_CACHED_WORKFLOWS": "1000",
+            "TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES": "20",
+            "TRANIBOR_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS": "100",
+            "TRANIBOR_WORKER_MAX_CONCURRENT_LOCAL_ACTIVITIES": "100",
+            "TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS": "1000",
         }
 
 
@@ -57,9 +57,9 @@ def test_the_chart_value_reaches_every_queue() -> None:
         "tranibor-orchestrator.concurrency.cachedWorkflows=0",
     )
     for variables in env.values():
-        assert variables["CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "50"
-        assert variables["CHOREGOS_WORKER_MAX_CACHED_WORKFLOWS"] == "0"
-        assert variables["CHOREGOS_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS"] == "100"
+        assert variables["TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "50"
+        assert variables["TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS"] == "0"
+        assert variables["TRANIBOR_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS"] == "100"
 
 
 def test_a_queue_overrides_the_chart_value_for_itself_only(tmp_path: pathlib.Path) -> None:
@@ -82,6 +82,6 @@ def test_a_queue_overrides_the_chart_value_for_itself_only(tmp_path: pathlib.Pat
         )
     )
     env = _worker_env("-f", str(values))
-    assert env["executor"]["CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "4"
-    assert env["executor"]["CHOREGOS_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS"] == "100"
-    assert env["orchestrator"]["CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "20"
+    assert env["executor"]["TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "4"
+    assert env["executor"]["TRANIBOR_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS"] == "100"
+    assert env["orchestrator"]["TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "20"

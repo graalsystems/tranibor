@@ -11,9 +11,7 @@ import pytest
 import yaml
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
-ACCEPT = (
-    "CHOREGOS_AGENT_ISOLATION"  # rendered as the chart's `CHOREGOS_*`, adopted as `TRANIBOR_*` (ADR 0176)
-)
+ACCEPT = "TRANIBOR_AGENT_ISOLATION"  # rendered under its own name since ADR 0226 (R9b)
 
 needs_helm = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -75,7 +73,7 @@ def test_the_default_isolates_and_needs_no_opt_out(environment: str) -> None:
     result = _render(f"global.environment={environment}")
     assert result.returncode == 0, result.stderr
     assert _envs(result.stdout, ACCEPT) == {}, "nothing is accepted by default"
-    seen = _envs(result.stdout, "CHOREGOS_RUNNER_AGENT_ISOLATION")
+    seen = _envs(result.stdout, "TRANIBOR_RUNNER_AGENT_ISOLATION")
     assert {value for values in seen.values() for value in values} == {"container"}
 
 

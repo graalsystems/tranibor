@@ -149,12 +149,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_PUBLIC_URL
+            name: TRANIBOR_PUBLIC_URL
             value: http://choregos.internal.dev.example.com
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_API_URL
+            name: TRANIBOR_API_URL
             value: http://tranibor-api.internal.dev.example.com
 
   - it: the database URL is composed from the Zalando operator's secret
@@ -166,7 +166,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DATABASE_PASSWORD
+            name: TRANIBOR_DATABASE_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: choregos.choregos-pg.credentials.postgresql.acid.zalan.do
@@ -174,8 +174,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DATABASE_URL
-            value: postgresql+asyncpg://choregos:$(CHOREGOS_DATABASE_PASSWORD)@choregos-pg:5432/choregos
+            name: TRANIBOR_DATABASE_URL
+            value: postgresql+asyncpg://choregos:$(TRANIBOR_DATABASE_PASSWORD)@choregos-pg:5432/choregos
 
   - it: embedded dependencies wire themselves up
     template: charts/api/templates/deployment.yaml
@@ -189,19 +189,19 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_TEMPORAL_ADDRESS
+            name: TRANIBOR_TEMPORAL_ADDRESS
             value: RELEASE-NAME-temporal:7233
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_GATEWAY_URL
+            name: TRANIBOR_GATEWAY_URL
             value: http://RELEASE-NAME-litellm:4000
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DATABASE_URL
+            name: TRANIBOR_DATABASE_URL
             # the application role without SUPERUSER, created at initdb of the embedded PostgreSQL
-            value: postgresql+asyncpg://choregos_app:$(CHOREGOS_DATABASE_PASSWORD)@RELEASE-NAME-postgresql:5432/choregos
+            value: postgresql+asyncpg://choregos_app:$(TRANIBOR_DATABASE_PASSWORD)@RELEASE-NAME-postgresql:5432/choregos
 
   - it: without an embedded dependency, the addresses stay the ones provided
     template: charts/api/templates/deployment.yaml
@@ -209,7 +209,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_TEMPORAL_ADDRESS
+            name: TRANIBOR_TEMPORAL_ADDRESS
             value: temporal-frontend.choregos-temporal.svc:7233
 
   - it: the worker receives a complete command, not only arguments
@@ -232,7 +232,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_RUNNER_IMAGE
+            name: TRANIBOR_RUNNER_IMAGE
             value: ghcr.io/graalsystems/tranibor-runner:9.9.9
 
   - it: the agents call back the internal service, never the public URL
@@ -245,7 +245,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_INTERNAL_API_URL
+            name: TRANIBOR_INTERNAL_API_URL
             value: http://tranibor-api:8000
 
   - it: the orchestrator receives the key that signs the run tokens
@@ -255,7 +255,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_RUN_TOKEN_PRIVATE_KEY
+            name: TRANIBOR_RUN_TOKEN_PRIVATE_KEY
             valueFrom:
               secretKeyRef:
                 name: choregos-api-secrets

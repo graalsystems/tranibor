@@ -163,7 +163,7 @@ or another organisation.
   policy lets runner pods reach eight hosts directly and its baseline policy lets every pod of the
   namespace reach every other one (PostgreSQL and Temporal included): until infra changes that, the
   Tranibor proxy is bypassable for those hosts.
-- **`choregos-egress` limits.** Its rate limits count per replica and per connection; it stops a
+- **`tranibor-egress` limits.** Its rate limits count per replica and per connection; it stops a
   name that resolves to a private address and connects to the address it resolved (one resolution), but
   a wall also needs the chart's NetworkPolicies (or the platform's) to stop runner pods going out
   another way. The per-project Squid of per-project namespaces stays host-level and project-level.
@@ -302,7 +302,8 @@ platform writes over files a user uploaded, and rootless BuildKit makes a user n
 the setuid `newuidmap`, so privilege escalation stays allowed and SETUID/SETGID stay in the bounding
 set) and mounts inside it, which the RuntimeDefault seccomp profile and AppArmor refuse. The
 container is therefore `Unconfined` for both, and a Kyverno `PolicyException` (`tranibor-buildkitd`)
-lifts the `non-root` rule of `choregos-pod-security` for that Deployment's pods only. That rule
+lifts the `non-root` rule of `tranibor-pod-security` (and of the former `choregos-pod-security`, until its
+owner deletes it after the upgrade to 0.30.0) for that Deployment's pods only. That rule
 refuses `Unconfined` on any container, init container (native sidecars included), ephemeral
 container or pod AppArmor profile; the exception is the one place it is lifted.
 

@@ -22,7 +22,7 @@ spec:
       template:
         metadata:
           labels:
-            app.kubernetes.io/name: choregos-trace-drift
+            app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "trace-drift") }}
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: trace-drift
         spec:
@@ -46,7 +46,7 @@ spec:
                 - {{ .Values.traceDrift.settleMinutes | quote }}
               env:
                 {{- include "tranibor.commonEnv" . | nindent 16 }}
-                - name: CHOREGOS_TEMPO_URL
+                - name: TRANIBOR_TEMPO_URL
                   value: {{ $tempo | quote }}
               securityContext: {{- toYaml .Values.global.securityContext | nindent 16 }}
               resources:

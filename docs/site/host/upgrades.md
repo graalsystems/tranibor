@@ -59,6 +59,24 @@ completed, and the edition answer's `version` naming the new version.
 Upgrading Temporal itself has its own
 [runbook](../../runbooks/temporal-upgrade.md).
 
+## Upgrading to 0.30
+
+0.30 gives the platform's remaining names their `tranibor` form: the chart and its objects, the commands,
+the wire names, and what the chart, the code and provisioning share (the runners' service account and warm
+pool, the egress proxy, the pods' labels, the variables, the mount paths, the admission policies, the
+metrics). Each former name keeps working until 0.32, and the
+[deployment reference](../../deployment.md#upgrading-to-0300-the-names-the-chart-and-the-code-share-take-the-name-tranibor-adr-0226-r9b)
+lists them with what to do. In short, within 0.30.x and 0.31.x:
+
+1. **Provision every project again** (any change of its policy or connectors does it): its namespace gets
+   the new runners' account, the new proxy name and the new binding.
+2. **Apply the admission policies of `infra/policies`**, then delete the former ones if you applied them by
+   hand (an Argo CD application that prunes does it itself).
+3. **Move your dashboards, recording rules and alerts to the `tranibor_*` series**: the former ones are
+   served until 0.32 with the same samples.
+4. **Make your own selectors admit either value of the pods' names**, then set
+   `global.labelValues: tranibor`.
+
 ## Upgrading to 0.26
 
 0.26 brings [assistants](../use/assistants.md): a plugin may ship one, an organisation installs it for

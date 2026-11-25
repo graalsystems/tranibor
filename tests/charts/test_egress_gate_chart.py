@@ -4,7 +4,7 @@
 - The `agent_sandbox` template's FIRST init container is the gate, before the ADR 0146 agent container,
   and it is the very container the executor builds for `k8s_job`
   (`tranibor_adapters.executor.egress_gate.init_container`): one gate, not two that drift.
-- The executor workers receive `CHOREGOS_RUNNER_EGRESS_GATE`: on by default, on in the single-node
+- The executor workers receive `TRANIBOR_RUNNER_EGRESS_GATE`: on by default, on in the single-node
   profile (whose guard refuses it off), off on a laptop's `values/local.yaml` only.
 """
 
@@ -85,11 +85,7 @@ def test_the_chart_and_the_executor_build_the_same_gate() -> None:
         assert rendered[key] == built[key], key
     runner = next(c for c in pod["containers"] if c["name"] == "runner")
     assert egress_gate.runner_mount() in runner["volumeMounts"]
-    # The chart still names the former variable (R4); the executor emits both.
-    assert {
-        **egress_gate.runner_env(),
-        "name": "CHOREGOS_" + egress_gate.runner_env()["name"].removeprefix("TRANIBOR_"),
-    } in runner["env"]  # compat-ok
+    assert egress_gate.runner_env() in runner["env"]
     assert egress_gate.volume() in pod["volumes"]
 
 
@@ -103,7 +99,7 @@ def test_the_gate_can_be_turned_off_and_then_leaves_no_trace() -> None:
     assert REPORT_ENV not in {e["name"] for e in runner.get("env", [])}
     assert (
         _executor_env("--set", "tranibor-orchestrator.runner.egressGate.enabled=false")[
-            "CHOREGOS_RUNNER_EGRESS_GATE"
+            "TRANIBOR_RUNNER_EGRESS_GATE"
         ]
         == "false"
     )
@@ -112,16 +108,16 @@ def test_the_gate_can_be_turned_off_and_then_leaves_no_trace() -> None:
 def test_the_executor_is_told_to_gate_its_pods_by_default() -> None:
     env = _executor_env()
 
-    assert env["CHOREGOS_RUNNER_EGRESS_GATE"] == "true"
-    assert env["CHOREGOS_RUNNER_EGRESS_GATE_TARGET"] == "1.1.1.1:443"
-    assert env["CHOREGOS_RUNNER_EGRESS_GATE_DEADLINE"] == "30"
+    assert env["TRANIBOR_RUNNER_EGRESS_GATE"] == "true"
+    assert env["TRANIBOR_RUNNER_EGRESS_GATE_TARGET"] == "1.1.1.1:443"
+    assert env["TRANIBOR_RUNNER_EGRESS_GATE_DEADLINE"] == "30"
     assert gate_from_env(adopted(env)) == EgressGate()
 
 
 def test_the_single_node_profile_gates_its_agent_pods() -> None:
     env = _executor_env("-f", str(VALUES / "single-node.yaml"), *SITE)
 
-    assert env["CHOREGOS_RUNNER_EGRESS_GATE"] == "true"
+    assert env["TRANIBOR_RUNNER_EGRESS_GATE"] == "true"
 
 
 def test_the_single_node_guard_refuses_the_gate_off() -> None:
@@ -140,4 +136,4 @@ def test_the_single_node_guard_refuses_the_gate_off() -> None:
 
 def test_a_laptop_bench_without_network_policies_turns_it_off() -> None:
     """`values/local.yaml` renders no NetworkPolicy: a gate there would refuse every agent pod."""
-    assert _executor_env("-f", str(VALUES / "local.yaml"))["CHOREGOS_RUNNER_EGRESS_GATE"] == "false"
+    assert _executor_env("-f", str(VALUES / "local.yaml"))["TRANIBOR_RUNNER_EGRESS_GATE"] == "false"

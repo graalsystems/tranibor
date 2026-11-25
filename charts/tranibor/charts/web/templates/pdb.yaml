@@ -12,6 +12,6 @@ spec:
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-web
+      app.kubernetes.io/component: web
       app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

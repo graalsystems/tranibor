@@ -44,7 +44,7 @@ spec:
       labels:
         app.kubernetes.io/name: choregos-objectstore
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/part-of: choregos
+        app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
         app.kubernetes.io/component: object-store
     spec:
       enableServiceLinks: false
@@ -120,7 +120,7 @@ spec:
       labels:
         app.kubernetes.io/name: choregos-objectstore-bucket
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/part-of: choregos
+        app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     spec:
       enableServiceLinks: false
       restartPolicy: OnFailure

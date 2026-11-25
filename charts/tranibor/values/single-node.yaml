@@ -110,7 +110,7 @@ tranibor-orchestrator:
     # The agents run in the release namespace (the chart's default namespace name).
     namespacePattern: choregos
     # The release's per-run egress proxy (`global.egress`), in the agents' namespace.
-    egressProxy: "http://choregos-egress.{namespace}.svc:3128"
+    egressProxy: "http://tranibor-egress.{namespace}.svc:3128"
     # At most four agent runs at once; the next ones wait without a pod.
     maxActive: 4
     limits: { cpu: "2", memory: 4Gi }

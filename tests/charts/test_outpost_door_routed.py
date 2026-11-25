@@ -27,11 +27,12 @@ from typing import Any
 import pytest
 import yaml
 
+from .conftest import both_names, names_selected
+
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 DOOR = "tranibor-outposts-door"
-#: The door's drawn key, `<release>-outposts-door` (the release is `choregos` here), and its pods'
-#: `app.kubernetes.io/name`, which stays the former name until ADR 0226's R7.
-DOOR_KEY = DOOR_LABEL = "choregos-outposts-door"
+#: The door's drawn key, `<release>-outposts-door` (the release is `choregos` here): stored state.
+DOOR_KEY = "choregos-outposts-door"
 DOOR_HOST = "outposts.example.com"
 ON = "global.outposts.enabled=true"
 HOSTS = f'global.outposts.door.hostnames=["{DOOR_HOST}"]'
@@ -39,15 +40,15 @@ DEDICATED = "global.outposts.door.dedicated=true"
 INGRESS = 'tranibor-api.ingress.kind="ingress"'
 #: What every process that may place a call is given, and what only the door's processes are.
 COMMON = {
-    "CHOREGOS_OUTPOSTS",
-    "CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST",
-    "CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION",
+    "TRANIBOR_OUTPOSTS",
+    "TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST",
+    "TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION",
 }
 OF_THE_DOOR = {
-    "CHOREGOS_OUTPOSTS_DOOR_URL",
-    "CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY",
-    "CHOREGOS_OUTPOSTS_DOOR_ANNOUNCED_KEYS",
-    "CHOREGOS_OUTPOSTS_DOOR_RATE_PER_MINUTE",
+    "TRANIBOR_OUTPOSTS_DOOR_URL",
+    "TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY",
+    "TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS",
+    "TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE",
 }
 #: The public route's paths, in the chart's order (`test_run_door.py`): none of them is the door's.
 PUBLIC_PATHS = [
@@ -176,19 +177,19 @@ def test_enabled_a_value_of_the_door_redeploys_the_api() -> None:
 
 def test_the_api_is_told_to_serve_the_door_with_its_origin_and_its_key() -> None:
     env = _env(_documents(ON, HOSTS), "Deployment/tranibor-api")
-    assert env["CHOREGOS_OUTPOSTS"]["value"] == "on"
+    assert env["TRANIBOR_OUTPOSTS"]["value"] == "on"
     # The origin is derived from the door's first hostname: what an operator writes as `control_plane`.
-    assert env["CHOREGOS_OUTPOSTS_DOOR_URL"]["value"] == f"https://{DOOR_HOST}"
+    assert env["TRANIBOR_OUTPOSTS_DOOR_URL"]["value"] == f"https://{DOOR_HOST}"
     # The key is read from its Secret by reference and is NOT optional: a door that signs nothing
     # hands nothing over, so a missing key must stop the pod, visibly.
-    assert env["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"] == {
+    assert env["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"] == {
         "secretKeyRef": {"name": DOOR_KEY, "key": "signing-key"}
     }
-    assert "value" not in env["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]
-    assert json.loads(env["CHOREGOS_OUTPOSTS_DOOR_ANNOUNCED_KEYS"]["value"]) == []
-    assert env["CHOREGOS_OUTPOSTS_DOOR_RATE_PER_MINUTE"]["value"] == "1200"
-    assert env["CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST"]["value"] == "128"
-    assert env["CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION"]["value"] == "512"
+    assert "value" not in env["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]
+    assert json.loads(env["TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS"]["value"]) == []
+    assert env["TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE"]["value"] == "1200"
+    assert env["TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST"]["value"] == "128"
+    assert env["TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION"]["value"] == "512"
 
 
 def test_the_values_reach_the_variables_the_api_reads() -> None:
@@ -204,12 +205,12 @@ def test_the_values_reach_the_variables_the_api_reads() -> None:
         ),
         "Deployment/tranibor-api",
     )
-    assert env["CHOREGOS_OUTPOSTS_DOOR_URL"]["value"] == "https://door.example.com"
-    assert json.loads(env["CHOREGOS_OUTPOSTS_DOOR_ANNOUNCED_KEYS"]["value"]) == [announced]
-    assert env["CHOREGOS_OUTPOSTS_DOOR_RATE_PER_MINUTE"]["value"] == "0", "0 lifts the limit: it is a value"
-    assert env["CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST"]["value"] == "16"
-    assert env["CHOREGOS_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION"]["value"] == "64"
-    assert env["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"]["secretKeyRef"] == {
+    assert env["TRANIBOR_OUTPOSTS_DOOR_URL"]["value"] == "https://door.example.com"
+    assert json.loads(env["TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS"]["value"]) == [announced]
+    assert env["TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE"]["value"] == "0", "0 lifts the limit: it is a value"
+    assert env["TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_OUTPOST"]["value"] == "16"
+    assert env["TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION"]["value"] == "64"
+    assert env["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"]["secretKeyRef"] == {
         "name": "door-key",
         "key": "ed25519.pem",
     }
@@ -226,7 +227,7 @@ def _settings_of(
     assert secret is not None
     given: dict[str, str] = {}
     for name, entry in _env(documents, workload).items():
-        if name.startswith("CHOREGOS_DATABASE") or name in {"CHOREGOS_ENV", "CHOREGOS_PORT"}:
+        if name.startswith("TRANIBOR_DATABASE") or name in {"TRANIBOR_ENV", "TRANIBOR_PORT"}:
             continue
         if "value" in entry:
             given[name] = entry["value"]
@@ -234,7 +235,7 @@ def _settings_of(
             given[name] = base64.b64decode(secret["data"][entry["valueFrom"]["secretKeyRef"]["key"]]).decode()
     for name, value in given.items():
         monkeypatch.setenv(name, value)
-    monkeypatch.setenv("CHOREGOS_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("TRANIBOR_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     reset_settings_cache()
     return given
 
@@ -273,13 +274,13 @@ def test_the_workers_learn_the_switch_and_the_quotas_and_never_the_doors_key() -
     }
     assert workers, "no worker deployment rendered: the test checks nothing"
     for name, env in workers.items():
-        assert env["CHOREGOS_OUTPOSTS"]["value"] == "on", name
+        assert env["TRANIBOR_OUTPOSTS"]["value"] == "on", name
         assert set(env) >= COMMON, name
         assert not OF_THE_DOOR & set(env), f"{name} receives the door's own settings"
     # And nothing else of the release does, the API apart.
     for name, pod in _workloads(documents).items():
         if name != "Deployment/tranibor-api":
-            assert "CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY" not in _entries(pod), name
+            assert "TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY" not in _entries(pod), name
 
 
 @pytest.mark.parametrize("name", sorted(COMMON | OF_THE_DOOR))
@@ -308,7 +309,7 @@ def test_the_origin_may_differ_from_the_hostnames_the_chart_routes() -> None:
     """Behind an entrance of the operator's own: the public name is given, the route follows the hostnames."""
     documents = _documents(ON, HOSTS, 'global.outposts.door.url="https://door.example.net"')
     env = _env(documents, "Deployment/tranibor-api")
-    assert env["CHOREGOS_OUTPOSTS_DOOR_URL"]["value"] == "https://door.example.net"
+    assert env["TRANIBOR_OUTPOSTS_DOOR_URL"]["value"] == "https://door.example.net"
     route = _named(documents, "HTTPRoute", DOOR)
     assert route is not None and route["spec"]["hostnames"] == [DOOR_HOST]
 
@@ -376,7 +377,7 @@ def test_the_ingress_serves_outposts_under_the_doors_hostnames_only() -> None:
         assert path["backend"]["service"] == {"name": "tranibor-api", "port": {"number": 8000}}
     assert door["spec"]["ingressClassName"] == "nginx"
     # The first hostname is the origin.
-    assert _env(documents, "Deployment/tranibor-api")["CHOREGOS_OUTPOSTS_DOOR_URL"]["value"] == (
+    assert _env(documents, "Deployment/tranibor-api")["TRANIBOR_OUTPOSTS_DOOR_URL"]["value"] == (
         f"https://{DOOR_HOST}"
     )
     assert public["metadata"]["annotations"] == {"example.com/of-the-api": "yes"}
@@ -419,7 +420,7 @@ def test_a_route_made_outside_the_chart_is_not_doubled() -> None:
     assert not [
         d for d in documents if d["kind"] in {"HTTPRoute", "Ingress"} and d["metadata"]["name"] == DOOR
     ]
-    assert _env(documents, "Deployment/tranibor-api")["CHOREGOS_OUTPOSTS"]["value"] == "on"
+    assert _env(documents, "Deployment/tranibor-api")["TRANIBOR_OUTPOSTS"]["value"] == "on"
 
 
 @pytest.mark.parametrize(
@@ -465,7 +466,7 @@ def test_the_chart_draws_a_key_the_door_can_sign_with() -> None:
     (secret,) = _key_secrets(_documents(ON, HOSTS))
     assert secret["metadata"]["name"] == DOOR_KEY and secret["type"] == "Opaque"
     pem = base64.b64decode(secret["data"]["signing-key"]).decode()
-    # PEM, PKCS#8, Ed25519: what `CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY` takes, read by the API's own check.
+    # PEM, PKCS#8, Ed25519: what `TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY` takes, read by the API's own check.
     assert pem.startswith("-----BEGIN PRIVATE KEY-----")
     assert len(ed25519_public_key(pem)) == 43
     # Drawn, not written: another render has another key, so none is in the chart.
@@ -499,7 +500,7 @@ def test_an_existing_secret_is_used_and_none_is_drawn() -> None:
     )
     assert _key_secrets(documents) == []
     for workload in ("Deployment/tranibor-api", f"Deployment/{DOOR}"):
-        reference = _env(documents, workload)["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"]
+        reference = _env(documents, workload)["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]["valueFrom"]
         assert reference == {"secretKeyRef": {"name": "door-key", "key": "k.pem"}}, workload
 
 
@@ -564,12 +565,12 @@ def test_dedicated_the_door_has_its_own_bounded_pool() -> None:
     """Polls waiting by the hundred take no connection from the console and the runs (ADR 0148 §8)."""
     documents = _documents(ON, HOSTS, DEDICATED, 'global.outposts.door.pool={"size":3,"maxOverflow":0}')
     door, api = _env(documents, f"Deployment/{DOOR}"), _env(documents, "Deployment/tranibor-api")
-    assert door["CHOREGOS_DB_POOL_SIZE"]["value"] == "3"
-    assert door["CHOREGOS_DB_MAX_OVERFLOW"]["value"] == "0", "no overflow is a bound too"
-    assert door["CHOREGOS_DB_POOL_TIMEOUT_S"]["value"] == "10"
-    assert (api["CHOREGOS_DB_POOL_SIZE"]["value"], api["CHOREGOS_DB_MAX_OVERFLOW"]["value"]) == ("10", "5")
+    assert door["TRANIBOR_DB_POOL_SIZE"]["value"] == "3"
+    assert door["TRANIBOR_DB_MAX_OVERFLOW"]["value"] == "0", "no overflow is a bound too"
+    assert door["TRANIBOR_DB_POOL_TIMEOUT_S"]["value"] == "10"
+    assert (api["TRANIBOR_DB_POOL_SIZE"]["value"], api["TRANIBOR_DB_MAX_OVERFLOW"]["value"]) == ("10", "5")
     defaults = _env(_documents(ON, HOSTS, DEDICATED), f"Deployment/{DOOR}")
-    assert (defaults["CHOREGOS_DB_POOL_SIZE"]["value"], defaults["CHOREGOS_DB_MAX_OVERFLOW"]["value"]) == (
+    assert (defaults["TRANIBOR_DB_POOL_SIZE"]["value"], defaults["TRANIBOR_DB_MAX_OVERFLOW"]["value"]) == (
         "5",
         "5",
     )
@@ -583,8 +584,8 @@ def test_dedicated_the_door_has_its_own_bounded_pool() -> None:
 def test_dedicated_the_door_reaches_the_database_the_api_reaches(database: tuple[str, ...]) -> None:
     documents = _documents(ON, HOSTS, DEDICATED, *database)
     door, api = _env(documents, f"Deployment/{DOOR}"), _env(documents, "Deployment/tranibor-api")
-    names = [name for name in api if name.startswith("CHOREGOS_DATABASE")]
-    assert "CHOREGOS_DATABASE_URL" in names
+    names = [name for name in api if name.startswith("TRANIBOR_DATABASE")]
+    assert "TRANIBOR_DATABASE_URL" in names
     assert {name: door.get(name) for name in names} == {name: api[name] for name in names}
 
 
@@ -597,21 +598,21 @@ def test_dedicated_the_door_holds_what_it_needs_and_no_other_secret() -> None:
     documents = _documents(ON, HOSTS, DEDICATED, f"global.extraEnv=[{connector}]")
     door, api = _env(documents, f"Deployment/{DOOR}"), _env(documents, "Deployment/tranibor-api")
     assert set(door) >= (COMMON | OF_THE_DOOR)
-    assert door["CHOREGOS_OUTPOSTS_DOOR_URL"] == api["CHOREGOS_OUTPOSTS_DOOR_URL"]
-    assert door["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"] == api["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]
-    assert door["CHOREGOS_SECRETS_KEKS"] == api["CHOREGOS_SECRETS_KEKS"]
-    assert door["CHOREGOS_SECRETS_KEKS"]["valueFrom"]["secretKeyRef"]["optional"] is True
-    assert door["CHOREGOS_ENV"] == api["CHOREGOS_ENV"]
+    assert door["TRANIBOR_OUTPOSTS_DOOR_URL"] == api["TRANIBOR_OUTPOSTS_DOOR_URL"]
+    assert door["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"] == api["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]
+    assert door["TRANIBOR_SECRETS_KEKS"] == api["TRANIBOR_SECRETS_KEKS"]
+    assert door["TRANIBOR_SECRETS_KEKS"]["valueFrom"]["secretKeyRef"]["optional"] is True
+    assert door["TRANIBOR_ENV"] == api["TRANIBOR_ENV"]
     secrets = {name for name, entry in door.items() if "secretKeyRef" in entry.get("valueFrom", {})}
-    assert secrets == {"CHOREGOS_DATABASE_URL", "CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY", "CHOREGOS_SECRETS_KEKS"}
+    assert secrets == {"TRANIBOR_DATABASE_URL", "TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY", "TRANIBOR_SECRETS_KEKS"}
     for never in (
-        "CHOREGOS_SESSION_SECRET",
-        "CHOREGOS_RUN_TOKEN_PRIVATE_KEY",
-        "CHOREGOS_GATEWAY_MASTER_KEY",
-        "CHOREGOS_OIDC_CLIENT_SECRET",
-        "CHOREGOS_GITHUB_APP_PRIVATE_KEY",
-        "CHOREGOS_EGRESS_REPORT_KEY",
-        "CHOREGOS_TEMPORAL_ADDRESS",
+        "TRANIBOR_SESSION_SECRET",
+        "TRANIBOR_RUN_TOKEN_PRIVATE_KEY",
+        "TRANIBOR_GATEWAY_MASTER_KEY",
+        "TRANIBOR_OIDC_CLIENT_SECRET",
+        "TRANIBOR_GITHUB_APP_PRIVATE_KEY",
+        "TRANIBOR_EGRESS_REPORT_KEY",
+        "TRANIBOR_TEMPORAL_ADDRESS",
         # `global.extraEnv` carries connector secrets: the API has it, the door does not.
         "CONNECTOR_TRACKER_TOKEN",
     ):
@@ -626,8 +627,8 @@ def test_dedicated_the_door_takes_its_own_extra_variables() -> None:
         "secretKeyRef": {"name": "kms", "key": "id"}
     }
     assert "HOUSE_KMS_KEY" not in _env(documents, "Deployment/tranibor-api")
-    shadow = 'global.outposts.door.extraEnv=[{"name":"CHOREGOS_DB_POOL_SIZE","value":"50"}]'
-    assert "CHOREGOS_DB_POOL_SIZE" in _refusal(ON, HOSTS, DEDICATED, shadow)
+    shadow = 'global.outposts.door.extraEnv=[{"name":"TRANIBOR_DB_POOL_SIZE","value":"50"}]'
+    assert "TRANIBOR_DB_POOL_SIZE" in _refusal(ON, HOSTS, DEDICATED, shadow)
     neither = 'global.outposts.door.extraEnv=[{"name":"HOUSE_KMS_KEY"}]'
     assert "exactly one of value or valueFrom" in _refusal(ON, HOSTS, DEDICATED, neither)
 
@@ -641,7 +642,7 @@ def test_dedicated_what_the_chart_gives_the_door_builds_the_door(monkeypatch: py
     from tranibor_api.outposts.alone import create_app
 
     given = _settings_of(monkeypatch, _documents(ON, HOSTS, DEDICATED), f"Deployment/{DOOR}")
-    assert given["CHOREGOS_OUTPOSTS"] == "on" and "PRIVATE KEY" in given["CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY"]
+    assert given["TRANIBOR_OUTPOSTS"] == "on" and "PRIVATE KEY" in given["TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY"]
     try:
         served = {
             (method, context.path)
@@ -708,7 +709,8 @@ def test_outposts_open_no_way_out_of_the_platforms_namespace() -> None:
 def test_dedicated_the_door_reaches_the_database_and_nothing_else() -> None:
     policies = _policies(_documents(ON, HOSTS, DEDICATED))
     door = policies["tranibor-outposts-door-net"]
-    assert door["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": DOOR_LABEL}}
+    # Either value of the door's name (ADR 0226, R9b: `global.labelValues`).
+    assert names_selected(door["podSelector"]) == both_names("outposts-door")
     assert door["policyTypes"] == ["Ingress", "Egress"]
     dns, database = door["egress"]
     assert {port["port"] for port in dns["ports"]} == {53}
@@ -726,13 +728,14 @@ def test_dedicated_the_door_reaches_the_database_and_nothing_else() -> None:
     # Its pods are out of the platform's own egress policy (Temporal, the model gateway, the memory,
     # the plugin servers) and do not carry the label that admits every pod of the namespace.
     (excluded,) = policies["tranibor-allow-platform"]["podSelector"]["matchExpressions"]
-    assert excluded["operator"] == "NotIn" and DOOR_LABEL in excluded["values"]
+    assert excluded["operator"] == "NotIn" and both_names("outposts-door") <= set(excluded["values"])
     deployment = _named(_documents(ON, HOSTS, DEDICATED), "Deployment", DOOR)
     assert deployment is not None
     labels = deployment["spec"]["template"]["metadata"]["labels"]
     assert "app.kubernetes.io/part-of" not in labels
-    assert policies["tranibor-allow-ingress"]["podSelector"] == {
-        "matchLabels": {"app.kubernetes.io/part-of": "choregos"}
+    assert names_selected(policies["tranibor-allow-ingress"]["podSelector"], "app.kubernetes.io/part-of") == {
+        "tranibor",
+        "choregos",
     }
 
 
@@ -764,8 +767,9 @@ def test_the_alert_on_a_second_poll_is_rendered_with_the_platforms_rules(flavour
     without = rules()
     assert "ChoregosOutpostPollConflict" not in {rule["alert"] for rule in without}
     (conflict,) = [rule for rule in rules(ON, HOSTS) if rule["alert"] == "ChoregosOutpostPollConflict"]
-    assert "choregos_outpost_poll_conflicts_total" in NAMES
-    assert "choregos_outpost_poll_conflicts_total" in conflict["expr"]
+    # The new series (ADR 0226, R9b); the API serves it under the former name too, for the operators' rules.
+    assert {"tranibor_outpost_poll_conflicts_total", "choregos_outpost_poll_conflicts_total"} <= NAMES
+    assert "tranibor_outpost_poll_conflicts_total" in conflict["expr"]
     assert conflict["labels"]["severity"] == "critical"
     # The organisation is named by the series' label, left for the alert manager to fill in.
     assert "{{ $labels.org }}" in conflict["annotations"]["description"]

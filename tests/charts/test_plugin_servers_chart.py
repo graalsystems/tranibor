@@ -60,17 +60,17 @@ def _named(docs: list[dict[str, Any]], kind: str, name: str) -> dict[str, Any] |
 def test_off_by_default(tmp_path: pathlib.Path) -> None:
     docs = _docs({}, tmp_path)
     assert _named(docs, "Role", "tranibor-api-plugin-servers") is None
-    assert not [n for n in _api_env(docs) if n.startswith("CHOREGOS_PLUGIN_SERVERS")]
+    assert not [n for n in _api_env(docs) if n.startswith("TRANIBOR_PLUGIN_SERVERS")]
 
 
 def test_on_the_api_runs_servers_in_their_namespace_only(tmp_path: pathlib.Path) -> None:
     docs = _docs(ON, tmp_path)
     env = _api_env(docs)
-    assert env["CHOREGOS_PLUGIN_SERVERS"] == "kubernetes"
-    assert env["CHOREGOS_PLUGIN_SERVERS_NAMESPACE"] == "choregos-plugins"
-    assert yaml.safe_load(env["CHOREGOS_PLUGIN_SERVERS_REGISTRIES"]) == [PUBLISHING.image("tranibor-agents")]
-    assert env["CHOREGOS_PLUGIN_SERVERS_RUNTIME_CLASS"] == "gvisor", "the runner's RuntimeClass by default"
-    assert env["CHOREGOS_PLUGIN_SERVERS_API_NAMESPACE"] == "choregos"
+    assert env["TRANIBOR_PLUGIN_SERVERS"] == "kubernetes"
+    assert env["TRANIBOR_PLUGIN_SERVERS_NAMESPACE"] == "choregos-plugins"
+    assert yaml.safe_load(env["TRANIBOR_PLUGIN_SERVERS_REGISTRIES"]) == [PUBLISHING.image("tranibor-agents")]
+    assert env["TRANIBOR_PLUGIN_SERVERS_RUNTIME_CLASS"] == "gvisor", "the runner's RuntimeClass by default"
+    assert env["TRANIBOR_PLUGIN_SERVERS_API_NAMESPACE"] == "choregos"
     role = _named(docs, "Role", "tranibor-api-plugin-servers")
     assert role is not None and role["metadata"]["namespace"] == "choregos-plugins"
     resources = {r for rule in role["rules"] for r in rule["resources"]}
@@ -128,7 +128,7 @@ def test_rbac_false_leaves_the_role_to_the_platform(tmp_path: pathlib.Path) -> N
     docs = _docs(values, tmp_path)
     assert _named(docs, "Role", "tranibor-api-plugin-servers") is None
     assert _named(docs, "RoleBinding", "tranibor-api-plugin-servers") is None
-    assert _api_env(docs)["CHOREGOS_PLUGIN_SERVERS"] == "kubernetes"
+    assert _api_env(docs)["TRANIBOR_PLUGIN_SERVERS"] == "kubernetes"
 
 
 def test_the_pull_goes_through_the_mirror_with_its_secrets(tmp_path: pathlib.Path) -> None:
@@ -138,14 +138,14 @@ def test_the_pull_goes_through_the_mirror_with_its_secrets(tmp_path: pathlib.Pat
     values["global"]["imagePullSecrets"] = ["harbor-pull"]
     values["global"]["plugins"]["servers"]["imageMirrors"] = mirror
     env = _api_env(_docs(values, tmp_path))
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS"]) == mirror
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["harbor-pull"]
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS"]) == mirror
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["harbor-pull"]
     values["global"]["plugins"]["servers"]["imagePullSecrets"] = []
-    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS" not in _api_env(_docs(values, tmp_path))
+    assert "TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS" not in _api_env(_docs(values, tmp_path))
     values["global"]["plugins"]["servers"]["imagePullSecrets"] = ["mirror-pull"]
     env = _api_env(_docs(values, tmp_path))
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["mirror-pull"]
-    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS" not in _api_env(_docs(ON, tmp_path))
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["mirror-pull"]
+    assert "TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS" not in _api_env(_docs(ON, tmp_path))
 
 
 def test_the_rules_the_docs_list_are_the_roles(tmp_path: pathlib.Path) -> None:

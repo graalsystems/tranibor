@@ -24,7 +24,7 @@ async def write_project_manifests(params: dict[str, Any], bundle: Any, settings:
     """Write the project manifests into the GitOps repository: Argo CD applies, not the API."""
     from tranibor_core.quotas import quota_for
     from tranibor_orchestrator.activities.base import db
-    from tranibor_orchestrator.gitops import EGRESS_IMAGE, render_project_manifests
+    from tranibor_orchestrator.gitops import EGRESS_IMAGE, PLATFORM_NAMESPACE, render_project_manifests
     from tranibor_orchestrator.org_egress import org_runner_hosts
 
     path = str(params.get("path", "projects/{{slug}}/")).replace("{{slug}}", bundle.slug)
@@ -40,6 +40,7 @@ async def write_project_manifests(params: dict[str, Any], bundle: Any, settings:
         egress_image=str(getattr(settings, "egress_image", "") or EGRESS_IMAGE),
         quota=await quota_for(bundle.org_slug, bundle.slug),
         org_allow_domains=org_hosts,
+        platform_namespace=str(getattr(settings, "platform_namespace", "") or PLATFORM_NAMESPACE),
     )
     writer = getattr(cd_of(bundle.adapters), "write_files", None)
     if writer is not None:

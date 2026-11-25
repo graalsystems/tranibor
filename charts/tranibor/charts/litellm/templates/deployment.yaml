@@ -164,7 +164,7 @@ spec:
             {{- end }}
             # S64-08b: the callback posts the ACP CLIs' context breakdowns to the API's internal routes,
             # each signed for its run with the master key above (never sent).
-            - name: CHOREGOS_CONTEXT_API_URL
+            - name: TRANIBOR_CONTEXT_API_URL
               value: {{ printf "%s/api/v1/internal" ((.Values.global | default dict).internalApiUrl | default "http://tranibor-api:8000") | quote }}
             {{- with $otlp }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

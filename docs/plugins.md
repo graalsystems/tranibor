@@ -973,7 +973,7 @@ A server's image is pinned by digest (the contract), comes from a registry prefi
 `plugins.servers.registries`, and carries a trusted signature when `images.hostedCosign` is `enforce`
 (`warn` logs `plugin.server.signature_unverified`). A deployment without `plugins.servers.enabled`
 refuses a plugin that brings a server. In the cluster, the Kyverno policy
-`choregos-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
+`tranibor-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
 namespace whose image is not pinned or not from the allowed prefix.
 
 ## The tracker profile
@@ -1145,7 +1145,7 @@ sources:
     trust:                      # a keyless signer, regular expressions matched whole…
       identity: https://github\.com/graalsystems/tranibor-agents/\.github/workflows/publish\.yml@refs/heads/main
       issuer: https://token\.actions\.githubusercontent\.com
-      # key: /etc/choregos/plugins/tranibor.pub   # …or a public key cosign reads
+      # key: /etc/tranibor/plugins/tranibor.pub   # …or a public key cosign reads
       # tlog: false             # only for a key whose signatures never reached Rekor
     egress: [registry.acme.example]   # hosts beyond the index's own
 defaultPlugins:

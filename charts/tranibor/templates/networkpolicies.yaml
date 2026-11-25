@@ -24,7 +24,8 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: NotIn
-        values: [choregos-runner, choregos-egress, choregos-buildkitd{{ if $outpostsDoor }}, choregos-outposts-door{{ end }}]
+        # Either value of each name (ADR 0226, R9b: `global.labelValues`).
+        values: [tranibor-runner, choregos-runner, tranibor-egress, choregos-egress, tranibor-buildkitd, choregos-buildkitd{{ if $outpostsDoor }}, tranibor-outposts-door, choregos-outposts-door{{ end }}]
   policyTypes: ["Egress"]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
@@ -39,7 +40,7 @@ spec:
       ports: [{ protocol: TCP, port: 4318 }]
     {{- if include "tranibor.buildkitdDeployed" . }}
     # The builder, for the orchestrator's build activity (S41-13); its own policy admits nobody else.
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-buildkitd } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "buildkitd" }}] } }]
       ports: [{ protocol: TCP, port: {{ int ((.Values.global.buildkitd | default dict).port | default 1234) }} }]
     {{- end }}
     {{- $servers := ((.Values.global.plugins | default dict).servers | default dict) }}
@@ -55,7 +56,7 @@ spec:
     {{- end }}
     {{- if .Values.demoFakes.enabled }}
     # The fakes served for a demonstration (S20-07): the API and the orchestrator reach them.
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-demo-fakes } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "demo-fakes" }}] } }]
       ports: [{ protocol: TCP, port: {{ .Values.demoFakes.port }} }]
     {{- end }}
     {{- with .Values.networkPolicies.platformEgress }}
@@ -77,7 +78,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: [choregos-api, choregos-orchestrator]
+        values: [tranibor-api, choregos-api, tranibor-orchestrator, choregos-orchestrator]
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -113,8 +114,8 @@ metadata:
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-api
+    matchExpressions:
+      - {{ include "tranibor.anyPodName" "api" }}
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -146,14 +147,14 @@ metadata:
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-runner
+    matchExpressions:
+      - {{ include "tranibor.anyPodName" "runner" }}
   policyTypes: ["Egress"]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
       ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
     # The API it reports to, never the database or Temporal.
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-api } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "api" }}] } }]
       ports: [{ protocol: TCP, port: {{ $apiPort }} }]
     {{- /* The model gateway and the memory, nothing else of the dependencies (ADR 0070). */}}
     {{- range $dependency := include "tranibor.networkDependencies" . | fromYamlArray }}
@@ -166,7 +167,7 @@ spec:
     # or carry data out past the egress proxy. The runner's own span is not exported.
     {{- if $e.enabled }}
     # The way out: the per-run egress proxy, and nothing else.
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-egress } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "egress" }}] } }]
       ports: [{ protocol: TCP, port: {{ $egressPort }} }]
     {{- end }}
 {{- if .Values.global.gateway.embedded }}
@@ -184,7 +185,7 @@ spec:
       app.kubernetes.io/name: choregos-litellm
   policyTypes: ["Egress"]
   egress:
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-api } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "api" }}] } }]
       ports: [{ protocol: TCP, port: {{ $apiPort }} }]
 {{- end }}
 {{- if $e.enabled }}
@@ -196,17 +197,17 @@ metadata:
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-egress
+    matchExpressions:
+      - {{ include "tranibor.anyPodName" "egress" }}
   policyTypes: ["Ingress", "Egress"]
   ingress:
     # Only runner pods talk to the proxy.
-    - from: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-runner } } }]
+    - from: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "runner" }}] } }]
       ports: [{ protocol: TCP, port: {{ $egressPort }} }]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
       ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
-    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-api } } }]
+    - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "api" }}] } }]
       ports: [{ protocol: TCP, port: {{ $apiPort }} }]
     # The Internet, minus the private ranges, on the ports the proxy opens.
     - to:
@@ -223,7 +224,7 @@ spec:
 # The outposts' door, split out (ADR 0148 §8). It takes requests from the entrance and reaches the
 # database, and nothing else: not Temporal, not the model gateway, not the memory, not a plugin's
 # server. Its pods are left out of `tranibor-allow-platform` for that, and out of
-# `tranibor-allow-ingress` (they do not carry `part-of: choregos`).
+# `tranibor-allow-ingress` (they do not carry `part-of`).
 # No rule, here or anywhere in this chart, leads to an outpost: an outpost dials out (ADR 0147 §1).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -232,8 +233,8 @@ metadata:
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-outposts-door
+    matchExpressions:
+      - {{ include "tranibor.anyPodName" "outposts-door" }}
   policyTypes: ["Ingress", "Egress"]
   ingress:
     # The entrance the door's route is attached to (`tranibor-api.ingress.gatewayNamespace`).
@@ -260,7 +261,9 @@ call them by design (the model, the memory's MCP), with a per-run key.
 */}}
 {{- $stores := list }}
 {{- if .Values.global.database.embedded }}
-{{- $pgClients := list "choregos-api" "choregos-orchestrator" "choregos-litellm" "choregos-outposts-door" "choregos-trace-drift" "choregos-backup" "choregos-restore" }}
+{{- /* The platform's own clients under either value of their name (ADR 0226, R9b); the release's
+       (`-litellm`, `-temporal`) keep theirs. */}}
+{{- $pgClients := list "tranibor-api" "choregos-api" "tranibor-orchestrator" "choregos-orchestrator" "choregos-litellm" "tranibor-outposts-door" "choregos-outposts-door" "tranibor-trace-drift" "choregos-trace-drift" "tranibor-backup" "choregos-backup" "tranibor-restore" "choregos-restore" }}
 {{- /* The embedded Temporal in `server` mode keeps its state in this PostgreSQL (ADR 0195): without
        this entry it waits for the database for ever ("Waiting for PostgreSQL to startup"). */}}
 {{- if and .Values.global.temporal.embedded (eq (toString ((index .Values "temporal" | default dict).mode | default "dev")) "server") }}
@@ -269,12 +272,12 @@ call them by design (the model, the memory's MCP), with a per-run key.
 {{- $stores = append $stores (dict "pod" "choregos-postgresql" "port" 5432 "clients" $pgClients) }}
 {{- end }}
 {{- if .Values.global.temporal.embedded }}
-{{- $stores = append $stores (dict "pod" "choregos-temporal" "port" 7233 "clients" (list "choregos-api" "choregos-orchestrator")) }}
+{{- $stores = append $stores (dict "pod" "choregos-temporal" "port" 7233 "clients" (list "tranibor-api" "choregos-api" "tranibor-orchestrator" "choregos-orchestrator")) }}
 {{- end }}
 {{- /* ADR 0208: the embedded object store takes the API (it is the only reader and writer), the backup
        and the Job that makes its bucket. A runner never receives its keys, and the policy keeps it away. */}}
 {{- if (.Values.global.objectStore).embedded }}
-{{- $stores = append $stores (dict "pod" "choregos-objectstore" "port" 9000 "clients" (list "choregos-api" "choregos-backup" "choregos-restore" "choregos-objectstore-bucket")) }}
+{{- $stores = append $stores (dict "pod" "choregos-objectstore" "port" 9000 "clients" (list "tranibor-api" "choregos-api" "tranibor-backup" "choregos-backup" "tranibor-restore" "choregos-restore" "choregos-objectstore-bucket")) }}
 {{- end }}
 {{- range $stores }}
 ---
@@ -307,9 +310,10 @@ metadata:
   name: tranibor-allow-ingress
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
+  # Either value of `part-of` (ADR 0226, R9b: `global.labelValues`).
   podSelector:
-    matchLabels:
-      app.kubernetes.io/part-of: choregos
+    matchExpressions:
+      - { key: app.kubernetes.io/part-of, operator: In, values: [tranibor, choregos] }
   policyTypes: ["Ingress"]
   ingress:
     - from:
@@ -327,8 +331,8 @@ metadata:
   labels: {{- include "tranibor.labels" $ | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: choregos-trace-drift
+    matchExpressions:
+      - {{ include "tranibor.anyPodName" "trace-drift" }}
   policyTypes: ["Egress"]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: {{ include "tranibor.tracingNamespace" . }} } } }]

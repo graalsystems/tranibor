@@ -94,7 +94,7 @@ says so before the executor is asked to remove anything. When that removal fails
 logs it and goes on:
 
 ```bash
-kubectl -n choregos-system logs -l app.kubernetes.io/name=choregos-orchestrator --tail=-1 | grep run.cancel_failed
+kubectl -n choregos-system logs -l app.kubernetes.io/component=orchestrator --tail=-1 | grep run.cancel_failed
 ```
 
 Each line names a `run_id` whose pod, Job or claim may still exist. That process can no longer

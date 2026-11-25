@@ -1,7 +1,8 @@
 {
-  "title": "Choregos — Runners",
+  "title": "Tranibor — Runners",
   "uid": "choregos-runners",
   "tags": [
+    "tranibor",
     "choregos"
   ],
   "panels": [
@@ -10,7 +11,7 @@
       "title": "Runs by status",
       "targets": [
         {
-          "expr": "sum(choregos_runs_total) by (status)"
+          "expr": "sum(tranibor_runs_total) by (status)"
         }
       ],
       "gridPos": {
@@ -25,7 +26,7 @@
       "title": "Permissions denied per run",
       "targets": [
         {
-          "expr": "sum(rate(choregos_permission_denials_total[1h])) by (project)"
+          "expr": "sum(rate(tranibor_permission_denials_total[1h])) by (project)"
         }
       ],
       "gridPos": {

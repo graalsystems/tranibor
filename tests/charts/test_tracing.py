@@ -47,14 +47,14 @@ def _litellm(docs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 def _tracing_processes(docs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Each process that traces, by name: the platform's (they read `CHOREGOS_ENV`) and the gateway."""
+    """Each process that traces, by name: the platform's (they read `TRANIBOR_ENV`) and the gateway."""
     processes: dict[str, dict[str, Any]] = {}
     for doc in docs:
         if doc["kind"] not in {"Deployment", "Job"}:
             continue
         for container in doc["spec"]["template"]["spec"].get("containers", []):
             env = {item["name"]: item.get("value") for item in container.get("env") or []}
-            if "CHOREGOS_ENV" in env or doc["metadata"]["name"] == "choregos-litellm":
+            if "TRANIBOR_ENV" in env or doc["metadata"]["name"] == "choregos-litellm":
                 processes[f"{doc['metadata']['name']}/{container['name']}"] = env
     return processes
 

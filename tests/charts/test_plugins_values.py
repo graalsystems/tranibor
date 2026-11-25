@@ -3,7 +3,7 @@
 By default (S43-09) the built-in agents' four plugins are installed from the `tranibor` source, pre-approved,
 taken from the image's offline directory; emptied, nothing is rendered or mounted. With values, the file
 is the one `tranibor_core.plugins.sources.parse_config` accepts, mounted read-only and named by
-`CHOREGOS_PLUGINS_CONFIG`; a source without a trust policy refuses to render.
+`TRANIBOR_PLUGINS_CONFIG`; a source without a trust policy refuses to render.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from typing import Any
 import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
+
+from .conftest import both_paths, etc_mounts
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts" / "tranibor"
@@ -109,7 +111,7 @@ def test_emptied_there_is_no_plugin_configuration(tmp_path: pathlib.Path) -> Non
     docs = _docs({"global": {"plugins": NONE}}, tmp_path)
     spec = _api(docs)
     assert _config_map(docs) is None
-    assert "CHOREGOS_PLUGINS_CONFIG" not in {e["name"] for e in spec["containers"][0]["env"]}
+    assert "TRANIBOR_PLUGINS_CONFIG" not in {e["name"] for e in spec["containers"][0]["env"]}
     assert "plugins-config" not in {v["name"] for v in spec["volumes"]}
     # No source and no hosted image check: nothing for cosign to cache (choregos#1327).
     assert "TUF_ROOT" not in {e["name"] for e in spec["containers"][0]["env"]}
@@ -132,13 +134,10 @@ def test_the_values_become_the_file_the_api_reads(tmp_path: pathlib.Path) -> Non
 
     spec = _api(docs)
     env = {e["name"]: e.get("value") for e in spec["containers"][0]["env"]}
-    assert env["CHOREGOS_PLUGINS_CONFIG"] == "/etc/choregos/plugins/plugins.yaml"
+    assert env["TRANIBOR_PLUGINS_CONFIG"] == "/etc/tranibor/plugins/plugins.yaml"
     assert {"name": "plugins-config", "configMap": {"name": "tranibor-plugins"}} in spec["volumes"]
-    assert {
-        "name": "plugins-config",
-        "mountPath": "/etc/choregos/plugins",
-        "readOnly": True,
-    } in spec["containers"][0]["volumeMounts"]
+    # The former path too (ADR 0226, R9b): a source's `key:` written as `/etc/choregos/plugins/…` still reads.
+    assert etc_mounts(spec["containers"][0], "plugins-config") == both_paths("/etc/tranibor/plugins")
 
 
 def test_an_offline_directory_alone_is_enough(tmp_path: pathlib.Path) -> None:

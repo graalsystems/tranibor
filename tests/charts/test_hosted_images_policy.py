@@ -24,6 +24,8 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
+from .conftest import both_paths, etc_mounts
+
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 DIGEST = "sha256:" + "a" * 64
 REGISTRY = os.environ.get("TRANIBOR_COSIGN_REAL_REGISTRY", "")
@@ -82,8 +84,8 @@ ENFORCED = (
 def test_by_default_no_signer_no_policy_and_the_log_is_checked() -> None:
     pod = _api()
     env = _env(pod)
-    assert env["CHOREGOS_HOSTED_COSIGN_TLOG"] == "true"
-    assert not {"CHOREGOS_HOSTED_COSIGN_KEY", "CHOREGOS_HOSTED_COSIGN_IDENTITY"} & set(env)
+    assert env["TRANIBOR_HOSTED_COSIGN_TLOG"] == "true"
+    assert not {"TRANIBOR_HOSTED_COSIGN_KEY", "TRANIBOR_HOSTED_COSIGN_IDENTITY"} & set(env)
     assert all(v["name"] != "cosign" for v in pod["volumes"])
     assert not [d for d in _documents() if d["kind"] == "ClusterPolicy"]
 
@@ -97,15 +99,14 @@ def test_a_plugin_source_s_signatures_have_a_writable_trust_root() -> None:
 def test_the_key_secret_is_mounted_on_the_api_and_named_to_it() -> None:
     pod = _api("global.images.hostedCosign=enforce", "global.images.hostedCosignKeySecret=acme-cosign")
     env = _env(pod)
-    assert env["CHOREGOS_HOSTED_COSIGN_KEY"] == "/etc/choregos/cosign/cosign.pub"
+    assert env["TRANIBOR_HOSTED_COSIGN_KEY"] == "/etc/tranibor/cosign/cosign.pub"
     assert env["TUF_ROOT"].startswith("/tmp/"), "cosign's cache, on the one writable path"
     (volume,) = (v for v in pod["volumes"] if v["name"] == "cosign")
     assert volume["secret"] == {
         "secretName": "acme-cosign",
         "items": [{"key": "cosign.pub", "path": "cosign.pub"}],
     }
-    mounts = {m["name"]: m for m in pod["containers"][0]["volumeMounts"]}
-    assert mounts["cosign"]["mountPath"] == "/etc/choregos/cosign" and mounts["cosign"]["readOnly"]
+    assert etc_mounts(pod["containers"][0], "cosign") == both_paths("/etc/tranibor/cosign")
 
 
 def test_keyless_the_identity_and_issuer_reach_the_api_and_tlog_can_be_off() -> None:
@@ -116,10 +117,10 @@ def test_keyless_the_identity_and_issuer_reach_the_api_and_tlog_can_be_off() -> 
             "global.images.hostedCosignTlog=false",
         )
     )
-    assert env["CHOREGOS_HOSTED_COSIGN_IDENTITY"] == "^https://github\\.com/acme/.+$"
-    assert env["CHOREGOS_HOSTED_COSIGN_ISSUER"] == "^https://token\\.actions\\.githubusercontent\\.com$"
-    assert env["CHOREGOS_HOSTED_COSIGN_TLOG"] == "false"
-    assert "CHOREGOS_HOSTED_COSIGN_KEY" not in env
+    assert env["TRANIBOR_HOSTED_COSIGN_IDENTITY"] == "^https://github\\.com/acme/.+$"
+    assert env["TRANIBOR_HOSTED_COSIGN_ISSUER"] == "^https://token\\.actions\\.githubusercontent\\.com$"
+    assert env["TRANIBOR_HOSTED_COSIGN_TLOG"] == "false"
+    assert "TRANIBOR_HOSTED_COSIGN_KEY" not in env
 
 
 def test_a_key_and_an_identity_together_do_not_render() -> None:

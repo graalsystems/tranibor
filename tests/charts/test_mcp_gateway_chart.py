@@ -11,11 +11,12 @@ import subprocess
 
 import pytest
 import yaml
+from tranibor_adapters.plugin_servers import CALLERS
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts" / "tranibor"
 POLICY = "tranibor-mcp-gateway-egress"
-VAR = "CHOREGOS_MCP_GATEWAY_INTERNAL_HOSTS"
+VAR = "TRANIBOR_MCP_GATEWAY_INTERNAL_HOSTS"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -54,7 +55,7 @@ def test_nothing_by_default() -> None:
     for deployment in ("api", "orchestrator"):
         env = _env(docs, deployment)
         assert VAR not in env
-        assert "CHOREGOS_EGRESS_CEILING" not in env
+        assert "TRANIBOR_EGRESS_CEILING" not in env
 
 
 def test_an_in_cluster_gateway_opens_the_api_and_the_workers_only() -> None:
@@ -65,7 +66,8 @@ def test_an_in_cluster_gateway_opens_the_api_and_the_workers_only() -> None:
     assert policy is not None
     spec = policy["spec"]  # type: ignore[index]
     selector = spec["podSelector"]["matchExpressions"]
-    assert [e["values"] for e in selector] == [["choregos-api", "choregos-orchestrator"]]
+    # Both values of each name for the window of ADR 0226 (R9b: `global.labelValues`).
+    assert [e["values"] for e in selector] == [list(CALLERS)]
     (rule,) = spec["egress"]
     (peer,) = rule["to"]
     assert peer["namespaceSelector"]["matchLabels"] == {"kubernetes.io/metadata.name": "mcp"}
@@ -78,7 +80,7 @@ def test_an_in_cluster_gateway_opens_the_api_and_the_workers_only() -> None:
     again = _policy(plugins, POLICY)
     assert again is not None
     values = again["spec"]["podSelector"]["matchExpressions"][0]["values"]  # type: ignore[index]
-    assert values == ["choregos-api", "choregos-orchestrator"]
+    assert values == list(CALLERS)
     only_plugins = _render("global.plugins.servers.enabled=true")
     assert _policy(plugins, "tranibor-allow-platform") == _policy(only_plugins, "tranibor-allow-platform")
 
@@ -104,7 +106,7 @@ def test_the_ceiling_gains_the_gateway_only_for_declared_families() -> None:
         'global.mcpGateway={"hosts": ["gw.example.test"]}',
     )
     for deployment in ("api", "orchestrator"):
-        ceiling = json.loads(_env(docs, deployment)["CHOREGOS_EGRESS_CEILING"])
+        ceiling = json.loads(_env(docs, deployment)["TRANIBOR_EGRESS_CEILING"])
         assert ceiling == {
             "api": ["api.github.com", "gw.example.test"],
             "runners": ["github.com"],

@@ -41,7 +41,7 @@ tests:
     template: charts/api/templates/deployment.yaml
     asserts:
       - notMatchRegex:
-          path: spec.template.spec.containers[0].env[?(@.name=="CHOREGOS_SESSION_SECRET")].value
+          path: spec.template.spec.containers[0].env[?(@.name=="TRANIBOR_SESSION_SECRET")].value
           pattern: ".+"
 
   - it: runs the migrations before the pods are updated
@@ -84,8 +84,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_TOOL_CATALOG
-            value: /etc/choregos/tools/catalogue.yaml
+            name: TRANIBOR_TOOL_CATALOG
+            value: /etc/tranibor/tools/catalogue.yaml
 
   - it: never enables the development login by default
     template: charts/api/templates/deployment.yaml
@@ -93,7 +93,7 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DEV_LOGIN_ENABLED
+            name: TRANIBOR_DEV_LOGIN_ENABLED
             value: "false"
 
   - it: enables the development login only when asked
@@ -105,10 +105,10 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DEV_LOGIN_ENABLED
+            name: TRANIBOR_DEV_LOGIN_ENABLED
             value: "true"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CHOREGOS_DEV_ADMIN_EMAILS
+            name: TRANIBOR_DEV_ADMIN_EMAILS
             value: "admin@northwind.dev"

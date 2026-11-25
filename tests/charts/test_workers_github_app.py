@@ -2,7 +2,7 @@
 
 On 2026-10-08, the dev tenant had its GitHub App (Infisical -> `choregos-api-secrets`): the API
 saw it, but the tracker catch-up failed with "[github] no authentication configured".
-The chart only passed `CHOREGOS_GITHUB_APP_ID` and `CHOREGOS_GITHUB_APP_PRIVATE_KEY` to the API pod,
+The chart only passed `TRANIBOR_GITHUB_APP_ID` and `TRANIBOR_GITHUB_APP_PRIVATE_KEY` to the API pod,
 whereas it is the workers that read the issues and open the pull requests.
 """
 
@@ -40,8 +40,8 @@ def test_every_worker_of_the_orchestrator_receives_the_github_app_as_an_option()
         conteneur = worker["spec"]["template"]["spec"]["containers"][0]
         env = {e["name"]: e for e in conteneur.get("env", [])}
         for name, key in (
-            ("CHOREGOS_GITHUB_APP_ID", "github-app-id"),
-            ("CHOREGOS_GITHUB_APP_PRIVATE_KEY", "github-app-private-key"),
+            ("TRANIBOR_GITHUB_APP_ID", "github-app-id"),
+            ("TRANIBOR_GITHUB_APP_PRIVATE_KEY", "github-app-private-key"),
         ):
             assert name in env, f"{worker['metadata']['name']} does not receive {name}"
             ref = env[name]["valueFrom"]["secretKeyRef"]

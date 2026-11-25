@@ -21,7 +21,7 @@ tests:
       - template: charts/api/templates/deployment.yaml
         notContains:
           path: spec.template.spec.containers[0].env
-          content: { name: CHOREGOS_OUTPOSTS, value: "on" }
+          content: { name: TRANIBOR_OUTPOSTS, value: "on" }
       - template: templates/outposts-door.yaml
         hasDocuments:
           count: 0
@@ -34,15 +34,15 @@ tests:
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
-          content: { name: CHOREGOS_OUTPOSTS, value: "on" }
+          content: { name: TRANIBOR_OUTPOSTS, value: "on" }
       - contains:
           path: spec.template.spec.containers[0].env
-          content: { name: CHOREGOS_OUTPOSTS_DOOR_URL, value: "https://outposts.example.com" }
+          content: { name: TRANIBOR_OUTPOSTS_DOOR_URL, value: "https://outposts.example.com" }
       - equal:
-          path: spec.template.spec.containers[0].env[?(@.name=="CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY")].valueFrom.secretKeyRef.key
+          path: spec.template.spec.containers[0].env[?(@.name=="TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY")].valueFrom.secretKeyRef.key
           value: signing-key
       - notMatchRegex:
-          path: spec.template.spec.containers[0].env[?(@.name=="CHOREGOS_OUTPOSTS_DOOR_SIGNING_KEY")].value
+          path: spec.template.spec.containers[0].env[?(@.name=="TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY")].value
           pattern: ".+"
 
   - it: enabled without an origin, the rendering stops and names the value
@@ -130,4 +130,4 @@ tests:
       - documentIndex: 1
         contains:
           path: spec.template.spec.containers[0].env
-          content: { name: CHOREGOS_DB_POOL_SIZE, value: "5" }
+          content: { name: TRANIBOR_DB_POOL_SIZE, value: "5" }

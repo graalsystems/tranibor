@@ -551,3 +551,100 @@ async def test_a_finished_sandbox_gives_its_volume_back_in_minutes(monkeypatch: 
     executor = _executor(cluster, ttl_seconds=120)
     await executor.start(_spec("r-1"))
     assert cluster.claims["run-r-1"]["spec"]["lifecycle"]["ttlSecondsAfterFinished"] == 120
+
+
+# ───────────────────── the names of the window (ADR 0226, R9b) ─────────────────────
+
+
+async def test_the_queue_and_the_assignment_are_written_under_both_names() -> None:
+    cluster = FakeSandboxCluster()
+    cluster.warm(2)
+    executor = _executor(cluster, max_active=1)
+    first = await executor.start(_spec("r-1"))
+    await executor.start(_spec("r-2"))
+    waiting = cluster.secrets["run-r-2"]["metadata"]["labels"]
+    assert waiting["tranibor/queued"] == waiting["choregos/queued"] == "true"
+    cluster.reconcile()
+    await executor.status(first)
+    stamps = cluster.claims["run-r-1"]["metadata"]["annotations"]
+    assert stamps["tranibor/assigned-at"] == stamps["choregos/assigned-at"]
+    owned = cluster.secrets["run-r-1"]["metadata"]["labels"]
+    assert owned["tranibor/queued"] == owned["choregos/queued"] == "false"
+
+
+async def test_a_run_queued_before_the_upgrade_is_still_admitted() -> None:
+    """A Secret written by the previous release carries the former label only."""
+    cluster = FakeSandboxCluster()
+    cluster.warm(2)
+    executor = _executor(cluster, max_active=1)
+    first = await executor.start(_spec("r-1"))
+    second = await executor.start(_spec("r-2"))
+    labels = cluster.secrets["run-r-2"]["metadata"]["labels"]
+    del labels["tranibor/queued"], labels["tranibor/run-id"]
+    assert (await executor.status(second)).state == "pending"
+    assert list(cluster.claims) == ["run-r-1"], "it still waits for its slot"
+    cluster.reconcile()
+    await executor.status(first)
+    cluster.finish("r-1")
+    await executor.status(first)
+    await executor.status(second)
+    assert "run-r-2" in cluster.claims, "admitted once the slot is free"
+
+
+async def test_a_claim_assigned_before_the_upgrade_is_not_pushed_twice() -> None:
+    cluster = FakeSandboxCluster()
+    cluster.warm(1)
+    executor = _executor(cluster)
+    ref = await executor.start(_spec("r-1"))
+    cluster.reconcile()
+    await executor.status(ref)
+    annotations = cluster.claims["run-r-1"]["metadata"]["annotations"]
+    del annotations["tranibor/assigned-at"]  # as the previous release stamped it
+    await executor.status(ref)
+    pod = cluster.pod_of("r-1")
+    assert pod is not None and len(pod.assignments) == 1
+
+
+def test_the_former_key_is_read_first_because_every_release_writes_it() -> None:
+    """A worker of the previous release takes a run off the queue, or clears its assignment, under the
+    former key alone: the new key's value is then the one left behind."""
+    from tranibor_adapters.executor.agent_sandbox import _twin
+
+    assert _twin({"tranibor/queued": "true", "choregos/queued": "false"}, "queued") == "false"
+    assert _twin({"tranibor/queued": "true"}, "queued") == "true"
+    assert _twin({"choregos/assigned-at": "t"}, "assigned-at") == "t"
+    assert _twin({}, "queued") is None
+
+
+@pytest.mark.parametrize(
+    ("configured", "deployment", "pool"),
+    [
+        (None, None, "tranibor-runner"),
+        ("", "", "tranibor-runner"),
+        (None, "house-pool", "house-pool"),
+        ("mine", "house-pool", "mine"),
+        # The former default a connector's form saved before 0.30.0: read as the default, since the former
+        # pool is kept at size 0 for the suspended sandboxes and a claim made from it would start cold.
+        ("choregos-runner", None, "tranibor-runner"),
+        ("choregos-runner", "house-pool", "house-pool"),
+    ],
+)
+def test_the_warm_pool_is_tranibor_runner_unless_one_is_chosen(
+    configured: str | None, deployment: str | None, pool: str
+) -> None:
+    from tranibor_adapters.executor.agent_sandbox import warm_pool_of
+
+    assert warm_pool_of(configured, deployment) == pool
+
+
+def test_the_factory_and_the_form_default_to_the_new_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tranibor_adapters.registry import build
+    from tranibor_adapters.specs import _SHIPPED_SPECS
+
+    monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
+    monkeypatch.delenv("TRANIBOR_SANDBOX_WARM_POOL", raising=False)
+    kube = {"kubernetes": {"base_url": "https://k8s.test", "token": "t", "verify": False}}
+    executor = build("runtime", "agent_sandbox", kube)
+    assert executor.warm_pool == "tranibor-runner"
+    schema = _SHIPPED_SPECS[("runtime", "agent_sandbox")].config_schema
+    assert schema["properties"]["warm_pool"]["default"] == "tranibor-runner"

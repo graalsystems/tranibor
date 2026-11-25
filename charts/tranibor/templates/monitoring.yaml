@@ -26,10 +26,13 @@ metadata:
 spec:
   # The API alone: it computes the series from the database (`metriques.py`). The
   # front end, scraped too before, answered 404 every thirty seconds.
+  # Either value of `part-of` (ADR 0226, R9b: `global.labelValues`); the former Service `choregos-api` has
+  # no `component` and is not scraped a second time.
   selector:
     matchLabels:
-      app.kubernetes.io/part-of: choregos
       app.kubernetes.io/component: api
+    matchExpressions:
+      - { key: app.kubernetes.io/part-of, operator: In, values: [tranibor, choregos] }
   endpoints:
     - port: http
       path: /metrics
@@ -44,6 +47,9 @@ metadata:
   labels: {{- include "tranibor.labels" . | nindent 4 }}
 spec:
   groups:
+    # The group keeps its name for now (ADR 0226, R9b): Prometheus's own series about its rules
+    # (`prometheus_rule_group_*`, label `rule_group`) and Grafana's alert views key on it, and two groups
+    # of the same rules would fire every alert twice. The alerts keep theirs (`tranibor.alertRules`).
     - name: choregos.platform
       rules:
 {{ include "tranibor.alertRules" . | indent 8 }}

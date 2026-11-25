@@ -61,7 +61,7 @@ def _paths(ingress: dict[str, Any]) -> list[tuple[str, str, str]]:
 def _public_hosts(documents: list[dict[str, Any]]) -> list[str]:
     deployment = _one(documents, "Deployment", "tranibor-api")
     env = {e["name"]: e.get("value") for e in deployment["spec"]["template"]["spec"]["containers"][0]["env"]}
-    return list(json.loads(env["CHOREGOS_PUBLIC_HOSTS"]))
+    return list(json.loads(env["TRANIBOR_PUBLIC_HOSTS"]))
 
 
 def _canonical_api_paths() -> list[tuple[str, str, str]]:

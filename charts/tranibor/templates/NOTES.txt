@@ -6,7 +6,7 @@ Tranibor {{ .Chart.AppVersion }} is deployed in the namespace {{ .Release.Namesp
 
 Check that everything responds:
 
-  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/part-of=choregos
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/part-of={{ include "tranibor.labelPrefix" . }}
   kubectl -n {{ .Release.Namespace }} logs deploy/tranibor-api --tail=50
 
 {{- if include "tranibor.outpostsEnabled" . }}

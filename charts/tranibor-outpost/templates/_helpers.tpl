@@ -254,10 +254,10 @@ where its files are, how it reaches the door, how long it lets calls finish.
 {{- $config := include "tranibor-outpost.configDir" . -}}
 {{- $proxy := .Values.proxy | default dict -}}
 {{- $ca := .Values.ca | default dict -}}
-- { name: CHOREGOS_OUTPOST_POLICY, value: {{ printf "%s/policy/policy.yaml" $config | quote }} }
-- { name: CHOREGOS_OUTPOST_STATE_DIR, value: {{ include "tranibor-outpost.stateDir" . | quote }} }
-- { name: CHOREGOS_OUTPOST_LOG_LEVEL, value: {{ .Values.logLevel | default "INFO" | quote }} }
-- { name: CHOREGOS_OUTPOST_GRACE_S, value: {{ .Values.graceSeconds | toString | quote }} }
+- { name: TRANIBOR_OUTPOST_POLICY, value: {{ printf "%s/policy/policy.yaml" $config | quote }} }
+- { name: TRANIBOR_OUTPOST_STATE_DIR, value: {{ include "tranibor-outpost.stateDir" . | quote }} }
+- { name: TRANIBOR_OUTPOST_LOG_LEVEL, value: {{ .Values.logLevel | default "INFO" | quote }} }
+- { name: TRANIBOR_OUTPOST_GRACE_S, value: {{ .Values.graceSeconds | toString | quote }} }
 {{- if and $proxy.url $proxy.existingSecret }}
 {{- fail "proxy: url or existingSecret, not both" }}
 {{- end }}
@@ -265,16 +265,16 @@ where its files are, how it reaches the door, how long it lets calls finish.
 {{- if contains "@" $proxy.url }}
 {{- fail "proxy.url carries a user and a password: that is a secret. Put the whole URL in a Secret and name it (proxy.existingSecret, proxy.key)" }}
 {{- end }}
-- { name: CHOREGOS_OUTPOST_PROXY, value: {{ $proxy.url | quote }} }
+- { name: TRANIBOR_OUTPOST_PROXY, value: {{ $proxy.url | quote }} }
 {{- else if $proxy.existingSecret }}
-- name: CHOREGOS_OUTPOST_PROXY
+- name: TRANIBOR_OUTPOST_PROXY
   valueFrom: { secretKeyRef: { name: {{ $proxy.existingSecret }}, key: {{ $proxy.key | default "url" }} } }
 {{- end }}
 {{- if and $ca.configMap $ca.secret }}
 {{- fail "ca: configMap or secret, not both" }}
 {{- end }}
 {{- if or $ca.configMap $ca.secret }}
-- { name: CHOREGOS_OUTPOST_CA_FILE, value: {{ printf "%s/ca/%s" $config ($ca.key | default "ca.crt") | quote }} }
+- { name: TRANIBOR_OUTPOST_CA_FILE, value: {{ printf "%s/ca/%s" $config ($ca.key | default "ca.crt") | quote }} }
 {{- end }}
 {{- end -}}
 
@@ -300,7 +300,8 @@ covers the times it does.
 */}}
 {{- define "tranibor-outpost.enrolScript" -}}
 set -eu
-identity="${CHOREGOS_OUTPOST_IDENTITY_DIR:-${CHOREGOS_OUTPOST_STATE_DIR}/identity}"
+# The new name first, then the former one, as the daemon reads them (ADR 0176 R4, ADR 0226 R9b).
+identity="${TRANIBOR_OUTPOST_IDENTITY_DIR:-${CHOREGOS_OUTPOST_IDENTITY_DIR:-${TRANIBOR_OUTPOST_STATE_DIR}/identity}}"
 for key in "$identity/signing.key" "$identity/sealing.key"; do
   if [ -f "$key" ]; then chmod 600 "$key"; fi
 done

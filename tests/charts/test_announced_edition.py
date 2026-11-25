@@ -73,6 +73,6 @@ def test_every_process_receives_the_announced_edition() -> None:
             continue
         conteneurs = doc["spec"]["template"]["spec"].get("containers", [])
         names = {v["name"] for c in conteneurs for v in (c.get("env") or [])}
-        if "CHOREGOS_EDITION" not in names:
+        if "TRANIBOR_EDITION" not in names:
             sans.append(name)
     assert not sans, f"these processes do not know which edition is announced: {sans}"

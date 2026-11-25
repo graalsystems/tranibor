@@ -7,7 +7,7 @@ connector never borrows a platform pod's own token. Its token is referenced by t
 `global.extraEnv`.
 */ -}}
 {{- $name := .Values.netops.ciliumReader.name }}
-{{- $labels := dict "app.kubernetes.io/name" $name "app.kubernetes.io/instance" .Release.Name "app.kubernetes.io/managed-by" .Release.Service "app.kubernetes.io/part-of" "choregos" "app.kubernetes.io/component" "netops" }}
+{{- $labels := dict "app.kubernetes.io/name" $name "app.kubernetes.io/instance" .Release.Name "app.kubernetes.io/managed-by" .Release.Service "app.kubernetes.io/part-of" (include "tranibor.labelPrefix" .) "app.kubernetes.io/component" "netops" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

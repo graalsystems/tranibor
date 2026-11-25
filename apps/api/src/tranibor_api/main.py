@@ -335,7 +335,7 @@ def _check_the_edition(settings: Any) -> None:
 
     The refusal is at startup and it names what is missing. The reverse is not refused: a
     deployment that announces nothing and loads the enterprise extension is simply a deployment
-    that forgot to say so, and denying it startup would help nobody; the `choregos_edition_info`
+    that forgot to say so, and denying it startup would help nobody; the `tranibor_edition_info`
     metric and `GET /edition` tell the truth in both cases.
     """
     from .edition import ENTERPRISE, current

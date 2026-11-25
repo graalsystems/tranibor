@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 import yaml
 
+from .conftest import both_names, both_paths, etc_mounts, names_selected
 from .test_pod_security import violations
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
@@ -54,7 +55,7 @@ def _builder(docs: Docs) -> dict[str, Any]:
 def test_nothing_is_rendered_without_a_build_registry_and_the_default_render_is_unchanged() -> None:
     docs = _docs()
     assert not [key for key in docs if "buildkitd" in key[1]]
-    assert all("CHOREGOS_BUILDKIT_ADDRESS" not in _env(w) for w in _workers(docs))
+    assert all("TRANIBOR_BUILDKIT_ADDRESS" not in _env(w) for w in _workers(docs))
 
 
 @pytest.mark.parametrize(
@@ -65,7 +66,7 @@ def test_an_operators_own_builder_means_the_chart_deploys_none(override: str) ->
     docs = _docs(BUILDS, override)
     assert not [key for key in docs if "buildkitd" in key[1]]
     for worker in _workers(docs):
-        address = _env(worker).get("CHOREGOS_BUILDKIT_ADDRESS")
+        address = _env(worker).get("TRANIBOR_BUILDKIT_ADDRESS")
         assert address == ("tcp://builder.ci:1234" if "buildkitAddress" in override else None)
 
 
@@ -75,8 +76,16 @@ def test_with_a_build_registry_the_workers_dial_the_charts_daemon() -> None:
     assert docs[("Service", "tranibor-buildkitd")]["spec"]["ports"][0]["port"] == 1234
     for worker in _workers(docs):
         env = _env(worker)
-        assert env["CHOREGOS_BUILDKIT_ADDRESS"] == "tcp://tranibor-buildkitd:1234"
-        assert "CHOREGOS_BUILDKIT_TLS_DIR" not in env
+        assert env["TRANIBOR_BUILDKIT_ADDRESS"] == "tcp://tranibor-buildkitd:1234"
+        assert "TRANIBOR_BUILDKIT_TLS_DIR" not in env
+
+
+def test_the_code_s_default_address_is_the_chart_s_daemon() -> None:
+    """ADR 0226 (R9b): the default named `choregos-buildkitd`, which no chart renders since 0.30.0."""
+    from tranibor_api.config import Settings
+
+    (worker, *_) = _workers(_docs(BUILDS))
+    assert Settings.model_fields["buildkit_address"].default == _env(worker)["TRANIBOR_BUILDKIT_ADDRESS"]
 
 
 def test_the_builder_runs_rootless_with_nothing_but_what_rootless_buildkit_needs() -> None:
@@ -119,8 +128,10 @@ def test_the_strict_rule_faults_the_builder_for_what_it_does_unconfined_and_an_e
     assert ("PolicyException", "tranibor-buildkitd") not in plain, "no Kyverno, no exception to render"
     docs = _docs(BUILDS, api_versions=(KYVERNO,))
     exception = docs[("PolicyException", "tranibor-buildkitd")]["spec"]
+    # Both names for the window of ADR 0226 (R9b): the renamed ClusterPolicy is installed beside the former.
     assert exception["exceptions"] == [
-        {"policyName": "choregos-pod-security", "ruleNames": ["non-root", "autogen-non-root"]}
+        {"policyName": policy, "ruleNames": ["non-root", "autogen-non-root"]}
+        for policy in ("tranibor-pod-security", "choregos-pod-security")
     ]
     (match,) = exception["match"]["any"]
     assert match["resources"]["names"] == ["tranibor-buildkitd*"]
@@ -143,11 +154,10 @@ def test_no_other_pod_of_the_chart_runs_unconfined() -> None:
 def test_only_the_orchestrator_reaches_it_and_it_reaches_the_internet_never_the_platform() -> None:
     docs = _docs(BUILDS)
     policy = docs[("NetworkPolicy", "tranibor-buildkitd-net")]["spec"]
-    assert policy["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": "choregos-buildkitd"}}
+    assert names_selected(policy["podSelector"]) == both_names("buildkitd")
     (ingress,) = policy["ingress"]
-    assert ingress["from"] == [
-        {"podSelector": {"matchLabels": {"app.kubernetes.io/name": "choregos-orchestrator"}}}
-    ]
+    (peer,) = ingress["from"]
+    assert list(peer) == ["podSelector"] and names_selected(peer["podSelector"]) == both_names("orchestrator")
     assert ingress["ports"] == [{"protocol": "TCP", "port": 1234}]
     dns, internet = policy["egress"]
     assert dns["to"] == [
@@ -160,8 +170,10 @@ def test_only_the_orchestrator_reaches_it_and_it_reaches_the_internet_never_the_
 
     platform = docs[("NetworkPolicy", "tranibor-allow-platform")]["spec"]
     (excluded,) = platform["podSelector"]["matchExpressions"]
-    assert "choregos-buildkitd" in excluded["values"], "the builder never reaches PostgreSQL or Temporal"
-    to_builder = [r for r in platform["egress"] if "choregos-buildkitd" in str(r["to"])]
+    assert both_names("buildkitd") <= set(excluded["values"]), (
+        "the builder never reaches PostgreSQL or Temporal"
+    )
+    to_builder = [r for r in platform["egress"] if "tranibor-buildkitd" in str(r["to"])]
     assert to_builder and to_builder[0]["ports"] == [{"protocol": "TCP", "port": 1234}]
 
 
@@ -192,7 +204,9 @@ def test_mutual_tls_and_the_push_credential_come_from_secrets() -> None:
     mounts = {m["name"]: m for m in container["volumeMounts"]}
     assert mounts["push"]["mountPath"] == "/home/user/.docker" and mounts["push"]["readOnly"] is True
     for worker in _workers(docs):
-        assert _env(worker)["CHOREGOS_BUILDKIT_TLS_DIR"] == "/etc/choregos/buildkit"
+        assert _env(worker)["TRANIBOR_BUILDKIT_TLS_DIR"] == "/etc/tranibor/buildkit"
         spec = worker["spec"]["template"]["spec"]
+        worker_container = spec["containers"][0]
+        assert etc_mounts(worker_container, "buildkit-client") == both_paths("/etc/tranibor/buildkit")
         assert {"name": "buildkit-client", "secret": {"secretName": "buildkitd-client"}} in spec["volumes"]
         assert "build-push" not in str(spec), "the push credential stays in the builder"

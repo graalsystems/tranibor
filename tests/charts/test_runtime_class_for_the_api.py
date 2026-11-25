@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
-VALUE = "CHOREGOS_RUNNER_RUNTIME_CLASS"
+VALUE = "TRANIBOR_RUNNER_RUNTIME_CLASS"
 BASE = ("global.rbac.jobRunner=true", "tranibor-orchestrator.runner.namespacePattern=choregos")
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")

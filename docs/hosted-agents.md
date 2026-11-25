@@ -596,7 +596,7 @@ Publication asks the `cosign` binary the API image carries (v3.1.4) about the **
 
 - **By key**: `global.images.hostedCosignKeySecret` names a Secret of the release's namespace holding
   the public key under `cosign.pub`. The chart mounts it on the API
-  (`TRANIBOR_HOSTED_COSIGN_KEY=/etc/choregos/cosign/cosign.pub`; the variable also takes a KMS URI
+  (`TRANIBOR_HOSTED_COSIGN_KEY=/etc/tranibor/cosign/cosign.pub`; the variable also takes a KMS URI
   cosign reads).
 - **Keyless**: `hostedCosignIdentity` and `hostedCosignIssuer` (`TRANIBOR_HOSTED_COSIGN_IDENTITY`,
   `_ISSUER`), the certificate's subject and its OIDC issuer as regular expressions. Cosign searches

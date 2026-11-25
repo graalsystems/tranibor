@@ -40,8 +40,8 @@ def test_the_default_is_enforce_with_no_ceiling() -> None:
     docs = _render()
     for deployment in ("api", "orchestrator"):
         env = _env(docs, deployment)
-        assert env["CHOREGOS_EGRESS_MODE"] == "enforce"
-        assert "CHOREGOS_EGRESS_CEILING" not in env and "CHOREGOS_EGRESS_PLATFORM_CHANGE" not in env
+        assert env["TRANIBOR_EGRESS_MODE"] == "enforce"
+        assert "TRANIBOR_EGRESS_CEILING" not in env and "TRANIBOR_EGRESS_PLATFORM_CHANGE" not in env
 
 
 def test_the_ceiling_and_the_platform_change_reach_the_api_and_the_workers() -> None:
@@ -54,9 +54,9 @@ def test_the_ceiling_and_the_platform_change_reach_the_api_and_the_workers() -> 
     )
     for deployment in ("api", "orchestrator"):
         env = _env(docs, deployment)
-        assert env["CHOREGOS_EGRESS_MODE"] == "warn"
-        assert json.loads(env["CHOREGOS_EGRESS_CEILING"]) == ceiling
-        assert json.loads(env["CHOREGOS_EGRESS_PLATFORM_CHANGE"]) == change
+        assert env["TRANIBOR_EGRESS_MODE"] == "warn"
+        assert json.loads(env["TRANIBOR_EGRESS_CEILING"]) == ceiling
+        assert json.loads(env["TRANIBOR_EGRESS_PLATFORM_CHANGE"]) == change
 
 
 def test_extra_env_cannot_shadow_the_egress_settings() -> None:
@@ -67,10 +67,10 @@ def test_extra_env_cannot_shadow_the_egress_settings() -> None:
             "choregos",
             str(CHART),
             "--set-json",
-            'global.extraEnv=[{"name":"CHOREGOS_EGRESS_MODE","value":"off"}]',
+            'global.extraEnv=[{"name":"TRANIBOR_EGRESS_MODE","value":"off"}]',
         ],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert done.returncode != 0 and "CHOREGOS_EGRESS_MODE" in done.stderr
+    assert done.returncode != 0 and "TRANIBOR_EGRESS_MODE" in done.stderr

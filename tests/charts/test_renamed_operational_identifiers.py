@@ -103,6 +103,8 @@ def test_alerts_have_english_names_and_no_legacy_label() -> None:
 def test_the_rendered_rule_is_in_the_english_group(flavour: str) -> None:
     rule = _rendered_rule(flavour)
     (group,) = rule["spec"]["groups"]
+    # Kept in 0.30.0 (ADR 0226, R9b): `rule_group` filters and alert routes key on these names, and a
+    # twin group would fire every alert twice.
     assert group["name"] == "choregos.platform"
     alerts = {r["alert"] for r in group["rules"]}
     assert set(RENAMED_ALERTS.values()) <= alerts

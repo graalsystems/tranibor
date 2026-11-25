@@ -1,7 +1,8 @@
 {
-  "title": "Choregos — Memory",
+  "title": "Tranibor — Memory",
   "uid": "choregos-memoire",
   "tags": [
+    "tranibor",
     "choregos"
   ],
   "panels": [
@@ -25,7 +26,7 @@
       "title": "Empty packs (circuit open)",
       "targets": [
         {
-          "expr": "sum(increase(choregos_context_pack_empty_total[1h]))"
+          "expr": "sum(increase(tranibor_context_pack_empty_total[1h]))"
         }
       ],
       "gridPos": {
@@ -40,7 +41,7 @@
       "title": "Facts awaiting validation",
       "targets": [
         {
-          "expr": "choregos_memory_pending"
+          "expr": "tranibor_memory_pending"
         }
       ],
       "gridPos": {

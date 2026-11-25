@@ -16,6 +16,8 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
+from .conftest import both_names, names_selected
+
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -62,13 +64,11 @@ def test_one_single_pod_that_the_api_and_the_orchestrator_reach() -> None:
         for d in documents
         if d.get("kind") == "NetworkPolicy" and d["metadata"]["name"] == "tranibor-allow-platform"
     )
-    regles = [r for r in output["spec"]["egress"] if r["to"][0].get("podSelector")]
-    assert regles == [
-        {
-            "to": [{"podSelector": {"matchLabels": {"app.kubernetes.io/name": "choregos-demo-fakes"}}}],
-            "ports": [{"protocol": "TCP", "port": 8090}],
-        }
-    ], "the network policy opens that pod, and only that one"
+    (rule,) = [r for r in output["spec"]["egress"] if r["to"][0].get("podSelector")]
+    (peer,) = rule["to"]
+    assert rule["ports"] == [{"protocol": "TCP", "port": 8090}]
+    # The fakes' pods under either value of their name (ADR 0226, R9b: `global.labelValues`), and only them.
+    assert names_selected(peer["podSelector"]) == both_names("demo-fakes"), "that pod, and only that one"
 
 
 @pytest.mark.parametrize("environment", ["staging", "prod"])
@@ -110,4 +110,4 @@ def test_the_fakes_know_the_deployment_s_environment() -> None:
     built against a core commit starts only in `dev`) refused to start without it."""
     served = _nommes(_documents("demoFakes.enabled=true", "global.environment=dev"), "tranibor-demo-fakes")
     (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
-    assert {"name": "CHOREGOS_ENV", "value": "dev"} in conteneur["env"]
+    assert {"name": "TRANIBOR_ENV", "value": "dev"} in conteneur["env"]

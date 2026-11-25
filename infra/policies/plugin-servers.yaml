@@ -5,12 +5,12 @@
 # The allowlist below is the publisher's plugin images: an operator who trusts another source adds
 # its prefix here AND in `global.plugins.servers.registries`. Rename the namespace with
 # `global.plugins.servers.namespace.name`.
-# Ephemeral containers stay out, as in `choregos-image-tags`: an operator debugging a server picks a
+# Ephemeral containers stay out, as in `tranibor-image-tags`: an operator debugging a server picks a
 # throwaway tool image during an incident.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-plugin-server-images
+  name: tranibor-plugin-server-images
 spec:
   validationFailureAction: Enforce
   background: false

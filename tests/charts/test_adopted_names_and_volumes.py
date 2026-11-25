@@ -47,8 +47,8 @@ def test_the_services_keep_the_names_clients_already_dial_and_the_urls_follow() 
     assert not {"c-litellm", "c-ecphoria"} & _named(docs, "Service")
     api = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-api")
     env = {e["name"]: e.get("value") for e in api["spec"]["template"]["spec"]["containers"][0]["env"]}
-    assert env["CHOREGOS_MEMORY_URL"] == "http://ecphoria:8432"
-    assert env["CHOREGOS_GATEWAY_URL"] == "http://litellm:4000"
+    assert env["TRANIBOR_MEMORY_URL"] == "http://ecphoria:8432"
+    assert env["TRANIBOR_GATEWAY_URL"] == "http://litellm:4000"
     ecphoria = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "c-ecphoria")
     envs = {e["name"]: e.get("value") for e in ecphoria["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert envs["ECPHORIA_EMBEDDING__OPENAI_BASE_URL"] == "http://litellm:4000/v1"

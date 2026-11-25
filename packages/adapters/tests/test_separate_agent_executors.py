@@ -13,6 +13,7 @@ from tranibor_adapters.errors import UnsupportedClusterError
 from tranibor_adapters.executor import separate_agent
 from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.local_docker import LocalDockerExecutor
+from tranibor_adapters.executor.tekton import FORMER_RUNNER_SERVICE_ACCOUNT
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import AgentContainer, StageJobSpec
 from tranibor_core.egress_gate import GATE_CONTAINER, EgressGate
@@ -68,10 +69,12 @@ class _Docker(LocalDockerExecutor):
 async def _render() -> dict[str, Any]:
     """The renderings the fixture holds, from the code as it is now, under `process`."""
     out: dict[str, Any] = {}
+    # In a namespace provisioned before 0.30.0, which has the former account only (ADR 0226, R9b).
+    former = FORMER_RUNNER_SERVICE_ACCOUNT
     for gated in (False, True):
         executor = _executor(gated=gated)
-        out[f"job-gate={gated}"] = executor._job(_spec(), "run-r-1")
-        out[f"job-hosted-gate={gated}"] = executor._job(_spec(agent_container=HOSTED), "run-r-1")
+        out[f"job-gate={gated}"] = executor._job(_spec(), "run-r-1", former)
+        out[f"job-hosted-gate={gated}"] = executor._job(_spec(agent_container=HOSTED), "run-r-1", former)
     docker = _Docker()
     for spec in (_spec(), _spec(run_id="r-2", agent_container=HOSTED)):
         await docker.start(spec)

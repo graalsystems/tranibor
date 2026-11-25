@@ -15,6 +15,8 @@ from typing import Any
 import pytest
 import yaml
 
+from .conftest import both_names, names_selected
+
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 TEMPO = "http://tempo.monitoring.svc:3200"
 
@@ -51,8 +53,8 @@ def test_the_job_runs_the_comparison_against_the_named_tempo() -> None:
     assert container["command"][:3] == ["python", "-m", "tranibor_api.trace_drift"]
     importlib.import_module(container["command"][2])
     env = {item["name"]: item for item in container["env"]}
-    assert env["CHOREGOS_TEMPO_URL"]["value"] == TEMPO
-    assert "CHOREGOS_DATABASE_URL" in env, "the job reads the ledger"
+    assert env["TRANIBOR_TEMPO_URL"]["value"] == TEMPO
+    assert "TRANIBOR_DATABASE_URL" in env, "the job reads the ledger"
 
 
 def test_only_the_job_s_pods_reach_tempo_s_query_port() -> None:
@@ -61,9 +63,9 @@ def test_only_the_job_s_pods_reach_tempo_s_query_port() -> None:
     policy = _named(docs, "NetworkPolicy", "tranibor-trace-drift-tempo")
     assert job is not None and policy is not None
     labels = job["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"]
-    selector = policy["spec"]["podSelector"]["matchLabels"]
-    assert selector == {"app.kubernetes.io/name": "choregos-trace-drift"}
-    assert selector.items() <= labels.items()
+    selected = names_selected(policy["spec"]["podSelector"])
+    assert selected == both_names("trace-drift")
+    assert labels["app.kubernetes.io/name"] in selected
     (rule,) = policy["spec"]["egress"]
     assert rule["ports"] == [{"protocol": "TCP", "port": 3100}]
     assert rule["to"] == [

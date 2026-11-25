@@ -1,7 +1,8 @@
 {
-  "title": "Choregos — Projects & Costs",
+  "title": "Tranibor — Projects & Costs",
   "uid": "choregos-couts",
   "tags": [
+    "tranibor",
     "choregos"
   ],
   "refresh": "5m",
@@ -11,7 +12,7 @@
       "title": "Cost per day and per project (USD)",
       "targets": [
         {
-          "expr": "sum(increase(choregos_cost_usd_total[1d])) by (project)"
+          "expr": "sum(increase(tranibor_cost_usd_total[1d])) by (project)"
         }
       ],
       "gridPos": {
@@ -26,7 +27,7 @@
       "title": "Daily budget consumed",
       "targets": [
         {
-          "expr": "choregos_project_daily_cost_usd / clamp_min(choregos_project_daily_budget_usd, 0.01)"
+          "expr": "tranibor_project_daily_cost_usd / clamp_min(tranibor_project_daily_budget_usd, 0.01)"
         }
       ],
       "gridPos": {
@@ -41,7 +42,7 @@
       "title": "Cost per step and per model",
       "targets": [
         {
-          "expr": "sum(increase(choregos_cost_usd_total[7d])) by (stage, model)"
+          "expr": "sum(increase(tranibor_cost_usd_total[7d])) by (stage, model)"
         }
       ],
       "gridPos": {
@@ -56,7 +57,7 @@
       "title": "First-pass PR merge rate",
       "targets": [
         {
-          "expr": "avg(choregos_first_pass_merge_rate)"
+          "expr": "avg(tranibor_first_pass_merge_rate)"
         }
       ],
       "gridPos": {

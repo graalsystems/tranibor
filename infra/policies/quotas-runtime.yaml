@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-quotas-and-runtime
+  name: tranibor-quotas-and-runtime
 spec:
   validationFailureAction: Enforce
   background: true

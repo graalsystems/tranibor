@@ -38,10 +38,10 @@ PUBLIC_PATHS = [
     "/cli/install.ps1",
 ]
 GUARD, DOORS, PUBLIC, CALLBACK = (
-    "CHOREGOS_INTERNAL_API_GUARD",
-    "CHOREGOS_RUN_DOOR_HOSTS",
-    "CHOREGOS_PUBLIC_HOSTS",
-    "CHOREGOS_INTERNAL_API_URL",
+    "TRANIBOR_INTERNAL_API_GUARD",
+    "TRANIBOR_RUN_DOOR_HOSTS",
+    "TRANIBOR_PUBLIC_HOSTS",
+    "TRANIBOR_INTERNAL_API_URL",
 )
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -108,9 +108,9 @@ def test_the_api_warns_by_default_and_knows_the_names_it_is_routed_under(
         DOORS,
         PUBLIC,
         CALLBACK,
-        "CHOREGOS_PUBLIC_URL",
-        "CHOREGOS_API_URL",
-        "CHOREGOS_CORS_ORIGINS",
+        "TRANIBOR_PUBLIC_URL",
+        "TRANIBOR_API_URL",
+        "TRANIBOR_CORS_ORIGINS",
     ):
         monkeypatch.setenv(name, env[name])
     guard = guard_of(Settings())
@@ -188,9 +188,9 @@ def _guard_of_env(env: dict[str, str], monkeypatch: pytest.MonkeyPatch) -> Any:
     from tranibor_api.config import Settings
     from tranibor_api.internal_api_guard import guard_of
 
-    for name in (GUARD, DOORS, PUBLIC, CALLBACK, "CHOREGOS_PUBLIC_URL", "CHOREGOS_API_URL"):
+    for name in (GUARD, DOORS, PUBLIC, CALLBACK, "TRANIBOR_PUBLIC_URL", "TRANIBOR_API_URL"):
         monkeypatch.setenv(name, env.get(name, ""))
-    monkeypatch.setenv("CHOREGOS_CORS_ORIGINS", env.get("CHOREGOS_CORS_ORIGINS", "[]") or "[]")
+    monkeypatch.setenv("TRANIBOR_CORS_ORIGINS", env.get("TRANIBOR_CORS_ORIGINS", "[]") or "[]")
     return guard_of(Settings())
 
 

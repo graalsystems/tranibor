@@ -1,6 +1,6 @@
 """Does the chart know how to bring workflow templates to the deployment?
 
-`CHOREGOS_WORKFLOW_TEMPLATES_DIR` was opened in the core on 2026-09-26. The chart did not yet
+`TRANIBOR_WORKFLOW_TEMPLATES_DIR` was opened in the core on 2026-09-26. The chart did not yet
 know how to set it: the seam therefore existed on the code side and **not on the deployment side**, which is
 the worst half -- a setting that cannot be set where one deploys is of no use to anyone.
 
@@ -24,7 +24,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts" / "tranibor"
 CONFIGMAP = "mes-templates"
-VARIABLE = "CHOREGOS_WORKFLOW_TEMPLATES_DIR"
+VARIABLE = "TRANIBOR_WORKFLOW_TEMPLATES_DIR"
 #: The deployments that must know the templates, and why.
 EXPECTED = {
     "tranibor-api": "loads a workflow's definition and serves the catalogue",

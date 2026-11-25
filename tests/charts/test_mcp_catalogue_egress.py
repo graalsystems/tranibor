@@ -1,6 +1,6 @@
 """The deployment tells the API which hosts it may reach and mounts the operator's own MCP catalogue.
 
-`tranibor-api.egressHosts` becomes `CHOREGOS_API_EGRESS_HOSTS` (a JSON list);
+`tranibor-api.egressHosts` becomes `TRANIBOR_API_EGRESS_HOSTS` (a JSON list);
 `tranibor-api.mcpCatalogueExtra` names a ConfigMap, mounted read-only, whose `catalogue.yaml` is
 merged after the shipped catalogue (ADR 0065). Both empty: nothing is set and the catalogue answers
 `unknown` for egress.
@@ -16,6 +16,8 @@ from typing import Any
 
 import pytest
 import yaml
+
+from .conftest import both_paths, etc_mounts
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
@@ -44,20 +46,19 @@ def _env(pod: dict[str, Any]) -> dict[str, str]:
 def test_nothing_is_set_by_default() -> None:
     pod = _api_pod()
     env = _env(pod)
-    assert "CHOREGOS_API_EGRESS_HOSTS" not in env and "CHOREGOS_MCP_CATALOGUE_EXTRA" not in env
+    assert "TRANIBOR_API_EGRESS_HOSTS" not in env and "TRANIBOR_MCP_CATALOGUE_EXTRA" not in env
     assert "mcp-catalogue" not in {v["name"] for v in pod["volumes"]}
 
 
 def test_the_egress_hosts_reach_the_api_as_a_json_list() -> None:
     env = _env(_api_pod("tranibor-api.egressHosts={api.githubcopilot.com,*.notion.com}"))
-    assert json.loads(env["CHOREGOS_API_EGRESS_HOSTS"]) == ["api.githubcopilot.com", "*.notion.com"]
+    assert json.loads(env["TRANIBOR_API_EGRESS_HOSTS"]) == ["api.githubcopilot.com", "*.notion.com"]
 
 
 def test_the_site_catalogue_is_mounted_read_only_and_named_by_the_environment() -> None:
     pod = _api_pod("tranibor-api.mcpCatalogueExtra=site-mcp-catalogue")
-    assert _env(pod)["CHOREGOS_MCP_CATALOGUE_EXTRA"] == "/etc/choregos/mcp-catalogue/catalogue.yaml"
+    assert _env(pod)["TRANIBOR_MCP_CATALOGUE_EXTRA"] == "/etc/tranibor/mcp-catalogue/catalogue.yaml"
     (volume,) = [v for v in pod["volumes"] if v["name"] == "mcp-catalogue"]
     assert volume["configMap"]["name"] == "site-mcp-catalogue"
     (container,) = [c for c in pod["containers"] if c["name"] == "api"]
-    (mount,) = [m for m in container["volumeMounts"] if m["name"] == "mcp-catalogue"]
-    assert mount["mountPath"] == "/etc/choregos/mcp-catalogue" and mount["readOnly"] is True
+    assert etc_mounts(container, "mcp-catalogue") == both_paths("/etc/tranibor/mcp-catalogue")

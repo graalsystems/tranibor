@@ -18,7 +18,8 @@ spec:
   minAvailable: {{ $root.Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-orchestrator
+      app.kubernetes.io/component: orchestrator
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
       tranibor/queue: {{ .name }}
 {{- end }}
 {{- end }}

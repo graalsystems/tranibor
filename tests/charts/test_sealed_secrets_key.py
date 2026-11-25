@@ -36,7 +36,7 @@ def _keks_refs(docs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             continue
         for container in doc["spec"]["template"]["spec"]["containers"]:
             for var in container.get("env", []):
-                if var["name"] == "CHOREGOS_SECRETS_KEKS":
+                if var["name"] == "TRANIBOR_SECRETS_KEKS":
                     refs[doc["metadata"]["name"]] = var["valueFrom"]["secretKeyRef"]
     return refs
 

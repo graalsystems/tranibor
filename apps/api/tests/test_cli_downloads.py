@@ -101,6 +101,63 @@ async def test_a_bundle_built_before_the_rename_answers_to_the_new_names(
         assert response.content == (bundle["dir"] / FORMER[target]).read_bytes()
 
 
+@pytest.fixture
+def image_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Path, Path]]:
+    """The API image's two directories (ADR 0226, R9b), here under `tmp_path`, at the default setting."""
+    from tranibor_api.config import reset_settings_cache
+    from tranibor_api.routers import cli_downloads
+
+    new, former = tmp_path / "opt" / "tranibor" / "cli", tmp_path / "opt" / "choregos" / "cli"
+    monkeypatch.setattr(cli_downloads, "CLI_DIR", new)
+    monkeypatch.setattr(cli_downloads, "FORMER_CLI_DIR", former)
+    monkeypatch.setenv("TRANIBOR_CLI_DIR", str(new))
+    reset_settings_cache()
+    yield new, former
+    reset_settings_cache()
+
+
+def test_the_image_s_directory_is_opt_tranibor_cli() -> None:
+    from tranibor_api.config import Settings
+    from tranibor_api.routers.cli_downloads import CLI_DIR, FORMER_CLI_DIR
+
+    assert Settings.model_fields["cli_dir"].default == str(CLI_DIR) == "/opt/tranibor/cli"
+    assert str(FORMER_CLI_DIR) == "/opt/choregos/cli"
+
+
+async def test_an_image_built_before_the_rename_still_serves_its_binaries(
+    client: AsyncClient, image_dirs: tuple[Path, Path]
+) -> None:
+    """Only the former `/opt/choregos/cli/` exists (an image built from an earlier Dockerfile, a volume
+    mounted there): the default setting finds it."""
+    _, former = image_dirs
+    make_bundle(former)
+    response = await client.get(f"/downloads/cli/{NAMES['linux', 'x86_64']}")
+    assert response.status_code == 200, response.text
+    assert response.content == (former / NAMES["linux", "x86_64"]).read_bytes()
+
+
+async def test_the_new_directory_wins_when_both_exist(
+    client: AsyncClient, image_dirs: tuple[Path, Path]
+) -> None:
+    new, former = image_dirs
+    make_bundle(new, version="9.9.9")
+    make_bundle(former, version="1.0.0")
+    manifest = (await client.get("/downloads/cli/manifest.json")).json()
+    assert manifest["version"] == "9.9.9"
+
+
+async def test_a_directory_the_deployment_names_is_never_swapped(
+    client: AsyncClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, image_dirs: tuple[Path, Path]
+) -> None:
+    from tranibor_api.config import reset_settings_cache
+
+    _, former = image_dirs
+    make_bundle(former)
+    monkeypatch.setenv("TRANIBOR_CLI_DIR", str(tmp_path / "elsewhere"))
+    reset_settings_cache()
+    assert (await client.get("/downloads/cli/manifest.json")).status_code == 404
+
+
 # ─── the routes ───
 
 

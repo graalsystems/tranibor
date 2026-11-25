@@ -11,5 +11,6 @@ data:
   README: |
     The orchestrator has no ClusterRole. Each provisioned project creates, in its
     runners namespace, a Role allowing the creation of PipelineRun, Secret and
-    ConfigMap, bound to the `choregos-orchestrator` ServiceAccount of the platform namespace.
+    ConfigMap, bound to the `tranibor-orchestrator` and `choregos-orchestrator` ServiceAccounts of the
+    platform namespace (the workers run as the latter until a later release, ADR 0226).
 {{- end }}

@@ -1,11 +1,11 @@
 # The Kyverno engine itself (RE2 regular expressions, anchors) judges these pods: a Python
-# reading of the policies cannot tell what Kyverno would admit. `choregos-verify-images`
+# reading of the policies cannot tell what Kyverno would admit. `tranibor-verify-images`
 # (signatures) needs the registry and Sigstore, so it is not judged here.
 # One entry per pod, so a wrong verdict names its pod.
 apiVersion: cli.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: choregos-policies
+  name: tranibor-policies
 policies:
 - ../image-tags.yaml
 - ../pod-security.yaml
@@ -14,229 +14,229 @@ resources:
 exceptions:
 - exception.yaml
 results:
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - explicit-latest
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - no-tag
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - bare-name
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - port-no-tag
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - sidecar-latest
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - sidecar-no-tag
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - tagged
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - digest
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - tag-and-digest
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - port-and-tag
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - sidecar-tagged
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - sidecar-privileged
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - no-pod-context
   kind: Pod
   result: pass
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - host-path
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - sidecar-privileged
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - no-pod-context
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - tagged
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - digest
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - tag-and-digest
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - port-and-tag
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - explicit-latest
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - no-tag
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - bare-name
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - port-no-tag
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - sidecar-tagged
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - sidecar-latest
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - sidecar-no-tag
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - host-path
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: no-hostpath
   resources:
   - host-path
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: no-hostpath
   resources:
   - tagged
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - container-unconfined-seccomp
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - container-unconfined-apparmor
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - pod-unconfined-apparmor
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - init-unconfined-seccomp
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - init-unconfined-apparmor
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - ephemeral-unconfined-seccomp
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - ephemeral-unconfined-apparmor
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - profiles-confined
@@ -244,7 +244,7 @@ results:
   result: pass
 # The builder runs unconfined by design (S41-13): only its PolicyException admits it. Without the
 # exception the same pod is refused (`no-exception/`).
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - tranibor-buildkitd-7d9f
@@ -252,25 +252,25 @@ results:
   result: skip
 # A release installed in namespace `choregos`, exactly (#911): the `choregos-*` glob alone left it
 # out of every rule.
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - platform-no-context
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - platform-confined
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: no-hostpath
   resources:
   - platform-host-path
   kind: Pod
   result: fail
-- policy: choregos-image-tags
+- policy: tranibor-image-tags
   rule: forbid-latest-tag
   resources:
   - platform-latest
@@ -278,31 +278,31 @@ results:
   result: fail
 # ADR 0226 R6: a pod in `tranibor` or `tranibor-*` is judged as one in `choregos` or `choregos-*`, and a
 # project's object may carry the project label under either name, never under neither.
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
   - tranibor-platform-no-context
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: no-hostpath
   resources:
   - tranibor-glob-host-path
   kind: Pod
   result: fail
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: required-labels
   resources:
   - project-label-new
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: required-labels
   resources:
   - tagged
   kind: Pod
   result: pass
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: required-labels
   resources:
   - project-label-missing

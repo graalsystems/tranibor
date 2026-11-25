@@ -3,7 +3,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-verify-images
+  name: tranibor-verify-images
   annotations:
     policies.kyverno.io/description: >-
       Verifies the cosign signature of the Choregos images and requires the reference by digest.

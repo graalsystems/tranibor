@@ -1,7 +1,7 @@
 {{- $e := .Values.global.egress | default dict }}
 {{- if $e.enabled }}
 {{- /*
-`choregos-egress` (ADR 0070): the per-run egress proxy, in the release namespace, from the API image.
+`tranibor-egress` (ADR 0070): the per-run egress proxy, in the release namespace, from the API image.
 A runner presents its run id and token as proxy credentials; the proxy asks the API (`GET
 /internal/runs/{id}/network`) what THAT run may reach, and lets a tunnel through or refuses. It holds
 no database access and no service account token; its one secret is its own report key (ADR 0145),
@@ -19,23 +19,23 @@ platform must stop letting runner pods out directly.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: choregos-egress
+  name: tranibor-egress
   labels:
-    app.kubernetes.io/name: choregos-egress
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "egress") }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: egress
-    app.kubernetes.io/part-of: choregos
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   replicas: {{ $e.replicas | default 1 }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: choregos-egress
+      app.kubernetes.io/component: egress
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: choregos-egress
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "egress") }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: egress
         # NOT `part-of: choregos`: `tranibor-allow-ingress` admits every pod of the namespace to the pods
@@ -59,14 +59,14 @@ spec:
             - { name: proxy, containerPort: {{ $port }} }
             - { name: health, containerPort: {{ $health }} }
           env:
-            - { name: CHOREGOS_EGRESS_API_URL, value: {{ $apiUrl | quote }} }
-            - { name: CHOREGOS_EGRESS_PORT, value: {{ $port | quote }} }
-            - { name: CHOREGOS_EGRESS_HEALTH_PORT, value: {{ $health | quote }} }
-            - { name: CHOREGOS_EGRESS_PORTS, value: {{ toJson ($e.ports | default (list 443 80)) | quote }} }
-            - { name: CHOREGOS_EGRESS_DENY_DOMAINS, value: {{ toJson ($e.denyDomains | default list) | quote }} }
-            - { name: CHOREGOS_EGRESS_CACHE_SECONDS, value: {{ $e.cacheSeconds | default 60 | quote }} }
+            - { name: TRANIBOR_EGRESS_API_URL, value: {{ $apiUrl | quote }} }
+            - { name: TRANIBOR_EGRESS_PORT, value: {{ $port | quote }} }
+            - { name: TRANIBOR_EGRESS_HEALTH_PORT, value: {{ $health | quote }} }
+            - { name: TRANIBOR_EGRESS_PORTS, value: {{ toJson ($e.ports | default (list 443 80)) | quote }} }
+            - { name: TRANIBOR_EGRESS_DENY_DOMAINS, value: {{ toJson ($e.denyDomains | default list) | quote }} }
+            - { name: TRANIBOR_EGRESS_CACHE_SECONDS, value: {{ $e.cacheSeconds | default 60 | quote }} }
             # The proxy's own key, sent with its reports (ADR 0145): the API's copy, never a run's.
-            - name: CHOREGOS_EGRESS_REPORT_KEY
+            - name: TRANIBOR_EGRESS_REPORT_KEY
               valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: egress-report-key, optional: true } }
           readinessProbe:
             httpGet: { path: /healthz, port: health }
@@ -81,22 +81,27 @@ spec:
             - { name: tmp, mountPath: /tmp }
       volumes:
         - { name: tmp, emptyDir: {} }
+{{- /* `tranibor-egress`, and the former `choregos-egress` on the same pods until 0.32.0 (ADR 0226, R9b): a run
+   started before the upgrade, or a suspended sandbox, was given the former address and goes out through it
+   until it ends, and the default `runner.egressProxy` names it for the window. */}}
+{{- range $service := list "tranibor-egress" "choregos-egress" }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: choregos-egress
+  name: {{ $service }}
   labels:
-    app.kubernetes.io/name: choregos-egress
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "egress") }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
     app.kubernetes.io/component: egress
-    app.kubernetes.io/part-of: choregos
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
 spec:
   type: ClusterIP
   ports:
     - { name: proxy, port: {{ $port }}, targetPort: proxy }
   selector:
-    app.kubernetes.io/name: choregos-egress
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: egress
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+{{- end }}
 {{- end }}

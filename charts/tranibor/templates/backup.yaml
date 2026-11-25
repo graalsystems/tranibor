@@ -374,7 +374,7 @@ spec:
       template:
         metadata:
           labels:
-            app.kubernetes.io/name: choregos-backup
+            app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "backup") }}
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: backup
         spec:
@@ -520,7 +520,7 @@ spec:
       template:
         metadata:
           labels:
-            app.kubernetes.io/name: choregos-restore
+            app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "restore") }}
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: restore
         spec:

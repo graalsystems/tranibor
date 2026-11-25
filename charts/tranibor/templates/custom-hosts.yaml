@@ -6,7 +6,7 @@ Certificate issued by HTTP-01 through the configured Issuer.
 It renders routing and TLS and nothing else. It does not decide whether a host is served as an
 organisation's: that is the edition's verified claim, read at run time (ADR 0175 §2). It does not
 weaken the run's API guard either: the hosts are handed to the API as public names
-(`CHOREGOS_PUBLIC_HOSTS`, in the API's Deployment), so `/api/v1/internal` is closed on them whether
+(`TRANIBOR_PUBLIC_HOSTS`, in the API's Deployment), so `/api/v1/internal` is closed on them whether
 the claim is proved or not.
 
 The API's paths below are the ones of `tranibor-api`'s own route (`charts/api/templates/httproute.yaml`);

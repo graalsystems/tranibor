@@ -177,9 +177,11 @@ def _template_labels(document: dict[str, Any]) -> dict[str, str]:
     return dict(spec["template"]["metadata"]["labels"])
 
 
-@pytest.fixture(scope="module")
-def rendered() -> list[dict[str, Any]]:
-    return _documents()
+@pytest.fixture(scope="module", params=["former", "tranibor"])
+def rendered(request: pytest.FixtureRequest) -> list[dict[str, Any]]:
+    """Under either value of the pods' name labels (ADR 0226, R9b: `global.labelValues`): the policies
+    hold the same pods both ways."""
+    return _documents("--set", f"global.labelValues={request.param}")
 
 
 @pytest.fixture(scope="module")
@@ -197,7 +199,7 @@ def pods(rendered: list[dict[str, Any]]) -> dict[str, Pod]:
         ("Deployment", "tranibor-api"): "api",
         ("Deployment", "tranibor-web"): "web",
         ("Deployment", "tranibor-orchestrator-executor"): "orchestrator",
-        ("Deployment", "choregos-egress"): "egress",
+        ("Deployment", "tranibor-egress"): "egress",
         ("CronJob", "choregos-backup"): "backup",
         ("CronJob", "choregos-restore"): "restore",
     }
@@ -223,7 +225,7 @@ def sandbox_labels() -> dict[str, str]:
 def agent(request: pytest.FixtureRequest, sandbox_labels: dict[str, str]) -> Pod:
     """An agent pod, with the labels its executor really puts on it."""
     if request.param == "k8s_job":
-        labels = {"choregos/run-id": "run-1", **RUNNER_POD_LABELS}
+        labels = {"tranibor/run-id": "run-1", "choregos/run-id": "run-1", **RUNNER_POD_LABELS}
     else:
         labels = sandbox_labels
     return Pod(f"agent ({request.param})", labels, "10.42.0.99")
@@ -243,8 +245,10 @@ def test_the_profile_renders_the_policies_and_the_egress_proxy(rendered: list[di
         "tranibor-temporal-ingress",
     ):
         assert ("NetworkPolicy", name) in names, name
-    assert ("Deployment", "choregos-egress") in names
-    assert ("Service", "choregos-egress") in names
+    assert ("Deployment", "tranibor-egress") in names
+    # The proxy's former address too, on the same pods (ADR 0226, R9b): a run started before the upgrade
+    # was given it.
+    assert {("Service", "tranibor-egress"), ("Service", "choregos-egress")} <= names
 
 
 def test_the_evaluator_is_not_vacuous(pods: dict[str, Pod], agent: Pod) -> None:
@@ -353,9 +357,9 @@ def test_the_runners_are_told_to_use_the_proxy(rendered: list[dict[str, Any]]) -
         if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-orchestrator-executor"
     )
     env = {e["name"]: e.get("value") for e in executor["spec"]["template"]["spec"]["containers"][0]["env"]}
-    assert env["CHOREGOS_RUNNER_EGRESS_PROXY"] == "http://choregos-egress.{namespace}.svc:3128"
-    assert env["CHOREGOS_RUNNER_NAMESPACE_PATTERN"] == NAMESPACE
-    assert env["CHOREGOS_RUNNER_EGRESS_AUTH"] == "run"
+    assert env["TRANIBOR_RUNNER_EGRESS_PROXY"] == "http://tranibor-egress.{namespace}.svc:3128"
+    assert env["TRANIBOR_RUNNER_NAMESPACE_PATTERN"] == NAMESPACE
+    assert env["TRANIBOR_RUNNER_EGRESS_AUTH"] == "run"
 
 
 # ------------------------------------------------------------------ the guard

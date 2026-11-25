@@ -1,8 +1,9 @@
 {
-  "title": "Choregos — Traces",
+  "title": "Tranibor — Traces",
   "uid": "choregos-traces",
   "description": "Rate, errors and duration per stage, model and tool, from span metrics (ADR 0018): each panel reads the collector's (`traces_span_metrics_*`) and Tempo's metrics generator's (`traces_spanmetrics_*`); an install has one of the two.",
   "tags": [
+    "tranibor",
     "choregos"
   ],
   "panels": [
