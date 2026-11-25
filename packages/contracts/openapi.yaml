@@ -525,6 +525,51 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { description: Below the 60-second floor }
+  /orgs/{org}/temporal-keys:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    get:
+      tags: [admin]
+      operationId: listTemporalKeys
+      summary: The organisation's Temporal data keys (ADR 0225)
+      description: "The ids, states (`active`, `retired`, `shredded`), wrapping key and dates of the random keys that seal the organisation's Temporal payloads. Never a key, wrapped or not. `available` is false when the deployment has no key wrapper (`TRANIBOR_SECRETS_KEKS` or the vault-transit extension): the organisation's keys are then derived from the master key (ADR 0220) and cannot be shredded. The organisation's administrator only."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeys" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /orgs/{org}/temporal-keys/rotation:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [admin]
+      operationId: rotateTemporalKey
+      summary: Rotate the organisation's Temporal data key (ADR 0225)
+      description: "A new random data key seals the organisation's new Temporal payloads; the retired ones still open what they sealed. Other processes move to it within `TRANIBOR_TEMPORAL_DATA_KEY_TTL_S`. Audited (`org.temporal_keys.rotate`). The organisation's administrator only."
+      responses:
+        "200": { description: Rotated, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeyInfo" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /orgs/{org}/temporal-keys/shredding:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [admin]
+      operationId: shredTemporalKeys
+      summary: Shred the organisation's Temporal data keys (crypto-shredding, ADR 0225)
+      description: |
+        Destroys every wrapped data key of the organisation: the Temporal payloads they sealed can never be
+        read again, by anyone. Irreversible: `confirm` repeats the organisation's slug. The rows stay as
+        tombstones (id, time, who); the organisation's next payload gets a new key. What is not erased is
+        listed in the answer (`not_erased`): Temporal's own metadata, search attributes and memo, payloads
+        sealed before ADR 0225 or under the master key, database backups taken before, and a key another
+        process still caches (`TRANIBOR_TEMPORAL_DATA_KEY_TTL_S` at most). Workflows of the organisation
+        still open fail their next task: terminate them first. Audited (`org.temporal_keys.shred`, with the
+        reason). The organisation's administrator only.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeyShredding" } } } }
+      responses:
+        "200": { description: Shredded, content: { application/json: { schema: { $ref: "#/components/schemas/TemporalKeysShredded" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { description: "`confirm` is not the organisation's slug" }
   /orgs/{org}/saml:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -13626,6 +13671,37 @@ components:
       properties:
         revoked: { type: string }
         ended: { type: integer }
+    TemporalKeyInfo:
+      type: object
+      required: [key_id, state, kek_id, created_at]
+      properties:
+        key_id: { type: string, description: "what each payload carries in `encryption-key-id`" }
+        state: { type: string, enum: [active, retired, shredded] }
+        kek_id: { type: string, description: "the key wrapper's key that wraps it" }
+        created_at: { type: string, format: date-time }
+        created_by: { type: [string, "null"] }
+        shredded_at: { type: [string, "null"], format: date-time }
+        shredded_by: { type: [string, "null"] }
+    TemporalKeys:
+      type: object
+      required: [org, available, keys]
+      properties:
+        org: { type: string }
+        available: { type: boolean, description: "a key wrapper is configured; false: the keys are derived (ADR 0220) and cannot be shredded" }
+        keys: { type: array, items: { $ref: "#/components/schemas/TemporalKeyInfo" } }
+    TemporalKeyShredding:
+      type: object
+      required: [confirm, reason]
+      properties:
+        confirm: { type: string, minLength: 1, maxLength: 128, description: "the organisation's slug, typed again" }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    TemporalKeysShredded:
+      type: object
+      required: [org, shredded, not_erased]
+      properties:
+        org: { type: string }
+        shredded: { type: array, items: { type: string }, description: "the key ids destroyed by this call" }
+        not_erased: { type: array, items: { type: string } }
     SamlProviderIn:
       type: object
       required: [idp_entity_id, sso_url, certificate_pem, domains]

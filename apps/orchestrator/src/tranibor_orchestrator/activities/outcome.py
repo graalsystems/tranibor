@@ -30,6 +30,7 @@ from tranibor_core.decision_ledger import declared_confidences
 from tranibor_core.domain import DiffSummary
 from tranibor_core.finding_types import refusal
 from tranibor_core.run_stop import stopped_by_a_person
+from tranibor_core.temporal_connection import organisation_scope
 from tranibor_core.unified_diff import unified_diff
 
 from ..config import get_settings
@@ -414,7 +415,8 @@ async def _persist_findings(session: Any, run: Run, item: Any, result: StageResu
             title=row.title,
         )
     for finding_id in created:
-        await signal_findings(
-            bundle.slug, "finding", {"finding_id": finding_id, "project_id": run.project_id}
-        )
+        with organisation_scope(bundle.project.org_id):
+            await signal_findings(
+                bundle.slug, "finding", {"finding_id": finding_id, "project_id": run.project_id}
+            )
     return created

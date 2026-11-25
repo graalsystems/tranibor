@@ -13,6 +13,7 @@ from tranibor_core import utcnow
 from tranibor_core.agent_completeness import ORG_SETTING as COMPLETE_AGENTS_SETTING
 from tranibor_core.agent_completeness import org_requires_complete
 from tranibor_core.memory_scope import MEMORY_KEY_SETTING, memory_key
+from tranibor_core.temporal_connection import organisation_scope
 from tranibor_core.tool_scripts_switch import ORG_SETTING as TOOL_SCRIPTS_SETTING
 from tranibor_core.tool_scripts_switch import org_tool_scripts
 
@@ -642,10 +643,12 @@ async def _activate_without_steps(ctx: ProjectCtx, session: Db, *, dry_run: bool
     from ..services import policy_engine
     from ..temporal import start_memory_ingestion, start_tracker_reconciliation
 
-    await start_tracker_reconciliation(ctx.slug)
-    # The memory is fed from activation on (S51-02), unless the project's policy disables it.
-    if (await policy_engine(session, ctx.id)).memory_enabled():
-        await start_memory_ingestion(ctx.slug)
+    memory = (await policy_engine(session, ctx.id)).memory_enabled()
+    with organisation_scope(ctx.project.org_id):
+        await start_tracker_reconciliation(ctx.slug)
+        # The memory is fed from activation on (S51-02), unless the project's policy disables it.
+        if memory:
+            await start_memory_ingestion(ctx.slug)
     return _provision_status(ctx.project)
 
 
@@ -683,7 +686,8 @@ async def provision(ctx: ProjectCtx, body: ProvisionRequest, session: Db) -> Pro
         # in under a second, and its `finish_provisioning` wrote `succeeded` before this request
         # committed `running` over it; the project stayed `provisioning` (production, 2026-11-11).
         await release_connection(session)
-        await get_temporal().start_provisioning(workflow_id, payload)
+        with organisation_scope(ctx.project.org_id):
+            await get_temporal().start_provisioning(workflow_id, payload)
     await persist_event(
         session,
         EventType.PROVISIONING_STEP,

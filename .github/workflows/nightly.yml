@@ -185,6 +185,11 @@ jobs:
       TRANIBOR_LIVE_MCP_GATEWAY_ROUTING: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_ROUTING }}
       TRANIBOR_LIVE_MCP_GATEWAY_SERVER_HEADER: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_SERVER_HEADER }}
       TRANIBOR_LIVE_MCP_GATEWAY_AUTH_HEADER: ${{ secrets.TRANIBOR_LIVE_MCP_GATEWAY_AUTH_HEADER }}
+      # A Vault transit engine wrapping the organisations' Temporal data keys (ADR 0225,
+      # tests/live/test_vault_transit_temporal_keys_live.py). Skipped while the address is unset; the
+      # token's policy needs `transit/keys/*` and `transit/{encrypt,decrypt,rewrap}/*`.
+      TRANIBOR_LIVE_VAULT_ADDR: ${{ secrets.TRANIBOR_LIVE_VAULT_ADDR }}
+      TRANIBOR_LIVE_VAULT_TOKEN: ${{ secrets.TRANIBOR_LIVE_VAULT_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0

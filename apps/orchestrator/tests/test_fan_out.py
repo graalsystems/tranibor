@@ -150,6 +150,16 @@ async def _items(setup: Fixture) -> dict[str, Any]:
         return {row.tracker_key: row for row in rows.scalars()}
 
 
+async def _org_of(setup: Fixture) -> str:
+    from tranibor_api.db.models import Project
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope() as session:
+        project = await session.get(Project, setup.project_id)
+        assert project is not None
+        return project.org_id
+
+
 async def _children_open(setup: Fixture, count: int) -> dict[str, Any]:
     async def probe() -> dict[str, Any] | None:
         items = await _items(setup)
@@ -298,10 +308,14 @@ async def test_opening_twice_opens_nothing_new(setup: Fixture) -> None:
 
     await _install(setup, _research(), {"symbols": SYMBOLS})
     started: list[str] = []
+    memos: list[dict[str, str]] = []
 
     class Client:
-        async def start_workflow(self, _name: str, _input: Any, *, id: str, task_queue: str) -> None:
+        async def start_workflow(
+            self, _name: str, _input: Any, *, id: str, task_queue: str, memo: dict[str, str]
+        ) -> None:
             started.append(id)
+            memos.append(memo)
 
     env = ActivityEnvironment(client=Client())  # type: ignore[arg-type]
     payload = {
@@ -315,6 +329,8 @@ async def test_opening_twice_opens_nothing_new(setup: Fixture) -> None:
     assert first == again == {"children": ["northwind/billing-api#123.1", "northwind/billing-api#123.2"]}
     assert len(await _items(setup)) == 3, "two children, not four"
     assert started == [f"{PARENT_ID}.1", f"{PARENT_ID}.2"] * 2, "the same identifiers: Temporal refuses twice"
+    # the children name their organisation, for the payload codec of a later signal (ADR 0225)
+    assert {memo["organisation"] for memo in memos} == {await _org_of(setup)}
 
 
 def test_the_list_is_read_from_the_fields_or_from_an_output_kept_as_json() -> None:
@@ -393,7 +409,9 @@ async def test_an_external_trackers_project_opens_its_children_in_the_platform(
     monkeypatch.setattr(tickets, "project_tracker", an_external_tracker)
 
     class Client:
-        async def start_workflow(self, _name: str, _input: Any, *, id: str, task_queue: str) -> None:
+        async def start_workflow(
+            self, _name: str, _input: Any, *, id: str, task_queue: str, memo: dict[str, str]
+        ) -> None:
             return None
 
     env = ActivityEnvironment(client=Client())  # type: ignore[arg-type]

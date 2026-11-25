@@ -17,6 +17,7 @@ from tranibor_api.db.models import Project
 from tranibor_api.services import persist_event
 from tranibor_contracts import EventType
 from tranibor_core import Fact, Message, Provenance, utcnow
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..config import get_settings
 from .base import db, notification_target, project_bundle
@@ -390,7 +391,7 @@ async def finish_provisioning(payload: dict[str, Any]) -> dict[str, Any]:
             subject=bundle.slug,
             failed=[s["name"] for s in failed],
         )
-        slug = bundle.slug
+        slug, org_id = bundle.slug, bundle.project.org_id
         memory_enabled = bundle.engine.memory_enabled()
     if not failed:
         # After the commit: the loop's first pass reads the project. Best effort, the worker's next
@@ -398,7 +399,8 @@ async def finish_provisioning(payload: dict[str, Any]) -> dict[str, Any]:
         from ..train_client import start_reconciliation_loop
 
         try:
-            await start_reconciliation_loop(slug)
+            with organisation_scope(org_id):
+                await start_reconciliation_loop(slug)
         except Exception as exc:  # the project is active; the worker start catches up
             activity.logger.warning("tracker catch-up not started for %s: %s", slug, exc)
         # The memory is fed from activation on (S51-02), unless the project's policy disables it.
@@ -406,7 +408,8 @@ async def finish_provisioning(payload: dict[str, Any]) -> dict[str, Any]:
             from ..train_client import start_memory_loop
 
             try:
-                await start_memory_loop(slug)
+                with organisation_scope(org_id):
+                    await start_memory_loop(slug)
             except Exception as exc:  # the project is active; the worker start catches up
                 activity.logger.warning("memory loop not started for %s: %s", slug, exc)
     return {"status": state["status"], "failed": [s["name"] for s in failed]}

@@ -198,6 +198,53 @@ Options:
   --help  Show this message and exit.
 ```
 
+## `choregos admin temporal-keys`
+
+An organisation's Temporal data keys: list, rotate, shred (ADR 0225)
+
+### `choregos admin temporal-keys list`
+
+```text
+Usage: choregos admin temporal-keys list [OPTIONS]
+
+  The organisation's Temporal data keys: id, state, wrapping key, dates.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `choregos admin temporal-keys rotate`
+
+```text
+Usage: choregos admin temporal-keys rotate [OPTIONS]
+
+  A new data key for the organisation's new Temporal payloads; the retired
+  ones still open theirs.
+
+Options:
+  --org <str>  the organisation; the profile's otherwise
+  --help       Show this message and exit.
+```
+
+### `choregos admin temporal-keys shred`
+
+```text
+Usage: choregos admin temporal-keys shred [OPTIONS]
+
+  Destroy every Temporal data key of the organisation: its Temporal payloads
+  can never be read again.
+
+  Irreversible. Terminate the organisation's open workflows first: they fail
+  their next task.
+
+Options:
+  --reason <str>   why, kept in the audit log  [required]
+  --confirm <str>  the organisation's slug again; asked for when absent
+  --org <str>      the organisation; the profile's otherwise
+  --help           Show this message and exit.
+```
+
 ## `choregos artifacts`
 
 A work item's artefacts, your inbox and a run's diff: list, download, open, compare.

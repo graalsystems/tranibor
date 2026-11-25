@@ -17,11 +17,15 @@ default converter (S80-06). Now they all call `connect_temporal`, which reads on
 Off by default (dev, kind, compose): an unconfigured process connects in clear with the default
 converter, which is exactly what it did before, so the archived histories replay unchanged.
 
-One master keyring, one key per organisation derived from it (ADR 0220): a payload of an
-organisation's workflow is encrypted under HKDF(master key, organisation id); a payload that belongs to
-no organisation, and every payload written before ADR 0220, is under the master key itself. In staging
-and prod a process with no keyring refuses to connect unless `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS`
-says, in so many words, that clear payloads are accepted.
+One master keyring, and one random data key per organisation (ADR 0225, superseding ADR 0220 §1 in
+part): a process that installed a `DataKeySource` (the API and the workers, over the deployment's key
+wrapper) seals an organisation's payloads under that organisation's data key, named in the metadata, so
+that destroying the organisation's wrapped key makes them unreadable (crypto-shredding). A process without
+one, and every payload written between ADR 0220 and ADR 0225, uses the key derived by HKDF(master key,
+organisation id), which still decodes. A payload that belongs to no organisation, and every payload written
+before ADR 0220, is under the master key itself. In staging and prod a process with no keyring refuses to
+connect unless `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS` says, in so many words, that clear payloads are
+accepted.
 """
 
 from __future__ import annotations
@@ -31,13 +35,14 @@ import binascii
 import dataclasses
 import os
 import re
+import time
 from collections import OrderedDict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -75,6 +80,15 @@ KEY_ID_METADATA = "encryption-key-id"
 #: The metadata key naming the organisation whose derived key encrypted the payload (ADR 0220). Absent:
 #: the master key itself, which is the platform key and what every payload written before ADR 0220 has.
 ORG_METADATA = "encryption-org"
+#: The metadata key naming the kind of key that sealed the payload (ADR 0225). `org-data-key`: the
+#: organisation's random data key, whose id is `encryption-key-id`. Absent: the master keyring's key, or,
+#: with `encryption-org`, the key ADR 0220 derives from it.
+KEY_SOURCE_METADATA = "encryption-key-source"
+ORG_DATA_KEY = b"org-data-key"
+#: How long a process keeps an organisation's unwrapped data key (seconds). It bounds how long a process
+#: that did not shred the key can still read and write under it (ADR 0225).
+ENV_DATA_KEY_TTL = "TRANIBOR_TEMPORAL_DATA_KEY_TTL_S"
+DEFAULT_DATA_KEY_TTL_S = 300.0
 #: The memo key a workflow carries so that a process that did not start it learns its organisation.
 ORG_MEMO = "organisation"
 ORG_ID = re.compile(r"[A-Za-z0-9._:@-]{1,128}")
@@ -93,6 +107,129 @@ class UnknownCodecKeyError(Exception):
     """A payload was encrypted under a key this process does not hold (rotated out too early)."""
 
 
+class ShreddedKeyError(UnknownCodecKeyError):
+    """The organisation's data key was destroyed (crypto-shredding, ADR 0225): its payloads stay unread."""
+
+
+class DataKeySource(Protocol):
+    """Where an organisation's random data keys live (ADR 0225). Core ships no implementation: the API's
+    is a table of keys wrapped by the deployment's `KeyWrapper` (ADR 0103)."""
+
+    async def active_data_key(self, org_id: str) -> tuple[str, bytes]:
+        """`(key id, 32-byte key)` that seals the organisation's new payloads; made when it has none."""
+        ...
+
+    async def data_key(self, org_id: str, key_id: str) -> bytes:
+        """The key `key_id` of the organisation. Raises `ShreddedKeyError` for a destroyed key,
+        `UnknownCodecKeyError` for one that does not exist."""
+        ...
+
+
+class DataKeyCache:
+    """The unwrapped data keys a process holds, for `ttl_s` at most, shared by every codec of the process.
+
+    `forget(org_id)` drops an organisation's keys at once (the process that shreds or rotates them); any
+    other process drops them when the time runs out, so a shredded key stays usable there for `ttl_s` at
+    most. A key that could not be read is not remembered: the next payload asks again.
+    """
+
+    def __init__(
+        self,
+        source: DataKeySource,
+        *,
+        ttl_s: float = DEFAULT_DATA_KEY_TTL_S,
+        clock: Callable[[], float] = time.monotonic,
+        capacity: int = 4096,
+    ) -> None:
+        self.source = source
+        self._ttl_s = ttl_s
+        self._clock = clock
+        self._capacity = capacity
+        self._active: dict[str, tuple[float, str, AESGCM]] = {}
+        self._keys: OrderedDict[tuple[str, str], tuple[float, AESGCM]] = OrderedDict()
+
+    def _fresh(self, since: float) -> bool:
+        return self._clock() - since < self._ttl_s
+
+    async def active(self, org_id: str) -> tuple[str, AESGCM]:
+        cached = self._active.get(org_id)
+        if cached is not None and self._fresh(cached[0]):
+            return cached[1], cached[2]
+        key_id, key = await self.source.active_data_key(org_id)
+        if not KEY_ID.fullmatch(key_id) or len(key) != KEY_BYTES:
+            raise TemporalConfigError("the organisation key source returned a malformed key")
+        cipher = AESGCM(key)
+        now = self._clock()
+        self._active[org_id] = (now, key_id, cipher)
+        self._remember((org_id, key_id), now, cipher)
+        return key_id, cipher
+
+    async def cipher(self, org_id: str, key_id: str) -> AESGCM:
+        cached = self._keys.get((org_id, key_id))
+        if cached is not None and self._fresh(cached[0]):
+            return cached[1]
+        key = await self.source.data_key(org_id, key_id)
+        if len(key) != KEY_BYTES:
+            raise TemporalConfigError("the organisation key source returned a malformed key")
+        cipher = AESGCM(key)
+        self._remember((org_id, key_id), self._clock(), cipher)
+        return cipher
+
+    def _remember(self, slot: tuple[str, str], at: float, cipher: AESGCM) -> None:
+        self._keys[slot] = (at, cipher)
+        self._keys.move_to_end(slot)
+        while len(self._keys) > self._capacity:
+            self._keys.popitem(last=False)
+        if len(self._active) > self._capacity:
+            self._active.clear()
+
+    def forget(self, org_id: str | None = None) -> None:
+        """Drop the organisation's keys (`None`: every organisation's) from this process."""
+        if org_id is None:
+            self._active.clear()
+            self._keys.clear()
+            return
+        self._active.pop(org_id, None)
+        for slot in [slot for slot in self._keys if slot[0] == org_id]:
+            del self._keys[slot]
+
+    def holds(self, org_id: str) -> bool:
+        """Whether this process holds a key of the organisation (tests, diagnostics)."""
+        return org_id in self._active or any(slot[0] == org_id for slot in self._keys)
+
+
+_DATA_KEYS: list[DataKeyCache] = []
+
+
+def install_data_keys(
+    source: DataKeySource | None, *, ttl_s: float | None = None, env: Mapping[str, str] | None = None
+) -> DataKeyCache | None:
+    """Give every Temporal client this process connects from now on the organisations' data keys (ADR 0225).
+
+    The API's lifespan and the worker's start call it with the database's source when the deployment has a
+    key wrapper. `None` removes it: organisations' payloads are then sealed under the ADR 0220 derived keys.
+    """
+    _DATA_KEYS.clear()
+    if source is None:
+        return None
+    values = os.environ if env is None else env
+    if ttl_s is None:
+        raw = values.get(ENV_DATA_KEY_TTL, "").strip()
+        try:
+            ttl_s = float(raw) if raw else DEFAULT_DATA_KEY_TTL_S
+        except ValueError:
+            raise TemporalConfigError(f"{ENV_DATA_KEY_TTL}: a number of seconds, not `{raw}`") from None
+        if not 0 <= ttl_s <= 86_400:
+            raise TemporalConfigError(f"{ENV_DATA_KEY_TTL}: between 0 and 86400 seconds")
+    cache = DataKeyCache(source, ttl_s=ttl_s)
+    _DATA_KEYS.append(cache)
+    return cache
+
+
+def installed_data_keys() -> DataKeyCache | None:
+    return _DATA_KEYS[0] if _DATA_KEYS else None
+
+
 @dataclass(frozen=True)
 class TemporalSecurity:
     """What a process needs to talk to Temporal safely: TLS material and the codec's keys."""
@@ -106,6 +243,8 @@ class TemporalSecurity:
     codec_keys: tuple[tuple[str, bytes], ...] = ()
     #: `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS`: clear payloads accepted in staging and prod.
     allow_clear: bool = False
+    #: The organisations' data keys (ADR 0225): what `install_data_keys` installed in this process.
+    data_keys: DataKeyCache | None = field(default=None, compare=False, repr=False)
 
     @property
     def encrypts(self) -> bool:
@@ -135,6 +274,7 @@ class TemporalSecurity:
             server_name=values.get(ENV_TLS_SERVER_NAME, "").strip() or None,
             codec_keys=parse_codec_keys(keyring),
             allow_clear=values.get(ENV_ALLOW_CLEAR_PAYLOADS, "").strip().lower() in TRUE,
+            data_keys=installed_data_keys(),
         )
 
     def refuse_clear_in_production(self, environment: str | None) -> None:
@@ -207,13 +347,14 @@ def data_converter(security: TemporalSecurity) -> DataConverter:
 
     Without keys, the SDK's default, unchanged. With keys, the default plus the AES-256-GCM codec,
     and failures whose message and stack trace go through the codec too: a failed activity's message
-    can quote a ticket as easily as its result can.
+    can quote a ticket as easily as its result can. The organisations' data keys, when the process
+    installed them (ADR 0225), seal what belongs to an organisation.
     """
     if not security.encrypts:
         return DataConverter.default
     return dataclasses.replace(
         DataConverter.default,
-        payload_codec=AesGcmCodec(security.codec_keys),
+        payload_codec=AesGcmCodec(security.codec_keys, data_keys=security.data_keys),
         failure_converter_class=DefaultFailureConverterWithEncodedAttributes,
     )
 
@@ -306,7 +447,8 @@ async def organisation_of_workflow(client: Client, workflow_id: str) -> str | No
 
 def derive_organisation_key(master: bytes, org_id: str) -> bytes:
     """HKDF-SHA256(master, info = version + organisation id): one-way, so an organisation's key reveals
-    neither the master key nor another organisation's key (ADR 0220)."""
+    neither the master key nor another organisation's key (ADR 0220). Kept to read what was sealed under it
+    and for a process with no data key source; it cannot be shredded (ADR 0225)."""
     return HKDF(
         algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=HKDF_INFO + org_id.encode()
     ).derive(master)
@@ -316,11 +458,13 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
     """AES-256-GCM over each whole serialized payload; the key id (and the organisation) ride in the metadata.
 
     The nonce is random per payload (12 bytes, prefixed to the ciphertext). A payload of an organisation
-    is sealed under that organisation's derived key and carries `encryption-org`; a payload of no
-    organisation, like every payload of ADR 0183, is sealed under the master key. The associated data is
-    the key id, plus the organisation when there is one, so a payload cannot be passed off under another
-    key or organisation. Decoding needs no context: the metadata names the key. A payload that is not
-    encrypted is decoded as it is: histories begun before the codec was switched on stay readable.
+    is sealed under that organisation's random data key when the codec has `data_keys` (ADR 0225: it
+    carries `encryption-org`, `encryption-key-source: org-data-key` and the data key's id), else under the
+    key ADR 0220 derives from the master key (`encryption-org` only); a payload of no organisation, like
+    every payload of ADR 0183, is sealed under the master key. The associated data is the key id, plus the
+    organisation when there is one, plus the kind of key, so a payload cannot be passed off under another
+    key, kind or organisation. Decoding needs no context: the metadata names the key. A payload that is
+    not encrypted is decoded as it is: histories begun before the codec was switched on stay readable.
     """
 
     def __init__(
@@ -329,6 +473,7 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
         *,
         directory: OrganisationDirectory | None = None,
         workflow_id: str | None = None,
+        data_keys: DataKeyCache | None = None,
     ) -> None:
         if not keys:
             raise TemporalConfigError("the payload codec needs at least one key")
@@ -338,10 +483,15 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
         self._derived: dict[tuple[str, str], AESGCM] = {}
         self._directory = directory if directory is not None else OrganisationDirectory()
         self._workflow_id = workflow_id
+        self._data_keys = data_keys
 
     @property
     def key_id(self) -> str:
         return self._encrypting_id
+
+    @property
+    def data_keys(self) -> DataKeyCache | None:
+        return self._data_keys
 
     @property
     def directory(self) -> OrganisationDirectory:
@@ -353,7 +503,9 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
             if isinstance(context, WorkflowSerializationContext | ActivitySerializationContext)
             else None
         )
-        bound = AesGcmCodec(self._keys, directory=self._directory, workflow_id=workflow_id)
+        bound = AesGcmCodec(
+            self._keys, directory=self._directory, workflow_id=workflow_id, data_keys=self._data_keys
+        )
         bound._derived = self._derived  # the derived keys are shared, they are a pure function of the master
         return bound
 
@@ -381,14 +533,22 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
     def _associated(key_id: str, org_id: str | None) -> bytes:
         return key_id.encode() if org_id is None else f"{key_id}|org|{org_id}".encode()
 
+    @staticmethod
+    def _associated_data_key(key_id: str, org_id: str) -> bytes:
+        return f"{key_id}|org-data-key|{org_id}".encode()
+
     async def encode(self, payloads: Sequence[Payload]) -> list[Payload]:
         org_id = self._organisation()
-        cipher = self._cipher(self._encrypting_id, org_id)
-        associated = self._associated(self._encrypting_id, org_id)
-        metadata: dict[str, bytes] = {
-            "encoding": ENCRYPTED_ENCODING,
-            KEY_ID_METADATA: self._encrypting_id.encode(),
-        }
+        metadata: dict[str, bytes] = {"encoding": ENCRYPTED_ENCODING}
+        if org_id is not None and self._data_keys is not None:
+            key_id, cipher = await self._data_keys.active(org_id)
+            associated = self._associated_data_key(key_id, org_id)
+            metadata[KEY_ID_METADATA] = key_id.encode()
+            metadata[KEY_SOURCE_METADATA] = ORG_DATA_KEY
+        else:
+            cipher = self._cipher(self._encrypting_id, org_id)
+            associated = self._associated(self._encrypting_id, org_id)
+            metadata[KEY_ID_METADATA] = self._encrypting_id.encode()
         if org_id is not None:
             metadata[ORG_METADATA] = org_id.encode()
         encoded: list[Payload] = []
@@ -404,17 +564,20 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
             if payload.metadata.get("encoding", b"") != ENCRYPTED_ENCODING:
                 decoded.append(payload)
                 continue
-            key_id = payload.metadata.get(KEY_ID_METADATA, b"").decode()
-            if key_id not in self._ciphers:
-                raise UnknownCodecKeyError(
-                    f"a payload is encrypted under the key `{key_id}`, which {ENV_CODEC_KEYS} no longer lists"
-                )
+            key_id = payload.metadata.get(KEY_ID_METADATA, b"").decode(errors="replace")
             org_raw = payload.metadata.get(ORG_METADATA)
             org_id = None if org_raw is None else check_organisation(org_raw.decode(errors="replace"))
-            cipher = self._cipher(key_id, org_id)
-            plain = cipher.decrypt(
-                payload.data[:NONCE_BYTES], payload.data[NONCE_BYTES:], self._associated(key_id, org_id)
-            )
+            source = payload.metadata.get(KEY_SOURCE_METADATA)
+            if source is not None:
+                cipher, associated = await self._data_key_cipher(source, key_id, org_id)
+            else:
+                if key_id not in self._ciphers:
+                    raise UnknownCodecKeyError(
+                        f"a payload is encrypted under the key `{key_id}`, "
+                        f"which {ENV_CODEC_KEYS} no longer lists"
+                    )
+                cipher, associated = self._cipher(key_id, org_id), self._associated(key_id, org_id)
+            plain = cipher.decrypt(payload.data[:NONCE_BYTES], payload.data[NONCE_BYTES:], associated)
             original = Payload()
             original.ParseFromString(plain)
             if org_id is not None and self._workflow_id is not None:
@@ -422,22 +585,40 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
             decoded.append(original)
         return decoded
 
+    async def _data_key_cipher(self, source: bytes, key_id: str, org_id: str | None) -> tuple[AESGCM, bytes]:
+        if source != ORG_DATA_KEY:
+            raise UnknownCodecKeyError("a payload names a kind of key this process does not know")
+        if org_id is None or not KEY_ID.fullmatch(key_id):
+            raise UnknownCodecKeyError("a payload sealed under a data key names no organisation")
+        if self._data_keys is None:
+            raise UnknownCodecKeyError(
+                f"a payload of the organisation `{org_id}` is sealed under its data key `{key_id}`, and this "
+                "process has no organisation key source (ADR 0225: the deployment's key wrapper)"
+            )
+        return await self._data_keys.cipher(org_id, key_id), self._associated_data_key(key_id, org_id)
+
 
 __all__ = [
     "ENCRYPTED_ENCODING",
     "ENV_ALLOW_CLEAR_PAYLOADS",
     "ENV_CODEC_KEYS",
     "ENV_CODEC_KEYS_FILE",
+    "ENV_DATA_KEY_TTL",
     "ENV_TLS",
     "ENV_TLS_CA_FILE",
     "ENV_TLS_CERT_FILE",
     "ENV_TLS_KEY_FILE",
     "ENV_TLS_SERVER_NAME",
     "KEY_ID_METADATA",
+    "KEY_SOURCE_METADATA",
+    "ORG_DATA_KEY",
     "ORG_MEMO",
     "ORG_METADATA",
     "AesGcmCodec",
+    "DataKeyCache",
+    "DataKeySource",
     "OrganisationDirectory",
+    "ShreddedKeyError",
     "TemporalConfigError",
     "TemporalSecurity",
     "UnknownCodecKeyError",
@@ -445,6 +626,8 @@ __all__ = [
     "current_organisation",
     "data_converter",
     "derive_organisation_key",
+    "install_data_keys",
+    "installed_data_keys",
     "organisation_of_workflow",
     "organisation_scope",
     "parse_codec_keys",

@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import Query, status
+from tranibor_core.temporal_connection import organisation_scope
 
 from ...audit import record
 from ...deps import Db, Me
@@ -87,16 +88,17 @@ async def _start_distillation(
     )
     dto = await _dto(session, principal, org, base)
     await session.commit()
-    await get_temporal().start_knowledge_distill(
-        knowledge_distill_id(base.id, started_at),
-        {
-            "org": org,
-            "base_id": base.id,
-            "requested_by": principal.email,
-            "exclude": exclude,
-            "max_usd": max_usd,
-        },
-    )
+    with organisation_scope(base.org_id):
+        await get_temporal().start_knowledge_distill(
+            knowledge_distill_id(base.id, started_at),
+            {
+                "org": org,
+                "base_id": base.id,
+                "requested_by": principal.email,
+                "exclude": exclude,
+                "max_usd": max_usd,
+            },
+        )
     return dto
 
 
