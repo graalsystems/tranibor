@@ -21,7 +21,7 @@ def test_the_highest_role_wins_whichever_prefix_names_it() -> None:
 
 
 def test_a_group_with_another_word_before_it_is_bare_and_gives_nothing() -> None:
-    assert roles_from_groups(["graal:acme:org-admins"], "default") == {}
+    assert roles_from_groups(["vendor:acme:org-admins"], "default") == {}
 
 
 @pytest.mark.parametrize("prefix", ["tranibor", "choregos"])

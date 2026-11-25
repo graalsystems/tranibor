@@ -65,7 +65,7 @@ TEMPLATES = ROOT / "packages" / "core" / "src" / "tranibor_core" / "dsl" / "temp
 MAX_SIZE_MB = 40.0
 MAX_WARM_START_S = 2.0
 #: The extension the CLI reads a skill's fields from (`tranibor_cli.a2a.SKILL_FIELDS_EXTENSION`).
-SKILL_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+SKILL_FIELDS_EXTENSION = "https://tranibor.dev/a2a/extensions/skill-fields/v1"
 ORG = "smoke"
 TOKEN = "smoke-a2a-token"  # noqa: S105 - the fake door's own, valid nowhere else
 CARD: dict[str, Any] = {
