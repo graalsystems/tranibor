@@ -6401,6 +6401,17 @@ stories:
       - "export_docs.py --site writes one page per procedure, the platform's grouped by kind and, with --plugins, one group per plugin naming it and linking its source; title and description, no slug or id, placeholders as in docs/procedures/, fields as a table, prose safe for MDX"
       - "the documentation site has a connectors/ section (hand-written index, generated pages never committed), built by docs-site.yml after the import, daily too, with the plugins' repository at main"
     notes: "The API is unchanged: GET /procedures?for= answers an empty list when nothing matches, which moves the console's lookup to the next candidate."
+  - id: S84-07
+    title: "fix(api): an after_commit callback follows the root transaction, not a savepoint's end (finding #2089)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: S
+    depends_on: [S84-05]
+    acceptance:
+      - "an after_commit callback registered in a released savepoint does not run when the root transaction rolls back, even when the session goes on to commit"
+      - "a savepoint that rolls back drops only the callbacks registered since it began; the outer transaction's run once when it commits"
+    notes: "Before: SQLAlchemy fires after_commit on a savepoint's release and after_rollback on its rollback; the listeners moved or cleared the whole pending list on either."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

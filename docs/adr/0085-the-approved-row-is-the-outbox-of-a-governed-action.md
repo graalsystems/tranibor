@@ -1,7 +1,8 @@
 # 0085 — The approved row is the outbox of a governed action, and a workflow without one runs nothing
 
 - **Status**: accepted, 2026-10-22 — implemented by S40-19; amended 2026-11-05 (the tool route commits
-  before each external call, #1354; so do an agent session's model and tool calls, #1376)
+  before each external call, #1354; so do an agent session's model and tool calls, #1376); amended
+  2026-11-25 (a savepoint's end releases and drops nothing of the root's, #2089)
 - **Concerns**: the API (`db/session.py`, `deps.py`, `services/actions.py`, `services/action_relay.py`,
   `main.py`), the ontology plugin (`service/actions.py`), the orchestrator (`activities/actions.py`);
   builds on [ADR 0008](0008-idempotence-and-run-id.md) (idempotence),
@@ -147,3 +148,15 @@ commit began, on PostgreSQL, the transaction the wait then held).
   closing one (the key's spend read and booked, the key revoked, the session closed) still call the
   gateway inside their transaction: each must stay one transaction, or the lock would be released before
   the reservation is written, and a spend booked twice.
+
+## Amendment — 2026-11-25: a savepoint's end is not the transaction's (#2089)
+
+SQLAlchemy fires `after_commit` when a SAVEPOINT is released and `after_rollback` when one rolls back.
+§1's listeners took either for the end of the transaction: a callback a released savepoint had queued
+ran even though the root later rolled back, and a savepoint that rolled back dropped what the outer
+transaction had queued before it. The two events now only record how the transaction ending now ended;
+`after_transaction_end` decides (`db/session.py`, S84-07):
+
+- a released savepoint keeps what it queued, for the root to release or drop;
+- a savepoint that rolls back drops what was queued since it began, and nothing before;
+- the root's commit releases what is queued; its rollback, or a close without a commit, drops it.
