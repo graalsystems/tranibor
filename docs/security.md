@@ -111,7 +111,7 @@ The model listener serves the Gemini `generateContent`, `streamGenerateContent` 
 | `aca` | **refused**: cannot start the agent's container | runs | refused unless `none-accepted` |
 | the fakes | not judged: no runner starts | runs | the fakes are refused in production |
 
-What isolating `tekton` would take is in ADR 0222 §5. gVisor is not a default: set `global.runner.runtimeClass: gvisor`
+What isolating `tekton` would take is in ADR 0222 §5; [ADR 0224](adr/0224-a-cloud-is-claimed-only-by-its-proof-every-executor-isolates-or-is-refused.md) decides that `tekton` isolates (a deployment on it routes an agent step to `k8s_job` meanwhile) and that `aca` isolates or is refused in production. gVisor is not a default: set `global.runner.runtimeClass: gvisor`
 on a cluster that has the RuntimeClass (ADR 0222 §6: a pod naming a missing class is never admitted, the chart cannot ask
 the cluster under `helm template` or Argo CD, and Landlock does not exist under gVisor).
 

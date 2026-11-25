@@ -59,7 +59,9 @@ The plan's line is that nothing ships with the agent not isolated.
    `global.environment: staging|prod` fails the render unless `global.runner.acceptUnisolatedAgent: true`,
    which renders `CHOREGOS_AGENT_ISOLATION=none-accepted` (adopted as `TRANIBOR_AGENT_ISOLATION`) in every
    pod that reads the common environment. Under `container` the value is ignored and not rendered.
-5. **Tekton and ACA stay refusing under `container`; they are not isolated here.** Isolating Tekton would
+5. **Tekton and ACA stay refusing under `container`; they are not isolated here** (amended by
+   [ADR 0224](0224-a-cloud-is-claimed-only-by-its-proof-every-executor-isolates-or-is-refused.md): Tekton isolates;
+   ACA isolates or is refused in production). Isolating Tekton would
    need the agent as a second step or sidecar of the Task, sharing only the workspace and exchange volumes,
    as another uid, started by a launcher the runner step reaches on the pod's loopback. A Tekton `Task` is
    copied into each project's namespace, so every namespace's copy must be updated and an older copy
