@@ -5998,6 +5998,14 @@ stories:
     size: S
     depends_on: [S80-06]
     notes: "A finding of the operator's deployment repository (origin #2082): the clients could present a certificate (global.temporal.tls.mutual) but the embedded Temporal never asked for one, and the dev UI served write actions with no login. choregos-temporal.tls.requireClientCert (relay ssl_verify_client in dev; TEMPORAL_TLS_REQUIRE_CLIENT_AUTH and the client CAs in server mode) and choregos-temporal.ui.loopbackOnly. Merged as #2223 under the id S80-47, which #2222 had already taken: renumbered."
+  - id: S80-47
+    title: "fix(api): an archived project no longer unroutes a plugin tracker's webhook; the ServiceNow Business Rule's delivery is proven"
+    stream: S80
+    sprint: 1
+    priority: 2
+    size: S
+    depends_on: [S80-46]
+    notes: "Finding #2221: _projects_on listed archived projects, so a new item delivered to a plugin tracker's webhook was unrouted while an archived project used the same tracker. The other trackers' webhooks already filtered them. With the dev deployment's API name public, the procedure's Business Rule delivered an incident's insert and the work item was opened by the delivery (initiated_by tracker:plugin:servicenow/servicenow)."
   - id: S40-28
     title: "feat(orchestrator,adapters,core): a classifier model may read third-party text beside the injection patterns, before the run (ADR 0219)"
     stream: S40

@@ -994,7 +994,7 @@ ServiceNow instance in two live suites. The plugin's own (`plugins/servicenow/se
 and checks every answer against the profile's schema. On 2026-11-24 the governed path ran end to end on
 an operator's dev cluster (core 0.29.0, plugin 0.2.9): installation approved by a second administrator, a
 work item opened by the queue poll, the agent's triage, the review, and an apply step approved by a second
-person and written once. Not proven: the Business Rule's delivery to the webhook route, OAuth client
+person and written once. Not proven then: the Business Rule's delivery to the webhook route, OAuth client
 credentials on a cluster, a nightly run, a human's governance (test accounts gave the approvals), and the
 plugin's 0.2.12 fixes on a cluster. Those fixes (a change request moves along its change model, the queue
 poll pages and says what it left out; findings tranibor-agents#24 and #25) passed the plugin's live suite
@@ -1003,9 +1003,14 @@ on the instance on 2026-11-24 (9 tests, basic authentication, as the instance's 
 basic authentication and 9 by OAuth client credentials: the user holds the procedure's custom role,
 `snc_basic_auth_api_access` (basic only) and `sn_change_read`, not `sn_change_write`; client credentials
 need the system property `glide.oauth.inbound.client.credential.grant_type.enabled`. The Business Rule's
-delivery was tried against the dev cluster's webhook route and never left the instance: the cluster's
-API name resolves only on a private network (`java.net.UnknownHostException` in the instance's outbound
-log). A deployment whose API has a public name is what that proof needs. No ServiceNow finding is open
+delivery was first tried against the dev cluster's webhook route and never left the instance: the cluster's
+API name resolved only on a private network (`java.net.UnknownHostException` in the instance's outbound
+log). Once that name was public (S80-47), the procedure's properties and Business Rule posted an incident's
+insert to `POST /api/v1/webhooks/plugins/<org>/servicenow/servicenow`, answered `202`, and the work item was
+opened by the delivery (`initiated_by: tracker:plugin:servicenow/servicenow`, a received event
+`created_work_item`) in about four seconds, before any poll. The first delivery was verified and then
+logged `plugin.webhook.unrouted`: an archived project on the same tracker took the routing from the live
+one (#2221, fixed in S80-47). No ServiceNow finding is open
 in either repository.
 A nightly needs no CI secret (S80-46): on a deployment, a project with an internal tracker schedules one work
 item a night whose only step is a job that files an incident through the organisation's `servicenow` connector
