@@ -134,3 +134,24 @@ async def test_a_policy_offering_tool_scripts_under_a_ceiling_that_forbids_them_
     allowed = await client.put(f"/api/v1/projects/{project['id']}/policy", json={"yaml": offering})
     assert allowed.status_code == 200, allowed.text
     assert allowed.json()["json"]["tools"]["scripts"] == "offer"
+
+
+async def test_the_diff_caps_are_the_ceiling_s_delivery_section(
+    client: AsyncClient, project: dict[str, Any]
+) -> None:
+    """S83-13 (ADR 0181): the caps on a diff live in the ceiling's `delivery` section, the software-delivery
+    plugin's; written at their former place, the ceiling is refused, naming the section."""
+    former = await _ceiling(client, {"scope": {"max_diff_files": 10}})
+    assert former.status_code == 422, former.text
+    assert "moved to the `delivery` section of the policy ceiling" in former.text
+    saved = await _ceiling(client, {"delivery": {"scope": {"max_diff_files": 10}}})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["ceiling"] == {"delivery": {"scope": {"max_diff_files": 10}}}
+    wider = await client.put(
+        f"/api/v1/projects/{project['id']}/policy",
+        json={"yaml": _policy() + "delivery:\n  scope: { max_diff_files: 50 }\n"},
+    )
+    assert wider.status_code == 422, wider.text
+    assert (
+        "delivery.scope.max_diff_files: 50 exceeds the organisation's ceiling of 10" in wider.json()["detail"]
+    )

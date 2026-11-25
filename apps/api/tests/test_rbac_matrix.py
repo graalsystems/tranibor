@@ -85,6 +85,8 @@ def _routes(project_id: str, workflow_yaml: str, policy_yaml: str) -> list[tuple
                 "work_items": [{"id": "a", "title": "T", "created_at": "2026-11-02T09:00:00Z"}],
             },
         ),
+        # Removing it: the import's permission, the same 409 for the administrator on this instance.
+        ("demo_history:import", "DELETE", f"/api/v1/projects/{project_id}/demo-history", None),
         # Agent scopes (S39-09, ADR 0061): a personal agent is every working role's, a project's agent
         # its owner's, an organisation agent (`agent:manage`, above) the administrator's.
         (

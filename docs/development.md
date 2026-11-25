@@ -86,6 +86,12 @@ work_items:
         summary: Credit notes are subtracted before the VAT is computed.
     decisions:
       - { id: spec-ok, kind: approval, summary: "Approve the specification?", at: 2026-11-02T10:25:00Z, by: admin@northwind.dev }
+  - id: inv-150
+    title: Send the overdue invoice reminders in the customer's language
+    created_at: 2026-11-05T09:00:00Z
+    history: [{ state: inbox, at: 2026-11-05T09:00:00Z }, { state: in_progress, at: 2026-11-05T09:30:00Z }]
+    pending:                         # still waits for a person: the inbox lists it (not on an ended work item)
+      { id: spec-review, kind: approval, summary: "Approve the localised reminders?", requested_at: 2026-11-05T09:40:00Z }
 ```
 
 The contract is `packages/contracts/schemas/demo-history.schema.json`. The whole document is checked before
@@ -96,8 +102,26 @@ row and writes nothing; an id that already holds other content is a 409.
 
 What it writes is **marked as imported demonstration data**, never as measured: `imported` on the work
 items, runs, findings and cost lines (visible in the API), `imported_usd` in every cost report, and no
-budget counts an imported line. Each import is audited as `demo_history.import`. Imported work items are
-not run by any workflow (no interpreter): they are history, and their key is `demo:<id>`.
+budget and no agent metric (runs, success rate, cost, the agent's daily and monthly spend) counts an
+imported line; the DORA measures read deployments and releases, which an import never writes. The console
+shows an **Imported** badge on every imported work item, run, finding and inbox request. Each import is
+audited as `demo_history.import`. Imported work items are not run by any workflow (no interpreter): they
+are history, their key is `demo:<id>`, and they take no action (`pause`, `mark_agent_ready`... answer 409,
+so no interpreter is ever started for one).
+
+A `pending` request waits in the inbox like a live one, and an approver decides it from the inbox or the
+ticket's page through the usual decision route. Deciding it **records the decision, audited with
+`imported: true`, and closes the request; nothing else happens**: no workflow runs the work item, so the
+decision is passed to none, no agent runs, nothing is written outside the platform, and the work item stays
+in its state. To start over, remove what the imports wrote and import again:
+
+```bash
+tranibor demo remove acme/billing                   # or: DELETE /api/v1/projects/{id}/demo-history
+```
+
+The removal deletes the rows marked imported in that project (work items with their runs, requests,
+decisions and events; findings; cost lines) and nothing else, behind the same gate as the import, and is
+audited as `demo_history.delete` with the counts.
 
 ## Local services
 
@@ -212,6 +236,11 @@ TRANIBOR_LIVE_ECPHORIA_URL=http://127.0.0.1:8432 TRANIBOR_LIVE_ECPHORIA_TOKEN=â€
 TRANIBOR_LIVE_LITELLM_URL=http://127.0.0.1:4000 TRANIBOR_LIVE_LITELLM_KEY=sk-â€¦ \
 make test-live
 ```
+
+`tests/live/test_injection_classifier_live.py` needs an LLM Guard API running its `PromptInjection`
+scanner (`TRANIBOR_LIVE_INJECTION_CLASSIFIER_URL`, `TRANIBOR_LIVE_INJECTION_CLASSIFIER_TOKEN`; the
+service's configuration is in `docs/security.md`, "Measured against a real LLM Guard"), and
+`tools/measure_injection_detectors.py` measures the detectors against the same service.
 
 No credential lives in the repository. These tests write for real: give them a sandbox
 project, not one that matters. For LiteLLM a local proxy is enough:
@@ -780,7 +809,7 @@ core. The wheel declares no dependency on the core (its wheels are GitHub releas
 on PyPI) and goes in with `--no-deps`:
 
 ```dockerfile
-FROM ghcr.io/graalsystems/choregos-api:<version>
+FROM ghcr.io/graalsystems/tranibor-api:<version>
 COPY choregos_ee-*.whl /tmp/
 RUN pip install --no-deps --no-index /tmp/choregos_ee-*.whl
 ```

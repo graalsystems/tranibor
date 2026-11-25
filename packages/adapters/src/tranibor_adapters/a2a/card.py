@@ -174,7 +174,13 @@ async def fetch_card(
     that fetch. A plain-http card is refused (a card carries the endpoint a token will be sent to),
     except for the loopback tests use.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+        hostname = parts.hostname
+    except ValueError as exc:  # `https://[` and the like: urlsplit itself refuses
+        raise CardError(f"the card URL is not a URL: {url}") from exc
+    if not hostname:
+        raise CardError(f"the card URL has no host: {url}")
     local = parts.hostname in {"localhost", "127.0.0.1", "::1"}
     if parts.scheme != "https" and not (parts.scheme == "http" and local):
         raise CardError(f"the card URL must be https: {url}")

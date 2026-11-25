@@ -9,7 +9,7 @@ import { STAGE_ROLES } from "@/components/model-catalogue";
  * A local type, not the generated `PolicyCeiling`: that one lacks `monthly_org_usd` and `network`
  * (contract drift, reported in the S42-08 PR; the contracts are not changed here).
  */
-export type CeilingSection = "budgets" | "attempts" | "scope" | "findings";
+export type CeilingSection = "budgets" | "attempts" | "scope" | "findings" | "delivery";
 export type CeilingShape = Partial<Record<CeilingSection, Record<string, unknown>>> & Record<string, unknown>;
 
 export const SIZES = ["S", "M", "L", "XL"] as const;
@@ -53,8 +53,9 @@ function fieldsOf(): FieldSpec[] {
   for (const role of STAGE_ROLES) out.push({ path: ["attempts", "by_role", role], kind: "int", min: 1 });
   out.push({ path: ["attempts", "dod_iterations"], kind: "int", min: 0 });
   out.push({ path: ["scope", "auto_grant_max_files"], kind: "int", min: 0 });
-  out.push({ path: ["scope", "max_diff_files"], kind: "int", min: 1 });
-  out.push({ path: ["scope", "max_diff_lines"], kind: "int", min: 1 });
+  // The diff bounds are the software-delivery plugin's section of the ceiling (ADR 0181, S83-13).
+  out.push({ path: ["delivery", "scope", "max_diff_files"], kind: "int", min: 1 });
+  out.push({ path: ["delivery", "scope", "max_diff_lines"], kind: "int", min: 1 });
   out.push({ path: ["findings", "max_per_run"], kind: "int", min: 0 });
   return out;
 }
@@ -64,7 +65,7 @@ const SPEC_BY_KEY = new Map(FIELDS.map((f) => [key(f.path), f]));
 
 export const fieldKey = key;
 export const isFormField = (k: string) => SPEC_BY_KEY.has(k);
-const SECTIONS: readonly CeilingSection[] = ["budgets", "attempts", "scope", "findings"];
+const SECTIONS: readonly CeilingSection[] = ["budgets", "attempts", "scope", "findings", "delivery"];
 
 function at(root: unknown, path: readonly string[]): unknown {
   let node = root;
@@ -126,7 +127,7 @@ function setAt(root: Record<string, unknown>, path: readonly string[], value: nu
 }
 
 /**
- * The ceiling to save: `fresh` (the ceiling as it is stored now) with the four form-owned sections'
+ * The ceiling to save: `fresh` (the ceiling as it is stored now) with the five form-owned sections'
  * fields replaced by the form's values. An empty field is omitted; `network` and every key the form
  * does not own (a role it has no row for, an unknown section) stay as they are.
  */

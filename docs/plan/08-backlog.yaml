@@ -6297,6 +6297,19 @@ stories:
       - "the role guesses for workflows stored before repairs: and needs: are listed in tranibor_contracts.recorded"
       - "the vocabulary guard's allowlist is lowered"
     notes: "Approved by the project lead before the 1.0 freeze, without a window (ADR 0181, Decision (2026-11-23))."
+  - id: S83-13
+    title: "contract(openapi,core,api,web,plugins): the policy ceiling's diff caps are the software-delivery plugin's section (ADR 0181)"
+    stream: S83
+    sprint: 3
+    priority: 6
+    size: S
+    depends_on: [S83-12]
+    acceptance:
+      - "the organisation's ceiling caps max_diff_files and max_diff_lines in its delivery section, marked x-plugin; a ceiling writing them under scope is refused naming the section"
+      - "the core's policy engine and ceiling name no diff bound; the plugin reads the policy's delivery.scope"
+      - "stored ceilings are migrated by Alembic, idempotently"
+      - "the vocabulary guard's allowlist is lowered"
+    notes: "Approved by the project lead before the 1.0 freeze, without a window (ADR 0181, Decision (2026-11-23))."
   - id: S4-07
     title: "The cost ledger separates cache writes from cache reads (ADR 0188)"
     stream: S4

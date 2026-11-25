@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -492,6 +493,7 @@ function Runs({ org, slug }: { org: string; slug: string }) {
                 <Link href={`/p/${run.project_slug}/runs/${run.id}`} className="hover:underline">
                   {run.stage_role} · attempt {run.attempt}
                 </Link>
+                <ImportedBadge imported={run.imported} className="ml-2" />
               </TD>
               <TD>
                 <StateBadge state={run.status} kind={run.status === "succeeded" ? "terminal" : run.status === "failed" ? "blocked" : "work"} />

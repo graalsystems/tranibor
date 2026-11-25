@@ -173,3 +173,24 @@ describe("the run page", () => {
     expect(within(screen.getByTestId("run-activity")).getByText("itsm__get_incident")).toBeInTheDocument();
   });
 });
+
+describe("an imported run's page (ADR 0216)", () => {
+  it("carries the badge in its header", async () => {
+    vi.mocked(api.run).mockResolvedValue({ ...runs[0]!, status: "succeeded", imported: true });
+    vi.mocked(api.workItem).mockResolvedValue({ tracker_key: "demo:inv-1" } as never);
+    vi.mocked(api.runAccess).mockResolvedValue(runAccess as never);
+    vi.mocked(api.runDiff).mockResolvedValue(runDiff as never);
+    vi.mocked(api.transcript).mockResolvedValue({ url: null } as never);
+    vi.mocked(api.runEvents).mockResolvedValue([]);
+    await act(async () => {
+      render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <Suspense fallback={null}>
+            <RunPage params={Promise.resolve({ slug: "netops", id: "r1" })} />
+          </Suspense>
+        </QueryClientProvider>,
+      );
+    });
+    expect(await screen.findByTestId("imported-badge")).toHaveAttribute("title", expect.stringContaining("no agent ran it"));
+  });
+});

@@ -57,3 +57,37 @@ describe("the project's inbox (S39-04)", () => {
     expect(screen.queryByRole("link", { name: /whole organisation/ })).toBeNull();
   });
 });
+
+describe("an imported request in the inbox (ADR 0216)", () => {
+  it("is listed with the badge, and says what deciding it does", async () => {
+    workItems.mockResolvedValue({
+      items: [
+        {
+          id: "w9",
+          project_slug: "billing-api",
+          tracker_key: "demo:inv-150",
+          title: "Localised reminders",
+          state: "in_progress",
+          imported: true,
+          pending_request: {
+            id: "r9",
+            work_item_id: "w9",
+            kind: "approval",
+            payload: { summary: "Approve the specification?" },
+            requested_at: "2026-11-05T09:40:00Z",
+          },
+        },
+      ],
+      meta: { has_more: false },
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <InboxView project="billing-api" heading="h2" />
+      </QueryClientProvider>,
+    );
+    const row = await screen.findByTestId("waiting-w9");
+    expect(row).toHaveTextContent("Imported");
+    expect(screen.getByTestId("imported-decision-w9")).toHaveTextContent("nothing follows from it");
+    expect(screen.getByTestId("imported-badge")).toHaveAttribute("title", expect.stringContaining("demonstration history"));
+  });
+});

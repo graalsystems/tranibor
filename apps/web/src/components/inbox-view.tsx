@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import { CircleCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -74,7 +75,14 @@ export function InboxView({ project, heading = "h1" }: { project?: string; headi
                   <Link href={`/p/${item.project_slug}/items/${item.id}`} className="font-medium hover:underline">
                     {item.title}
                   </Link>
+                  <ImportedBadge imported={item.imported} />
                 </div>
+                {item.imported && (
+                  <p className="text-xs text-ink-muted" data-testid={`imported-decision-${item.id}`}>
+                    Imported for a demonstration: deciding records the decision; no workflow runs this ticket, so
+                    nothing follows from it.
+                  </p>
+                )}
                 <p className="text-sm">{requestSummary(request)}</p>
                 <p className="text-xs text-ink-muted">
                   {!project && (

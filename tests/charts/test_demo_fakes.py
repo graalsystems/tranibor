@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 import yaml
+from tranibor_core.publishing import PUBLISHING
 
 CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
 
@@ -50,7 +51,9 @@ def test_one_single_pod_that_the_api_and_the_orchestrator_reach() -> None:
     assert deployment["spec"]["replicas"] == 1 and deployment["spec"]["strategy"]["type"] == "Recreate"
     (conteneur,) = deployment["spec"]["template"]["spec"]["containers"]
     assert conteneur["command"] == ["python", "-m", "tranibor_adapters.fakes.server"]
-    assert conteneur["image"].split("/")[-1].startswith("choregos-api:"), "the API image carries the fakes"
+    assert conteneur["image"].split("/")[-1].startswith(f"{PUBLISHING.image_prefix}-api:"), (
+        "the API image carries the fakes"
+    )
     token = next(e for e in conteneur["env"] if e["name"] == "CONNECTOR_DEMO_TOKEN")
     assert token["valueFrom"]["secretKeyRef"] == {"name": "demo", "key": "jeton"}, "by reference"
     assert service["spec"]["ports"][0]["port"] == 8090

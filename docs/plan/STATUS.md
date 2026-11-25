@@ -112,5 +112,6 @@ that follows from it. Rule since that day: nothing is ✅ without a test that fa
 | [S83](status/S83.md) | The contracts speak no trade: neutral names, software delivery and investment research as plugins, ontology removed (ADR 0181) |
 | [S84](status/S84.md) | Desk seams: approvers from the work item, filing into another project, a webhook's sender identity (ADRs 0196-0198) |
 | [S85](status/S85.md) | Procurement as a first-party plugin, and the files a person hands a work item (ADRs 0201-0202) |
+| [S86](status/S86.md) | Plugin profiles and named server instances: generic agents over decoupled implementations (ADR 0224) |
 | [owner review](status/owner-review.md) | The owner review of 2026-11-03 |
 | [—](status/outside-backlog.md) | Rows that are not backlog stories, named by their pull request |

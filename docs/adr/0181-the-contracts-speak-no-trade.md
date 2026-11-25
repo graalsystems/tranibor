@@ -725,4 +725,26 @@ freeze, without a window (the decision above):
   output). The strings are wire values and do not change, so no row is migrated. The role guesses for a
   workflow stored before `repairs:` and `needs:` stay, as readers of stored versions, in
   `tranibor_contracts.recorded` (`GUESSED_REPAIR_ROLES`, `GUESSED_ROLES_IN_A_REPOSITORY`,
-  `GUESSED_ROLES_IN_PRODUCTION`). Vocabulary guard: 69 hits in 8 files → 59 in 6.
+  `GUESSED_ROLES_IN_PRODUCTION`). Vocabulary guard: 69 hits in 8 files → 59 in 5.
+- **The policy ceiling's diff caps** (S83-13): the policy's bounds were already its `delivery` section;
+  the organisation's ceiling now caps them in its own `delivery` section (`CeilingDelivery`, marked
+  `x-plugin` in `openapi.yaml`), which the core compares with the policy's section field by field without
+  naming a field, and `PolicyEngine.max_diff()` left the core (the plugin's facts read
+  `policy.delivery.scope`). A ceiling that writes `scope.max_diff_*` is refused, naming the section. The
+  stored ceilings are migrated (`6eb670a63a1b`, `organizations.settings.policy_ceiling`); no reader is kept.
+  Vocabulary guard: 59 hits in 5 files → 57 in 5.
+
+What the allowlist keeps (57 hits in 5 files), each on purpose, none a former name:
+
+- `openapi.yaml` (31): the GitHub App's routes and their repository listing, and git as the transport of
+  skills, workflows and templates (`repo` 16, `repository` 7, `repositories` 2, `branch` 2); the internal
+  `getRunCiLogs` at `/internal/runs/{id}/ci-logs` (`ci` 2), which the plugin's `fix_ci` agents call through
+  the agents' tools; the process view's actor type `release_train` (1), which shows a stored workflow's
+  `via: release_train` step; and `ThresholdPoint.coverage` (1), a decision model's calibration, not test
+  coverage (a false positive of the guard).
+- `template.schema.json` (1): the template input type `github-repo`, a connector's input.
+- `workflow.py` (19), `workflow.schema.json` (4), `__init__.py` (2): the DSL that stored workflow versions
+  carry and recorded histories replay: `does: open_pr`/`merge_pr` documented on `Transition`,
+  `pull_request: PullRequestSpec` (`draft`), `via: release_train` and its `train:` block (`TrainSpec`), and
+  the re-export of `PullRequestSpec`. Moving them means a plugin-declared transition block, a decision of
+  its own.

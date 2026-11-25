@@ -255,7 +255,7 @@ async def test_a_person_outside_the_organisation_is_warned_about_at_validation(
     assert known["warnings"] == []
 
 
-async def test_a_human_actor_naming_nobody_is_refused(client: AsyncClient) -> None:
+async def test_a_human_actor_naming_nobody_is_refused(client: AsyncClient, admin: str) -> None:
     nobody = _workflow("{type: human, sla_hours: 4}")
     refused = (await client.post("/api/v1/workflows/validate", json={"yaml": nobody})).json()
     assert refused["valid"] is False

@@ -65,7 +65,8 @@ def test_the_deployment_guide_installs_the_chart_of_the_repository() -> None:
     version = re.search(r"^version: (\S+)$", chart, re.M)
     assert version, "charts/choregos/Chart.yaml lost its version"
     guide = (ROOT / "docs" / "deployment.md").read_text("utf-8")
-    assert f"oci://{PUBLISHING.registry}/charts/choregos \\\n  --version {version.group(1)} " in guide
+    chart_ref = f"oci://{PUBLISHING.registry}/charts/{PUBLISHING.chart_name()}"
+    assert f"{chart_ref} \\\n  --version {version.group(1)} " in guide
 
 
 def test_the_release_bump_rewrites_every_install_page() -> None:

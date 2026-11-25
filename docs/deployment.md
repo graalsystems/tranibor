@@ -26,7 +26,7 @@ Optional but recommended in production: a model gateway (LiteLLM), a memory serv
 ## Install
 
 ```bash
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
+helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
   --version 0.29.4 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
@@ -1415,7 +1415,7 @@ same name, a disruption budget, and the route then leads there.
 ### The outpost's side: the chart `choregos-outpost`
 
 Whoever runs an outpost installs the daemon in THEIR cluster with a chart of its own, published
-beside the platform's (`oci://ghcr.io/graalsystems/charts/choregos-outpost`). It is not a subchart
+beside the platform's (`oci://ghcr.io/graalsystems/charts/tranibor-outpost`). It is not a subchart
 of this one and shares no value with it: its page is `charts/choregos-outpost/README.md`, and a
 complete example is `charts/choregos-outpost/values/example.yaml`. What you hand its operator is
 what the management API returns with an enrolment token: the door's origin (`policy.control_plane`),
@@ -1455,7 +1455,7 @@ global:
     sink: https                  # https | syslog
     format: splunk-hec           # https: webhook | splunk-hec | elastic-bulk; syslog: rfc5424 | cef
     url: https://splunk.example:8088/services/collector/event
-    index: audit                 # Splunk's index, or the Elastic index (default choregos-audit)
+    index: choregos_audit        # Splunk's index (not `audit`: Splunk's own `_audit` collides), or the Elastic index
     token:
       secretRef: siem-token      # a Secret you create; the token is read by reference, never written here
       key: audit-export-token
@@ -1490,8 +1490,8 @@ A setting the API cannot build a sink from (a plain `http://` URL, an unknown fo
 
 Not part of this: checkpoints signed on a schedule, a migration role distinct
 from the API's own, and the chain in `GET /audit`. Run against real receivers on 2026-11-25: OpenSearch 2.19.8
-(security plugin on, demo TLS) through the `elastic-bulk` format, and syslog-ng 4.13.0 over TLS. Splunk HEC
-has not been run against a real Splunk; the webhook and Elastic Cloud have not been run at all.
+(security plugin on, demo TLS) through the `elastic-bulk` format, syslog-ng 4.13.0 over TLS, and Splunk
+Enterprise 9.4.2 through HEC over TLS. The webhook and Elastic Cloud have not been run at all.
 
 A tested recipe, OpenSearch with its security plugin on (a self-signed CA is the usual case, hence `caFile`).
 `token` is the base64 of `user:password` and `scheme` is `Basic` (with an API key, `scheme: ApiKey`). The run applied
@@ -1516,6 +1516,36 @@ and check that `seq` is contiguous, that the first `prev_hash` is 64 zeros, that
 `sha256(prev_hash + canonical) == hash` and that each `prev_hash` is the previous `hash`. For syslog, a collector
 must read RFC 5425 octet-counted frames (syslog-ng's `syslog()` source does; its `network()` source with
 `flags(syslog-protocol)` did not split them) and trust the CA you give in `caFile`.
+
+
+A tested recipe, Splunk Enterprise 9.4.2 (the `splunk/splunk` image, trial licence) through HEC with TLS on. In
+Splunk, create an index (`choregos_audit`; `audit` cannot be created, it collides with `_audit`), enable HEC with
+`enableSSL = 1` and a `serverCert` whose subject alternative name is the host the API dials, and create a token
+whose allowed `indexes` include it. The event's `sourcetype` is `choregos:audit`, its `source` is `choregos`
+(`source` of the settings) and its `_raw` is the event's JSON. A token with no right to the index is refused
+by HEC (`Incorrect index`, code 7, HTTP 400), which the exporter reports as a failed batch and retries. The
+run applied the same settings as `TRANIBOR_AUDIT_EXPORT_*` environment variables; the chart renders them, and
+rendering was not part of the run:
+
+```yaml
+global:
+  auditExport:
+    enabled: true
+    sink: https
+    format: splunk-hec
+    url: https://splunk.example:8088/services/collector/event
+    index: choregos_audit
+    caFile: /etc/siem/root-ca.pem       # the CA of HEC's certificate, mounted with choregos-api.extraVolumes
+    token: { secretRef: siem-token, key: audit-export-token, scheme: Splunk }
+```
+
+To check the chains from Splunk alone, search the index over all time
+(`search index=choregos_audit sourcetype="choregos:audit" | table _raw`, through
+`/services/search/jobs/export` with `output_mode=json`), parse each `_raw`, group by `org_id`, drop repeats on
+`(org_id, seq)` (Splunk keeps both copies of a repeat), sort by `seq` and run the OpenSearch check above.
+HEC is not given an acknowledgement (`useACK` is off): a `200` means Splunk queued the batch, not that it
+indexed it, so a Splunk that is killed (or runs out of disk) with batches still queued can lose them after the
+cursor moved. The chain shows it as a missing `seq`; to ship a chain again, delete its cursor and deduplicate.
 
 
 ## Retention of the audit log
@@ -2012,7 +2042,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.29.4 \
+helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.4 \
   -n choregos --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
 ```
@@ -2619,6 +2649,33 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading past 0.29.4: the images and charts have one name, `tranibor-*`
+
+**The former names are no longer published** (S75-05, step (e) of [ADR
+0176](adr/0176-the-core-is-named-tranibor.md) R3). From the first release after 0.29.4, a release pushes
+and signs each image as `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`
+only, and each chart as `oci://ghcr.io/graalsystems/charts/tranibor` and `…/tranibor-outpost` only; `main`
+pushes its per-commit images under `tranibor-*` only. The versions already published under
+`choregos-*` (0.29.4 and before) stay where they are and keep their signatures.
+
+- **The chart's defaults name the new images**: `choregos-api.image.repository` is `tranibor-api`, and
+  likewise `web`, `orchestrator`, `tools`, `laya`, the web search's `api`, the outpost chart's image and
+  `choregos-orchestrator.runner.image` (`tranibor-runner`); the orchestrator's own default runner image
+  is `tranibor-runner` too. If your values still set `choregos-<component>`, change them to
+  `tranibor-<component>`, or remove them to take the default; a release after 0.29.4 under the former
+  name does not exist and the pod would not pull. A private registry into which you copy the releases
+  copies the `tranibor-*` names.
+- **Pull the chart as `tranibor`** (`helm upgrade --install <release> oci://ghcr.io/graalsystems/charts/tranibor`).
+  The objects it renders are the same as under `choregos`: the objects' names do not follow the chart's,
+  so a release moves from one address to the other with no change in the cluster. A vendored copy
+  renders byte for byte the same objects (checked on 0.29.4, dev and prod values of the first operator).
+- **Admission policies**: `infra/policies/images.yaml` still admits `choregos-*` beside the seven
+  `tranibor-*` components, so that a pod still running a former-name image is not refused by a policy
+  applied before its upgrade. It drops them in a later release, once this one is deployed; drop them from
+  your own policies after you have moved.
+- **Not renamed by this step**: the native CLI files keep their names, `choregos-<platform>` (the install
+  scripts and the self-update know only those; a second name needs the manifest to carry it first), and
+  the Helm release name, namespace and database names are your deployment's values.
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) moves two more groups into the `software-delivery`
@@ -2626,6 +2683,7 @@ plugin (S83-12, S83-13), without a window.
 
 | What | What happens | What to do |
 | :-- | :-- | :-- |
+| The organisation's policy ceiling `scope.max_diff_files`, `scope.max_diff_lines` | Only `delivery.scope.*` of the ceiling, which caps the policy's `delivery.scope.*`. The migration `6eb670a63a1b` rewrites `organizations.settings.policy_ceiling`; its downgrade moves the caps back. `PUT /orgs/{org}/policy-ceiling` with a former cap is refused (`422`, naming the section). The audit log keeps each ceiling as it was written. | A script or a client that writes the ceiling writes `delivery.scope`. |
 | The stage roles `fix_ci`, `address_review`, `release_notes`, `verify_prod` | No longer members of `StageRole` nor of the playbooks' `KNOWN_ROLES`: the plugin's extension declares them, with their playbooks (`tranibor_software_delivery/roles/`). The strings do not change, so no row is rewritten: stored workflows, `runs.stage_role` and recorded histories keep them. `release_notes_markdown` is no longer a named field of a step's outputs; it is read as any output, under its name. | Where the plugin's extension is absent, a workflow naming one of these roles without an `agent:` is published with the warning `role.playbook_not_found`, and its step fails for lack of a playbook: install the plugin, or bring the playbook (`TRANIBOR_PLAYBOOKS_DIR`). A Python import of `StageRole.FIX_CI` (and the three others) fails. |
 
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
@@ -2657,7 +2715,7 @@ nothing, as the previous release reads the sections.
 | What | What happens | What to do |
 | :-- | :-- | :-- |
 | A project's `repo`, `repositories`, `gitops` | Only `config.delivery.{repo, repositories, gitops}`. `projects.config` is rewritten; a request that writes a former field is refused (`422`), naming the section. | A script, a values file or a client that writes a project's configuration writes the section. |
-| A policy's `scope.max_diff_files`, `scope.max_diff_lines`, `approvals.merge`, `release_train` | Only `delivery.scope.*`, `delivery.approvals.merge`, `delivery.release_train`. `policies.json` and the policy's text are rewritten: a policy written in block style keeps its comments, its former lines moved under `delivery:`; any other text is rendered again from its data, without its comments. A policy that writes a former field is refused (`422`). | A template's or a content plugin's `policy.yaml` that still writes them is read into the section when a project is born from it, and stored moved: move its lines under `delivery:` at its next release. A policy sent to `PUT /projects/{id}/policy` writes the section. The organisation's ceiling keeps its own `scope.max_diff_*`. |
+| A policy's `scope.max_diff_files`, `scope.max_diff_lines`, `approvals.merge`, `release_train` | Only `delivery.scope.*`, `delivery.approvals.merge`, `delivery.release_train`. `policies.json` and the policy's text are rewritten: a policy written in block style keeps its comments, its former lines moved under `delivery:`; any other text is rendered again from its data, without its comments. A policy that writes a former field is refused (`422`). | A template's or a content plugin's `policy.yaml` that still writes them is read into the section when a project is born from it, and stored moved: move its lines under `delivery:` at its next release. A policy sent to `PUT /projects/{id}/policy` writes the section. The organisation's ceiling kept its own `scope.max_diff_*` until the release after 0.29.4 (below). |
 | A step's `artifacts.branch`, `artifacts.commits`, `artifacts.pr_url`; `evidence.tests_passed` ... `diff_lines` | Only `artifacts.delivery.{branch, commits}`, the `change_request` link and the named facts (`evidence.facts.<name>`, measured as `facts.<name>`). `runs.result` is rewritten. | A reader of `GET /runs/{id}` reads the new form. |
 | A stage input's `repo`, `project.*_command`, `work_item.links.pr` | Only `delivery.repo`, `delivery.commands`, `work_item.links.change_request`. `runs.stage_input` and `agent_sessions.stage_input` are rewritten. A runner of the previous release reads the section, and the former fields it still writes are read. | Nothing. |
 
@@ -3571,7 +3629,7 @@ global:
 
 What it renders:
 
-- **`<release>-laya`**, a Deployment of `ghcr.io/graalsystems/choregos-laya` (`docker/laya.Dockerfile`):
+- **`<release>-laya`**, a Deployment of `ghcr.io/graalsystems/tranibor-laya` (`docker/laya.Dockerfile`):
   `laya-serve` with the checkpoint baked in at a pinned commit, `HF_HUB_OFFLINE=1`, nothing fetched at
   run time. It asks for 2 GiB of memory (measured on 2026-11-03: 1.6 GiB resident with the checkpoint loaded, 1.95 GiB after a reload) and opens its port
   only once the checkpoint is loaded; the probes read `GET /health`, which answers without a credential.

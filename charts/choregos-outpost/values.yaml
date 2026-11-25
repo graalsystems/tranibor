@@ -9,7 +9,7 @@ fullnameOverride: ""
 
 image:
   registry: ghcr.io/graalsystems
-  repository: choregos-outpost
+  repository: tranibor-outpost
   # Empty: this chart's appVersion.
   tag: ""
   # `sha256:…`: the image is then pulled by this digest and the tag is not read. Pin it. The daemon is

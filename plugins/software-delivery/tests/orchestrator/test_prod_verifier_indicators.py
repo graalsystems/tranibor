@@ -6,6 +6,9 @@ On the dev tenant (v0.17.16), `prod-verifier` answered no-go on every release of
 CD, no metrics), while `smoke_ok` was measured true. The rendered prompt now says which indicator
 sources the run can read; without any, a measured `smoke_ok` is enough and the verdict says that only
 the smoke test was available. With a source, the strict rule stays.
+
+The `verify_prod` role and its playbook are the `software-delivery` plugin's (S83-12): the test runs in
+its suite.
 """
 
 from __future__ import annotations

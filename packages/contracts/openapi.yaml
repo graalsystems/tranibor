@@ -384,7 +384,9 @@ paths:
         price, or an id used twice answers 422 naming it. The import is idempotent: each object carries an
         external `id`, re-importing the same document writes nothing, and an id that already holds other
         content answers 409. What it writes is marked `imported` (work items, runs, findings, cost lines) and
-        counts in no budget. Audited as `demo_history.import`.
+        counts in no budget nor in the agents' metrics. A work item may declare a request that still waits
+        (`pending`): the inbox lists it and an approver decides it through `postDecision`, which records the
+        decision and passes it to no workflow. Audited as `demo_history.import`.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistory" } } }
@@ -394,6 +396,21 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [projects]
+      operationId: deleteDemoHistory
+      description: |
+        Removes what demonstration history imports wrote into this project (ADR 0216): the work items marked
+        `imported` with their runs, requests, decisions and events, and the findings and cost lines marked
+        `imported`. Nothing that is not marked is touched. The same gate as the import: the organisation
+        administrator (`demo_history:import`), on an instance that opted in and is not `staging` or `prod`
+        (409 elsewhere). Idempotent: a second call removes nothing. Audited as `demo_history.delete`, with
+        the counts.
+      responses:
+        "200": { description: Removed, content: { application/json: { schema: { $ref: "#/components/schemas/DemoHistoryRemoval" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /projects/{id}/readiness:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -1837,6 +1854,10 @@ paths:
     post:
       tags: [work-items]
       operationId: postDecision
+      description: >-
+        Records the decision, passes it to the work item's workflow and closes the request. A request of a
+        work item a demonstration history imported (ADR 0216) has no workflow: its decision is recorded and
+        audited (`imported: true`) and passed to nothing, so no agent runs and nothing leaves the platform.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/DecisionRequest" } } }
@@ -1895,6 +1916,8 @@ paths:
         `migrate` requires `workflow_def_id`, a definition of the project; the ticket's current
         state must exist in it, or be mapped by `state_mapping` — otherwise 422, and nothing is
         passed on.
+        A work item a demonstration history imported (ADR 0216) takes no action: 409, so that no
+        interpreter is ever started for it.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/WorkItemAction" } } }
@@ -7257,11 +7280,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string, description: Machine code of a workflow or policy issue }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, description: "A machine code on some 409s: `stale_base` (from an agent publication, or from `updateProject`), `no_change`, `eval_failed` (S40-12), `action_not_in_doubt` and `action_already_settled` (`settleAction`); on the 403 of `approveOutpostInstance`, `approval_requires_session`" }
         latest_version: { type: integer, description: "On `stale_base` and `no_change`: the agent's latest version" }
@@ -8363,9 +8386,9 @@ components:
         valid: { type: boolean }
         errors: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
         warnings: { type: array, items: { $ref: "#/components/schemas/WorkflowIssue" } }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
-        document: { $ref: "./schemas/workflow.schema.json", description: "the workflow as the engine read it (ADR 0112)" }
+        document: { oneOf: [{ $ref: "./schemas/workflow.schema.json" }, { type: "null" }], description: "the workflow as the engine read it (ADR 0112); null when the document does not parse" }
     ProcessStep:
       type: object
       description: A transition in plain words — the process view (ADR 0031).
@@ -10629,8 +10652,6 @@ components:
           additionalProperties: false
           properties:
             auto_grant_max_files: { type: [integer, "null"], minimum: 0 }
-            max_diff_files: { type: [integer, "null"], minimum: 1 }
-            max_diff_lines: { type: [integer, "null"], minimum: 1 }
         findings:
           type: object
           additionalProperties: false
@@ -10654,6 +10675,18 @@ components:
           description: "Tool scripts (ADR 0122 §6): the ceiling can only forbid them. `off` refuses a project policy that offers them, for any role (422 at PUT, clamped to `off` for a policy saved earlier); `offer` or null leaves each project to choose."
           properties:
             scripts: { type: [string, "null"], enum: ["off", "offer", null] }
+        delivery:
+          x-plugin: software-delivery
+          type: object
+          additionalProperties: false
+          description: "The software-delivery plugin's section (ADR 0181, S83-13): it caps the project policy's `delivery` section, field by field. A ceiling that writes a cap of this section at its former place is refused (422, naming the section)."
+          properties:
+            scope:
+              type: object
+              additionalProperties: false
+              properties:
+                max_diff_files: { type: [integer, "null"], minimum: 1 }
+                max_diff_lines: { type: [integer, "null"], minimum: 1 }
     CeilingNetwork:
       type: object
       additionalProperties: false
@@ -11115,11 +11148,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [outposts_disabled, door_key_missing, outpost_exists, outpost_revoked, outpost_not_revoked, outpost_in_use, instance_not_pending, fingerprint_mismatch, enrolment_used, outpost_paused, outpost_offline, outpost_refused, outpost_timeout] }
         outpost: { type: string, description: "the outpost the refusal is about" }
@@ -12656,7 +12689,7 @@ components:
         initial: { type: [string, "null"], description: The workflow's initial state. }
         state: { type: string, description: The state the item is in now. }
         closed: { type: boolean, default: false }
-        graph: { $ref: "#/components/schemas/WorkflowGraph" }
+        graph: { oneOf: [{ $ref: "#/components/schemas/WorkflowGraph" }, { type: "null" }] }
         process: { type: array, items: { $ref: "#/components/schemas/ProcessStep" } }
         moves: { type: array, items: { $ref: "#/components/schemas/JourneyMove" } }
         steps: { type: array, items: { $ref: "#/components/schemas/JourneyStep" } }
@@ -13162,11 +13195,11 @@ components:
           items:
             type: object
             properties:
-              loc: { type: array, items: { type: string } }
+              loc: { type: array, items: { type: [string, integer] } }
               msg: { type: string }
               code: { type: string }
               line: { type: integer }
-              column: { type: integer }
+              column: { type: [integer, "null"] }
         retry_after: { type: integer }
         code: { type: string, enum: [gateway_in_use, gateway_required, gateway_not_configured, gateway_assertion_key_missing] }
         connectors: { type: array, items: { type: string }, description: "the connectors that go through the gateway (`gateway_in_use`)" }
@@ -13946,12 +13979,24 @@ components:
         cost_usd: { type: number, description: "The cost the created runs carry, in USD: declared, not measured." }
     DemoHistoryCounts:
       type: object
-      required: [work_items, runs, decisions, findings]
+      required: [work_items, runs, decisions, findings, pending]
       properties:
         work_items: { type: integer }
         runs: { type: integer }
         decisions: { type: integer }
         findings: { type: integer }
+        pending: { type: integer, description: "Requests that wait for a person (`pending`)." }
+    DemoHistoryRemoval:
+      type: object
+      description: What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported.
+      required: [work_items, runs, requests, findings, cost_lines]
+      properties:
+        work_items: { type: integer }
+        runs: { type: integer }
+        requests: { type: integer, description: "Human requests, decided or waiting, of the imported work items." }
+        findings: { type: integer }
+        cost_lines: { type: integer }
+        cost_usd: { type: number, description: "The declared cost of the removed cost lines, in USD." }
     InboundEvent: { $ref: "./schemas/inbound-event.schema.json" }
     ChoregosEvent: { $ref: "./schemas/event.schema.json" }
     HumanDecision: { $ref: "./schemas/human-decision.schema.json" }

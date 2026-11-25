@@ -522,11 +522,10 @@ jobs:
           # Off main nothing is pushed, so the image is loaded into the runner's Docker (a single
           # platform, linux/amd64) for the Trivy step below to scan under the same tag (S40-16e).
           load: ${{ github.ref != 'refs/heads/main' }}
-          # Both names of ADR 0176 R3, one build and one digest: `tranibor-*` from now on, and `choregos-*`
-          # beside it for the deprecation window (the release does the same with its tags).
+          # One name, `tranibor-*`: the former `choregos-*` stopped being published with step (e) of ADR
+          # 0176 R3 (the release does the same with its tags).
           tags: |
             ghcr.io/graalsystems/tranibor-${{ matrix.image }}:${{ github.sha }}
-            ghcr.io/graalsystems/choregos-${{ matrix.image }}:${{ github.sha }}
           build-args: REVISION=${{ github.sha }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
           # SBOM and SLSA provenance attached to the image (BuildKit attestations). SECURITY.md
@@ -585,12 +584,9 @@ jobs:
           PY
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
         if: github.ref == 'refs/heads/main'
-      - name: keyless signature, under both names
+      - name: keyless signature
         if: github.ref == 'refs/heads/main'
-        run: |
-          for name in tranibor choregos; do
-            cosign sign --yes "ghcr.io/graalsystems/${name}-${{ matrix.image }}@${{ steps.build.outputs.digest }}"
-          done
+        run: cosign sign --yes "ghcr.io/graalsystems/tranibor-${{ matrix.image }}@${{ steps.build.outputs.digest }}"
 
   local-install:
     # `docker compose up` on a clean runner, then one work item through it in fakes mode (S28-04):

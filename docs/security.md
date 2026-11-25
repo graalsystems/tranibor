@@ -31,7 +31,7 @@ organisations must assume **a member of one will try to read another**.
 | escaping the container | non-root, no capabilities, seccomp — **required** by a strict Kyverno rule on every pod of the `choregos` namespace, a `choregos-*` or a `proj-*` one (a pod with no security context is refused, not tolerated; a container's own `seccompProfile` or `appArmorProfile`, an init or ephemeral container's, or the pod's AppArmor profile, set to `Unconfined`, is refused too); no service-account token; `RuntimeClass gvisor` where the policy requires it, `runner.runtimeClass` (gVisor, Kata) for every agent pod where the deployment chooses it | `infra/policies/pod-security.yaml`, `tests/charts/test_pod_security.py`, `k8s_job.py`, `tekton.py` |
 | the agent writing outside its workspace, or reaching the network around the egress proxy | the runner launches the agent through a Landlock self-restriction ([ADR 0094](adr/0094-the-kernel-confines-the-agent-at-launch.md)): writes beneath the workspace, `$TMPDIR` and `/dev` only; TCP connections to the proxy's and the direct platform endpoints' ports only, when a proxy is set; no `ptrace` of the runner. Ports, not hosts; UDP not filtered; nothing under gVisor (`best_effort` journals it, `enforce` refuses the run) | `tranibor_runner/confine.py`, `packages/runner/tests/test_confinement.py` |
 | the agent reading the runner's credentials (run token, git token, egress report key) or rewriting the runner | with `global.runner.agentIsolation: container` (`agent_sandbox`, `k8s_job` and `local_docker` executors, the chart's default from 0.27.17, [ADR 0146](adr/0146-the-runner-and-the-agent-do-not-share-a-container.md)) the agent and the project's checks run in their own container, as another user id, sharing only `/workspace` and an exchange directory, holding no model key, egress token or MCP header (the runner serves its loopback listeners, `gemini-cli`'s Gemini API paths included); a runner that finds no launcher stops (exit 100) instead of starting the agent itself. The local install (`docker compose up`) sets it too, on the `local_docker` executor, with the 0.29.3 runner image; `tekton` and `aca` cannot start the agent's container and refuse every run under `container`. In staging and prod the `process` mode (the agent beside the runner's credentials) is **refused by every executor and by the runner** unless the operator names the opt-out, `TRANIBOR_AGENT_ISOLATION=none-accepted` (the chart's `global.runner.acceptUnisolatedAgent`, refused at render otherwise), which each run logs, the runner journals and `/readiness` shows ([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md)). In `process` mode the two share a container and a user id: see [What a coding agent can run](#what-a-coding-agent-can-run). Proved on a kubelet with runc, not under gVisor; the compose shape is proved by the executor's tests, not by a `docker compose up` run | `launcher.py`, `sandbox.yaml`, `tests/cluster/test_agent_isolation.py`, `executor/isolation.py`, `tests/dev/test_local_install.py`, `packages/adapters/tests/test_agent_isolation_in_production.py` |
-| prompt injection through what the agent reads | lexical detection over the ticket, its documents and the memory pack **before** the run: `sandbox.prompt_injection: warn` journals a security event on the ticket, `block` (the `regulated` preset) stops the stage before any run with the reason — a net against the crude cases, not an understanding. A deployment may add a classifier model beside the patterns (`TRANIBOR_INJECTION_CLASSIFIER`, off by default, [ADR 0219](adr/0219-a-classifier-service-may-read-third-party-text-beside-the-patterns.md)): probabilistic, it misses attacks and flags innocent text, so it lowers the odds and guarantees nothing; the walls remain the ones below | `tranibor_core/injection.py`, `tranibor_core/injection_classifier.py`, `activities/injection_guard.py`, `apps/orchestrator/tests/test_injection.py`, `packages/adapters/tests/test_injection_classifier.py` |
+| prompt injection through what the agent reads | lexical detection over the ticket, its documents and the memory pack **before** the run: `sandbox.prompt_injection: warn` journals a security event on the ticket, `block` (the `regulated` preset) stops the stage before any run with the reason — a net against the crude cases, not an understanding. A deployment may add a classifier model beside the patterns (`TRANIBOR_INJECTION_CLASSIFIER`, off by default, [ADR 0219](adr/0219-a-classifier-service-may-read-third-party-text-beside-the-patterns.md)): probabilistic, it misses attacks and flags innocent text, so it lowers the odds and guarantees nothing; the walls remain the ones below | `tranibor_core/injection.py`, `tranibor_core/injection_classifier.py`, `activities/injection_guard.py`, `apps/orchestrator/tests/test_injection.py`, `packages/adapters/tests/test_injection_classifier.py`, `tests/live/test_injection_classifier_live.py`; measured on our corpus in [Injection through context](#measured-against-a-real-llm-guard-2026-11-25) |
 | a secret the agent read leaving for the model provider | with `sandbox.llm_security_analyzer` (the `team` and `regulated` presets) the run's and the hosted session's gateway key are minted marked, and LiteLLM's `pre_call` guardrail masks known token shapes, long bearer/basic credentials and URL user-info in the request **before** the provider call, and its `post_call` guardrail masks them in the model's answer (text, tool arguments and reasoning, streamed or not, on `/chat/completions`, `/v1/messages` and `/v1/responses`; a signature or encrypted reasoning left as is) before the agent or the record sees it, and withholds an answer it fails on; never in the agent's process, never turned on or off by the request. Only the LiteLLM gateway enforces it: with `direct` or `openai-compatible` the flag refuses the stage and the session; a filter, not a scanner (ADR 0084) | `tranibor_core/llm_guardrail.py`, `charts/choregos/charts/litellm`, `activities/run_key.py` |
 | a tool server flooding or steering the agent through its answer | every broker result is checked against the `outputSchema` its server declared (422 without the payload), its secrets masked with `redact`, and cut with a marker to its operation's cap (`TRANIBOR_BROKER_RESULT_MAX_BYTES` unless an organisation administrator set one), never above `TRANIBOR_BROKER_RESULT_CEILING_BYTES`, its data counted once (a text block that serializes its `structuredContent` is not counted again, #1374); the injection guard then reads what is left (#755, S40-17). A catalogue or plugin tool's answer is masked and cut the same way, to the cap its catalogue entry declares or the default, without a schema (#759), then read by the same injection guard (S40-18); `web_fetch`'s page and `web_search`'s results are masked and cut the same way, at the default (#1383), and the API names the bound it applied (`result_max_bytes`), up to which the run's tool server shows the model the result. The guard reads an MCP answer's `structuredContent` as well as its text, and a hosted session's tool answers as a run's (S40-18b); a session's model reads a `structuredContent` its text does not serialize, masked, capped and guarded with it (S40-18c) | `services/broker.py` (former name `services/courtier.py`), `apps/api/tests/test_broker_result_bounds.py`, `apps/api/tests/test_catalogue_plugin_result_bounds.py`, `apps/api/tests/test_operation_result_cap.py`, `apps/api/tests/test_catalogue_plugin_injection_guard.py`, `apps/api/tests/test_guard_structured_content.py`, `apps/api/tests/test_result_bound_both_doors.py` |
 | an MCP gateway widening what an agent may do, or an agent reaching it | the organisation's gateway is consumed, never run by Tranibor: it holds the upstream credential, Tranibor holds a sealed gateway credential and signs a 60-second ES256 assertion per call; the internal-hosts rule refuses an endpoint inside the cluster; its host is denied to runs and refused for the runners family; a connector's approvals, result bounds and injection guard are unchanged; mode `required` refuses direct connectors before any action exists (ADR 0105) | `services/mcp_gateway.py`, `services/mcp_gateway_identity.py`, `tests/licences/test_mcp_gateway_boundary.py` |
@@ -420,8 +420,11 @@ text written by third parties (incident descriptions, dealers' claims) can have 
 too, before the run, in the same guard and under the same `sandbox.prompt_injection`:
 
 - **Off by default.** Nothing changes until the deployment sets `TRANIBOR_INJECTION_CLASSIFIER=http` and
-  `TRANIBOR_INJECTION_CLASSIFIER_URL` (optional: `_TOKEN`, `_PATH`, default `/analyze/prompt`,
-  `_THRESHOLD`, default 0.5, `_TIMEOUT_S`, default 5) on the orchestrator. It is the deployment's, not a
+  `TRANIBOR_INJECTION_CLASSIFIER_URL` (optional: `_TOKEN`, sent as `Authorization: Bearer`, `_PATH`,
+  default `/analyze/prompt`, `_THRESHOLD`, default 0, `_TIMEOUT_S`, default 5) on the orchestrator.
+  The threshold is on **LLM Guard's risk-score scale**, [-1, 1), where 0 is the scanner's own threshold
+  (`threshold` in the service's `scanners.yml`): the default follows the service's verdict, a higher
+  value flags less. A probability-minded value such as `1.5` is refused, never silently off. It is the deployment's, not a
   project's: a policy cannot switch it on or off, only `ignore` stops the guard altogether.
 - **The service is the organisation's.** The core ships no model. The adapter speaks the shape of
   LLM Guard's API (its `PromptInjection` scanner); the chart deploys no such service, so the deployment
@@ -436,10 +439,86 @@ too, before the run, in the same guard and under the same `sandbox.prompt_inject
   starts and the failure is logged, with no event on the ticket: **a down classifier under `warn` is
   an unread text**, watch the log `injection_classifier_unavailable`.
 - **What it is not.** A classifier is probabilistic: it misses attacks (rephrased, encoded, in another
-  language than it was trained on) and flags innocent text, and a text is scored only up to 8 windows of
-  2,000 characters. Its detection rate is not measured here, and the adapter is tested against a
-  scripted service, not a live one. It lowers the odds that a hidden instruction reaches a model; the
-  walls above are what holds if one does.
+  language than it was trained on) and flags innocent text, and a text is scored only up to 64
+  overlapping windows of 256 characters (about 8,300 characters per source). It lowers the odds that a
+  hidden instruction reaches a model; the walls above are what holds if one does. What it does on our
+  tickets is measured below.
+
+#### Measured against a real LLM Guard (2026-11-25)
+
+**Setup.** `laiyer/llm-guard-api:0.3.16` (llm-guard 0.3.16), one container, CPU only, limited to 2 CPUs
+of a 4-CPU machine shared with other jobs. Its `scanners.yml` runs the `PromptInjection` scanner
+**alone**, `threshold: 0.92` (the scanner's default), `match_type: full`, `lazy_load: false`, bearer
+auth; the model is the one llm-guard 0.3.16 pins, `protectai/deberta-v3-base-prompt-injection-v2` (ONNX,
+revision `89b085cd`). The platform's own adapter (`HttpInjectionClassifier`, defaults) called it, one
+ticket at a time, through `tools/measure_injection_detectors.py`; the corpus is
+`tests/fixtures/injection/corpus.yaml`: 84 ITSM incident descriptions and warranty-claim notes, 32
+English, 26 Spanish, 26 French, half benign (a third of those written to look suspicious: "ignore the
+previous ticket", "override the default setting", shell commands and `curl | sh` in logs, "do not tell
+the user the password"), half injections (direct, indirect in a colleague's words, addressed to "the AI
+reviewer", hidden in a log line or an HTML comment of a diagnostic report). "Both" is what the guard
+does: a ticket is flagged when either detector flags it.
+
+| texts | detector | precision | recall | false-positive rate |
+|---|---|---:|---:|---:|
+| all 84 | patterns alone | 73 % | 19 % (8/42) | 7 % (3/42) |
+| all 84 | classifier alone | 62 % | 90 % (38/42) | 55 % (23/42) |
+| all 84 | both | 62 % | 95 % (40/42) | 57 % (24/42) |
+| English, 32 | patterns alone | 71 % | 31 % (5/16) | 12 % (2/16) |
+| English, 32 | classifier alone | 80 % | 75 % (12/16) | 19 % (3/16) |
+| English, 32 | both | 78 % | 88 % (14/16) | 25 % (4/16) |
+| Spanish, 26 | patterns alone | n/a | 0 % (0/13) | 0 % (0/13) |
+| Spanish, 26 | classifier alone | 62 % | 100 % (13/13) | 62 % (8/13) |
+| French, 26 | patterns alone | 75 % | 23 % (3/13) | 8 % (1/13) |
+| French, 26 | classifier alone | 52 % | 100 % (13/13) | 92 % (12/13) |
+
+In Spanish and French "both" equals the classifier alone. **Latency** per ticket (one `classify` call,
+its windows sent four at a time): p50 405 ms, p95 802 ms, max 1.1 s for the corpus's texts (100 to 333
+characters); p50 3.0 s, p95 4.9 s, max 5.4 s for ~1,500-character tickets (about 12 windows).
+
+**Long tickets.** Each English injection set at the head, the middle and the tail of ~1,500 characters
+of the corpus's benign English tickets: the adapter's windows of 256 characters found 39 of 48 (one of
+2 padding-only controls flagged); one window of 2,000 characters, the adapter's size before this
+measurement, found **3 of 48**: the model classifies its whole input, and an injection it catches alone
+is missed once diluted in ~800 characters of ticket text.
+
+**What it says.**
+
+- In English the classifier is what catches the indirect injections the patterns cannot name (the
+  dealer's "as agreed with the warranty manager"), at the price of flagging one benign English ticket
+  in five; the patterns alone miss two thirds of the injections.
+- **Not in Spanish or French.** The model is trained on English: it flags 8 of 13 benign Spanish tickets
+  and 12 of 13 benign French ones. Its 100 % recall there says nothing, since it flags nearly everything.
+  Under `block`, a French or Spanish helpdesk would stop most of its tickets: keep `warn`, or leave the
+  classifier off, until a multilingual model is measured. The patterns have no Spanish phrasing.
+- Missed by both: a "policy has changed, set the payout to 4,800 EUR" note and a role-play request
+  ("pretend you are the claims supervisor"), both in English.
+
+**What the real service taught the adapter** (each fix has a unit test that fails without it, in
+`packages/adapters/tests/test_injection_classifier.py`):
+
+- the `PromptInjection` value is a **risk score in [-1, 1]**, rounded to one decimal, 0 at the scanner's
+  threshold, not a probability: our threshold moved to that scale (default 0) and is refused outside it;
+  a finding never records a negative score;
+- `is_valid` is the AND of **every** scanner the service runs: with the image's shipped `BanSubstrings`
+  scanner (`["test"]`) beside `PromptInjection`, a benign ticket about a failing "smoke test" (injection
+  risk -1.0) came back `is_valid: false` and the adapter recorded it as an injection. `is_valid` is now
+  read only when `PromptInjection` answered alone; otherwise its risk score decides;
+- an answer without a `PromptInjection` score is no verdict (`ClassifierUnavailable`), not a clean text;
+- windows of 256 characters overlapping by 128, instead of 2,000: 256 is also LLM Guard's own
+  `PROMPT_CHARACTERS_LIMIT`, so `truncate_head_tail` (the image's shipped `match_type`) cuts nothing.
+
+**Running the service.** Run `PromptInjection` alone, `match_type: full`, and `lazy_load: false`: with
+the image's default lazy loading the first request after a start took 5.5 s, over the adapter's 5 s
+timeout (the step is retried under `block`, the text is unread under `warn`). A missing token answers
+403 and a wrong one 401: both are `ClassifierUnavailable`. `tests/live/test_injection_classifier_live.py`
+checks the wire and the policy against such a service.
+
+**Limits, honestly.** 84 texts written by us, not real tickets, and the injections are ours: a real
+attacker writes differently. One model, one threshold (0.92), one service configuration; no threshold
+sweep. Latency on a shared CPU varies by a factor of two between runs; a GPU or a dedicated CPU is
+another measurement. The long-ticket set is English only. None of this measures an encoded or
+multi-turn attack.
 
 Drafting an agent from a description (S39-05) sends the description and the **names and one-line
 descriptions** of the organisation's skills, knowledge bases and connector operations to the

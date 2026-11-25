@@ -162,7 +162,7 @@ def test_both_names_build_the_same_fallback() -> None:
         os.environ["TRANIBOR_FAKES"] = "1"
 
 
-async def test_the_interface_catalogue_no_longer_offers_the_old_name(client: AsyncClient) -> None:
+async def test_the_interface_catalogue_no_longer_offers_the_old_name(client: AsyncClient, admin: str) -> None:
     """A new project must not be able to choose a name that lies."""
     types = (await client.get("/api/v1/connectors/types")).json()
     memory = {entry["type"] for entry in types if entry["kind"] == "memory"}

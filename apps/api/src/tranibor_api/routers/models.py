@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from tranibor_contracts import ProjectConfig
 from tranibor_core import ModelResolver
@@ -13,7 +13,7 @@ from tranibor_core.models import PLATFORM_PROFILES
 
 from ..audit import record
 from ..db.models import ModelProfileRow, Project
-from ..deps import Db, Pagination, ProjectCtx
+from ..deps import Db, Pagination, ProjectCtx, current_principal
 from ..errors import unprocessable
 from ..keyset import matches, position_page
 from ..rbac import Permission
@@ -39,7 +39,12 @@ async def _gateway_models() -> list[GatewayModelDto]:
     return [GatewayModelDto.model_validate(m.model_dump()) for m in models]
 
 
-@router.get("/platform/models", response_model=GatewayModelPage, operation_id="listPlatformModels")
+@router.get(
+    "/platform/models",
+    response_model=GatewayModelPage,
+    operation_id="listPlatformModels",
+    dependencies=[Depends(current_principal)],
+)
 async def platform_models(
     page: Pagination, q: Annotated[str | None, Query(max_length=200)] = None
 ) -> GatewayModelPage:

@@ -468,6 +468,12 @@ async def resolve_project(session: AsyncSession, identifier: str) -> tuple[Proje
 async def project_context(id: str, session: Db, principal: Me) -> ProjectContext:
     project, org_slug = await resolve_project(session, id)
     context = ProjectContext(project=project, org_slug=org_slug, principal=principal)
+    if principal.role_for(org_slug, project.slug) is None:
+        # No role at all on it, nor on its organisation: the project does not exist for this caller. A 403
+        # naming `org/slug` told whoever held an id (a log, a shared link) that it was a project of another
+        # organisation, and which. Row-level security hides it the same way on PostgreSQL; this holds on
+        # every backend, and for a bare slug or `org/slug` that resolved to another organisation's project.
+        raise not_found("Project", id)
     context.require(Permission.PROJECT_READ)
     bind(project=f"{org_slug}/{project.slug}")
     return context
