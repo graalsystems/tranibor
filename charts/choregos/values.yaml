@@ -99,14 +99,15 @@ global:
     # start that container (it does not declare `separate_agent`) refuses the run, and `/readiness`
     # says so first (`agent-isolation`); the runner refuses too (exit 100) rather than fall back to
     # `process`. Needs Kubernetes >= 1.29 (native sidecar). `container` is the default from 0.27.17
-    # (S65-04m); `tekton` and `aca` cannot start the agent's container, so a deployment on them sets
-    # `process`, which stays a choice, journaled on every run (`agent.isolation`). Roll back the same way.
+    # (S65-04m); `aca` cannot start the agent's container, so a deployment on it sets `process`, which
+    # stays a choice, journaled on every run (`agent.isolation`). On `tekton`, an agent step goes to
+    # `choregos-orchestrator.runner.customImageExecutor` (`k8s_job`) instead (S86-02). Roll back the same way.
     agentIsolation: container
     # The named opt-out (ADR 0222). With `global.environment: staging` or `prod`, `agentIsolation: process`
     # (the agent in the runner's container, able to read the run token, git token and egress report key) is
     # REFUSED at render unless this is true: say so by name, and every run then logs it
     # (`TRANIBOR_AGENT_ISOLATION=none-accepted`; `/readiness`: `agent-isolation` is `check`). Needed on
-    # `tekton` and `aca`, which cannot start the agent's container (ADR 0146 §9). Ignored under `container`
+    # `aca`, which cannot start the agent's container (ADR 0146 §9). Ignored under `container`
     # and outside staging and prod.
     acceptUnisolatedAgent: false
   # Additional environment variables, given to the API, to each worker and to the migration Job
@@ -831,8 +832,10 @@ choregos-orchestrator:
     # Skip the render-time check that the agent-sandbox operator is installed, for an offline
     # rendering (CI, a preview). Never needed under Argo CD or `helm install`.
     skipOperatorCheck: false
-    # `agent_sandbox` only (ADR 0072): the executor that runs a step naming its own image, since a
-    # warm pool is made from one image. Add it to `global.runner.allowedExecutors` too. Empty: refused.
+    # The second executor (ADR 0072, S86-02). On `agent_sandbox`: it runs a step naming its own image,
+    # since a warm pool is made from one image. On `tekton` with `global.runner.agentIsolation: container`:
+    # it runs an agent step Tekton cannot isolate (a `job` step stays on Tekton); its runs are not signed
+    # by Tekton Chains. Add it to `global.runner.allowedExecutors` too. Empty: such a step is refused.
     customImageExecutor: k8s_job
     # What each agent pod receives in addition. `env` carries plain values (never a
     # secret); `envFromSecrets` lists the namespace's Secrets, mounted by reference —

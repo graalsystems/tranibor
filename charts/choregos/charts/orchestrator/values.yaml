@@ -38,7 +38,8 @@ runner:
   # Empty: `global.runner.executor` (default agent_sandbox, ADR 0072) decides.
   executor: ""
   skipOperatorCheck: false
-  # `agent_sandbox` only: the executor for steps that name their own image. Empty: such a step is refused.
+  # `agent_sandbox`: the executor for steps that name their own image; `tekton` under `container`: the
+  # executor for agent steps Tekton cannot isolate (S86-02). Empty: such a step is refused.
   customImageExecutor: k8s_job
   runtimeClass: ""
   # The runner container's own requests and limits beside the agent's (ADR 0146 §12): see the umbrella

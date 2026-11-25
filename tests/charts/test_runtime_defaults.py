@@ -131,3 +131,23 @@ def test_custom_image_executor_is_wired() -> None:
     assert _env(off["Deployment/choregos-orchestrator-executor"])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == ""
     jobs = _docs("--set", "global.runner.executor=k8s_job")
     assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/choregos-orchestrator-executor"])
+
+
+@needs_helm
+@pytest.mark.no_operator
+def test_tekton_under_container_renders_k8s_job_as_the_second_executor() -> None:
+    """S86-02: an agent step Tekton cannot isolate goes to `runner.customImageExecutor`, `k8s_job` unless the
+    values name another; under `process` nothing is routed, so nothing is rendered."""
+    executor = "Deployment/choregos-orchestrator-executor"
+    tekton = _env(_docs("--set", "global.runner.executor=tekton")[executor])
+    assert tekton["CHOREGOS_RUNNER_AGENT_ISOLATION"] == "container"
+    assert tekton["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
+    named = _docs(
+        "--set",
+        "global.runner.executor=tekton",
+        "--set",
+        "choregos-orchestrator.runner.customImageExecutor=aca",
+    )
+    assert _env(named[executor])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "aca"
+    process = _docs("--set", "global.runner.executor=tekton", "--set", "global.runner.agentIsolation=process")
+    assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(process[executor])

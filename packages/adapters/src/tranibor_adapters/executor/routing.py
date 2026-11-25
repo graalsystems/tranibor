@@ -12,6 +12,10 @@ cannot isolate (it does not declare `separate_agent`) goes to the second one whe
 refused, naming both, when neither can. A step that must go to the second executor is never sent back
 to the first for it: the first cannot honour its image.
 
+A primary that runs any image (`tekton`, S86-02) is wrapped without a pool image (`pool_image=None`): its
+steps are never custom, so a `job` step with its own image stays on it, and only the agent's isolation
+routes, a run under `container` it cannot isolate going to the second executor.
+
 The choice is made once, at `start`, on `spec.runner_image`, `spec.agent_container` and
 `spec.agent_isolation`. Everything after is routed by `ref.kind`, which the orchestrator persists per
 run (`runs.executor_kind`): status, logs, cancel, renew, suspend and resume reach the executor that
@@ -32,9 +36,11 @@ from .isolation import refuse_unless_separate
 
 
 class RoutingExecutor:
-    def __init__(self, primary: Executor, secondary: Executor, pool_image: str) -> None:
+    def __init__(self, primary: Executor, secondary: Executor, pool_image: str | None) -> None:
         self.primary = primary
         self.secondary = secondary
+        #: The one image the primary's pods are made from; None when the primary runs any image, and then
+        #: nothing but the agent's isolation sends a run to the secondary.
         self.pool_image = pool_image
         #: What the default executor can do. A run on the secondary may do less: ask `capabilities_for`.
         self.capabilities: frozenset[str] = frozenset(primary.capabilities)
@@ -44,6 +50,8 @@ class RoutingExecutor:
         return getattr(self.primary, "kind", None)
 
     def _is_custom(self, spec: StageJobSpec) -> bool:
+        if self.pool_image is None:
+            return False
         # A hosted agent's container beside the runner (ADR 0080): no pool sandbox has one.
         if spec.agent_container is not None:
             return True

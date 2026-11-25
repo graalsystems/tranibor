@@ -623,7 +623,7 @@ workers read the same setting, and `agent_sandbox` is the default.
 
 | Executor | Where it runs | Notes |
 | :-- | :-- | :-- |
-| `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton` |
+| `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton`; under `container` an agent step goes to `runner.customImageExecutor` (`k8s_job`) |
 | `k8s_job` | A `Job` per stage | Fewest moving parts; supports queueing |
 | `aca` | Azure Container Apps job | Verified against a real subscription; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
 | `local_docker` | A container on the host | Development only |
@@ -830,6 +830,15 @@ pool's image. A deployment on `agent_sandbox` sends such a step to a second exec
 start on the step's image, and the run's executor kind, persisted per run, routes its status, logs
 and cancel afterwards. Add `k8s_job` to `global.runner.allowedExecutors`. A run on the second
 executor has that executor's capabilities (no suspension across a question).
+
+A deployment on `tekton` under `global.runner.agentIsolation: container` gets the same second executor
+(S86-02): Tekton runs any image, so a step is never routed for its image, but a run whose agent Tekton
+cannot isolate goes to `runner.customImageExecutor` (`k8s_job` unless the values name another; empty keeps
+the refusal). Every step under `container` is such a run, a `job` step included, since the runner waits
+for the agent's launcher in every run; under `process` everything stays on Tekton. The Job runs in the
+same runner namespace, which the provisioning's `choregos-executor` Role already lets the orchestrator
+write Jobs in. A run routed there is not a PipelineRun, so Tekton Chains does not sign it.
+`/readiness` says `agent-isolation` is done and names the executor the run goes to.
 
 When an agent asks a question, its sandbox is **suspended** (pod gone, workspace volume kept)
 and the answer resumes the same run in it: one run, not two. The policy bounds the wait:
@@ -2707,6 +2716,18 @@ byte. What changes:
   `global.outposts.door.ingressController: ingress-nginx`. An installation that added keys to the map
   renders the same annotations; one that removed the two (`key: null`) for another controller now sets
   `ingressController: ""`, or carries them again, unread by its controller.
+
+## Upgrading past 0.29.4: a deployment on Tekton runs its agent steps isolated
+
+A deployment on `tekton` with `global.runner.agentIsolation: container` (the default) had every run refused
+(`agent_isolation_unavailable`): Tekton cannot start the agent's container. It now sends such a run to a second
+executor, `choregos-orchestrator.runner.customImageExecutor`, which the chart renders for `tekton` under
+`container` (S86-02).
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A deployment on `tekton` under `container` | Its runs start on `k8s_job` in the same runner namespace, with the agent in its own container (Kubernetes 1.29+); `/readiness` says `agent-isolation` is done, naming `k8s_job`. Those runs are Jobs, not PipelineRuns: Tekton Chains does not sign them. | Nothing, or name another executor in `runner.customImageExecutor`; empty keeps the refusal. |
+| A deployment on `tekton` under `process` | Unchanged: every run stays on Tekton (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container` to isolate the agent. |
 
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 
