@@ -173,18 +173,37 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
             writer.close()
 
 
-async def serve(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
-    """Listens until SIGTERM or SIGINT. Holds nothing and starts nothing before a request: a warm
-    sandbox's agent container is idle (ADR 0146 §2)."""
+async def _until(path: Path, stop: asyncio.Event, every: float) -> None:
+    while not stop.is_set():
+        if await asyncio.to_thread(path.exists):
+            stop.set()
+            return
+        await asyncio.sleep(every)
+
+
+async def serve(
+    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, until: str = "", every: float = 0.5
+) -> None:
+    """Listens until SIGTERM or SIGINT, or, with `until`, until that file exists. Holds nothing and starts
+    nothing before a request: a warm sandbox's agent container is idle (ADR 0146 §2).
+
+    `until` is for a platform that ends a run only when every container of it has ended (a Container Apps
+    job, ADR 0226 §2, measured by S87-07): the runner writes the file when it is done, and the agent's
+    container ends with it instead of holding the execution open until its timeout."""
     os.umask(SHARED_UMASK)
     server = await asyncio.start_server(handle, host, port)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
+    watch = asyncio.create_task(_until(Path(until), stop, every)) if until else None
     print(f"choregos-launcher: listening on {host}:{port}", file=sys.stderr, flush=True)
     async with server:
         await stop.wait()
+    if watch is not None:
+        watch.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await watch
 
 
 # ───────────────────────────── client: in the runner's container ─────────────────────────────
