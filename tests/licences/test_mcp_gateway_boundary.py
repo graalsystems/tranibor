@@ -133,10 +133,21 @@ FORWARD_PROXIES = frozenset({"tranibor_api.relay", "tranibor_api.egress"})
 #: `tracker_parse_event`. The URL names the organisation, the plugin and the server the plugin brings.
 PLUGIN_WEBHOOK = "POST /webhooks/plugins/{org}/{plugin}/{server}"
 
+#: ADR 0224 §3 (S86-03): an administrator adds, lists and deletes the named instances of a server a plugin
+#: brings. `{server}` names the plugin's own server inside the installed plugin, as in `PLUGIN_WEBHOOK`; the
+#: routes write and read organisation connector rows and forward nothing to any MCP server.
+PLUGIN_SERVER_INSTANCES = frozenset(
+    {
+        "GET /orgs/{org}/plugins/{name}/servers/{server}/instances",
+        "POST /orgs/{org}/plugins/{name}/servers/{server}/instances",
+        "DELETE /orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}",
+    }
+)
+
 #: What the checks below let through, and why each is not a gateway: modules (a package name covers what is
 #: beneath it) and routes (`VERB /path`). `test_the_whitelist_names_existing_modules` resolves every entry,
 #: so a rename cannot leave a stale one behind.
-ALLOWED_PLATFORM_MCP = PLUGIN_SERVER_SURFACE | FORWARD_PROXIES | {PLUGIN_WEBHOOK}
+ALLOWED_PLATFORM_MCP = PLUGIN_SERVER_SURFACE | FORWARD_PROXIES | {PLUGIN_WEBHOOK} | PLUGIN_SERVER_INSTANCES
 
 #: The routes of the two doors, by directory, one `VERB /path` per verb, parameter names included: a door
 #: that took a `{connector}` or a `{server}` would serve another server. A new route is a decision: one that
