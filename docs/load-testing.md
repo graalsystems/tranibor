@@ -161,15 +161,19 @@ Defined as the concurrency where the p95 of a hot read passes one second, or err
 
 ## Bottlenecks seen
 
-**1. The board is an N+1 (the slowest hot route, and the cause of most of the CPU).** On an idle
+**1. The board was an N+1 (the slowest hot route, and the cause of most of the CPU).** On an idle
 install, one `GET /projects/demo:demo/work-items` of 21 work items takes about 150 ms (`curl`), and
 `/me/pending` about 40 ms. With PostgreSQL's statement log on, that one board request ran 4 queries
 per work item (`workflow_defs`, `runs`, `human_requests`, `cost_ledger`: 21 each), 84 round trips on
 top of the page's own, from `work_item_dto` (`apps/api/src/tranibor_api/services/tickets.py`), called
 once per item by `list_work_items`; there are more for the repository view and the cost estimate. The
 page size is 50, so a full page is about 200 queries. At 1 user the board's p50 is 330 ms against 32
-ms for one work item. Not fixed here: batching the per-item reads is not a small change, and it
-touches the DTO every route shares. **A finding for a story of its own.**
+ms for one work item. **Fixed since by #2285** (status row `board-batched-reads`): the page reads each
+kind once for all its work items (`work_item_dtos`), so a page reads the same number of statements
+whatever its size: 14 on SQLite for a page of 4, 40 or 50 work items (16 for a member who does not
+read a restricted mark), where it read 270 for 50; a test guards it
+(`apps/api/tests/test_board_reads_a_page_at_once.py`). The load test above was not run again: its
+numbers are those of the code before the fix.
 
 **2. One API process and one core.** The API container runs one `uvicorn` process; its CPU sits at
 110 to 119 % from 10 users on, PostgreSQL at about 100 %. Both are saturated, on a machine that also
