@@ -48,6 +48,9 @@ spec:
         app.kubernetes.io/name: choregos-api
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: api
+        {{- with include "choregos.objectStorePodLabels" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
       annotations:
         # A secret rotation redeploys the pods: otherwise the key rotates to no effect.
         {{- /* Outposts switched off are no part of this pod: nothing of `global.outposts` is rendered
