@@ -29,13 +29,14 @@ from typing import Any
 import httpx
 import pytest
 from tranibor_adapters.executor.aca import AzureArmClient
+from tranibor_core.publishing import PUBLISHING
 
 from . import aca_two_containers as probe
 from .conftest import require
 
 pytestmark = pytest.mark.live
 
-IMAGE = "ghcr.io/graalsystems/tranibor-runner:0.29.4"
+IMAGE = PUBLISHING.image_name("runner") + ":0.29.4"
 LAUNCHER = "/app/.venv/bin/choregos-runner"
 PYTHON = "/app/.venv/bin/python"
 #: The agent's container when it ends itself once the runner says it is done (ADR 0226 §2, S87-08).
