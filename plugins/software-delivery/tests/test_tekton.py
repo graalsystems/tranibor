@@ -163,7 +163,8 @@ async def test_ci_aggregates_the_pipelineruns_of_a_sha() -> None:
     wire = Wire({("GET", f"{TEKTON_API}/namespaces/ci/pipelineruns"): (200, runs)})
     ci_status = await TektonCi(k8s(wire), namespace="ci").status_for("northwind/billing", "abc")
     assert ci_status.state == "running" and [c.status for c in ci_status.runs] == ["completed", "in_progress"]
-    assert wire.requests[0].url.params["labelSelector"] == "choregos/sha=abc"
+    # ADR 0224: the new label, then the former one; a run carrying both is counted once.
+    assert [r.url.params["labelSelector"] for r in wire.requests] == ["tranibor/sha=abc", "choregos/sha=abc"]
     vide = await TektonCi(
         k8s(Wire({("GET", f"{TEKTON_API}/namespaces/ci/pipelineruns"): (200, {"items": []})})), namespace="ci"
     ).status_for("r", "abc")
@@ -174,6 +175,25 @@ async def test_ci_aggregates_the_pipelineruns_of_a_sha() -> None:
             k8s(Wire({("GET", f"{TEKTON_API}/namespaces/ci/pipelineruns"): (200, echec)})), namespace="ci"
         ).status_for("r", "abc")
     ).state == "failure"
+
+
+async def test_ci_finds_a_run_labelled_only_with_the_former_sha_label() -> None:
+    """ADR 0224: a pipeline labelled before the rename carries `choregos/sha` only."""
+    import httpx
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if request.url.params["labelSelector"] == "choregos/sha=abc":
+            return httpx.Response(
+                200,
+                json={
+                    "items": [{"metadata": {"name": "old"}, "status": {"conditions": [{"status": "True"}]}}]
+                },
+            )
+        return httpx.Response(200, json={"items": []})
+
+    client = KubernetesClient(K8S, token="t", client=httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+    found = await TektonCi(client, namespace="ci").status_for("r", "abc")
+    assert found.state == "success" and len(found.runs) == 1
 
 
 async def test_triggering_a_pipeline_passes_repository_and_revision() -> None:

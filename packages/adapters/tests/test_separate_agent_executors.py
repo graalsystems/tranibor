@@ -79,10 +79,28 @@ async def _render() -> dict[str, Any]:
     return out
 
 
+def _without_the_new_label_family(value: Any) -> Any:
+    """The rendering as it was before ADR 0224: each `tranibor/*` label it now writes beside its former
+    `choregos/*` twin (same value, checked here) is set aside."""
+    if isinstance(value, dict):
+        kept = {}
+        for key, item in value.items():
+            if isinstance(key, str) and key.startswith("tranibor/"):
+                assert value.get("choregos/" + key.removeprefix("tranibor/")) == item, key
+                continue
+            kept[key] = _without_the_new_label_family(item)
+        return kept
+    if isinstance(value, list):
+        return [_without_the_new_label_family(item) for item in value]
+    return value
+
+
 async def test_process_renders_exactly_what_it_did_before() -> None:
     """The rollback: a deployment that sets `process` gets the Job and the containers of 0.27.15, but for
-    the pod's `choregos/sandbox` label (finding #2082: the run-pod policy holds a Job's pod in any mode)."""
-    assert json.loads(json.dumps(await _render())) == json.loads(BEFORE.read_text(encoding="utf-8"))
+    the pod's `choregos/sandbox` label (finding #2082: the run-pod policy holds a Job's pod in any mode)
+    and the `tranibor/*` labels written beside the `choregos/*` ones (ADR 0224)."""
+    rendered = json.loads(json.dumps(await _render()))
+    assert _without_the_new_label_family(rendered) == json.loads(BEFORE.read_text(encoding="utf-8"))
 
 
 def test_both_executors_declare_the_capability() -> None:

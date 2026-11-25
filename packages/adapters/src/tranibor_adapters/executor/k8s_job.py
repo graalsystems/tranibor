@@ -23,7 +23,7 @@ import contextlib
 from collections.abc import AsyncIterator
 from typing import Any
 
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_contracts.env import with_legacy_entries
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import (
@@ -61,6 +61,8 @@ HOSTED_WORKSPACE_VOLUME = "hosted-workspace"
 #: `choregos/sandbox`. A Job's pod without `choregos/sandbox` was outside the platform's run-pod policy
 #: and reached Temporal, Redis and the web search from its agent's container (finding #2082);
 #: `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+#: Not yet under the new family: the chart's warm pool and its policies select on these exact labels
+#: (`tests/charts/test_run_pod_labels.py`), and the chart's own labels move in round R6 (ADR 0224).
 RUNNER_POD_LABELS = {
     "app.kubernetes.io/name": "choregos-runner",
     "app.kubernetes.io/component": "runner",
@@ -287,7 +289,7 @@ class KubernetesJobExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id},
+                "labels": wire.labels_with_former({wire.label("run-id", domain=False): spec.run_id}),
             },
             "type": "Opaque",
             "data": run_secret_data(spec),
@@ -395,11 +397,13 @@ class KubernetesJobExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                },
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                ),
             },
             "spec": {
                 "backoffLimit": 0,  # the retry is decided by the orchestrator, not by Kubernetes

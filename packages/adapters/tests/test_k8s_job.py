@@ -42,6 +42,9 @@ async def test_the_runner_pod_carries_a_stable_label_for_the_network_policies() 
     labels = job["spec"]["template"]["metadata"]["labels"]
     assert labels["choregos/run-id"] == "r-1"
     assert RUNNER_POD_LABELS.items() <= labels.items()
+    # The Job itself carries both label families (ADR 0224); its pod's set is the chart's (round R6).
+    job_labels = job["metadata"]["labels"]
+    assert job_labels["tranibor/run-id"] == job_labels["choregos/run-id"] == "r-1"
 
 
 async def test_the_runner_pod_mounts_no_kubernetes_token() -> None:
@@ -491,7 +494,11 @@ async def test_the_token_of_a_queued_run_survives_neither_its_renewal_nor_its_jo
     await executor.renew(_ref_of("r-1"), "fresh-token")
 
     assert base64.b64decode(api.secrets["run-r-1"]["data"]["token"]).decode() == "fresh-token"
-    assert api.secrets["run-r-1"]["metadata"]["labels"] == {"choregos/run-id": "r-1"}
+    # ADR 0224: the new label family, and the former one beside it for the window.
+    assert api.secrets["run-r-1"]["metadata"]["labels"] == {
+        "tranibor/run-id": "r-1",
+        "choregos/run-id": "r-1",
+    }
     api.ttl_collects("run-r-1")
     assert "run-r-1" not in api.secrets, "the renewed token outlived its Job"
 

@@ -59,6 +59,7 @@ from tranibor_adapters.plugin_servers import (
     mirrored,
 )
 from tranibor_adapters.registry import FAKE_SCENE_FIELD, fakes_enabled
+from tranibor_contracts import wire
 from tranibor_contracts.wire import both_headers, header
 from tranibor_core.egress import host_port_of
 from tranibor_core.plugins import Plugin, configuration_variables
@@ -626,13 +627,17 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
-        labels={
-            "app.kubernetes.io/name": "choregos-plugin-server",
-            "app.kubernetes.io/managed-by": "choregos-api",
-            "choregos.dev/plugin": str(server["plugin"]),
-            "choregos.dev/server": str(server["server"]),
-            "choregos.dev/org": instance.org_id,
-        },
+        # `tranibor.dev/*`, and the former `choregos.dev/*` beside them for the window (ADR 0224): a
+        # policy or a selector written for the former family still matches.
+        labels=wire.labels_with_former(
+            {
+                "app.kubernetes.io/name": "choregos-plugin-server",
+                "app.kubernetes.io/managed-by": "choregos-api",
+                wire.label("plugin"): str(server["plugin"]),
+                wire.label("server"): str(server["server"]),
+                wire.label("org"): instance.org_id,
+            }
+        ),
         replicas=0 if problems else 1,
         runtime_class=settings.plugin_servers_runtime_class or None,
         cpu=settings.plugin_servers_cpu,
@@ -663,14 +668,16 @@ def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: S
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
-        labels={
-            "app.kubernetes.io/name": "choregos-plugin-server",
-            "app.kubernetes.io/managed-by": "choregos-api",
-            "choregos.dev/plugin": str(server["plugin"]),
-            "choregos.dev/server": str(server["server"]),
-            "choregos.dev/org": org_id,
-            "choregos.dev/fake": "true",
-        },
+        labels=wire.labels_with_former(
+            {
+                "app.kubernetes.io/name": "choregos-plugin-server",
+                "app.kubernetes.io/managed-by": "choregos-api",
+                wire.label("plugin"): str(server["plugin"]),
+                wire.label("server"): str(server["server"]),
+                wire.label("org"): org_id,
+                wire.label("fake"): "true",
+            }
+        ),
         replicas=1,
         runtime_class=settings.plugin_servers_runtime_class or None,
         cpu=settings.plugin_servers_cpu,

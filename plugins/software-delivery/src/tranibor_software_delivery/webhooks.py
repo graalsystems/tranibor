@@ -25,7 +25,7 @@ from tranibor_api.security import body_digest, verify_shared_secret
 from tranibor_api.services import received_events
 from tranibor_api.temporal import get_temporal, train_id
 from tranibor_contracts import InboundEvent
-from tranibor_contracts.wire import read_header
+from tranibor_contracts.wire import read_header, read_label
 
 from .names import DeliveryEvent
 
@@ -76,12 +76,12 @@ async def tekton_webhook(
         type=mapping.get(ce_type, DeliveryEvent.CI_STARTED),
         source="tekton",
         delivery_id=ce_id or body_digest(body),
-        project_slug=labels.get("choregos/project"),
-        work_item_key=labels.get("choregos/work-item"),
+        project_slug=read_label(labels, "project", domain=False),
+        work_item_key=read_label(labels, "work-item", domain=False),
         payload={
             "pipeline_run": (run.get("metadata", {}) or {}).get("name"),
-            "sha": labels.get("choregos/sha"),
-            "run_id": labels.get("choregos/run-id"),
+            "sha": read_label(labels, "sha", domain=False),
+            "run_id": read_label(labels, "run-id", domain=False),
         },
     )
     delivered = await dispatch(session, [event])

@@ -49,7 +49,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import (
     RUN_GATEWAY_KEY_ENV,
@@ -225,7 +225,13 @@ class AgentSandboxExecutor:
             "api_url": spec.api_url,
             "env": dict(spec.env),
             "timeout_minutes": spec.timeout_minutes,
-            "labels": {"choregos/run-id": spec.run_id, "choregos/project": spec.project_slug, **spec.labels},
+            "labels": wire.labels_with_former(
+                {
+                    wire.label("run-id", domain=False): spec.run_id,
+                    wire.label("project", domain=False): spec.project_slug,
+                    **spec.labels,
+                }
+            ),
         }
         queued = "true" if self.max_active else "false"
         secret = {
@@ -234,7 +240,9 @@ class AgentSandboxExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id, QUEUED: queued},
+                "labels": wire.labels_with_former(
+                    {wire.label("run-id", domain=False): spec.run_id, QUEUED: queued}
+                ),
             },
             "type": "Opaque",
             "data": {
@@ -272,7 +280,9 @@ class AgentSandboxExecutor:
                 # An annotation, not a label: claim labels must be in the controller's allowlisted
                 # domains. It tells whoever looks at the pod which run it serves.
                 "additionalPodMetadata": {
-                    "annotations": {"choregos/run-id": str(assignment.get("run_id", ""))}
+                    "annotations": wire.labels_with_former(
+                        {wire.label("run-id", domain=False): str(assignment.get("run_id", ""))}
+                    )
                 },
             },
         }

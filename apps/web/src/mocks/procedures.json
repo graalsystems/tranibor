@@ -1142,7 +1142,7 @@
       {
         "key": "at",
         "title": "At the cluster",
-        "markdown": "1. Label each `PipelineRun` the platform should follow with `choregos/sha=<commit>`; the connector\n   finds a commit's runs through that label. Runs that carry `choregos/project`, `choregos/work-item`\n   and `choregos/run-id` are also mapped back to their work item.\n2. Point Tekton's CloudEvents sink at the platform:\n   `https://choregos.example.com/api/v1/webhooks/tekton?token=<the shared webhook secret>`. Tekton's sink is configured by URL and\n   cannot add a header, which is why the secret travels in the query string. The parameter is\n   `token`: the former spelling was removed in 0.24.0, so a sink URL set up with it is refused (401)."
+        "markdown": "1. Label each `PipelineRun` the platform should follow with `tranibor/sha=<commit>`; the connector\n   finds a commit's runs through that label (a run labelled `choregos/sha` is still found until 0.32.0). Runs that carry `tranibor/project`, `tranibor/work-item`\n   and `tranibor/run-id` (or the former `choregos/*` labels) are also mapped back to their work item.\n2. Point Tekton's CloudEvents sink at the platform:\n   `https://choregos.example.com/api/v1/webhooks/tekton?token=<the shared webhook secret>`. Tekton's sink is configured by URL and\n   cannot add a header, which is why the secret travels in the query string. The parameter is\n   `token`: the former spelling was removed in 0.24.0, so a sink URL set up with it is refused (401)."
       },
       {
         "key": "permissions",
@@ -1162,7 +1162,7 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- `Forbidden` from the cluster: the API's service account lacks the `Role` above.\n- Status stays `unknown`: no `PipelineRun` carries the `choregos/sha` label of that commit.\n- Tekton events refused with `401`: the secret in the sink URL differs from the platform's.\n- Events never arrive: the sink URL is unreachable from the cluster, or Tekton's `config-defaults` ConfigMap does\n  not name it in `default-cloud-events-sink`."
+        "markdown": "- `Forbidden` from the cluster: the API's service account lacks the `Role` above.\n- Status stays `unknown`: no `PipelineRun` carries the `tranibor/sha` (or `choregos/sha`) label of that commit.\n- Tekton events refused with `401`: the secret in the sink URL differs from the platform's.\n- Events never arrive: the sink URL is unreachable from the cluster, or Tekton's `config-defaults` ConfigMap does\n  not name it in `default-cloud-events-sink`."
       }
     ],
     "values": {

@@ -18,7 +18,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from tranibor_contracts import ExecutorKind, StageResult
+from tranibor_contracts import ExecutorKind, StageResult, wire
 from tranibor_contracts.delivery import repository_of
 from tranibor_core.domain import ExecRef, ExecStatus, StageJobSpec, utcnow
 
@@ -211,7 +211,12 @@ class TektonExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id, "choregos/project": spec.project_slug},
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                    }
+                ),
             },
             "type": "Opaque",
             "data": run_secret_data(spec),
@@ -244,11 +249,13 @@ class TektonExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                },
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                ),
             },
             "spec": {
                 "pipelineRef": {"name": self.pipeline},

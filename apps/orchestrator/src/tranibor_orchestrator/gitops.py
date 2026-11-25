@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import yaml
-from tranibor_contracts import Policy, ProjectConfig
+from tranibor_contracts import Policy, ProjectConfig, wire
 from tranibor_core.quotas import DEFAULT, Quota
 
 
@@ -78,7 +78,9 @@ def render_egress_proxy(
     applies to the proxy; this policy lifts it only for its pod, to the public web ports, never to
     the cluster's private ranges.
     """
-    labels = {"app.kubernetes.io/name": EGRESS_NAME, "choregos/project": slug}
+    labels = wire.labels_with_former(
+        {"app.kubernetes.io/name": EGRESS_NAME, wire.label("project", domain=False): slug}
+    )
     # The only directories Squid writes; emptyDirs, the rest of the filesystem read-only.
     volumes = (("log", "/var/log/squid"), ("spool", "/var/spool/squid"), ("run", "/run"), ("tmp", "/tmp"))  # noqa: S108
     return _dump(
@@ -212,11 +214,13 @@ def render_project_manifests(
                 "kind": "Namespace",
                 "metadata": {
                     "name": ns,
-                    "labels": {
-                        "choregos/project": slug,
-                        "pod-security.kubernetes.io/enforce": "restricted",
-                        "pod-security.kubernetes.io/audit": "restricted",
-                    },
+                    "labels": wire.labels_with_former(
+                        {
+                            wire.label("project", domain=False): slug,
+                            "pod-security.kubernetes.io/enforce": "restricted",
+                            "pod-security.kubernetes.io/audit": "restricted",
+                        }
+                    ),
                 },
             }
             for ns in (runners, ci)
@@ -228,7 +232,11 @@ def render_project_manifests(
             {
                 "apiVersion": "v1",
                 "kind": "ResourceQuota",
-                "metadata": {"name": "choregos-quota", "namespace": ns, "labels": {"choregos/project": slug}},
+                "metadata": {
+                    "name": "choregos-quota",
+                    "namespace": ns,
+                    "labels": wire.labels_with_former({wire.label("project", domain=False): slug}),
+                },
                 "spec": {
                     "hard": {
                         "requests.cpu": quota_cpu,
@@ -288,7 +296,9 @@ def render_project_manifests(
                 "metadata": {
                     "name": "allow-platform-egress",
                     "namespace": runners,
-                    "annotations": {"choregos/allow-domains": ",".join(allowed_domains)},
+                    "annotations": wire.labels_with_former(
+                        {wire.label("allow-domains", domain=False): ",".join(allowed_domains)}
+                    ),
                 },
                 "spec": {
                     "podSelector": {},
@@ -394,7 +404,9 @@ def render_project_manifests(
                 "metadata": {
                     "name": f"{app}-{env}",
                     "namespace": "argocd",
-                    "labels": {"choregos/project": slug, "choregos/env": env},
+                    "labels": wire.labels_with_former(
+                        {wire.label("project", domain=False): slug, wire.label("env", domain=False): env}
+                    ),
                     "finalizers": ["resources-finalizer.argocd.argoproj.io"],
                 },
                 "spec": {
@@ -453,7 +465,7 @@ def render_project_manifests(
             {
                 "apiVersion": "kustomize.config.k8s.io/v1beta1",
                 "kind": "Kustomization",
-                "commonLabels": {"choregos/project": slug},
+                "commonLabels": wire.labels_with_former({wire.label("project", domain=False): slug}),
                 "resources": [
                     "namespaces.yaml",
                     "quotas.yaml",
