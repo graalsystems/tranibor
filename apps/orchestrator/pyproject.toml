@@ -18,6 +18,8 @@ dependencies = [
 ]
 
 [project.scripts]
+tranibor-orchestrator = "tranibor_orchestrator.worker:main"
+# The former name, for the window of ADR 0224 R5.
 choregos-orchestrator = "tranibor_orchestrator.worker:main"
 
 [build-system]

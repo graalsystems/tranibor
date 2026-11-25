@@ -43,7 +43,7 @@ def _compose_profiles() -> set[str]:
 
 def _cli_commands() -> set[str]:
     reference = (ROOT / "docs" / "cli.md").read_text(encoding="utf-8")
-    return set(re.findall(r"^#+ `(choregos [a-z -]+)`", reference, re.M))
+    return set(re.findall(r"^#+ `(tranibor [a-z -]+)`", reference, re.M))
 
 
 def test_the_page_has_commands_to_check() -> None:
@@ -71,9 +71,10 @@ def test_every_command_exists(command: str) -> None:
                 assert words[index + 1] in _compose_profiles(), f"no compose profile `{words[index + 1]}`"
     elif tool in {"cp", "python3"}:
         assert (ROOT / words[1]).exists(), f"`{words[1]}` is not in the repository"
-    elif tool == "choregos":
+    elif tool in {"tranibor", "choregos"}:  # the former name runs the same CLI (ADR 0224 R5)
+        words = ["tranibor", *words[1:]]
         path = " ".join(w for w in words[:3] if not w.startswith(("-", "<")) and w.isascii())
-        known = _cli_commands() | {"choregos login"}
+        known = _cli_commands() | {"tranibor login"}
         assert any(path == c or path.startswith(c + " ") for c in known), f"no CLI command for `{command}`"
     elif tool in {"curl", "irm"}:
         # The install of the CLI from the instance (S62-08): a route the API serves at the root.

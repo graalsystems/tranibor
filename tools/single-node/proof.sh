@@ -276,7 +276,7 @@ egress_gate() {
 }
 
 token() {
-  k exec deploy/choregos-api -- choregos-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
+  k exec deploy/choregos-api -- tranibor-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
 }
 
 # S80-41, #2185: a record of the memory, written to Ecphoria and read back by id, from the API's pod

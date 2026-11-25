@@ -1131,7 +1131,7 @@ workflow that names an agent resolve through the same view. Organisations that i
 agents before S43-09 had their provenance rewritten by a migration, and an `org_plugins` row recorded
 for each plugin they held agents of, so upgrades keep reaching them.
 
-The full reference of the commands is in [the CLI reference](cli.md#choregos-plugin).
+The full reference of the commands is in [the CLI reference](cli.md#tranibor-plugin).
 
 ## Sources and trust
 

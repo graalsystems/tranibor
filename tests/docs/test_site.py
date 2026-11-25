@@ -8,7 +8,8 @@ it gives, a YAML block it shows must exist and work today. This file turns CI re
 - every relative link resolves, to a file and to a heading;
 - every `yaml` block parses, and the workflows, policies and knowledge-base manifests are validated by
   the platform's own models, with no warning; every `json` block parses;
-- every `choregos` command exists in the CLI, with the options the page gives it;
+- every `tranibor` command exists in the CLI, with the options the page gives it (a page may still
+  write the former name, `choregos`, until the documentation round of ADR 0224 rewrites it);
 - every screen path written `**A › B**` names labels the console has, and every console address in
   backticks is a page of the console;
 - the prose is safe for MDX (the site is Docusaurus 3, which reads `.md` as MDX).
@@ -289,9 +290,9 @@ def test_a_json_example_parses(name: str, body: str) -> None:
 
 @cache
 def _cli_sections() -> dict[str, str]:
-    """`choregos a b` → the text of its section in the generated reference."""
+    """`tranibor a b` → the text of its section in the generated reference."""
     text = CLI_REFERENCE.read_text(encoding="utf-8")
-    heads = list(re.finditer(r"^#+ `(choregos[a-z0-9 -]*)`\s*$", text, re.M))
+    heads = list(re.finditer(r"^#+ `(tranibor[a-z0-9 -]*)`\s*$", text, re.M))
     sections: dict[str, str] = {}
     for index, head in enumerate(heads):
         end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
@@ -321,12 +322,12 @@ def _pipeline(command: str) -> list[str]:
 
 
 def _root_usage() -> str:
-    """The options of `choregos` itself (`--no-color`): the reference has no root section."""
+    """The options of `tranibor` itself (`--no-color`): the reference has no root section."""
     import typer.main
     from tranibor_cli.main import app
 
     flags = [opt for param in typer.main.get_command(app).params for opt in param.opts]
-    return "Usage: choregos " + " ".join(flags)
+    return "Usage: tranibor " + " ".join(flags)
 
 
 def _compose_profiles() -> set[str]:
@@ -335,22 +336,29 @@ def _compose_profiles() -> set[str]:
 
 
 def test_there_are_commands_to_check() -> None:
-    assert sum(c.startswith("choregos ") for c in _commands()) >= 20
+    assert sum(c.startswith(("tranibor ", "choregos ")) for c in _commands()) >= 20
+
+
+def test_the_reference_names_the_command_tranibor() -> None:
+    """ADR 0224 R5: the reference is generated under the command's name, never the former one."""
+    assert len(_cli_sections()) >= 20
+    assert not re.search(r"^#+ `choregos", CLI_REFERENCE.read_text(encoding="utf-8"), re.M)
+    assert "Usage: tranibor workflow validate" in _cli_sections()["tranibor workflow validate"]
 
 
 @pytest.mark.parametrize("command", _commands())
 def test_every_command_exists_with_its_options(command: str) -> None:
     words = shlex.split(command.replace("<", "").replace(">", ""))
     tool = words[0]
-    if tool == "choregos":
+    if tool in {"tranibor", "choregos"}:  # the former name runs the same CLI for the window (ADR 0224)
         known = _cli_sections()
-        path = "choregos"
+        path = "tranibor"
         for word in words[1:]:
             if f"{path} {word}" in known:
                 path = f"{path} {word}"
             else:
                 break
-        usage = known.get(path) or (_root_usage() if path == "choregos" else "")
+        usage = known.get(path) or (_root_usage() if path == "tranibor" else "")
         assert "Usage:" in usage, f"no CLI command for `{command}` (`{path}` is not a command)"
         for word in words:
             flag = word.split("=", 1)[0]

@@ -123,7 +123,10 @@ def test_the_package_depends_on_nothing_that_serves_or_reports() -> None:
         "jsonschema",
         "typer",
     }, "a new dependency of the daemon is a decision: say why in the pull request"
-    assert declared["scripts"] == {"choregos-outpost": "tranibor_outpost.cli:main"}
+    assert declared["scripts"] == {
+        "tranibor-outpost": "tranibor_outpost.cli:main",
+        "choregos-outpost": "tranibor_outpost.cli:main",  # the former name, for the window of ADR 0224 R5
+    }
 
 
 async def test_a_running_daemon_dials_the_door_and_its_endpoints_and_nothing_else(

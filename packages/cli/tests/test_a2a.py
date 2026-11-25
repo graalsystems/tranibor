@@ -1,4 +1,4 @@
-"""`choregos a2a` (S62-03): start a workflow over the A2A door, hand it data and files, follow it.
+"""`tranibor a2a` (S62-03): start a workflow over the A2A door, hand it data and files, follow it.
 
 The door is mocked here with respx, call by call; `apps/api/tests/test_a2a_cli.py` drives the real one.
 """
@@ -342,7 +342,7 @@ def test_a_star_token_is_refused_and_the_cli_says_which_token_opens_the_door() -
     read = _cli("get", "t-1")
     assert read.exit_code == 1, read.output
     assert "HTTP 403" in read.stderr
-    assert "--scope a2a" in read.stderr and "choregos machines token" in read.stderr
+    assert "--scope a2a" in read.stderr and "tranibor machines token" in read.stderr
     # Without --token, the profile's token is sent.
     assert door.calls[0]["headers"]["authorization"] == "Bearer chg_profile"
 

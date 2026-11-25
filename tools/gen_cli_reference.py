@@ -8,9 +8,10 @@ The public page (S62-09b) is the same reference under the documentation site's f
 generator, so the two never say different things.
 
 There was no CLI reference, in any language (state of play of 2026-09-24): `usage.md`
-showed five of its commands, `dev.md` six others, and nothing mentioned
-`~/.config/choregos/config.json`. This file is produced by Typer from the real commands,
-with their options and their help — and a test compares it with the repository.
+showed five of its commands, `dev.md` six others, and nothing mentioned the profile's file. This
+file is produced by Typer from the real commands, with their options and their help — and a test
+compares it with the repository. The program is rendered as `tranibor`, the command's name since
+ADR 0224 R5 (the native files and the install scripts carry it); `PROGRAM` holds it.
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from typing import Any
 from tranibor_core.publishing import PUBLISHING, SIGNING_ISSUER
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+#: The command the reference names (ADR 0224 R5); `choregos`, the former one, is a link to it.
+PROGRAM = "tranibor"
 TARGET = ROOT / "docs" / "cli.md"
 SITE_TARGET = ROOT / "docs" / "site" / "cli" / "reference.md"
 
@@ -37,32 +40,34 @@ Generated from the CLI itself by `tools/gen_cli_reference.py` — do not edit by
 
 ## Installing the CLI
 
-The command is `tranibor`; `choregos` stays as an alias entry point of the Python package
-(ADR 0176). The native files below are still named `choregos-*` and the binary is still called
-`choregos`: renaming the release assets is a later step of the plan (ADR 0176, R3).
+The command is `tranibor` (ADR 0224 R5). For a window of two minor versions the former names still
+work: the release also attaches each file under its former name (`choregos-linux-x86_64`, the same
+bytes), an instance serves both, the install scripts put a `choregos` link to `tranibor` on the
+PATH, `tranibor self update` accepts an instance whose files carry the former names, and
+`choregos` stays an entry point of the Python package. `docs/deployment.md` says when they go.
 
-`choregos` ships as one native, self-contained file per platform: nothing to install first, no
+`tranibor` ships as one native, self-contained file per platform: nothing to install first, no
 Python, no SDK, no runtime. Each release attaches them to its GitHub release, under names that
-never change, and the API image carries the same files in `/opt/choregos/cli/`:
+do not change between versions, and the API image carries the same files in `/opt/choregos/cli/`:
 
 | Platform | File |
 |:--|:--|
-| Linux x86_64 (glibc 2.28 or later: RHEL 8, Debian 10, Ubuntu 18.10 on) | `choregos-linux-x86_64` |
-| Linux arm64 (same) | `choregos-linux-arm64` |
-| macOS, Apple silicon | `choregos-macos-arm64` |
-| macOS, Intel | `choregos-macos-x86_64` |
-| Windows x86_64 | `choregos-windows-x86_64.exe` |
+| Linux x86_64 (glibc 2.28 or later: RHEL 8, Debian 10, Ubuntu 18.10 on) | `tranibor-linux-x86_64` |
+| Linux arm64 (same) | `tranibor-linux-arm64` |
+| macOS, Apple silicon | `tranibor-macos-arm64` |
+| macOS, Intel | `tranibor-macos-x86_64` |
+| Windows x86_64 | `tranibor-windows-x86_64.exe` |
 
-Beside them, `SHA256SUMS`, `manifest.json` (the version, and each file's platform, digest and
-size) and a cosign bundle per file (`<file>.sigstore.json`). Download one, check it, put it on the
-PATH:
+Beside them, `SHA256SUMS` (each digest under both names), `manifest.json` (the version, and each
+file's platform, digest and size) and a cosign bundle per file (`<file>.sigstore.json`). Download
+one, check it, put it on the PATH:
 
 ```sh
-curl -fsSLO __RELEASES__/download/v<version>/choregos-linux-x86_64
+curl -fsSLO __RELEASES__/download/v<version>/tranibor-linux-x86_64
 curl -fsSLO __RELEASES__/download/v<version>/SHA256SUMS
 sha256sum --ignore-missing -c SHA256SUMS          # macOS: shasum -a 256 --ignore-missing -c SHA256SUMS
-install -m 0755 choregos-linux-x86_64 ~/.local/bin/choregos
-choregos --version
+install -m 0755 tranibor-linux-x86_64 ~/.local/bin/tranibor
+tranibor --version
 ```
 
 `cosign verify-blob --bundle SHA256SUMS.sigstore.json --certificate-identity
@@ -70,20 +75,25 @@ __RELEASE_IDENTITY__
 --certificate-oidc-issuer __ISSUER__ SHA256SUMS` proves the sums
 come from the release workflow. The Windows and macOS files are not yet signed by a platform
 vendor (`docs/plan/BLOCKERS.md`): Windows SmartScreen warns, and a macOS browser download needs
-`xattr -d com.apple.quarantine choregos-macos-arm64` once. The first call unpacks the binary into
-the user's cache directory (`~/.cache/choregos`, `~/Library/Caches/choregos`,
-`%LOCALAPPDATA%\\choregos`); later calls start from there.
+`xattr -d com.apple.quarantine tranibor-macos-arm64` once. The first call unpacks the binary into
+the user's cache directory (`~/.cache/tranibor`, `~/Library/Caches/tranibor`,
+`%LOCALAPPDATA%\\tranibor`); later calls start from there.
 
 From a checkout, `make cli-binary` builds the binary of the machine it runs on into `dist/cli/`
 (Nuitka; on Linux in the `manylinux_2_28` image, so docker is needed) and `make cli-binary-smoke`
-runs the release's smoke test on it. The Python package (`packages/cli`, `uv run choregos`)
+runs the release's smoke test on it. The Python package (`packages/cli`, `uv run tranibor`)
 remains the way to work on the CLI itself.
 
 ## Profile
 
-The profile lives in `~/.config/choregos/config.json` (`TRANIBOR_CONFIG` overrides the
-path): `api_url`, `token`, `org`. `choregos login` writes it; `TRANIBOR_API_URL`,
-`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists.
+The profile lives in `~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` overrides the
+path): `api_url`, `token`, `org`. `tranibor login` writes it; `TRANIBOR_API_URL`,
+`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0224 R5,
+the former file, `~/.config/choregos/config.json`, is read when the new one is absent (and
+`TRANIBOR_CONFIG` names no other file); it is never written again.
+
+`tranibor workflow validate`, `show` and `push` read `.tranibor/workflow.yaml` when no path is
+given, and the former `.choregos/workflow.yaml` when the repository has no `.tranibor/` file yet.
 
 ## Install from your instance
 
@@ -92,13 +102,15 @@ no Python, no access to GitHub needed. The console shows the command for your sy
 Integrations › CLI.
 
 ```sh
-curl -fsSL https://<your-instance>/cli/install.sh | sh        # Linux, macOS: ~/.local/bin/choregos
-irm https://<your-instance>/cli/install.ps1 | iex             # Windows: %LOCALAPPDATA%\\Programs\\choregos
+curl -fsSL https://<your-instance>/cli/install.sh | sh        # Linux, macOS: ~/.local/bin/tranibor
+irm https://<your-instance>/cli/install.ps1 | iex             # Windows: %LOCALAPPDATA%\\Programs\\tranibor
 ```
 
 The scripts check the binary's sha256 against the instance's manifest
 (`/downloads/cli/manifest.json`) and never use sudo; `sh -s -- --prefix DIR` installs into `DIR/bin`.
-`choregos self update` later replaces the binary with the instance's current one. When the CLI
+Beside `tranibor` they leave the former command, `choregos` (a link on Linux and macOS, a
+`choregos.cmd` on Windows), in place of the binary an earlier install left.
+`tranibor self update` later replaces the binary with the instance's current one. When the CLI
 talks to an instance that runs another version, it says so in one line on stderr, at most once a
 day (`TRANIBOR_NO_VERSION_CHECK=1` silences it).
 
@@ -113,19 +125,21 @@ HEADER = (
 
 SITE_HEADER = """---
 title: CLI reference
-description: Every choregos command and option, generated from the CLI itself.
+description: Every tranibor command and option, generated from the CLI itself.
 sidebar_position: 2
 ---
 
 # CLI reference
 
 This page is generated from the CLI itself, and the repository's tests fail when it differs from the
-commands. `choregos <command> --help` prints the same text for the version you installed
-([Install the CLI](install.md)).
+commands. `tranibor <command> --help` prints the same text for the version you installed
+([Install the CLI](install.md)). The command was named `choregos` before; for a window of two minor
+versions, `choregos` still runs it (a link the install scripts leave beside it).
 
-The profile lives in `~/.config/choregos/config.json` (`TRANIBOR_CONFIG` names another file):
-`api_url`, `token`, `org`. `choregos login` writes it; `TRANIBOR_API_URL`, `TRANIBOR_TOKEN` and
-`TRANIBOR_ORG` are read when no profile exists.
+The profile lives in `~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` names another file):
+`api_url`, `token`, `org`. `tranibor login` writes it; `TRANIBOR_API_URL`, `TRANIBOR_TOKEN` and
+`TRANIBOR_ORG` are read when no profile exists. The former file, `~/.config/choregos/config.json`, is
+read when the new one is absent, and never written again.
 
 """
 
@@ -155,7 +169,7 @@ def generate(header: str = HEADER) -> str:
 
     root = typer.main.get_command(app)
     output: list[str] = [header]
-    _render(root, ["choregos"], output)
+    _render(root, [PROGRAM], output)
     return "\n".join(output).rstrip() + "\n"
 
 

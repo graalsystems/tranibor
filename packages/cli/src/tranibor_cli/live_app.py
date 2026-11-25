@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos live`'s screen (S67-28, ADR 0187 §4): the Textual app. This is the only module of the command
+"""`tranibor live`'s screen (S67-28, ADR 0187 §4): the Textual app. This is the only module of the command
 that imports Textual; `live.py` imports it when, and only when, the person opens the screen.
 
 It reads what the console's flow reads, through the same pure reduction (`live_flow`): the workflow's
 validated graph, the project's work items, the organisation's activity stream (a run starting or ending moves
 a token's status), and a fresh read of the items when a run ends (a token that changed station). `live_view`
-draws it. Nothing is written: the screen has no key that acts on a work item (use `choregos decide`).
+draws it. Nothing is written: the screen has no key that acts on a work item (use `tranibor decide`).
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ class ItemScreen(ModalScreen[None]):
 
 
 class LiveFlowPane(Vertical, can_focus=True):
-    """The live flow of one workflow as a widget (S67-28): `choregos live` is this pane alone, the workspace's
+    """The live flow of one workflow as a widget (S67-28): `tranibor live` is this pane alone, the workspace's
     Live tab is this pane beside its context pane. It owns the reads, the stream and the drawing; the
     reduction (`live_flow`) and the drawing (`live_view`) are shared, nothing is drawn or reduced here."""
 
@@ -477,7 +477,7 @@ class LiveFlowPane(Vertical, can_focus=True):
 
 
 class LiveApp(App[None]):
-    """`choregos live`: the pane alone, full screen."""
+    """`tranibor live`: the pane alone, full screen."""
 
     TITLE = "choregos live"
     ENABLE_COMMAND_PALETTE = False

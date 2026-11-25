@@ -10,7 +10,8 @@ reads the pages as they are and compares them with the code:
 - relative links resolve inside `docs/site`, anchors included; links to the repository name files and
   headings that exist; site-absolute links name a slug of the contract;
 - the pages are safe for MDX (Docusaurus 3): no bare `<` or `{` outside code;
-- every `choregos` command parses against the CLI's own Typer app (options, arguments);
+- every `tranibor` command (or `choregos`, its former name, until ADR 0224's R8) parses against the
+  CLI's own Typer app (options, arguments);
 - every YAML block is claimed by a check: a workflow parses without error or warning, a policy
   validates, Helm values name keys of the chart, the plugin of the plugins page validates;
 - the workflow reference names every key of the workflow schema and lists exactly the known gates;
@@ -74,7 +75,7 @@ LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
 LANGUAGES = {"bash", "shell", "powershell", "json", "yaml", "python", "markdown", "text", "mermaid"}
 #: Commands a page may announce before the CLI has them, each with the story that brings it. The page
 #: must mark them with an "Available from" note.
-UPCOMING = {"choregos self update": "S62-08, the CLI served by the instance"}
+UPCOMING = {"tranibor self update": "S62-08, the CLI served by the instance"}
 
 
 def _rel(page: Path) -> str:
@@ -236,9 +237,9 @@ def _cli() -> Any:
 
 
 def _cli_problem(words: list[str]) -> str | None:
-    """None when `choregos <words>` is a command the CLI parses, else why not."""
+    """None when `tranibor <words>` is a command the CLI parses, else why not."""
     command = _cli()
-    path = ["choregos"]
+    path = ["tranibor"]
     rest = list(words[1:])
     while getattr(command, "commands", None) is not None:
         if not rest or rest[0] not in command.commands:
@@ -299,8 +300,8 @@ def test_every_command_exists(page: str, command: str) -> None:
     for words in parts:
         if not words:
             continue
-        if words[0] == "choregos":
-            name = " ".join(w for w in words[:3] if not w.startswith("-"))
+        if words[0] in {"tranibor", "choregos"}:  # the former name runs the same CLI (ADR 0224 R5)
+            name = " ".join(["tranibor", *(w for w in words[1:3] if not w.startswith("-"))])
             problem = _cli_problem(words)
             if problem and name in UPCOMING:
                 text = (SITE / page).read_text(encoding="utf-8")
@@ -313,11 +314,11 @@ def test_every_command_exists(page: str, command: str) -> None:
 
 def test_the_command_check_refuses_what_the_cli_does_not_have() -> None:
     """The guard itself: an unknown subcommand, an unknown option, a missing argument."""
-    assert _cli_problem(["choregos", "machines", "launch"])
-    assert _cli_problem(["choregos", "a2a", "send", "x", "--colour", "red"])
-    assert _cli_problem(["choregos", "machines", "create", "acme:billing-api"])
-    assert _cli_problem(["choregos", "a2a", "send", "--text", "x"])  # the skill argument is required
-    assert _cli_problem(["choregos", "a2a", "send", "billing-api/ship-a-change", "--text", "x"]) is None
+    assert _cli_problem(["tranibor", "machines", "launch"])
+    assert _cli_problem(["tranibor", "a2a", "send", "x", "--colour", "red"])
+    assert _cli_problem(["tranibor", "machines", "create", "acme:billing-api"])
+    assert _cli_problem(["tranibor", "a2a", "send", "--text", "x"])  # the skill argument is required
+    assert _cli_problem(["tranibor", "a2a", "send", "billing-api/ship-a-change", "--text", "x"]) is None
 
 
 # ───────────────────────── YAML and JSON ─────────────────────────

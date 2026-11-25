@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos outposts`: an organisation's outposts and their instances (ADR 0147).
+"""`tranibor outposts`: an organisation's outposts and their instances (ADR 0147).
 
 An outpost is a place a person enrols, of one organisation, that only dials out to the platform. These
 commands are its administrator's (`outpost:manage`): they call the management routes
@@ -33,7 +33,7 @@ APPROVAL_REQUIRES_SESSION = "approval_requires_session"
 
 OrgOption = Annotated[str | None, typer.Option("--org", help="the organisation; the profile's otherwise")]
 InstanceArgument = Annotated[
-    str, typer.Argument(help="the instance's id, as `choregos outposts instances` shows it")
+    str, typer.Argument(help="the instance's id, as `tranibor outposts instances` shows it")
 ]
 
 
@@ -102,7 +102,7 @@ def create(
 ) -> None:
     """Create an outpost of the organisation, with no instance yet.
 
-    An instance comes from an enrolment token (`choregos outposts token`) and a person's approval.
+    An instance comes from an enrolment token (`tranibor outposts token`) and a person's approval.
     Refused while the deployment keeps outposts switched off.
     """
     api, organisation = _target(org)
@@ -111,7 +111,7 @@ def create(
         body["display_name"] = display_name
     outpost = api.post(f"/orgs/{organisation}/outposts", json=body)
     _done(f"outpost `{outpost['slug']}` created: {outpost['status']}, no instance yet")
-    _verbatim(f"  enrol its first instance with a token: choregos outposts token {outpost['slug']}")
+    _verbatim(f"  enrol its first instance with a token: tranibor outposts token {outpost['slug']}")
 
 
 @outposts_app.command("list")
@@ -210,7 +210,7 @@ def revoke(slug: str, org: OrgOption = None) -> None:
 def delete(slug: str, org: OrgOption = None) -> None:
     """Delete a revoked outpost, with its instances and what is left of its calls.
 
-    Refused while connectors still route to it (`choregos outposts show` names them), and while it is
+    Refused while connectors still route to it (`tranibor outposts show` names them), and while it is
     not revoked.
     """
     api, organisation = _target(org)
@@ -256,7 +256,7 @@ def token(
         f"the console ({CONSOLE_PAGE} → {slug}) only if the fingerprint shown there is that one."
     )
     _verbatim()
-    _verbatim(f"Pasted in the wrong place? Cancel it: choregos outposts cancel-token {slug} {created['id']}")
+    _verbatim(f"Pasted in the wrong place? Cancel it: tranibor outposts cancel-token {slug} {created['id']}")
 
 
 @outposts_app.command("tokens")
@@ -264,7 +264,7 @@ def tokens(slug: str, org: OrgOption = None) -> None:
     """The enrolment tokens of the outpost that can still enrol an instance, newest first.
 
     Never a token itself: the platform keeps its digest only. An instance names the token it enrolled
-    with (`choregos outposts instances`).
+    with (`tranibor outposts instances`).
     """
     api, organisation = _target(org)
     listed = api.get(f"/orgs/{organisation}/outposts/{slug}/enrolments")["items"]
@@ -280,19 +280,19 @@ def tokens(slug: str, org: OrgOption = None) -> None:
             enrolment["expires_at"],
         )
     console.print(table)
-    _verbatim(f"cancel one: choregos outposts cancel-token {slug} <token>")
+    _verbatim(f"cancel one: tranibor outposts cancel-token {slug} <token>")
 
 
 @outposts_app.command("cancel-token")
 def cancel_token(
     slug: str,
-    enrolment: Annotated[str, typer.Argument(help="the token's id, as `choregos outposts tokens` shows it")],
+    enrolment: Annotated[str, typer.Argument(help="the token's id, as `tranibor outposts tokens` shows it")],
     org: OrgOption = None,
 ) -> None:
     """Cancel an enrolment token that enrolled nothing: from now on it enrols no instance.
 
     A token that already enrolled an instance is not cancelled (409 `enrolment_used`): revoke that
-    instance instead (`choregos outposts revoke-instance`).
+    instance instead (`tranibor outposts revoke-instance`).
     """
     api, organisation = _target(org)
     api.delete(f"/orgs/{organisation}/outposts/{slug}/enrolments/{enrolment}")
@@ -305,7 +305,7 @@ def instances(slug: str, org: OrgOption = None) -> None:
     api, organisation = _target(org)
     listed = api.get(f"/orgs/{organisation}/outposts/{slug}/instances")["items"]
     if not listed:
-        _verbatim(f"no instance yet: enrol one with `choregos outposts token {slug}`")
+        _verbatim(f"no instance yet: enrol one with `tranibor outposts token {slug}`")
         return
     for instance in listed:
         facts = " ".join(f"{name}={value}" for name, value in sorted((instance.get("facts") or {}).items()))
@@ -439,4 +439,4 @@ def calls(
     _verbatim("arguments: the first 12 characters of their SHA-256, as the outpost's own audit log writes it")
     meta = page.get("meta") or {}
     if meta.get("has_more") and meta.get("next_cursor"):
-        _verbatim(f"older calls: choregos outposts calls {slug} --cursor {meta['next_cursor']}")
+        _verbatim(f"older calls: tranibor outposts calls {slug} --cursor {meta['next_cursor']}")

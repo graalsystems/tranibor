@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos a2a`: start a workflow over the A2A door, hand it its data and files, follow it to its end.
+"""`tranibor a2a`: start a workflow over the A2A door, hand it its data and files, follow it to its end.
 
 The door is A2A 0.3.0 JSON-RPC at `/a2a/orgs/<org>` (ADR 0078); `docs/starting-a-workflow-from-outside.md`
 says what each call does. This module is the CLI's own small client of that door rather than
@@ -47,8 +47,8 @@ STREAM_SILENCE = 60.0
 RECONNECT_PAUSE = 1.0
 MISSING_SCOPE = (
     "the A2A door needs a token of scope `a2a`, and refuses a `*` one such as the CLI's profile token: "
-    "create one with `choregos tokens create --name <name> --scope a2a --project <org:project>` (as you) "
-    "or `choregos machines token <org:project> <application> --name <name>` (as an application), then "
+    "create one with `tranibor tokens create --name <name> --scope a2a --project <org:project>` (as you) "
+    "or `tranibor machines token <org:project> <application> --name <name>` (as an application), then "
     "pass it with `--token` or TRANIBOR_A2A_TOKEN"
 )
 
@@ -554,7 +554,7 @@ def skills(org: OrgOption = None, token: TokenOption = None, as_json: JsonOption
 @a2a_app.command("send")
 def send(  # noqa: PLR0913 - one option per part of the message, as the guide names them
     skill: Annotated[
-        str, typer.Argument(help="the skill, `project/skill` as `choregos a2a skills` lists it")
+        str, typer.Argument(help="the skill, `project/skill` as `tranibor a2a skills` lists it")
     ],
     text: Annotated[
         list[str] | None,
@@ -619,7 +619,7 @@ def send(  # noqa: PLR0913 - one option per part of the message, as the guide na
     try:
         task = _run(_door(org, token), work)
     except KeyboardInterrupt:
-        errors.print("interrupted: `choregos a2a follow <task>` picks it up again")
+        errors.print("interrupted: `tranibor a2a follow <task>` picks it up again")
         raise typer.Exit(EXIT_INTERRUPTED) from None
     _finish(task, as_json=as_json, out_dir=out_dir, out=out)
     if wait:

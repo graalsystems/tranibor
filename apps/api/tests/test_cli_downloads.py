@@ -24,26 +24,31 @@ import pytest
 from httpx import AsyncClient
 from tranibor_core.publishing import PUBLISHING
 
+#: The files' names since ADR 0224 R5; `FORMER` are the names a bundle built before it has.
 NAMES = {
-    ("linux", "x86_64"): "choregos-linux-x86_64",
-    ("linux", "arm64"): "choregos-linux-arm64",
-    ("macos", "arm64"): "choregos-macos-arm64",
-    ("macos", "x86_64"): "choregos-macos-x86_64",
-    ("windows", "x86_64"): "choregos-windows-x86_64.exe",
+    ("linux", "x86_64"): "tranibor-linux-x86_64",
+    ("linux", "arm64"): "tranibor-linux-arm64",
+    ("macos", "arm64"): "tranibor-macos-arm64",
+    ("macos", "x86_64"): "tranibor-macos-x86_64",
+    ("windows", "x86_64"): "tranibor-windows-x86_64.exe",
 }
+FORMER = {target: name.replace("tranibor-", "choregos-", 1) for target, name in NAMES.items()}
 
 
 def fake_binary(name: str) -> bytes:
     """A 'binary' that the install test can run: it says which file it is."""
-    return f'#!/bin/sh\necho "choregos 9.9.9 ({name})"\n'.encode()
+    return f'#!/bin/sh\necho "tranibor 9.9.9 ({name})"\n'.encode()
 
 
-def make_bundle(directory: Path, *, version: str = "9.9.9", tamper: str | None = None) -> dict[str, Any]:
-    """The five files, `SHA256SUMS` and `manifest.json`; `tamper` names a file whose bytes change after."""
+def make_bundle(
+    directory: Path, *, version: str = "9.9.9", tamper: str | None = None, former: bool = False
+) -> dict[str, Any]:
+    """The five files, `SHA256SUMS` and `manifest.json`; `tamper` names a file whose bytes change after;
+    `former` names the files as a release before ADR 0224 R5 did."""
     directory.mkdir(parents=True, exist_ok=True)
     files = []
     sums = []
-    for (os_name, arch), name in NAMES.items():
+    for (os_name, arch), name in (FORMER if former else NAMES).items():
         content = fake_binary(name)
         (directory / name).write_bytes(content)
         digest = hashlib.sha256(content).hexdigest()
@@ -71,6 +76,29 @@ def bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str
     reset_settings_cache()
     yield {"dir": directory, "manifest": manifest}
     reset_settings_cache()
+
+
+async def test_a_former_name_is_served_as_the_same_file(client: AsyncClient, bundle: dict[str, Any]) -> None:
+    """ADR 0224 R5: a script or an older `self update` that asks for `choregos-<platform>` gets the file."""
+    for target, name in NAMES.items():
+        response = await client.get(f"/downloads/cli/{FORMER[target]}")
+        assert response.status_code == 200, response.text
+        assert response.content == (bundle["dir"] / name).read_bytes()
+        assert FORMER[target] in response.headers["content-disposition"]
+        entry = next(f for f in bundle["manifest"]["files"] if f["name"] == name)
+        assert response.headers["x-checksum-sha256"] == entry["sha256"]
+
+
+async def test_a_bundle_built_before_the_rename_answers_to_the_new_names(
+    client: AsyncClient, bundle: dict[str, Any]
+) -> None:
+    for name in NAMES.values():
+        (bundle["dir"] / name).unlink()
+    make_bundle(bundle["dir"], former=True)
+    for target, name in NAMES.items():
+        response = await client.get(f"/downloads/cli/{name}")
+        assert response.status_code == 200, response.text
+        assert response.content == (bundle["dir"] / FORMER[target]).read_bytes()
 
 
 # ─── the routes ───
@@ -133,8 +161,11 @@ async def test_the_checksums_file_is_served(client: AsyncClient, bundle: dict[st
         "/downloads/cli/unlisted.txt",
         "/downloads/cli/..%2f..%2fetc%2fpasswd",
         "/downloads/cli/%2e%2e%2fmanifest.json",
+        "/downloads/cli/tranibor-linux-x86_64%2f..%2funlisted.txt",
         "/downloads/cli/choregos-linux-x86_64%2f..%2funlisted.txt",
+        "/downloads/cli/tranibor-freebsd-x86_64",
         "/downloads/cli/choregos-freebsd-x86_64",
+        "/downloads/cli/choregos-unlisted.txt",
     ],
 )
 async def test_only_a_name_the_manifest_lists_is_served(
@@ -152,7 +183,7 @@ async def test_without_a_bundle_the_answer_is_a_clear_404_naming_the_release(
 
     monkeypatch.setenv("TRANIBOR_CLI_DIR", str(tmp_path / "absent"))
     reset_settings_cache()
-    for path in ("/downloads/cli/manifest.json", "/downloads/cli/choregos-linux-x86_64"):
+    for path in ("/downloads/cli/manifest.json", "/downloads/cli/tranibor-linux-x86_64"):
         response = await client.get(path)
         assert response.status_code == 404
         assert response.headers["content-type"] == "application/problem+json"
@@ -160,7 +191,7 @@ async def test_without_a_bundle_the_answer_is_a_clear_404_naming_the_release(
         assert problem["code"] == "no_cli_bundled"
         assert problem["version"] == __version__
         assert problem["release_url"] == PUBLISHING.release(__version__)
-        assert "bundles no `choregos` CLI" in problem["detail"]
+        assert "bundles no `tranibor` CLI" in problem["detail"]
     reset_settings_cache()
 
 
@@ -361,23 +392,62 @@ def test_install_sh_installs_the_verified_binary_into_local_bin(
     home.mkdir()
     done = _install(live_instance["url"], home)
     assert done.returncode == 0, done.stderr
-    installed = home / ".local" / "bin" / "choregos"
-    assert installed.is_file()
+    installed = home / ".local" / "bin" / "tranibor"
+    assert installed.is_file() and not installed.is_symlink()
     assert os.access(installed, os.X_OK)
     name = NAMES[_this_machine()]  # type: ignore[index]
     assert installed.read_bytes() == (live_instance["dir"] / name).read_bytes()
     ran = subprocess.run([str(installed)], capture_output=True, text=True, check=True)
-    assert ran.stdout.strip() == f"choregos 9.9.9 ({name})"
-    assert "Installed choregos 9.9.9" in done.stdout
+    assert ran.stdout.strip() == f"tranibor 9.9.9 ({name})"
+    assert "Installed tranibor 9.9.9" in done.stdout
+    # The former command, for the window of ADR 0224 R5: a relative link to the new binary.
+    former = installed.parent / "choregos"
+    assert former.is_symlink() and os.readlink(former) == "tranibor"
+    assert subprocess.run([str(former)], capture_output=True, text=True, check=True).stdout == ran.stdout
     # Not on PATH: the script says how to put it there, for the person's shell.
     assert f"echo 'export PATH=\"{home}/.local/bin:$PATH\"' >> ~/.zshrc" in done.stdout
     # The sign-in it suggests first is the browser's; a token is the scripts' alternative (S67-05).
-    assert f"  choregos login --api-url {live_instance['url']}\n" in done.stdout
+    assert f"  tranibor login --api-url {live_instance['url']}\n" in done.stdout
     assert done.stdout.index("--token") > done.stdout.index("sign in with your browser")
     # Run again (an update): the same place, still one file, nothing staged left behind.
     again = _install(live_instance["url"], home)
     assert again.returncode == 0, again.stderr
-    assert sorted(p.name for p in installed.parent.iterdir()) == ["choregos"]
+    assert sorted(p.name for p in installed.parent.iterdir()) == ["choregos", "tranibor"]
+    assert os.readlink(former) == "tranibor"
+
+
+@needs_posix_and_curl
+def test_install_sh_replaces_an_earlier_choregos_with_the_link(
+    live_instance: dict[str, Any], tmp_path: Path
+) -> None:
+    home = tmp_path / "home"
+    earlier = home / ".local" / "bin" / "choregos"
+    earlier.parent.mkdir(parents=True)
+    earlier.write_bytes(b"#!/bin/sh\necho 'choregos 9.9.8'\n")
+    done = _install(live_instance["url"], home)
+    assert done.returncode == 0, done.stderr
+    assert earlier.is_symlink() and os.readlink(earlier) == "tranibor"
+    assert subprocess.run([str(earlier)], capture_output=True, text=True, check=True).stdout.startswith(
+        "tranibor 9.9.9"
+    )
+
+
+@needs_posix_and_curl
+def test_install_sh_installs_from_an_instance_released_before_the_rename(
+    live_instance: dict[str, Any], tmp_path: Path
+) -> None:
+    """`--url` may name an older instance, whose manifest lists `choregos-<platform>`: the same binary."""
+    for name in NAMES.values():
+        (live_instance["dir"] / name).unlink()
+    make_bundle(live_instance["dir"], former=True)
+    home = tmp_path / "home"
+    home.mkdir()
+    done = _install(live_instance["url"], home)
+    assert done.returncode == 0, done.stderr
+    former = FORMER[_this_machine()]  # type: ignore[index]
+    installed = home / ".local" / "bin" / "tranibor"
+    assert installed.read_bytes() == (live_instance["dir"] / former).read_bytes()
+    assert os.readlink(home / ".local" / "bin" / "choregos") == "tranibor"
 
 
 @needs_posix_and_curl
@@ -387,7 +457,8 @@ def test_install_sh_honours_a_prefix(live_instance: dict[str, Any], tmp_path: Pa
     prefix = tmp_path / "tools"
     done = _install(live_instance["url"], home, "--prefix", str(prefix))
     assert done.returncode == 0, done.stderr
-    assert (prefix / "bin" / "choregos").is_file()
+    assert (prefix / "bin" / "tranibor").is_file()
+    assert (prefix / "bin" / "choregos").is_symlink()
     assert not (home / ".local").exists()
 
 
@@ -403,6 +474,7 @@ def test_install_sh_refuses_a_binary_whose_checksum_differs(
     assert done.returncode != 0
     assert f"checksum mismatch for {name}" in done.stderr
     assert "nothing was installed" in done.stderr
+    assert not (home / ".local" / "bin" / "tranibor").exists()
     assert not (home / ".local" / "bin" / "choregos").exists()
 
 
@@ -457,16 +529,22 @@ def test_install_ps1_stays_within_windows_powershell_5_1(tmp_path: Path) -> None
     assert not any(line.strip().startswith("exit") for line in code.splitlines())
     assert code.count("-UseBasicParsing") == 2
     assert "Get-FileHash -Algorithm SHA256" in code
-    assert "Join-Path $env:LOCALAPPDATA 'Programs\\choregos'" in code
+    assert "$InstallDir = Join-Path $env:LOCALAPPDATA 'Programs\\tranibor'" in code
     assert "[Environment]::SetEnvironmentVariable('Path'" in code and "'User')" in code
-    assert "choregos-windows-x86_64.exe" in code
+    assert "$name = 'tranibor-windows-x86_64.exe'" in code
+    assert "$target = Join-Path $InstallDir 'tranibor.exe'" in code
+    # ADR 0224 R5: an older instance's file name is accepted, the former command runs the new binary,
+    # and an earlier install's choregos.exe (which PATHEXT would prefer) is moved out of the way.
+    assert "$formerName = 'choregos-windows-x86_64.exe'" in code
+    assert 'Join-Path $InstallDir \'choregos.cmd\') -Value "@`"%~dp0tranibor.exe`" %*"' in code
+    assert "Join-Path $formerDir 'choregos.exe'" in code and "'Programs\\choregos'" in code
     # The downloaded binary runs once before it replaces anything: a managed Windows may refuse to
     # start it (Defender ASR, found on a real machine on 2026-11-12), and nothing is installed then.
     assert code.index("& $downloaded --version") < code.index(
         "New-Item -ItemType Directory -Force -Path $InstallDir"
     )
     assert "Nothing was installed." in code
-    # A running choregos.exe is renamed aside before the new one takes its name.
+    # A running tranibor.exe is renamed aside before the new one takes its name.
     assert code.index("-Destination $aside") < code.index(
         "Move-Item -LiteralPath $downloaded -Destination $target"
     )

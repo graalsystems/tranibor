@@ -14,7 +14,22 @@ import httpx
 
 #: The largest page the API serves (ADR 0206): a list read to its end asks for this many rows at a time.
 PAGE_LIMIT = 200
-CONFIG_PATH = Path(os.environ.get("TRANIBOR_CONFIG", Path.home() / ".config" / "choregos" / "config.json"))
+#: Where the profile lives unless `TRANIBOR_CONFIG` names another file (ADR 0224 R5).
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "tranibor" / "config.json"
+#: The profile's former place: read when the default profile is absent, for the window of ADR 0224 R5,
+#: and never written again (`tranibor login` writes `DEFAULT_CONFIG_PATH`).
+FORMER_CONFIG_PATH = Path.home() / ".config" / "choregos" / "config.json"
+CONFIG_PATH = Path(os.environ.get("TRANIBOR_CONFIG", DEFAULT_CONFIG_PATH))
+
+
+def profile_path() -> Path | None:
+    """The profile file to read: `CONFIG_PATH`, else the former default when `CONFIG_PATH` is the default
+    one and absent; None when there is none. A file `TRANIBOR_CONFIG` names is never replaced by another."""
+    if CONFIG_PATH.exists():
+        return CONFIG_PATH
+    if CONFIG_PATH == DEFAULT_CONFIG_PATH and FORMER_CONFIG_PATH.exists():
+        return FORMER_CONFIG_PATH
+    return None
 
 
 class NoOrganisationError(RuntimeError):
@@ -23,7 +38,8 @@ class NoOrganisationError(RuntimeError):
 
 @dataclass
 class Profile:
-    """The connection profile, stored in `~/.config/choregos/config.json`."""
+    """The connection profile, stored in `~/.config/tranibor/config.json` (`~/.config/choregos/config.json`
+    is read when it is absent, for the window of ADR 0224 R5)."""
 
     api_url: str = "http://localhost:8000"
     token: str = ""
@@ -33,8 +49,9 @@ class Profile:
 
     @classmethod
     def load(cls) -> Profile:
-        if CONFIG_PATH.exists():
-            data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        path = profile_path()
+        if path is not None:
+            data = json.loads(path.read_text(encoding="utf-8"))
             return cls(**{k: v for k, v in data.items() if k in {"api_url", "token", "org"}})
         return cls(
             api_url=os.environ.get("TRANIBOR_API_URL", "http://localhost:8000"),
@@ -48,7 +65,7 @@ class Profile:
         if not chosen:
             raise NoOrganisationError(
                 "no organisation: pass --org <slug>, set TRANIBOR_ORG, or save one in the profile "
-                "with `choregos login --org <slug>` (`choregos orgs list` shows yours)"
+                "with `tranibor login --org <slug>` (`tranibor orgs list` shows yours)"
             )
         return chosen
 
@@ -209,7 +226,7 @@ class Client:
 
 
 class AsyncClient:
-    """The same calls for the workspace (`choregos chat`), which lives in an event loop: a turn is read as a
+    """The same calls for the workspace (`tranibor chat`), which lives in an event loop: a turn is read as a
     task, so ending the task closes the stream and the platform cancels the turn (S63-04b)."""
 
     def __init__(self, profile: Profile | None = None) -> None:

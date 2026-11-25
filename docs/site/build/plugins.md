@@ -177,4 +177,4 @@ it in **Plugins**.
   [Plugins, extensions and editions](plugins-and-trades.md).
 - The full plugin format, servers and trust:
   [plugins reference](../../plugins.md).
-- [CLI reference](../cli/reference.md#choregos-plugin) for every option of `choregos plugin`.
+- [CLI reference](../cli/reference.md#tranibor-plugin) for every option of `choregos plugin`.

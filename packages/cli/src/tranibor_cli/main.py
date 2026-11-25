@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The `choregos` CLI: projects, work items, runs, trains, findings, workflows, dev."""
+"""The `tranibor` CLI: projects, work items, runs, trains, findings, workflows, dev."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
+from tranibor_core.repository_dir import DIRECTORY, repository_file
 
 from . import __version__, device_login, money, theme
 from . import chat as chat_module
@@ -100,15 +101,15 @@ def _root(
     org: Annotated[
         str | None,
         typer.Option(
-            "--org", help="The organisation the bare `choregos` workspace opens on (the profile's otherwise)."
+            "--org", help="The organisation the bare `tranibor` workspace opens on (the profile's otherwise)."
         ),
     ] = None,
 ) -> None:
-    """Options of `choregos` itself, before any command."""
+    """Options of `tranibor` itself, before any command."""
     if no_color:
         theme.MONOCHROME = True
     if ctx.invoked_subcommand is None:
-        # A bare `choregos` (ADR 0154 §3): the workspace in a terminal, the help anywhere else, so that no
+        # A bare `tranibor` (ADR 0154 §3): the workspace in a terminal, the help anywhere else, so that no
         # script which pipes it changes behaviour.
         if chat_module.interactive():
             chat_module.open_workspace(org=org)
@@ -134,7 +135,7 @@ class TransportSafeClient(Client):
         reason = str(exc) or type(exc).__name__
         fail(
             f"cannot reach {self.profile.api_url}: {reason} — "
-            "run `choregos login --api-url …` to point the CLI at a running API"
+            "run `tranibor login --api-url …` to point the CLI at a running API"
         )
 
     def request(self, method: str, path: str, **kwargs: Any) -> Any:
@@ -229,7 +230,7 @@ def login(
 ) -> None:
     """Sign in as yourself with your browser: you approve in the console, the CLI holds a session of yours.
 
-    That session is listed under My account (`/account`) and ending it there signs the CLI out; `choregos
+    That session is listed under My account (`/account`) and ending it there signs the CLI out; `tranibor
     logout` ends it too. Nothing is printed that could be reused. With `--token`, an API token is saved
     instead (it is not a session of yours; the CLI cannot issue the first token, `tokens create` itself needs
     one: get it from the console, under My account, then pass it with `--token`).
@@ -286,7 +287,7 @@ def _device_sign_in(profile: Profile, *, org: str | None, fresh: bool, open_brow
 
 def _saved_organisation(api_url: str) -> str:
     """The organisation the profile already holds for this instance; "" for another instance or none."""
-    if not client_module.CONFIG_PATH.exists():
+    if client_module.profile_path() is None:
         return ""
     saved = Profile.load()
     return saved.org if saved.api_url.rstrip("/") == api_url.rstrip("/") else ""
@@ -309,14 +310,14 @@ def _choose_organisation(http: Client) -> str:
             console.print(f"[yellow]![/yellow] {chosen!r} is not one of yours")
     console.print(
         f"[yellow]![/yellow] you belong to {len(slugs)} organisations ({', '.join(slugs)}): "
-        "save one with `choregos login --org <slug>`"
+        "save one with `tranibor login --org <slug>`"
     )
     return ""
 
 
 def _known_instance() -> str:
     """The instance this CLI already talks to: the saved profile's, else `TRANIBOR_API_URL`; "" when none."""
-    if client_module.CONFIG_PATH.exists():
+    if client_module.profile_path() is not None:
         return Profile.load().api_url
     return os.environ.get("TRANIBOR_API_URL", "")
 
@@ -628,7 +629,7 @@ def projects_create(
     """Create a project; `--template` then starts the provisioning.
 
     Without `--repo`, the project has no repository (ADR 0012): the agent works in an empty
-    directory, and requests are filed with `choregos items create`.
+    directory, and requests are filed with `tranibor items create`.
     """
     api = client()
     organization = _organisation(api.profile, org)
@@ -648,7 +649,7 @@ def projects_create(
     if tracker:
         api.put(f"/projects/{project['id']}/connectors/tracker", json={"type": tracker, "config": {}})
         if tracker == "internal":
-            console.print(f"  tracker `{tracker}`: file requests with `choregos items create {slug} …`")
+            console.print(f"  tracker `{tracker}`: file requests with `tranibor items create {slug} …`")
         else:
             console.print(f"  tracker `{tracker}`: set its configuration in the project's connectors")
     if template:
@@ -959,10 +960,21 @@ def workflow_list(project: str) -> None:
     console.print(table)
 
 
+#: The workflow a repository declares (ADR 0224 R5); the former `.choregos/workflow.yaml` is read when it is
+#: absent.
+DEFAULT_WORKFLOW = Path(DIRECTORY) / "workflow.yaml"
+
+
+def workflow_file(path: Path) -> Path:
+    """The file to read: `path` as given, except the default one, which falls back to the former directory's
+    workflow when the repository has no `.tranibor/workflow.yaml` yet."""
+    return repository_file(Path(), "workflow.yaml") if path == DEFAULT_WORKFLOW else path
+
+
 @workflow_app.command("push")
 def workflow_push(
     project: str,
-    path: Annotated[Path, typer.Argument()] = Path(".choregos/workflow.yaml"),
+    path: Annotated[Path, typer.Argument()] = DEFAULT_WORKFLOW,
     base_version: Annotated[
         int | None,
         typer.Option("--base-version", help="the active version you read: 409 if another one replaced it"),
@@ -974,6 +986,7 @@ def workflow_push(
     """
     import yaml
 
+    path = workflow_file(path)
     source = path.read_text(encoding="utf-8")
     try:
         document = yaml.safe_load(source) or {}
@@ -1007,12 +1020,13 @@ def offline_report(workflow: Any, result: Any) -> dict[str, Any]:
 
 @workflow_app.command("validate")
 def workflow_validate(
-    path: Annotated[Path, typer.Argument()] = Path(".choregos/workflow.yaml"),
+    path: Annotated[Path, typer.Argument()] = DEFAULT_WORKFLOW,
     remote: Annotated[
         bool, typer.Option("--remote", help="validate through the API rather than locally")
     ] = False,
 ) -> None:
     """Validate a workflow. Without `--remote`, the validation is local and offline."""
+    path = workflow_file(path)
     source = path.read_text(encoding="utf-8")
     if remote:
         report = client().post("/workflows/validate", json={"yaml": source})
@@ -1039,14 +1053,14 @@ def workflow_validate(
 
 @workflow_app.command("show")
 def workflow_show(
-    path: Annotated[Path, typer.Argument()] = Path(".choregos/workflow.yaml"),
+    path: Annotated[Path, typer.Argument()] = DEFAULT_WORKFLOW,
     mermaid: Annotated[bool, typer.Option("--mermaid")] = False,
     process: Annotated[bool, typer.Option("--process", help="each transition in plain words")] = False,
 ) -> None:
     """Show the workflow: states, transitions, a Mermaid diagram, or the process in plain words."""
     from tranibor_core import parse_workflow, to_mermaid, to_process
 
-    workflow, _ = parse_workflow(path.read_text(encoding="utf-8"), strict=False)
+    workflow, _ = parse_workflow(workflow_file(path).read_text(encoding="utf-8"), strict=False)
     if mermaid:
         console.print(to_mermaid(workflow))
         return

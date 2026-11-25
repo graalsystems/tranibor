@@ -28,7 +28,7 @@ spelling. The rules behind each call are in the [reference](integrations.md#anot
 [ADR 0078](adr/0078-governed-workflows-as-a2a-skills.md).
 
 Each step shows the call with `curl`, then the same with the CLI's `choregos a2a`
-([reference](cli.md#choregos-a2a)), which writes the JSON-RPC for you.
+([reference](cli.md#tranibor-a2a)), which writes the JSON-RPC for you.
 
 ### 1. Open the workflow to the door
 
@@ -334,7 +334,7 @@ choregos items show BIL-12
 ```
 
 Without `--workflow`, the project's routing picks one from the `--label`s, then its default applies. See
-the [CLI reference](cli.md#choregos-items-create). A script reads the same thing over REST, and the answer
+the [CLI reference](cli.md#tranibor-items-create). A script reads the same thing over REST, and the answer
 carries the `id` to poll:
 
 ```bash

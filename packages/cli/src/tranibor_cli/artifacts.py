@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos artifacts`: a work item's artefacts, the person's inbox and a run's diff (S67-11, ADR 0154 §2).
+"""`tranibor artifacts`: a work item's artefacts, the person's inbox and a run's diff (S67-11, ADR 0154 §2).
 
 List, download to a path, open with the system's viewer, compare two revisions of a text artefact. Everything
 reads routes that exist: `GET /work-items/{id}/artifacts`, `…/{ref}`, `…/{ref}/content`, `GET /me/inbox` and
@@ -176,7 +176,7 @@ def system_opener(path: Path) -> None:
 def open_in_viewer(content: Content, opener: Opener | None = None) -> Path:
     """Write a private temporary copy under the artefact's name and hand it to the opener. The copy is left
     in place: the viewer reads it after this returns."""
-    folder = Path(tempfile.mkdtemp(prefix="choregos-"))
+    folder = Path(tempfile.mkdtemp(prefix="tranibor-"))
     path = folder / default_name(content.ref)
     path.write_bytes(content.data)
     path.chmod(0o600)

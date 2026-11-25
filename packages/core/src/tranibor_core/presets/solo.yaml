@@ -63,6 +63,7 @@ attempts:
 scope:
   auto_grant_max_files: 3
   deny_paths:
+  - .tranibor/**
   - .choregos/**
   - .github/workflows/**
 sandbox:

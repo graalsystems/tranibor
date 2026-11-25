@@ -32,6 +32,16 @@ IMAGE_COMPONENTS = ("api", "orchestrator", "tools", "web", "runner", "laya", "ou
 #: platform's, named by the prefix alone, and the outpost's, `<prefix>-outpost` (ADR 0147), each
 #: packaged from its directory.
 CHARTS = {"": "charts/choregos", "-outpost": "charts/choregos-outpost"}
+#: The native CLI's platforms (ADR 0151), `(os, arch)` in the manifest's words, and the end of each file's
+#: name: the file is `<prefix>-<end>`, `tranibor-linux-x86_64` (ADR 0224 R5), and for the deprecation
+#: window also under the former prefix, `choregos-linux-x86_64` (the same bytes).
+CLI_PLATFORMS: dict[tuple[str, str], str] = {
+    ("linux", "x86_64"): "linux-x86_64",
+    ("linux", "arm64"): "linux-arm64",
+    ("macos", "arm64"): "macos-arm64",
+    ("macos", "x86_64"): "macos-x86_64",
+    ("windows", "x86_64"): "windows-x86_64.exe",
+}
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,27 @@ class Publishing:
         if suffix not in CHARTS:
             raise ValueError(f"{suffix!r} names no chart of the release: {sorted(CHARTS)}")
         return tuple(f"{prefix}{suffix}" for prefix in self.image_prefixes)
+
+    def cli_file(self, os_name: str, arch: str, *, former: bool = False) -> str:
+        """The native CLI's file for a platform: `<image_prefix>-<platform>`, or under the former prefix."""
+        try:
+            end = CLI_PLATFORMS[(os_name, arch)]
+        except KeyError:
+            raise ValueError(f"no native CLI is built for {os_name}/{arch}") from None
+        return f"{self.image_alias_prefix if former else self.image_prefix}-{end}"
+
+    def cli_file_names(self, os_name: str, arch: str) -> tuple[str, str]:
+        """Both names of a platform's file for the window of ADR 0224 R5: the current one, then the former."""
+        return self.cli_file(os_name, arch), self.cli_file(os_name, arch, former=True)
+
+    def cli_twin(self, name: str) -> str | None:
+        """The other name of a CLI file (`tranibor-linux-x86_64` <-> `choregos-linux-x86_64`), or None."""
+        for current, former in (self.cli_file_names(*platform) for platform in CLI_PLATFORMS):
+            if name == current:
+                return former
+            if name == former:
+                return current
+        return None
 
     def signing_identity(self, ref: str, workflow: str = RELEASE_WORKFLOW) -> str:
         """The keyless identity of what a workflow of the source repository signed at `ref`."""

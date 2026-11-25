@@ -107,8 +107,8 @@ RUN git clone --quiet --depth 1 --branch "${HUBBLE_VERSION}" https://github.com/
       -X 'github.com/cilium/cilium/hubble/pkg.Version=${HUBBLE_VERSION#v}'" \
     -o /out/hubble .
 
-# The native `choregos` CLI binaries (S62-07), served by the instance (S62-08): EMPTY here. The release
-# replaces this stage with the signed binaries, their SHA256SUMS and manifest.json
+# The native `tranibor` CLI binaries (S62-07; `tranibor-<platform>` since ADR 0224 R5), served by the
+# instance (S62-08): EMPTY here. The release replaces this stage with the signed binaries, their SHA256SUMS and manifest.json
 # (`--build-context cli=dist/cli`, `release.yml`); any other build (compose, CI) leaves it empty, and
 # the image then has no /opt/choregos/cli/ — the instance says no CLI is bundled in this build.
 FROM scratch AS cli
@@ -193,7 +193,7 @@ RUN --mount=type=bind,from=cli,target=/mnt/cli \
       mkdir -p /opt/choregos/cli \
       && cp /mnt/cli/* /opt/choregos/cli/ \
       && chmod 0644 /opt/choregos/cli/* \
-      && find /opt/choregos/cli -name 'choregos-*' ! -name '*.json' -exec chmod 0755 {} +; \
+      && find /opt/choregos/cli \( -name 'tranibor-*' -o -name 'choregos-*' \) ! -name '*.json' -exec chmod 0755 {} +; \
     fi
 USER 1000
 # SkillSpector (ADR 0095): the gate runs it on every version a person publishes.

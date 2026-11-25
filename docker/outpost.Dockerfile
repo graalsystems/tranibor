@@ -48,9 +48,10 @@ USER 1000
 # The daemon must START in this image, and find the contract it was built against: the wheel of
 # `tranibor-contracts` carries the door's document and the policy file's schema, and a daemon that
 # cannot read them refuses every policy. Checked here, where a missing file fails the build.
-RUN choregos-outpost --version \
+RUN tranibor-outpost --version \
+ && choregos-outpost --version \
  && python -c "import tranibor_contracts as c, tranibor_outpost.policy as p; \
       c.load_outpost_door(); p.load(c.schemas_dir() / 'examples' / 'outpost-policy.example.yaml')" \
  && test ! -e /app/packages
-ENTRYPOINT ["/usr/bin/tini", "--", "choregos-outpost"]
+ENTRYPOINT ["/usr/bin/tini", "--", "tranibor-outpost"]
 CMD ["run"]

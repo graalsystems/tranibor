@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""A knowledge base as code (S39-18c): `choregos knowledge apply -f kb.yaml`.
+"""A knowledge base as code (S39-18c): `tranibor knowledge apply -f kb.yaml`.
 
 The manifest declares one base, its sources, its uploaded files and its eval set. `apply` compares it
 with what the API holds and does the difference, nothing more: run twice, the second run changes

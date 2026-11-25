@@ -30,16 +30,17 @@ def test_the_runner_venv_is_not_on_the_image_path() -> None:
 
 def test_the_runner_starts_by_its_absolute_path() -> None:
     entrypoint = re.search(r"^ENTRYPOINT (\[.*\])$", _runtime(), re.M)
-    assert entrypoint and '"/app/.venv/bin/choregos-runner"' in entrypoint.group(1)
+    assert entrypoint and '"/app/.venv/bin/tranibor-runner"' in entrypoint.group(1)
 
 
 def test_the_platform_commands_stay_callable_by_name_and_the_build_checks_python3() -> None:
     runtime = _runtime()
     assert "for command in" in runtime, "the platform's commands are no longer linked"
     linked = runtime.split("for command in", 1)[1].split(";", 1)[0].split()
-    # A Tekton step runs `choregos-runner run`: linked, not on PATH. A job image built FROM this one
-    # links its own command the same way (`plugins/investment-research/Dockerfile`).
-    assert {"choregos-runner", "choregos-tools"} <= set(linked)
+    # A Tekton step runs `tranibor-runner run`: linked, not on PATH. A job image built FROM this one
+    # links its own command the same way (`plugins/investment-research/Dockerfile`). The former names stay
+    # linked for the window of ADR 0224 R5: a pipeline written before it runs `choregos-runner run`.
+    assert {"tranibor-runner", "tranibor-tools", "choregos-runner", "choregos-tools"} <= set(linked)
     assert 'ln -s "/app/.venv/bin/$command" "/usr/local/bin/$command"' in runtime
     assert 'test "$(command -v python3)" = /usr/local/bin/python3' in runtime
     assert "sys.prefix == sys.base_prefix" in runtime

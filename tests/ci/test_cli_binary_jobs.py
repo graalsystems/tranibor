@@ -21,13 +21,14 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 WEEKLY = ROOT / ".github" / "workflows" / "cli-binaries-weekly.yml"
 DOCKERFILE = ROOT / "docker" / "api.Dockerfile"
 BLOCKERS = ROOT / "docs" / "plan" / "BLOCKERS.md"
-#: The fixed file names, shared with S62-08 (`tools/cli_binary/build.py` holds the same five).
+#: The fixed file names, shared with S62-08 (`tools/cli_binary/build.py` holds the same five): named
+#: after the publishing identity's prefix since ADR 0224 R5.
 NAMES = {
-    "choregos-linux-x86_64",
-    "choregos-linux-arm64",
-    "choregos-macos-arm64",
-    "choregos-macos-x86_64",
-    "choregos-windows-x86_64.exe",
+    "tranibor-linux-x86_64",
+    "tranibor-linux-arm64",
+    "tranibor-macos-arm64",
+    "tranibor-macos-x86_64",
+    "tranibor-windows-x86_64.exe",
 }
 SIGNING_SECRETS = (
     "WINDOWS_CERTIFICATE_PFX_BASE64",
@@ -53,15 +54,15 @@ def test_the_release_builds_the_five_targets_on_native_runners() -> None:
     matrix = _jobs(RELEASE)["cli-binaries"]["strategy"]["matrix"]["include"]
     runners = {entry["name"]: entry["runner"] for entry in matrix}
     assert set(runners) == NAMES
-    assert runners["choregos-linux-arm64"].endswith("-arm")
-    assert not runners["choregos-linux-x86_64"].endswith("-arm")
-    assert runners["choregos-macos-x86_64"].endswith("-intel")
+    assert runners["tranibor-linux-arm64"].endswith("-arm")
+    assert not runners["tranibor-linux-x86_64"].endswith("-arm")
+    assert runners["tranibor-macos-x86_64"].endswith("-intel")
     assert (
-        runners["choregos-macos-arm64"].startswith("macos-")
-        and "intel" not in runners["choregos-macos-arm64"]
+        runners["tranibor-macos-arm64"].startswith("macos-")
+        and "intel" not in runners["tranibor-macos-arm64"]
     )
-    assert runners["choregos-windows-x86_64.exe"].startswith("windows-")
-    linux = [entry for entry in matrix if entry["name"].startswith("choregos-linux")]
+    assert runners["tranibor-windows-x86_64.exe"].startswith("windows-")
+    linux = [entry for entry in matrix if entry["name"].startswith("tranibor-linux")]
     assert all(entry["build"] == "--manylinux" for entry in linux)
     assert all(entry["smoke"] == "--container debian:bookworm-slim" for entry in linux)
 
@@ -100,7 +101,7 @@ def test_the_release_signs_every_file_and_writes_the_manifest() -> None:
     runs = _runs(job)
     assert 'tools/cli_binary/release.py dist/cli --version "${GITHUB_REF_NAME#v}"' in runs
     assert "--partial" not in runs
-    assert "for file in choregos-* SHA256SUMS manifest.json; do" in runs
+    assert "for file in tranibor-* SHA256SUMS manifest.json; do" in runs
     assert 'cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"' in runs
     assert "cosign verify-blob" in runs
 
@@ -114,7 +115,9 @@ def test_the_images_wait_for_the_binaries_and_the_api_image_carries_them() -> No
         s for s in jobs["images"]["steps"] if s.get("uses", "").startswith("actions/download-artifact")
     )
     assert download["with"]["name"] == "cli-dist" and download["if"] == "matrix.image == 'api'"
-    assert "sha256sum -c SHA256SUMS" in _runs(jobs["images"])
+    # SHA256SUMS names each file twice (ADR 0224 R5); the image holds the current names, all checked.
+    assert 'grep "  tranibor-" SHA256SUMS | sha256sum -c -' in _runs(jobs["images"])
+    assert "./tranibor-linux-$(uname -m | sed s/aarch64/arm64/) --version" in _runs(jobs["images"])
 
 
 def test_the_github_release_attaches_the_binaries() -> None:
@@ -122,6 +125,24 @@ def test_the_github_release_attaches_the_binaries() -> None:
     assert "cli-release" in job["needs"]
     publish = next(s for s in job["steps"] if s.get("uses", "").startswith("softprops/action-gh-release"))
     assert "dist/cli/*" in publish["with"]["files"].split()
+
+
+def test_the_github_release_attaches_the_former_names_too() -> None:
+    """ADR 0224 R5: for the window, a `choregos-<platform>` download URL keeps working (the same bytes)."""
+    steps = _jobs(RELEASE)["changelog"]["steps"]
+    names = [step.get("name", step.get("uses", "")) for step in steps]
+    former = names.index("the CLI binaries under their former names too")
+    assert steps[former]["run"] == "python3 tools/cli_binary/release.py dist/cli --former-names"
+    download = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/download-artifact")
+        and step["with"].get("name") == "cli-dist"
+    )
+    publish = next(
+        i for i, s in enumerate(steps) if s.get("uses", "").startswith("softprops/action-gh-release")
+    )
+    assert download < former < publish
 
 
 def test_the_api_dockerfile_copies_the_binaries_only_when_given() -> None:
@@ -140,7 +161,7 @@ def test_the_ci_builds_and_smoke_tests_the_linux_binary_on_pull_requests() -> No
     assert job["if"] == "needs.changes.outputs.cli-binary == 'true' || github.ref == 'refs/heads/main'"
     runs = _runs(job)
     assert "python3 tools/cli_binary/build.py --manylinux" in runs
-    assert "tools/cli_binary/smoke.py dist/cli/choregos-linux-x86_64" in runs
+    assert "tools/cli_binary/smoke.py dist/cli/tranibor-linux-x86_64" in runs
     assert "--container debian:bookworm-slim" in runs
     cache = next(s for s in job["steps"] if s.get("uses", "").startswith("actions/cache"))
     assert cache["with"]["path"] == "build/cli-binary/cache"

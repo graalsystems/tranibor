@@ -1,14 +1,16 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 #
-# Installs the `choregos` CLI from a Tranibor instance, in the version that instance runs.
+# Installs the `tranibor` CLI from a Tranibor instance, in the version that instance runs.
 #
 #   curl -fsSL __CHOREGOS_INSTANCE_URL__/cli/install.sh | sh
 #   curl -fsSL __CHOREGOS_INSTANCE_URL__/cli/install.sh | sh -s -- --prefix "$HOME/tools"
 #
 # Linux and macOS, x86_64 and arm64. It downloads the binary from the same instance, checks its
-# sha256 against the instance's manifest, and installs it as `<prefix>/bin/choregos`
-# (`~/.local/bin/choregos` by default). It never calls sudo: pick a prefix you can write to.
+# sha256 against the instance's manifest, and installs it as `<prefix>/bin/tranibor`
+# (`~/.local/bin/tranibor` by default), with `<prefix>/bin/choregos` a link to it: the former name of the
+# command still works for the window of ADR 0224 R5, and an earlier install's `choregos` is replaced by
+# the link. It never calls sudo: pick a prefix you can write to.
 #
 # Options:
 #   --prefix DIR   install into DIR/bin (default: $HOME/.local; also TRANIBOR_INSTALL_PREFIX)
@@ -22,11 +24,11 @@ PREFIX="${TRANIBOR_INSTALL_PREFIX:-${CHOREGOS_INSTALL_PREFIX:-${HOME:-}/.local}}
 RELEASES='__CHOREGOS_RELEASES__'
 
 say() { printf '%s\n' "$*"; }
-fail() { printf 'choregos install: %s\n' "$*" >&2; exit 1; }
+fail() { printf 'tranibor install: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<EOF
-Installs the choregos CLI from $INSTANCE_URL, in the version it runs.
+Installs the tranibor CLI from $INSTANCE_URL, in the version it runs.
 
 Usage: sh install.sh [--prefix DIR] [--url URL]
   --prefix DIR   install into DIR/bin (default: \$HOME/.local; also TRANIBOR_INSTALL_PREFIX)
@@ -62,7 +64,9 @@ esac
 if [ "$OS" = macos ] && [ "$ARCH" = x86_64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 1 ]; then
   ARCH=arm64
 fi
-NAME="choregos-$OS-$ARCH"
+NAME="tranibor-$OS-$ARCH"
+# An instance from before ADR 0224 R5 (`--url`) names its file `choregos-<platform>`: the same binary.
+FORMER_NAME="choregos-$OS-$ARCH"
 
 # ── the tools it needs ──
 if command -v curl >/dev/null 2>&1; then
@@ -82,7 +86,7 @@ else
   fail "no sha256 tool (sha256sum, shasum or openssl) to verify the download"
 fi
 
-WORK="$(mktemp -d 2>/dev/null || mktemp -d -t choregos)"
+WORK="$(mktemp -d 2>/dev/null || mktemp -d -t tranibor)"
 trap 'rm -rf "$WORK"' EXIT
 trap 'exit 130' INT TERM
 
@@ -94,25 +98,34 @@ fetch "$INSTANCE_URL/downloads/cli/manifest.json" "$WORK/manifest.json" ||
 FLAT="$(tr -d ' \t\r\n' < "$WORK/manifest.json" | tr '{' '\n' | tr '}' '\n')"
 VERSION="$(printf '%s\n' "$FLAT" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' | head -n 1)"
 ENTRY="$(printf '%s\n' "$FLAT" | grep "\"name\":\"$NAME\"" | head -n 1 || true)"
+if [ -z "$ENTRY" ]; then
+  ENTRY="$(printf '%s\n' "$FLAT" | grep "\"name\":\"$FORMER_NAME\"" | head -n 1 || true)"
+  [ -z "$ENTRY" ] || NAME="$FORMER_NAME"
+fi
 [ -n "$ENTRY" ] || fail "this instance's CLI ${VERSION:-?} has no binary for $OS/$ARCH ($NAME); see $RELEASES"
 EXPECTED="$(printf '%s\n' "$ENTRY" | sed -n 's/.*"sha256":"\([0-9a-f]\{64\}\)".*/\1/p')"
 [ -n "$EXPECTED" ] || fail "the manifest gives no sha256 for $NAME"
 
 # ── the binary, verified before it goes anywhere ──
-say "Downloading choregos ${VERSION:-?} ($OS/$ARCH) from $INSTANCE_URL"
-fetch "$INSTANCE_URL/downloads/cli/$NAME" "$WORK/choregos" || fail "cannot download $INSTANCE_URL/downloads/cli/$NAME"
-ACTUAL="$(sha256_of "$WORK/choregos")"
+say "Downloading tranibor ${VERSION:-?} ($OS/$ARCH) from $INSTANCE_URL"
+fetch "$INSTANCE_URL/downloads/cli/$NAME" "$WORK/tranibor" || fail "cannot download $INSTANCE_URL/downloads/cli/$NAME"
+ACTUAL="$(sha256_of "$WORK/tranibor")"
 [ "$ACTUAL" = "$EXPECTED" ] || fail "checksum mismatch for $NAME: expected $EXPECTED, got $ACTUAL; nothing was installed"
 
-# ── installed by a rename in the target directory: a running choregos is never half-written ──
+# ── installed by a rename in the target directory: a running tranibor is never half-written ──
 BIN_DIR="$PREFIX/bin"
 mkdir -p "$BIN_DIR" 2>/dev/null || fail "cannot create $BIN_DIR: pass --prefix with a directory you own"
 [ -w "$BIN_DIR" ] || fail "$BIN_DIR is not writable: pass --prefix with a directory you own (this script never uses sudo)"
-STAGED="$BIN_DIR/.choregos.$$.tmp"
-cp "$WORK/choregos" "$STAGED"
+STAGED="$BIN_DIR/.tranibor.$$.tmp"
+cp "$WORK/tranibor" "$STAGED"
 chmod 0755 "$STAGED"
-mv -f "$STAGED" "$BIN_DIR/choregos"
-say "Installed choregos ${VERSION:-?} at $BIN_DIR/choregos"
+mv -f "$STAGED" "$BIN_DIR/tranibor"
+# The former name, a relative link to the new one, also put in place by a rename (ADR 0224 R5): it
+# replaces the binary an earlier install left there, and `self update` through it replaces `tranibor`.
+LINK="$BIN_DIR/.choregos.$$.lnk"
+ln -s tranibor "$LINK"
+mv -f "$LINK" "$BIN_DIR/choregos"
+say "Installed tranibor ${VERSION:-?} at $BIN_DIR/tranibor ($BIN_DIR/choregos, the former name, links to it)"
 
 case ":${PATH:-}:" in
   *":$BIN_DIR:"*) ;;
@@ -129,7 +142,7 @@ esac
 
 say ""
 say "Next: sign in with your browser"
-say "  choregos login --api-url $INSTANCE_URL"
+say "  tranibor login --api-url $INSTANCE_URL"
 say "For a script or a CI job, save an access token instead (My account, Access tokens):"
-say "  choregos login --api-url $INSTANCE_URL --token <token>"
-say "Keep it in step with the instance later with: choregos self update"
+say "  tranibor login --api-url $INSTANCE_URL --token <token>"
+say "Keep it in step with the instance later with: tranibor self update"

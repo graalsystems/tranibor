@@ -474,23 +474,25 @@ def test_the_page_repeats_no_table_of_settings() -> None:
 
 def test_the_platform_s_commands_are_in_the_cli_reference() -> None:
     reference = _text(DOCS / "cli.md")
-    heads = list(re.finditer(r"^#+ `(choregos[a-z0-9 -]*)`\s*$", reference, re.M))
+    heads = list(re.finditer(r"^#+ `(tranibor[a-z0-9 -]*)`\s*$", reference, re.M))
     usage = {
         head.group(1): reference[head.end() : heads[i + 1].start() if i + 1 < len(heads) else None]
         for i, head in enumerate(heads)
     }
-    shown = [span for span in INLINE.findall(_prose(_text(PLATFORM))) if span.startswith("choregos outposts")]
-    assert len(shown) >= 2, "the page names no command of `choregos outposts`"
+    # The page may still write the former name until the documentation round of ADR 0224 (R8).
+    spans = INLINE.findall(_prose(_text(PLATFORM)))
+    shown = [span for span in spans if span.startswith(("tranibor outposts", "choregos outposts"))]
+    assert len(shown) >= 2, "the page names no command of `tranibor outposts`"
     for span in shown:
         # The longest command the reference has for these words; a placeholder is not a word.
-        path, rest = "choregos", shlex.split(re.sub(r"<[^>]*>", "", span))[1:]
+        path, rest = "tranibor", shlex.split(re.sub(r"<[^>]*>", "", span))[1:]
         while rest and f"{path} {rest[0]}" in usage:
             path = f"{path} {rest.pop(0)}"
         unknown = [word for word in rest if not word.startswith("-")]
-        assert path != "choregos" and not unknown, f"no CLI command for `{span}` ({unknown})"
+        assert path != "tranibor" and not unknown, f"no CLI command for `{span}` ({unknown})"
     flags = {span for span in INLINE.findall(_prose(_section(PLATFORM, "Reading its calls"))) if "--" in span}
     for flag in flags:
-        assert flag.split()[0] in usage["choregos outposts calls"], f"`calls` has no option `{flag}`"
+        assert flag.split()[0] in usage["tranibor outposts calls"], f"`calls` has no option `{flag}`"
 
 
 @pytest.mark.parametrize("page", [GUIDE, PLATFORM], ids=lambda p: p.name)

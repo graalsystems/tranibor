@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""S62-08: `choregos self update` and the version check against the instance."""
+"""S62-08: `tranibor self update` and the version check against the instance."""
 
 from __future__ import annotations
 
@@ -23,10 +23,12 @@ URL = "https://choregos.example.org"
 NEW = b"#!/bin/sh\necho new\n"
 
 
-def _manifest(content: bytes = NEW, *, version: str = "9.9.9", sha256: str | None = None) -> dict[str, Any]:
+def _manifest(
+    content: bytes = NEW, *, version: str = "9.9.9", sha256: str | None = None, prefix: str = "tranibor"
+) -> dict[str, Any]:
     files = [
         {
-            "name": f"choregos-{os_name}-{arch}" + (".exe" if os_name == "windows" else ""),
+            "name": f"{prefix}-{os_name}-{arch}" + (".exe" if os_name == "windows" else ""),
             "os": os_name,
             "arch": arch,
             "sha256": sha256 or hashlib.sha256(content).hexdigest(),
@@ -45,14 +47,14 @@ def _manifest(content: bytes = NEW, *, version: str = "9.9.9", sha256: str | Non
 
 def _serve(mock: respx.MockRouter, manifest: dict[str, Any], content: bytes = NEW) -> respx.Route:
     mock.get(f"{URL}/downloads/cli/manifest.json").mock(return_value=httpx.Response(200, json=manifest))
-    return mock.get(url__regex=rf"{URL}/downloads/cli/choregos-.*").mock(
+    return mock.get(url__regex=rf"{URL}/downloads/cli/(tranibor|choregos)-.*").mock(
         return_value=httpx.Response(200, content=content)
     )
 
 
 @pytest.fixture
 def binary(tmp_path: Path) -> Path:
-    target = tmp_path / "bin" / "choregos"
+    target = tmp_path / "bin" / "tranibor"
     target.parent.mkdir()
     target.write_bytes(b"#!/bin/sh\necho old\n")
     target.chmod(0o755)
@@ -72,12 +74,43 @@ def test_update_replaces_the_binary_with_the_verified_one(binary: Path) -> None:
     with respx.mock() as mock:
         download = _serve(mock, _manifest())
         result = _update(binary)
-    assert download.calls.last.request.url == f"{URL}/downloads/cli/choregos-linux-x86_64"
+    assert download.calls.last.request.url == f"{URL}/downloads/cli/tranibor-linux-x86_64"
     assert "authorization" not in download.calls.last.request.headers
     assert result.replaced and (result.previous, result.version) == ("9.9.8", "9.9.9")
     assert binary.read_bytes() == NEW
     assert stat.S_IMODE(binary.stat().st_mode) == 0o755
-    assert sorted(p.name for p in binary.parent.iterdir()) == ["choregos"]
+    assert sorted(p.name for p in binary.parent.iterdir()) == ["tranibor"]
+
+
+def test_an_instance_released_before_the_rename_still_updates_the_cli(binary: Path) -> None:
+    """ADR 0224 R5: an instance whose manifest names `choregos-<platform>` is the same binary."""
+    with respx.mock() as mock:
+        download = _serve(mock, _manifest(prefix="choregos"))
+        result = _update(binary)
+    assert download.calls.last.request.url == f"{URL}/downloads/cli/choregos-linux-x86_64"
+    assert result.replaced and binary.read_bytes() == NEW
+
+
+def test_the_running_binary_keeps_its_name_whatever_the_file_is_called(tmp_path: Path) -> None:
+    """A `choregos` an earlier install left (a file, not the link) is replaced in place by the new file."""
+    target = tmp_path / "choregos"
+    target.write_bytes(b"#!/bin/sh\necho old\n")
+    with respx.mock() as mock:
+        _serve(mock, _manifest())
+        assert _update(target).replaced
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["choregos"] and target.read_bytes() == NEW
+
+
+@pytest.mark.parametrize("name", ["evil-linux-x86_64", "tranibor-macos-arm64", "tranibor-linux-x86_64.exe"])
+def test_a_manifest_that_names_another_file_for_the_platform_is_refused(binary: Path, name: str) -> None:
+    manifest = _manifest()
+    manifest["files"][0]["name"] = name
+    before = binary.read_bytes()
+    with respx.mock(assert_all_called=False) as mock:
+        download = _serve(mock, manifest)
+        with pytest.raises(UpdateError, match=r"not tranibor-linux-x86_64 or choregos-linux-x86_64"):
+            _update(binary)
+    assert not download.called and binary.read_bytes() == before
 
 
 def test_a_checksum_mismatch_replaces_nothing(binary: Path) -> None:
@@ -87,7 +120,7 @@ def test_a_checksum_mismatch_replaces_nothing(binary: Path) -> None:
         with pytest.raises(UpdateError, match=r"checksum mismatch.*nothing was replaced"):
             _update(binary)
     assert binary.read_bytes() == before
-    assert sorted(p.name for p in binary.parent.iterdir()) == ["choregos"]
+    assert sorted(p.name for p in binary.parent.iterdir()) == ["tranibor"]
 
 
 def test_the_same_version_downloads_nothing_unless_forced(binary: Path) -> None:
@@ -300,5 +333,5 @@ def test_a_command_writes_the_warning_on_stderr_once(
     assert "runs 9.9.9" not in result.stdout
     assert "runs 9.9.9" not in again.stderr
     assert edition.call_count == 1
-    state = json.loads((tmp_path / "cache" / "choregos" / "version-check.json").read_text())
+    state = json.loads((tmp_path / "cache" / "tranibor" / "version-check.json").read_text())
     assert list(state) == [URL]

@@ -22,6 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
+tranibor-outpost = "tranibor_outpost.cli:main"
+# The former name, for the window of ADR 0224 R5.
 choregos-outpost = "tranibor_outpost.cli:main"
 
 [build-system]

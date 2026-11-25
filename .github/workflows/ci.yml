@@ -1119,7 +1119,7 @@ jobs:
         if: failure()
         with: { name: playwright-live-report, path: apps/web/test-results, retention-days: 7 }
   cli-binary:
-    # The `choregos` CLI as the release ships it (S62-07): the Linux x86_64 native binary, built with
+    # The `tranibor` CLI as the release ships it (S62-07): the Linux x86_64 native binary, built with
     # Nuitka in the manylinux_2_28 image exactly as `release.yml` builds it, then smoke-tested where no
     # Python is available — a bare environment, then `debian:bookworm-slim`. A change that breaks the
     # build (a dependency Nuitka cannot follow, a data file read at run time and left out) is seen on
@@ -1144,12 +1144,12 @@ jobs:
       - name: smoke test, where no Python is available
         run: |
           version="$(sed -n 's/^version = "\(.*\)"$/\1/p' packages/cli/pyproject.toml)"
-          python3 tools/cli_binary/smoke.py dist/cli/choregos-linux-x86_64 --expect-version "$version" \
+          python3 tools/cli_binary/smoke.py dist/cli/tranibor-linux-x86_64 --expect-version "$version" \
             --container debian:bookworm-slim
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: choregos-linux-x86_64
-          path: dist/cli/choregos-linux-x86_64
+          name: tranibor-linux-x86_64
+          path: dist/cli/tranibor-linux-x86_64
           retention-days: 3
 
   ci-ok:
