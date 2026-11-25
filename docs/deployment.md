@@ -1455,7 +1455,7 @@ global:
     sink: https                  # https | syslog
     format: splunk-hec           # https: webhook | splunk-hec | elastic-bulk; syslog: rfc5424 | cef
     url: https://splunk.example:8088/services/collector/event
-    index: audit                 # Splunk's index, or the Elastic index (default choregos-audit)
+    index: choregos_audit        # Splunk's index (not `audit`: Splunk's own `_audit` collides), or the Elastic index
     token:
       secretRef: siem-token      # a Secret you create; the token is read by reference, never written here
       key: audit-export-token
@@ -1490,8 +1490,8 @@ A setting the API cannot build a sink from (a plain `http://` URL, an unknown fo
 
 Not part of this: checkpoints signed on a schedule, a migration role distinct
 from the API's own, and the chain in `GET /audit`. Run against real receivers on 2026-11-25: OpenSearch 2.19.8
-(security plugin on, demo TLS) through the `elastic-bulk` format, and syslog-ng 4.13.0 over TLS. Splunk HEC
-has not been run against a real Splunk; the webhook and Elastic Cloud have not been run at all.
+(security plugin on, demo TLS) through the `elastic-bulk` format, syslog-ng 4.13.0 over TLS, and Splunk
+Enterprise 9.4.2 through HEC over TLS. The webhook and Elastic Cloud have not been run at all.
 
 A tested recipe, OpenSearch with its security plugin on (a self-signed CA is the usual case, hence `caFile`).
 `token` is the base64 of `user:password` and `scheme` is `Basic` (with an API key, `scheme: ApiKey`). The run applied
@@ -1516,6 +1516,36 @@ and check that `seq` is contiguous, that the first `prev_hash` is 64 zeros, that
 `sha256(prev_hash + canonical) == hash` and that each `prev_hash` is the previous `hash`. For syslog, a collector
 must read RFC 5425 octet-counted frames (syslog-ng's `syslog()` source does; its `network()` source with
 `flags(syslog-protocol)` did not split them) and trust the CA you give in `caFile`.
+
+
+A tested recipe, Splunk Enterprise 9.4.2 (the `splunk/splunk` image, trial licence) through HEC with TLS on. In
+Splunk, create an index (`choregos_audit`; `audit` cannot be created, it collides with `_audit`), enable HEC with
+`enableSSL = 1` and a `serverCert` whose subject alternative name is the host the API dials, and create a token
+whose allowed `indexes` include it. The event's `sourcetype` is `choregos:audit`, its `source` is `choregos`
+(`source` of the settings) and its `_raw` is the event's JSON. A token with no right to the index is refused
+by HEC (`Incorrect index`, code 7, HTTP 400), which the exporter reports as a failed batch and retries. The
+run applied the same settings as `TRANIBOR_AUDIT_EXPORT_*` environment variables; the chart renders them, and
+rendering was not part of the run:
+
+```yaml
+global:
+  auditExport:
+    enabled: true
+    sink: https
+    format: splunk-hec
+    url: https://splunk.example:8088/services/collector/event
+    index: choregos_audit
+    caFile: /etc/siem/root-ca.pem       # the CA of HEC's certificate, mounted with choregos-api.extraVolumes
+    token: { secretRef: siem-token, key: audit-export-token, scheme: Splunk }
+```
+
+To check the chains from Splunk alone, search the index over all time
+(`search index=choregos_audit sourcetype="choregos:audit" | table _raw`, through
+`/services/search/jobs/export` with `output_mode=json`), parse each `_raw`, group by `org_id`, drop repeats on
+`(org_id, seq)` (Splunk keeps both copies of a repeat), sort by `seq` and run the OpenSearch check above.
+HEC is not given an acknowledgement (`useACK` is off): a `200` means Splunk queued the batch, not that it
+indexed it, so a Splunk that is killed (or runs out of disk) with batches still queued can lose them after the
+cursor moved. The chain shows it as a missing `seq`; to ship a chain again, delete its cursor and deduplicate.
 
 
 ## Retention of the audit log
