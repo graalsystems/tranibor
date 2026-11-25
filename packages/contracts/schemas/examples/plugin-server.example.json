@@ -68,7 +68,8 @@
     }
   ],
   "implements": [
-    "tracker"
+    "tracker",
+    "notes/notes@1"
   ],
   "webhook": {
     "path": "/events"
