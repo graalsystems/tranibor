@@ -902,6 +902,37 @@ Until the configuration satisfies the whole schema the Deployment has no replica
 says `unconfigured`; then `deployed`. The connector routes answer the server's plugin, version, `config_schema` and
 `secret_fields` under `server` (null for any other connector), so the console draws the server's own form.
 
+### Named instances of a server
+
+The connector the install creates is the server's **default instance**. An administrator of the organisation
+may add others, for example a second DNS provider account served by the same server (ADR 0224 §3):
+
+```
+POST   /orgs/{org}/plugins/{plugin}/servers/{server}/instances        {"name": "dns-ovh-customer-b"}   → 201
+GET    /orgs/{org}/plugins/{plugin}/servers/{server}/instances        the instances and their state
+DELETE /orgs/{org}/plugins/{plugin}/servers/{server}/instances/{name} → 204
+```
+
+- **A name** is `^[a-z][a-z0-9-]{1,47}$` and unique among the organisation's connectors (any connector, not
+  only a plugin's): 409 otherwise. (ADR 0224 writes `{0,47}`; a one-letter name would not be a valid path of
+  the connector routes, which need two letters, so the contract asks for two.)
+- **Each instance is its own organisation connector**, `unconfigured` until its configuration satisfies the
+  server's schema: its own configuration and sealed secrets (ADR 0058), its own `_server_token`, its own
+  `ConnectorOperation` rows at the floor of the declaration (so policies, groups and prices are set per
+  instance), its own egress hosts, and its own Deployment, Service, NetworkPolicy and Secret, named
+  `object_name(org_id, instance)` and labelled `choregos.dev/instance`. An agent's tools are
+  `<instance>__<operation>`. The instance's page is the connector page: `PATCH /orgs/{org}/connectors/{name}`
+  configures it.
+- **The default instance keeps the server's name**, so every install made before instances existed keeps its
+  connector and its object names; nothing moves. It cannot be deleted alone (409: uninstall the plugin).
+- **Upgrading** the plugin re-applies every instance (each keeps its configuration, secrets and policies);
+  **uninstalling** removes them all. The connector routes still refuse to create or delete a plugin's
+  connector, an instance included.
+- **State**, for the console: `unconfigured`, `starting` (deployed, not yet checked), `ready` (a check reached
+  the server), `failing` (the last check did not).
+- The tracker profile (below) is served by the default instance only. The servers run in the API's process
+  (ADR 0218) and the fakes keep working: an instance is one more in-process application.
+
 ### Network
 
 The server's pods admit only the platform's: the API's and the orchestrator workers' pods, which call

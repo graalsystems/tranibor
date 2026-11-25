@@ -5273,6 +5273,61 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /orgs/{org}/plugins/{name}/servers/{server}/instances:
+    parameters:
+      - { $ref: "#/components/parameters/Org" }
+      - { $ref: "#/components/parameters/PluginName" }
+      - { $ref: "#/components/parameters/PluginServerName" }
+    get:
+      tags: [agents]
+      operationId: listPluginServerInstances
+      description: >-
+        The instances of one server of an installed plugin (ADR 0224 §3): the default instance, named after the
+        server, then the named ones, each an organisation connector with its own configuration, sealed secrets,
+        operations and Kubernetes objects. `state` is derived from the connector: `unconfigured` until its
+        configuration satisfies the server's schema, `starting` once deployed, `ready` after a check that reached
+        the server, `failing` after one that did not. Any member of the organisation reads it.
+      responses:
+        "200": { description: The instances, content: { application/json: { schema: { $ref: "#/components/schemas/PluginServerInstanceList" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [agents]
+      operationId: createPluginServerInstance
+      description: >-
+        Adds a named instance of a server of an installed plugin (ADR 0224 §3): a new organisation connector of that
+        name, `unconfigured`, with its own `_server_token`, its own `ConnectorOperation` rows at the floor of the
+        server's declaration, and its own Deployment, Service, NetworkPolicy and Secret. Its tools are
+        `<name>__<operation>`. 409 when the organisation already has a connector of that name. The connector routes
+        keep refusing to create a plugin's connector directly (ADR 0096 §4). Administrators of the organisation only,
+        as for installing a plugin. Audited as `org.connector.create`.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PluginServerInstanceCreate" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/PluginServerInstance" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}:
+    parameters:
+      - { $ref: "#/components/parameters/Org" }
+      - { $ref: "#/components/parameters/PluginName" }
+      - { $ref: "#/components/parameters/PluginServerName" }
+      - { $ref: "#/components/parameters/PluginInstanceName" }
+    delete:
+      tags: [agents]
+      operationId: deletePluginServerInstance
+      description: >-
+        Removes a named instance (ADR 0224 §3): its Kubernetes objects, its connector, its operations and its sealed
+        values. The default instance, named after the server, cannot be deleted alone: 409, uninstall the plugin.
+        Administrators of the organisation only. Audited as `org.connector.delete`.
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /orgs/{org}/plugins/{name}/assistants:
     parameters:
       - { $ref: "#/components/parameters/Org" }
@@ -7160,6 +7215,8 @@ components:
       description: a capability; the registry says which ones exist (`GET /connectors/types`, ADR 0034)
       schema: { type: string, pattern: "^[a-z][a-z0-9_]{1,31}$" }
     PluginName: { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
+    PluginServerName: { name: server, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
+    PluginInstanceName: { name: instance, in: path, required: true, schema: { type: string, pattern: "^[a-z][a-z0-9-]{1,47}$" } }
     OrgGroupSlug: { name: slug, in: path, required: true, schema: { type: string, pattern: "^[a-z][a-z0-9-]{1,62}$" } }
     OutpostSlug: { name: slug, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
     OutpostInstanceId: { name: instance_id, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" } }
@@ -11390,6 +11447,29 @@ components:
         version: { type: string }
         removed: { $ref: "#/components/schemas/PluginKept" }
         kept: { $ref: "#/components/schemas/PluginKept", description: "what the organisation changed, a project pins, or a kept agent still carries: now the organisation's own" }
+    PluginServerInstanceCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, pattern: "^[a-z][a-z0-9-]{1,47}$", description: "the instance's connector name, unique among the organisation's connectors; its tools are `<name>__<operation>`" }
+    PluginServerInstance:
+      type: object
+      additionalProperties: false
+      required: [name, server, default, state, status, last_error]
+      properties:
+        name: { type: string, description: "the instance's connector name, whose routes configure it" }
+        server: { type: string, description: "the server of the plugin this is an instance of" }
+        default: { type: boolean, description: "the instance named after the server, created by the install; only an uninstall removes it" }
+        state: { type: string, enum: [unconfigured, starting, ready, failing] }
+        status: { type: string, description: "the connector's own status the state is derived from" }
+        last_error: { type: [string, "null"] }
+    PluginServerInstanceList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PluginServerInstance" } }
     PluginUpgrade:
       type: object
       additionalProperties: false
