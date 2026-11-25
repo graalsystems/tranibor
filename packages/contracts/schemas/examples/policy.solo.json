@@ -1,5 +1,5 @@
 {
-  "apiVersion": "choregos/v1",
+  "apiVersion": "tranibor/v1",
   "kind": "Policy",
   "metadata": { "name": "solo", "version": 1, "preset": "solo", "description": "Un développeur, budgets serrés, approbation sur la spec et la prod." },
   "budgets": {

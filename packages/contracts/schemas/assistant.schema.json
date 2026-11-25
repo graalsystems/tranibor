@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/assistant.schema.json",
+  "$id": "https://tranibor.dev/schemas/assistant.schema.json",
   "title": "Assistant",
   "description": "An assistant a plugin ships (`contents.assistants`, ADR 0133): a wrapper around one of the plugin's prompt or hosted agents that declares its configuration, audience, the tools it needs and the identity each is called under, its memory spaces, the knowledge it offers, its background tasks, the workflows it may propose to start, its surfaces and its policy. What a schema cannot say (the agent exists and its runtime, `{{ config.x }}` keys, the agent's tools match the needs, a subject's resolver, a delegated task reads only, the files named exist, launch names unique and no need called `launch`) is checked by `choregos plugin validate`.",
   "type": "object",
@@ -328,7 +328,7 @@
     "money": { "type": "number", "exclusiveMinimum": 0, "maximum": 100000 }
   },
   "properties": {
-    "apiVersion": { "const": "choregos/v1" },
+    "apiVersion": { "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224)" },
     "kind": { "const": "Assistant" },
     "metadata": {
       "type": "object",

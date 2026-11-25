@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/policy.schema.json",
+  "$id": "https://tranibor.dev/schemas/policy.schema.json",
   "title": "Policy",
   "description": "A project's policy: budgets, approvals, attempts, scope, sandbox, findings, release train.",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata"],
   "additionalProperties": false,
   "properties": {
-    "apiVersion": { "const": "choregos/v1" },
+    "apiVersion": { "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224)" },
     "kind": { "const": "Policy" },
     "metadata": {
       "type": "object",

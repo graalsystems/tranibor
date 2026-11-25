@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/stage-result.schema.json",
+  "$id": "https://tranibor.dev/schemas/stage-result.schema.json",
   "title": "StageResult",
   "description": "Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .choregos/result.json; the runner completes artifacts/evidence/diagnostics.",
   "type": "object",

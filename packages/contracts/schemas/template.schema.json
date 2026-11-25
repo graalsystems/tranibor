@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/template.schema.json",
+  "$id": "https://tranibor.dev/schemas/template.schema.json",
   "title": "Template",
   "description": "A stack template's manifest (docs/plan/03 §3.2).",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "requires", "defaults", "inputs", "steps"],
   "additionalProperties": false,
   "properties": {
-    "apiVersion": { "const": "choregos/v1" },
+    "apiVersion": { "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224)" },
     "kind": { "const": "Template" },
     "metadata": {
       "type": "object",

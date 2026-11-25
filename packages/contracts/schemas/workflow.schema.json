@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/workflow.schema.json",
+  "$id": "https://tranibor.dev/schemas/workflow.schema.json",
   "title": "Workflow",
   "description": "Choregos workflow DSL: a declarative state machine per project (docs/plan/01 §1.4).",
   "type": "object",
@@ -15,7 +15,7 @@
   "additionalProperties": false,
   "properties": {
     "apiVersion": {
-      "const": "choregos/v1"
+      "enum": ["tranibor/v1", "choregos/v1"], "description": "`tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224)"
     },
     "kind": {
       "const": "Workflow"

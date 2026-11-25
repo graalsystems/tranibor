@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/event.schema.json",
+  "$id": "https://tranibor.dev/schemas/event.schema.json",
   "title": "ChoregosEvent",
   "description": "An internal event, CloudEvents 1.0 (docs/plan/01 §1.7).",
   "type": "object",

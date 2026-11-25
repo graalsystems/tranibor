@@ -88,3 +88,16 @@ def test_a_marker_is_written_new_and_found_under_either_name() -> None:
     assert not wire.has_marker("<!-- tranibor:delivered -->", "origin")
     assert not wire.has_marker(None, "origin")
     assert wire.has_marker("[choregos:status] text", "status", html=False)
+
+
+def test_the_platform_s_own_groups_are_emitted_under_both_prefixes_for_the_window() -> None:
+    assert wire.group_names("acme", "architects") == ("tranibor:acme:architects", "choregos:acme:architects")
+
+
+def test_the_schemas_accept_both_api_versions_and_name_themselves_tranibor() -> None:
+    from tranibor_contracts import load_schema
+
+    for name in ("workflow", "policy", "plugin", "plugin-index", "template", "assistant"):
+        schema = load_schema(f"{name}.schema.json")
+        assert schema["$id"].startswith(wire.SCHEMA_ID_BASE), name
+        assert set(schema["properties"]["apiVersion"]["enum"]) == set(wire.API_VERSIONS), name

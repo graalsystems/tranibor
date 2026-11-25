@@ -744,7 +744,8 @@ export type PluginIndexRelease = {
 
 /** A plugin source's index, index.yaml: name → versions → where and what (ADR 0093). */
 export type PluginIndex = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "PluginIndex";
   plugins: {
     [key: string]: {
@@ -982,7 +983,8 @@ export type PluginGlob = string;
 
 /** A plugin's manifest, plugin.yaml at the root of its directory (ADR 0093). */
 export type Plugin = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Plugin";
   metadata: {
     /** unique within a source */
@@ -1082,7 +1084,8 @@ export type PolicyTrainEnv = {
 
 /** A project's policy: budgets, approvals, attempts, scope, sandbox, findings, release train. */
 export type Policy = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Policy";
   metadata: {
     name: string;
@@ -1662,7 +1665,8 @@ export type StageResult = {
 
 /** A stack template's manifest (docs/plan/03 §3.2). */
 export type Template = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Template";
   metadata: {
     name: string;
@@ -2089,7 +2093,8 @@ export type WorkflowDecisionQuestion = {
 
 /** Choregos workflow DSL: a declarative state machine per project (docs/plan/01 §1.4). */
 export type Workflow = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0224) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Workflow";
   metadata: {
     name: WorkflowSlug;

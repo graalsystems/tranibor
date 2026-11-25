@@ -60,6 +60,7 @@ __all__ = [
     "former_label",
     "former_marker",
     "group",
+    "group_names",
     "group_org_and_name",
     "has_marker",
     "header",
@@ -241,6 +242,13 @@ GROUP_PREFIXES = (f"{NAME}:", f"{FORMER_NAME}:")
 def group(org: str, name: str) -> str:
     """`tranibor:<org>:<name>`."""
     return f"{NAME}:{org}:{name}"
+
+
+def group_names(org: str, name: str) -> tuple[str, str]:
+    """`(tranibor:<org>:<name>, choregos:<org>:<name>)`: what the platform's own producers of groups (the
+    SAML sign-in, the development sign-in, the organisation's groups) emit for the window, because an
+    edition's group mapper outside the repository may still read the former prefix only."""
+    return group(org, name), f"{FORMER_NAME}:{org}:{name}"
 
 
 def strip_group_prefix(value: str) -> str | None:

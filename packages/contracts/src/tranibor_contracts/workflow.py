@@ -669,7 +669,8 @@ class ArtifactSpec(Strict):
 class Workflow(Strict):
     """Complete definition of a workflow. Static validation lives in `tranibor_core.dsl`."""
 
-    apiVersion: Literal["choregos/v1"] = "choregos/v1"  # noqa: N815
+    #: `tranibor/v1`; a document written as `choregos/v1` is read as it was written (ADR 0224).
+    apiVersion: Literal["tranibor/v1", "choregos/v1"] = "tranibor/v1"  # noqa: N815
     kind: Literal["Workflow"] = "Workflow"
     metadata: WorkflowMetadata
     actors: dict[str, Actor]
