@@ -20,7 +20,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
-from tranibor_adapters.plugin_servers import TOKEN_ENV, PluginServerRuntime
+from tranibor_adapters.plugin_servers import INSTANCE_ENV, TOKEN_ENV, PluginServerRuntime
 
 from .agent_scopes_kit import add_member, as_user
 
@@ -345,3 +345,14 @@ def test_the_state_is_derived_from_the_connector_status() -> None:
         "error": "failing",
     }
     assert set(seen.values()) == set(STATES)
+
+
+async def test_each_pod_learns_its_instance_name_and_a_configuration_cannot_set_it(
+    client: AsyncClient, admin: str, kube: FakeKubernetesApi
+) -> None:
+    """`TRANIBOR_INSTANCE_NAME`: the connector's name, the server's own for the default instance."""
+    await _install(client)
+    assert (await _add(client, "lab")).status_code == 201
+    for name in ("hello", "lab"):
+        row = await _connector(name)
+        assert _secret(kube, row.plugin_server["object"])[INSTANCE_ENV] == name

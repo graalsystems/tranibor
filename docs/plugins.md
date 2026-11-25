@@ -933,6 +933,11 @@ DELETE /orgs/{org}/plugins/{plugin}/servers/{server}/instances/{name} → 204
 - The tracker profile (below) is served by the default instance only. The servers run in the API's process
   (ADR 0218) and the fakes keep working: an instance is one more in-process application.
 
+Each pod receives its instance name as `TRANIBOR_INSTANCE_NAME` (the default instance reads the server's own
+name), so a profile's `get_provider` can answer `{instance: ...}`. It is a reserved platform variable like
+`TRANIBOR_SERVER_TOKEN`: a server's `config_schema` or `x-env` cannot set it (any `TRANIBOR_*` name is refused at
+install). The eval fake and the in-process demo server get it too.
+
 ### Network
 
 The server's pods admit only the platform's: the API's and the orchestrator workers' pods, which call

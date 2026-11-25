@@ -58,6 +58,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters import ConnectorTypeSpec
 from tranibor_adapters.oci import RegistryError, parse_ref, under_prefix
 from tranibor_adapters.plugin_servers import (
+    INSTANCE_ENV,
     TOKEN_ENV,
     PluginServerClient,
     PluginServerRuntime,
@@ -730,7 +731,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     if server.get("in_process"):
         # No Deployment: the application starts now, so that a package that cannot be imported fails the
         # install. Its fake needs no configuration, which is not read (ADR 0218).
-        await _start_in_process(server, token, settings)
+        await _start_in_process(server, token, settings, instance.name)
         instance.status, instance.last_error = DEPLOYED, None
         await session.flush()
         return instance.status
@@ -738,6 +739,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     names = _env_names(server)
     env = {names[f]: _env_value(v) for f, v in resolved.items() if f in names and v is not None}
     env[TOKEN_ENV] = token
+    env[INSTANCE_ENV] = instance.name
     problems = configuration_problems(
         server, {k: v for k, v in resolved.items() if k in names}, partial=False
     )
@@ -782,12 +784,15 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     return instance.status
 
 
-def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: Settings) -> ServerDeployment:
+def fake_deployment(
+    server: dict[str, Any], org_id: str, token: str, settings: Settings, instance: str | None = None
+) -> ServerDeployment:
     """A server's eval instance (#1372): its image with its fake's variables and the platform's token,
     nothing of the configuration, no egress, one replica."""
     fake = server.get("fake") or {}
     env = {str(k): str(v) for k, v in (fake.get("env") or {}).items()}
     env[TOKEN_ENV] = token
+    env[INSTANCE_ENV] = instance or str(server["server"])
     return ServerDeployment(
         name=str(server["fake_object"]),
         namespace=settings.plugin_servers_namespace,
@@ -827,7 +832,9 @@ async def _reconcile_fake(
     if not server.get("fake_object"):
         return
     if eval_fake_scenes_allowed():
-        await _apply(found.apply(fake_deployment(server, instance.org_id, token, settings)), instance)
+        await _apply(
+            found.apply(fake_deployment(server, instance.org_id, token, settings, instance.name)), instance
+        )
     else:
         await _apply(found.delete(str(server["fake_object"])), instance)
 
@@ -877,11 +884,13 @@ async def server_endpoint(session: AsyncSession, instance: OrgConnector) -> tupl
     token = str(resolved[SERVER_TOKEN_FIELD])
     if server.get("in_process"):
         # Started again after a restart of the process, which forgot it (a replay with the same token: no-op).
-        await _start_in_process(server, token, get_settings())
+        await _start_in_process(server, token, get_settings(), instance.name)
     return url, token
 
 
-async def _start_in_process(server: dict[str, Any], token: str, settings: Settings) -> None:
+async def _start_in_process(
+    server: dict[str, Any], token: str, settings: Settings, instance: str | None = None
+) -> None:
     from tranibor_adapters.errors import ConfigurationError
 
     servers = in_process_servers(settings)
@@ -892,7 +901,8 @@ async def _start_in_process(server: dict[str, Any], token: str, settings: Settin
             "TRANIBOR_DEMO_PLUGIN_SERVERS file"
         )
     try:
-        await servers.ensure(str(server["object"]), entry, server["fake"]["env"], token)
+        env = {**server["fake"]["env"], INSTANCE_ENV: instance or str(server["server"])}
+        await servers.ensure(str(server["object"]), entry, env, token)
     except ConfigurationError as exc:
         raise unprocessable(str(exc)) from exc
 
@@ -970,6 +980,7 @@ async def connector_client(
 __all__ = [
     "CHECKED",
     "DEPLOYED",
+    "INSTANCE_ENV",
     "INSTANCE_NAME",
     "RUNNING",
     "SERVER_TOKEN_FIELD",
