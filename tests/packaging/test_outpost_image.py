@@ -80,7 +80,8 @@ def test_the_api_image_does_not_install_the_daemon() -> None:
     """The door is the API's; the daemon is not. The API image syncs the whole workspace but for the
     packages it does not run."""
     text = (ROOT / "docker" / "api.Dockerfile").read_text(encoding="utf-8")
-    syncs = [line for line in re.sub(r"\\\n\s*", " ", text).splitlines() if line.startswith("RUN ") and "uv sync" in line]
+    joined = re.sub(r"\\\n\s*", " ", text).splitlines()
+    syncs = [line for line in joined if line.startswith("RUN ") and "uv sync" in line]
     assert len(syncs) == 1 and "--all-packages" in syncs[0]
     assert f"--no-install-package {PACKAGE}" in syncs[0], "the API image would ship the outpost daemon"
     assert "--no-install-package tranibor-agent-sdk" in syncs[0]
