@@ -1078,11 +1078,9 @@ approval).
 
 ## Profiles a plugin declares
 
-> **Status (S86-01): the contracts only.** The schemas below exist and `make contracts` generates their
-> types, but nothing reads them yet: the loader does not pack `contents.profiles`, `tranibor plugin
-> validate` does not compare a server with a profile (S86-02), and a profile entry in an agent's
-> `mcp_servers` opens no tool (S86-04). A plugin that uses them is refused by a core older than this
-> contract, so it declares the first core release that has them in its `core` range.
+> **Status (S86-02): declared and proven, not yet served.** The loader packs `contents.profiles`,
+> `tranibor plugin validate` checks a profile and a server that implements one, and the installer checks it
+> again. A profile entry in an agent's `mcp_servers` still opens no tool (S86-04).
 
 A plugin may declare **profiles** ([ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md)):
 named contracts of tools that several plugin servers, of that plugin or of others, may implement, and that an
@@ -1103,11 +1101,39 @@ a profile a plugin declares is a family beside it, and the core never reads what
   every instance valid under A is valid under B) is written in the schema's `description`.
 - **Implement** it with `implements: [<plugin>/<name>@<version>]` in a server file, beside or instead of
   `tracker`. The plugin that declares the profile must be among the implementing plugin's
-  `requires.plugins`; the server declares every tool with the same access, a governance never weaker
-  and compatible schemas (checked from S86-02).
+  `requires.plugins`, or be the same plugin; the server declares every tool with the same access, a
+  governance never weaker and compatible schemas (see [Checking a server against a
+  profile](#checking-a-server-against-a-profile)).
 - **Call** it with `mcp_servers: [{profile: <plugin>/<name>@<version>, tools: [...]}]` in an agent: the
   entry names a `connector` or a `profile`, never both, and a profile entry takes no `identity`. The
   tools it lists are tools of the profile (resolved at run start from S86-04).
+
+### Checking a server against a profile
+
+`tranibor plugin validate <plugin> [--profiles-from <plugin or plugins folder>]...` loads a profile file
+against `plugin-profile.schema.json` (the subset, a `$ref` that resolves, no cycle, a tool and a profile
+declared once), then, for each server that `implements` a profile, proves:
+
+| Rule | Refused when |
+| --- | --- |
+| Tools | the server does not declare a tool of the profile, or declares it with another `access`. |
+| Governance | the profile says `human_approval: true` and the server does not; the server drops a `platform_arguments` entry of the profile. It may add either. |
+| Input | the profile's `input` is not accepted by the server's `input_schema`: a bound tighter on the server, a property the server refuses, a field it requires that the profile leaves optional. The arguments the platform fills (`platform_arguments`) are not counted on the server's side. |
+| Output | the server's `output_schema` is not accepted by the profile's `output`: a wider type, a missing required field, a looser bound or `format`. |
+| Requires | the plugin that declares the profile is neither this plugin nor in its `requires.plugins`. |
+
+The server's `input_schema` and `output_schema` are written in the same subset as the profile's, with
+their own `$defs` at the root; a keyword outside the subset, or a tool without a schema, fails the check
+rather than passes it (`output_schema` is new in `plugin-server.schema.json`, additive). The comparison
+is sound and not complete: it refuses what it cannot show to be inside, and the message names the tool,
+the direction and the path (`list_notes of notes/notes@1, input does not accept what the profile
+accepts: /limit: maximum is 100 for the server but 200 for the profile`).
+
+The profile of another plugin is a file: pass its plugin directory (or a folder of them) with
+`--profiles-from`. Without it the profile is not checked and validate says so. At install, the check runs
+again against the profiles stored with the **installed** version of the plugin that declares them, so a
+server proven against one version is refused if the organisation holds another that it does not keep. An
+upgrade of the declaring plugin does not re-check the servers installed earlier (not yet).
 
 ## Default plugins
 

@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shelf
+image: ghcr.io/graalsystems/tranibor-agents/shelf-mcp@sha256:3f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0
+port: 8080
+protocol: mcp-http
+paths:
+  mcp: /mcp
+  health: /healthz
+config_schema:
+  type: object
+  properties:
+    base_url:
+      type: string
+      format: uri
+secret_fields:
+- token
+egress:
+  from_fields:
+  - base_url
+implements:
+- notes/notes@1
+operations:
+- name: get_provider
+  access: read
+  input_schema:
+    type: object
+    additionalProperties: false
+    properties: {}
+  output_schema:
+    type: object
+    required:
+    - instance
+    - provider
+    additionalProperties: false
+    properties:
+      instance:
+        type: string
+      provider:
+        type: string
+        const: shelf
+- name: list_notes
+  access: read
+  input_schema:
+    type: object
+    additionalProperties: false
+    properties:
+      tag:
+        type: string
+        maxLength: 128
+      limit:
+        type: integer
+        minimum: 1
+        maximum: 500
+  output_schema:
+    type: object
+    required:
+    - notes
+    properties:
+      notes:
+        type: array
+        items:
+          $ref: '#/$defs/note'
+    $defs:
+      note: &id001
+        type: object
+        required:
+        - id
+        - text
+        - created
+        properties:
+          id:
+            type: string
+            format: uuid
+          text:
+            type: string
+          tag:
+            type:
+            - string
+            - 'null'
+          created:
+            type: string
+            format: date-time
+- name: add_note
+  access: write
+  human_approval: true
+  platform_arguments:
+  - action_key
+  input_schema:
+    type: object
+    required:
+    - text
+    - action_key
+    additionalProperties: false
+    properties:
+      text:
+        type: string
+        minLength: 1
+        maxLength: 2000
+      tag:
+        type: string
+        pattern: ^[a-z][a-z0-9-]*$
+      action_key:
+        type: string
+  output_schema:
+    $ref: '#/$defs/note'
+    $defs:
+      note: *id001
+- name: purge_notes
+  access: write
+  human_approval: true

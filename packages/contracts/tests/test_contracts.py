@@ -1232,3 +1232,11 @@ def test_manifest_declares_profile_files() -> None:
     assert manifest["contents"]["profiles"] == ["profiles/notes.yaml"]
     manifest["contents"]["profiles"] = ["/etc/passwd"]
     assert list(_validator("plugin.schema.json").iter_errors(manifest))
+
+
+def test_a_server_tool_may_declare_an_output_schema() -> None:
+    """S86-02: a server compares its `output_schema` with the profile's `output` (ADR 0224 §2)."""
+    server = _load("plugin-server.example.json")
+    assert any("output_schema" in op for op in server["operations"])
+    server["operations"][0]["output_schema"] = "string"
+    assert list(_validator("plugin-server.schema.json").iter_errors(server))

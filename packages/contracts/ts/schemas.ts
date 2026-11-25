@@ -844,6 +844,10 @@ export type PluginServerOperation = {
   input_schema?: {
     [key: string]: unknown;
   };
+  /** a JSON Schema of what the tool returns (ADR 0224): required of a tool that a profile the server `implements` lists, which compares it with the profile's `output` (the subset of plugin-profile.schema.json) */
+  output_schema?: {
+    [key: string]: unknown;
+  };
   /** arguments the PLATFORM fills, never the agent: `action_key` (an idempotency key stable for one governed action and call), `work_item_key` (the work item the action belongs to) */
   platform_arguments?: Array<"action_key" | "work_item_key">;
 };
