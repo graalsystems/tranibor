@@ -107,7 +107,7 @@ The model listener serves the Gemini `generateContent`, `streamGenerateContent` 
 | `agent_sandbox` | agent in its own container (warm pool's template) | runs | refused unless `none-accepted` |
 | `k8s_job` | agent in its own container (native sidecar, Kubernetes 1.29+) | runs | refused unless `none-accepted` |
 | `local_docker` (`docker compose up` sets `container`) | agent in its own container | runs | refused unless `none-accepted` |
-| `tekton` | **refused**: cannot start the agent's container | runs | refused unless `none-accepted` |
+| `tekton` | agent in its own container: a sidecar of the agent stage's Task, inline in the PipelineRun (no Task copied into the namespace), the same container as `k8s_job`'s; a native sidecar with Tekton's `enable-kubernetes-sidecar` (Kubernetes 1.29+), Tekton's own otherwise. Run on kind with Tekton Pipelines v1.6.0, both sidecar modes (S87-06); not under gVisor | runs | refused unless `none-accepted` |
 | `aca` | agent in its own container of the job's replica, the launcher ending on the runner's done file (S87-08): its own process namespace, no secret, the working tree and the exchange directory as `EmptyDir`s; the **same uid** as the runner (the image's `USER`: Container Apps has no `securityContext`). Run on a real subscription (S87-07, S87-08). Needs a runner image with `launcher --until-file` | runs | refused unless `none-accepted` |
 | the fakes | not judged: no runner starts | runs | the fakes are refused in production |
 
