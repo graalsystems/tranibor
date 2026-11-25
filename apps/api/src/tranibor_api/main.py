@@ -25,11 +25,14 @@ from tranibor_core.production import (
     refuse_demo_plugin_servers,
     refuse_fakes_in_production,
 )
+from tranibor_core.temporal_connection import refuse_clear_payloads
 
 from . import __version__
 from .a2a.push import push_loop
 from .adapter_wiring import attach_lexical_memory, attach_outposts
 from .audit_export.exporter import Exporter, export_loop
+from .audit_retention import Pruner
+from .audit_retention import retention_loop as audit_retention_loop
 from .bootstrap import bootstrap_installation
 from .config import DEFAULT_DOCS_URL, Settings, get_settings
 from .db.session import create_all, dispose_engine
@@ -139,6 +142,15 @@ def _audit_exporter(settings: Settings) -> Exporter | None:
     return Exporter.from_settings(settings)
 
 
+def _audit_pruner(settings: Settings) -> Pruner | None:
+    if settings.audit_retention_days <= 0:
+        return None
+    if settings.is_sqlite:
+        logger.warning("audit.retention.sqlite", detail="SQLite keeps no audit chain: nothing to prune")
+        return None
+    return Pruner.from_settings(settings)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -147,6 +159,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API starting", env=settings.env, fakes=settings.fakes)
     # The fakes are a bench's switch: in staging and prod, the API does not start on them (S80-03).
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="API")
+    # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
+    if not settings.fakes:
+        refuse_clear_payloads(environment=settings.env)
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:
         refuse_demo_inline_worker(environment=settings.env, fakes=settings.fakes)
@@ -214,6 +229,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # refusal. PostgreSQL only: SQLite keeps no chain.
     audit_exporter = _audit_exporter(settings)
     audit_export = asyncio.create_task(export_loop(settings, audit_exporter)) if audit_exporter else None
+    # The audit log's retention (ADR 0221). Off by default; on, a rule that cannot be applied (too short, an
+    # organisation's shorter than the deployment's) stops the API here.
+    audit_pruner = _audit_pruner(settings)
+    audit_retention = (
+        asyncio.create_task(audit_retention_loop(settings, audit_pruner)) if audit_pruner else None
+    )
     # Calls through an outpost that ran out of time where nobody polls or calls any more (ADR 0149 §5).
     background = [asyncio.create_task(outpost_rendezvous.sweep_loop())] if settings.outposts else []
     yield
@@ -239,6 +260,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         assistant_retention,
         assistant_task_loop,
         *([audit_export] if audit_export else []),
+        *([audit_retention] if audit_retention else []),
         plugin_defaults,
         osv_mirror,
         shipping_warmup,

@@ -163,6 +163,8 @@ async def run_worker(queues: list[str]) -> None:
     settings.refuse_fakes_in_production()
     # The workers decode what the clients encode: one converter for the whole deployment (ADR 0183).
     security = TemporalSecurity.from_env()
+    # No clear payloads in staging and prod unless the operator said so (ADR 0220).
+    security.refuse_clear_in_production(settings.env)
     client = await connect_temporal(settings.temporal_address, settings.temporal_namespace, security=security)
     workers = build_workers(client, queues, settings)
     logger.info(

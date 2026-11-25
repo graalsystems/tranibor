@@ -557,11 +557,15 @@ choregos-temporal persistence values>)`: the subchart passes `.Values.persistenc
 {{/*
 Temporal over TLS and its payload codec (ADR 0183), for the API and the workers: every process that
 holds a Temporal client must hold the SAME converter, or one side writes what the other cannot read.
-Off by default (dev, kind, compose). Three templates, one switch each: the variables, the mounts and
+TLS is off by default (dev, kind, compose); the codec is on by default (ADR 0220). Three templates, one switch each: the variables, the mounts and
 the volumes, so a pod that gets the variables always gets the files they name.
 */}}
 {{- define "choregos.temporalTlsDir" -}}/etc/choregos/temporal-tls{{- end -}}
 {{- define "choregos.temporalCodecDir" -}}/etc/choregos/temporal-codec{{- end -}}
+{{- /* The Secret holding the master keyring: the operator's, or the one the chart draws (ADR 0220). */ -}}
+{{- define "choregos.temporalCodecSecret" -}}
+{{- (((.Values.global.temporal).codec).secretName) | default (printf "%s-temporal-codec" .Release.Name) -}}
+{{- end -}}
 
 {{- define "choregos.temporalSecurityEnv" -}}
 {{- $t := .Values.global.temporal | default dict }}
@@ -589,12 +593,19 @@ the volumes, so a pod that gets the variables always gets the files they name.
 {{- end }}
 {{- end }}
 {{- if $codec.enabled }}
-{{- if not $codec.secretName }}
-{{- fail "global.temporal.codec.enabled needs global.temporal.codec.secretName: the Secret holding the codec keys (`id:base64,...`)" }}
-{{- end }}
 {{- $owned = concat $owned (list "CHOREGOS_TEMPORAL_CODEC_KEYS" "CHOREGOS_TEMPORAL_CODEC_KEYS_FILE") }}
 - name: CHOREGOS_TEMPORAL_CODEC_KEYS_FILE
   value: {{ printf "%s/%s" (include "choregos.temporalCodecDir" .) ($codec.key | default "keys") | quote }}
+{{- else }}
+{{- $production := has (.Values.global.environment | default "dev") (list "staging" "prod") }}
+{{- if and $production (not $codec.allowClear) }}
+{{- fail "global.temporal.codec.enabled is false in a staging or prod release: Temporal's histories would hold every ticket, result and decision in clear. Leave it on, or, knowing that clear histories are acceptable here, set global.temporal.codec.allowClear=true (ADR 0220)" }}
+{{- end }}
+{{- if $codec.allowClear }}
+{{- $owned = concat $owned (list "CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS") }}
+- name: CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS
+  value: "true"
+{{- end }}
 {{- end }}
 {{- range (.Values.global.extraEnv | default list) }}
 {{- if has .name $owned }}
@@ -624,7 +635,7 @@ the volumes, so a pod that gets the variables always gets the files they name.
 {{- with ($t.codec | default dict) }}
 {{- if .enabled }}
 - name: temporal-codec
-  secret: { secretName: {{ .secretName }} }
+  secret: { secretName: {{ include "choregos.temporalCodecSecret" $ }} }
 {{- end }}
 {{- end }}
 {{- end -}}

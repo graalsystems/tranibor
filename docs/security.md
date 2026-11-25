@@ -202,6 +202,13 @@ or another organisation.
   shows, and a rewrite of every hash from some entry on is shown only by a checkpoint kept where that hand
   did not reach. Entries written before the upgrade were chained by the migration: they are evidence from
   then on, not before. SQLite keeps no chain ([ADR 0182](adr/0182-the-audit-log-is-a-hash-chain-the-database-keeps.md)).
+  **Retention is the operator's rule, off by default** ([ADR 0221](adr/0221-the-audit-log-forgets-a-verified-prefix-behind-a-checkpoint-written-first.md)):
+  with `TRANIBOR_AUDIT_RETENTION_DAYS` set (at least 30), a loop removes the oldest entries of each chain that
+  verify and, with the SIEM export on, have been shipped, behind a `prune` checkpoint written first and
+  recorded inside the chain; what remains verifies from that checkpoint, and what was removed is no longer
+  evidence in the database (the SIEM's copy is). The checkpoint is not signed, and whoever owns the tables
+  could still write one and delete behind it; the chain then fails to record it. A stopped SIEM sink holds
+  pruning back and the log grows.
 - **Row-level security needs a non-superuser role.** A PostgreSQL superuser ignores every
   policy. The API refuses to start as one in `staging` and `prod`; the embedded PostgreSQL
   creates `choregos_app` at initdb for that reason.
@@ -1004,11 +1011,18 @@ HR workflow a salary. Until S80-06 every process connected in clear and wrote JS
 
 What it does **not** protect, and is said so:
 
-- Both are **off by default**; a production deployment without them starts, and the worker logs `tls=false`
-  and `payload_codec=false` at start-up.
-- **One key per deployment**: it protects the histories from whoever reads Temporal's database, backups or
-  wire, not one organisation's data from an operator of the deployment. A key per organisation, from a KMS,
-  is phase 2.
+- TLS is **off by default**. The codec is **on by default in the chart** (ADR 0220): it draws a master key
+  into a Secret, and the API, the workers and `connect_temporal` **refuse to start in `staging` or `prod`
+  with no keyring** unless `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS=true` (the chart's
+  `global.temporal.codec.allowClear`) says clear histories are acceptable. In `dev` and `test` no key is needed.
+- **One key per organisation, derived** (ADR 0220): an organisation's payloads are sealed under
+  HKDF(master key, organisation id), the organisation named in the payload's metadata and bound as
+  associated data, so organisation A's payload cannot be opened with B's key
+  (`packages/core/tests/test_temporal_org_keys.py`); a payload of no organisation is under the master key, and
+  every history of ADR 0183 decodes and replays unchanged (`tests/replay/test_replay_with_org_keys.py`).
+  **This is not a KMS**: whoever holds the master key derives every organisation's key, so it separates
+  organisations' stored histories from each other, not one organisation from the operator. Workflows other than
+  the interpreter name no organisation and stay under the master key.
 - Workflow ids (which carry a ticket's key, never its text), search attributes, type and queue names,
   timers and headers stay in clear: Temporal reads them.
 - No codec server for the Temporal UI: payloads show encrypted there.
@@ -1065,7 +1079,7 @@ has: the export narrows the window, it does not close it. Syslog over TLS has no
 receiver's: a message in flight when the connection breaks can be lost, and the receiver sees the missing
 `seq`. The token is read from a Secret by reference.
 
-Not yet: a retention rule for the log, checkpoints signed on a schedule, the chain in `GET /audit`, and a
+Not yet: checkpoints signed on a schedule, the chain in `GET /audit`, and a
 migration role distinct from the API's own (each its own story).
 
 ## Secrets

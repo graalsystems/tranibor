@@ -53,3 +53,27 @@ async def test_the_outposts_door_served_alone_refuses_them_too(production: str) 
     with pytest.raises(FakesInProductionError, match="outposts' door"):
         async with alone.lifespan(FastAPI()):
             pass
+
+
+@pytest.mark.parametrize("environment", ["staging", "prod"])
+async def test_the_api_refuses_clear_temporal_payloads_in_production(
+    monkeypatch: pytest.MonkeyPatch, environment: str
+) -> None:
+    """ADR 0220: staging and prod encrypt Temporal's payloads, or the operator opts out by name."""
+    from tranibor_api import main
+    from tranibor_api.config import reset_settings_cache
+    from tranibor_core.temporal_connection import TemporalConfigError
+
+    monkeypatch.setenv("TRANIBOR_ENV", environment)
+    monkeypatch.setenv("TRANIBOR_FAKES", "0")
+    monkeypatch.setenv("TRANIBOR_DEV_LOGIN_ENABLED", "false")
+    monkeypatch.delenv("TRANIBOR_TEMPORAL_CODEC_KEYS", raising=False)
+    monkeypatch.delenv("TRANIBOR_TEMPORAL_CODEC_KEYS_FILE", raising=False)
+    monkeypatch.delenv("TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS", raising=False)
+    reset_settings_cache()
+    try:
+        with pytest.raises(TemporalConfigError, match="TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS"):
+            async with main.lifespan(_api()):
+                pass
+    finally:
+        reset_settings_cache()

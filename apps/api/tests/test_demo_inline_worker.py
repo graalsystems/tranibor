@@ -134,6 +134,7 @@ async def test_the_mode_is_refused_outside_development_under_the_fakes(
     monkeypatch.setenv("TRANIBOR_ENV", env)
     monkeypatch.setenv("TRANIBOR_FAKES", fakes)
     monkeypatch.setenv("TRANIBOR_DEV_LOGIN_ENABLED", "false")  # production refuses the development sign-in
+    monkeypatch.setenv("TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS", "true")  # reach this refusal, not ADR 0220's
     reset_settings_cache()
     with pytest.raises((DemoInlineWorkerRefusedError, FakesInProductionError), match=named):
         async with app.router.lifespan_context(app):

@@ -3191,6 +3191,20 @@
     "type": "String(length=86)"
    },
    {
+    "default": null,
+    "name": "pruned",
+    "nullable": true,
+    "server_default": null,
+    "type": "BigInteger()"
+   },
+   {
+    "default": null,
+    "name": "retention_days",
+    "nullable": true,
+    "server_default": null,
+    "type": "Integer()"
+   },
+   {
     "default": "<function uuid7>",
     "name": "id",
     "nullable": false,

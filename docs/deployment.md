@@ -221,9 +221,10 @@ than `max_results`. This is about the SearXNG engine; the `brave` connector (Bra
 ### Temporal over TLS, payloads encrypted ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 
 Temporal keeps every workflow's inputs, results, signals and failure messages: ticket text, agents'
-results, people's decisions. Both protections are **off by default** (dev, kind, compose) and are switched
-on in the chart; the API and every worker queue receive the same settings, because a payload one process
-encrypts must be decrypted by the others.
+results, people's decisions. TLS is **off by default** (dev, kind, compose) and is switched on in the chart.
+The payload codec is **on by default** ([ADR 0220](adr/0220-one-temporal-key-per-organisation-encryption-on-by-default.md)):
+the API and every worker queue receive the same settings, because a payload one process encrypts must be
+decrypted by the others.
 
 ```yaml
 global:
@@ -235,9 +236,10 @@ global:
       mutual: true
       serverName: ""                # when the frontend's certificate does not name the address's host
     codec:
-      enabled: true
-      secretName: temporal-codec    # entry `key` (default `keys`): `k2:<base64 32 bytes>,k1:<...>`
-      key: keys
+      enabled: true                 # the default
+      secretName: temporal-codec    # empty: the chart draws `<release>-temporal-codec` (see below)
+      key: keys                     # entry of the Secret: `k2:<base64 32 bytes>,k1:<...>`
+      allowClear: false             # the explicit opt-out, see below
 ```
 
 - The TLS Secret is mounted at `/etc/choregos/temporal-tls`; a cert-manager `Certificate` issued by the
@@ -248,6 +250,26 @@ global:
   workflow history still carries it (a payload under a key no longer listed fails with the key's name).
   **Losing the key loses the histories written under it**: keep it in the vault with the other platform
   secrets.
+- **Nothing to configure for a first installation**: with no `secretName` the chart draws a master key
+  (`v1:<base64>`) into the Secret `<release>-temporal-codec`, re-reads it on every upgrade (`lookup`) and keeps
+  it when the release is uninstalled. Export it now and keep it with the platform's other secrets
+  (`kubectl get secret <release>-temporal-codec -o jsonpath='{.data.keys}' | base64 -d`): **losing it loses the
+  histories**. A renderer that cannot `lookup` (`helm template` piped to a GitOps tool) would draw a new key at each
+  render: name a Secret there.
+- **A key per organisation, derived** (ADR 0220): the keyring above is the *master* keyring. Each organisation's
+  payloads are sealed under a key derived from the first master key and the organisation's id; the organisation's
+  id is in the payload's metadata, so rotation works as above and nothing else is configured. Payloads of no
+  organisation (trains, loops, provisioning) are under the master key. This is not a KMS: whoever holds the master
+  key can derive every organisation's key.
+- **Production refuses clear payloads.** With `global.environment: staging` or `prod`, `codec.enabled: false`
+  is refused at render, and the API and the workers refuse to start with no keyring (outside the chart:
+  `TRANIBOR_ENV=staging|prod` and no `TRANIBOR_TEMPORAL_CODEC_KEYS[_FILE]`), unless the opt-out is set:
+  `global.temporal.codec.allowClear: true`, that is `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS=true`. It is the
+  operator saying that Temporal's histories may hold every ticket and decision in clear.
+- **Upgrading a deployment that ran with the codec off**: the release that carries ADR 0220 turns it on. Histories already begun stay readable
+  (clear payloads decode), the new payloads are encrypted, and a rollback to a worker without the codec could
+  not read them: roll forward, or set `codec.enabled: false` (with `allowClear` in staging or prod) before
+  the upgrade if encryption must wait.
 - Switching the codec on in a running deployment is safe: payloads written in clear before stay readable.
   Switching it off again is not, while histories written with it are open.
 - The Temporal UI shows encrypted payloads; no codec server is shipped. `tools/replay_record.py` refuses
@@ -255,8 +277,9 @@ global:
 - Outside the chart, the variables are `TRANIBOR_TEMPORAL_TLS`, `TRANIBOR_TEMPORAL_TLS_CA_FILE`,
   `TRANIBOR_TEMPORAL_TLS_CERT_FILE`, `TRANIBOR_TEMPORAL_TLS_KEY_FILE`, `TRANIBOR_TEMPORAL_TLS_SERVER_NAME`,
   and `TRANIBOR_TEMPORAL_CODEC_KEYS` (the keys themselves) or `TRANIBOR_TEMPORAL_CODEC_KEYS_FILE`.
-- One key serves every organisation of the deployment in this phase; per-organisation keys from a KMS are
-  phase 2.
+- The variable that opts out of the production refusal is `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS`.
+- Per-organisation keys wrapped by a KMS (crypto-shredding of an organisation) are still not built; the derived
+  keys above are their seam.
 
 ## Secrets
 
@@ -1465,9 +1488,39 @@ With `monitoring.alerts` on, the alert `ChoregosAuditExportStalled` fires when e
 moved for half an hour.
 A setting the API cannot build a sink from (a plain `http://` URL, an unknown format) stops it at start.
 
-Not part of this: a retention rule for the log, checkpoints signed on a schedule, a migration role distinct
+Not part of this: checkpoints signed on a schedule, a migration role distinct
 from the API's own, and the chain in `GET /audit`. Against a real Splunk, Elastic or syslog server nothing
 here has been run yet: the sinks are tested against simulated receivers.
+
+
+## Retention of the audit log
+
+([ADR 0221](adr/0221-the-audit-log-forgets-a-verified-prefix-behind-a-checkpoint-written-first.md), S80-05c.) The
+audit log keeps every entry **unless you set a rule**: off by default, so an upgrade deletes nothing. PostgreSQL
+only. The chart has no value for it yet; set the API's environment with `global.extraEnv`:
+
+| Setting | Default | Meaning |
+|:--|:--|:--|
+| `TRANIBOR_AUDIT_RETENTION_DAYS` | `0` | Remove entries older than this many days from the front of each chain. `0` keeps for ever; otherwise at least `30` (the API refuses to start below). |
+| `TRANIBOR_AUDIT_RETENTION_ORGS` | `{}` | A longer rule per organisation, JSON object slug to days (`{"acme": 2555}`). Never shorter than the deployment's; refused while the deployment's rule is off. |
+| `TRANIBOR_AUDIT_RETENTION_INTERVAL_S` | `3600` | Seconds between two passes, in every API replica. |
+| `TRANIBOR_AUDIT_RETENTION_BATCH` | `5000` | Most entries one transaction removes (it holds the chain's head, which writers wait for); each batch has its own checkpoint. |
+
+What is removed: the longest prefix of a chain that is older than the rule, **passes the hash-chain walk**, and,
+when `TRANIBOR_AUDIT_EXPORT` is on and covers the chain, **has been accepted by the SIEM sink** (its cursor is
+the ceiling; no cursor, nothing removed). A sink that is down therefore holds retention back and the log grows:
+watch `ChoregosAuditExportStalled` and `choregos_audit_retention_held_back_total`. Entries that do not verify are
+never removed, and `choregos-admin audit verify` shows the break. Before each delete a `prune` checkpoint
+(the last removed entry's `seq` and `hash`, the count, the rule) is written and an `audit.retention.prune` entry
+records it in the chain; `choregos-admin audit verify` walks what remains from the checkpoint and says how far
+retention went. Removed entries are no longer evidence in the database: keep the SIEM's copy as long as your
+policy requires. Do not rename the export (`TRANIBOR_AUDIT_EXPORT_NAME`) or delete cursors on a pruned log: the
+export would ship it again from entry 1 and log `audit.export.chain_discontinuity`.
+
+`choregos-admin audit prune --dry-run` says what the next pass would remove; without `--dry-run` it applies the
+rule once. `/metrics`: `choregos_audit_retention_pruned_entries_total`, `choregos_audit_retention_held_back_total`,
+`choregos_audit_retention_failures_total` (per process). Logs: `audit.retention.pruned`, `.held_back`,
+`.chain_broken`, `.failed`.
 
 ## Extra volumes for the API
 
