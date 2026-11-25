@@ -58,12 +58,19 @@ def test_the_generated_section_is_the_records() -> None:
     assert sm.section_of(page) == sm.render(sm.load()), "run `make docs-support`"
 
 
-def test_the_seed_names_every_kind_the_plan_lists_and_claims_no_cloud() -> None:
-    words = {entry.id: entry.word(TODAY) for entry in sm.load()}
+def test_the_record_names_every_kind_the_plan_lists_and_claims_no_cloud_it_did_not_run() -> None:
+    """Every managed cloud of the plan has an entry; one with no proof reads `unknown`, and one with a
+    proof names evidence that exists (`test_every_evidence_path_exists`). AKS ran on 2026-11-25 (S87-13);
+    the others wait for their accounts."""
+    entries = {entry.id: entry for entry in sm.load()}
+    as_of = sm.as_of()
     for cloud in ("eks", "gke", "aks", "openshift", "scaleway-kapsule", "ovhcloud-mks"):
-        assert words[cloud] == "unknown"
-    assert {"operator-dev", "operator-prod", "kind", "k3s-single-node", "aca"} <= set(words)
-    assert words["aca"] == "tested"  # green once, its date not recorded
+        entry = entries[cloud]
+        assert entry.proved or entry.word(as_of) == "unknown"
+    for cloud in ("eks", "gke", "openshift", "scaleway-kapsule", "ovhcloud-mks"):
+        assert entries[cloud].word(as_of) == "unknown", f"{cloud} has no proof in this repository"
+    assert entries["aks"].proved and entries["aks"].evidence
+    assert {"operator-dev", "operator-prod", "kind", "k3s-single-node", "aca"} <= set(entries)
 
 
 def test_every_evidence_path_exists() -> None:
