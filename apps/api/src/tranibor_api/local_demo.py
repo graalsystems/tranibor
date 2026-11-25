@@ -48,7 +48,7 @@ from sqlalchemy import select
 from tranibor_core import llm_guardrail
 
 from .config import Settings, get_settings
-from .db.models import Connector, Organization, Project, WorkItem
+from .db.models import BackendRegistryRow, Connector, Organization, Project, WorkItem
 from .db.session import session_scope
 from .logging import configure_logging, get_logger
 
@@ -357,6 +357,23 @@ def _follow_mode(project: Project, provider: Provider | None, report: dict[str, 
         report["switched"].append("models")
 
 
+async def _enable_demo_backend(session: Any, provider: Provider | None, report: dict[str, list[str]]) -> None:
+    """With a model key the demo project runs `opencode`, which a fresh platform keeps off (only
+    `claude-code` is on until an administrator says otherwise, `backend_enabled`): without a row,
+    every real run of the install ended at its first stage with `BackendDisabled`. Seen on 2026-11-25
+    on a real `docker compose up` with a key. The seed adds the row once; a row that exists is an
+    administrator's decision (on or off) and is left alone."""
+    if provider is None:
+        return
+    backend = demo_backend(provider)
+    row = (
+        await session.execute(select(BackendRegistryRow).where(BackendRegistryRow.name == backend))
+    ).scalar_one_or_none()
+    if row is None:
+        session.add(BackendRegistryRow(name=backend, enabled=True, capabilities=[]))
+        report["backends"].append(backend)
+
+
 async def _sync_connectors(
     session: Any, project: Project, provider: Provider | None, report: dict[str, list[str]]
 ) -> None:
@@ -402,8 +419,10 @@ async def seed_local_demo(
         "connectors": [],
         "switched": [],
         "work_items": [],
+        "backends": [],
     }
     async with session_scope(orgs="*") as session:
+        await _enable_demo_backend(session, provider, report)
         org = (
             await session.execute(select(Organization).where(Organization.slug == org_slug))
         ).scalar_one_or_none()
