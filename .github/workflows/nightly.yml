@@ -5,6 +5,12 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      job:
+        description: "`all` (the night), or one job alone (a proof re-run by hand, the others left out)"
+        type: choice
+        options: [all, servicenow-live]
+        default: all
 
 permissions:
   contents: read
@@ -12,6 +18,7 @@ permissions:
 
 jobs:
   e2e:
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -36,6 +43,7 @@ jobs:
 
   cluster:
     name: What only holds on a real cluster
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -71,6 +79,7 @@ jobs:
           kubectl get events -A --sort-by=.lastTimestamp | tail -40
 
   conformance:
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -86,6 +95,7 @@ jobs:
         with: { name: conformance, path: conformance.json, if-no-files-found: ignore }
 
   evals:
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -101,6 +111,7 @@ jobs:
         with: { name: evals, path: evals.json, if-no-files-found: ignore }
 
   replay:
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,6 +125,7 @@ jobs:
     # the files that still need them (`tests/core_alone/need_the_plugins.txt`, a ceiling that only falls:
     # `tests/core_alone/test_need_the_plugins_list.py`). The `ci` workflow's job of the same name runs the
     # boundary on every Python PR.
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -134,7 +146,7 @@ jobs:
     # services, and the optional companions of a required one (the realtime model), are
     # skipped when their secret is missing — and say so — rather than an empty green dot.
     # Forks have no secrets: the job only runs on the repository itself.
-    if: github.repository == 'graalsystems/tranibor'
+    if: github.repository == 'graalsystems/tranibor' && inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     env:
       # The services the night must cover, from the repository variable of the same name (for
@@ -187,6 +199,7 @@ jobs:
     # job (a bounded wait, then `exit 1`), and tests/live/purchasing never calls skip
     # (tests/ci/test_purchasing_live_job.py). No secret: every key is minted in the job. Runbook:
     # docs/runbooks/purchasing-live.md.
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -312,7 +325,116 @@ jobs:
           docker logs "$(docker ps -aq --filter label=purchasing-live=odoo)" 2>&1 | tail -250 || true
           echo "::endgroup::"
 
+  servicenow-live:
+    name: ServiceNow plugin and the core's plugin tracker against a real instance
+    # Plan P1 asks for fourteen green nights of ServiceNow (S80-20). Two suites, on the instance whose
+    # URL and least-privilege integration user (the plugin procedure's three roles, never admin or itil)
+    # are the repository's secrets: the plugin's own live suite, from the agents repository's commit
+    # that published the server image below, and the core's `tracker/plugin` adapter through that image
+    # (tests/live/test_servicenow_live.py). The night skips, with a reason named in its summary
+    # (`secrets-absent`, `instance-hibernating`), only when the secrets are not set or a Personal
+    # Developer Instance sleeps (it answers a page or a redirect, not JSON); anything else that goes
+    # wrong is red, a wrong password included. Runbook: docs/runbooks/servicenow-nightly.md. Forks have
+    # no secrets: the job only runs on the repository itself.
+    if: github.repository == 'graalsystems/tranibor'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # servicenow 0.2.18 as the agents repository published it (publish.yml), by its registry digest
+      # (tests/architecture/test_supply_chain_pinned.py), and the commit it was built from.
+      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.18@sha256:e0736bd6af1b249a12c7fb03dba5e211a4eb284fab0b97f39db3e0f8040bb5d9
+      AGENTS_REF: 90e9744f0d0916edefe250e6322c263e0acacbb5
+      TRANIBOR_LIVE_SERVICENOW_URL: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_URL }}
+      TRANIBOR_LIVE_SERVICENOW_USERNAME: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_USERNAME }}
+      TRANIBOR_LIVE_SERVICENOW_PASSWORD: ${{ secrets.TRANIBOR_LIVE_SERVICENOW_PASSWORD }}
+      # Past the gate, nothing may skip for want of a variable.
+      TRANIBOR_LIVE_REQUIRED: servicenow
+    steps:
+      - name: the instance is awake, or the night skips with a named reason
+        id: gate
+        run: |
+          set -euo pipefail
+          skip() {
+            echo "::warning title=servicenow-live skipped::$1: $2"
+            echo "skip=$1" >> "$GITHUB_OUTPUT"
+            printf '### ServiceNow live: skipped (`%s`)\n\n%s\n' "$1" "$2" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+          if [ -z "$TRANIBOR_LIVE_SERVICENOW_URL" ] || [ -z "$TRANIBOR_LIVE_SERVICENOW_USERNAME" ] \
+            || [ -z "$TRANIBOR_LIVE_SERVICENOW_PASSWORD" ]; then
+            skip secrets-absent "TRANIBOR_LIVE_SERVICENOW_URL, _USERNAME and _PASSWORD are not all set."
+          fi
+          probe="${TRANIBOR_LIVE_SERVICENOW_URL%/}/api/now/table/sys_user_group?sysparm_limit=1&sysparm_fields=sys_id"
+          # No -L: a sleeping instance redirects to the developer portal; following it would read a page.
+          if ! answer="$(curl -sS --max-time 60 -o probe.out -w '%{http_code} %{content_type}' \
+            -u "$TRANIBOR_LIVE_SERVICENOW_USERNAME:$TRANIBOR_LIVE_SERVICENOW_PASSWORD" \
+            -H 'Accept: application/json' "$probe")"; then
+            echo "::error::the instance did not answer (unreachable, or reclaimed): a red night"
+            exit 1
+          fi
+          code="${answer%% *}"; type="${answer#* }"
+          rm -f probe.out
+          case "$code $type" in
+            "200 application/json"*) echo "skip=" >> "$GITHUB_OUTPUT"; echo "the instance is awake" ;;
+            3[0-9][0-9]\ *|*text/html*)
+              skip instance-hibernating "The instance answered HTTP $code ($type) instead of JSON: a Personal Developer Instance that sleeps. Wake it from the developer portal." ;;
+            *) echo "::error::the instance answered HTTP $code ($type) to the integration user: a red night"; exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.gate.outputs.skip == ''
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.gate.outputs.skip == ''
+        with:
+          repository: graalsystems/tranibor-agents
+          ref: ${{ env.AGENTS_REF }}
+          path: agents
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        if: steps.gate.outputs.skip == ''
+      - name: the plugin's live suite, as the integration user (basic authentication)
+        if: steps.gate.outputs.skip == ''
+        working-directory: agents/plugins/servicenow/server
+        run: |
+          uv sync --frozen
+          uv run pytest tests/live -q -rs
+      - name: run the published server image against the instance
+        if: steps.gate.outputs.skip == ''
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 24)"; secret="$(openssl rand -hex 24)"
+          echo "::add-mask::$token"; echo "::add-mask::$secret"
+          echo "TRANIBOR_LIVE_SERVICENOW_MCP_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "TRANIBOR_LIVE_SERVICENOW_WEBHOOK_SECRET=$secret" >> "$GITHUB_ENV"
+          docker run -d --name servicenow -p 127.0.0.1:18080:8080 \
+            -e PORT=8080 -e TRANIBOR_SERVER_TOKEN="$token" -e SERVICENOW_WEBHOOK_SECRET="$secret" \
+            -e SERVICENOW_BASE_URL="${TRANIBOR_LIVE_SERVICENOW_URL%/}" -e SERVICENOW_AUTH=basic \
+            -e SERVICENOW_USERNAME="$TRANIBOR_LIVE_SERVICENOW_USERNAME" \
+            -e SERVICENOW_PASSWORD="$TRANIBOR_LIVE_SERVICENOW_PASSWORD" \
+            -e SERVICENOW_ASSIGNMENT_GROUPS="Service Desk" "$SERVICENOW_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/healthz > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::the servicenow server did not answer /healthz"
+          docker logs servicenow 2>&1 | tail -40
+          exit 1
+      - run: uv sync --frozen
+        if: steps.gate.outputs.skip == ''
+      - name: the core's plugin tracker through the server, on the instance
+        if: steps.gate.outputs.skip == ''
+        env:
+          TRANIBOR_LIVE_SERVICENOW_MCP_URL: http://127.0.0.1:18080/mcp
+        run: uv run pytest tests/live/test_servicenow_live.py -q -m live -rs
+      - name: the night's verdict
+        if: steps.gate.outputs.skip == ''
+        run: |
+          printf '### ServiceNow live: green\n\nBoth suites passed on the instance.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: logs of the server
+        if: always() && steps.gate.outputs.skip == ''
+        run: docker logs servicenow 2>&1 | tail -150 || true
+
   dependencies:
+    if: inputs.job != 'servicenow-live'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -330,7 +452,7 @@ jobs:
           exit-code: "1"
 
   alerte:
-    needs: [e2e, cluster, conformance, evals, replay, core-without-plugins, dependencies, live, purchasing-live]
+    needs: [e2e, cluster, conformance, evals, replay, core-without-plugins, dependencies, live, purchasing-live, servicenow-live]
     if: failure()
     runs-on: ubuntu-latest
     steps:
