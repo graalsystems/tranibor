@@ -590,7 +590,7 @@ async def _alert_reaches_memory(session: Any, project: Project, event: InboundEv
         logger.info("alert not kept: memory disabled", project=project.slug, delivery=event.delivery_id)
         return False
     try:
-        await signal_memory_loop(project.slug, "alert", event.model_dump(mode="json"))
+        await signal_memory_loop(project.slug, "alert", event.model_dump(mode="json"), org_id=project.org_id)
     except MemoryLoopNotRunningError as exc:
         logger.warning("alert not kept: memory loop not running", project=project.slug, reason=exc.cause)
         return False

@@ -1020,9 +1020,32 @@ What it does **not** protect, and is said so:
   associated data, so organisation A's payload cannot be opened with B's key
   (`packages/core/tests/test_temporal_org_keys.py`); a payload of no organisation is under the master key, and
   every history of ADR 0183 decodes and replays unchanged (`tests/replay/test_replay_with_org_keys.py`).
-  **This is not a KMS**: whoever holds the master key derives every organisation's key, so it separates
-  organisations' stored histories from each other, not one organisation from the operator. Workflows other than
-  the interpreter name no organisation and stay under the master key.
+  Without a key wrapper this is still the scheme, and it is not a KMS: whoever holds the master key derives every
+  organisation's key.
+- **A random, wrapped, shreddable key per organisation** ([ADR 0224](adr/0224-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md)):
+  where a key wrapper is configured (`TRANIBOR_SECRETS_KEKS`, or Vault transit through the `vault-transit`
+  extension, ADR 0103), each organisation's new payloads are sealed under its own random data key, stored in
+  `temporal_data_keys` wrapped by that wrapper and named in each payload's metadata (`encryption-key-source:
+  org-data-key`, the key id, the organisation, all bound as associated data). The master key holder cannot
+  derive it; the wrapper's holder can unwrap it until it is shredded. Processes cache an unwrapped key for
+  `TRANIBOR_TEMPORAL_DATA_KEY_TTL_S` (300 s by default). Proven in `packages/core/tests/test_temporal_data_keys.py`,
+  `apps/api/tests/test_temporal_data_keys.py`, `tests/replay/test_replay_with_data_keys.py`, and against a real
+  Vault 1.18.5 by `tests/live/test_vault_transit_temporal_keys_live.py`.
+- **Crypto-shredding** of one organisation: its administrator calls `POST /orgs/{org}/temporal-keys/shredding`
+  (`choregos admin temporal-keys shred --reason …`, the slug typed again; audited as `org.temporal_keys.shred`).
+  Every wrapped data key of the organisation is destroyed (a tombstone row keeps the id, time and author), and
+  its Temporal payloads under those keys **never decode again**, for anyone. What it does **not** erase:
+  Temporal's own metadata (workflow ids and types, queues, timestamps, status); search attributes and the
+  memo (the organisation id is there and in every payload's metadata); payloads sealed before ADR 0224
+  (derived key) or under the master key; **database backups taken before the shredding**, which still hold the
+  wrapped key (with the KEK or the transit key, they open: the shredding is complete once those backups have
+  expired); a key another process still caches, for the TTL at most. Open workflows of the organisation fail
+  their next task: terminate them first. Deleting an organisation deletes its key rows (cascade).
+- **Which workflows carry an organisation**: every start that knows its organisation is scoped (the
+  interpreter, actions, trials, provisioning, run cancellations, hosted builds, session pods, knowledge syncs
+  and distillations, catch-up and memory loops, findings triage, the release train, child interpreters started
+  by an activity), guarded by `tests/architecture/test_workflow_starts_are_organisation_scoped.py`. A child
+  started from workflow code (`FindingsTriage`'s interpreters) cannot be, and starts under the master key.
 - Workflow ids (which carry a ticket's key, never its text), search attributes, type and queue names,
   timers and headers stay in clear: Temporal reads them.
 - No codec server for the Temporal UI: payloads show encrypted there.

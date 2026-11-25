@@ -1,6 +1,10 @@
 # 0220 — One Temporal key per organisation, derived from the master key, and encryption on by default where it matters
 
-- **Status**: accepted, 2026-11-24 (phase 2 of [ADR 0183](0183-temporal-over-tls-payloads-encrypted.md), without a KMS)
+- **Status**: accepted, 2026-11-24 (phase 2 of [ADR 0183](0183-temporal-over-tls-payloads-encrypted.md), without a KMS);
+  **superseded in part** by [ADR 0224](0224-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md),
+  2026-11-25: where a key wrapper is configured, an organisation's new payloads go under a random data key
+  wrapped by it, which can be rotated and shredded; §1's derived key stays for what it sealed and for a
+  deployment without a key wrapper. §2 to §5 are unchanged.
 - **Concerns**: `tranibor_core.temporal_connection` (`AesGcmCodec`, `organisation_scope`,
   `OrganisationDirectory`, `organisation_of_workflow`, `derive_organisation_key`,
   `TemporalSecurity.refuse_clear_in_production`), `tranibor_api.temporal.RealTemporal`, the start sites of
@@ -63,12 +67,13 @@ Neither gap needs a KMS to close in part.
 
 ## Not covered
 
-- **Not a KMS.** The master key is a Secret the operator holds; whoever holds it can derive every
-  organisation's key. This isolates organisations from each other's stored histories and from a
+- **Not a KMS.** (Closed in part by ADR 0224: wrapped random data keys, shreddable per organisation.) The
+  master key is a Secret the operator holds; whoever holds it can derive every organisation's key. This isolates organisations from each other's stored histories and from a
   leak of one derived key, not from the operator of the deployment. A per-organisation key from a KMS, wrapped
   and shredded per organisation, is still the path of ADR 0183 §phase 2, and `derive_organisation_key`
   is its seam.
-- **Workflows that name no organisation are sealed under the master key**: provisioning, actions, trials,
+- **Workflows that name no organisation are sealed under the master key** (ADR 0224 scopes every start that
+  knows its organisation; a child started from workflow code still cannot): provisioning, actions, trials,
   hosted builds, session pods, reconciliation and memory loops, trains. Their payloads are ids and
   summaries; the ticket-carrying one, the interpreter, is scoped. Scoping another is a start site and an
   architecture-test entry.

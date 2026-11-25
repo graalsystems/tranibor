@@ -22,6 +22,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import ActionOrigin, ActionStatus, EventType, Role
 from tranibor_core import utcnow
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..audit import record
 from ..db.models import Action, ActionEffect, Agent, Project, User, WorkItem
@@ -256,14 +257,15 @@ def start_once_committed(session: AsyncSession, action: Action, *, again: bool =
     from ..temporal import action_id as workflow_id_of
     from ..temporal import get_temporal
 
-    action_id = action.id
+    action_id, org_id = action.id, action.org_id
     action.temporal_wf_id = workflow_id_of(action_id)
 
     async def start() -> None:
         gateway = get_temporal()
         # A settled action's first run completed (S65-26): only a restart reuses its id.
         begin = gateway.restart_action if again else gateway.start_action
-        await begin(workflow_id_of(action_id), {"action_id": action_id})
+        with organisation_scope(org_id):
+            await begin(workflow_id_of(action_id), {"action_id": action_id})
 
     after_commit(session, start)
 

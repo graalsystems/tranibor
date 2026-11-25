@@ -611,7 +611,9 @@ class MemoryLoopNotRunningError(Exception):
         self.cause = cause
 
 
-async def signal_memory_loop(project_slug: str, name: str, payload: Any) -> None:
+async def signal_memory_loop(
+    project_slug: str, name: str, payload: Any, *, org_id: str | None = None
+) -> None:
     """Signal a project's memory loop, starting it first when it does not run (S51-02).
 
     A signal to a missing workflow is NOT_FOUND, which answered 500 on `reimport` and on the Alertmanager
@@ -627,7 +629,8 @@ async def signal_memory_loop(project_slug: str, name: str, payload: Any) -> None
     except RPCError as exc:
         if exc.status != RPCStatusCode.NOT_FOUND:
             raise
-    await get_temporal().start_memory_ingestion(workflow_id, {"project_slug": project_slug})
+    with organisation_scope(org_id):  # the loop's payloads under its organisation's key (ADR 0224)
+        await get_temporal().start_memory_ingestion(workflow_id, {"project_slug": project_slug})
     try:
         await get_temporal().signal(workflow_id, name, payload)
     except RPCError as exc:

@@ -259,8 +259,28 @@ global:
 - **A key per organisation, derived** (ADR 0220): the keyring above is the *master* keyring. Each organisation's
   payloads are sealed under a key derived from the first master key and the organisation's id; the organisation's
   id is in the payload's metadata, so rotation works as above and nothing else is configured. Payloads of no
-  organisation (trains, loops, provisioning) are under the master key. This is not a KMS: whoever holds the master
-  key can derive every organisation's key.
+  organisation are under the master key. This is not a KMS: whoever holds the master key can derive every
+  organisation's key.
+- **A random data key per organisation, wrapped** ([ADR 0224](adr/0224-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md)):
+  when the deployment has a key wrapper (the `secrets-keks` entry the chart mounts as `TRANIBOR_SECRETS_KEKS` in the
+  API **and** every worker, or the `vault-transit` extension's `TRANIBOR_VAULT_*` settings in both), the API and
+  the workers seal an organisation's new payloads under its own data key, kept wrapped in the table
+  `temporal_data_keys` (migration `31d9f2433719`). Nothing else is configured; the log line
+  `temporal.data_keys.installed` says it is on, `temporal.data_keys.derived` that no wrapper was found and the
+  derived keys above are used. `TRANIBOR_TEMPORAL_DATA_KEY_TTL_S` (default 300) bounds how long a process keeps an
+  unwrapped key. Give the API and the workers the **same** wrapper: a worker without it cannot read a data-key
+  payload and says so.
+  - **Upgrading from ADR 0220**: nothing to do. Payloads already written (derived or master key) decode as before;
+    an organisation's new payloads go under its data key. Rolling a worker back to a release before ADR 0224 cannot
+    read those: roll forward. The derived-key payloads age out with their histories (the namespace's retention);
+    until then they are not covered by shredding.
+  - **Rotation**: `choregos admin temporal-keys rotate --org <org>` gives an organisation a new data key (the old ones
+    still open). A rotation of the wrapping key (`TRANIBOR_SECRETS_KEKS` with the new key first, or `vault write -f
+    transit/keys/<key>/rotate`) is followed by `choregos admin secrets rewrap`, which now re-wraps the data keys too.
+  - **Shredding**: `choregos admin temporal-keys shred --org <org> --reason "…"` destroys the organisation's data keys
+    (`docs/security.md` lists what it does not erase). Terminate the organisation's open workflows first.
+  - **Back up** both the database (the wrapped keys) and the wrapping key: losing either loses the histories sealed
+    under data keys. Keep in mind that a database backup taken before a shredding still holds the wrapped keys.
 - **Production refuses clear payloads.** With `global.environment: staging` or `prod`, `codec.enabled: false`
   is refused at render, and the API and the workers refuse to start with no keyring (outside the chart:
   `TRANIBOR_ENV=staging|prod` and no `TRANIBOR_TEMPORAL_CODEC_KEYS[_FILE]`), unless the opt-out is set:
@@ -278,8 +298,8 @@ global:
   `TRANIBOR_TEMPORAL_TLS_CERT_FILE`, `TRANIBOR_TEMPORAL_TLS_KEY_FILE`, `TRANIBOR_TEMPORAL_TLS_SERVER_NAME`,
   and `TRANIBOR_TEMPORAL_CODEC_KEYS` (the keys themselves) or `TRANIBOR_TEMPORAL_CODEC_KEYS_FILE`.
 - The variable that opts out of the production refusal is `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS`.
-- Per-organisation keys wrapped by a KMS (crypto-shredding of an organisation) are still not built; the derived
-  keys above are their seam.
+- The variable that bounds how long a process keeps an organisation's unwrapped data key is
+  `TRANIBOR_TEMPORAL_DATA_KEY_TTL_S` (ADR 0224).
 
 ## Secrets
 

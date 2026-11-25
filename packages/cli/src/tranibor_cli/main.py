@@ -36,6 +36,7 @@ from .neutral_names import change_request_of
 from .outposts import outposts_app
 from .plugins import plugin_app
 from .self_update import self_app
+from .temporal_keys import temporal_keys_app
 
 app = typer.Typer(
     add_completion=True, help="Tranibor — a work item comes in, a controlled release comes out."
@@ -56,6 +57,7 @@ secrets_app = typer.Typer(help="Sealed connector secrets")
 identity_app = typer.Typer(help="How people sign in to the instance")
 admin_app.add_typer(secrets_app, name="secrets")
 admin_app.add_typer(identity_app, name="identity")
+admin_app.add_typer(temporal_keys_app, name="temporal-keys")
 app.add_typer(orgs_app, name="orgs")
 app.add_typer(tokens_app, name="tokens")
 app.add_typer(machines_app, name="machines")

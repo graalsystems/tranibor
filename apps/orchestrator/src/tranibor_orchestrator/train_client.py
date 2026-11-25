@@ -163,8 +163,15 @@ async def signal_workflow(
     if settings.fakes:
         _FAKE_SIGNALS[workflow_id].append((name, payload))
         return
+    from tranibor_core.temporal_connection import (
+        current_organisation,
+        organisation_of_workflow,
+        organisation_scope,
+    )
+
     client = await _connect()
     if start:
+        # Signal-with-start: the caller's organisation scope seals both, and the memo names it (ADR 0224).
         await client.start_workflow(
             start,
             payload.get("start_payload", payload),
@@ -172,9 +179,13 @@ async def signal_workflow(
             task_queue="orchestrator",
             start_signal=name,
             start_signal_args=[payload],
+            memo=_memo(),
         )
         return
-    await client.get_workflow_handle(workflow_id).signal(name, payload)
+    # A signal: under the caller's organisation, else the one the workflow's memo names (ADR 0224).
+    org_id = current_organisation() or await organisation_of_workflow(client, workflow_id)
+    with organisation_scope(org_id):
+        await client.get_workflow_handle(workflow_id).signal(name, payload)
 
 
 async def signal_findings(project_slug: str, name: str, payload: dict[str, Any]) -> None:

@@ -48,6 +48,32 @@ class OrgSecret(Base, PkMixin, TimestampMixin):
     rotated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class TemporalDataKey(Base, PkMixin, TimestampMixin):
+    """An organisation's random Temporal data key, wrapped by the deployment's key wrapper (ADR 0224).
+
+    The payload codec seals the organisation's Temporal payloads under the newest `active` key; `retired`
+    keys (rotated out) still open what they sealed. `shredded` is a tombstone: the wrapped key is gone,
+    so what it sealed cannot be read again by anyone, the key wrapper's holder included. The additional
+    data `temporal-data-key|<org id>|<key id>` binds a wrapped key to its organisation and id."""
+
+    __tablename__ = "temporal_data_keys"
+    __table_args__ = (UniqueConstraint("org_id", "key_id", name="uq_temporal_data_keys_org_key"),)
+
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    #: The id the payloads carry in `encryption-key-id`: `dk-` and 16 hexadecimal digits.
+    key_id: Mapped[str] = mapped_column(String(32))
+    #: `active`, `retired` or `shredded`.
+    state: Mapped[str] = mapped_column(String(16), default="active")
+    #: `None` once shredded.
+    wrapped_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    key_nonce: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    #: The key wrapper's key that wraps it (`TRANIBOR_SECRETS_KEKS` id, or `<transit key>-v<N>`).
+    kek_id: Mapped[str] = mapped_column(String(32))
+    created_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    shredded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    shredded_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
 class RemoteCredential(Base, PkMixin, TimestampMixin):
     """What the organisation holds to call remote agents over A2A (ADR 0062).
 

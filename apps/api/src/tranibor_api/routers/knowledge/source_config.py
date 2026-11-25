@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.registry import fakes_enabled
 from tranibor_contracts import Role
 from tranibor_core.outbound_proxy import OutboundProxyError
+from tranibor_core.temporal_connection import organisation_scope
 
 from ...db.models import (
     KnowledgeBase,
@@ -405,10 +406,11 @@ def _refuse_zone(name: str) -> str:
 
 
 async def _start_sync_loop(org: str, source: KnowledgeSource) -> None:
-    await get_temporal().start_knowledge_sync(
-        knowledge_sync_id(source.id),
-        {"org": org, "source_id": source.id, "interval_seconds": source.interval_minutes * 60},
-    )
+    with organisation_scope(source.org_id):
+        await get_temporal().start_knowledge_sync(
+            knowledge_sync_id(source.id),
+            {"org": org, "source_id": source.id, "interval_seconds": source.interval_minutes * 60},
+        )
 
 
 async def checked_github_app(

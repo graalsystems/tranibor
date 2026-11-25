@@ -30,6 +30,7 @@ from tranibor_api.logging import get_logger
 from tranibor_api.services import persist_event
 from tranibor_contracts import ActionOrigin, ActionStatus, EventType
 from tranibor_core import utcnow
+from tranibor_core.temporal_connection import ORG_MEMO, organisation_scope
 
 from ..wire_names import read_key, require_key
 from .base import db
@@ -436,23 +437,25 @@ async def propose_transition_action(payload: dict[str, Any]) -> dict[str, Any]:
             return {"refusal": str(refused)}
         except ApiError as refused:
             return {"refusal": str(refused.detail or refused.title)}
-        identifier, status = action.id, action.status
+        identifier, status, org_id = action.id, action.status, action.org_id
     if status == ActionStatus.APPROVED.value:
-        await _start(identifier)
+        await _start(identifier, org_id)
     return {"action_id": identifier, "status": status}
 
 
-async def _start(action_id: str) -> None:
-    """`action-<id>`, once: a replayed activity finds the workflow already started."""
+async def _start(action_id: str, org_id: str | None = None) -> None:
+    """`action-<id>`, once: a replayed activity finds the workflow already started. Its payloads under the
+    organisation's key, and its memo naming it (ADR 0224)."""
     from temporalio.exceptions import WorkflowAlreadyStartedError
     from tranibor_api.temporal import action_id as identifier
 
-    with contextlib.suppress(WorkflowAlreadyStartedError):
+    with contextlib.suppress(WorkflowAlreadyStartedError), organisation_scope(org_id):
         await activity.client().start_workflow(
             "ActionWorkflow",
             {"action_id": action_id},
             id=identifier(action_id),
             task_queue=activity.info().task_queue,
+            memo={ORG_MEMO: org_id} if org_id else None,
         )
 
 

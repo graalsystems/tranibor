@@ -230,10 +230,15 @@ async def _start_pod(session_id: str, org_slug: str) -> bool:
         if record.pod is None:
             record.pod = {"state": "requested"}
         await journal(db, record, "socket.open", {})
-        return record.expires_at
+        return record.expires_at, record.org_id
 
-    expires_at = await write(session_id, requested, orgs=[org_slug])
-    return expires_at is not None and await ask_for_pod(session_id, expires_at, org_slug, first=True)
+    answer = await write(session_id, requested, orgs=[org_slug])
+    if answer is None:
+        return False
+    expires_at, org_id = answer
+    return expires_at is not None and await ask_for_pod(
+        session_id, expires_at, org_slug, first=True, org_id=org_id
+    )
 
 
 async def _end(session_id: str, org_slug: str, reason: str) -> None:

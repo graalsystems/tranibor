@@ -11,7 +11,9 @@ ORCHESTRATOR_SRC = ROOT / "apps" / "orchestrator" / "src"
 # Measured at 87ea1831d. Lower it in the PR that removes imports; raise it only for a mechanical
 # rename that splits an existing statement, saying so in the PR body, or by amending ADR 0099.
 # S47-33: +3 (the stage helpers repeat three imports); S83-05b: -4 (the release train left for its plugin).
-CEILING = 152
+# ADR 0224: +1 (the worker installs the organisations' Temporal data keys), and the ceiling lowered from
+# 152 to the count, which had fallen below it.
+CEILING = 150
 
 HTTP_LAYER = (
     "tranibor_api.routers",
