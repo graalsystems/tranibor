@@ -2619,6 +2619,32 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
+## Upgrading to the next release: the commands and files take the name tranibor (ADR 0224, R5)
+
+([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R5.) The commands a person
+or a script types, and the files the CLI and a repository keep, are named `tranibor`. Each former name keeps
+working for the window of ADR 0224 §1: it is read (or still installed, or still served) for two minor
+versions from the release that ships this change, and removed in the minor after, in a PR of its own. If
+this change ships in 0.30.0, the former names work through 0.31.x and go in 0.32.0; this section will say so
+again when the removal is scheduled. Nothing an installation, a script or a repository does today stops
+working on upgrade.
+
+| What | From this release | The former name, for the window | What to do |
+| :-- | :-- | :-- | :-- |
+| The native CLI's files (release assets, the API image's `/opt/choregos/cli/`, the manifest) | `tranibor-<platform>`: `tranibor-linux-x86_64`, `-linux-arm64`, `-macos-arm64`, `-macos-x86_64`, `-windows-x86_64.exe`; the manifest lists these names | The GitHub release also attaches each file under `choregos-<platform>` (the same bytes, with its cosign bundle), `SHA256SUMS` gives each digest under both names, and the instance serves `/downloads/cli/choregos-<platform>` as the same file | A script that downloads a binary by name moves to `tranibor-<platform>` |
+| The command the install scripts put on the PATH (`/cli/install.sh`, `/cli/install.ps1`) | `tranibor` (`~/.local/bin/tranibor`; on Windows `%LOCALAPPDATA%\Programs\tranibor\tranibor.exe`) | `choregos` beside it: a link to `tranibor` (a `choregos.cmd` on Windows), which replaces the binary an earlier install left; on Windows the `choregos.exe` of the former default folder is removed, so `choregos` finds the new binary | Run the install script again, or `choregos self update` (it replaces the binary it runs from, whatever its name). Type `tranibor` from now on |
+| `self update` | Accepts the instance's file under either name | An instance released before this change lists `choregos-<platform>` and still updates the CLI | Nothing |
+| The images' commands | `tranibor-admin`, `tranibor-api`, `tranibor-orchestrator`, `tranibor-runner`, `tranibor-outpost`, `tranibor-tools`; the images start the new ones (the runner's and the outpost's entrypoints, the tools sidecar's command) | `choregos-admin`, `choregos-api`, `choregos-orchestrator`, `choregos-runner`, `choregos-outpost`, `choregos-tools`, installed beside them on the same functions (the runner image links both names into `/usr/local/bin`) | A runbook, a Job or a pipeline that runs `choregos-admin …` or `choregos-runner run` moves to the new name |
+| The CLI's profile | `~/.config/tranibor/config.json`; `tranibor login` writes it | `~/.config/choregos/config.json` is read when the new file is absent and `TRANIBOR_CONFIG` names no other file; it is never written again | Nothing: the next `tranibor login` writes the new file. Delete the former one once you have signed in again, as it holds a token |
+| The workflow a repository declares | `.tranibor/workflow.yaml` (and `.tranibor/policy.yaml`); `tranibor workflow validate`, `show` and `push` read it when no path is given, and a template's scaffold pull request writes `.tranibor/` | `.choregos/workflow.yaml` is read when the repository has no `.tranibor/workflow.yaml` | Move the files with `git mv .choregos .tranibor` when convenient. The policy presets and the templates' policies deny agents both `.tranibor/**` and `.choregos/**` |
+| The version check's state, the native CLI's unpacked files | `~/.cache/tranibor/` | The former `~/.cache/choregos/` is no longer read: the next command checks the instance's version once more, and the binary unpacks itself once more | Delete `~/.cache/choregos/` if you like |
+
+**Not in this round** (they keep their former names, each to move in a later round of ADR 0224 with its own
+window): the directory a run's workspace uses between the runner and the agent or the job (`.choregos/` inside
+the step's sandbox: `result.json`, `task.md`, `inputs/`, `fields.json`, `job.json`, `outputs/`, `knowledge/`),
+which agents and job images built before the change read and write; the chart and the objects it renders
+(R6); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
+
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 
 ([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md).) The chart has run
