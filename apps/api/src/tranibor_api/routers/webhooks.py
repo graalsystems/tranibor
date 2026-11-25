@@ -55,6 +55,23 @@ from ..tenant_host import org_base_url_of_id
 router = APIRouter(tags=["webhooks"], prefix="/webhooks")
 logger = get_logger("choregos.webhooks")
 
+
+def json_body(body: bytes) -> dict[str, Any]:
+    """A delivery's body as a JSON object; anything else is a 400, never a 500.
+
+    An empty body is the empty object. A sender that is authenticated (a shared secret, an HMAC) may still
+    send bytes that are not JSON, or JSON that is not an object (`[]`, `"x"`, `0`): the handlers read the
+    payload with `.get`, so either would end as an unhandled error and a 500 the sender retries for ever.
+    """
+    try:
+        payload = json.loads(body or b"{}")
+    except ValueError as exc:  # JSONDecodeError and UnicodeDecodeError are both ValueErrors
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Bad request", "the body is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Bad request", "the body must be a JSON object")
+    return payload
+
+
 AGENT_READY_LABEL = "agent-ready"
 #: The issue events that carry the CURRENT list of its labels: `labeled` (added or removed,
 #: `removed`), and `updated`: GitLab emits nothing else when a label is removed.
@@ -521,12 +538,12 @@ async def github_webhook(
         # The App's own events (ADR 0073): they keep `github_installations` in step and are no work item.
         from ..services.github_app import apply_installation_event
 
-        await apply_installation_event(session, x_github_event, json.loads(body or b"{}"))
+        await apply_installation_event(session, x_github_event, json_body(body))
         return WebhookAck(accepted=True)
 
     from tranibor_adapters.tracker.github_events import parse_github_event
 
-    events = parse_github_event(x_github_event, x_github_delivery, json.loads(body or b"{}"))
+    events = parse_github_event(x_github_event, x_github_delivery, json_body(body))
     delivered = await dispatch(session, events)
     response.status_code = status.HTTP_202_ACCEPTED
     return WebhookAck(accepted=True, events=delivered)
@@ -550,7 +567,7 @@ async def alertmanager_webhook(
     settings = get_settings()
     if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     alerts = payload.get("alerts", [])
     count = 0
     for alert in alerts:
@@ -619,7 +636,7 @@ async def jira_webhook(
 
     from tranibor_adapters.tracker.jira_events import parse_jira_event
 
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     events = parse_jira_event(delivery, payload)
     project, decided = await _jira_project_for(session, payload)
     if decided and project is None:
@@ -674,7 +691,7 @@ async def azure_boards_webhook(
     provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     delivery = _azure_delivery_id(payload, body)
     if await already_seen(session, "azure-boards", delivery, "azure-boards", body):
         return WebhookAck(accepted=True, duplicate=True)
@@ -809,7 +826,7 @@ async def azure_devops_webhook(
     provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     delivery = _azure_delivery_id(payload, body)
     if await already_seen(session, "azure-devops", delivery, "azure-devops", body):
         return WebhookAck(accepted=True, duplicate=True)
@@ -894,7 +911,7 @@ async def gitlab_webhook(
 
     from tranibor_adapters.tracker.gitlab_events import parse_gitlab_event
 
-    events = parse_gitlab_event(x_gitlab_event, delivery, json.loads(body or b"{}"))
+    events = parse_gitlab_event(x_gitlab_event, delivery, json_body(body))
     delivered = await dispatch(session, events)
     return WebhookAck(accepted=True, events=delivered)
 

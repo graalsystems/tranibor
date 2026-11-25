@@ -274,7 +274,9 @@ class GatewayModelDto(Dto):
 class ProjectModelProfile(Dto):
     litellm_model: str
     params: dict[str, Any] = Field(default_factory=dict)
-    max_turns_factor: float = 1.0
+    #: Strictly positive, as the project configuration's `ModelProfile` it is copied into requires: a
+    #: zero or a negative factor passed this schema and failed there, as a 500.
+    max_turns_factor: float = Field(default=1.0, gt=0)
 
 
 class ProjectModels(Dto):
