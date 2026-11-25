@@ -91,3 +91,9 @@ Measured, and therefore stated: in English the classifier lifts recall from 31 %
 (62 % and 92 %), so `block` with a classifier on a non-English helpdesk would stop most tickets. Still
 not proven: real tickets and real attackers, another model or threshold, a GPU, the chart deploying a
 classifier (it still does not).
+
+The same day the patterns gained Spanish (Mexican usage included) and more French phrasing, judged on
+a held-out set written before them (`tests/fixtures/injection/heldout-es-fr.yaml`): patterns alone,
+Spanish recall 0 % to 77 % on the corpus and 83 % on the held-out set, no benign text of either set
+flagged (`docs/security.md`, "Spanish and French patterns"). This changes no decision of this ADR:
+the patterns stay the first, mechanical reader; "both" was not re-measured with them.
