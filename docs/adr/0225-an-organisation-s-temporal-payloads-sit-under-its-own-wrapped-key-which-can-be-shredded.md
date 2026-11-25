@@ -1,4 +1,4 @@
-# 0224 — An organisation's Temporal payloads sit under its own wrapped key, which can be shredded
+# 0225 — An organisation's Temporal payloads sit under its own wrapped key, which can be shredded
 
 - **Status**: proposed, 2026-11-25 (supersedes [ADR 0220](0220-one-temporal-key-per-organisation-encryption-on-by-default.md)
   §1 and its first "Not covered" item in part; builds on [ADR 0103](0103-secret-keks-sit-behind-a-key-wrapper.md))

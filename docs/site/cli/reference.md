@@ -200,7 +200,7 @@ Options:
 
 ## `choregos admin temporal-keys`
 
-An organisation's Temporal data keys: list, rotate, shred (ADR 0224)
+An organisation's Temporal data keys: list, rotate, shred (ADR 0225)
 
 ### `choregos admin temporal-keys list`
 
@@ -485,6 +485,26 @@ Usage: choregos demo import [OPTIONS] {project} {file}
 Arguments:
   project  The project: `org/slug` or its id.  [required]
   file     A demonstration history, YAML or JSON.  [required]
+
+Options:
+  --help  Show this message and exit.
+```
+
+### `choregos demo remove`
+
+```text
+Usage: choregos demo remove [OPTIONS] {project}
+
+  Remove what demonstration history imports wrote into a project, and nothing
+  else.
+
+  Only the rows marked imported go: the work items with their runs, requests
+  and events, the findings and the cost lines. The import's gate applies (the
+  organisation administrator, `TRANIBOR_DEMO_HISTORY_IMPORT=1`, outside
+  staging and prod); the removal is audited, and a second one removes nothing.
+
+Arguments:
+  project  The project: `org/slug` or its id.  [required]
 
 Options:
   --help  Show this message and exit.

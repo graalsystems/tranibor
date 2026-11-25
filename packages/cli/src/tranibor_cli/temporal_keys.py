@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos admin temporal-keys`: an organisation's Temporal data keys (ADR 0224).
+"""`choregos admin temporal-keys`: an organisation's Temporal data keys (ADR 0225).
 
 Each organisation's Temporal payloads are sealed under a random data key, wrapped by the deployment's key
 wrapper. These commands list the keys (never a key itself), rotate the active one, and shred them all:
@@ -17,7 +17,7 @@ from rich.table import Table
 
 from .client import Client, NoOrganisationError
 
-temporal_keys_app = typer.Typer(help="An organisation's Temporal data keys: list, rotate, shred (ADR 0224)")
+temporal_keys_app = typer.Typer(help="An organisation's Temporal data keys: list, rotate, shred (ADR 0225)")
 console = Console()
 
 OrgOption = Annotated[str | None, typer.Option("--org", help="the organisation; the profile's otherwise")]

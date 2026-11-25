@@ -11,6 +11,8 @@ platform's processes, registered through the core's seams when the API and the w
 - the step effects `open_pr` and `merge_pr` of `does:` (`effects.py`);
 - the `scm.*`, `ci.*` and `cd.*` inbound event types, four finding types and two memory kinds, in the
   contracts' open lists (`lists.py`);
+- the stage roles `fix_ci`, `address_review`, `release_notes` and `verify_prod` and their playbooks, in the
+  open list `STAGE_ROLES` and the playbooks' search path (`roles/`, S83-12);
 - the release train, its workflow `ReleaseTrain` and its activities, on the orchestrator's workers through
   the worker seam (round D, `train/`), under the names every recorded history carries, and the carrier
   `via: release_train` (`carriers.declare_carrier`), whose boarding activity `signal_train` it registers;
@@ -48,6 +50,7 @@ from .facts import judged, read_delivery_facts
 from .gates import PROVIDER, register_gates
 from .lists import declare_values
 from .names import NAME
+from .roles import declare_roles
 
 
 def provide_worker_parts() -> WorkerParts:
@@ -138,6 +141,7 @@ def register() -> None:
     register_gates()
     register_effects()
     declare_values()
+    declare_roles()
     declare_worker_parts(NAME, provide_worker_parts)
     # A work item the train carries needs a deployment (`cd`): the requirements of its workflows say so.
     declare_carrier("release_train", plugin=NAME, needs=("cd",))

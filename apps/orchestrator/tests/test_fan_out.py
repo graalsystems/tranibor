@@ -329,7 +329,7 @@ async def test_opening_twice_opens_nothing_new(setup: Fixture) -> None:
     assert first == again == {"children": ["northwind/billing-api#123.1", "northwind/billing-api#123.2"]}
     assert len(await _items(setup)) == 3, "two children, not four"
     assert started == [f"{PARENT_ID}.1", f"{PARENT_ID}.2"] * 2, "the same identifiers: Temporal refuses twice"
-    # the children name their organisation, for the payload codec of a later signal (ADR 0224)
+    # the children name their organisation, for the payload codec of a later signal (ADR 0225)
     assert {memo["organisation"] for memo in memos} == {await _org_of(setup)}
 
 

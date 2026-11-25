@@ -19,6 +19,14 @@ rewritten by Alembic data migrations. What no migration can reach stays readable
   internal contracts (the runner, the orchestrator, the internal API), outside the frozen REST surface.
   The agents of the published `software-delivery` content plugin (1.3.0, signed, `plugins/offline/`) are
   also told to write `evidence.tests_passed` and `evidence.tests_run`.
+- a stored workflow version that declares no `repairs:` or no `needs:` (written before ADR 0181 C1): the
+  platform guessed from its agents' role names which transition repairs `ci_failed` and
+  `changes_requested`, and which connector kinds an agent needs. Its version is never rewritten (its
+  digest would move) and its Temporal history replays the choice the guess made, with or without the
+  `software-delivery` plugin whose roles they are since S83-12: `GUESSED_REPAIR_ROLES`,
+  `GUESSED_ROLES_IN_A_REPOSITORY` and `GUESSED_ROLES_IN_PRODUCTION`, read by `tranibor_core.dsl.engine` and
+  `tranibor_core.dsl.requirements` for such a workflow only. A workflow that declares `repairs:` (or
+  `needs:`) on any of its transitions (agents) is never guessed for.
 - the policies of templates and content plugins: a template's `policy.yaml` (in a content plugin's archive
   already signed and published, or in a deployment's own plugins) may still write `scope.max_diff_files`,
   `scope.max_diff_lines`, `approvals.merge` or `release_train` at their former places. A project born from
@@ -57,6 +65,18 @@ EVIDENCE_FACTS: tuple[str, ...] = (
 
 #: An action approver's former role, read as its successor in a stored or recorded workflow (ADR 0181 C1).
 FORMER_APPROVER_ROLES: dict[str, str] = {"developer": "contributor", "release_captain": "approver"}
+
+
+#: A stored workflow without `repairs:` (before ADR 0181 C1): the role of the agent whose transition
+#: repairs each outcome. The roles are the `software-delivery` plugin's (S83-12); the guess replays.
+GUESSED_REPAIR_ROLES: dict[str, str] = {"ci_failed": "fix_ci", "changes_requested": "address_review"}
+#: A stored workflow without `needs:` (before ADR 0181 C1): the roles whose agent was taken to work in a
+#: repository (it needs an `scm`) ...
+GUESSED_ROLES_IN_A_REPOSITORY: frozenset[str] = frozenset(
+    {"implement", "fix_ci", "address_review", "review", "release_notes", "architect", "document"}
+)
+#: ... and those taken to look at production (it needs a `cd`).
+GUESSED_ROLES_IN_PRODUCTION: frozenset[str] = frozenset({"verify_prod"})
 
 
 #: The relation of the link to the change request (`stage.CHANGE_REQUEST`).

@@ -122,7 +122,7 @@ async def active_project_slugs(*, keeping_memory: bool = False) -> list[str]:
 async def active_projects(*, keeping_memory: bool = False) -> list[tuple[str, str]]:
     """`(slug, organisation id)` of the active projects, across organisations; with `keeping_memory`, only
     those whose policy keeps memory (S51-02). The orchestrator worker starts one loop per project, inside
-    its organisation's scope (ADR 0224): this is its one entry into the API for both loops (ADR 0099
+    its organisation's scope (ADR 0225): this is its one entry into the API for both loops (ADR 0099
     counts each import the orchestrator makes of it)."""
     from ..db.session import session_scope
 

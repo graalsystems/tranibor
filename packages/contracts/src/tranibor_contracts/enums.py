@@ -21,16 +21,17 @@ class Risk(StrEnum):
 
 
 class StageRole(StrEnum):
+    """The core's stage roles: each has its playbook in `tranibor_playbooks`. A plugin's extension
+    declares its own (`tranibor_core.stage_roles.declare_stage_roles`, the open list `STAGE_ROLES`):
+    the software-delivery roles (repairing a pipeline, answering a review, writing release notes,
+    checking production) are the `software-delivery` plugin's since ADR 0181, under the same strings."""
+
     TRIAGE = "triage"
     REFINE = "refine"
     PLAN = "plan"
     IMPLEMENT = "implement"
     VERIFY = "verify"
     REVIEW = "review"
-    FIX_CI = "fix_ci"
-    ADDRESS_REVIEW = "address_review"
-    RELEASE_NOTES = "release_notes"
-    VERIFY_PROD = "verify_prod"
     #: A request that delivers no code (ADR 0110): the brief a person approves, then the deliverable.
     #: The playbooks package always had them (`KNOWN_ROLES`); the two lists agree since ADR 0181 C0.
     BRIEF = "brief"

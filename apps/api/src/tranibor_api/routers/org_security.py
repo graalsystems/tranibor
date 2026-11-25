@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """An organisation's sign-in security (ADR 0170): how recent an approval's authentication must be, and
-an administrator ending a member's sessions; and its Temporal data keys (ADR 0224): listed, rotated and
+an administrator ending a member's sessions; and its Temporal data keys (ADR 0225): listed, rotated and
 shredded. All belong to the organisation's administrator (on a single-organisation instance, the
 platform's administrator is that person)."""
 
@@ -107,7 +107,7 @@ async def revoke_member_sessions(
     return SessionsRevoked(revoked=user.email, ended=ended)
 
 
-# ───────────────────────────── Temporal data keys (ADR 0224) ─────────────────────────────
+# ───────────────────────────── Temporal data keys (ADR 0225) ─────────────────────────────
 
 
 def _require_key_admin(principal: Me, org: str, gesture: str) -> None:
@@ -164,7 +164,7 @@ async def rotate_temporal_key(org: str, session: Db, principal: Me) -> TemporalK
 async def shred_temporal_keys(
     org: str, body: TemporalKeyShredding, session: Db, principal: Me
 ) -> TemporalKeysShredded:
-    """Destroy every wrapped Temporal data key of the organisation (crypto-shredding, ADR 0224): what they
+    """Destroy every wrapped Temporal data key of the organisation (crypto-shredding, ADR 0225): what they
     sealed can never be read again. Irreversible; `confirm` repeats the organisation's slug. Audited."""
     _require_key_admin(principal, org, "shredding")
     if body.confirm != org:

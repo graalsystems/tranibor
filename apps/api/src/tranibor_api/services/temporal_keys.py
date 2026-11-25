@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""An organisation's Temporal data keys (ADR 0224): random, wrapped by the deployment's key wrapper,
+"""An organisation's Temporal data keys (ADR 0225): random, wrapped by the deployment's key wrapper,
 rotated and shredded per organisation.
 
 - Each organisation gets a random 32-byte data key the first time one of its payloads is sealed. It is
@@ -52,7 +52,7 @@ SHREDDED = "shredded"
 NOT_ERASED = (
     "Temporal's own metadata: workflow ids and types, task queues, timestamps, run status",
     "search attributes and the workflow memo (the organisation id is in it and in each payload's metadata)",
-    "payloads sealed before ADR 0224 (under the ADR 0220 derived key or the master key)",
+    "payloads sealed before ADR 0225 (under the ADR 0220 derived key or the master key)",
     "payloads of workflows that name no organisation (under the master key)",
     "database backups taken before the shredding, which still hold the wrapped key",
     "a key another process still holds in memory, for TRANIBOR_TEMPORAL_DATA_KEY_TTL_S at most",
@@ -106,7 +106,7 @@ def _shredded(org_id: str, key_id: str, at: datetime | None) -> str:
     when = f" on {at.isoformat(timespec='seconds')}" if at is not None else ""
     return (
         f"the Temporal data key `{key_id}` of the organisation `{org_id}` was shredded{when}: "
-        "what it sealed cannot be read (ADR 0224)"
+        "what it sealed cannot be read (ADR 0225)"
     )
 
 
@@ -265,7 +265,7 @@ class DatabaseDataKeys:
 
 def install_organisation_data_keys(wrapper: KeyWrapper | None = None) -> DataKeyCache | None:
     """Per-organisation data keys for every Temporal client of this process, when the deployment has a key
-    wrapper (ADR 0224); otherwise the ADR 0220 derived keys, said once in the log."""
+    wrapper (ADR 0225); otherwise the ADR 0220 derived keys, said once in the log."""
     chosen = wrapper if wrapper is not None else active_key_wrapper()
     if chosen is None:
         install_data_keys(None)

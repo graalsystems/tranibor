@@ -53,6 +53,18 @@
           "run": "implement-1"
         }
       ]
+    },
+    {
+      "id": "inv-150",
+      "title": "Send the overdue invoice reminders in the customer's language",
+      "created_by": "admin@northwind.dev",
+      "created_at": "2026-11-05T09:00:00Z",
+      "pending": {
+        "id": "spec-review",
+        "kind": "approval",
+        "summary": "Approve the specification of the localised reminders?",
+        "requested_at": "2026-11-05T09:40:00Z"
+      }
     }
   ]
 }

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """An organisation's Temporal data keys in the database, wrapped by the key wrapper, rotated and shredded
-through the API (ADR 0224)."""
+through the API (ADR 0225)."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ async def test_the_database_holds_a_random_wrapped_key_per_organisation(
 async def test_encode_shred_and_the_payload_never_decodes_again(
     client: AsyncClient, admin: str, keks: str
 ) -> None:
-    """ADR 0224's proof, through the route an administrator calls."""
+    """ADR 0225's proof, through the route an administrator calls."""
     org_id = await _org_id()
     cache = temporal_keys.install_organisation_data_keys()
     assert cache is not None, "a key wrapper is configured: the data keys are installed"

@@ -189,9 +189,10 @@ A decision question has a `type`, `instructions` (what is asked, 2,000 character
 `yes_no` (nothing more), `choice` with `options` (2 to 100), `score` with ordered `levels` (2 to 10,
 lowest first).
 
-The roles of the shipped playbooks (`triage`, `refine`, `plan`, `implement`, `verify`, `review`,
-`fix_ci`, `address_review`, `release_notes`, `verify_prod`, `custom`) keep their meaning; any other
-name is yours.
+The roles of the core's playbooks (`triage`, `refine`, `plan`, `implement`, `verify`, `review`,
+`brief`, `deliver`, `custom`) keep their meaning. A plugin brings its own with their playbooks: the
+`software-delivery` plugin's `fix_ci`, `address_review`, `release_notes` and `verify_prod`. Any other
+name is yours, and its playbook comes from the deployment (`TRANIBOR_PLAYBOOKS_DIR`).
 
 ## `states`
 

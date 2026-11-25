@@ -175,7 +175,7 @@ async def ask_for_pod(
     """Starts the session's pod (`first`, which needs the session's `expires_at`) or tells it the
     session is alive; `False` when it could not start. The caller has committed
     `record.pod = {"state": "requested"}` before a first ask. `org_id` seals the pod workflow's payloads
-    under the organisation's key (ADR 0224)."""
+    under the organisation's key (ADR 0225)."""
     try:
         if first:
             assert expires_at is not None, "a pod is started for a session's lifetime"

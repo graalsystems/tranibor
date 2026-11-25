@@ -42,6 +42,9 @@ from ._router import Slug, router
 
 FINIS = {"succeeded", "failed", "timed_out", "cancelled"}
 
+# A demonstration history's runs and cost lines (ADR 0216) are a past no agent lived: no metric of an agent
+# counts them (`Run.imported`, `CostLedger.imported`). Its runs are still listed, marked, in its history.
+
 
 @router.get("/orgs/{org}/agents/{slug}/metrics", response_model=AgentMetrics, operation_id="getAgentMetrics")
 async def agent_metrics(
@@ -58,7 +61,12 @@ async def agent_metrics(
         await session.execute(
             select(Run.id, Run.status, Project.slug, Run.agent_version)
             .join(Project, Project.id == Run.project_id)
-            .where(Run.agent_slug == slug, Project.org_id == organisation.id, Run.created_at >= window_start)
+            .where(
+                Run.agent_slug == slug,
+                Project.org_id == organisation.id,
+                Run.created_at >= window_start,
+                Run.imported.is_(False),
+            )
         )
     ).all()
     cost_by_version = (
@@ -66,7 +74,12 @@ async def agent_metrics(
             select(Run.agent_version, func.sum(CostLedger.cost_usd))
             .join(Run, Run.id == CostLedger.run_id)
             .join(Project, Project.id == Run.project_id)
-            .where(Run.agent_slug == slug, Project.org_id == organisation.id, CostLedger.ts >= window_start)
+            .where(
+                Run.agent_slug == slug,
+                Project.org_id == organisation.id,
+                CostLedger.ts >= window_start,
+                CostLedger.imported.is_(False),
+            )
             .group_by(Run.agent_version)
         )
     ).all()
@@ -75,7 +88,12 @@ async def agent_metrics(
             select(CostLedger.kind, Project.slug, func.sum(CostLedger.cost_usd))
             .join(Run, Run.id == CostLedger.run_id)
             .join(Project, Project.id == Run.project_id)
-            .where(Run.agent_slug == slug, Project.org_id == organisation.id, CostLedger.ts >= window_start)
+            .where(
+                Run.agent_slug == slug,
+                Project.org_id == organisation.id,
+                CostLedger.ts >= window_start,
+                CostLedger.imported.is_(False),
+            )
             .group_by(CostLedger.kind, Project.slug)
         )
     ).all()
@@ -165,7 +183,10 @@ async def list_agent_metrics(
             select(Run.agent_slug, Run.status, func.count())
             .join(Project, Project.id == Run.project_id)
             .where(
-                Run.agent_slug.in_(slugs), Project.org_id == organisation.id, Run.created_at >= window_start
+                Run.agent_slug.in_(slugs),
+                Project.org_id == organisation.id,
+                Run.created_at >= window_start,
+                Run.imported.is_(False),
             )
             .group_by(Run.agent_slug, Run.status)
         )
@@ -176,7 +197,10 @@ async def list_agent_metrics(
             .join(Run, Run.id == CostLedger.run_id)
             .join(Project, Project.id == Run.project_id)
             .where(
-                Run.agent_slug.in_(slugs), Project.org_id == organisation.id, CostLedger.ts >= window_start
+                Run.agent_slug.in_(slugs),
+                Project.org_id == organisation.id,
+                CostLedger.ts >= window_start,
+                CostLedger.imported.is_(False),
             )
             .group_by(Run.agent_slug)
         )

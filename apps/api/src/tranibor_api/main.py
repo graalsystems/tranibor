@@ -163,7 +163,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
     if not settings.fakes:
         refuse_clear_payloads(environment=settings.env)
-        # An organisation's payloads under its own data key, wrapped by the key wrapper (ADR 0224).
+        # An organisation's payloads under its own data key, wrapped by the key wrapper (ADR 0225).
         install_organisation_data_keys()
     # An opt-in that never activates implicitly, and only on a development machine under the fakes (ADR 0212).
     if settings.demo_inline_worker:

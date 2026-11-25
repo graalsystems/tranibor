@@ -6284,6 +6284,32 @@ stories:
       - "the core's and the plugins' finding types stay valid in every workflow; every archived history replays"
       - "the console and the CLI show the declared title"
     notes: "From a pre-sales demonstration of a warranty-claims workflow, where a suspected duplicate claim had to be filed as security. Gates and humans file no finding today; when one does, it judges with tranibor_core.finding_types."
+  - id: S83-12
+    title: "contract(contracts,playbooks,plugins): the software stage roles are the software-delivery plugin's (ADR 0181)"
+    stream: S83
+    sprint: 3
+    priority: 6
+    size: S
+    depends_on: [S83-10]
+    acceptance:
+      - "fix_ci, address_review, release_notes and verify_prod are neither StageRole members nor KNOWN_ROLES; the plugin's extension declares them in STAGE_ROLES with their playbooks"
+      - "a workflow naming one finds its playbook where the plugin is installed; the strings are unchanged, stored workflows and recorded histories keep working"
+      - "the role guesses for workflows stored before repairs: and needs: are listed in tranibor_contracts.recorded"
+      - "the vocabulary guard's allowlist is lowered"
+    notes: "Approved by the project lead before the 1.0 freeze, without a window (ADR 0181, Decision (2026-11-23))."
+  - id: S83-13
+    title: "contract(openapi,core,api,web,plugins): the policy ceiling's diff caps are the software-delivery plugin's section (ADR 0181)"
+    stream: S83
+    sprint: 3
+    priority: 6
+    size: S
+    depends_on: [S83-12]
+    acceptance:
+      - "the organisation's ceiling caps max_diff_files and max_diff_lines in its delivery section, marked x-plugin; a ceiling writing them under scope is refused naming the section"
+      - "the core's policy engine and ceiling name no diff bound; the plugin reads the policy's delivery.scope"
+      - "stored ceilings are migrated by Alembic, idempotently"
+      - "the vocabulary guard's allowlist is lowered"
+    notes: "Approved by the project lead before the 1.0 freeze, without a window (ADR 0181, Decision (2026-11-23))."
   - id: S4-07
     title: "The cost ledger separates cache writes from cache reads (ADR 0188)"
     stream: S4
@@ -6388,6 +6414,17 @@ stories:
       - "export_docs.py --site writes one page per procedure, the platform's grouped by kind and, with --plugins, one group per plugin naming it and linking its source; title and description, no slug or id, placeholders as in docs/procedures/, fields as a table, prose safe for MDX"
       - "the documentation site has a connectors/ section (hand-written index, generated pages never committed), built by docs-site.yml after the import, daily too, with the plugins' repository at main"
     notes: "The API is unchanged: GET /procedures?for= answers an empty list when nothing matches, which moves the console's lookup to the next candidate."
+  - id: S84-07
+    title: "fix(api): an after_commit callback follows the root transaction, not a savepoint's end (finding #2089)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: S
+    depends_on: [S84-05]
+    acceptance:
+      - "an after_commit callback registered in a released savepoint does not run when the root transaction rolls back, even when the session goes on to commit"
+      - "a savepoint that rolls back drops only the callbacks registered since it began; the outer transaction's run once when it commits"
+    notes: "Before: SQLAlchemy fires after_commit on a savepoint's release and after_rollback on its rollback; the listeners moved or cleared the whole pending list on either."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

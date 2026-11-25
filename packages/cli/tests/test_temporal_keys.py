@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos admin temporal-keys` (ADR 0224): what each command asks the API, and what it prints.
+"""`choregos admin temporal-keys` (ADR 0225): what each command asks the API, and what it prints.
 
 The API is mocked with respx; `apps/api/tests/test_temporal_data_keys.py` proves the routes themselves.
 """

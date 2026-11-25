@@ -171,7 +171,7 @@ async def signal_workflow(
 
     client = await _connect()
     if start:
-        # Signal-with-start: the caller's organisation scope seals both, and the memo names it (ADR 0224).
+        # Signal-with-start: the caller's organisation scope seals both, and the memo names it (ADR 0225).
         await client.start_workflow(
             start,
             payload.get("start_payload", payload),
@@ -182,7 +182,7 @@ async def signal_workflow(
             memo=_memo(),
         )
         return
-    # A signal: under the caller's organisation, else the one the workflow's memo names (ADR 0224).
+    # A signal: under the caller's organisation, else the one the workflow's memo names (ADR 0225).
     org_id = current_organisation() or await organisation_of_workflow(client, workflow_id)
     with organisation_scope(org_id):
         await client.get_workflow_handle(workflow_id).signal(name, payload)

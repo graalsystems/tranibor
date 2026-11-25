@@ -193,7 +193,7 @@ async def spawn_children(payload: dict[str, Any]) -> dict[str, Any]:
     # Started after the commit: a child's interpreter reads its work item at once. Same identifier
     # every time, so a retried activity finds the interpreter already running.
     for start in to_start:
-        # The child's payloads under its organisation's key, and its memo for a later signal (ADR 0224).
+        # The child's payloads under its organisation's key, and its memo for a later signal (ADR 0225).
         with contextlib.suppress(WorkflowAlreadyStartedError), organisation_scope(bundle.project.org_id):
             await activity.client().start_workflow(
                 "WorkflowInterpreter",

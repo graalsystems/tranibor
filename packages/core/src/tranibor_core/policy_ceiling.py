@@ -3,7 +3,9 @@
 
 The same rule as an agent version's project overrides (`services/agents.py`, `widenings`):
 below the ceiling, a project chooses; above it, it does not. A ceiling names caps — money, turns,
-minutes, attempts, tool calls, scope sizes —; a cap it does not name leaves the project free.
+minutes, attempts, tool calls, scope sizes —; a cap it does not name leaves the project free. A plugin's
+section of the ceiling (`delivery`, the software-delivery plugin's diff bounds, ADR 0181) caps the policy's
+section of the same name, field by field.
 
 The comparison is on the values the engine APPLIES (`PolicyEngine`), not on what the YAML happens
 to write: a project policy that omits `ticket_usd` gets the platform's defaults, and those are
@@ -20,8 +22,9 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from tranibor_contracts import Policy
+from tranibor_contracts.delivery import CeilingDelivery, refuse_former_ceiling
 from tranibor_contracts.policy import ToolScriptsMode
 
 from .network import covered, outside, validate_pattern
@@ -52,8 +55,6 @@ class CeilingAttempts(_Strict):
 
 class CeilingScope(_Strict):
     auto_grant_max_files: int | None = Field(default=None, ge=0)
-    max_diff_files: int | None = Field(default=None, ge=1)
-    max_diff_lines: int | None = Field(default=None, ge=1)
 
 
 class CeilingFindings(_Strict):
@@ -112,6 +113,14 @@ class PolicyCeiling(_Strict):
     network: CeilingNetwork = Field(default_factory=CeilingNetwork)
     web_search: CeilingWebSearch | None = None
     tools: CeilingTools = Field(default_factory=CeilingTools)
+    #: The software-delivery plugin's section (ADR 0181, S83-13), marked `x-plugin` in the REST contract:
+    #: it caps the policy's `delivery` section, field by field (`_section_excesses`).
+    delivery: CeilingDelivery = Field(default_factory=CeilingDelivery)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _former_fields(cls, data: Any) -> Any:
+        return refuse_former_ceiling(data)
 
 
 @dataclass(frozen=True)
@@ -247,13 +256,22 @@ def _other_excesses(policy: Policy, ceiling: PolicyCeiling) -> Iterator[Excess]:
     for section, name, bound in (
         ("attempts", "dod_iterations", attempts.dod_iterations),
         ("scope", "auto_grant_max_files", ceiling.scope.auto_grant_max_files),
-        # The diff bounds are the software-delivery plugin's section of the policy (ADR 0181 C2).
-        ("delivery.scope", "max_diff_files", ceiling.scope.max_diff_files),
-        ("delivery.scope", "max_diff_lines", ceiling.scope.max_diff_lines),
         ("findings", "max_per_run", ceiling.findings.max_per_run),
+        *_section_bounds("delivery", ceiling.delivery),
     ):
         if bound is not None and (value := getattr(_section(policy, section), name)) > bound:
             yield Excess(f"{section}.{name}", value, bound, _set_value(section, name, bound))
+
+
+def _section_bounds(path: str, caps: BaseModel) -> Iterator[tuple[str, str, int | float | None]]:
+    """A plugin's section of the ceiling (`delivery`, ADR 0181) caps the policy's section of the same
+    path, field by field: the core names none of its fields, the section's model does."""
+    for name in type(caps).model_fields:
+        value = getattr(caps, name)
+        if isinstance(value, BaseModel):
+            yield from _section_bounds(f"{path}.{name}", value)
+        elif value is None or isinstance(value, int | float):
+            yield path, name, value
 
 
 def _drop_domain(domain: str) -> Callable[[Policy], None]:

@@ -629,7 +629,7 @@ async def signal_memory_loop(
     except RPCError as exc:
         if exc.status != RPCStatusCode.NOT_FOUND:
             raise
-    with organisation_scope(org_id):  # the loop's payloads under its organisation's key (ADR 0224)
+    with organisation_scope(org_id):  # the loop's payloads under its organisation's key (ADR 0225)
         await get_temporal().start_memory_ingestion(workflow_id, {"project_slug": project_slug})
     try:
         await get_temporal().signal(workflow_id, name, payload)

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useState } from "react";
@@ -126,6 +127,7 @@ export default function WorkItemPage({ params }: { params: Promise<{ slug: strin
             <span className="font-mono text-ink-muted" data-verbatim>
               {data.tracker_key}
             </span>
+            <ImportedBadge imported={data.imported} />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -198,6 +200,12 @@ export default function WorkItemPage({ params }: { params: Promise<{ slug: strin
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {data.pending_request && (
             <Card title="Decision awaited" id="decision" className="scroll-mt-16 border-l-4 border-l-waiting">
+              {data.imported && (
+                <p className="mb-2 text-xs text-ink-muted" data-testid="imported-decision">
+                  This request was imported for a demonstration: deciding it records the decision, audited; no
+                  workflow runs this ticket, so no agent runs and nothing is written outside Tranibor.
+                </p>
+              )}
               {typeof data.pending_request.payload?.title === "string" && (
                 <p className="mb-2 text-sm font-medium" data-testid="decision-title">
                   {data.pending_request.payload.title}
@@ -364,6 +372,7 @@ export default function WorkItemPage({ params }: { params: Promise<{ slug: strin
                       <Link href={`/p/${slug}/runs/${run.id}`} className="no-underline">
                         {run.stage_role} · {run.attempt}
                       </Link>
+                      <ImportedBadge imported={run.imported} className="ml-2" />
                     </td>
                     <td className="text-xs text-ink-muted">
                       {run.backend} · {(run.model ?? "").split("/").pop()}

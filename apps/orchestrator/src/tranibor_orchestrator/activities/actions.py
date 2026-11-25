@@ -445,7 +445,7 @@ async def propose_transition_action(payload: dict[str, Any]) -> dict[str, Any]:
 
 async def _start(action_id: str, org_id: str | None = None) -> None:
     """`action-<id>`, once: a replayed activity finds the workflow already started. Its payloads under the
-    organisation's key, and its memo naming it (ADR 0224)."""
+    organisation's key, and its memo naming it (ADR 0225)."""
     from temporalio.exceptions import WorkflowAlreadyStartedError
     from tranibor_api.temporal import action_id as identifier
 

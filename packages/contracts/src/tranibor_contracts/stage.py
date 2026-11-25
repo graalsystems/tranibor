@@ -559,7 +559,8 @@ class Diagnostics(Strict):
 
 
 class StageOutputs(Strict):
-    """Structured outputs of a stage; extra fields tolerated (custom roles)."""
+    """Structured outputs of a stage; extra fields tolerated: a trade's roles and a plugin's write their
+    own (the `software-delivery` plugin's `release_notes_markdown`, ADR 0181), read under their name."""
 
     model_config = Strict.model_config | {"extra": "allow"}
 
@@ -570,7 +571,6 @@ class StageOutputs(Strict):
     plan_markdown: str | None = None
     review_markdown: str | None = None
     verdict: Literal["approve", "request_changes", "comment"] | None = None
-    release_notes_markdown: str | None = None
     duplicate_of: str | None = None
     questions_asked: int | None = None
 

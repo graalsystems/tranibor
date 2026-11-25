@@ -1,4 +1,4 @@
-"""Live: an organisation's Temporal data keys wrapped by a real HashiCorp Vault transit engine (ADR 0224).
+"""Live: an organisation's Temporal data keys wrapped by a real HashiCorp Vault transit engine (ADR 0225).
 
     docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault:1.18.5
     docker exec -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault-dev vault secrets enable transit

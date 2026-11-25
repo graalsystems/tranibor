@@ -29,7 +29,7 @@ manifest sense.
   rewrites). Tokens are registered with the platform's redaction.
 - `bind_context` sends the row's additional data as the transit `context` (key created with `derived=true`).
 - `FakeVault` (`fake.py`) is a scriptable transport that really encrypts; tests never need a Vault.
-- **Temporal data keys** ([ADR 0224](../../docs/adr/0224-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md)):
+- **Temporal data keys** ([ADR 0225](../../docs/adr/0225-an-organisation-s-temporal-payloads-sit-under-its-own-wrapped-key-which-can-be-shredded.md)):
   once the extension sets the store, the API and the workers wrap each organisation's Temporal data key with
   the same transit key (no other setting). `choregos admin secrets rewrap` re-wraps them after a transit
   rotation (through `decrypt` then `encrypt`, not transit `rewrap`: the data key passes through the process),

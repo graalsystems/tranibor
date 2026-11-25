@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """An organisation's sign-in security settings and the revocation of a member's sessions (ADR 0170); its
-Temporal data keys (ADR 0224)."""
+Temporal data keys (ADR 0225)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class SessionsRevoked(BaseModel):
 
 
 class TemporalKeyInfo(BaseModel):
-    """One of the organisation's Temporal data keys (ADR 0224). Never the key, wrapped or not."""
+    """One of the organisation's Temporal data keys (ADR 0225). Never the key, wrapped or not."""
 
     key_id: str
     #: `active`, `retired` (rotated out, still opens what it sealed) or `shredded`.

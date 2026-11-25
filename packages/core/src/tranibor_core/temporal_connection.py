@@ -17,11 +17,11 @@ default converter (S80-06). Now they all call `connect_temporal`, which reads on
 Off by default (dev, kind, compose): an unconfigured process connects in clear with the default
 converter, which is exactly what it did before, so the archived histories replay unchanged.
 
-One master keyring, and one random data key per organisation (ADR 0224, superseding ADR 0220 §1 in
+One master keyring, and one random data key per organisation (ADR 0225, superseding ADR 0220 §1 in
 part): a process that installed a `DataKeySource` (the API and the workers, over the deployment's key
 wrapper) seals an organisation's payloads under that organisation's data key, named in the metadata, so
 that destroying the organisation's wrapped key makes them unreadable (crypto-shredding). A process without
-one, and every payload written between ADR 0220 and ADR 0224, uses the key derived by HKDF(master key,
+one, and every payload written between ADR 0220 and ADR 0225, uses the key derived by HKDF(master key,
 organisation id), which still decodes. A payload that belongs to no organisation, and every payload written
 before ADR 0220, is under the master key itself. In staging and prod a process with no keyring refuses to
 connect unless `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS` says, in so many words, that clear payloads are
@@ -80,13 +80,13 @@ KEY_ID_METADATA = "encryption-key-id"
 #: The metadata key naming the organisation whose derived key encrypted the payload (ADR 0220). Absent:
 #: the master key itself, which is the platform key and what every payload written before ADR 0220 has.
 ORG_METADATA = "encryption-org"
-#: The metadata key naming the kind of key that sealed the payload (ADR 0224). `org-data-key`: the
+#: The metadata key naming the kind of key that sealed the payload (ADR 0225). `org-data-key`: the
 #: organisation's random data key, whose id is `encryption-key-id`. Absent: the master keyring's key, or,
 #: with `encryption-org`, the key ADR 0220 derives from it.
 KEY_SOURCE_METADATA = "encryption-key-source"
 ORG_DATA_KEY = b"org-data-key"
 #: How long a process keeps an organisation's unwrapped data key (seconds). It bounds how long a process
-#: that did not shred the key can still read and write under it (ADR 0224).
+#: that did not shred the key can still read and write under it (ADR 0225).
 ENV_DATA_KEY_TTL = "TRANIBOR_TEMPORAL_DATA_KEY_TTL_S"
 DEFAULT_DATA_KEY_TTL_S = 300.0
 #: The memo key a workflow carries so that a process that did not start it learns its organisation.
@@ -108,11 +108,11 @@ class UnknownCodecKeyError(Exception):
 
 
 class ShreddedKeyError(UnknownCodecKeyError):
-    """The organisation's data key was destroyed (crypto-shredding, ADR 0224): its payloads stay unread."""
+    """The organisation's data key was destroyed (crypto-shredding, ADR 0225): its payloads stay unread."""
 
 
 class DataKeySource(Protocol):
-    """Where an organisation's random data keys live (ADR 0224). Core ships no implementation: the API's
+    """Where an organisation's random data keys live (ADR 0225). Core ships no implementation: the API's
     is a table of keys wrapped by the deployment's `KeyWrapper` (ADR 0103)."""
 
     async def active_data_key(self, org_id: str) -> tuple[str, bytes]:
@@ -204,7 +204,7 @@ _DATA_KEYS: list[DataKeyCache] = []
 def install_data_keys(
     source: DataKeySource | None, *, ttl_s: float | None = None, env: Mapping[str, str] | None = None
 ) -> DataKeyCache | None:
-    """Give every Temporal client this process connects from now on the organisations' data keys (ADR 0224).
+    """Give every Temporal client this process connects from now on the organisations' data keys (ADR 0225).
 
     The API's lifespan and the worker's start call it with the database's source when the deployment has a
     key wrapper. `None` removes it: organisations' payloads are then sealed under the ADR 0220 derived keys.
@@ -243,7 +243,7 @@ class TemporalSecurity:
     codec_keys: tuple[tuple[str, bytes], ...] = ()
     #: `TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS`: clear payloads accepted in staging and prod.
     allow_clear: bool = False
-    #: The organisations' data keys (ADR 0224): what `install_data_keys` installed in this process.
+    #: The organisations' data keys (ADR 0225): what `install_data_keys` installed in this process.
     data_keys: DataKeyCache | None = field(default=None, compare=False, repr=False)
 
     @property
@@ -348,7 +348,7 @@ def data_converter(security: TemporalSecurity) -> DataConverter:
     Without keys, the SDK's default, unchanged. With keys, the default plus the AES-256-GCM codec,
     and failures whose message and stack trace go through the codec too: a failed activity's message
     can quote a ticket as easily as its result can. The organisations' data keys, when the process
-    installed them (ADR 0224), seal what belongs to an organisation.
+    installed them (ADR 0225), seal what belongs to an organisation.
     """
     if not security.encrypts:
         return DataConverter.default
@@ -448,7 +448,7 @@ async def organisation_of_workflow(client: Client, workflow_id: str) -> str | No
 def derive_organisation_key(master: bytes, org_id: str) -> bytes:
     """HKDF-SHA256(master, info = version + organisation id): one-way, so an organisation's key reveals
     neither the master key nor another organisation's key (ADR 0220). Kept to read what was sealed under it
-    and for a process with no data key source; it cannot be shredded (ADR 0224)."""
+    and for a process with no data key source; it cannot be shredded (ADR 0225)."""
     return HKDF(
         algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=HKDF_INFO + org_id.encode()
     ).derive(master)
@@ -458,7 +458,7 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
     """AES-256-GCM over each whole serialized payload; the key id (and the organisation) ride in the metadata.
 
     The nonce is random per payload (12 bytes, prefixed to the ciphertext). A payload of an organisation
-    is sealed under that organisation's random data key when the codec has `data_keys` (ADR 0224: it
+    is sealed under that organisation's random data key when the codec has `data_keys` (ADR 0225: it
     carries `encryption-org`, `encryption-key-source: org-data-key` and the data key's id), else under the
     key ADR 0220 derives from the master key (`encryption-org` only); a payload of no organisation, like
     every payload of ADR 0183, is sealed under the master key. The associated data is the key id, plus the
@@ -593,7 +593,7 @@ class AesGcmCodec(PayloadCodec, WithSerializationContext):
         if self._data_keys is None:
             raise UnknownCodecKeyError(
                 f"a payload of the organisation `{org_id}` is sealed under its data key `{key_id}`, and this "
-                "process has no organisation key source (ADR 0224: the deployment's key wrapper)"
+                "process has no organisation key source (ADR 0225: the deployment's key wrapper)"
             )
         return await self._data_keys.cipher(org_id, key_id), self._associated_data_key(key_id, org_id)
 

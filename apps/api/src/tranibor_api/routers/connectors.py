@@ -5,14 +5,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Depends, Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..audit import record
 from ..config import get_settings
 from ..db.models import Connector
-from ..deps import Db, ProjectContext, ProjectCtx, is_instance_admin
+from ..deps import Db, ProjectContext, ProjectCtx, current_principal, is_instance_admin
 from ..errors import not_found, unprocessable
 from ..rbac import Permission
 from ..schemas import (
@@ -72,7 +72,12 @@ async def _dto(session: AsyncSession, ctx: ProjectContext, row: Connector) -> Co
     return dto
 
 
-@router.get("/connectors/types", response_model=list[ConnectorType], operation_id="listConnectorTypes")
+@router.get(
+    "/connectors/types",
+    response_model=list[ConnectorType],
+    operation_id="listConnectorTypes",
+    dependencies=[Depends(current_principal)],
+)
 async def list_connector_types() -> list[ConnectorType]:
     """The types the REGISTRY knows: the core's and those of extensions (ADR 0034). The list
     used to live here, duplicating the registry and disagreeing with it: jira was "unavailable"

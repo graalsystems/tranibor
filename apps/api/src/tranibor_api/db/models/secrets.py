@@ -49,7 +49,7 @@ class OrgSecret(Base, PkMixin, TimestampMixin):
 
 
 class TemporalDataKey(Base, PkMixin, TimestampMixin):
-    """An organisation's random Temporal data key, wrapped by the deployment's key wrapper (ADR 0224).
+    """An organisation's random Temporal data key, wrapped by the deployment's key wrapper (ADR 0225).
 
     The payload codec seals the organisation's Temporal payloads under the newest `active` key; `retired`
     keys (rotated out) still open what they sealed. `shredded` is a tombstone: the wrapped key is gone,

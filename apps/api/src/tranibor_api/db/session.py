@@ -87,24 +87,49 @@ async def _run(session: AsyncSession, key: str) -> None:
             logger.warning("after_commit.failed", error=f"{type(error).__name__}: {error}"[:300])
 
 
+#: How long `_PENDING` was when each open SAVEPOINT began: what a savepoint that rolls back drops (#2089).
+_MARKS = "choregos.after_commit.marks"
+#: How the transaction ending now ended, set by `after_commit` / `after_rollback` just before it closes.
+_OUTCOME = "choregos.after_commit.outcome"
+
+
+@event.listens_for(Session, "after_transaction_create")
+def _began(session: Session, transaction: Any) -> None:
+    if transaction.nested:
+        session.info.setdefault(_MARKS, {})[id(transaction)] = len(session.info.get(_PENDING, ()))
+
+
 @event.listens_for(Session, "after_commit")
-def _released(session: Session) -> None:
-    pending = session.info.pop(_PENDING, None)
-    if pending:
-        session.info.setdefault(_READY, []).extend(pending)
+def _committed(session: Session) -> None:
+    # Fired for the root's COMMIT and for a SAVEPOINT's RELEASE alike: `_ended` tells them apart.
+    session.info[_OUTCOME] = "commit"
 
 
 @event.listens_for(Session, "after_rollback")
-def _dropped(session: Session) -> None:
-    session.info.pop(_PENDING, None)
+def _rolled_back(session: Session) -> None:
+    session.info[_OUTCOME] = "rollback"
 
 
 @event.listens_for(Session, "after_transaction_end")
 def _ended(session: Session, transaction: Any) -> None:
-    # The ROOT transaction only: a SAVEPOINT released or rolled back leaves the outer transaction,
-    # its write lock and what waits for its end in place (#2031).
-    if transaction.parent is not None:
+    nested, root = bool(transaction.nested), transaction.parent is None
+    if not (nested or root):
         return
+    outcome = session.info.pop(_OUTCOME, None)
+    pending: list[Callable[[], Awaitable[Any]]] = session.info.get(_PENDING, [])
+    if nested:
+        # A released SAVEPOINT commits nothing: what it registered waits for the root (#2089). One
+        # that rolls back drops what it registered, never what the outer transaction had.
+        mark = session.info.get(_MARKS, {}).pop(id(transaction), None)
+        if outcome != "commit" and mark is not None:
+            del pending[mark:]
+        # The ROOT transaction only for what follows: a SAVEPOINT leaves the outer transaction, its
+        # write lock and what waits for its end in place (#2031).
+        return
+    session.info.pop(_MARKS, None)
+    session.info.pop(_PENDING, None)
+    if outcome == "commit" and pending:
+        session.info.setdefault(_READY, []).extend(pending)
     session.info.pop(_WROTE, None)
     ending = session.info.pop(_ENDING, None)
     if ending:

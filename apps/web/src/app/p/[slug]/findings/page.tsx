@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { ImportedBadge } from "@/components/imported-badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { use, useState } from "react";
 import { Button, Card, Empty, ErrorNote, ReadState, Select, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
@@ -75,6 +76,7 @@ export default function FindingsPage({ params }: { params: Promise<{ slug: strin
               <TD title={finding.type_title ? finding.type : undefined}>{findingTypeLabel(finding)}</TD>
               <TD>
                 {finding.title}
+                <ImportedBadge imported={finding.imported} className="ml-2" />
                 {(finding.occurrences ?? 1) > 1 && (
                   <span className="ml-2 rounded bg-surface-muted px-1 text-xs">×{finding.occurrences}</span>
                 )}

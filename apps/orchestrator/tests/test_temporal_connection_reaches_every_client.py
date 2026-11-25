@@ -104,7 +104,7 @@ async def test_the_tls_settings_and_the_codec_reach_the_connect_call(
 async def test_the_worker_installs_the_organisations_data_keys_for_every_client(
     deployment: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ADR 0224: with a key wrapper (here the `TRANIBOR_SECRETS_KEKS` keyring), the worker's client and
+    """ADR 0225: with a key wrapper (here the `TRANIBOR_SECRETS_KEKS` keyring), the worker's client and
     every client its activities connect afterwards seal an organisation's payloads under its data key."""
     from tranibor_core.temporal_connection import install_data_keys
 

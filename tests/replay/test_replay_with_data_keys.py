@@ -1,9 +1,9 @@
 """Histories under an organisation's data key replay, older histories replay under them, and a shredded
-organisation's history never replays again (ADR 0224).
+organisation's history never replays again (ADR 0225).
 
 The release train is run for real on a time-skipping Temporal, recorded, exported and replayed with the
 deployment's converter, as in `test_replay_with_org_keys.py`, whose recording helpers this file reuses.
-`workflows/` is not touched by ADR 0224: these runs prove the codec change leaves every history replayable.
+`workflows/` is not touched by ADR 0225: these runs prove the codec change leaves every history replayable.
 """
 
 from __future__ import annotations

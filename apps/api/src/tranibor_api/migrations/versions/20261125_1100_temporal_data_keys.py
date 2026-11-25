@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""An organisation's Temporal data keys: `temporal_data_keys` (ADR 0224)
+"""An organisation's Temporal data keys: `temporal_data_keys` (ADR 0225)
 
 One row per random data key that seals an organisation's Temporal payloads, wrapped by the deployment's
 key wrapper (ADR 0103: the `TRANIBOR_SECRETS_KEKS` keyring, or Vault transit through its extension).
@@ -12,8 +12,8 @@ can no longer be read (the same effect as shredding every organisation). Downgra
 never sealed a payload under a data key, or whose histories under one have all closed and aged out.
 
 Revision ID: 31d9f2433719
-Revises: e8c0a2d4f6b1
-Create Date: 2026-11-25 10:00:00+00:00
+Revises: 6eb670a63a1b
+Create Date: 2026-11-25 11:00:00+00:00
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "31d9f2433719"
-down_revision: str | None = "e8c0a2d4f6b1"
+down_revision: str | None = "6eb670a63a1b"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

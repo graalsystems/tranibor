@@ -13,7 +13,6 @@ import the API's routers.
 
 from __future__ import annotations
 
-import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request, status
@@ -52,7 +51,7 @@ async def tekton_webhook(
     to be NO check: harmless while row-level security hid everything from this route on PostgreSQL,
     an anonymous write path as soon as it sees the projects ("CI passed" on any work item).
     """
-    from tranibor_api.routers.webhooks import already_seen, dispatch
+    from tranibor_api.routers.webhooks import already_seen, dispatch, json_body
 
     settings = get_settings()
     supplied = x_choregos_secret or request.query_params.get("token", "")
@@ -64,7 +63,7 @@ async def tekton_webhook(
     body = await request.body()
     if await already_seen(session, "tekton", ce_id or body_digest(body), ce_type, body):
         return WebhookAck(accepted=True, duplicate=True)
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     run = payload.get("pipelineRun", payload)
     labels = (run.get("metadata", {}) or {}).get("labels", {})
     mapping = {
@@ -104,7 +103,7 @@ async def jenkins_webhook(
 
     Authenticated like the Tekton sink, by the shared secret in `X-Choregos-Secret` or in the URL
     (`?token=`): the Notification plugin takes a URL and no header."""
-    from tranibor_api.routers.webhooks import already_seen, dispatch
+    from tranibor_api.routers.webhooks import already_seen, dispatch, json_body
 
     settings = get_settings()
     supplied = x_choregos_secret or request.query_params.get("token", "")
@@ -117,7 +116,7 @@ async def jenkins_webhook(
 
     from .connectors.ci.jenkins import parse_jenkins_event
 
-    events = parse_jenkins_event(json.loads(body or b"{}"))
+    events = parse_jenkins_event(json_body(body))
     if not events:
         return WebhookAck(accepted=True)
     if await already_seen(session, "jenkins", events[0].delivery_id, str(events[0].type), body):
@@ -137,13 +136,13 @@ async def argocd_webhook(
     session: PlatformDb,
     x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
-    from tranibor_api.routers.webhooks import already_seen, project_for
+    from tranibor_api.routers.webhooks import already_seen, json_body, project_for
 
     body = await request.body()
     settings = get_settings()
     if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
         raise unauthorized("invalid shared secret")
-    payload = json.loads(body or b"{}")
+    payload = json_body(body)
     app = payload.get("app", payload.get("application", ""))
     health = str(payload.get("health", payload.get("status", ""))).lower()
     kind = _argocd_kind(health, payload.get("rollout"))

@@ -1,4 +1,4 @@
-"""An organisation's Temporal payloads under its own random data key, rotated and shredded (ADR 0224).
+"""An organisation's Temporal payloads under its own random data key, rotated and shredded (ADR 0225).
 
 The source here is an in-memory stand-in for the API's table of wrapped keys: what the codec needs from it
 is a key per id, the active one, and a refusal for a shredded one.
@@ -136,7 +136,7 @@ async def test_two_organisations_get_two_keys_and_the_platform_keeps_the_master_
 
 
 async def test_shredding_makes_the_organisations_payloads_unreadable() -> None:
-    """The proof ADR 0224 asks for: encode, shred, fail to decode. Organisation B is untouched."""
+    """The proof ADR 0225 asks for: encode, shred, fail to decode. Organisation B is untouched."""
     source = MemoryKeys()
     cache = DataKeyCache(source)
     codec = _codec(cache)

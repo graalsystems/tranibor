@@ -33,7 +33,7 @@ async def signal_train(payload: dict[str, Any]) -> dict[str, Any]:
     async with db() as session:
         bundle = await project_bundle(session, payload["project_id"])
         item = await load_work_item(session, payload["work_item_id"])
-        # The train's payloads under the organisation's key (ADR 0224).
+        # The train's payloads under the organisation's key (ADR 0225).
         with organisation_scope(bundle.project.org_id):
             await signal_release_train(
                 bundle.slug,

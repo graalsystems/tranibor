@@ -58,7 +58,7 @@ async def rewrap_secrets(session: Db, principal: Me) -> SecretsRewrap:
     """After a KEK rotation (the new key first in `TRANIBOR_SECRETS_KEKS`): re-wrap every sealed
     secret's data key under the active key. The values are never read out nor changed (ADR 0058).
     The GitHub App registered from a manifest is sealed under the same key and moves with them (ADR 0167),
-    and so do the organisations' Temporal data keys (ADR 0224): their wrapping changes, not the keys."""
+    and so do the organisations' Temporal data keys (ADR 0225): their wrapping changes, not the keys."""
     from ..secret_store import SealedDbSecretStore, SecretStoreUnavailable, get_secret_store
     from ..services import github_app_credentials, temporal_keys
 

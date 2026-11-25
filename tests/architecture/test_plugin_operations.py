@@ -42,7 +42,12 @@ PLUGIN_OPERATIONS = {
     "argocdWebhook",
 }
 PLUGIN_COMPONENTS = {"Release", "ReleasePage", "TrainStatus", "DoraMetric", "DoraReport", "DiffSummary"}
-PLUGIN_PROPERTIES = {("Project", "has_release_train"), ("ProjectStats", "trains_pending")}
+PLUGIN_PROPERTIES = {
+    ("Project", "has_release_train"),
+    ("ProjectStats", "trains_pending"),
+    # The organisation ceiling's diff bounds (S83-13).
+    ("PolicyCeiling", "delivery"),
+}
 
 
 def _document() -> dict[str, Any]:

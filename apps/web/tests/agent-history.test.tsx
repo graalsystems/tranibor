@@ -37,6 +37,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       orgConnectors: vi.fn().mockResolvedValue({ items: [], meta: { has_more: false, next_cursor: null } }),
       skills: vi.fn().mockResolvedValue([]),
       knowledgeBases: vi.fn().mockResolvedValue([]),
+      agentRuns: vi.fn(),
     },
   };
 });
@@ -432,5 +433,25 @@ describe("the History tab", () => {
     await open(page());
     expect(await screen.findByRole("button", { name: "Restore v1" })).toBeDisabled();
     expect(screen.getAllByText("Not yours.", { exact: false }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the Runs tab (ADR 0216)", () => {
+  it("marks a run a demonstration history imported, and only that one", async () => {
+    query.current = new URLSearchParams("tab=runs");
+    const run = { project_slug: "billing-api", stage_role: "implement", attempt: 1, status: "succeeded", cost_usd: 1 };
+    vi.mocked(api.agentRuns).mockResolvedValue({
+      items: [
+        { ...run, id: "r-imported", imported: true },
+        { ...run, id: "r-live", attempt: 2 },
+      ],
+      meta: { has_more: false, next_cursor: null },
+    } as never);
+    await open(page());
+    const table = await screen.findByTestId("agent-runs");
+    const imported = within(table).getByRole("link", { name: "implement · attempt 1" }).closest("td")!;
+    expect(within(imported).getByTestId("imported-badge")).toHaveTextContent("Imported");
+    const live = within(table).getByRole("link", { name: "implement · attempt 2" }).closest("td")!;
+    expect(within(live).queryByTestId("imported-badge")).toBeNull();
   });
 });

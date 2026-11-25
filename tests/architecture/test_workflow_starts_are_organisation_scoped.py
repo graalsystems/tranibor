@@ -1,4 +1,4 @@
-"""Every workflow start of the shipped code names its organisation, or says why it cannot (ADR 0224).
+"""Every workflow start of the shipped code names its organisation, or says why it cannot (ADR 0225).
 
 ADR 0220 scoped the interpreter's starts (`test_interpreter_starts_are_organisation_scoped.py`); the other
 workflows (actions, trials, provisioning, run cancellations, hosted builds, session pods, knowledge syncs
@@ -52,7 +52,7 @@ FORWARDERS = {
 UNSCOPED = {
     "apps/orchestrator/src/tranibor_orchestrator/workflows/findings.py": (
         "a child interpreter started from workflow code: the SDK encodes its input with the child's id as "
-        "the only context, and workflow code cannot open a scope the codec sees (ADR 0224, 'Not covered')"
+        "the only context, and workflow code cannot open a scope the codec sees (ADR 0225, 'Not covered')"
     ),
 }
 
@@ -95,7 +95,7 @@ def test_every_workflow_start_is_inside_an_organisation_scope() -> None:
             offenders[relative] = lines
     assert not offenders, (
         "start the workflow inside `with organisation_scope(org_id):`, or list it in UNSCOPED with the "
-        f"reason it cannot (ADR 0224): {offenders}"
+        f"reason it cannot (ADR 0225): {offenders}"
     )
 
 

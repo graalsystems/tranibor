@@ -175,3 +175,21 @@ describe("the board shows every workflow of the project (2026-11-02)", () => {
     expect(await screen.findByTestId("board-truncated")).toHaveTextContent("1,000 most recent tickets");
   });
 });
+
+describe("an imported ticket on the board (ADR 0216)", () => {
+  it("carries the badge on its card, a live one none", async () => {
+    search = new URLSearchParams("workflow=fon-access");
+    vi.mocked(api.workItems).mockResolvedValue({
+      items: [
+        item({ id: "w1", tracker_key: "demo:inv-1", title: "Imported card", state: "inbox", workflow_name: "fon-access", imported: true }),
+        item({ id: "w2", tracker_key: "FON-2", title: "Live card", state: "inbox", workflow_name: "fon-access" }),
+      ],
+      meta: { has_more: false },
+    });
+    board();
+    await screen.findByText("Imported card");
+    const badges = screen.getAllByTestId("imported-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0]!.parentElement).toHaveTextContent("demo:inv-1");
+  });
+});
