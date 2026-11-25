@@ -20,6 +20,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from tranibor_contracts import ActionStatus
 from tranibor_core import utcnow
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..db.models import Action
 from ..db.session import ALL_ORGS, session_scope
@@ -44,7 +45,7 @@ async def start_approved_actions(*, grace: timedelta = GRACE, batch: int = BATCH
         stranded = list(
             (
                 await session.execute(
-                    select(Action.id, Action.result)
+                    select(Action.id, Action.result, Action.org_id)
                     .where(
                         Action.status == ActionStatus.APPROVED.value, Action.updated_at <= utcnow() - grace
                     )
@@ -54,14 +55,15 @@ async def start_approved_actions(*, grace: timedelta = GRACE, batch: int = BATCH
             ).all()
         )
     started: list[str] = []
-    for action_id, result in stranded:
+    for action_id, result, org_id in stranded:
         gateway = get_temporal()
         # An action that was closed in doubt and settled since (S65-26): its first run completed, and
         # only a restart reuses the id. Any other approved action is started, never restarted.
         settled = isinstance(result, dict) and bool(result.get("in_doubt"))
         begin = gateway.restart_action if settled else gateway.start_action
         try:
-            await begin(workflow_id(action_id), {"action_id": action_id})
+            with organisation_scope(org_id):
+                await begin(workflow_id(action_id), {"action_id": action_id})
         except Exception as error:
             logger.warning(
                 "action.relay.failed", action=action_id, error=f"{type(error).__name__}: {error}"[:300]

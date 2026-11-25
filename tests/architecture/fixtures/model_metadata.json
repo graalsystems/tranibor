@@ -15395,5 +15395,128 @@
   ],
   "checks": [],
   "indexes": []
+ },
+ "temporal_data_keys": {
+  "columns": [
+   {
+    "name": "org_id",
+    "type": "String(length=36)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "key_id",
+    "type": "String(length=32)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "state",
+    "type": "String(length=16)",
+    "nullable": false,
+    "default": "'active'",
+    "server_default": null
+   },
+   {
+    "name": "wrapped_key",
+    "type": "LargeBinary()",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "key_nonce",
+    "type": "LargeBinary()",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "kek_id",
+    "type": "String(length=32)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "created_by",
+    "type": "String(length=200)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "shredded_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "shredded_by",
+    "type": "String(length=200)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "id",
+    "type": "String(length=36)",
+    "nullable": false,
+    "default": "<function uuid7>",
+    "server_default": null
+   },
+   {
+    "name": "created_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   },
+   {
+    "name": "updated_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   }
+  ],
+  "primary_key": [
+   "id"
+  ],
+  "foreign_keys": [
+   [
+    [
+     "org_id"
+    ],
+    [
+     "organizations.id"
+    ],
+    "CASCADE",
+    null,
+    "fk_temporal_data_keys_org_id_organizations"
+   ]
+  ],
+  "uniques": [
+   [
+    "uq_temporal_data_keys_org_key",
+    [
+     "org_id",
+     "key_id"
+    ]
+   ]
+  ],
+  "checks": [],
+  "indexes": [
+   [
+    "ix_temporal_data_keys_org_id",
+    [
+     "temporal_data_keys.org_id"
+    ],
+    false
+   ]
+  ]
  }
 }

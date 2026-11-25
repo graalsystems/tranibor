@@ -6472,6 +6472,38 @@ export type SessionsRevoked = {
   ended: number;
 };
 
+export type TemporalKeyInfo = {
+  /** what each payload carries in `encryption-key-id` */
+  key_id: string;
+  state: "active" | "retired" | "shredded";
+  /** the key wrapper's key that wraps it */
+  kek_id: string;
+  created_at: string;
+  created_by?: string | null;
+  shredded_at?: string | null;
+  shredded_by?: string | null;
+};
+
+export type TemporalKeys = {
+  org: string;
+  /** a key wrapper is configured; false: the keys are derived (ADR 0220) and cannot be shredded */
+  available: boolean;
+  keys: Array<TemporalKeyInfo>;
+};
+
+export type TemporalKeyShredding = {
+  /** the organisation's slug, typed again */
+  confirm: string;
+  reason: string;
+};
+
+export type TemporalKeysShredded = {
+  org: string;
+  /** the key ids destroyed by this call */
+  shredded: Array<string>;
+  not_erased: Array<string>;
+};
+
 export type SamlProviderIn = {
   idp_entity_id: string;
   /** https only */
@@ -7244,6 +7276,7 @@ export interface Operations {
   listSkills: { method: "GET"; path: "/orgs/{org}/skills"; body: never; response: SkillPage };
   listTaskEvents: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/task-events"; body: never; response: TaskEventList };
   listTemplates: { method: "GET"; path: "/templates"; body: never; response: Array<TemplateSummary> };
+  listTemporalKeys: { method: "GET"; path: "/orgs/{org}/temporal-keys"; body: never; response: TemporalKeys };
   listTrackerIdentities: { method: "GET"; path: "/orgs/{org}/members/{user_id}/tracker-identities"; body: never; response: Array<TrackerIdentity> };
   listTriggers: { method: "GET"; path: "/projects/{id}/triggers"; body: never; response: TriggerPage };
   listUsableModels: { method: "GET"; path: "/orgs/{org}/models/usable"; body: never; response: UsableModelPage };
@@ -7354,6 +7387,7 @@ export interface Operations {
   revokeRemoteCredential: { method: "DELETE"; path: "/orgs/{org}/remote-credentials/{name}"; body: never; response: void };
   rewrapSecrets: { method: "POST"; path: "/platform/secrets/rewrap"; body: never; response: SecretsRewrap };
   rotateMcpGatewayAssertionKey: { method: "POST"; path: "/orgs/{org}/mcp-gateway/assertion-key"; body: never; response: McpGatewayAssertion };
+  rotateTemporalKey: { method: "POST"; path: "/orgs/{org}/temporal-keys/rotation"; body: never; response: TemporalKeyInfo };
   rotateTriggerToken: { method: "POST"; path: "/projects/{id}/triggers/{name}/token"; body: never; response: TriggerToken };
   runKnowledgeEval: { method: "POST"; path: "/orgs/{org}/knowledge/{slug}/eval/run"; body: never; response: KnowledgeBase };
   runMyTask: { method: "POST"; path: "/me/assistants/{org}/{slug}/tasks/{task}/run"; body: never; response: TaskRun };
@@ -7375,6 +7409,7 @@ export interface Operations {
   setTrackerIdentity: { method: "PUT"; path: "/orgs/{org}/members/{user_id}/tracker-identities/{tracker}"; body: TrackerIdentityPut; response: TrackerIdentity };
   settleAction: { method: "POST"; path: "/projects/{id}/actions/{action_id}/settlement"; body: ActionSettlementRequest; response: Action };
   shareWorkflow: { method: "POST"; path: "/orgs/{org}/workflow-catalogue"; body: WorkflowShare; response: WorkflowCatalogueEntry };
+  shredTemporalKeys: { method: "POST"; path: "/orgs/{org}/temporal-keys/shredding"; body: TemporalKeyShredding; response: TemporalKeysShredded };
   starAgent: { method: "PUT"; path: "/orgs/{org}/agents/{slug}/star"; body: never; response: AgentSocial };
   startAgentEvaluation: { method: "POST"; path: "/orgs/{org}/agents/{slug}/versions/{version}/evaluations"; body: AgentEvaluationCreate; response: AgentEvaluation };
   startAgentTrial: { method: "POST"; path: "/orgs/{org}/agent-trials"; body: AgentTrialCreate; response: AgentTrial };

@@ -191,7 +191,10 @@ async def reimport(ctx: ProjectCtx, body: MemoryReimport, session: Db) -> dict[s
     # The loop is started when it does not run: a signal to a missing workflow answered 500 (S51-02).
     try:
         await signal_memory_loop(
-            ctx.slug, "reimport", {"sources": body.sources or ["readme", "docs", "adr", "closed_issues"]}
+            ctx.slug,
+            "reimport",
+            {"sources": body.sources or ["readme", "docs", "adr", "closed_issues"]},
+            org_id=ctx.project.org_id,
         )
     except MemoryLoopNotRunningError as exc:
         raise conflict(

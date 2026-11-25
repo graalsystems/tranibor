@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import ColumnElement, String, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.registry import fakes_enabled
+from tranibor_core.temporal_connection import organisation_scope
 
 from ..config import get_settings
 from ..db.models import AgentVersion, HostedBuildRecord
@@ -158,9 +159,10 @@ async def ensure_build(
         row.attempt += 1
         row.status, row.image, row.error, row.finished_at = "pending", None, None, None
         await session.flush()
-    await get_temporal().start_hosted_build(
-        hosted_build_id(org_id, key, row.attempt), {"org": org_id, "key": key, "attempt": row.attempt}
-    )
+    with organisation_scope(org_id):
+        await get_temporal().start_hosted_build(
+            hosted_build_id(org_id, key, row.attempt), {"org": org_id, "key": key, "attempt": row.attempt}
+        )
     log.info("hosted.build_started", org=org_id, key=key, attempt=row.attempt)
     return row
 
