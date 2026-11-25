@@ -1,0 +1,133 @@
+# Where the platform is proved (S86-04, plan 2026-11-25 D4): one entry per kind of cluster, and its last
+# green proof. `make docs-support` writes the "Where the platform is proved" section of
+# docs/deployment.md from this file; tests/docs/test_support_matrix.py refuses a page that differs.
+#
+# The word is COMPUTED, never written here (`tools/support_matrix.py`):
+#   supported  the proof ran green in the last 30 days
+#   tested     it ran green once (older, or its date was not recorded)
+#   unknown    it never ran
+# A provider the documentation calls "supported" needs an entry here that computes to `supported`.
+#
+# Seeded on 2026-11-25 with what the repository records, and nothing else: a proof is a dated status row,
+# an ADR paragraph or a CI run, named in `evidence`. `date: null` means a green run is recorded without
+# its date. `names` are what a page may call the provider (the scan of tests/docs/test_support_matrix.py).
+clusters:
+  - id: operator-dev
+    provider: The first operator's dev cluster (bare metal)
+    names: []
+    distribution: k3s 1.31
+    runtime: gVisor (`gvisor` RuntimeClass)
+    network_policy: Cilium 1.16
+    executors: [agent_sandbox, k8s_job]
+    proof:
+      date: 2026-11-21
+      version: 0.27.17
+      what: real agent runs on both executors, the agent's own container under gVisor, the egress gate, the operator's suspension and resumption
+      evidence:
+        - docs/plan/status/S65.md
+        - docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md
+  - id: operator-prod
+    provider: The first operator's production cluster (bare metal)
+    names: []
+    distribution: k3s 1.31
+    runtime: gVisor (`gvisor` RuntimeClass)
+    network_policy: Cilium 1.16
+    executors: [agent_sandbox, k8s_job]
+    proof:
+      # ADR 0146 dates the cluster proofs of S65-04o and S65-04m 2026-11-19/20; prod's runs are S65-04m's.
+      date: 2026-11-20
+      version: 0.27.16
+      what: real agent runs on the warm pool and on k8s_job, the agent's own container under gVisor
+      evidence:
+        - docs/plan/status/S65.md
+        - docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md
+  - id: kind
+    provider: kind (CI and development)
+    names: []
+    distribution: kind, Kubernetes 1.34.0
+    runtime: runc
+    network_policy: Calico 3.28.2
+    executors: [k8s_job]
+    proof:
+      date: 2026-11-12
+      version: null
+      what: the outposts end to end (the chart's door, the real daemon) on kind-choregos; the hosted pods on k8s_job (S41-24, undated)
+      evidence:
+        - docs/plan/status/S65.md
+        - docs/plan/status/S41.md
+  - id: k3s-single-node
+    provider: One k3s node (the single-node profile)
+    names: [k3s]
+    distribution: k3s v1.35.5 in k3d 5.9.0
+    runtime: runc
+    network_policy: k3s's embedded kube-router
+    executors: [k8s_job]
+    proof:
+      date: 2026-11-18
+      version: main at c8cb64fdc
+      what: install, a work item to approved, backup, the node destroyed, restore (`tools/single-node/proof.sh`)
+      evidence:
+        - docs/plan/status/S80.md
+        - https://github.com/graalsystems/tranibor/actions/runs/44275902560
+  - id: aca
+    provider: Azure Container Apps, the ACA executor alone (no installation of the platform on Azure)
+    names: [Azure Container Apps]
+    distribution: Container Apps jobs, Consumption environment
+    runtime: Container Apps
+    network_policy: none
+    executors: [aca]
+    proof:
+      date: null
+      version: null
+      what: six live tests against a real subscription (create, trigger, terminal state, replayed start, token absent from ARM, cancel, 404, logs)
+      evidence:
+        - docs/plan/status/S13.md
+        - docs/runbooks/aca-live.md
+  - id: eks
+    provider: Amazon EKS
+    names: [EKS, Amazon EKS]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
+  - id: gke
+    provider: Google GKE
+    names: [GKE, Google Kubernetes Engine]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
+  - id: aks
+    provider: Azure AKS
+    names: [AKS, Azure Kubernetes Service]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
+  - id: openshift
+    provider: Red Hat OpenShift
+    names: [OpenShift]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
+  - id: scaleway-kapsule
+    provider: Scaleway Kapsule
+    names: [Kapsule, Scaleway Kapsule]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
+  - id: ovhcloud-mks
+    provider: OVHcloud Managed Kubernetes
+    names: [OVHcloud, OVHcloud MKS]
+    distribution: null
+    runtime: null
+    network_policy: null
+    executors: []
+    proof: null
