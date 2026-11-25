@@ -202,6 +202,7 @@ async def test_a_team_project_held_twice_with_nothing_to_tell_them_apart_routes_
     assert await _received(client, first) == [] and await _received(client, second) == []
 
 
+@needs_the_plugin
 async def test_without_a_connector_the_lowercased_team_project_is_the_slug(
     client: AsyncClient, admin: str
 ) -> None:

@@ -6,6 +6,7 @@ never the pod.
 
 from __future__ import annotations
 
+import importlib.util
 from collections.abc import Iterator
 from typing import Any
 
@@ -271,6 +272,8 @@ async def test_a_cilium_policy_change_is_a_pull_request_that_rides_the_work_item
     assert again["pr"] == opened["pr"] and len(scm.prs) == 1, "a replay opens nothing twice"
 
     # Merged, the pull request comes back to ITS work item — which boards the train its workflow takes.
+    if importlib.util.find_spec("tranibor_software_delivery") is None:
+        pytest.skip("the merged pull request's event is the software-delivery plugin's (ADR 0181, round D)")
     pull_request = {"number": opened["pr"], "merged": True, "head": {"ref": opened["branch"]}}
     merged = {"action": "closed", "repository": {"full_name": "acme/gitops"}, "pull_request": pull_request}
     (event,) = parse_github_event("pull_request", "d-1", merged)
