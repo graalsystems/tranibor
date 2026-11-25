@@ -27,6 +27,7 @@ from tranibor_api.services import persist_event
 from tranibor_contracts import EventType, StageInput, StageResult, StageStatus
 from tranibor_contracts.open_lists import STORED
 from tranibor_core import ExecRef, ExecStatus, StageJobSpec, telemetry, utcnow
+from tranibor_core.agent_isolation import AGENT_ISOLATION_ACCEPT_ENV, NONE_ACCEPTED
 from tranibor_core.hosted import agent_container
 from tranibor_core.production import ENVIRONMENT_VARIABLE
 from tranibor_core.redaction import REDACTED
@@ -89,6 +90,10 @@ def runner_environment(settings: Any, namespace: str) -> dict[str, str]:
     environment = str(getattr(settings, "env", "") or "")
     if environment:
         env[ENVIRONMENT_VARIABLE] = environment
+    # The opt-out travels with the environment: the runner refuses `process` in staging and prod too, and
+    # must find the acceptance beside the `TRANIBOR_ENV` that makes it ask (ADR 0222).
+    if str(getattr(settings, "agent_isolation", "") or "") == NONE_ACCEPTED:
+        env[AGENT_ISOLATION_ACCEPT_ENV] = NONE_ACCEPTED
     if str(getattr(settings, "runner_egress_auth", "") or "") == "run":
         # The runner adds the run id and token to the proxy URL itself, before any child starts.
         env["TRANIBOR_EGRESS_AUTH"] = "run"
@@ -285,6 +290,10 @@ async def start_run(payload: dict[str, Any]) -> dict[str, Any]:
             agent_container=agent_container(stage_input),
             # Where the agent runs (ADR 0146): an executor that cannot start its container refuses.
             agent_isolation=settings.runner_agent_isolation,
+            # ADR 0222: where the run runs and whether the operator accepted an unisolated agent there;
+            # the executor refuses `process` in staging and prod otherwise.
+            environment=settings.env,
+            agent_isolation_accepted=settings.agent_isolation == NONE_ACCEPTED,
         )
         try:
             ref = await bundle.adapters.executor.start(spec)

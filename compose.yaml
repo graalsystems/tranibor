@@ -39,6 +39,11 @@ x-platform-env: &platform-env
   TRANIBOR_GATEWAY_MASTER_KEY: sk-local-install-only
   TRANIBOR_MEMORY_URL: http://ecphoria:8432
   TRANIBOR_LOG_JSON: ${TRANIBOR_LOG_JSON:-false}
+  # Each agent runs in a container of its own, as another user id, beside the runner's: the local Docker
+  # executor starts it (ADR 0146 §9, ADR 0222). The workers hand it to every run, the API judges
+  # `/readiness` with it. It needs a runner image that carries the launcher (0.27.17 or later): the
+  # default `TRANIBOR_RUNNER_VERSION` below does, and a test refuses an older one.
+  TRANIBOR_RUNNER_AGENT_ISOLATION: container
   # The plugins the image ships (ADR 0093 §6): the built-in agents, offline.
   TRANIBOR_PLUGINS_OFFLINE: /opt/choregos/plugins
   # The host of the optional fake MCP gateway (profile `mcp-gateway`, ADR 0105): the API accepts
@@ -52,7 +57,7 @@ x-platform-env: &platform-env
   TRANIBOR_OBJECT_STORE_SECRET_KEY: local-dev-only
   # The job image a workflow names `procurement` (ADR 0202): the command that reads the offers and
   # computes the totals. It carries the runner of its own release, so it follows the runner's version.
-  TRANIBOR_JOB_IMAGES: '{"procurement": "ghcr.io/graalsystems/tranibor-procurement:${TRANIBOR_RUNNER_VERSION:-0.17.12}"}'
+  TRANIBOR_JOB_IMAGES: '{"procurement": "ghcr.io/graalsystems/tranibor-procurement:${TRANIBOR_RUNNER_VERSION:-0.29.3}"}'
 
 # The run-token key is generated once per install (service `keys`) and read from a shared
 # volume: the workers sign run tokens, the API verifies them, so both need the same key.
@@ -262,7 +267,7 @@ services:
       <<: *platform-env
       # A project with no runtime connector runs its agents as local containers.
       TRANIBOR_EXECUTOR_KIND: local_docker
-      TRANIBOR_RUNNER_IMAGE: ghcr.io/graalsystems/choregos-runner:${TRANIBOR_RUNNER_VERSION:-0.17.12}
+      TRANIBOR_RUNNER_IMAGE: ghcr.io/graalsystems/choregos-runner:${TRANIBOR_RUNNER_VERSION:-0.29.3}
     depends_on:
       keys: { condition: service_completed_successfully }
       migrate: { condition: service_completed_successfully }
