@@ -6,6 +6,12 @@
 # not exist at the first build and that afterwards comes from the **previous** commit — the
 # workers would have shipped yesterday's code without anything saying so. Two targets
 # (`--target api`, `--target worker`) of one build settle both.
+# Extra certificate authorities for the downloads below, EMPTY here (`docker/build-ca.sh`): a build
+# behind a TLS-inspecting proxy passes its authority with `--build-context build-ca=<directory>`
+# (`docs/deployment.md`, "Building behind a TLS-inspecting proxy"). Only the stages that download
+# mount it, and none of them is shipped: no published image carries the authority.
+FROM scratch AS build-ca
+
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
 
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never
@@ -67,7 +73,8 @@ COPY tests/fixtures/repos tests/fixtures/repos
 # The procurement plugin's command (ADR 0202) runs in its own job image: not installed here either. Nor
 # is the test kit, which only the suites import.
 ARG SHIMS_OUT="--no-install-package choregos-agent-sdk --no-install-package choregos-outpost" # compat-ok
-RUN uv sync --frozen --no-dev --all-packages \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && uv sync --frozen --no-dev --all-packages \
     --no-install-package tranibor-agent-sdk --no-install-package tranibor-outpost \
     --no-install-package tranibor-procurement --no-install-package tranibor-testkit $SHIMS_OUT
 
@@ -79,7 +86,8 @@ FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf22
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never
 COPY --from=ghcr.io/astral-sh/uv:0.5.11@sha256:0ac957607303916420297a4c9c213bb33fbd3c888f9cd7f4f7273596ebf42b85 /uv /usr/local/bin/uv
 ARG SKILLSPECTOR_COMMIT=f3b25697d76256998ca9d42c198d256258d4c035
-RUN uv venv /opt/skillspector --python /usr/local/bin/python3.12 \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && uv venv /opt/skillspector --python /usr/local/bin/python3.12 \
  && VIRTUAL_ENV=/opt/skillspector uv pip install \
     "skillspector @ https://github.com/NVIDIA/SkillSpector/archive/${SKILLSPECTOR_COMMIT}.tar.gz" \
  && /opt/skillspector/bin/skillspector --version
@@ -98,7 +106,8 @@ ARG HUBBLE_VERSION=v1.19.4
 ARG HUBBLE_COMMIT=39037bdd6cb6acb02a241dde33b5ffcf0e8471e2
 ARG TARGETARCH
 WORKDIR /src
-RUN git clone --quiet --depth 1 --branch "${HUBBLE_VERSION}" https://github.com/cilium/hubble . \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && git clone --quiet --depth 1 --branch "${HUBBLE_VERSION}" https://github.com/cilium/hubble . \
  && test "$(git rev-parse HEAD)" = "${HUBBLE_COMMIT}" \
  && CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH:-amd64}" GOTOOLCHAIN=local GOFLAGS=-mod=vendor \
     go build -trimpath -ldflags "-w -s \
@@ -121,7 +130,8 @@ ARG COSIGN_VERSION=v3.1.4
 ARG COSIGN_SHA256_AMD64=424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa
 ARG COSIGN_SHA256_ARM64=ade83b7aac62e131cacfe96d958948b2150cc9efec46a570a2649b8e27dedad2
 ARG TARGETARCH
-RUN set -eu; \
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && set -eu; \
     case "${TARGETARCH:-amd64}" in \
       amd64) sum="${COSIGN_SHA256_AMD64}" ;; \
       arm64) sum="${COSIGN_SHA256_ARM64}" ;; \
