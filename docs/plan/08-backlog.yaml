@@ -58,6 +58,7 @@ streams:
   S81: "The phone is a surface of the platform: an Android app for agents, assistants and voice (ADRs 0192-0194)"
   S83: "The contracts speak no trade: neutral names, software delivery and investment research as plugins, ontology removed (ADR 0181)"
   S85: "Procurement as a first-party plugin, and the files a person hands a work item (ADRs 0201-0202)"
+  S87: "Every executor isolates the agent, and the managed clouds the platform claims are proved (ADR 0226)"
 
 stories:
 
@@ -6727,3 +6728,181 @@ stories:
       - "contract-change: Org.currency and CostReport.currency are ISO 4217 codes; OrgUpdate and Org carry fx_rate (units per USD) and its date; a cost report names how cost_display was obtained"
       - "An organisation in MXN with a declared rate gets converted amounts and the USD ones unchanged; an unknown code, a missing rate and a rate for EUR or USD are refused; budgets stay in USD"
       - "The CSV, the Spend page, the live board and the CLI show the converted amount labelled with its currency and say it is converted at the declared rate"
+
+  # ───────────── S87 — every executor isolates the agent, and the managed clouds are proved ─────────────
+  - id: S87-00
+    title: "docs(plan): every executor isolates the agent, and the clouds are proved, stream S87 and its backlog stories"
+    stream: S87
+    sprint: 0
+    priority: 1
+    size: S
+    depends_on: []
+    acceptance:
+      - "docs/plan/PLAN-2026-11-25-isolation-everywhere-and-clouds.md is in the repository and every S87 story heading of the plan is a backlog story"
+      - "tests/docs/test_plan_s87_in_backlog.py turns red when a story is removed from the backlog or when a dependency does not come before its story"
+    notes: "PLAN-2026-11-25-isolation-everywhere-and-clouds. sprint is the plan's wave."
+  - id: S87-01
+    title: "docs(adr): 0226, a cloud is claimed only by its proof; Tekton and ACA isolate or are refused"
+    stream: S87
+    sprint: 0
+    priority: 2
+    size: S
+    depends_on: []
+    acceptance:
+      - "The ADR records decisions D1 to D4 of the plan and is indexed (tests/docs/test_adr_index.py)"
+      - "docs/security.md's executor table and ADR 0222 link to it"
+  - id: S87-02
+    title: "feat(adapters): a deployment on tekton routes an agent step to k8s_job"
+    stream: S87
+    sprint: 1
+    priority: 1
+    size: S
+    depends_on: []
+    acceptance:
+      - "A container run on a tekton primary is started on k8s_job; the test is red with the wrap removed"
+      - "The chart renders k8s_job as the second executor for executor: tekton under container"
+      - "/readiness says agent-isolation: done for such a deployment"
+  - id: S87-03
+    title: "feat(cli): a cluster preflight, what the chart needs asked of the cluster"
+    stream: S87
+    sprint: 1
+    priority: 2
+    size: M
+    depends_on: []
+    acceptance:
+      - "tranibor cluster check reports the Kubernetes version, agent-sandbox CRDs, the named RuntimeClass, a default StorageClass, the object store, NetworkPolicy enforced and the egress gate's timing, each with its fix"
+      - "On kind without a NetworkPolicy engine the enforcement check fails and names it; with Calico it passes; on dev every check passes"
+  - id: S87-04
+    title: "docs(deployment): the support matrix is a record, and the docs read it"
+    stream: S87
+    sprint: 1
+    priority: 3
+    size: S
+    depends_on: [S87-01]
+    acceptance:
+      - "docs/support/clusters.yaml records each cluster kind, its last green proof and its word (supported, tested, unknown)"
+      - "tests/docs/test_support_matrix.py refuses a provider called supported without an entry or with a proof older than 30 days, and a generated section that differs from the record"
+  - id: S87-05
+    title: "feat(adapters): Tekton's agent stage carries the agent's container"
+    stream: S87
+    sprint: 2
+    priority: 1
+    size: M
+    depends_on: [S87-02]
+    acceptance:
+      - "The PipelineRun carries its pipelineSpec inline with an agent sidecar (uid 1001, no secret), none under process"
+      - "tekton declares separate_agent in tests/conformance/executors/test_capabilities.py; both tests red with the sidecar removed"
+  - id: S87-06
+    title: "test(cluster): Tekton's isolation proved on kind with Tekton, then under gVisor"
+    stream: S87
+    sprint: 2
+    priority: 2
+    size: M
+    depends_on: [S87-05]
+    acceptance:
+      - "From the agent's sidecar the probe finds no run token, no gateway key and no runner process; the runner's control finds them"
+      - "The PipelineRun ends when the step ends; one real agent run journals agent.isolation: container"
+  - id: S87-07
+    title: "measure(adapters): a two-container ACA job on a real subscription"
+    stream: S87
+    sprint: 2
+    priority: 3
+    size: M
+    depends_on: []
+    acceptance:
+      - "tests/live/test_aca_live.py records loopback, EmptyDir both ways, each container's uid, the execution's end and the launcher's self-exit, or the status row names what failed"
+  - id: S87-08
+    title: "feat(adapters): ACA starts the agent's container, or is refused in production"
+    stream: S87
+    sprint: 3
+    priority: 1
+    size: M
+    depends_on: [S87-07]
+    acceptance:
+      - "Either aca declares separate_agent and the live probe from both containers is green and recorded, or staging and prod refuse aca even with none-accepted; one test either way"
+  - id: S87-09
+    title: "test(install): the install proof, made portable, one script for any cluster"
+    stream: S87
+    sprint: 3
+    priority: 2
+    size: M
+    depends_on: [S87-03]
+    acceptance:
+      - "tools/cluster-proof/proof.sh runs preflight, install, the isolation probe, one real ticket, the egress and object store checks, collects evidence and uninstalls"
+      - "Green on kind and k3d in CI; a failure at any step still uninstalls and keeps the evidence"
+  - id: S87-10
+    title: "feat(charts): provider profiles"
+    stream: S87
+    sprint: 3
+    priority: 3
+    size: S
+    depends_on: [S87-03]
+    acceptance:
+      - "charts/choregos/values/{gke,eks,aks}.yaml render and pass kubeconform in tests/charts"
+      - "A profile that names a RuntimeClass renders it on the runner and agent pods; no profile turns off agentIsolation: container"
+  - id: S87-16
+    title: "fix(charts): what the chart assumes about the cluster becomes a setting"
+    stream: S87
+    sprint: 3
+    priority: 4
+    size: M
+    depends_on: [S87-03]
+    acceptance:
+      - "Chart.yaml declares kubeVersion >=1.29; the DNS rule's namespace and port, the monitoring CRDs, the ingress TLS block, the door's timeouts and the External Secrets API version follow the cluster or a setting"
+      - "One chart test per item, red with its change removed; the default values still render the operator's dev and prod unchanged"
+  - id: S87-17
+    title: "feat(adapters): the object store takes a cloud identity"
+    stream: S87
+    sprint: 3
+    priority: 5
+    size: M
+    depends_on: []
+    acceptance:
+      - "The S3 client signs with a session token from the pod's identity; a unit test is red without the header"
+      - "An Azure Blob store and a GCS store sit behind the same port; the Azure Blob store passes the store's conformance tests against Azurite"
+  - id: S87-11
+    title: "test(install): GKE, installed, isolated, a run carried to its end"
+    stream: S87
+    sprint: 4
+    priority: 1
+    size: M
+    depends_on: [S87-09, S87-10, S87-16, S87-17]
+    acceptance:
+      - "The proof's archive is green and recorded in docs/support/clusters.yaml as tested; each defect found is a fix with its test or a finding issue"
+  - id: S87-12
+    title: "test(install): EKS, installed, isolated, a run carried to its end"
+    stream: S87
+    sprint: 4
+    priority: 2
+    size: M
+    depends_on: [S87-09, S87-10, S87-16, S87-17]
+    acceptance:
+      - "As S87-11, with the VPC CNI's network policy on; the profile says whether the agent runs under runc or gVisor"
+  - id: S87-13
+    title: "test(install): AKS, installed, isolated, a run carried to its end"
+    stream: S87
+    sprint: 4
+    priority: 3
+    size: M
+    depends_on: [S87-09, S87-10, S87-16, S87-17]
+    acceptance:
+      - "As S87-11, with Azure Linux nodes, kata-vm-isolation and Cilium"
+  - id: S87-14
+    title: "test(install): a European provider, then OpenShift"
+    stream: S87
+    sprint: 5
+    priority: 1
+    size: M
+    depends_on: [S87-11]
+    acceptance:
+      - "As S87-11 for each; on OpenShift the runner and agent uid split holds under the namespace's SCC or the profile names the SCC it needs"
+  - id: S87-15
+    title: "ci(install): the proofs run on a schedule and keep the matrix current"
+    stream: S87
+    sprint: 5
+    priority: 2
+    size: S
+    depends_on: [S87-04, S87-11]
+    acceptance:
+      - "A weekly job per provider updates docs/support/clusters.yaml by pull request and opens a finding issue when red"
+      - "A provider without a green run in 30 days reads tested, not supported; a run that fails midway leaves no cluster"
