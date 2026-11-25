@@ -29,8 +29,10 @@ HISTORIES = pathlib.Path(__file__).resolve().parents[3] / "tests" / "replay" / "
 FAILURE = StageResult(status=StageStatus.FAILED, summary="the smoke test failed", reason="agent_error")
 
 #: The tail of `dev-simple` the dev tenant's work items stood in, on the core's gates: `t-verify-prod`
-#: from `live`, one attempt, then a person. How the change reached production (`dev-simple`'s pull
-#: request and release train, the `software-delivery` plugin's) is not this test's: a person says so.
+#: from `live`, one attempt, then a person. The agent's role is the core's `verify`: `verify_prod`'s
+#: playbook is the plugin's, and the core-without-plugins job has none. How the change reached
+#: production (`dev-simple`'s pull request and release train, the `software-delivery` plugin's) is not
+#: this test's: a person says so.
 VERIFY_IN_PRODUCTION = """\
 apiVersion: choregos/v1
 kind: Workflow
@@ -40,7 +42,7 @@ metadata:
   description: A change in production is verified by an agent, read-only.
 initial: inbox
 actors:
-  prod_verifier: { type: agent, role: verify_prod, model: "profile:standard" }
+  prod_verifier: { type: agent, role: verify, model: "profile:standard" }
   maintainers: { type: human, group: maintainers, sla_hours: 24 }
 states:
   inbox: { display: To verify, kind: wait, tracker: { status: Todo } }
