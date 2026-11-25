@@ -43,6 +43,7 @@ from lxml import etree
 from signxml.algorithms import SignatureMethod
 from signxml.exceptions import InvalidInput, InvalidSignature
 from signxml.verifier import SignatureConfiguration, XMLVerifier
+from tranibor_contracts import wire
 
 from ..config import get_settings
 from ..errors import ApiError, unauthorized
@@ -266,7 +267,8 @@ def read_assertion(
         raise refusal(f"the address does not belong to the domains of the provider of {org}")
     mapping = provider.group_map or {}
     claimed = _values(assertion, provider.groups_attribute) if provider.groups_attribute else []
-    groups = sorted({f"choregos:{org}:{mapping[g]}" for g in claimed if g in mapping})
+    # Both prefixes for the window of ADR 0224: an edition's mapper may still read the former one.
+    groups = sorted({both for g in claimed if g in mapping for both in wire.group_names(org, mapping[g])})
     name = (_values(assertion, "displayName")[:1] or [address.split("@")[0]])[0]
     assertion_id = assertion.get("ID") or ""
     if not assertion_id:

@@ -215,7 +215,7 @@ class Settings(BaseSettings):
     bootstrap_org_name: str = ""
     bootstrap_admins: str = ""
     #: Organisation to which the NON-prefixed OIDC groups (`developers`, `org-admins`...) attach.
-    #: Empty: those groups are ignored, only the `choregos:<org>:<group>` groups give a role.
+    #: Empty: those groups are ignored, only the `tranibor:<org>:<group>` groups give a role.
     #: Before: any group gave the role on ALL the organisations of the instance.
     oidc_default_org: str = ""
 

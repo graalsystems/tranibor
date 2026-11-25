@@ -91,7 +91,7 @@ def declare(
     _state["edition_licence"] = licence
 
 
-#: What the CORE knows how to do with a list of IdP groups: `choregos:<org>:<role>`, and a bare
+#: What the CORE knows how to do with a list of IdP groups: `tranibor:<org>:<role>`, and a bare
 #: group for the default organisation. One organisation, one prefix.
 #:
 #: The enterprise edition wants another one: a prefix PER organisation, groups coming from SAML or
@@ -113,7 +113,7 @@ def declare_group_mapper(function: Any) -> None:
 
     WARNING: **a replacement mapper must DELEGATE to the core's mapper for what it does not
     understand**, instead of returning an empty dictionary. It replaces the WHOLE translation: a
-    mapper that reads only `<org>/<role>` makes the deployment lose its `choregos:<org>:<role>`
+    mapper that reads only `<org>/<role>` makes the deployment lose its `tranibor:<org>:<role>`
     sign-ins, including the bootstrap one and the development one. Found while proving this seam
     with an extension installed for real: `403 ... missing ['northwind']` on the creation of an
     organisation, and the cause was not where the message pointed.

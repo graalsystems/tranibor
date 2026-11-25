@@ -10,7 +10,8 @@ What this router guarantees, and why each guarantee exists:
   nonce — so neither CSRF protection of the login, nor control of the redirect (open redirect).
 - **PKCE (S256)**: the authorisation code is worthless without the `code_verifier` kept in
   a ten-minute signed cookie.
-- **Roles per organisation**: an OIDC group is written `choregos:<org>:<group>`. An
+- **Roles per organisation**: an OIDC group is written `tranibor:<org>:<group>` (or the former
+  `tranibor:<org>:<group>`, read until 0.32.0, ADR 0224). An
   unprefixed group only counts for `oidc_default_org`, otherwise for nothing. Before, any group gave the
   role on ALL the organisations of the instance.
 - **Development sign-in**: off by default, refused in staging/prod, and
@@ -32,7 +33,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from fastapi import APIRouter, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import String, cast, func, not_, or_, select
-from tranibor_contracts import Role
+from tranibor_contracts import Role, wire
 from tranibor_core import utcnow
 
 from ..audit import record
@@ -61,7 +62,7 @@ logger = get_logger("choregos.auth")
 OIDC_COOKIE = "choregos_oidc"
 OIDC_HANDSHAKE_S = 600
 
-#: The role groups an identity provider sends, bare or as `choregos:<org>:<group>` (ADR 0181 C1 named
+#: The role groups an identity provider sends, bare or as `tranibor:<org>:<group>` (ADR 0181 C1 named
 #: `approvers` and `contributors`; their former names left on 2026-11-23).
 GROUP_ROLES: dict[str, Role] = {
     "org-admins": Role.ORG_ADMIN,
@@ -650,13 +651,14 @@ async def _relink_in_window(
 
 
 def roles_from_groups(groups: list[str], default_org: str) -> dict[str, Role]:
-    """`choregos:<org>:<group>` → role on that org. A bare group only counts for `default_org`.
+    """`tranibor:<org>:<group>` (or the former `tranibor:<org>:<group>`, ADR 0224) → role on that org. A
+    bare group only counts for `default_org`.
 
     When several groups target the same organisation, the highest wins.
     """
     roles: dict[str, Role] = {}
     for group in groups:
-        if group.startswith("choregos:"):
+        if group.startswith(wire.GROUP_PREFIXES):
             parts = group.split(":", 2)
             org, name = (parts[1], parts[2]) if len(parts) == 3 else ("", "")
         else:
@@ -699,7 +701,7 @@ async def _map_groups_to_roles(
     # this file — that is all the C3 seam asked for, and nothing more.
     default_org = only_org.slug if only_org is not None else settings.oidc_default_org
     roles = group_mapper(roles_from_groups)(groups, default_org)
-    # A group that names a FORMER slug (`choregos:<old>:<group>`, or `TRANIBOR_OIDC_DEFAULT_ORG` left at
+    # A group that names a FORMER slug (`tranibor:<old>:<group>`, or `TRANIBOR_OIDC_DEFAULT_ORG` left at
     # the old slug) grants its role on the renamed organisation (ADR 0090). When a current slug and an
     # alias of the same organisation both appear, the higher role wins, as for two groups of one slug.
     resolu: dict[str, Role] = {}
@@ -861,9 +863,9 @@ async def _development_groups(session: Any, email: str, settings: Settings) -> l
     """
     name = "org-admins" if email.lower() in settings.dev_admins else "contributors"
     if settings.oidc_default_org:
-        return [f"choregos:{settings.oidc_default_org}:{name}"]
+        return list(wire.group_names(settings.oidc_default_org, name))
     orgs = (await session.execute(select(Organization.slug))).scalars().all()
-    return [f"choregos:{org}:{name}" for org in orgs]
+    return [both for org in orgs for both in wire.group_names(org, name)]
 
 
 @router.get("/auth/callback", operation_id="authCallback")

@@ -344,7 +344,8 @@ async def test_the_principal_carries_the_table_groups_namespaced_and_only_while_
     async with session_scope() as session:
         user = (await session.execute(select(User).where(User.email == "cap@northwind.dev"))).scalar_one()
         principal = await principal_for_user(session, user, narrow=False)
-    assert principal.groups == ["from-the-idp", f"choregos:{ORG}:{GROUP}"]
+    # ADR 0224: the new prefix, and the former one beside it during the window.
+    assert principal.groups == ["from-the-idp", f"tranibor:{ORG}:{GROUP}", f"choregos:{ORG}:{GROUP}"]
 
     cap_id = await _user_id("cap@northwind.dev")
     assert (await client.delete(f"/api/v1/orgs/{ORG}/members/{cap_id}")).status_code == 204

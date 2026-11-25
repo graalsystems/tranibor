@@ -215,7 +215,7 @@ def _refuse_admin_switches(org: str, body: OrgUpdate) -> None:
 async def update_org(org: str, body: OrgUpdate, session: Db, principal: Me) -> OrgDto:
     """Renames an organisation. Its NAME, its administrator changes. Its SLUG, only the platform
     administrator: it is in every console URL, every MCP door address (`/mcp/projects/<org>:<project>`),
-    every qualified id (`<org>:<project>`) and the IdP's group names (`choregos:<org>:<group>`), so
+    every qualified id (`<org>:<project>`) and the IdP's group names (`tranibor:<org>:<group>`), so
     changing it is an instance gesture.
 
     Global memories (S40-11) follow: their tenant is `org:<memory key>`, and the key is the slug the

@@ -5,11 +5,11 @@
 - `scim`: pushed by an identity provider through `upsert_external_group`, which the core serves on no
   route of its own; such a group is read-only through the core's API (409 `group_read_only`).
 
-The identity provider's `groups` claim (`User.groups`) stays a third source, read as before. A person
-carries a group of the table as `choregos:<org>:<group>`, the namespaced form `groups_for_org`
-already reads as the bare name for its organisation, so every check that reads `Principal.groups`
-(a human step's group, an action's approvers, knowledge access, an assistant's audience) sees it with
-no change of its own.
+The identity provider's `groups` claim (`User.groups`) stays a third source, read as before. A person carries
+a group of the table as `tranibor:<org>:<group>` (and the former `choregos:` form), the namespaced form
+`groups_for_org` already reads as the bare name for its organisation, so every check that reads
+`Principal.groups` (a human step's group, an action's approvers, knowledge access, an assistant's audience)
+sees it with no change of its own.
 
 A membership row counts only while its person is a member of the organisation (a role in it or on one
 of its projects): removing someone from the organisation takes their groups away with no second
@@ -26,6 +26,7 @@ from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
+from tranibor_contracts import wire
 
 from ..db.models import Membership, Organization, OrgGroup, OrgGroupMember, User
 from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
@@ -85,7 +86,8 @@ def _counted(org_id: _Column | str) -> ColumnElement[bool]:
 
 async def principal_groups(session: AsyncSession, user_id: str) -> list[str]:
     """The table's groups of one person, in every organisation they belong to, as
-    `choregos:<org slug>:<group slug>`: one query. The slug is read now (it can change)."""
+    `tranibor:<org slug>:<group slug>`, and the former `choregos:` form beside it for the window of ADR
+    0224 (an edition's check may still read it): one query. The slug is read now (it can change)."""
     rows = (
         await session.execute(
             select(Organization.slug, OrgGroup.slug)
@@ -99,7 +101,7 @@ async def principal_groups(session: AsyncSession, user_id: str) -> list[str]:
             .order_by(Organization.slug, OrgGroup.slug)
         )
     ).all()
-    return [f"choregos:{org_slug}:{group_slug}" for org_slug, group_slug in rows]
+    return [both for org_slug, group_slug in rows for both in wire.group_names(org_slug, group_slug)]
 
 
 async def groups_of(session: AsyncSession, user: User) -> list[str]:
