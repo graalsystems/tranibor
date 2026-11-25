@@ -197,6 +197,12 @@ def test_the_plugin_operations_and_their_routes() -> None:
         ("/orgs/{org}/plugin-sources", "get"): "listPluginSources",
         ("/orgs/{org}/plugins/install", "post"): "installPlugin",
         ("/orgs/{org}/plugins/{name}/upgrade", "post"): "upgradePlugin",
+        ("/orgs/{org}/plugins/{name}/servers/{server}/instances", "get"): "listPluginServerInstances",
+        ("/orgs/{org}/plugins/{name}/servers/{server}/instances", "post"): "createPluginServerInstance",
+        (
+            "/orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}",
+            "delete",
+        ): "deletePluginServerInstance",
         ("/orgs/{org}/plugins/{name}", "delete"): "uninstallPlugin",
         ("/orgs/{org}/plugins/{name}/assistants", "get"): "listPluginAssistants",
         ("/orgs/{org}/plugin-approvals", "get"): "listPluginApprovals",
