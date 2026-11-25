@@ -262,6 +262,12 @@ call them by design (the model, the memory's MCP), with a per-run key.
 {{- if and .Values.global.temporal.embedded (eq (toString ((index .Values "choregos-temporal" | default dict).mode | default "dev")) "server") }}
 {{- $pgClients = append $pgClients "choregos-temporal" }}
 {{- end }}
+{{- /* The embedded Keycloak keeps its realm in this PostgreSQL (database `keycloak`, ADR 0208): without
+       this entry it never gets a connection where policies are enforced ("Failed to obtain JDBC
+       connection", found on AKS with Cilium, S86-13). */}}
+{{- if and (.Values.global.oidc).embedded (not ((index .Values "choregos-keycloak" | default dict).database | default dict).host) }}
+{{- $pgClients = append $pgClients "choregos-keycloak" }}
+{{- end }}
 {{- $stores = append $stores (dict "pod" "choregos-postgresql" "port" 5432 "clients" $pgClients) }}
 {{- end }}
 {{- if .Values.global.temporal.embedded }}
