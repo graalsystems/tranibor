@@ -19,6 +19,10 @@ spec:
               kinds: [Pod]
               namespaces: ["choregos", "choregos-*", "proj-*"]
       verifyImages:
+        # The former names (ADR 0176 R3): no longer published since step (e), after 0.29.4, but still
+        # admitted with the same signer so that a pod running an image pushed under them is not refused
+        # by a policy applied before its upgrade. The policies drop them last, once the first release
+        # without them is deployed (S75-05).
         - imageReferences: ["ghcr.io/graalsystems/choregos-*"]
           attestors:
             - entries:
@@ -29,8 +33,8 @@ spec:
                     rekor: { url: "https://rekor.sigstore.dev" }
           mutateDigest: true
           required: true
-        # The same images under the core's name (ADR 0176 R3): a release pushes one digest under both
-        # names, each signed by its workflow. Each component is named: the glob `tranibor-*` would
+        # The core's images (ADR 0176 R3), the only names a release pushes since step (e). Each
+        # component is named: the glob `tranibor-*` would
         # catch `ghcr.io/graalsystems/tranibor-agents/<server>`, the plugin servers, which another
         # repository signs (`plugin-servers.yaml`), and refuse them for a signature they never carry.
         - imageReferences:

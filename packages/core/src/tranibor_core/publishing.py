@@ -41,11 +41,9 @@ class Publishing:
     #: The image and chart namespace: `<registry>/tranibor-api`, `oci://<registry>/charts/tranibor`.
     registry: str
     #: The name every image and chart starts with: `<registry>/<image_prefix>-api`, the charts
-    #: `<image_prefix>` and `<image_prefix>-outpost` (ADR 0176 R3).
+    #: `<image_prefix>` and `<image_prefix>-outpost` (ADR 0176 R3). The former prefix, `choregos`, was
+    #: published beside it until 0.29.4 and is no longer (step (e)).
     image_prefix: str
-    #: The former prefix, published beside `image_prefix` (one digest, two names, both signed) for the
-    #: deprecation window of ADR 0176 R3; it goes with the old names, in that round's step (e).
-    image_alias_prefix: str
     #: The core's repository: its releases, its issues, its files.
     source_repository: str
     #: The public user documentation, without a trailing slash (`TRANIBOR_DOCS_URL` by default).
@@ -76,24 +74,19 @@ class Publishing:
         """An image of the registry: `<registry>/<name>[:<tag>]`."""
         return f"{self.registry}/{name}" + (f":{tag}" if tag else "")
 
-    @property
-    def image_prefixes(self) -> tuple[str, str]:
-        """The prefixes a release publishes under: the current one first, then the alias."""
-        return self.image_prefix, self.image_alias_prefix
-
-    def image_names(self, component: str) -> tuple[str, ...]:
-        """Every name a release pushes one image under, `<registry>/<prefix>-<component>`, per prefix."""
+    def image_name(self, component: str) -> str:
+        """The one name a release pushes an image under: `<registry>/<image_prefix>-<component>`."""
         if component not in IMAGE_COMPONENTS:
             raise ValueError(
                 f"{component!r} is not an image the release builds: {', '.join(IMAGE_COMPONENTS)}"
             )
-        return tuple(self.image(f"{prefix}-{component}") for prefix in self.image_prefixes)
+        return self.image(f"{self.image_prefix}-{component}")
 
-    def chart_names(self, suffix: str = "") -> tuple[str, ...]:
-        """Every name a release pushes one chart under (`""` the platform's, `"-outpost"`), per prefix."""
+    def chart_name(self, suffix: str = "") -> str:
+        """The one name a release pushes a chart under (`""` the platform's, `"-outpost"`)."""
         if suffix not in CHARTS:
             raise ValueError(f"{suffix!r} names no chart of the release: {sorted(CHARTS)}")
-        return tuple(f"{prefix}{suffix}" for prefix in self.image_prefixes)
+        return f"{self.image_prefix}{suffix}"
 
     def signing_identity(self, ref: str, workflow: str = RELEASE_WORKFLOW) -> str:
         """The keyless identity of what a workflow of the source repository signed at `ref`."""
@@ -109,6 +102,11 @@ def parse(text: str) -> Publishing:
     """A publishing identity from the text of a `publishing.json`; refuses a missing or empty value."""
     data: dict[str, Any] = json.loads(text)
     names = [field.name for field in fields(Publishing)]
+    if "image_alias_prefix" in data:
+        raise ValueError(
+            "publishing.json: `image_alias_prefix` is gone: the former image and chart names are no "
+            "longer published (ADR 0176 R3, step (e)); remove it"
+        )
     unknown = sorted(set(data) - set(names) - {"$comment"})
     if unknown:
         raise ValueError(f"publishing.json: unknown key(s) {unknown}")

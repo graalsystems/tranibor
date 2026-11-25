@@ -729,7 +729,7 @@ choregos-api:
   hostAliases: []
   replicaCount: 2
   image:
-    repository: choregos-api
+    repository: tranibor-api
   resources:
     requests: { cpu: 200m, memory: 512Mi }
     limits: { cpu: "1", memory: 1Gi }
@@ -757,7 +757,7 @@ choregos-web:
   enabled: true
   replicaCount: 2
   image:
-    repository: choregos-web
+    repository: tranibor-web
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 500m, memory: 512Mi }
@@ -774,7 +774,7 @@ choregos-web:
 choregos-orchestrator:
   enabled: true
   image:
-    repository: choregos-orchestrator
+    repository: tranibor-orchestrator
   # After losing a node, a worker waits this delay before being evicted (Kubernetes default:
   # 300 s, i.e. ~6 minutes of immobility — see `tests/cluster/test_node_loss.py`).
   unreachableTolerationSeconds: 20
@@ -803,7 +803,7 @@ choregos-orchestrator:
       replicas: 1
       resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
   runner:
-    image: choregos-runner
+    image: tranibor-runner
     # Empty: the tag follows `global.imageTag`. DO NOT REMOVE this line — without it, the
     # sub-chart's default takes over again and the agents' image goes back to `1.0.0`, absent from every
     # installation. It happened on 2026-09-27: a slightly broad cut removing a
@@ -917,7 +917,7 @@ choregos-orchestrator:
 choregos-tools:
   enabled: true
   image:
-    repository: choregos-tools
+    repository: tranibor-tools
   # The sidecar image is published here; the Tekton Task references it in each project.
   publishTask: true
 

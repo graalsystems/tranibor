@@ -2,7 +2,7 @@
 image:
   # Empty: `global.imageRegistry`, as the platform's own images.
   registry: ""
-  repository: choregos-laya
+  repository: tranibor-laya
   # Empty: `global.imageTag`.
   tag: ""
   digest: ""

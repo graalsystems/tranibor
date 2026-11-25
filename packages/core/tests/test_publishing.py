@@ -13,7 +13,6 @@ EXAMPLE = {
     "owner": "ExampleOrg",
     "registry": "registry.example.org/exampleorg",
     "image_prefix": "exampleware",
-    "image_alias_prefix": "examplelegacy",
     "source_repository": "https://forge.example.org/exampleorg/choregos",
     "documentation": "https://docs.example.org/choregos",
     "security_contact": "security@example.org",
@@ -36,8 +35,10 @@ def test_what_follows_from_the_repositories() -> None:
         identity.source_file("/docs/x.md")
         == "https://forge.example.org/exampleorg/choregos/blob/main/docs/x.md"
     )
-    assert identity.image("choregos-api") == "registry.example.org/exampleorg/choregos-api"
-    assert identity.image("choregos-api", "1.0.0") == "registry.example.org/exampleorg/choregos-api:1.0.0"
+    assert identity.image("exampleware-api") == "registry.example.org/exampleorg/exampleware-api"
+    assert (
+        identity.image("exampleware-api", "1.0.0") == "registry.example.org/exampleorg/exampleware-api:1.0.0"
+    )
     assert identity.signing_identity("refs/tags/v1.0.0") == (
         "https://forge.example.org/exampleorg/choregos/.github/workflows/release.yml@refs/tags/v1.0.0"
     )
@@ -47,21 +48,25 @@ def test_what_follows_from_the_repositories() -> None:
     assert SIGNING_ISSUER.startswith("https://")
 
 
-def test_one_image_and_one_chart_under_both_names() -> None:
-    """ADR 0176 R3: the current name first, then the alias of the deprecation window."""
+def test_one_image_and_one_chart_under_one_name() -> None:
+    """ADR 0176 R3 (e): a release publishes each image and each chart under `image_prefix` only."""
     identity = parse(json.dumps(EXAMPLE))
-    assert identity.image_names("api") == (
-        "registry.example.org/exampleorg/exampleware-api",
-        "registry.example.org/exampleorg/examplelegacy-api",
-    )
-    assert identity.chart_names() == ("exampleware", "examplelegacy")
-    assert identity.chart_names("-outpost") == ("exampleware-outpost", "examplelegacy-outpost")
+    assert identity.image_name("api") == "registry.example.org/exampleorg/exampleware-api"
+    assert identity.chart_name() == "exampleware"
+    assert identity.chart_name("-outpost") == "exampleware-outpost"
     # quant is a command of the runner image, not an image (#1847).
     with pytest.raises(ValueError, match="not an image the release builds"):
-        identity.image_names("quant")
+        identity.image_name("quant")
     with pytest.raises(ValueError, match="names no chart"):
-        identity.chart_names("-web")
-    assert PUBLISHING.image_prefixes == ("tranibor", "choregos")
+        identity.chart_name("-web")
+    assert PUBLISHING.image_name("runner") == PUBLISHING.image(f"{PUBLISHING.image_prefix}-runner")
+    assert not hasattr(PUBLISHING, "image_alias_prefix")
+
+
+def test_the_former_alias_prefix_is_refused_by_name() -> None:
+    """A definition still carrying `image_alias_prefix` is told why, not just that the key is unknown."""
+    with pytest.raises(ValueError, match="no longer published"):
+        parse(json.dumps(EXAMPLE | {"image_alias_prefix": "examplelegacy"}))
 
 
 @pytest.mark.parametrize(

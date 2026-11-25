@@ -267,7 +267,7 @@ services:
       <<: *platform-env
       # A project with no runtime connector runs its agents as local containers.
       TRANIBOR_EXECUTOR_KIND: local_docker
-      TRANIBOR_RUNNER_IMAGE: ghcr.io/graalsystems/choregos-runner:${TRANIBOR_RUNNER_VERSION:-0.29.3}
+      TRANIBOR_RUNNER_IMAGE: ghcr.io/graalsystems/tranibor-runner:${TRANIBOR_RUNNER_VERSION:-0.29.3}
     depends_on:
       keys: { condition: service_completed_successfully }
       migrate: { condition: service_completed_successfully }
