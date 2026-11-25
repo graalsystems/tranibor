@@ -57,12 +57,12 @@ Triage put each in one of four boxes.
 
 | Route | Input | Observed | Fix |
 |---|---|---|---|
-| `POST /webhooks/github`, `/jenkins`, `/tekton` (and by reading the code `/gitlab`, `/alertmanager`, `/argocd`) | a body of `\x00`, not JSON, or JSON that is not an object | 500 (`JSONDecodeError` in the handler) | 400 ([PR 2243](https://github.com/graalsystems/tranibor/pull/2243)) |
-| `PATCH /orgs/{org}/knowledge/{slug}` | `{"scope": null, "status": "active"}` | 500 (`NOT NULL constraint failed: knowledge_bases.scope`) | a null scope means unchanged ([PR 2243](https://github.com/graalsystems/tranibor/pull/2243)) |
-| `PUT /projects/{id}/models` | `max_turns_factor: 0` | 500 (the configuration model refuses it after the request schema accepted it) | 422 ([PR 2243](https://github.com/graalsystems/tranibor/pull/2243)) |
-| `POST /orgs/{org}/agents/discover` | `{"card_url": "https://"}` | 500 (`ValueError: an empty host` in the egress guard) | 422 ([PR 2243](https://github.com/graalsystems/tranibor/pull/2243)) |
-| `GET /connectors/types`, `/platform/models`, `/templates`, `/templates/{name}`, `/workflows/templates`; `POST /workflows/validate`, `/workflows/edit` | no credentials | 200 (the contract's default is authenticated). `/platform/models` lists the gateway's upstream models and providers | 401 ([PR 2254](https://github.com/graalsystems/tranibor/pull/2254)) |
-| `GET /projects/{id}` and the routes under it | the id of a project of another organisation, signed in with no role there | 403 whose detail names `org/slug` of the project (on SQLite, which has no row-level security) | 404 ([PR 2254](https://github.com/graalsystems/tranibor/pull/2254)) |
+| `POST /webhooks/github`, `/jenkins`, `/tekton` (and by reading the code `/gitlab`, `/alertmanager`, `/argocd`) | a body of `\x00`, not JSON, or JSON that is not an object | 500 (`JSONDecodeError` in the handler) | 400 (#2243) |
+| `PATCH /orgs/{org}/knowledge/{slug}` | `{"scope": null, "status": "active"}` | 500 (`NOT NULL constraint failed: knowledge_bases.scope`) | a null scope means unchanged (#2243) |
+| `PUT /projects/{id}/models` | `max_turns_factor: 0` | 500 (the configuration model refuses it after the request schema accepted it) | 422 (#2243) |
+| `POST /orgs/{org}/agents/discover` | `{"card_url": "https://"}` | 500 (`ValueError: an empty host` in the egress guard) | 422 (#2243) |
+| `GET /connectors/types`, `/platform/models`, `/templates`, `/templates/{name}`, `/workflows/templates`; `POST /workflows/validate`, `/workflows/edit` | no credentials | 200 (the contract's default is authenticated). `/platform/models` lists the gateway's upstream models and providers | 401 (#2254) |
+| `GET /projects/{id}` and the routes under it | the id of a project of another organisation, signed in with no role there | 403 whose detail names `org/slug` of the project (on SQLite, which has no row-level security) | 404 (#2254) |
 
 Each has a test that fails without the fix. The 500s were on authenticated senders or administrators and
 exposed nothing (the body is a generic problem with a correlation id), but a retried 500 is a loop for a
@@ -73,7 +73,7 @@ webhook sender and a stack trace in the logs for the operator.
 The API sent responses its own schemas rejected: `WorkflowValidation.graph` and `.document` are null for
 a document that does not parse; a validation error's `loc` holds indexes; a policy issue's `column` may
 be null; `project.schema.json` lacked `dod` and `policy.schema.json` lacked
-`express_lane.approval.timeout_hours`. [PR 2246](https://github.com/graalsystems/tranibor/pull/2246) (`contract(openapi)`), with a test per change.
+`express_lane.approval.timeout_hours`. #2246 (`contract(openapi)`), with a test per change.
 
 ### Contract gaps, not fixed
 
