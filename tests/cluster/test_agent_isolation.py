@@ -69,6 +69,9 @@ WARM_POOL_TEMPLATE = os.environ.get("TRANIBOR_ISOLATION_TEMPLATE", "choregos-run
 #: In-namespace services the agent's container must not reach, and those it must (finding #2082).
 CLOSED = [t for t in os.environ.get("TRANIBOR_ISOLATION_CLOSED", "").split(",") if t]
 OPEN = [t for t in os.environ.get("TRANIBOR_ISOLATION_OPEN", "").split(",") if t]
+#: Outside a platform, the RuntimeClass the two probe pods run under (S86-13: `kata-vm-isolation` on
+#: AKS); empty leaves the cluster's default (runc).
+RUNTIME_CLASS = os.environ.get("TRANIBOR_ISOLATION_RUNTIME_CLASS", "")
 #: Objects of this test, in a namespace it does not own: a suffix of their own.
 SUFFIX = secrets.token_hex(3)
 CONFIG = f"isolation-{SUFFIX}" if PLATFORM_NS else "isolation"
@@ -184,6 +187,7 @@ def _manifest(namespace: str) -> dict[str, Any]:
         "kind": "Pod",
         "metadata": {"name": POD, "namespace": namespace},
         "spec": {
+            **({"runtimeClassName": RUNTIME_CLASS} if RUNTIME_CLASS else {}),
             "restartPolicy": "Never",
             "securityContext": {
                 "runAsNonRoot": True,
@@ -459,7 +463,7 @@ def _job_manifest(namespace: str) -> dict[str, Any]:
         run_token=SECRET,
         agent_isolation="container",
         timeout_minutes=10,
-        runtime_class=template.get("runtimeClassName") if template else None,
+        runtime_class=template.get("runtimeClassName") if template else (RUNTIME_CLASS or None),
     )
     # The agent's limits the platform gives its runs (its template's agent container): a namespace under
     # a LimitRange refuses a pod beyond them (4Gi on the dev cluster this was proven on).

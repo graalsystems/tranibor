@@ -84,10 +84,10 @@ this page when it differs from the record, and any page that calls a provider su
 | The first operator's production cluster (bare metal) | k3s 1.31 | gVisor (`gvisor` RuntimeClass) | Cilium 1.16 | `agent_sandbox`, `k8s_job` | 2026-11-20, 0.27.16: real agent runs on the warm pool and on k8s_job, the agent's own container under gVisor (`docs/plan/status/S65.md`, `docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md`) | **supported** |
 | kind (CI and development) | kind, Kubernetes 1.34.0 | runc | Calico 3.28.2 | `k8s_job` | 2026-11-12: the outposts end to end (the chart's door, the real daemon) on kind-choregos; the hosted pods on k8s_job (S41-24, undated) (`docs/plan/status/S65.md`, `docs/plan/status/S41.md`) | **supported** |
 | One k3s node (the single-node profile) | k3s v1.35.5 in k3d 5.9.0 | runc | k3s's embedded kube-router | `k8s_job` | 2026-11-18, main at c8cb64fdc: install, a work item to approved, backup, the node destroyed, restore (`tools/single-node/proof.sh`) (`docs/plan/status/S80.md`, [run](https://github.com/graalsystems/tranibor/actions/runs/44275902560)) | **supported** |
-| Azure Container Apps, the ACA executor alone (no installation of the platform on Azure) | Container Apps jobs, Consumption environment | Container Apps | none | `aca` | date not recorded: six live tests against a real subscription (create, trigger, terminal state, replayed start, token absent from ARM, cancel, 404, logs) (`docs/plan/status/S13.md`, `docs/runbooks/aca-live.md`) | **tested** |
+| Azure Container Apps, the ACA executor alone (no installation of the platform on Azure) | Container Apps jobs, Consumption environment | Container Apps | none | `aca` | 2026-11-25, 0.29.4 (runner image with `launcher --until-file`, built from this tree): the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S86-07, S86-08); the six earlier live tests of S13-05 (`docs/plan/status/S86.md`, `tests/live/test_aca_two_containers_live.py`, `docs/runbooks/aca-live.md`) | **supported** |
 | Amazon EKS | — | — | — | — | never run | **unknown** |
 | Google GKE | — | — | — | — | never run | **unknown** |
-| Azure AKS | — | — | — | — | never run | **unknown** |
+| Azure AKS | AKS 1.35.9, Azure Linux 3.0 nodes (2 x Standard_D4s_v3) | Kata (`kata-vm-isolation`, AKS pod sandboxing) | Cilium (Azure CNI powered by Cilium, overlay) | `k8s_job` | 2026-11-25, chart 0.29.4 with S86 (values/all-in-one.yaml + values/aks.yaml): tools/cluster-proof/proof.sh from a clean install - the preflight, the chart, an agent pod's reach, the egress gate's first packets under Kata, the agent's own container under Kata, one work item to approved (S86-13) (`docs/support/evidence/2026-11-25-aks.md`, `docs/plan/status/S86.md`) | **supported** |
 | Red Hat OpenShift | — | — | — | — | never run | **unknown** |
 | Scaleway Kapsule | — | — | — | — | never run | **unknown** |
 | OVHcloud Managed Kubernetes | — | — | — | — | never run | **unknown** |
@@ -730,7 +730,7 @@ workers read the same setting, and `agent_sandbox` is the default.
 | :-- | :-- | :-- |
 | `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton`; under `container` the agent stage's Task carries the agent's own container as a sidecar |
 | `k8s_job` | A `Job` per stage | Fewest moving parts; supports queueing |
-| `aca` | Azure Container Apps job | Verified against a real subscription; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
+| `aca` | Azure Container Apps job, the agent in a second container of the job (S86-08) | Verified against a real subscription, the agent's container included; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
 | `local_docker` | A container on the host | Development only |
 | `agent_sandbox` | A claimed sandbox from a warm pool (`kubernetes-sigs/agent-sandbox`) | **The default**; needs the operator (the chart fails at render without it); supports queueing |
 
@@ -2238,9 +2238,14 @@ is refused, and holds forever where nothing refuses it). `RustFS` and `Keycloak`
 admission policy that demands a numeric `runAsUser` needs `choregos-objectstore.podSecurityContext`.
 
 **What was verified.** The render, by `tests/charts/test_all_in_one.py`: the objects, the wiring between them, the
-guards, the pins, and that an install without the mode renders what it did. Nothing has been installed on a real
-cluster: that Keycloak imports the realm and the API signs in through it, that RustFS starts with the generated
-keys and serves the bucket, and that the profile runs end to end are **not proven**.
+guards, the pins, and that an install without the mode renders what it did. Installed on a real cluster on
+2026-11-25: AKS 1.35.9 with `values/aks.yaml` (Kata, Cilium), three times by `tools/cluster-proof/proof.sh`
+(S86-13). The first install found two defects, fixed since: RustFS could not write its Azure Disk volume (no
+`fsGroup`), and the PostgreSQL policy did not admit Keycloak. From a clean install the profile came up on its own,
+Keycloak imported the realm (its discovery document answered the API), RustFS started and its bucket Job completed, an agent pod reached what a run uses and not the database
+or Temporal, the egress gate held its first packets, and a work item went to `approved`. **Not proven**: signing
+in through the realm in a browser (the proof opens its session as the single-node proof does), a backup and
+restore on a multi-node cluster (the backup pod mounts volumes beside their owners), a real model.
 
 ## The first organisation, and the first token
 
@@ -2851,6 +2856,19 @@ under `container`, `choregos-orchestrator.runner.customImageExecutor`, for a run
 | A `Pipeline` `choregos-agent` or a Task `choregos-agent-stage` in a runner namespace | No longer run: the PipelineRun carries its own. The chart no longer publishes the `choregos-agent-stage-task` ConfigMap (`choregos-tools.publishTask` is gone), and the template no longer ships `tekton/pipeline-agent.yaml` nor `tekton/agent-stage.yaml`. | Delete them from the namespaces. Keep the catalogue's `git-clone` Task there. |
 | A `runtime` connector of type `tekton` whose configuration names `pipeline` | Ignored: there is no Pipeline to name. | Remove the field when next editing the connector. |
 | The `choregos-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
+
+## Upgrading past 0.29.4: a Container Apps job runs the agent in its own container
+
+A deployment on `aca` with `global.runner.agentIsolation: container` (the default) had every run refused
+(`agent_isolation_unavailable`). Measured on a real subscription (S86-07): the containers of a job's replica
+share loopback and an `EmptyDir`, each has its own process namespace, and an execution ends only once every
+container has ended. The job now carries the agent's container beside the runner's (S86-08):
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A deployment on `aca` under `container` | Each job has two containers: `runner` (0.5 vCPU, 1Gi, the run's secrets) and `agent` (the step's resources, `launcher --until-file /exchange/.runner-done`, no secret), sharing a `workspace` and an `exchange` `EmptyDir`. The runner writes its exit code to the done file and the launcher ends with it: a launcher that kept serving held the execution open until its timeout, then reported it `Failed`. | Run a runner image that carries `launcher --until-file` (the release after 0.29.4); an older image's launcher refuses the option and the run fails at once. |
+| The agent's uid on `aca` | The image's own `USER`, the same as the runner's (1000): Container Apps has no `securityContext`. What keeps the run's credentials from the agent is its own process namespace and a container given no secret; a file the runner leaves in `/workspace` or `/exchange` is writable by the agent, as on the other executors through the shared group. | Nothing; an agent image with its own `USER` gives it another uid. |
+| A deployment on `aca` under `process` | Unchanged: one container (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container`. |
 
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 
