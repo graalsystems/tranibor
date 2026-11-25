@@ -230,6 +230,22 @@ def test_the_monitoring_objects_follow_what_the_cluster_serves(flavour: str, scr
     )
 
 
+@pytest.fixture
+def reachable_cluster() -> None:
+    """`helm install --dry-run=client` reads the API server's version (the chart's `kubeVersion`) and its
+    discovery (to map each object to a kind): it needs a cluster, which CI does not have. Without one the
+    test says so and skips; `test_the_monitoring_objects_follow_what_the_cluster_serves` holds the
+    same rule offline, on the render."""
+    probe = subprocess.run(
+        ["kubectl", "version", "-o", "json"], capture_output=True, text=True, check=False, timeout=30
+    )
+    if probe.returncode != 0 or '"serverVersion"' not in probe.stdout:
+        pytest.skip(
+            "no reachable cluster in the current kube context: helm's client dry-run needs its discovery"
+        )
+
+
+@pytest.mark.usefixtures("reachable_cluster")
 def test_an_install_on_a_cluster_without_the_operator_goes_through_and_says_so() -> None:
     """`helm install --dry-run=client` maps every object against the kinds a bare cluster serves,
     as the API server would: the default monitoring no longer stops the install, and the notes say
