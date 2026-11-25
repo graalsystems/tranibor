@@ -1,6 +1,6 @@
 """S80-07b, ADR 0184: the single-node profile renders one machine's installation, with its backup.
 
-The profile is `charts/choregos/values/single-node.yaml`. What it must hold: one replica of
+The profile is `charts/tranibor/values/single-node.yaml`. What it must hold: one replica of
 everything, no autoscaler and no disruption budget (there is no other node to move to), its volumes on
 `local-path`, the embedded dependencies accepted in `prod` only together with the scheduled backup,
 and a backup CronJob that dumps every database, copies Temporal and the memory, and ships off the
@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROFILE = CHART / "values" / "single-node.yaml"
 SITE = [
     "--set",
@@ -53,12 +53,12 @@ def test_every_workload_has_one_replica_and_nothing_scales_it() -> None:
     documents = _documents()
     workloads = [d for d in documents if d["kind"] in ("Deployment", "StatefulSet")]
     assert {d["metadata"]["name"] for d in workloads} >= {
-        "choregos-api",
-        "choregos-web",
-        "choregos-orchestrator-orchestrator",
-        "choregos-orchestrator-executor",
-        "choregos-orchestrator-tracker",
-        "choregos-orchestrator-memory",
+        "tranibor-api",
+        "tranibor-web",
+        "tranibor-orchestrator-orchestrator",
+        "tranibor-orchestrator-executor",
+        "tranibor-orchestrator-tracker",
+        "tranibor-orchestrator-memory",
         "choregos-postgresql",
         "choregos-temporal",
         "choregos-litellm",

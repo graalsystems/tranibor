@@ -24,7 +24,7 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 DIGEST = "sha256:" + "a" * 64
 REGISTRY = os.environ.get("TRANIBOR_COSIGN_REAL_REGISTRY", "")
 POLICY = "templates/hosted-images-policy.yaml"
@@ -54,7 +54,7 @@ def _api(*overrides: str) -> dict[str, Any]:
     (api,) = (
         d
         for d in _documents(*overrides)
-        if d["kind"] == "Deployment" and d["metadata"]["name"] == "choregos-api"
+        if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-api"
     )
     pod: dict[str, Any] = api["spec"]["template"]["spec"]
     return pod
@@ -149,7 +149,7 @@ def test_the_policy_pins_every_container_list_and_verifies_the_signer() -> None:
     rules = {rule["name"]: rule for rule in policy["spec"]["rules"]}
     for rule in rules.values():
         (match,) = rule["match"]["any"]
-        assert set(match["resources"]["namespaces"]) == {"tenant-a", "choregos-*", "proj-*"}
+        assert set(match["resources"]["namespaces"]) == {"tenant-a", "tranibor-*", "choregos-*", "proj-*"}
     (each,) = rules["hosted-image-pinned"]["validate"]["foreach"]
     assert each["list"] == "request.object.spec.[ephemeralContainers, initContainers, containers][]"
     prefixes = each["deny"]["conditions"]["all"][0]["value"]
@@ -181,7 +181,7 @@ def _grant(*overrides: str) -> dict[str, dict[str, Any]]:
     return {
         d["kind"]: d
         for d in _documents(*overrides)
-        if d["kind"] in {"Role", "RoleBinding"} and d["metadata"]["name"] == "choregos-kyverno-cosign-key"
+        if d["kind"] in {"Role", "RoleBinding"} and d["metadata"]["name"] == "tranibor-kyverno-cosign-key"
     }
 
 

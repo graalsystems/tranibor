@@ -11,6 +11,6 @@ results:
 - policy: choregos-pod-security
   rule: non-root
   resources:
-  - choregos-buildkitd-7d9f
+  - tranibor-buildkitd-7d9f
   kind: Pod
   result: fail

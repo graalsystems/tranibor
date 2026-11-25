@@ -10,10 +10,10 @@ NAMESPACE = 'choregos-system'
 
 k8s_yaml(namespace_yaml(NAMESPACE))
 k8s_yaml(helm(
-    '../charts/choregos',
+    '../charts/tranibor',
     name='choregos',
     namespace=NAMESPACE,
-    values=['../charts/choregos/values.yaml', '../charts/choregos/values/dev.yaml'],
+    values=['../charts/tranibor/values.yaml', '../charts/tranibor/values/dev.yaml'],
 ))
 
 # ── images, rebuilt on every change ──

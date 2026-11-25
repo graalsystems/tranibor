@@ -492,15 +492,15 @@ How long you keep it is your decision. Mind where it lives: when its disk is ful
 ## Installing with the chart `choregos-outpost`
 
 The daemon ships as a container image, `ghcr.io/graalsystems/choregos-outpost`, and as a Helm
-chart for your own cluster, `charts/choregos-outpost`, which each release publishes beside the
+chart for your own cluster, `charts/tranibor-outpost`, which each release publishes beside the
 platform's, at the same version. The chart is not a subchart of the platform's and shares no value
-with it. Its page, `charts/choregos-outpost/README.md`, holds every value, and
-`charts/choregos-outpost/values/example.yaml` is a complete example.
+with it. Its page, `charts/tranibor-outpost/README.md`, holds every value, and
+`charts/tranibor-outpost/values/example.yaml` is a complete example.
 
 ```bash
 kubectl create namespace outposts
 kubectl -n outposts create secret generic factory-floor-enrolment --from-literal=token=<token>
-helm install factory-floor oci://ghcr.io/graalsystems/charts/choregos-outpost --namespace outposts --values my-outpost.yaml
+helm install factory-floor oci://ghcr.io/graalsystems/charts/tranibor-outpost --namespace outposts --values my-outpost.yaml
 kubectl -n outposts logs factory-floor-choregos-outpost-0 -c enrol
 ```
 

@@ -1,7 +1,7 @@
 """The MCP gate accepts the IdP's tokens when the deployment says so (ADR 0030).
 
 `global.mcp.oauth` becomes the API's settings: before, variables had to be set by hand
-in `global.extraEnv`, and the operations guide showed a `choregos-api.env` the chart
+in `global.extraEnv`, and the operations guide showed a `tranibor-api.env` the chart
 never read. The clients become the JSON the API expects -- `client_id`, `callback_port`.
 """
 
@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -33,7 +33,7 @@ def _api_env(*surcharges: str) -> dict[str, str]:
     assert rendu.returncode == 0, rendu.stderr
     documents: list[dict[str, Any]] = [d for d in yaml.safe_load_all(rendu.stdout) if d]
     deploiements = [d for d in documents if d.get("kind") == "Deployment"]
-    (api,) = [d for d in deploiements if d["metadata"]["name"] == "choregos-api"]
+    (api,) = [d for d in deploiements if d["metadata"]["name"] == "tranibor-api"]
     (conteneur,) = [c for c in api["spec"]["template"]["spec"]["containers"] if c["name"] == "api"]
     return {e["name"]: e.get("value", "") for e in conteneur.get("env", []) if "value" in e}
 

@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 DIGEST = "sha256:" + "a" * 64
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -28,7 +28,7 @@ def _envs(*overrides: str) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for deployment in (d for d in documents if d.get("kind") == "Deployment"):
         name = deployment["metadata"]["name"]
-        if name != "choregos-api" and not name.startswith("choregos-orchestrator"):
+        if name != "tranibor-api" and not name.startswith("tranibor-orchestrator"):
             continue
         container = deployment["spec"]["template"]["spec"]["containers"][0]
         out[name] = {e["name"]: e["value"] for e in container.get("env", []) if "value" in e}
@@ -37,7 +37,7 @@ def _envs(*overrides: str) -> dict[str, dict[str, str]]:
 
 def test_nothing_is_named_by_default_and_digests_are_required() -> None:
     envs = _envs()
-    assert "choregos-api" in envs and len(envs) > 1
+    assert "tranibor-api" in envs and len(envs) > 1
     for name, env in envs.items():
         assert "CHOREGOS_JOB_IMAGES" not in env and "CHOREGOS_AGENT_IMAGES" not in env, name
         assert env["CHOREGOS_REQUIRE_IMAGE_DIGEST"] == "true", name
@@ -61,25 +61,25 @@ def test_a_bench_can_turn_the_digest_rule_off() -> None:
 
 
 def test_hosted_registries_and_the_signature_mode_reach_the_api_only() -> None:
-    default = _envs()["choregos-api"]
+    default = _envs()["tranibor-api"]
     assert "CHOREGOS_HOSTED_REGISTRIES" not in default
     assert default["CHOREGOS_HOSTED_COSIGN"] == "off"
     envs = _envs(
         "global.images.hostedRegistries={ghcr.io/acme,registry.internal}",
         "global.images.hostedCosign=enforce",
     )
-    assert json.loads(envs["choregos-api"]["CHOREGOS_HOSTED_REGISTRIES"]) == [
+    assert json.loads(envs["tranibor-api"]["CHOREGOS_HOSTED_REGISTRIES"]) == [
         "ghcr.io/acme",
         "registry.internal",
     ]
-    assert envs["choregos-api"]["CHOREGOS_HOSTED_COSIGN"] == "enforce"
-    assert all("CHOREGOS_HOSTED_COSIGN" not in env for name, env in envs.items() if name != "choregos-api")
+    assert envs["tranibor-api"]["CHOREGOS_HOSTED_COSIGN"] == "enforce"
+    assert all("CHOREGOS_HOSTED_COSIGN" not in env for name, env in envs.items() if name != "tranibor-api")
 
 
 def test_the_build_repository_and_the_builder_reach_every_worker_not_the_api() -> None:
     """S41-08: the executor worker builds and pushes a hosted zip's image; the API only starts it."""
     default = _envs()
-    workers = {name: env for name, env in default.items() if name != "choregos-api"}
+    workers = {name: env for name, env in default.items() if name != "tranibor-api"}
     assert all("CHOREGOS_HOSTED_BUILD_REPOSITORY" not in env for env in workers.values())
     assert all(env["CHOREGOS_HOSTED_BUILDER"] == "buildkit" for env in workers.values())
     envs = _envs(
@@ -88,7 +88,7 @@ def test_the_build_repository_and_the_builder_reach_every_worker_not_the_api() -
         "global.images.buildkitAddress=tcp://buildkitd.builds:1234",
     )
     for name, env in envs.items():
-        if name == "choregos-api":
+        if name == "tranibor-api":
             assert "CHOREGOS_HOSTED_BUILD_REPOSITORY" not in env
             continue
         assert env["CHOREGOS_HOSTED_BUILD_REPOSITORY"] == "registry.internal/choregos-builds", name
@@ -103,7 +103,7 @@ def _rendered_for(kube_version: str, *overrides: str) -> dict[str, str]:
     rendered = subprocess.run(command, capture_output=True, text=True, check=False)
     assert rendered.returncode == 0, rendered.stderr
     for document in (d for d in yaml.safe_load_all(rendered.stdout) if d):
-        if document.get("kind") == "Deployment" and document["metadata"]["name"] == "choregos-api":
+        if document.get("kind") == "Deployment" and document["metadata"]["name"] == "tranibor-api":
             container = document["spec"]["template"]["spec"]["containers"][0]
             return {e["name"]: e["value"] for e in container.get("env", []) if "value" in e}
     raise AssertionError("no API deployment")
@@ -116,5 +116,5 @@ def test_the_cluster_version_reaches_the_api_from_the_cluster_or_the_operator() 
     overridden = _rendered_for("1.33.0", "global.kubernetesVersion=v1.28.9-eks-abc")
     assert overridden["CHOREGOS_CLUSTER_VERSION"] == "v1.28.9-eks-abc"
     assert all(
-        "CHOREGOS_CLUSTER_VERSION" not in env for name, env in _envs().items() if name != "choregos-api"
+        "CHOREGOS_CLUSTER_VERSION" not in env for name, env in _envs().items() if name != "tranibor-api"
     )

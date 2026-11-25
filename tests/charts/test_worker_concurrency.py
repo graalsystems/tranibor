@@ -9,7 +9,7 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -52,9 +52,9 @@ def test_every_queue_gets_the_values_the_worker_always_had() -> None:
 def test_the_chart_value_reaches_every_queue() -> None:
     env = _worker_env(
         "--set",
-        "choregos-orchestrator.concurrency.activities=50",
+        "tranibor-orchestrator.concurrency.activities=50",
         "--set",
-        "choregos-orchestrator.concurrency.cachedWorkflows=0",
+        "tranibor-orchestrator.concurrency.cachedWorkflows=0",
     )
     for variables in env.values():
         assert variables["CHOREGOS_WORKER_MAX_CONCURRENT_ACTIVITIES"] == "50"
@@ -67,7 +67,7 @@ def test_a_queue_overrides_the_chart_value_for_itself_only(tmp_path: pathlib.Pat
     values.write_text(
         yaml.safe_dump(
             {
-                "choregos-orchestrator": {
+                "tranibor-orchestrator": {
                     "queues": [
                         {"name": "orchestrator", "replicas": 1, "resources": {}},
                         {

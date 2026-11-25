@@ -15,7 +15,7 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PRESETS = CHART / "values"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -70,10 +70,10 @@ def test_any_environment_named_prod_refuses_them_whatever_preset_it_starts_from(
 
 
 def test_the_fakes_handed_to_every_run_are_refused_in_production() -> None:
-    """`choregos-orchestrator.runner.env` reaches every runner (pod env and `CHOREGOS_RUNNER_ENV`)."""
-    rendu = _rendered("prod", strings=("choregos-orchestrator.runner.env.CHOREGOS_FAKES=1",))
+    """`tranibor-orchestrator.runner.env` reaches every runner (pod env and `CHOREGOS_RUNNER_ENV`)."""
+    rendu = _rendered("prod", strings=("tranibor-orchestrator.runner.env.CHOREGOS_FAKES=1",))
     assert rendu.returncode != 0
-    assert "choregos-orchestrator.runner.env.CHOREGOS_FAKES" in rendu.stderr
+    assert "tranibor-orchestrator.runner.env.CHOREGOS_FAKES" in rendu.stderr
 
 
 @pytest.mark.parametrize("preset", ["prod", "staging"])

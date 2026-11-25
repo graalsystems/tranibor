@@ -21,7 +21,7 @@ from tranibor_adapters.executor import egress_gate
 from tranibor_contracts.env import adopted
 from tranibor_core.egress_gate import GATE_CONTAINER, REPORT_ENV, EgressGate, gate_from_env
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 VALUES = CHART / "values"
 SITE = [
     "--set",
@@ -52,7 +52,7 @@ def _executor_env(*arguments: str) -> dict[str, str]:
     deployment = next(
         d
         for d in _documents(*arguments)
-        if d["kind"] == "Deployment" and d["metadata"]["name"] == "choregos-orchestrator-executor"
+        if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-orchestrator-executor"
     )
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     return {e["name"]: e.get("value", "") for e in container["env"]}
@@ -72,9 +72,9 @@ def test_the_sandbox_templates_first_init_container_is_the_gate(isolation: str) 
 def test_the_chart_and_the_executor_build_the_same_gate() -> None:
     pod = _template_pod(
         "--set",
-        "choregos-orchestrator.runner.egressGate.target=203.0.113.9:8443",
+        "tranibor-orchestrator.runner.egressGate.target=203.0.113.9:8443",
         "--set",
-        "choregos-orchestrator.runner.egressGate.deadlineSeconds=12",
+        "tranibor-orchestrator.runner.egressGate.deadlineSeconds=12",
     )
     rendered = pod["initContainers"][0]
     built = egress_gate.init_container(
@@ -94,7 +94,7 @@ def test_the_chart_and_the_executor_build_the_same_gate() -> None:
 
 
 def test_the_gate_can_be_turned_off_and_then_leaves_no_trace() -> None:
-    pod = _template_pod("--set", "choregos-orchestrator.runner.egressGate.enabled=false")
+    pod = _template_pod("--set", "tranibor-orchestrator.runner.egressGate.enabled=false")
 
     # The agent's own container (the default since S65-04m) stays; nothing of the gate does.
     assert [c["name"] for c in pod["initContainers"]] == ["agent"]
@@ -102,7 +102,7 @@ def test_the_gate_can_be_turned_off_and_then_leaves_no_trace() -> None:
     runner = next(c for c in pod["containers"] if c["name"] == "runner")
     assert REPORT_ENV not in {e["name"] for e in runner.get("env", [])}
     assert (
-        _executor_env("--set", "choregos-orchestrator.runner.egressGate.enabled=false")[
+        _executor_env("--set", "tranibor-orchestrator.runner.egressGate.enabled=false")[
             "CHOREGOS_RUNNER_EGRESS_GATE"
         ]
         == "false"
@@ -130,7 +130,7 @@ def test_the_single_node_guard_refuses_the_gate_off() -> None:
         str(VALUES / "single-node.yaml"),
         *SITE,
         "--set",
-        "choregos-orchestrator.runner.egressGate.enabled=false",
+        "tranibor-orchestrator.runner.egressGate.enabled=false",
         check=False,
     )
 

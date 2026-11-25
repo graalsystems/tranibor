@@ -1,0 +1,73 @@
+enabled: true
+image:
+  # Empty: `global.imageRegistry`. Another registry — the `-ee` images of the enterprise edition,
+  # served by a private project — is set here, component by component.
+  registry: ""
+  repository: tranibor-orchestrator
+  tag: ""
+  digest: ""
+# What one worker pod takes on at once (S80-07a): see the umbrella chart's values.
+concurrency:
+  activities: 20
+  workflowTasks: 100
+  localActivities: 100
+  cachedWorkflows: 1000
+queues:
+  - name: orchestrator
+    replicas: 2
+    resources: { requests: { cpu: 200m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
+  - name: executor
+    replicas: 2
+    resources: { requests: { cpu: 200m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
+  - name: tracker
+    replicas: 2
+    resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  - name: memory
+    replicas: 1
+    resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+runner:
+  image: tranibor-runner
+  # Empty, like `image.tag` just above: the tag follows `global.imageTag`. It used to be `1.0.0`
+  # hardcoded — a version that exists in no installation — and only held because
+  # the umbrella rewrote it to `""`. The day that rewrite disappeared (2026-09-27, a slightly
+  # broad cut), the agent pods re-pointed at a missing image. A default that is only correct
+  # thanks to a fix elsewhere is not a default, it is a trap.
+  tag: ""
+  # Empty: the release namespace for `agent_sandbox`, `proj-{slug}-runners` otherwise.
+  namespacePattern: ""
+  # Empty: `global.runner.executor` (default agent_sandbox, ADR 0072) decides.
+  executor: ""
+  skipOperatorCheck: false
+  # `agent_sandbox` only: the executor for steps that name their own image. Empty: such a step is refused.
+  customImageExecutor: k8s_job
+  runtimeClass: ""
+  # The runner container's own requests and limits beside the agent's (ADR 0146 §12): see the umbrella
+  # chart's values.
+  ownResources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 2Gi }
+  # `executor: agent_sandbox` only (ADR 0016): see the umbrella chart's values.
+  warmPool:
+    size: 0
+  sandbox:
+    storage: 10Gi
+    storageClassName: ""
+    assignmentPort: 8765
+    assignmentNetworkPolicy: true
+    ttlSecondsAfterFinished: 300
+  egressProxy: "http://choregos-egress.{namespace}.svc:3128"
+  egressImage: ""
+  # The egress gate (S80-07f): see the umbrella chart's values.
+  egressGate:
+    enabled: true
+    target: "1.1.1.1:443"
+    deadlineSeconds: 30
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Seconds a worker stays attached to a node that became unreachable before being
+# evicted. Kubernetes' default is 300: measured on a cluster, that makes 359 s of immobility after
+# losing a node, against 74 s here. A worker is replaceable and Temporal picks up its work.
+# `0` restores Kubernetes' default behavior.
+unreachableTolerationSeconds: 20

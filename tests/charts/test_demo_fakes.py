@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -38,26 +38,26 @@ def _nommes(documents: list[dict[str, Any]], name: str) -> dict[str, dict[str, A
 
 
 def test_nothing_by_default() -> None:
-    assert _nommes(_documents(), "choregos-demo-fakes") == {}
+    assert _nommes(_documents(), "tranibor-demo-fakes") == {}
 
 
 def test_one_single_pod_that_the_api_and_the_orchestrator_reach() -> None:
     documents = _documents(
         "demoFakes.enabled=true", "demoFakes.tokenSecret.name=demo", "demoFakes.tokenSecret.key=jeton"
     )
-    served = _nommes(documents, "choregos-demo-fakes")
+    served = _nommes(documents, "tranibor-demo-fakes")
     deployment, service = served["Deployment"], served["Service"]
     assert deployment["spec"]["replicas"] == 1 and deployment["spec"]["strategy"]["type"] == "Recreate"
     (conteneur,) = deployment["spec"]["template"]["spec"]["containers"]
     assert conteneur["command"] == ["python", "-m", "tranibor_adapters.fakes.server"]
-    assert conteneur["image"].split("/")[-1].startswith("choregos-api:"), "the API image carries the fakes"
+    assert conteneur["image"].split("/")[-1].startswith("tranibor-api:"), "the API image carries the fakes"
     token = next(e for e in conteneur["env"] if e["name"] == "CONNECTOR_DEMO_TOKEN")
     assert token["valueFrom"]["secretKeyRef"] == {"name": "demo", "key": "jeton"}, "by reference"
     assert service["spec"]["ports"][0]["port"] == 8090
     output = next(
         d
         for d in documents
-        if d.get("kind") == "NetworkPolicy" and d["metadata"]["name"] == "choregos-allow-platform"
+        if d.get("kind") == "NetworkPolicy" and d["metadata"]["name"] == "tranibor-allow-platform"
     )
     regles = [r for r in output["spec"]["egress"] if r["to"][0].get("podSelector")]
     assert regles == [
@@ -81,7 +81,7 @@ MEASURED_START_SECONDS = {"200m": 34, "500m": 12, "1": 6}
 
 def test_the_liveness_probe_waits_for_the_extensions_to_load() -> None:
     """#2139: without a startup probe, the liveness probe (3 x 10 s) killed the server at 200m, in a loop."""
-    served = _nommes(_documents("demoFakes.enabled=true"), "choregos-demo-fakes")
+    served = _nommes(_documents("demoFakes.enabled=true"), "tranibor-demo-fakes")
     (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
     startup = conteneur.get("startupProbe")
     assert startup is not None, "no startup probe: the liveness probe fires while the extensions load"
@@ -97,7 +97,7 @@ def test_the_liveness_probe_waits_for_the_extensions_to_load() -> None:
 
 def test_a_deployment_sizes_the_start_budget() -> None:
     documents = _documents("demoFakes.enabled=true", "demoFakes.startupProbe.failureThreshold=60")
-    served = _nommes(documents, "choregos-demo-fakes")
+    served = _nommes(documents, "tranibor-demo-fakes")
     (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
     assert conteneur["startupProbe"]["failureThreshold"] == 60
 
@@ -105,6 +105,6 @@ def test_a_deployment_sizes_the_start_budget() -> None:
 def test_the_fakes_know_the_deployment_s_environment() -> None:
     """#2145: the extensions load in this process too; one that reads the environment (an enterprise image
     built against a core commit starts only in `dev`) refused to start without it."""
-    served = _nommes(_documents("demoFakes.enabled=true", "global.environment=dev"), "choregos-demo-fakes")
+    served = _nommes(_documents("demoFakes.enabled=true", "global.environment=dev"), "tranibor-demo-fakes")
     (conteneur,) = served["Deployment"]["spec"]["template"]["spec"]["containers"]
     assert {"name": "CHOREGOS_ENV", "value": "dev"} in conteneur["env"]

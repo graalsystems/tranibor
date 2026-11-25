@@ -128,7 +128,7 @@ platform itself (hot reload, a development cluster), see [development](developme
 | A **board** (GitHub Projects v2, Jira) — *or nothing* | with `tracker: internal` the requests are filed in Tranibor itself |
 | A **GitHub App** installed on the organisation — *for GitHub* | scoped installation tokens, webhooks; never a broad PAT. Install it from the console (*Settings → Connections → Install on GitHub*): the installation is discovered and claimed by your organisation, and you never type an installation id ([ADR 0073](adr/0073-github-app-installations-are-discovered-not-typed.md)). For companies other than the App's owner the App must be public ([deployment](deployment.md#the-github-app)) |
 | A **cluster** (or an Azure subscription) | agents run in `agent-sandbox` sandboxes by default (the platform team installs the operator, [ADR 0072](adr/0072-agent-sandbox-is-the-runtime-of-a-real-deployment.md)); Tekton or Jobs only where the deployment says so; or Container Apps jobs |
-| The **platform secrets** | `session-secret`, the run-token key pair, the webhook secrets, the App ID and its private key — in the vault, read by External Secrets (`charts/choregos/charts/api/templates/externalsecret.yaml`) |
+| The **platform secrets** | `session-secret`, the run-token key pair, the webhook secrets, the App ID and its private key — in the vault, read by External Secrets (`charts/tranibor/charts/api/templates/externalsecret.yaml`) |
 
 Models go through the platform's LiteLLM gateway: a project has no provider key of its own,
 it has a budget.

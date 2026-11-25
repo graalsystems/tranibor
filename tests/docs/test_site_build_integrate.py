@@ -332,8 +332,8 @@ def _values_paths(document: Any, prefix: tuple[str, ...] = ()) -> list[tuple[str
 
 @cache
 def _chart_values() -> dict[str, Any]:
-    values = yaml.safe_load((ROOT / "charts/choregos/values.yaml").read_text(encoding="utf-8"))
-    for chart in (ROOT / "charts/choregos/charts").iterdir():
+    values = yaml.safe_load((ROOT / "charts/tranibor/values.yaml").read_text(encoding="utf-8"))
+    for chart in (ROOT / "charts/tranibor/charts").iterdir():
         own = yaml.safe_load((chart / "values.yaml").read_text(encoding="utf-8")) or {}
         merged = values.setdefault(f"choregos-{chart.name}", {}) or {}
         values[f"choregos-{chart.name}"] = {**own, **merged}

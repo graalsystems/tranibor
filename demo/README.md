@@ -46,7 +46,7 @@ turns and minutes. Say so when showing the dashboard.
 ```bash
 kubectl -n choregos create secret generic agent-creds \
   --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(jq -r .claudeAiOauth.accessToken ~/.claude/.credentials.json)"
-helm upgrade choregos charts/choregos -n choregos -f charts/choregos/values/local.yaml \
+helm upgrade choregos charts/tranibor -n choregos -f charts/tranibor/values/local.yaml \
   -f demo/values-demo.yaml --set global.gateway.embedded=false --reuse-values
 make demo-seed GATEWAY=direct
 ```

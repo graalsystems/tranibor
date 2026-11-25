@@ -23,7 +23,7 @@
 /apps/api/src/tranibor_api/routers/internal.py                @graalsystems/human-review
 /packages/runner/src/tranibor_runner/confine.py               @graalsystems/human-review
 /packages/runner/src/tranibor_runner/safe_files.py            @graalsystems/human-review
-/charts/choregos/templates/networkpolicies.yaml               @graalsystems/human-review
+/charts/tranibor/templates/networkpolicies.yaml               @graalsystems/human-review
 /infra/policies/                                              @graalsystems/human-review
 /.github/workflows/                                           @graalsystems/human-review
 /docker/                                                      @graalsystems/human-review

@@ -22,7 +22,7 @@ import pytest
 import yaml
 from tranibor_adapters.executor.k8s_job import RUNNER_POD_LABELS
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROFILE = CHART / "values" / "single-node.yaml"
 NAMESPACE = "choregos"
 OPERATOR_API = "extensions.agents.x-k8s.io/v1beta1/SandboxTemplate"
@@ -194,9 +194,9 @@ def pods(rendered: list[dict[str, Any]]) -> dict[str, Pod]:
         ("Deployment", "choregos-temporal"): "temporal",
         ("Deployment", "choregos-litellm"): "litellm",
         ("Deployment", "choregos-ecphoria"): "ecphoria",
-        ("Deployment", "choregos-api"): "api",
-        ("Deployment", "choregos-web"): "web",
-        ("Deployment", "choregos-orchestrator-executor"): "orchestrator",
+        ("Deployment", "tranibor-api"): "api",
+        ("Deployment", "tranibor-web"): "web",
+        ("Deployment", "tranibor-orchestrator-executor"): "orchestrator",
         ("Deployment", "choregos-egress"): "egress",
         ("CronJob", "choregos-backup"): "backup",
         ("CronJob", "choregos-restore"): "restore",
@@ -235,12 +235,12 @@ def agent(request: pytest.FixtureRequest, sandbox_labels: dict[str, str]) -> Pod
 def test_the_profile_renders_the_policies_and_the_egress_proxy(rendered: list[dict[str, Any]]) -> None:
     names = {(d["kind"], d["metadata"]["name"]) for d in rendered}
     for name in (
-        "choregos-default-deny-egress",
-        "choregos-allow-platform",
-        "choregos-runner-egress",
-        "choregos-egress-net",
-        "choregos-postgresql-ingress",
-        "choregos-temporal-ingress",
+        "tranibor-default-deny-egress",
+        "tranibor-allow-platform",
+        "tranibor-runner-egress",
+        "tranibor-egress-net",
+        "tranibor-postgresql-ingress",
+        "tranibor-temporal-ingress",
     ):
         assert ("NetworkPolicy", name) in names, name
     assert ("Deployment", "choregos-egress") in names
@@ -350,7 +350,7 @@ def test_the_runners_are_told_to_use_the_proxy(rendered: list[dict[str, Any]]) -
     executor = next(
         d
         for d in rendered
-        if d["kind"] == "Deployment" and d["metadata"]["name"] == "choregos-orchestrator-executor"
+        if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-orchestrator-executor"
     )
     env = {e["name"]: e.get("value") for e in executor["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert env["CHOREGOS_RUNNER_EGRESS_PROXY"] == "http://choregos-egress.{namespace}.svc:3128"

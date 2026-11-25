@@ -17,9 +17,9 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 HOST = "agentic.client.com"
-NAME = "choregos-host-agentic-client-com"
+NAME = "tranibor-host-agentic-client-com"
 ISSUER = "global.customHosts.certificate.issuerRef.name=choregos-issuer"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -59,13 +59,13 @@ def _paths(ingress: dict[str, Any]) -> list[tuple[str, str, str]]:
 
 
 def _public_hosts(documents: list[dict[str, Any]]) -> list[str]:
-    deployment = _one(documents, "Deployment", "choregos-api")
+    deployment = _one(documents, "Deployment", "tranibor-api")
     env = {e["name"]: e.get("value") for e in deployment["spec"]["template"]["spec"]["containers"][0]["env"]}
     return list(json.loads(env["CHOREGOS_PUBLIC_HOSTS"]))
 
 
 def _canonical_api_paths() -> list[tuple[str, str, str]]:
-    ingress = _one(_documents("choregos-api.ingress.kind=ingress"), "Ingress", "choregos-api")
+    ingress = _one(_documents("tranibor-api.ingress.kind=ingress"), "Ingress", "tranibor-api")
     return _paths(ingress)
 
 
@@ -81,7 +81,7 @@ def test_a_plain_ingress_routes_the_console_and_the_api_like_the_canonical_host(
     assert ingress["spec"]["ingressClassName"] == "nginx"
     assert ingress["spec"]["rules"][0]["host"] == HOST
     # Exactly the API's own paths (same order, same types), then the console for the rest.
-    assert _paths(ingress) == [*_canonical_api_paths(), ("/", "Prefix", "choregos-web")]
+    assert _paths(ingress) == [*_canonical_api_paths(), ("/", "Prefix", "tranibor-web")]
     assert ingress["spec"]["tls"] == [{"hosts": [HOST], "secretName": f"{NAME}-tls"}]
 
 
@@ -115,7 +115,7 @@ def test_nginx_mergeable_renders_a_master_with_the_tls_and_two_minions() -> None
         assert minion["spec"]["rules"][0]["host"] == HOST
         assert "tls" not in minion["spec"]
     assert _paths(api) == _canonical_api_paths()
-    assert _paths(web) == [("/", "Prefix", "choregos-web")]
+    assert _paths(web) == [("/", "Prefix", "tranibor-web")]
     assert _one(documents, "Certificate", NAME)["spec"]["secretName"] == f"{NAME}-tls"
 
 
@@ -135,12 +135,12 @@ def test_an_http_route_matches_what_the_canonical_route_matches() -> None:
         "httproute", "global.customHosts.gateway=edge", "global.customHosts.gatewayNamespace=gw"
     )
     route = _one(documents, "HTTPRoute", NAME)
-    canonical = _one(_documents(), "HTTPRoute", "choregos-api")
+    canonical = _one(_documents(), "HTTPRoute", "tranibor-api")
     assert route["spec"]["hostnames"] == [HOST]
     assert route["spec"]["parentRefs"] == [{"name": "edge", "namespace": "gw"}]
     assert route["spec"]["rules"][0]["matches"] == canonical["spec"]["rules"][0]["matches"]
-    assert route["spec"]["rules"][0]["backendRefs"][0]["name"] == "choregos-api"
-    assert route["spec"]["rules"][1]["backendRefs"][0]["name"] == "choregos-web"
+    assert route["spec"]["rules"][0]["backendRefs"][0]["name"] == "tranibor-api"
+    assert route["spec"]["rules"][1]["backendRefs"][0]["name"] == "tranibor-web"
     assert not [d for d in documents if d["kind"] == "Ingress"]
 
 
@@ -157,8 +157,8 @@ def test_the_hosts_are_public_names_for_the_api_guard() -> None:
 def test_each_host_gets_its_own_objects() -> None:
     documents = _hosts("ingress", hosts=f"{HOST},data.other.org")
     assert _one(documents, "Ingress", NAME)
-    assert _one(documents, "Ingress", "choregos-host-data-other-org")
-    assert _one(documents, "Certificate", "choregos-host-data-other-org")["spec"]["dnsNames"] == [
+    assert _one(documents, "Ingress", "tranibor-host-data-other-org")
+    assert _one(documents, "Certificate", "tranibor-host-data-other-org")["spec"]["dnsNames"] == [
         "data.other.org"
     ]
 
@@ -183,15 +183,15 @@ def test_without_a_certificate_the_operator_brings_the_secret() -> None:
         (["global.customHosts.hosts={app.choregos.local}", ISSUER], "is already routed by global.publicUrl"),
         (
             ["global.customHosts.hosts={hooks.choregos.local}", ISSUER],
-            "is already routed by choregos-api.ingress.hostnames",
+            "is already routed by tranibor-api.ingress.hostnames",
         ),
         (
             [
                 "global.customHosts.hosts={runs.client.com}",
                 ISSUER,
-                "choregos-api.runDoor.hostnames={runs.client.com}",
+                "tranibor-api.runDoor.hostnames={runs.client.com}",
             ],
-            "choregos-api.runDoor.hostnames",
+            "tranibor-api.runDoor.hostnames",
         ),
         ([f"global.customHosts.hosts={{{HOST}}}"], "issuerRef.name is empty"),
         (

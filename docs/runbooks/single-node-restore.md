@@ -1,6 +1,6 @@
 # Single node: restore from the nightly backup
 
-For an installation made with `charts/choregos/values/single-node.yaml` ([ADR 0184](../adr/0184-a-supported-single-node-installation.md)).
+For an installation made with `charts/tranibor/values/single-node.yaml` ([ADR 0184](../adr/0184-a-supported-single-node-installation.md)).
 What the backup holds: every database of the embedded PostgreSQL (`pg_dump -Fc --create`), Temporal's
 SQLite file (an online copy) in `dev` mode, the memory as Ecphoria backs it up itself, and the object
 store when `backup.objectStore` is on.
@@ -61,7 +61,7 @@ Without a stamp the restore takes the newest complete one.
      --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
    ```
 3. **The chart**, with the same values files as the lost installation:
-   `helm install choregos charts/choregos -n choregos -f charts/choregos/values/single-node.yaml -f my-site.yaml`.
+   `helm install choregos charts/tranibor -n choregos -f charts/tranibor/values/single-node.yaml -f my-site.yaml`.
    Wait until every Deployment is available (`kubectl -n choregos get deploy`). It starts empty; the
    restore replaces that.
 4. **The restore**:

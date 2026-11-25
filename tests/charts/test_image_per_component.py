@@ -17,7 +17,7 @@ import yaml
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 PRIVE = "harbor.example.com/choregos-ee"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -39,10 +39,10 @@ def _images(*surcharges: str) -> dict[str, list[str]]:
 
 
 EE = (
-    f"choregos-api.image.registry={PRIVE}",
-    "choregos-api.image.repository=choregos-api-ee",
-    f"choregos-orchestrator.image.registry={PRIVE}",
-    "choregos-orchestrator.image.repository=choregos-orchestrator-ee",
+    f"tranibor-api.image.registry={PRIVE}",
+    "tranibor-api.image.repository=choregos-api-ee",
+    f"tranibor-orchestrator.image.registry={PRIVE}",
+    "tranibor-orchestrator.image.repository=choregos-orchestrator-ee",
 )
 
 
@@ -55,7 +55,7 @@ def test_the_api_and_the_orchestrator_come_from_the_private_project_the_rest_of_
     for name, refs in images.items():
         if name not in prives:
             assert all(not r.startswith(PRIVE) for r in refs), (name, refs)
-    assert any(r.startswith(PUBLISHING.image("choregos-web")) for refs in images.values() for r in refs)
+    assert any(r.startswith(PUBLISHING.image("tranibor-web")) for refs in images.values() for r in refs)
 
 
 def test_the_global_digest_does_not_point_at_an_image_of_another_registry() -> None:

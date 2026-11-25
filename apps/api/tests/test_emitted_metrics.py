@@ -16,8 +16,8 @@ from typing import Any
 from httpx import AsyncClient
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-DASHBOARDS = ROOT / "charts" / "choregos" / "dashboards"
-ALERTS = ROOT / "charts" / "choregos" / "templates" / "monitoring.yaml"
+DASHBOARDS = ROOT / "charts" / "tranibor" / "dashboards"
+ALERTS = ROOT / "charts" / "tranibor" / "templates" / "monitoring.yaml"
 CHOREGOS = re.compile(r"choregos_[a-z_]+")
 SUFFIXES = ("_bucket", "_count", "_sum")
 

@@ -1,0 +1,52 @@
+Choregos {{ .Chart.AppVersion }} is deployed in the namespace {{ .Release.Namespace }}.
+
+  Front      https://app.{{ .Values.global.domain }}
+  API        https://api.{{ .Values.global.domain }}
+  Webhooks   https://hooks.{{ .Values.global.domain }}/api/v1/webhooks/github
+
+Check that everything responds:
+
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/part-of=choregos
+  kubectl -n {{ .Release.Namespace }} logs deploy/tranibor-api --tail=50
+
+{{- if include "tranibor.outpostsEnabled" . }}
+
+Outposts are on. Their door: {{ include "tranibor.outpostsDoorUrl" . }}/outposts/v1
+{{- if eq (toString .Values.global.outposts.door.dedicated) "true" }} (served by deploy/tranibor-outposts-door){{ end }}
+{{- if not ((.Values.global.outposts.door.signingKey | default dict).existingSecret) }}
+
+Its signing key is in the Secret {{ include "tranibor.outpostsDoorKeySecret" . }}, drawn once by this
+chart, immutable and kept on uninstall. Every outpost pins its public half: back it up, and never
+delete it outside a rotation (docs/deployment.md, "Outposts").
+{{- end }}
+{{- end }}
+{{- if .Values.global.fakes }}
+
+⚠ `global.fakes` is on: the connectors are simulated. Use only in development.
+{{- end }}
+{{- if include "tranibor.allInOne" . }}
+
+All in one (ADR 0208): this release deploys what the platform requires. One replica of everything:
+not production-grade (docs/deployment.md, "All in one").
+{{- if .Values.global.oidc.embedded }}
+
+  Sign-in    {{ include "tranibor.oidcIssuer" . }} (the embedded Keycloak, realm {{ ((index .Values "keycloak").realm).name }})
+             platform administrator: {{ ((index .Values "keycloak").realm).adminUser }}, password in
+             kubectl -n {{ .Release.Namespace }} get secret {{ .Release.Name }}-keycloak -o jsonpath='{.data.realm-admin-password}' | base64 -d
+{{- end }}
+{{- if .Values.global.objectStore.embedded }}
+
+  Files      {{ include "tranibor.objectStoreEndpoint" . }} (the embedded object store, bucket {{ include "tranibor.objectStoreBucket" . }}); keys in the Secret {{ .Values.global.objectStore.secretRef }}
+{{- end }}
+{{- if eq (include "tranibor.executorKind" .) "k8s_job" }}
+
+  Agents     the executor is `k8s_job`: each agent stage is a Job of this namespace. The agent-sandbox
+             operator is not installed by this chart (its CRDs are cluster-scoped); install it
+             (infra/operators/agent-sandbox) and set global.runner.executor=agent_sandbox to use it.
+{{- end }}
+{{- if not (.Values.backup.target.kind | eq "s3") }}
+
+  Backup     the scheduled backup lands on a volume of this cluster: point backup.target at a bucket
+             off the cluster before you rely on it.
+{{- end }}
+{{- end }}

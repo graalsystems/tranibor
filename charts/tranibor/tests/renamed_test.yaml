@@ -1,0 +1,59 @@
+# ADR 0224 R6: the drawn Secrets whose default name became `tranibor-*` carry over what their former
+# name holds. `helm template` cannot `lookup`; helm-unittest's provider stands in for the cluster.
+suite: the former names' Secrets
+templates:
+  - templates/values/keys/merged/first.yaml
+  - templates/embedded-secrets.yaml
+release:
+  namespace: platform
+set:
+  tranibor-orchestrator.runner.skipOperatorCheck: true
+  global.devSecrets: true
+kubernetesProvider:
+  scheme:
+    "v1/Secret":
+      gvr:
+        version: v1
+        resource: secrets
+      namespaced: true
+  objects:
+    # What a release of the former chart drew: `choregos-api-secrets`, its session secret and its
+    # `secrets-keks`, which seals every connector secret already stored.
+    - kind: Secret
+      apiVersion: v1
+      metadata:
+        name: choregos-api-secrets
+        namespace: platform
+      data:
+        session-secret: Zm9ybWVyLXNlc3Npb24= # former-session
+        github-webhook-secret: Zm9ybWVyLWhvb2s= # former-hook
+        run-token-private-key: Zm9ybWVyLWtleQ== # former-key
+        secrets-keks: azE6Zm9ybWVyLWtlaw== # k1:former-kek
+tests:
+  - it: the application secrets keep the values the former Secret holds
+    template: templates/embedded-secrets.yaml
+    documentSelector:
+      path: metadata.name
+      value: tranibor-api-secrets
+    asserts:
+      - equal:
+          path: stringData.session-secret
+          value: former-session
+      - equal:
+          path: stringData.run-token-private-key
+          value: former-key
+      - equal:
+          path: stringData.secrets-keks
+          value: k1:former-kek
+
+  - it: a name the operator set is looked up as it is, never under another name
+    template: templates/embedded-secrets.yaml
+    set:
+      global.apiSecretRef: site-secrets
+    documentSelector:
+      path: metadata.name
+      value: site-secrets
+    asserts:
+      - notEqual:
+          path: stringData.session-secret
+          value: former-session

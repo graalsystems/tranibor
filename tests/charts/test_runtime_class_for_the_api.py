@@ -9,9 +9,9 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 VALUE = "CHOREGOS_RUNNER_RUNTIME_CLASS"
-BASE = ("global.rbac.jobRunner=true", "choregos-orchestrator.runner.namespacePattern=choregos")
+BASE = ("global.rbac.jobRunner=true", "tranibor-orchestrator.runner.namespacePattern=choregos")
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -40,28 +40,28 @@ def _seen(*overrides: str) -> dict[str, set[str]]:
 
 def test_never_set_leaves_the_api_without_a_value_so_it_judges_nothing() -> None:
     seen = _seen()
-    assert "choregos-api" not in seen, "an API told nothing reads the pool's class as unknown"
+    assert "tranibor-api" not in seen, "an API told nothing reads the pool's class as unknown"
     assert set().union(*seen.values()) == {""}, "the workers keep the previous behavior"
 
 
 def test_the_sub_chart_value_alone_still_reaches_the_pool_but_not_the_api() -> None:
-    seen = _seen("choregos-orchestrator.runner.runtimeClass=gvisor")
-    assert "choregos-api" not in seen, "else the API would read a gvisor pool as the cluster default"
+    seen = _seen("tranibor-orchestrator.runner.runtimeClass=gvisor")
+    assert "tranibor-api" not in seen, "else the API would read a gvisor pool as the cluster default"
     assert set().union(*seen.values()) == {"gvisor"}
-    rendered = _render("choregos-orchestrator.runner.runtimeClass=gvisor").stdout
+    rendered = _render("tranibor-orchestrator.runner.runtimeClass=gvisor").stdout
     template = next(d for d in yaml.safe_load_all(rendered) if d and d.get("kind") == "SandboxTemplate")
     assert template["spec"]["podTemplate"]["spec"]["runtimeClassName"] == "gvisor"
 
 
 def test_an_explicit_empty_global_means_the_cluster_default_for_the_api() -> None:
     seen = _seen("global.runner.runtimeClass=")
-    assert seen["choregos-api"] == {""}
+    assert seen["tranibor-api"] == {""}
     assert set().union(*seen.values()) == {""}
 
 
 def test_one_global_value_reaches_the_api_the_workers_and_the_template() -> None:
     seen = _seen("global.runner.runtimeClass=gvisor")
-    assert seen["choregos-api"] == {"gvisor"}
+    assert seen["tranibor-api"] == {"gvisor"}
     assert set().union(*seen.values()) == {"gvisor"}, "no pod has another answer"
     rendered = _render("global.runner.runtimeClass=gvisor").stdout
     template = next(d for d in yaml.safe_load_all(rendered) if d and d.get("kind") == "SandboxTemplate")
@@ -69,7 +69,7 @@ def test_one_global_value_reaches_the_api_the_workers_and_the_template() -> None
 
 
 def test_both_may_agree_but_not_contradict() -> None:
-    assert _seen("global.runner.runtimeClass=gvisor", "choregos-orchestrator.runner.runtimeClass=gvisor")
-    refused = _render("global.runner.runtimeClass=kata", "choregos-orchestrator.runner.runtimeClass=gvisor")
+    assert _seen("global.runner.runtimeClass=gvisor", "tranibor-orchestrator.runner.runtimeClass=gvisor")
+    refused = _render("global.runner.runtimeClass=kata", "tranibor-orchestrator.runner.runtimeClass=gvisor")
     assert refused.returncode != 0
     assert "global.runner.runtimeClass" in refused.stderr

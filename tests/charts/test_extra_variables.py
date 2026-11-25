@@ -16,7 +16,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 

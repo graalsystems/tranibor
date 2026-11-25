@@ -17,7 +17,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
-              namespaces: ["choregos", "choregos-*", "proj-*"]
+              namespaces: ["tranibor", "tranibor-*", "choregos", "choregos-*", "proj-*"]
       verifyImages:
         - imageReferences: ["ghcr.io/graalsystems/choregos-*"]
           attestors:

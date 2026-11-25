@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm is missing")
 
@@ -25,10 +25,10 @@ def _api(values: dict[str, Any] | None, tmp_path: pathlib.Path) -> dict[str, Any
     result = subprocess.run(command, capture_output=True, text=True, timeout=120, check=False)
     assert result.returncode == 0, result.stderr
     for doc in yaml.safe_load_all(result.stdout):
-        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "choregos-api":
+        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "tranibor-api":
             spec: dict[str, Any] = doc["spec"]["template"]["spec"]
             return spec
-    raise AssertionError("no choregos-api Deployment rendered")
+    raise AssertionError("no tranibor-api Deployment rendered")
 
 
 def _env(spec: dict[str, Any]) -> dict[str, str]:
@@ -42,7 +42,7 @@ def test_by_default_nothing_is_mounted_and_the_variable_is_absent(tmp_path: path
 
 
 def test_a_config_map_is_mounted_read_only_and_named_to_the_api(tmp_path: pathlib.Path) -> None:
-    spec = _api({"choregos-api": {"proceduresExtra": "choregos-procedures"}}, tmp_path)
+    spec = _api({"tranibor-api": {"proceduresExtra": "choregos-procedures"}}, tmp_path)
     assert _env(spec)["CHOREGOS_PROCEDURES_EXTRA"] == "/etc/choregos/procedures"
     assert {"name": "procedures-extra", "configMap": {"name": "choregos-procedures"}} in spec["volumes"]
     assert {

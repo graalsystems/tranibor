@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 CIDRS = "CHOREGOS_TRUSTED_PROXY_CIDRS"
 PRIVATE_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]
 
@@ -38,7 +38,7 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
     (api,) = [
         container
         for doc in docs
-        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "choregos-api"
+        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "tranibor-api"
         for container in doc["spec"]["template"]["spec"]["containers"]
         if container["name"] == "api"
     ]
@@ -49,7 +49,7 @@ def test_the_api_trusts_the_private_ranges_by_default(monkeypatch: pytest.Monkey
     env = _api_env()
     assert json.loads(env[CIDRS]["value"]) == PRIVATE_RANGES
     assert env["CHOREGOS_TRUSTED_PROXY_HOPS"]["value"] == "0"
-    assert json.loads(_api_env("choregos-api.trustedProxyCidrs=[]")[CIDRS]["value"]) == []
+    assert json.loads(_api_env("tranibor-api.trustedProxyCidrs=[]")[CIDRS]["value"]) == []
 
     # what the chart writes is what the API settings accept, not merely JSON
     from tranibor_api.config import Settings
@@ -64,4 +64,4 @@ def test_the_api_trusts_the_private_ranges_by_default(monkeypatch: pytest.Monkey
 def test_extra_env_cannot_shadow_the_trusted_proxies() -> None:
     rendered = _render(f'global.extraEnv=[{{"name":"{CIDRS}","value":"[]"}}]')
     assert rendered.returncode != 0, "the chart rendered two values for the trusted proxies"
-    assert "choregos-api.trustedProxyCidrs" in rendered.stderr, "the error says where to set it instead"
+    assert "tranibor-api.trustedProxyCidrs" in rendered.stderr, "the error says where to set it instead"

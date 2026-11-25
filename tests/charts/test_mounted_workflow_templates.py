@@ -22,13 +22,13 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 CONFIGMAP = "mes-templates"
 VARIABLE = "CHOREGOS_WORKFLOW_TEMPLATES_DIR"
 #: The deployments that must know the templates, and why.
 EXPECTED = {
-    "choregos-api": "loads a workflow's definition and serves the catalogue",
-    "choregos-orchestrator-orchestrator": "executes the workflow's steps",
+    "tranibor-api": "loads a workflow's definition and serves the catalogue",
+    "tranibor-orchestrator-orchestrator": "executes the workflow's steps",
 }
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -74,8 +74,8 @@ def test_the_playbooks_are_seen_on_both_sides_too() -> None:
         for conteneur in spec.get("containers", [])
         if any(m["name"] == "playbooks" for m in conteneur.get("volumeMounts", []) or [])
     }
-    assert "choregos-api" in porteurs, "the API does not see the playbooks: it validates blind"
-    assert "choregos-orchestrator-orchestrator" in porteurs, "the orchestrator does not see them"
+    assert "tranibor-api" in porteurs, "the API does not see the playbooks: it validates blind"
+    assert "tranibor-orchestrator-orchestrator" in porteurs, "the orchestrator does not see them"
 
 
 @pytest.mark.parametrize("deployment", sorted(EXPECTED))

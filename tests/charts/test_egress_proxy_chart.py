@@ -12,7 +12,7 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -46,10 +46,10 @@ def _orchestrator_env(docs: dict[tuple[str, str], dict[str, Any]]) -> list[dict[
 def test_disabled_by_default_nothing_is_rendered_and_nothing_changes_for_the_workers() -> None:
     docs = _docs()
     assert ("Deployment", "choregos-egress") not in docs and ("Service", "choregos-egress") not in docs
-    assert ("NetworkPolicy", "choregos-egress-net") not in docs
+    assert ("NetworkPolicy", "tranibor-egress-net") not in docs
     for env in _orchestrator_env(docs):
         assert "CHOREGOS_RUNNER_EGRESS_AUTH" not in env
-    api = _env(docs[("Deployment", "choregos-api")])
+    api = _env(docs[("Deployment", "tranibor-api")])
     assert "CHOREGOS_NETWORK_INSTANCE_DENY" not in api
 
 
@@ -68,14 +68,14 @@ def test_enabled_renders_a_restricted_deployment_and_a_service_named_choregos_eg
     assert container["securityContext"]["allowPrivilegeEscalation"] is False
     assert container["securityContext"]["capabilities"] == {"drop": ["ALL"]}
     assert container["resources"]["limits"] == {"cpu": "500m", "memory": "256Mi"}
-    assert container["image"].startswith(PUBLISHING.image("choregos-api") + ":")
+    assert container["image"].startswith(PUBLISHING.image("tranibor-api") + ":")
     env = _env(deployment)
-    assert env["CHOREGOS_EGRESS_API_URL"] == "http://choregos-api:8000/api/v1"
+    assert env["CHOREGOS_EGRESS_API_URL"] == "http://tranibor-api:8000/api/v1"
     assert json.loads(env["CHOREGOS_EGRESS_PORTS"]) == [443, 80]
     assert {p["name"] for p in container["ports"]} == {"proxy", "health"}
     template_labels = deployment["spec"]["template"]["metadata"]["labels"]
     assert "app.kubernetes.io/part-of" not in template_labels, (
-        "choregos-allow-ingress must not admit all pods to it"
+        "tranibor-allow-ingress must not admit all pods to it"
     )
     service = docs[("Service", "choregos-egress")]
     assert service["spec"]["ports"][0]["port"] == 3128
@@ -88,7 +88,7 @@ def test_enabled_tells_the_runners_to_authenticate_and_carries_the_deployments_d
         assert env["CHOREGOS_RUNNER_EGRESS_AUTH"] == "run"
         assert env["CHOREGOS_NETWORK_INSTANCE_DENY"] == "x.example,y.example"
     assert (
-        _env(docs[("Deployment", "choregos-api")])["CHOREGOS_NETWORK_INSTANCE_DENY"] == "x.example,y.example"
+        _env(docs[("Deployment", "tranibor-api")])["CHOREGOS_NETWORK_INSTANCE_DENY"] == "x.example,y.example"
     )
     assert json.loads(_env(docs[("Deployment", "choregos-egress")])["CHOREGOS_EGRESS_DENY_DOMAINS"]) == [
         "x.example",
@@ -102,8 +102,8 @@ def test_the_proxys_report_key_goes_to_the_api_and_the_proxy_and_to_no_run() -> 
     holders = {
         key for key, doc in docs.items() if key[0] != "Secret" and "egress-report-key" in json.dumps(doc)
     }
-    assert holders == {("Deployment", "choregos-api"), ("Deployment", "choregos-egress")}
-    for name in ("choregos-api", "choregos-egress"):
+    assert holders == {("Deployment", "tranibor-api"), ("Deployment", "choregos-egress")}
+    for name in ("tranibor-api", "choregos-egress"):
         containers = docs[("Deployment", name)]["spec"]["template"]["spec"]["containers"]
         refs = [
             v["valueFrom"]["secretKeyRef"]
@@ -111,16 +111,16 @@ def test_the_proxys_report_key_goes_to_the_api_and_the_proxy_and_to_no_run() -> 
             for v in c.get("env", [])
             if v["name"] == "CHOREGOS_EGRESS_REPORT_KEY"
         ]
-        assert refs == [{"name": "choregos-api-secrets", "key": "egress-report-key", "optional": True}], name
+        assert refs == [{"name": "tranibor-api-secrets", "key": "egress-report-key", "optional": True}], name
     # A bench draws one, as it draws the other application secrets.
-    assert docs[("Secret", "choregos-api-secrets")]["stringData"]["egress-report-key"]
+    assert docs[("Secret", "tranibor-api-secrets")]["stringData"]["egress-report-key"]
 
 
 def test_the_guard_refuses_a_proxy_nobody_would_use() -> None:
-    refused = _render("global.egress.enabled=true", "choregos-orchestrator.runner.egressProxy=")
+    refused = _render("global.egress.enabled=true", "tranibor-orchestrator.runner.egressProxy=")
     assert refused.returncode != 0
     assert "global.egress.enabled" in refused.stderr and "runner.egressProxy" in refused.stderr
-    assert _render("global.egress.enabled=false", "choregos-orchestrator.runner.egressProxy=").returncode == 0
+    assert _render("global.egress.enabled=false", "tranibor-orchestrator.runner.egressProxy=").returncode == 0
 
 
 def _egress_rules(policy: dict[str, Any]) -> list[dict[str, Any]]:
@@ -138,7 +138,7 @@ def _namespaces(rules: list[dict[str, Any]]) -> set[str]:
 
 def test_the_platform_policy_no_longer_selects_runner_pods_the_proxy_or_the_builder() -> None:
     docs = _docs("global.egress.enabled=true")
-    selector = docs[("NetworkPolicy", "choregos-allow-platform")]["spec"]["podSelector"]
+    selector = docs[("NetworkPolicy", "tranibor-allow-platform")]["spec"]["podSelector"]
     expression = selector["matchExpressions"][0]
     assert expression["key"] == "app.kubernetes.io/name" and expression["operator"] == "NotIn"
     assert set(expression["values"]) == {"choregos-runner", "choregos-egress", "choregos-buildkitd"}
@@ -146,7 +146,7 @@ def test_the_platform_policy_no_longer_selects_runner_pods_the_proxy_or_the_buil
 
 def test_a_runner_reaches_the_api_the_gateway_and_the_proxy_but_not_the_database_or_temporal() -> None:
     docs = _docs("global.egress.enabled=true")
-    runner = docs[("NetworkPolicy", "choregos-runner-egress")]
+    runner = docs[("NetworkPolicy", "tranibor-runner-egress")]
     assert runner["spec"]["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": "choregos-runner"}
     rules = _egress_rules(runner)
     assert _namespaces(rules).isdisjoint({"choregos-data", "choregos-temporal"})
@@ -164,7 +164,7 @@ def test_a_runner_reaches_the_api_the_gateway_and_the_proxy_but_not_the_database
 
 def test_without_the_proxy_a_runner_has_no_way_out_and_still_no_database() -> None:
     docs = _docs()
-    runner = docs[("NetworkPolicy", "choregos-runner-egress")]
+    runner = docs[("NetworkPolicy", "tranibor-runner-egress")]
     pods = {
         to["podSelector"]["matchLabels"]["app.kubernetes.io/name"]
         for rule in _egress_rules(runner)
@@ -177,7 +177,7 @@ def test_without_the_proxy_a_runner_has_no_way_out_and_still_no_database() -> No
 
 def test_the_proxy_takes_traffic_from_runners_only_and_reaches_the_internet_minus_private_ranges() -> None:
     docs = _docs("global.egress.enabled=true", "global.egress.ports={443}")
-    net = docs[("NetworkPolicy", "choregos-egress-net")]
+    net = docs[("NetworkPolicy", "tranibor-egress-net")]
     assert net["spec"]["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": "choregos-egress"}
     (ingress,) = net["spec"]["ingress"]
     assert ingress["from"] == [
@@ -196,7 +196,7 @@ def test_the_proxy_takes_traffic_from_runners_only_and_reaches_the_internet_minu
 
 def test_network_policies_off_renders_none_of_them() -> None:
     docs = _docs("global.egress.enabled=true", "networkPolicies.enabled=false")
-    # `choregos-runner-assignment` (ADR 0053) is the sandbox executor's own, rendered whatever
+    # `tranibor-runner-assignment` (ADR 0053) is the sandbox executor's own, rendered whatever
     # `networkPolicies.enabled` says; agent-sandbox is the default since ADR 0072.
-    assert not [k for k in docs if k[0] == "NetworkPolicy" and k[1] != "choregos-runner-assignment"]
+    assert not [k for k in docs if k[0] == "NetworkPolicy" and k[1] != "tranibor-runner-assignment"]
     assert ("Deployment", "choregos-egress") in docs

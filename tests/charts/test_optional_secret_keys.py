@@ -28,7 +28,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 #: Without them, the API must NOT start.
 STRUCTURAL = {"session-secret", "run-token-private-key"}
@@ -55,7 +55,7 @@ pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absen
 
 #: The API's own secret (`global.apiSecretRef`): the other references point at secrets held by
 #: others (database, OIDC, gateway), outside this classification.
-API_SECRET = "choregos-api-secrets"
+API_SECRET = "tranibor-api-secrets"
 
 
 def _secret_refs(env: str) -> dict[str, bool]:
@@ -69,7 +69,7 @@ def _secret_refs(env: str) -> dict[str, bool]:
     )
     found: dict[str, bool] = {}
     for doc in yaml.safe_load_all(rendered.stdout):
-        if not doc or doc.get("kind") != "Deployment" or doc["metadata"]["name"] != "choregos-api":
+        if not doc or doc.get("kind") != "Deployment" or doc["metadata"]["name"] != "tranibor-api":
             continue
         spec: dict[str, Any] = doc["spec"]["template"]["spec"]
         for container in spec.get("containers", []) + spec.get("initContainers", []):

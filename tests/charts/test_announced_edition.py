@@ -21,7 +21,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -69,7 +69,7 @@ def test_every_process_receives_the_announced_edition() -> None:
         if not doc or doc.get("kind") not in {"Deployment", "StatefulSet", "DaemonSet"}:
             continue
         name = doc["metadata"]["name"]
-        if "choregos-web" in name:  # the front end reads no platform setting
+        if "tranibor-web" in name:  # the front end reads no platform setting
             continue
         conteneurs = doc["spec"]["template"]["spec"].get("containers", [])
         names = {v["name"] for c in conteneurs for v in (c.get("env") or [])}

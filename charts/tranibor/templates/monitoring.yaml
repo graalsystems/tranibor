@@ -1,0 +1,56 @@
+{{- /*
+Two observability flavours, because "rendering a ServiceMonitor" is not "being scraped".
+
+On 2026-09-26, an operator's dev tenant had been running for an hour with a ServiceMonitor and
+a PrometheusRule present in its namespace — and not one series collected, not one alert
+evaluated: the platform runs on VictoriaMetrics, whose operator does not look at the
+`monitoring.coreos.com` types. An inert object says nothing, and that is worse than a missing object: it gives
+the feeling of being monitored.
+
+`monitoring.flavour` decides. The PromQL rules are written ONCE and served to both.
+
+On the VictoriaMetrics side: ONE `VMRule` only. Two in the same vmalert scope make
+the operator loop, which the platform operator has already paid for once.
+*/ -}}
+{{- $saveur := .Values.monitoring.flavour | default "prometheus" }}
+{{- if not (has $saveur (list "prometheus" "victoriametrics")) }}
+{{- fail (printf "monitoring.flavour=%s is unknown: use `prometheus` or `victoriametrics`." $saveur) }}
+{{- end }}
+{{- $vm := eq $saveur "victoriametrics" }}
+{{- if .Values.monitoring.serviceMonitor }}
+apiVersion: {{ if $vm }}operator.victoriametrics.com/v1beta1{{ else }}monitoring.coreos.com/v1{{ end }}
+kind: {{ if $vm }}VMServiceScrape{{ else }}ServiceMonitor{{ end }}
+metadata:
+  name: tranibor
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+spec:
+  # The API alone: it computes the series from the database (`metriques.py`). The
+  # front end, scraped too before, answered 404 every thirty seconds.
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: choregos
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}
+{{- if .Values.monitoring.alerts }}
+---
+apiVersion: {{ if $vm }}operator.victoriametrics.com/v1beta1{{ else }}monitoring.coreos.com/v1{{ end }}
+kind: {{ if $vm }}VMRule{{ else }}PrometheusRule{{ end }}
+metadata:
+  name: tranibor
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: choregos.platform
+      rules:
+{{ include "tranibor.alertRules" . | indent 8 }}
+{{- if include "tranibor.outpostsEnabled" . }}
+{{ include "tranibor.outpostsAlertRules" . | indent 8 }}
+{{- end }}
+{{- if (.Values.global.auditExport | default dict).enabled }}
+{{ include "tranibor.auditExportAlertRules" . | indent 8 }}
+{{- end }}
+{{- end }}

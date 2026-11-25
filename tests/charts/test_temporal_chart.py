@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -76,7 +76,7 @@ def test_an_existing_claim_and_service_name_are_adopted_and_no_claim_is_rendered
 
 def test_the_clients_dial_the_adopted_service_name() -> None:
     docs = _docs("global.temporal.serviceName=temporal-frontend")
-    api = _one(docs, "Deployment", "choregos-api")["spec"]["template"]["spec"]["containers"][0]
+    api = _one(docs, "Deployment", "tranibor-api")["spec"]["template"]["spec"]["containers"][0]
     env = {e["name"]: e.get("value") for e in api["env"]}
     assert env["CHOREGOS_TEMPORAL_ADDRESS"] == "temporal-frontend:7233"
 
@@ -166,7 +166,7 @@ def test_mtls_needs_clients_that_present_a_certificate_and_a_tls_server() -> Non
     no_cert = _render(*EMBEDDED, *TLS_BOTH, f"{T}.tls.requireClientCert=true")
     assert no_cert.returncode != 0 and "global.temporal.tls.mutual" in no_cert.stderr
     no_tls = _render(*EMBEDDED, f"{T}.tls.requireClientCert=true", "global.temporal.tls.mutual=true")
-    assert no_tls.returncode != 0 and "choregos-temporal.tls.enabled" in no_tls.stderr
+    assert no_tls.returncode != 0 and "tranibor-temporal.tls.enabled" in no_tls.stderr
 
 
 def test_an_unknown_mode_is_refused() -> None:
@@ -241,5 +241,5 @@ def test_server_mode_is_the_embedded_temporal_a_serious_environment_may_use() ->
         "global.devLogin.enabled=false",
     )
     refused = _render(*EMBEDDED, *base)
-    assert refused.returncode != 0 and "choregos-temporal.mode=dev" in refused.stderr
+    assert refused.returncode != 0 and "tranibor-temporal.mode=dev" in refused.stderr
     assert _render(*EMBEDDED, *base, f"{T}.mode=server").returncode == 0, "server mode is allowed"

@@ -31,7 +31,7 @@ from tranibor_core.domain import StageJobSpec
 from .conftest import OPERATOR_API
 from .test_single_node_agent_network import _selects
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 #: What a platform that holds agent pods by a policy of its own selects (for example an operator's
 #: `choregos-sandbox-egress` and `choregos-sandbox-assignment`).
 PLATFORM_RUN_POD_SELECTOR = {"matchLabels": {"choregos/sandbox": "true"}}
@@ -54,8 +54,8 @@ def _rendered(*overrides: str) -> list[dict[str, Any]]:
 def rendered() -> list[dict[str, Any]]:
     """The chart on the warm pool, with its own NetworkPolicies and the assignment policy."""
     return _rendered(
-        "choregos-orchestrator.runner.executor=agent_sandbox",
-        "choregos-orchestrator.runner.namespacePattern=choregos",
+        "tranibor-orchestrator.runner.executor=agent_sandbox",
+        "tranibor-orchestrator.runner.namespacePattern=choregos",
         "global.rbac.jobRunner=true",
         "networkPolicies.enabled=true",
     )
@@ -116,7 +116,7 @@ async def test_every_chart_policy_selects_both_pod_shapes_or_neither(
 ) -> None:
     policies = [d for d in rendered if d["kind"] == "NetworkPolicy"]
     names = {p["metadata"]["name"] for p in policies}
-    assert {"choregos-runner-assignment", "choregos-runner-egress"} <= names, names
+    assert {"tranibor-runner-assignment", "tranibor-runner-egress"} <= names, names
     apart = [
         policy["metadata"]["name"]
         for policy in policies

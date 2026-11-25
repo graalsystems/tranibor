@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -38,4 +38,4 @@ def test_on_by_default_so_the_policy_decides() -> None:
 
 
 def test_disabled_refuses_it_to_every_worker() -> None:
-    assert _orchestrator_env("choregos-orchestrator.runner.contextReduction.enabled=false") == {"off"}
+    assert _orchestrator_env("tranibor-orchestrator.runner.contextReduction.enabled=false") == {"off"}

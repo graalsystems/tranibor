@@ -253,7 +253,7 @@ Not proven:
   real appliance has been in the path; on the test cluster the door is plain HTTP between two
   namespaces;
 - **the platform's chart on a cluster**: the test cluster runs the API image with settings of its
-  own, not the door's route, hostname or own Deployment as `charts/choregos` renders them;
+  own, not the door's route, hostname or own Deployment as `charts/tranibor` renders them;
 - **a rotation of the door's key** with real outposts.
 
 An outpost has run end to end on a bench and on a test cluster; it has not been operated.

@@ -17,7 +17,8 @@ spec:
         deny:
           conditions:
             all:
-              - key: "{{ request.object.metadata.labels.\"choregos/project\" || '' }}"
+              # Either name of the label (ADR 0224): a namespace provisioned before the upgrade has the former.
+              - key: "{{ request.object.metadata.labels.\"tranibor/project\" || request.object.metadata.labels.\"choregos/project\" || '' }}"
                 operator: Equals
                 value: ""
     # gVisor is enforced per project by the `require-gvisor` Policy that provisioning writes

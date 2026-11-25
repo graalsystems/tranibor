@@ -126,24 +126,24 @@ vault() {
 
 install() {
   kubectl create namespace "$NAMESPACE"
-  k create secret generic choregos-api-secrets \
+  k create secret generic tranibor-api-secrets \
     --from-file=run-token-private-key="$WORK/run-token.pem" \
     --from-file=session-secret="$WORK/session-secret" \
     --from-file=secrets-keks="$WORK/secrets-keks"
-  k create secret generic choregos-oidc --from-literal=client-secret=proof-unused
-  k create secret generic choregos-backup-target \
+  k create secret generic tranibor-oidc --from-literal=client-secret=proof-unused
+  k create secret generic tranibor-backup-target \
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
-  k create secret generic choregos-object-store \
+  k create secret generic tranibor-object-store \
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
   local tag=()
   [ -n "${PROOF_IMAGE_TAG:-}" ] && tag=(--set "global.imageTag=$PROOF_IMAGE_TAG")
-  helm install "$RELEASE" "$ROOT/charts/choregos" -n "$NAMESPACE" \
-    -f "$ROOT/charts/choregos/values/single-node.yaml" \
+  helm install "$RELEASE" "$ROOT/charts/tranibor" -n "$NAMESPACE" \
+    -f "$ROOT/charts/tranibor/values/single-node.yaml" \
     --set global.domain=choregos.localtest.me \
     --set global.publicUrl=http://choregos.localtest.me \
     --set global.apiUrl=http://choregos.localtest.me \
-    --set "choregos-api.ingress.hostnames={choregos.localtest.me}" \
-    --set "choregos-web.ingress.hostnames={choregos.localtest.me}" \
+    --set "tranibor-api.ingress.hostnames={choregos.localtest.me}" \
+    --set "tranibor-web.ingress.hostnames={choregos.localtest.me}" \
     --set global.oidc.issuer=https://idp.invalid/realms/proof \
     --set global.bootstrap.org="$ORG" --set global.bootstrap.orgName=Proof \
     --set global.bootstrap.admins="$ADMIN" \
@@ -151,7 +151,7 @@ install() {
     --set backup.target.s3.endpoint="$S3_ENDPOINT" \
     --set global.objectStore.url="s3://$OBJECTS_BUCKET" \
     --set global.objectStore.endpoint="$S3_ENDPOINT" \
-    --set global.objectStore.secretRef=choregos-object-store \
+    --set global.objectStore.secretRef=tranibor-object-store \
     --set backup.objectStore=true \
     "${tag[@]}" --timeout 20m
   # No `helm --wait`: the migrations are a post-install hook (the embedded database does not exist
@@ -178,7 +178,7 @@ sys.exit(1)
 '
 probe() {
   local name="probe-$1-$2" image phase
-  image=$(k get deploy choregos-api -o jsonpath='{.spec.template.spec.containers[0].image}')
+  image=$(k get deploy tranibor-api -o jsonpath='{.spec.template.spec.containers[0].image}')
   k run "$name" --restart=Never --image="$image" --image-pull-policy=IfNotPresent \
     --labels=app.kubernetes.io/name=choregos-runner,app.kubernetes.io/component=runner,choregos/sandbox=true,choregos/run-id=proof \
     --command -- python -c "$PROBE" "$1" "$2" >/dev/null
@@ -195,7 +195,7 @@ probe() {
 # proxy, and never the embedded PostgreSQL or Temporal. k3s enforces the chart's NetworkPolicies.
 isolation() {
   local failed=0 target want got
-  for target in choregos-api:8000:open choregos-litellm:4000:open choregos-ecphoria:8432:open \
+  for target in tranibor-api:8000:open choregos-litellm:4000:open choregos-ecphoria:8432:open \
     choregos-egress:3128:open choregos-postgresql:5432:closed choregos-temporal:7233:closed; do
     IFS=: read -r host port want <<<"$target"
     got=$(probe "$host" "$port")
@@ -249,7 +249,7 @@ print(json.dumps({"first": tries[0], "open": tries.count("open"), "attempts": le
 '
 agent_pod() {
   local name=$1 gated=$2 image phase
-  image=$(k get deploy choregos-api -o jsonpath='{.spec.template.spec.containers[0].image}')
+  image=$(k get deploy tranibor-api -o jsonpath='{.spec.template.spec.containers[0].image}')
   k exec deploy/choregos-orchestrator-executor -- python -c "$AGENT_JOB" "$name" "$image" "$gated" "$FIRST_PACKETS" |
     k apply -f - >/dev/null
   for _ in $(seq 60); do

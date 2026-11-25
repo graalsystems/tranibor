@@ -13,8 +13,8 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
-POLICY = "choregos-mcp-gateway-egress"
+CHART = ROOT / "charts" / "tranibor"
+POLICY = "tranibor-mcp-gateway-egress"
 VAR = "CHOREGOS_MCP_GATEWAY_INTERNAL_HOSTS"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -71,8 +71,8 @@ def test_an_in_cluster_gateway_opens_the_api_and_the_workers_only() -> None:
     assert peer["namespaceSelector"]["matchLabels"] == {"kubernetes.io/metadata.name": "mcp"}
     assert peer["podSelector"]["matchLabels"] == {"app": "gw"}
     assert rule["ports"] == [{"protocol": "TCP", "port": 8080}]
-    assert _policy(docs, "choregos-runner-egress") == _policy(default, "choregos-runner-egress")
-    assert _policy(docs, "choregos-allow-platform") == _policy(default, "choregos-allow-platform")
+    assert _policy(docs, "tranibor-runner-egress") == _policy(default, "tranibor-runner-egress")
+    assert _policy(docs, "tranibor-allow-platform") == _policy(default, "tranibor-allow-platform")
     # Plugin servers (ADR 0096) are never selected by the gateway policy.
     plugins = _render(f"global.mcpGateway={gateway}", "global.plugins.servers.enabled=true")
     again = _policy(plugins, POLICY)
@@ -80,7 +80,7 @@ def test_an_in_cluster_gateway_opens_the_api_and_the_workers_only() -> None:
     values = again["spec"]["podSelector"]["matchExpressions"][0]["values"]  # type: ignore[index]
     assert values == ["choregos-api", "choregos-orchestrator"]
     only_plugins = _render("global.plugins.servers.enabled=true")
-    assert _policy(plugins, "choregos-allow-platform") == _policy(only_plugins, "choregos-allow-platform")
+    assert _policy(plugins, "tranibor-allow-platform") == _policy(only_plugins, "tranibor-allow-platform")
 
 
 def test_an_external_gateway_is_opened_by_cidr() -> None:

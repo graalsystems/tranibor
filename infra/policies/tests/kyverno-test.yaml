@@ -247,7 +247,7 @@ results:
 - policy: choregos-pod-security
   rule: non-root
   resources:
-  - choregos-buildkitd-7d9f
+  - tranibor-buildkitd-7d9f
   kind: Pod
   result: skip
 # A release installed in namespace `choregos`, exactly (#911): the `choregos-*` glob alone left it
@@ -274,5 +274,37 @@ results:
   rule: forbid-latest-tag
   resources:
   - platform-latest
+  kind: Pod
+  result: fail
+# ADR 0224 R6: a pod in `tranibor` or `tranibor-*` is judged as one in `choregos` or `choregos-*`, and a
+# project's object may carry the project label under either name, never under neither.
+- policy: choregos-pod-security
+  rule: non-root
+  resources:
+  - tranibor-platform-no-context
+  kind: Pod
+  result: fail
+- policy: choregos-pod-security
+  rule: no-hostpath
+  resources:
+  - tranibor-glob-host-path
+  kind: Pod
+  result: fail
+- policy: choregos-pod-security
+  rule: required-labels
+  resources:
+  - project-label-new
+  kind: Pod
+  result: pass
+- policy: choregos-pod-security
+  rule: required-labels
+  resources:
+  - tagged
+  kind: Pod
+  result: pass
+- policy: choregos-pod-security
+  rule: required-labels
+  resources:
+  - project-label-missing
   kind: Pod
   result: fail

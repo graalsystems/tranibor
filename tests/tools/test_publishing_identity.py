@@ -75,11 +75,11 @@ def test_the_definition_is_what_the_code_reads() -> None:
 
 def test_the_derived_defaults_are_the_definition() -> None:
     """The defaults an operator inherits from the files that cannot read the definition."""
-    values = (ROOT / "charts/choregos/values.yaml").read_text(encoding="utf-8")
+    values = (ROOT / "charts/tranibor/values.yaml").read_text(encoding="utf-8")
     assert f"imageRegistry: {PUBLISHING.registry}\n" in values
     assert f"index: {PUBLISHING.plugin_index}\n" in values
     assert f"identity: {PUBLISHING.plugin_signing_identity.replace('.', chr(92) + '.')}\n" in values
-    assert f"registry: {PUBLISHING.registry}\n" in (ROOT / "charts/choregos-outpost/values.yaml").read_text(
+    assert f"registry: {PUBLISHING.registry}\n" in (ROOT / "charts/tranibor-outpost/values.yaml").read_text(
         "utf-8"
     )
     images = (ROOT / "infra/policies/images.yaml").read_text(encoding="utf-8")
@@ -96,7 +96,7 @@ def test_the_derived_defaults_are_the_definition() -> None:
 
 @pytest.fixture
 def small(tmp_path: pathlib.Path) -> pathlib.Path:
-    return _repository(tmp_path, [pi.CANONICAL, *pi.COPIES, "charts/choregos/values.yaml"])
+    return _repository(tmp_path, [pi.CANONICAL, *pi.COPIES, "charts/tranibor/values.yaml"])
 
 
 def _write(root: pathlib.Path, name: str, text: str) -> None:
@@ -106,26 +106,26 @@ def _write(root: pathlib.Path, name: str, text: str) -> None:
 
 
 def test_a_small_tree_passes_first(small: pathlib.Path) -> None:
-    assert pi.problems(small, derived=["charts/choregos/values.yaml"]) == []
+    assert pi.problems(small, derived=["charts/tranibor/values.yaml"]) == []
 
 
 def test_a_literal_in_code_is_refused(small: pathlib.Path) -> None:
     _write(small, "apps/api/src/tranibor_api/x.py", f'IMAGE = "{PUBLISHING.registry}/choregos-api:1.0.0"\n')
-    (issue,) = pi.problems(small, derived=["charts/choregos/values.yaml"])
+    (issue,) = pi.problems(small, derived=["charts/tranibor/values.yaml"])
     assert issue.startswith("apps/api/src/tranibor_api/x.py: spells the publishing identity (1: ")
     assert "tranibor_core.publishing" in issue
 
 
 def test_code_cannot_be_listed_as_derived(small: pathlib.Path) -> None:
     _write(small, "apps/web/src/x.ts", f'export const R = "{PUBLISHING.source_repository}";\n')
-    issues = pi.problems(small, derived=["charts/choregos/values.yaml", "apps/web/src/x.ts"])
+    issues = pi.problems(small, derived=["charts/tranibor/values.yaml", "apps/web/src/x.ts"])
     assert issues == ["apps/web/src/x.ts: code is not a derived file, it reads tranibor_core.publishing"]
 
 
 def test_a_value_spelled_in_another_case_is_refused(small: pathlib.Path) -> None:
     """The rewrite replaces values as the definition spells them; another case would be left behind."""
     _write(small, "docs/x.md", f"docker pull {PUBLISHING.registry.upper()}/choregos-api\n")
-    issues = pi.problems(small, derived=["charts/choregos/values.yaml", "docs/x.md"])
+    issues = pi.problems(small, derived=["charts/tranibor/values.yaml", "docs/x.md"])
     # The image's name is read whole (the prefix counts inside it), and reported whole.
     spelled = f"{PUBLISHING.registry.upper()}/choregos-api"
     assert issues == [
@@ -136,7 +136,7 @@ def test_a_value_spelled_in_another_case_is_refused(small: pathlib.Path) -> None
 def test_a_stale_or_absent_entry_and_a_drifted_copy_are_refused(small: pathlib.Path) -> None:
     _write(small, "docs/x.md", "nothing here\n")
     (small / pi.COPIES[0]).write_text("{}\n", encoding="utf-8")
-    issues = pi.problems(small, derived=["charts/choregos/values.yaml", "docs/x.md", "docs/absent.md"])
+    issues = pi.problems(small, derived=["charts/tranibor/values.yaml", "docs/x.md", "docs/absent.md"])
     assert issues == [
         f"{pi.COPIES[0]}: differs from {pi.CANONICAL}; run `make publishing-rewrite FROM=HEAD`",
         "docs/x.md: listed in DERIVED but spells nothing of the identity any more; remove it",
@@ -146,7 +146,7 @@ def test_a_stale_or_absent_entry_and_a_drifted_copy_are_refused(small: pathlib.P
 
 def test_history_may_name_it(small: pathlib.Path) -> None:
     _write(small, "docs/adr/9999-x.md", f"We published at {PUBLISHING.registry}.\n")
-    assert pi.problems(small, derived=["charts/choregos/values.yaml"]) == []
+    assert pi.problems(small, derived=["charts/tranibor/values.yaml"]) == []
 
 
 def test_a_name_that_only_contains_a_value_is_not_it() -> None:
@@ -168,7 +168,7 @@ def test_the_owner_counts_only_as_a_github_path(small: pathlib.Path) -> None:
     new = old | {"owner": "ExampleOrg"}
     definition = json.loads((small / pi.CANONICAL).read_text(encoding="utf-8"))
     (small / pi.CANONICAL).write_text(json.dumps(definition | new, indent=2) + "\n", encoding="utf-8")
-    pi.rewrite(small, old, new, derived=["docs/x.md", "charts/choregos/values.yaml"])
+    pi.rewrite(small, old, new, derived=["docs/x.md", "charts/tranibor/values.yaml"])
     assert (small / "docs/x.md").read_text(encoding="utf-8") == (
         f"published by {owner}; see ExampleOrg/choregos and https://github.com/ExampleOrg\n"
     )
@@ -200,7 +200,7 @@ def test_moving_the_publication_is_one_edit_and_one_command(tmp_path: pathlib.Pa
     assert pi.problems(root, identity=ELSEWHERE) == []
     assert sorted(changed) == sorted({*pi.COPIES, *pi.DERIVED})
     assert all((root / name).read_bytes() == before[name] for name in history), "history was rewritten"
-    values = (root / "charts/choregos/values.yaml").read_text(encoding="utf-8")
+    values = (root / "charts/tranibor/values.yaml").read_text(encoding="utf-8")
     assert "imageRegistry: registry.example.org/exampleorg\n" in values
     assert (
         r"identity: https://forge\.example\.org/exampleorg/choregos-agents/\.github/workflows/publish\.yml"
@@ -252,7 +252,7 @@ def test_moving_a_prefix_moves_the_names_and_nothing_else(small: pathlib.Path) -
     _write(small, "docs/x.md", text)
     old = pi.current_identity(small)
     new = old | {"image_prefix": "exampleware"}
-    pi.rewrite(small, old, new, derived=["docs/x.md", "charts/choregos/values.yaml"])
+    pi.rewrite(small, old, new, derived=["docs/x.md", "charts/tranibor/values.yaml"])
     assert (small / "docs/x.md").read_text(encoding="utf-8") == (
         f"pull {registry}/exampleware-api:1.0 and oci://{registry}/charts/exampleware; "
         f"{prefix} serves {registry}/{prefix}-agents/hello-mcp\n"
@@ -260,7 +260,7 @@ def test_moving_a_prefix_moves_the_names_and_nothing_else(small: pathlib.Path) -
     assert pi.left_behind(small, old, new) == []
     # A name the rewrite could not see (another case) is what the check refuses.
     _write(small, "docs/x.md", f"pull {registry}/{prefix.upper()}-api:1.0\n")
-    assert pi.problems(small, derived=["charts/choregos/values.yaml", "docs/x.md"]) == [
+    assert pi.problems(small, derived=["charts/tranibor/values.yaml", "docs/x.md"]) == [
         f"docs/x.md:1: `{registry}/{prefix.upper()}-api` is not spelled as in {pi.CANONICAL}; "
         "the rewrite would miss it"
     ]
@@ -268,13 +268,13 @@ def test_moving_a_prefix_moves_the_names_and_nothing_else(small: pathlib.Path) -
 
 def test_a_rewrite_that_moves_one_value_leaves_the_others(tmp_path: pathlib.Path) -> None:
     """The owner moves, the registry stays: the owner inside the registry's path is the registry's."""
-    root = _repository(tmp_path, [pi.CANONICAL, *pi.COPIES, "CODEOWNERS", "charts/choregos/values.yaml"])
+    root = _repository(tmp_path, [pi.CANONICAL, *pi.COPIES, "CODEOWNERS", "charts/tranibor/values.yaml"])
     old = pi.current_identity(root)
     new = old | {"owner": "ExampleOrg"}
     definition = json.loads((root / pi.CANONICAL).read_text(encoding="utf-8"))
     (root / pi.CANONICAL).write_text(json.dumps(definition | new, indent=2) + "\n", encoding="utf-8")
-    pi.rewrite(root, old, new, derived=["CODEOWNERS", "charts/choregos/values.yaml"])
+    pi.rewrite(root, old, new, derived=["CODEOWNERS", "charts/tranibor/values.yaml"])
     assert pi.left_behind(root, old, new) == []
-    values = (root / "charts/choregos/values.yaml").read_text(encoding="utf-8")
+    values = (root / "charts/tranibor/values.yaml").read_text(encoding="utf-8")
     assert f"imageRegistry: {PUBLISHING.registry}\n" in values
     assert "@ExampleOrg/integrators" in (root / "CODEOWNERS").read_text(encoding="utf-8")

@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -41,11 +41,11 @@ def test_off_by_default_so_no_run_is_offered_the_bridge() -> None:
 
 
 def test_enabled_lets_the_ceiling_and_the_policy_decide() -> None:
-    assert set(_orchestrator_env("choregos-orchestrator.runner.toolScripts.enabled=true")) == {"on"}
+    assert set(_orchestrator_env("tranibor-orchestrator.runner.toolScripts.enabled=true")) == {"on"}
 
 
 def test_a_values_file_without_the_section_renders_off() -> None:
-    assert set(_orchestrator_env("choregos-orchestrator.runner.toolScripts=null")) == {"off"}
+    assert set(_orchestrator_env("tranibor-orchestrator.runner.toolScripts=null")) == {"off"}
 
 
 def test_the_brake_is_released_by_default_so_each_organisation_decides() -> None:
@@ -56,13 +56,13 @@ def test_the_brake_is_released_by_default_so_each_organisation_decides() -> None
 
 def test_allowed_false_pulls_the_brake_whatever_the_default() -> None:
     braked = (
-        "choregos-orchestrator.runner.toolScripts.allowed=false",
-        "choregos-orchestrator.runner.toolScripts.enabled=true",
+        "tranibor-orchestrator.runner.toolScripts.allowed=false",
+        "tranibor-orchestrator.runner.toolScripts.enabled=true",
     )
     assert set(_orchestrator_env(*braked, variable="CHOREGOS_TOOL_SCRIPTS_ALLOWED")) == {"off"}
     assert set(_orchestrator_env(*braked)) == {"on"}, "the default is rendered as written"
 
 
 def test_a_values_file_without_the_section_leaves_the_brake_released() -> None:
-    overrides = ("choregos-orchestrator.runner.toolScripts=null",)
+    overrides = ("tranibor-orchestrator.runner.toolScripts=null",)
     assert set(_orchestrator_env(*overrides, variable="CHOREGOS_TOOL_SCRIPTS_ALLOWED")) == {"on"}

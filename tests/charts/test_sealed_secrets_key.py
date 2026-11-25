@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -46,7 +46,7 @@ def test_the_api_and_every_orchestrator_deployment_receive_the_key_as_an_optiona
     assert any("api" in name for name in refs)
     assert any("orchestrator" in name or "worker" in name for name in refs)
     for name, ref in refs.items():
-        assert ref == {"name": "choregos-api-secrets", "key": "secrets-keks", "optional": True}, name
+        assert ref == {"name": "tranibor-api-secrets", "key": "secrets-keks", "optional": True}, name
 
 
 def test_the_secret_and_the_entry_are_configurable() -> None:
@@ -61,7 +61,7 @@ def test_a_bench_draws_a_valid_key_that_the_platform_parses() -> None:
     (secret,) = [
         d
         for d in _render("global.devSecrets=true")
-        if d.get("kind") == "Secret" and d["metadata"]["name"] == "choregos-api-secrets"
+        if d.get("kind") == "Secret" and d["metadata"]["name"] == "tranibor-api-secrets"
     ]
     keks = secret["stringData"]["secrets-keks"]
     ring = parse_keyring(keks)

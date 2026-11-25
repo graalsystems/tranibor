@@ -19,7 +19,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 CHART_COPY = CHART / "charts" / "litellm" / "files" / "choregos_llm_spans.py"
 SOURCE = ROOT / "packages" / "core" / "src" / "tranibor_core" / "llm_spans.py"
 COLLECTOR = ROOT / "infra" / "bootstrap" / "otel-collector.yaml"

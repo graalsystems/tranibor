@@ -462,7 +462,7 @@ _RBAC = {"POST": "create", "PUT": "update", "PATCH": "patch", "DELETE": "delete"
 def _granted() -> dict[str, set[str]]:
     import yaml
 
-    role = ROOT / "charts/choregos/charts/orchestrator/templates/rbac-jobs.yaml"
+    role = ROOT / "charts/tranibor/charts/orchestrator/templates/rbac-jobs.yaml"
     text = role.read_text(encoding="utf-8")
     start = text.index("rules:")
     lines = text[start : text.index("---", start)].splitlines()

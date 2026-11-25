@@ -31,7 +31,7 @@ IMAGE_COMPONENTS = ("api", "orchestrator", "tools", "web", "runner", "laya", "ou
 #: The charts a release pushes to `oci://<registry>/charts`, by the suffix of their name: the
 #: platform's, named by the prefix alone, and the outpost's, `<prefix>-outpost` (ADR 0147), each
 #: packaged from its directory.
-CHARTS = {"": "charts/choregos", "-outpost": "charts/choregos-outpost"}
+CHARTS = {"": "charts/tranibor", "-outpost": "charts/tranibor-outpost"}
 #: The native CLI's platforms (ADR 0151), `(os, arch)` in the manifest's words, and the end of each file's
 #: name: the file is `<prefix>-<end>`, `tranibor-linux-x86_64` (ADR 0224 R5), and for the deprecation
 #: window also under the former prefix, `choregos-linux-x86_64` (the same bytes).

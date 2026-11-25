@@ -14,8 +14,9 @@ packaged from one directory. The names come from the publishing identity (`image
 * the reference admission policy admits the images under both names, each with the release's
   signature, and does not take the plugins' images (`<registry>/tranibor-agents/...`) for the core's.
 
-The chart's own defaults still name the images `choregos-*`: deployments switch, one environment at a
-time, in step (c) of R3, not here.
+Since ADR 0224 R6 the chart's directory is `charts/tranibor` and its defaults name the images
+`tranibor-*`; the former names stay published for the window (`test_component_values_keys.py` holds
+the rest of R6).
 """
 
 from __future__ import annotations
@@ -47,7 +48,7 @@ VALUES = {
     "": [],
     "-outpost": [
         "-f",
-        str(ROOT / "charts/choregos-outpost/values/example.yaml"),
+        str(ROOT / "charts/tranibor-outpost/values/example.yaml"),
         "--set",
         "fullnameOverride=",
     ],
@@ -161,11 +162,11 @@ def test_the_policy_admits_each_image_under_both_names_with_the_release_signatur
 @helm
 def test_the_chart_renders_the_new_names_and_the_policy_admits_them() -> None:
     renamed = {
-        "choregos-api.image.repository": "api",
-        "choregos-web.image.repository": "web",
-        "choregos-orchestrator.image.repository": "orchestrator",
-        "choregos-tools.image.repository": "tools",
-        "choregos-orchestrator.runner.image": "runner",
+        "tranibor-api.image.repository": "api",
+        "tranibor-web.image.repository": "web",
+        "tranibor-orchestrator.image.repository": "orchestrator",
+        "tranibor-tools.image.repository": "tools",
+        "tranibor-orchestrator.runner.image": "runner",
     }
     for prefix in PUBLISHING.image_prefixes:
         arguments = [f"--set={key}={prefix}-{component}" for key, component in renamed.items()]

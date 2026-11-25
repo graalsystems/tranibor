@@ -1,0 +1,6 @@
+enabled: true
+image:
+  repository: tranibor-tools
+  tag: ""
+  digest: ""
+publishTask: true

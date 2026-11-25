@@ -31,7 +31,7 @@ import yaml
 from .test_pod_security import violations
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 KUSTOMIZATION = ROOT / "infra" / "operators" / "agent-sandbox" / "kustomization.yaml"
 PINNED_RELEASE = "v1.0.6"
 
@@ -56,8 +56,8 @@ def _render(*overrides: str, check: bool = True) -> subprocess.CompletedProcess[
 
 
 SANDBOX_VALUES = (
-    "choregos-orchestrator.runner.executor=agent_sandbox",
-    "choregos-orchestrator.runner.namespacePattern=choregos",
+    "tranibor-orchestrator.runner.executor=agent_sandbox",
+    "tranibor-orchestrator.runner.namespacePattern=choregos",
     "global.rbac.jobRunner=true",
 )
 
@@ -73,7 +73,7 @@ def _objects(*overrides: str) -> dict[str, dict[str, Any]]:
 
 @needs_helm
 def test_template_and_pool_fit_the_pinned_crds() -> None:
-    objects = _objects("choregos-orchestrator.runner.warmPool.size=3")
+    objects = _objects("tranibor-orchestrator.runner.warmPool.size=3")
     template = objects["SandboxTemplate/choregos-runner"]
     pool = objects["SandboxWarmPool/choregos-runner"]
     crds = _crds()
@@ -132,8 +132,8 @@ def test_a_warm_sandbox_holds_no_credential() -> None:
     """ADR 0016: a warm sandbox has never run anything and holds nothing until a run is
     assigned. A secret reference in the template would be in EVERY warm pod."""
     pod = _objects(
-        "choregos-orchestrator.runner.envFromSecrets={git-credentials}",
-        "choregos-orchestrator.runner.env.LOG_FORMAT=json",
+        "tranibor-orchestrator.runner.envFromSecrets={git-credentials}",
+        "tranibor-orchestrator.runner.env.LOG_FORMAT=json",
     )["SandboxTemplate/choregos-runner"]["spec"]["podTemplate"]["spec"]
     assert pod["automountServiceAccountToken"] is False
     text = yaml.safe_dump(pod)
@@ -156,7 +156,7 @@ def test_a_warm_sandbox_holds_no_credential() -> None:
 def test_runtime_class_and_storage_reach_the_template() -> None:
     template = _objects(
         "global.runner.runtimeClass=gvisor",
-        "choregos-orchestrator.runner.sandbox.storage=20Gi",
+        "tranibor-orchestrator.runner.sandbox.storage=20Gi",
     )["SandboxTemplate/choregos-runner"]
     assert template["spec"]["podTemplate"]["spec"]["runtimeClassName"] == "gvisor"
     claim = template["spec"]["volumeClaimTemplates"][0]
@@ -165,7 +165,7 @@ def test_runtime_class_and_storage_reach_the_template() -> None:
 
 @needs_helm
 def test_the_executor_may_manage_claims_and_sandboxes() -> None:
-    role = _objects()["Role/choregos-orchestrator-jobs"]
+    role = _objects()["Role/tranibor-orchestrator-jobs"]
     rules = {(tuple(r["apiGroups"]), tuple(r["resources"])): set(r["verbs"]) for r in role["rules"]}
     assert {"create", "get", "delete", "patch"} <= rules[
         (("extensions.agents.x-k8s.io",), ("sandboxclaims",))
@@ -177,8 +177,8 @@ def test_the_executor_may_manage_claims_and_sandboxes() -> None:
 def test_a_per_project_namespace_pattern_is_refused() -> None:
     """The template lives in the release namespace; claims made elsewhere would find no pool."""
     result = _render(
-        "choregos-orchestrator.runner.executor=agent_sandbox",
-        "choregos-orchestrator.runner.namespacePattern=proj-{slug}-runners",
+        "tranibor-orchestrator.runner.executor=agent_sandbox",
+        "tranibor-orchestrator.runner.namespacePattern=proj-{slug}-runners",
         check=False,
     )
     assert result.returncode != 0
@@ -217,26 +217,33 @@ def _selects(selector: dict[str, Any], labels: dict[str, str]) -> bool:
 @needs_helm
 def test_only_the_orchestrator_executor_may_reach_the_assignment_port() -> None:
     """ADR 0053: a pod of the namespace must not push first and occupy a warm sandbox."""
-    objects = _objects("choregos-orchestrator.runner.sandbox.assignmentPort=9876")
+    objects = _objects("tranibor-orchestrator.runner.sandbox.assignmentPort=9876")
     sandbox_pod = objects["SandboxTemplate/choregos-runner"]["spec"]["podTemplate"]["metadata"]["labels"]
-    executor_pod = objects["Deployment/choregos-orchestrator-executor"]["spec"]["template"]["metadata"][
+    executor_pod = objects["Deployment/tranibor-orchestrator-executor"]["spec"]["template"]["metadata"][
         "labels"
     ]
     other_pods = [
         doc["spec"]["template"]["metadata"]["labels"]
         for name, doc in objects.items()
-        if name.startswith("Deployment/") and name != "Deployment/choregos-orchestrator-executor"
+        if name.startswith("Deployment/") and name != "Deployment/tranibor-orchestrator-executor"
     ]
-    policy = objects["NetworkPolicy/choregos-runner-assignment"]["spec"]
+    policy = objects["NetworkPolicy/tranibor-runner-assignment"]["spec"]
     assert _selects(policy["podSelector"], sandbox_pod), "the policy selects the sandbox pods"
     assert not _selects(policy["podSelector"], executor_pod), "and not the orchestrator"
     assert policy["policyTypes"] == ["Ingress"]
     (rule,) = policy["ingress"]
     assert rule["ports"] == [{"protocol": "TCP", "port": 9876}]
-    (peer,) = rule["from"]
-    assert peer["namespaceSelector"] == {"matchLabels": {"kubernetes.io/metadata.name": "choregos"}}
-    assert _selects(peer["podSelector"], executor_pod), "the orchestrator's executor workers get in"
-    assert not any(_selects(peer["podSelector"], labels) for labels in other_pods), "no other pod does"
+    # One peer per name of the queue's label (ADR 0224 R6): a worker that predates the upgrade carries
+    # the former one only, and each peer alone lets the executor in.
+    peers = rule["from"]
+    assert [sorted(peer["podSelector"]["matchLabels"]) for peer in peers] == [
+        ["app.kubernetes.io/name", "tranibor/queue"],
+        ["app.kubernetes.io/name", "choregos/queue"],
+    ]
+    for peer in peers:
+        assert peer["namespaceSelector"] == {"matchLabels": {"kubernetes.io/metadata.name": "choregos"}}
+        assert _selects(peer["podSelector"], executor_pod), "the orchestrator's executor workers get in"
+        assert not any(_selects(peer["podSelector"], labels) for labels in other_pods), "no other pod does"
 
 
 @needs_helm
@@ -254,7 +261,7 @@ def test_no_other_policy_reopens_the_sandbox_pods() -> None:
         and "Ingress" in doc["spec"].get("policyTypes", [])
         and _selects(doc["spec"]["podSelector"], sandbox_pod)
     )
-    assert ingress_on_sandbox == ["NetworkPolicy/choregos-runner-assignment"], ingress_on_sandbox
+    assert ingress_on_sandbox == ["NetworkPolicy/tranibor-runner-assignment"], ingress_on_sandbox
 
 
 @needs_helm
@@ -262,21 +269,21 @@ def test_a_platform_that_owns_network_policies_can_leave_the_assignment_one_out(
     """S35-05 — where an Argo CD AppProject blacklists NetworkPolicy (some platforms' tenants), one
     in the chart makes the whole sync fail. The switch drops that one object, and only it."""
     kept = _objects()
-    dropped = _objects("choregos-orchestrator.runner.sandbox.assignmentNetworkPolicy=false")
-    assert "NetworkPolicy/choregos-runner-assignment" in kept, "rendered by default"
-    assert "NetworkPolicy/choregos-runner-assignment" not in dropped
-    assert set(kept) - set(dropped) == {"NetworkPolicy/choregos-runner-assignment"}
+    dropped = _objects("tranibor-orchestrator.runner.sandbox.assignmentNetworkPolicy=false")
+    assert "NetworkPolicy/tranibor-runner-assignment" in kept, "rendered by default"
+    assert "NetworkPolicy/tranibor-runner-assignment" not in dropped
+    assert set(kept) - set(dropped) == {"NetworkPolicy/tranibor-runner-assignment"}
 
 
 @needs_helm
 def test_the_executor_is_told_how_long_a_finished_sandbox_keeps_its_volume() -> None:
     def ttl(*overrides: str) -> str:
-        deployment = _objects(*overrides)["Deployment/choregos-orchestrator-executor"]
+        deployment = _objects(*overrides)["Deployment/tranibor-orchestrator-executor"]
         (container,) = deployment["spec"]["template"]["spec"]["containers"]
         return next(e["value"] for e in container["env"] if e["name"] == "CHOREGOS_SANDBOX_TTL_SECONDS")
 
     assert int(ttl()) <= 600, "not an hour of a volume per finished stage"
-    assert ttl("choregos-orchestrator.runner.sandbox.ttlSecondsAfterFinished=120") == "120"
+    assert ttl("tranibor-orchestrator.runner.sandbox.ttlSecondsAfterFinished=120") == "120"
 
 
 # ADR 0146: the agent in its own container ───────────────────────────────────────────────
@@ -305,7 +312,7 @@ def test_by_default_the_agent_has_a_container_of_its_own() -> None:
     assert [c["name"] for c in pod["initContainers"]] == ["egress-gate", "agent"]
     runner_env = {e["name"]: e["value"] for e in pod["containers"][0]["env"]}
     assert runner_env["CHOREGOS_RUNNER_AGENT_ISOLATION"] == "container"
-    for name in ("Deployment/choregos-api", "Deployment/choregos-orchestrator-executor"):
+    for name in ("Deployment/tranibor-api", "Deployment/tranibor-orchestrator-executor"):
         (container, *_) = objects[name]["spec"]["template"]["spec"]["containers"]
         env = {e["name"]: e.get("value") for e in container["env"]}
         assert env["CHOREGOS_RUNNER_AGENT_ISOLATION"] == "container", name
@@ -325,7 +332,7 @@ def test_process_renders_the_pod_of_before_the_agents_container() -> None:
 
 @needs_helm
 def test_the_separate_agent_is_a_sidecar_with_another_uid_and_no_secret() -> None:
-    pod = _pod(SEPARATE, "choregos-orchestrator.runner.envFromSecrets={git-credentials}")
+    pod = _pod(SEPARATE, "tranibor-orchestrator.runner.envFromSecrets={git-credentials}")
     agent = _agent(pod)
     runner = pod["containers"][0]
     assert agent["name"] == "agent"
@@ -381,7 +388,7 @@ def test_the_former_sandbox_value_is_refused_with_where_it_went(value: str) -> N
     """S65-04d: `runner.sandbox.agentIsolation` (0.27.6 to 0.27.15) moved to `global.runner.agentIsolation`.
     Ignored, a `container` there would leave the agent beside the runner without a word."""
     result = _render(
-        *SANDBOX_VALUES, f"choregos-orchestrator.runner.sandbox.agentIsolation={value}", check=False
+        *SANDBOX_VALUES, f"tranibor-orchestrator.runner.sandbox.agentIsolation={value}", check=False
     )
     assert result.returncode != 0
     assert "moved to global.runner.agentIsolation" in result.stderr
@@ -393,7 +400,7 @@ def test_the_api_and_the_workers_read_the_same_isolation_as_the_template(isolati
     """One value (ADR 0146 §9): the API judges `/readiness` and the workers refuse with what the template
     renders; a worker told `process` beside a `container` pool would refuse nothing it should."""
     objects = _objects(f"global.runner.agentIsolation={isolation}")
-    for name in ("Deployment/choregos-api", "Deployment/choregos-orchestrator-executor"):
+    for name in ("Deployment/tranibor-api", "Deployment/tranibor-orchestrator-executor"):
         (container, *_) = objects[name]["spec"]["template"]["spec"]["containers"]
         env = {e["name"]: e.get("value") for e in container["env"]}
         assert env["CHOREGOS_RUNNER_AGENT_ISOLATION"] == isolation, name
@@ -452,7 +459,7 @@ def test_the_jobs_agent_container_is_the_templates() -> None:
 
 @needs_helm
 def test_the_workers_get_the_runners_own_resources() -> None:
-    deployment = _objects()["Deployment/choregos-orchestrator-executor"]
+    deployment = _objects()["Deployment/tranibor-orchestrator-executor"]
     (container,) = deployment["spec"]["template"]["spec"]["containers"]
     env = {e["name"]: e.get("value") for e in container["env"]}
     assert yaml.safe_load(env["CHOREGOS_RUNNER_OWN_RESOURCES"]) == {

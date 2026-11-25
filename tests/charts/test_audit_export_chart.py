@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 HEC = "https://splunk.example:8088/services/collector/event"
 ON = ["global.auditExport.enabled=true", f"global.auditExport.url={HEC}"]
 
@@ -29,7 +29,7 @@ def render(*sets: str) -> subprocess.CompletedProcess[str]:
         "choregos",
         str(CHART),
         "--set",
-        "choregos-orchestrator.runner.skipOperatorCheck=true",
+        "tranibor-orchestrator.runner.skipOperatorCheck=true",
     ]
     for item in sets:
         command += ["--set", item]
@@ -44,7 +44,7 @@ def documents(*sets: str) -> list[dict[str, Any]]:
 
 def api_env(*sets: str) -> dict[str, dict[str, Any]]:
     [api] = [
-        d for d in documents(*sets) if d["kind"] == "Deployment" and d["metadata"]["name"] == "choregos-api"
+        d for d in documents(*sets) if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-api"
     ]
     return {e["name"]: e for e in api["spec"]["template"]["spec"]["containers"][0]["env"]}
 
@@ -57,7 +57,7 @@ def test_off_by_default_nothing_is_rendered() -> None:
         for d in documents("networkPolicies.enabled=true")
         if d["kind"] == "NetworkPolicy"
     }
-    assert "choregos-audit-export-egress" not in policies
+    assert "tranibor-audit-export-egress" not in policies
 
 
 def test_on_the_api_is_told_and_the_token_is_a_secret_reference() -> None:
@@ -119,7 +119,7 @@ def test_the_egress_policy_names_the_api_and_the_sink() -> None:
         )
         if d["kind"] == "NetworkPolicy"
     }
-    policy = policies["choregos-audit-export-egress"]
+    policy = policies["tranibor-audit-export-egress"]
     assert policy["spec"]["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": "choregos-api"}
     [rule] = policy["spec"]["egress"]
     assert rule["to"] == [{"ipBlock": {"cidr": "10.1.0.0/24"}}]

@@ -1,4 +1,4 @@
-"""The chart `choregos-outpost`: what an outpost's operator installs in their own cluster
+"""The chart `tranibor-outpost`: what an outpost's operator installs in their own cluster
 (S65-16, ADR 0147, ADR 0148 §13, ADR 0149 §5 and §9).
 
 It is not a subchart of the platform's and shares no value with it. It runs the daemon with one
@@ -29,7 +29,7 @@ import yaml
 from tranibor_core.publishing import CHARTS, PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos-outpost"
+CHART = ROOT / "charts" / "tranibor-outpost"
 EXAMPLE = CHART / "values" / "example.yaml"
 
 
@@ -114,10 +114,10 @@ def test_it_is_a_chart_of_its_own_at_the_repositorys_version() -> None:
     """Not a subchart of the platform's, no dependency on it, no value shared with it; and one version
     everywhere, which the release checks before it tags (`tools/bump_version.py`)."""
     chart = yaml.safe_load((CHART / "Chart.yaml").read_text(encoding="utf-8"))
-    assert chart["name"] == "choregos-outpost" and "dependencies" not in chart
-    platform = yaml.safe_load((ROOT / "charts/choregos/Chart.yaml").read_text(encoding="utf-8"))
-    assert "choregos-outpost" not in {dependency["name"] for dependency in platform["dependencies"]}
-    assert not (ROOT / "charts/choregos/charts/outpost").exists()
+    assert chart["name"] == "tranibor-outpost" and "dependencies" not in chart
+    platform = yaml.safe_load((ROOT / "charts/tranibor/Chart.yaml").read_text(encoding="utf-8"))
+    assert "tranibor-outpost" not in {dependency["name"] for dependency in platform["dependencies"]}
+    assert not (ROOT / "charts/tranibor/charts/outpost").exists()
     values = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))
     assert "global" not in values, "`global` is how a parent chart reaches into a subchart"
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
@@ -137,10 +137,10 @@ def test_the_image_is_the_release_one_pinned_by_digest_when_given() -> None:
     container = _pod(_documents(*MINIMAL))["containers"][0]
     version = yaml.safe_load((CHART / "Chart.yaml").read_text(encoding="utf-8"))["appVersion"]
     # The image the release builds, signs and attests (`release.yml`, the `outpost` image).
-    assert container["image"] == PUBLISHING.image("choregos-outpost", version)
+    assert container["image"] == PUBLISHING.image("tranibor-outpost", version)
     pinned = _pod(_documents(*MINIMAL, f'image.digest="{digest}"', 'image.tag="9.9.9"'))
     for holder in (pinned["containers"][0], pinned["initContainers"][0]):
-        assert holder["image"] == PUBLISHING.image(f"choregos-outpost@{digest}")
+        assert holder["image"] == PUBLISHING.image(f"tranibor-outpost@{digest}")
     assert "image.digest" in _refusal(*MINIMAL, 'image.digest="latest"')
     # `run` is what the pod runs, through the image's own entrypoint.
     assert container["args"] == ["run"] and "command" not in container
@@ -410,7 +410,7 @@ def test_the_token_comes_from_the_operators_secret_and_only_the_enrolment_sees_i
     pod, enrol = _pod(documents), _enrol(documents)
     (volume,) = [v for v in pod["volumes"] if v["name"] == "enrolment"]
     # Optional: once the instance is enrolled the token is spent, and its Secret can be deleted.
-    assert volume["secret"]["secretName"] == "factory-floor-choregos-outpost-enrolment"
+    assert volume["secret"]["secretName"] == "factory-floor-tranibor-outpost-enrolment"
     assert volume["secret"]["optional"] is True
     assert _env(enrol)["ENROLMENT_TOKEN_FILE"]["value"] == f"{CONFIG}/enrolment/token"
     assert {"name": "enrolment", "mountPath": f"{CONFIG}/enrolment", "readOnly": True} in enrol[
@@ -498,7 +498,7 @@ def test_without_an_identity_and_without_a_token_the_instance_waits_and_says_how
         assert done.returncode == 1 and calls == []
         assert "no enrolment token" in done.stderr
         assert (
-            "kubectl -n outposts create secret generic factory-floor-choregos-outpost-enrolment"
+            "kubectl -n outposts create secret generic factory-floor-tranibor-outpost-enrolment"
             in done.stderr
         )
         assert "--from-literal=token=" in done.stderr
@@ -527,7 +527,7 @@ def test_the_keys_are_put_back_to_the_mode_the_daemon_accepts(enrolment: Any) ->
 def test_the_notes_say_how_to_read_the_fingerprint_and_what_restarts_on_purpose() -> None:
     """`helm template` does not print a chart's notes: their text is read as it is written."""
     notes = (CHART / "templates" / "NOTES.txt").read_text(encoding="utf-8")
-    assert 'logs {{ include "choregos-outpost.fullname" . }}-0 -c enrol' in notes
+    assert 'logs {{ include "tranibor-outpost.statefulSetName" . }}-0 -c enrol' in notes
     assert "outpost.pending" in notes and "pending until a person approves it" in notes
     assert "restart in a loop ON PURPOSE" in notes
     purposely = notes.split("ON PURPOSE:", 1)[1].split("The others:", 1)[0]
@@ -636,7 +636,7 @@ def test_the_grace_period_stays_below_the_pods() -> None:
 # ───────────────────────── the network: out to two kinds of places, in from nowhere ─────────────────────────
 
 
-def _network(documents: list[dict[str, Any]], name: str = "factory-floor-choregos-outpost") -> dict[str, Any]:
+def _network(documents: list[dict[str, Any]], name: str = "factory-floor-tranibor-outpost") -> dict[str, Any]:
     spec: dict[str, Any] = _one(documents, "NetworkPolicy", name)["spec"]
     return spec
 
@@ -769,7 +769,7 @@ def test_no_server_is_run_unless_the_operator_lists_one() -> None:
 
 def test_a_listed_server_is_locked_down_and_reachable_from_the_daemon_only() -> None:
     documents = _documents(*MINIMAL, WIKI)
-    name = "factory-floor-choregos-outpost-wiki"
+    name = "factory-floor-tranibor-outpost-wiki"
     server = _one(documents, "Deployment", name)
     pod = server["spec"]["template"]["spec"]
     _locked_down_as_the_model(pod, pod["containers"])
@@ -801,7 +801,7 @@ def test_a_listed_server_is_locked_down_and_reachable_from_the_daemon_only() -> 
 
 def test_an_endpoint_at_a_listed_server_opens_that_server_and_not_its_namespace() -> None:
     endpoint = (
-        'policy.endpoints.wiki={"url":"http://factory-floor-choregos-outpost-wiki:8080/mcp","tools":[]}'
+        'policy.endpoints.wiki={"url":"http://factory-floor-tranibor-outpost-wiki:8080/mcp","tools":[]}'
     )
     egress = _network(_documents(*MINIMAL, WIKI, endpoint))["egress"]
     assert len(egress) == 3, "DNS, the door, the server's pods: no rule for the whole namespace"
@@ -812,7 +812,7 @@ def test_a_server_may_be_given_a_way_out_and_must_be_named() -> None:
     rule = '{"to":[{"ipBlock":{"cidr":"10.60.0.5/32"}}],"ports":[{"protocol":"TCP","port":5432}]}'
     image = f"registry.example.com/db-mcp@sha256:{'2' * 64}"
     opened = f'servers=[{{"name":"db","image":"{image}","port":9000,"egress":[{rule}]}}]'
-    policy = _network(_documents(*MINIMAL, opened), "factory-floor-choregos-outpost-db")
+    policy = _network(_documents(*MINIMAL, opened), "factory-floor-tranibor-outpost-db")
     assert policy["egress"] == [{"to": [{"ipBlock": {"cidr": "10.60.0.5/32"}}], "ports": _tcp(5432)}]
     assert "servers[0].name" in _refusal(*MINIMAL, 'servers=[{"image":"i","port":1}]')
     assert "servers[0].image" in _refusal(*MINIMAL, 'servers=[{"name":"a","port":1}]')
@@ -840,19 +840,19 @@ def test_the_example_values_render_a_complete_outpost() -> None:
 
 
 def test_the_chart_is_linted_and_published_beside_the_platforms() -> None:
-    lint = "helm lint charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml"
+    lint = "helm lint charts/tranibor-outpost -f charts/tranibor-outpost/values/example.yaml"
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert lint in makefile.split("charts-lint:", 1)[1].split(".PHONY", 1)[0]
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
     steps = "\n".join(str(step.get("run", "")) for step in ci["jobs"]["charts"]["steps"])
     assert lint in steps
-    assert "helm template outpost charts/choregos-outpost" in steps and "/tmp/outpost.yaml" in steps
+    assert "helm template outpost charts/tranibor-outpost" in steps and "/tmp/outpost.yaml" in steps
     release = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"))
     published = "\n".join(str(step.get("run", "")) for step in release["jobs"]["chart"]["steps"])
     # Both charts, each under both names (ADR 0176 R3): `tests/charts/test_chart_names.py`.
     assert 'tools/package_charts.py --version "$version" --out dist/charts' in published
     assert f'helm push "$chart" oci://{PUBLISHING.registry}/charts' in published
-    assert CHARTS["-outpost"] == "charts/choregos-outpost"
+    assert CHARTS["-outpost"] == "charts/tranibor-outpost"
     # After the images: a published chart never points at an image that was not pushed.
     assert release["jobs"]["chart"]["needs"] == "manifest"
     assert "outpost" in release["jobs"]["manifest"]["strategy"]["matrix"]["image"]

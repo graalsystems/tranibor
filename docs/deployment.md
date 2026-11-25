@@ -26,16 +26,18 @@ Optional but recommended in production: a model gateway (LiteLLM), a memory serv
 ## Install
 
 ```bash
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
+helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
   --version 0.29.4 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
 
 Images are published under `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`,
-multi-arch and signed; the chart is also published as `oci://ghcr.io/graalsystems/charts/tranibor`, with the same content as `…/charts/choregos`. The former names,
-`choregos-*`, carry the same digests for the ADR 0176 window and are still the chart's defaults (see "Upgrading
-past 0.27.13"). The published packages are public: pulls are anonymous. The chart's `global.imageTag`
-follows the chart version.
+multi-arch and signed; the chart is published as `oci://ghcr.io/graalsystems/charts/tranibor` and, for the
+window, under its former name `…/charts/choregos`, with the same content. The former image names,
+`choregos-*`, carry the same digests for the ADR 0176 window (see "Upgrading past 0.27.13"); the chart's
+defaults name the `tranibor-*` ones (see "Upgrading to the next release: the chart takes the name tranibor").
+The published packages are public: pulls are anonymous. The chart's `global.imageTag` follows the chart
+version.
 
 ## Dependencies: embedded or external
 
@@ -86,7 +88,7 @@ the first run that writes a file loses its run. The project's readiness (`object
 probes the bucket when a workflow declares a file output and names the cause.
 
 Turning all four on gives a self-contained bench on a single node:
-`-f charts/choregos/values/local.yaml`.
+`-f charts/tranibor/values/local.yaml`.
 
 ### The embedded Temporal as an operator runs it ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
 
@@ -1415,9 +1417,9 @@ same name, a disruption budget, and the route then leads there.
 ### The outpost's side: the chart `choregos-outpost`
 
 Whoever runs an outpost installs the daemon in THEIR cluster with a chart of its own, published
-beside the platform's (`oci://ghcr.io/graalsystems/charts/choregos-outpost`). It is not a subchart
-of this one and shares no value with it: its page is `charts/choregos-outpost/README.md`, and a
-complete example is `charts/choregos-outpost/values/example.yaml`. What you hand its operator is
+beside the platform's (`oci://ghcr.io/graalsystems/charts/tranibor-outpost`). It is not a subchart
+of this one and shares no value with it: its page is `charts/tranibor-outpost/README.md`, and a
+complete example is `charts/tranibor-outpost/values/example.yaml`. What you hand its operator is
 what the management API returns with an enrolment token: the door's origin (`policy.control_plane`),
 the door's keys (`policy.door_keys`), and the token itself. Hand them
 [Running an outpost](outpost-operator.md) with it: that page is written for them, and says first
@@ -1839,8 +1841,8 @@ the LiteLLM gateway, the Ecphoria memory. **What the site brings**:
 | An object store, if workflows produce files | `global.objectStore.*`, then `backup.objectStore: true` |
 
 ```bash
-helm install choregos charts/choregos -n choregos --create-namespace \
-  -f charts/choregos/values/single-node.yaml -f my-site.yaml
+helm install choregos charts/tranibor -n choregos --create-namespace \
+  -f charts/tranibor/values/single-node.yaml -f my-site.yaml
 ```
 
 `my-site.yaml` sets `global.domain`, `global.publicUrl`, `global.apiUrl`, the hostnames of
@@ -1999,7 +2001,7 @@ Before S57-05b, `enabled: false` refused tool scripts to every run; it now only 
 
 A cluster with nothing but Kubernetes (1.29 or later is advised) and a **default StorageClass** gets a working
 platform from one `helm install` ([ADR 0208](adr/0208-the-chart-deploys-every-solution-the-platform-requires-in-one-install.md)).
-The profile `charts/choregos/values/all-in-one.yaml` embeds, beside the PostgreSQL (pgvector), Temporal, LiteLLM
+The profile `charts/tranibor/values/all-in-one.yaml` embeds, beside the PostgreSQL (pgvector), Temporal, LiteLLM
 and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 
 | Prerequisite (table above) | In all-in-one mode |
@@ -2012,9 +2014,9 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/choregos --version 0.29.4 \
+helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.4 \
   -n choregos --create-namespace \
-  -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
+  -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/tranibor/values/ of the chart
 ```
 
 `my-site.yaml` sets what only you know: `global.domain`, `global.publicUrl`, `global.apiUrl`, the two ingresses'
@@ -2642,8 +2644,141 @@ working on upgrade.
 **Not in this round** (they keep their former names, each to move in a later round of ADR 0224 with its own
 window): the directory a run's workspace uses between the runner and the agent or the job (`.choregos/` inside
 the step's sandbox: `result.json`, `task.md`, `inputs/`, `fields.json`, `job.json`, `outputs/`, `knowledge/`),
-which agents and job images built before the change read and write; the chart and the objects it renders
-(R6); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
+which agents and job images built before the change read and write (the chart and the objects it renders
+move in R6, the next section); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
+
+## Upgrading to the next release: the chart takes the name tranibor (ADR 0224, R6)
+
+([ADR 0224](adr/0224-the-former-name-leaves-every-layer-wire-included.md), round R6.) The chart, its
+subcharts, the objects it renders, its values keys and the Secret names it defaults to take the name
+`tranibor`. The former names are read for a window of **two minor versions** from this release, then go
+in their own release, announced here. What holds data keeps its name.
+
+**The chart's address.** The directories are `charts/tranibor` and `charts/tranibor-outpost`, the charts
+are named `tranibor` and `tranibor-outpost`. Each release still publishes both under their former names
+too (`oci://ghcr.io/graalsystems/charts/choregos`, `…/choregos-outpost`), with the same content, for the
+window. A deployment that takes the chart from this repository by path (an Argo CD `source.path`, a
+vendored copy) changes the path from charts/choregos to `charts/tranibor`. The Helm release's name, the namespace,
+the database and its role are deployment values and stay what each deployment chose.
+
+**The values keys.** A component is set under `tranibor-<component>`. The former key is read too, for the
+window, and renders the same objects:
+
+| The key from now on | The former key, read for the window |
+| :-- | :-- |
+| `tranibor-api`, `tranibor-web`, `tranibor-orchestrator`, `tranibor-tools` | `choregos-api`, `choregos-web`, `choregos-orchestrator`, `choregos-tools` |
+| `tranibor-postgresql`, `tranibor-temporal`, `tranibor-litellm`, `tranibor-ecphoria`, `tranibor-laya` | `choregos-postgresql`, `choregos-temporal`, `choregos-litellm`, `choregos-ecphoria`, `choregos-laya` |
+| `tranibor-websearch`, `tranibor-objectstore`, `tranibor-keycloak` | `choregos-websearch`, `choregos-objectstore`, `choregos-keycloak` |
+
+A values file may be moved key by key: what is left under a former key and what moved are both read. A
+setting written under **both** names (`tranibor-api.replicaCount` and `choregos-api.replicaCount`, or a
+map under one name and a key inside it under the other) **refuses to render**, and the message names
+both: keep the new one. The chart's own `values.yaml` holds each component's defaults under its
+directory's name (`api:`, `web:`, `orchestrator:`…); those blocks are the chart's, not a place for a
+deployment's values. To move a values file: rename each top-level `choregos-<component>:` to
+`tranibor-<component>:`, and each `--set choregos-<component>.` to `--set tranibor-<component>.`.
+
+**The renamed objects.** Every object the chart named `choregos-*` is now `tranibor-*`: the API's,
+the console's and the workers' Deployments (`tranibor-api`, `tranibor-web`,
+`tranibor-orchestrator-<queue>`), their Services, ServiceAccounts, budgets, routes and Ingresses, the
+migration Job and its ServiceAccount, the ConfigMaps (`tranibor-plugins`, `tranibor-dashboard-*`), the
+NetworkPolicies (`tranibor-allow-platform`, `tranibor-runner-egress`…), the builder, the outposts' door,
+the demonstration fakes, the trace-drift CronJob, the custom hosts' objects (`tranibor-host-<host>`,
+whose certificates cert-manager issues once more under the new name), the Kyverno policy the chart
+renders (`tranibor-hosted-images`), the ServiceMonitor and the PrometheusRule (`tranibor`). A
+`helm upgrade` (or an Argo CD sync that prunes) **creates the new objects and deletes the former ones**:
+each Deployment is replaced rather than rolled, so its pods restart once, without the protection of a
+disruption budget (the budget is a new object too). Plan the upgrade as you would a restart of the
+platform. Objects named after the release (`<release>-litellm`, `<release>-temporal`, `<release>-keycloak`,
+the drawn Secrets `<release>-gateway`, `<release>-memory`…) do not change.
+
+**The in-cluster addresses follow.** The API's Service is `tranibor-api`, so the default
+`global.internalApiUrl` is `http://tranibor-api:8000`; the builder is dialled at `tcp://tranibor-buildkitd:1234`;
+the routes send the console to `tranibor-web` and the door to `tranibor-outposts-door`. **The former
+`choregos-api` Service is kept for the window**, on the same pods (and not scraped twice): a run that
+started before the upgrade was given `http://choregos-api:8000` and calls back there until it ends, a
+suspended sandbox perhaps days later, and a `global.internalApiUrl`, a NetworkPolicy or a relay of yours
+that names `choregos-api` keeps working. Move them to `tranibor-api` within the window. Anything else of
+yours that names a renamed object (an Ingress or a monitoring rule that names `choregos-web`, a script
+that runs `kubectl logs deploy/choregos-api`) moves to the new name with the upgrade.
+
+**What keeps the former name, and why:**
+
+| Object | Kept because | Until |
+| :-- | :-- | :-- |
+| ServiceAccount `choregos-runner` | The `k8s_job` executor's default service account is that name in the application code, and provisioning creates it in each project's namespace | R7 |
+| SandboxTemplate and SandboxWarmPool `choregos-runner` | The template's claim template holds the workspaces of suspended sandboxes; the claims and the pool name the template | A migration of the suspended sandboxes, or none left |
+| ServiceAccount `choregos-orchestrator` | Provisioning binds it by name (namespace and account) in every project's namespace | R7 |
+| Deployment and Service `choregos-egress` | Provisioning's per-project proxy has the same name, and one default `tranibor-orchestrator.runner.egressProxy` (`http://choregos-egress.{namespace}.svc:3128`) addresses both | R7 |
+| The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` values (`choregos-api`, `choregos`…) | The application code selects on them (egress families, plugin servers' callers, run pods), your NetworkPolicies may, and a StatefulSet's selector cannot change | R7 |
+| The ExternalSecret's remote key `choregos/api` | It is a path in your secret store | Your store's own move |
+| The Kyverno ClusterPolicies of `infra/policies` (`choregos-pod-security`…) | The chart's PolicyException names them, and a renamed policy would be installed beside the former one | A later round |
+| Alert names, the rule group `choregos.platform`, the dashboards' uids | Alertmanager routes and Grafana links key on them | A later round |
+
+The chart's variables are still `CHOREGOS_*` (each process reads them as `TRANIBOR_*`, ADR 0176 R4), and
+so are its mount paths (`/etc/choregos/…`), the Keycloak realm, client and groups, and the default
+namespaces of external dependencies (`choregos-data`, `choregos-plugins`…): they move with R7 or stay
+deployment values.
+
+**What holds data keeps its name.** The platform's claims and StatefulSets are named after the release
+and do not move: `<release>-postgresql` (its claim `data-<release>-postgresql-0`, its selector unchanged),
+`<release>-temporal`, `<release>-ecphoria`, `<release>-objectstore`, `<release>-backup`. The **outpost's**
+StatefulSet keeps its name, `<release>-choregos-outpost` (or the release's, when it holds that name),
+and so its claims `data-<release>-choregos-outpost-<n>`, which hold each instance's keys, journal and
+audit log: renamed, every instance would start on an empty volume, as a new instance to enrol and
+approve. The outpost's other objects (its ServiceAccount, ConfigMap, NetworkPolicies and servers) are
+`<release>-tranibor-outpost[-…]`. To give the StatefulSet the new name, move the claims first, one
+outpost at a time:
+
+1. Stop the instances: `kubectl -n <ns> scale statefulset <release>-choregos-outpost --replicas=0`.
+2. For each instance `<n>`, copy its claim to the new name, for example as a clone where the storage
+   class supports it: a PersistentVolumeClaim `data-<release>-tranibor-outpost-<n>` with
+   `dataSource: { kind: PersistentVolumeClaim, name: data-<release>-choregos-outpost-<n> }` and the same
+   size, access modes and storage class (or a volume snapshot restored under that name).
+3. Set `persistence.statefulSetName: <release>-tranibor-outpost` and upgrade the release: the former
+   StatefulSet is deleted (its claims are not), the new one's pods take the copied claims.
+4. Check that each instance kept its identity (`kubectl -n <ns> exec <release>-tranibor-outpost-<n> -c
+   outpost -- choregos-outpost doctor`: the same fingerprint, no new enrolment pending), then delete the
+   former claims.
+
+**The Secrets the chart names by default:**
+
+| Value | Default from now on | Former default |
+| :-- | :-- | :-- |
+| `global.apiSecretRef` | `tranibor-api-secrets` | `choregos-api-secrets` |
+| `global.database.secretRef` | `tranibor-db` | `choregos-db` |
+| `global.gateway.secretRef` | `tranibor-gateway-secrets` | `choregos-gateway-secrets` |
+| `global.oidc.secretRef` | `tranibor-oidc` | `choregos-oidc` |
+| `global.objectStore.secretRef` (`values/all-in-one.yaml`) | `tranibor-object-store` | `choregos-object-store` |
+| `backup.target.s3.secretRef` (`values/single-node.yaml`) | `tranibor-backup-target` | `choregos-backup-target` |
+| `netops.ciliumReader.name` (its ServiceAccount, and the token Secret `<name>-token`) | `tranibor-netops-cilium-reader` | `choregos-netops-cilium-reader` |
+
+A values file that names a Secret keeps it: nothing to do. **A deployment that relied on a default
+and provides the Secret itself** (a sealed secret, a vault operator, `kubectl create secret`) does one
+of two things before upgrading: set the former name in its values (`global.apiSecretRef:
+choregos-api-secrets`, and so on), or create the Secret under the new name, for example
+`kubectl -n <ns> get secret choregos-api-secrets -o json | jq '.metadata = {name: "tranibor-api-secrets"}' | kubectl -n <ns> apply -f -`.
+With External Secrets (`global.externalSecrets.enabled`), the chart's ExternalSecret is renamed with
+its target and syncs the new Secret from the same remote key. **The Secrets the chart draws itself**
+(`global.devSecrets`, the all-in-one profile) are drawn once and re-read: under `helm upgrade`, a
+default name that became `tranibor-*` reads the values of its former name, so the session secret, the
+run-token key and above all `secrets-keks` (which seals every stored connector secret), the object
+store's keys and the OIDC client secret carry over. A renderer that cannot read the cluster (`helm
+template`, Argo CD) would draw new ones: there, copy each Secret under its new name first (the command
+above), or set the former names.
+
+**The images.** The chart's defaults name the images `tranibor-*` (`tranibor-api`, `tranibor-web`,
+`tranibor-orchestrator`, `tranibor-tools`, `tranibor-laya`, `tranibor-outpost`, and the runners'
+`tranibor-orchestrator.runner.image: tranibor-runner`): each release has published them under both names,
+one digest, since 0.27.14. A values file that sets `image.repository` keeps what it sets; an admission
+policy must admit `tranibor-*` (`infra/policies/images.yaml` does).
+
+**The labels and the policies.** The workers carry their queue under both label names, `tranibor/queue`
+and `choregos/queue`; the new Deployments and budgets select `tranibor/queue`, and the policy that lets
+the executor workers reach a warm sandbox admits either. `infra/policies` judges the namespaces `tranibor`
+and `tranibor-*` as it judges `choregos` and `choregos-*`, and takes a project's object labelled
+`tranibor/project` or `choregos/project`. Apply them before you install into a namespace named after
+`tranibor`.
 
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 
@@ -3537,7 +3672,7 @@ runs receive, the same for every run: scope it at the gateway with its own rate 
 
 A LiteLLM you run yourself (`global.gateway.embedded: false`, type `litellm`) is the platform's
 `litellm` gateway: the API mints marked keys for it and expects the secret guard on the path. Load
-it as the embedded one does: put `charts/choregos/charts/litellm/files/choregos_guardrail.py` next
+it as the embedded one does: put `charts/tranibor/charts/litellm/files/choregos_guardrail.py` next
 to LiteLLM's `config.yaml` (same release, byte for byte) and declare it in that config:
 
 ```yaml
@@ -3581,7 +3716,7 @@ global:
   gateway:
     embedded: true                  # required: only the embedded LiteLLM serves it
   decisions:
-    embedded: true                  # deploys `charts/choregos/charts/laya` and adds `platform/decide` to LiteLLM
+    embedded: true                  # deploys `charts/tranibor/charts/laya` and adds `platform/decide` to LiteLLM
     apiKeySecret: ""                # key `api-key`; empty: the chart generates one and keeps it
     inputCostPerToken: 0.00000002   # USD per token read: the internal price (ADR 0004)
 ```

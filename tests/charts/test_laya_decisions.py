@@ -18,7 +18,7 @@ import yaml
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 GATEWAY = ("global.gateway.embedded=true",)
 DECISIONS = (*GATEWAY, "global.decisions.embedded=true")
 
@@ -112,8 +112,8 @@ def test_the_entries_litellm_already_served_render_byte_for_byte_as_before() -> 
     assert _model_list_block(_config_text(_render(*GATEWAY))) == DEFAULT_MODEL_LIST
 
     upstream = (
-        "choregos-litellm.upstream.apiBase=https://gw.example",
-        "choregos-litellm.upstream.apiKeySecret=upstream",
+        "tranibor-litellm.upstream.apiBase=https://gw.example",
+        "tranibor-litellm.upstream.apiKeySecret=upstream",
     )
     models = _models(_render(*DECISIONS, *upstream))
     assert models["platform/standard"]["litellm_params"] == {
@@ -127,11 +127,11 @@ def test_the_entries_litellm_already_served_render_byte_for_byte_as_before() -> 
 
 
 def test_a_model_may_name_its_own_endpoint_key_and_price() -> None:
-    entry = "choregos-litellm.models[0]"
+    entry = "tranibor-litellm.models[0]"
     models = _models(
         _render(
             *GATEWAY,
-            "choregos-litellm.upstream.apiBase=https://gw.example",
+            "tranibor-litellm.upstream.apiBase=https://gw.example",
             f"{entry}.alias=platform/local",
             f"{entry}.model=hosted_vllm/qwen",
             f"{entry}.apiBase=http://vllm:8000/v1",
@@ -181,7 +181,7 @@ def test_laya_runs_offline_on_cpu_and_is_probed_on_its_health_route() -> None:
     assert env["LAYA_DEVICE"] == "cpu"
     # The tag follows the chart's `global.imageTag`, which `tools/bump_version.py` moves at each release.
     tag = yaml.safe_load((CHART / "values.yaml").read_text())["global"]["imageTag"]
-    assert container["image"] == PUBLISHING.image("choregos-laya", tag)
+    assert container["image"] == PUBLISHING.image("tranibor-laya", tag)
     assert container["ports"] == [{"name": "http", "containerPort": 8000}]
     for probe in ("startupProbe", "readinessProbe", "livenessProbe"):
         assert container[probe]["httpGet"] == {"path": "/health", "port": "http"}, probe
@@ -214,7 +214,7 @@ def test_only_litellm_s_pods_reach_laya() -> None:
     documents = _render(*DECISIONS)
     laya_pod = _one(documents, "Deployment", "choregos-laya")["spec"]["template"]["metadata"]["labels"]
     litellm_pod = _one(documents, "Deployment", "choregos-litellm")["spec"]["template"]["metadata"]["labels"]
-    api_pod = _one(documents, "Deployment", "choregos-api")["spec"]["template"]["metadata"]["labels"]
+    api_pod = _one(documents, "Deployment", "tranibor-api")["spec"]["template"]["metadata"]["labels"]
 
     policy = _one(documents, "NetworkPolicy", "choregos-laya")["spec"]
     assert _selects(policy["podSelector"], laya_pod)
@@ -241,10 +241,10 @@ def test_only_litellm_s_pods_reach_laya() -> None:
 
 
 def test_litellm_may_leave_its_namespace_s_egress_lock_for_laya() -> None:
-    """`choregos-allow-platform` locks the egress of the platform's pods, LiteLLM's included."""
+    """`tranibor-allow-platform` locks the egress of the platform's pods, LiteLLM's included."""
 
     def laya_rules(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        egress = _one(documents, "NetworkPolicy", "choregos-allow-platform")["spec"]["egress"]
+        egress = _one(documents, "NetworkPolicy", "tranibor-allow-platform")["spec"]["egress"]
         return [
             rule
             for rule in egress

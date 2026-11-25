@@ -1,6 +1,6 @@
 """Every orchestrator worker receives the GitHub App, like the API (S22-04).
 
-On 2026-10-08, the dev tenant had its GitHub App (Infisical -> `choregos-api-secrets`): the API
+On 2026-10-08, the dev tenant had its GitHub App (Infisical -> `tranibor-api-secrets`): the API
 saw it, but the tracker catch-up failed with "[github] no authentication configured".
 The chart only passed `CHOREGOS_GITHUB_APP_ID` and `CHOREGOS_GITHUB_APP_PRIVATE_KEY` to the API pod,
 whereas it is the workers that read the issues and open the pull requests.
@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -45,4 +45,4 @@ def test_every_worker_of_the_orchestrator_receives_the_github_app_as_an_option()
         ):
             assert name in env, f"{worker['metadata']['name']} does not receive {name}"
             ref = env[name]["valueFrom"]["secretKeyRef"]
-            assert (ref["name"], ref["key"], ref.get("optional")) == ("choregos-api-secrets", key, True)
+            assert (ref["name"], ref["key"], ref.get("optional")) == ("tranibor-api-secrets", key, True)

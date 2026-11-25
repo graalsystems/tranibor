@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -44,7 +44,7 @@ def _litellm_env(docs: list[dict[str, Any]]) -> dict[str, Any]:
 
 def test_the_callback_is_told_where_the_apis_internal_routes_are() -> None:
     env = _litellm_env(_docs("global.gateway.embedded=true"))
-    assert env["CHOREGOS_CONTEXT_API_URL"] == "http://choregos-api:8000/api/v1/internal"
+    assert env["CHOREGOS_CONTEXT_API_URL"] == "http://tranibor-api:8000/api/v1/internal"
     # The callback signs each run's id with the gateway's master key.
     assert "LITELLM_MASTER_KEY" in env
 
@@ -54,7 +54,7 @@ def test_the_callback_is_told_where_the_apis_internal_routes_are() -> None:
 
 
 def test_the_gateways_pods_reach_the_api_pods_and_nothing_else() -> None:
-    policy = _named(_docs("global.gateway.embedded=true"), "NetworkPolicy", "choregos-litellm-to-api")
+    policy = _named(_docs("global.gateway.embedded=true"), "NetworkPolicy", "tranibor-litellm-to-api")
     assert policy is not None
     assert policy["spec"]["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": "choregos-litellm"}}
     assert policy["spec"]["egress"] == [
@@ -66,4 +66,4 @@ def test_the_gateways_pods_reach_the_api_pods_and_nothing_else() -> None:
 
 
 def test_an_external_gateway_gets_no_policy() -> None:
-    assert _named(_docs(), "NetworkPolicy", "choregos-litellm-to-api") is None
+    assert _named(_docs(), "NetworkPolicy", "tranibor-litellm-to-api") is None

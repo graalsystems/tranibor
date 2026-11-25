@@ -9,7 +9,7 @@ metadata:
   name: choregos-tekton-labels
   annotations:
     policies.kyverno.io/description: >-
-      Every PipelineRun of a project namespace carries the `choregos/project` label.
+      Every PipelineRun of a project namespace carries the `tranibor/project` or `choregos/project` label.
 spec:
   validationFailureAction: Enforce
   background: true
@@ -21,8 +21,13 @@ spec:
               kinds: [PipelineRun]
               namespaces: ["proj-*"]
       validate:
-        message: "every object of a project namespace carries the `choregos/project` label"
-        pattern:
-          metadata:
-            labels:
-              choregos/project: "?*"
+        message: "every object of a project namespace carries the `tranibor/project` label (or, until the end of ADR 0224's window, `choregos/project`)"
+        # Either name of the label for the window of ADR 0224: the platform writes `choregos/project` until
+        # R7 moves it to `tranibor/project`, and an object written before keeps the former one.
+        anyPattern:
+          - metadata:
+              labels:
+                tranibor/project: "?*"
+          - metadata:
+              labels:
+                choregos/project: "?*"

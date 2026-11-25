@@ -1,6 +1,0 @@
-apiVersion: v2
-name: choregos-api
-description: API Choregos (REST, webhooks, SSE, API interne des runners)
-type: application
-version: 0.29.4
-appVersion: "0.29.4"

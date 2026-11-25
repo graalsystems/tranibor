@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 TEMPO = "http://tempo.monitoring.svc:3200"
 PREVIOUS = "CHOREGOS_SESSION_SECRET_PREVIOUS"
 
@@ -63,7 +63,7 @@ def test_only_the_api_receives_the_session_secret() -> None:
     pods = _pods(docs)
     workloads = {workload for workload, _, _ in pods}
     # the processes that build `Settings` and must keep starting without the secret
-    assert "choregos-trace-drift" in workloads, workloads
+    assert "tranibor-trace-drift" in workloads, workloads
     assert any("migrations" in workload for workload in workloads), workloads
     assert any("orchestrator" in workload for workload in workloads), workloads
 
@@ -72,16 +72,16 @@ def test_only_the_api_receives_the_session_secret() -> None:
         for workload, name, container in pods
         if {"CHOREGOS_SESSION_SECRET", PREVIOUS} & set(_env(container))
     }
-    assert carriers == {("choregos-api", "api")}, f"the session secret reached: {sorted(carriers)}"
+    assert carriers == {("tranibor-api", "api")}, f"the session secret reached: {sorted(carriers)}"
 
-    (api,) = [c for w, n, c in pods if (w, n) == ("choregos-api", "api")]
+    (api,) = [c for w, n, c in pods if (w, n) == ("tranibor-api", "api")]
     env = _env(api)
     assert env["CHOREGOS_SESSION_SECRET"]["valueFrom"]["secretKeyRef"] == {
-        "name": "choregos-api-secrets",
+        "name": "tranibor-api-secrets",
         "key": "session-secret",
     }
     assert env[PREVIOUS]["valueFrom"]["secretKeyRef"] == {
-        "name": "choregos-api-secrets",
+        "name": "tranibor-api-secrets",
         "key": "session-secret-previous",
         "optional": True,
     }
@@ -105,7 +105,7 @@ def test_extra_env_still_carries_other_names() -> None:
 def _external_secret_keys(*sets: str) -> list[str]:
     docs = _docs("global.externalSecrets.enabled=true", *sets)
     (external,) = [
-        d for d in docs if d["kind"] == "ExternalSecret" and d["metadata"]["name"] == "choregos-api-secrets"
+        d for d in docs if d["kind"] == "ExternalSecret" and d["metadata"]["name"] == "tranibor-api-secrets"
     ]
     return [item["secretKey"] for item in external["spec"]["data"]]
 
@@ -115,7 +115,7 @@ def test_the_external_secret_carries_the_previous_key_only_when_asked() -> None:
     default = _external_secret_keys()
     assert "session-secret" in default
     assert "session-secret-previous" not in default
-    asked = _external_secret_keys("choregos-api.externalSecrets.sessionSecretPrevious=true")
+    asked = _external_secret_keys("tranibor-api.externalSecrets.sessionSecretPrevious=true")
     assert "session-secret-previous" in asked
     assert sorted(set(asked) - {"session-secret-previous"}) == sorted(default), "nothing else changes"
 
@@ -123,7 +123,7 @@ def test_the_external_secret_carries_the_previous_key_only_when_asked() -> None:
 def test_a_bench_secret_is_a_session_secret_the_api_accepts() -> None:
     """`global.devSecrets` draws the secret itself: it must meet the API's 32-byte rule."""
     docs = _docs("global.devSecrets=true", "global.externalSecrets.enabled=false")
-    (secret,) = [d for d in docs if d["kind"] == "Secret" and d["metadata"]["name"] == "choregos-api-secrets"]
+    (secret,) = [d for d in docs if d["kind"] == "Secret" and d["metadata"]["name"] == "tranibor-api-secrets"]
     session = secret["stringData"]["session-secret"]
     assert len(session.encode()) >= 32, "the API refuses a deployed session secret shorter than 32 bytes"
     assert "session-secret-previous" not in secret["stringData"], "no rotation on a bench"

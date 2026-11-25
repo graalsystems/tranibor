@@ -31,7 +31,7 @@ from .conftest import require
 pytestmark = pytest.mark.live
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-DASHBOARD = ROOT / "charts" / "choregos" / "dashboards" / "traces.json"
+DASHBOARD = ROOT / "charts" / "tranibor" / "dashboards" / "traces.json"
 GATEWAY = os.environ.get("TRANIBOR_LIVE_OTEL_GATEWAY_URL", "http://127.0.0.1:14400")
 # The compose file's master key, a local-only placeholder (assembled, not a literal key).
 MASTER_KEY = "-".join(("sk", "local", "otel", "only"))

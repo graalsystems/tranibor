@@ -21,7 +21,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 SECRET = "harbor-prive"
 
 #: The objects that carry a podSpec.
@@ -98,7 +98,7 @@ def _runner_account(docs: list[dict[str, Any]]) -> dict[str, Any]:
 def _worker_envs(docs: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
     envs: dict[str, dict[str, str]] = {}
     for doc in docs:
-        if doc.get("kind") == "Deployment" and doc["metadata"]["name"].startswith("choregos-orchestrator"):
+        if doc.get("kind") == "Deployment" and doc["metadata"]["name"].startswith("tranibor-orchestrator"):
             container = doc["spec"]["template"]["spec"]["containers"][0]
             envs[doc["metadata"]["name"]] = {
                 entry["name"]: entry["value"] for entry in container.get("env", []) if "value" in entry

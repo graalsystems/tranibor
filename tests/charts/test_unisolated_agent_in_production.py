@@ -10,7 +10,7 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 ACCEPT = (
     "CHOREGOS_AGENT_ISOLATION"  # rendered as the chart's `CHOREGOS_*`, adopted as `TRANIBOR_*` (ADR 0176)
 )
@@ -65,7 +65,7 @@ def test_the_named_opt_out_renders_and_reaches_the_api_and_the_workers() -> None
     )
     assert result.returncode == 0, result.stderr
     seen = _envs(result.stdout, ACCEPT)
-    assert {"choregos-api", "choregos-orchestrator-executor"} <= set(seen), seen
+    assert {"tranibor-api", "tranibor-orchestrator-executor"} <= set(seen), seen
     assert all(values == ["none-accepted"] for values in seen.values())
 
 

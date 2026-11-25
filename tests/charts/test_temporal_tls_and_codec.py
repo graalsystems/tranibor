@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -46,7 +46,7 @@ def _temporal_clients(*sets: str) -> dict[str, dict[str, Any]]:
         if doc.get("kind") != "Deployment":
             continue
         name = doc["metadata"]["name"]
-        if name == "choregos-api" or name.startswith("choregos-orchestrator-"):
+        if name == "tranibor-api" or name.startswith("tranibor-orchestrator-"):
             pods[name] = doc["spec"]["template"]["spec"]
     return pods
 
@@ -67,7 +67,7 @@ def _secret_volumes(spec: dict[str, Any]) -> dict[str, str]:
 
 def test_tls_is_off_by_default_and_the_codec_is_on() -> None:
     pods = _temporal_clients()
-    assert "choregos-api" in pods and any(n.startswith("choregos-orchestrator-") for n in pods)
+    assert "tranibor-api" in pods and any(n.startswith("tranibor-orchestrator-") for n in pods)
     for name, spec in pods.items():
         env = _env(spec)
         assert not [k for k in env if k.startswith("CHOREGOS_TEMPORAL_TLS")], name
@@ -133,7 +133,7 @@ def test_production_without_the_codec_is_refused_unless_allow_clear_says_so(envi
     envs = [
         c["env"]
         for d in yaml.safe_load_all(allowed.stdout)
-        if d and d.get("kind") == "Deployment" and d["metadata"]["name"] == "choregos-api"
+        if d and d.get("kind") == "Deployment" and d["metadata"]["name"] == "tranibor-api"
         for c in d["spec"]["template"]["spec"]["containers"]
         if c["name"] == "api"
     ]

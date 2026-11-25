@@ -14,7 +14,7 @@ import yaml
 
 from .test_pod_security import violations
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 KYVERNO = "kyverno.io/v2/PolicyException"
 #: Passing `--api-versions` turns off the conftest's own, so the operator's CRD is named here too.
 OPERATOR = "extensions.agents.x-k8s.io/v1beta1/SandboxTemplate"
@@ -47,7 +47,7 @@ def _env(doc: dict[str, Any]) -> dict[str, str]:
 
 
 def _builder(docs: Docs) -> dict[str, Any]:
-    pod: dict[str, Any] = docs[("Deployment", "choregos-buildkitd")]["spec"]["template"]["spec"]
+    pod: dict[str, Any] = docs[("Deployment", "tranibor-buildkitd")]["spec"]["template"]["spec"]
     return pod
 
 
@@ -71,11 +71,11 @@ def test_an_operators_own_builder_means_the_chart_deploys_none(override: str) ->
 
 def test_with_a_build_registry_the_workers_dial_the_charts_daemon() -> None:
     docs = _docs(BUILDS)
-    assert ("Service", "choregos-buildkitd") in docs
-    assert docs[("Service", "choregos-buildkitd")]["spec"]["ports"][0]["port"] == 1234
+    assert ("Service", "tranibor-buildkitd") in docs
+    assert docs[("Service", "tranibor-buildkitd")]["spec"]["ports"][0]["port"] == 1234
     for worker in _workers(docs):
         env = _env(worker)
-        assert env["CHOREGOS_BUILDKIT_ADDRESS"] == "tcp://choregos-buildkitd:1234"
+        assert env["CHOREGOS_BUILDKIT_ADDRESS"] == "tcp://tranibor-buildkitd:1234"
         assert "CHOREGOS_BUILDKIT_TLS_DIR" not in env
 
 
@@ -116,14 +116,14 @@ def test_the_strict_rule_faults_the_builder_for_what_it_does_unconfined_and_an_e
         "buildkitd.appArmorProfile",
         "buildkitd.allowPrivilegeEscalation",
     ]
-    assert ("PolicyException", "choregos-buildkitd") not in plain, "no Kyverno, no exception to render"
+    assert ("PolicyException", "tranibor-buildkitd") not in plain, "no Kyverno, no exception to render"
     docs = _docs(BUILDS, api_versions=(KYVERNO,))
-    exception = docs[("PolicyException", "choregos-buildkitd")]["spec"]
+    exception = docs[("PolicyException", "tranibor-buildkitd")]["spec"]
     assert exception["exceptions"] == [
         {"policyName": "choregos-pod-security", "ruleNames": ["non-root", "autogen-non-root"]}
     ]
     (match,) = exception["match"]["any"]
-    assert match["resources"]["names"] == ["choregos-buildkitd*"]
+    assert match["resources"]["names"] == ["tranibor-buildkitd*"]
     assert match["resources"]["namespaces"] == ["choregos"]
 
 
@@ -137,12 +137,12 @@ def test_no_other_pod_of_the_chart_runs_unconfined() -> None:
             context = container.get("securityContext") or {}
             if "Unconfined" in str(context) or context.get("allowPrivilegeEscalation") is not False:
                 unconfined.append(f"{name}/{container['name']}")
-    assert unconfined == ["choregos-buildkitd/buildkitd"]
+    assert unconfined == ["tranibor-buildkitd/buildkitd"]
 
 
 def test_only_the_orchestrator_reaches_it_and_it_reaches_the_internet_never_the_platform() -> None:
     docs = _docs(BUILDS)
-    policy = docs[("NetworkPolicy", "choregos-buildkitd-net")]["spec"]
+    policy = docs[("NetworkPolicy", "tranibor-buildkitd-net")]["spec"]
     assert policy["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": "choregos-buildkitd"}}
     (ingress,) = policy["ingress"]
     assert ingress["from"] == [
@@ -155,10 +155,10 @@ def test_only_the_orchestrator_reaches_it_and_it_reaches_the_internet_never_the_
     ]
     (block,) = internet["to"]
     assert block["ipBlock"]["cidr"] == "0.0.0.0/0" and set(block["ipBlock"]["except"]) == PRIVATE
-    labels = docs[("Deployment", "choregos-buildkitd")]["spec"]["template"]["metadata"]["labels"]
+    labels = docs[("Deployment", "tranibor-buildkitd")]["spec"]["template"]["metadata"]["labels"]
     assert "app.kubernetes.io/part-of" not in labels, "`choregos-allow-ingress` would admit every pod"
 
-    platform = docs[("NetworkPolicy", "choregos-allow-platform")]["spec"]
+    platform = docs[("NetworkPolicy", "tranibor-allow-platform")]["spec"]
     (excluded,) = platform["podSelector"]["matchExpressions"]
     assert "choregos-buildkitd" in excluded["values"], "the builder never reaches PostgreSQL or Temporal"
     to_builder = [r for r in platform["egress"] if "choregos-buildkitd" in str(r["to"])]
@@ -167,7 +167,7 @@ def test_only_the_orchestrator_reaches_it_and_it_reaches_the_internet_never_the_
 
 def test_a_registry_in_a_private_range_is_opened_by_name_only() -> None:
     docs = _docs(BUILDS, "global.buildkitd.registryCidrs={10.20.0.5/32}")
-    egress = docs[("NetworkPolicy", "choregos-buildkitd-net")]["spec"]["egress"]
+    egress = docs[("NetworkPolicy", "tranibor-buildkitd-net")]["spec"]["egress"]
     assert egress[-1] == {
         "to": [{"ipBlock": {"cidr": "10.20.0.5/32"}}],
         "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 5000}],

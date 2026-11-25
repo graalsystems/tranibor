@@ -4,7 +4,7 @@
 
     uv run python tools/package_charts.py --version 1.2.3 --out dist/charts
 
-`charts/choregos` is published as `<image_prefix>` and `<image_alias_prefix>`, `charts/choregos-outpost`
+`charts/tranibor` is published as `<image_prefix>` and `<image_alias_prefix>`, `charts/tranibor-outpost`
 as `<image_prefix>-outpost` and `<image_alias_prefix>-outpost`: the names come from the publishing
 identity (ADR 0156), never from this file. One directory per chart, so one set of templates and
 defaults: each name is a copy whose `Chart.yaml` says that name, and nothing else differs. The objects

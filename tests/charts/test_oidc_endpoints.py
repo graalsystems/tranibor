@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 ENDPOINTS = (
     "CHOREGOS_OIDC_AUTHORIZATION_ENDPOINT",
     "CHOREGOS_OIDC_TOKEN_ENDPOINT",
@@ -34,7 +34,7 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
     (api,) = [
         container
         for doc in docs
-        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "choregos-api"
+        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "tranibor-api"
         for container in doc["spec"]["template"]["spec"]["containers"]
         if container["name"] == "api"
     ]
@@ -43,7 +43,7 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
 
 def test_explicit_endpoints_are_rendered_together() -> None:
     env = _api_env(
-        'choregos-api.oidcEndpoints={"authorization":"https://sso.example/auth",'
+        'tranibor-api.oidcEndpoints={"authorization":"https://sso.example/auth",'
         '"token":"https://sso.example/token","userinfo":"https://sso.example/me"}'
     )
     assert [env[name]["value"] for name in ENDPOINTS] == [
@@ -55,7 +55,7 @@ def test_explicit_endpoints_are_rendered_together() -> None:
 
 
 def test_a_partial_set_of_endpoints_fails_the_render() -> None:
-    rendered = _render('choregos-api.oidcEndpoints={"authorization":"https://sso.example/auth"}')
+    rendered = _render('tranibor-api.oidcEndpoints={"authorization":"https://sso.example/auth"}')
     assert rendered.returncode != 0
     assert "oidcEndpoints" in rendered.stderr
 
@@ -76,11 +76,11 @@ def test_an_extra_env_cannot_set_them_a_second_time() -> None:
     for name in owned:
         rendered = _render(f'global.extraEnv=[{{"name":"{name}","value":"x"}}]')
         assert rendered.returncode != 0, name
-        assert "choregos-api.oidc" in rendered.stderr
+        assert "tranibor-api.oidc" in rendered.stderr
 
 
 def test_the_verified_switch_renders_true_or_false_only() -> None:
-    off = _api_env("choregos-api.oidcRequireEmailVerified=false")
+    off = _api_env("tranibor-api.oidcRequireEmailVerified=false")
     assert off["CHOREGOS_OIDC_REQUIRE_EMAIL_VERIFIED"]["value"] == "false"
 
 
@@ -88,11 +88,11 @@ def test_a_relink_window_is_rendered_only_when_it_has_an_end() -> None:
     """S70-20, ADR 0164: the re-link is a window with an end, never a switch left on."""
     assert "CHOREGOS_OIDC_RELINK_UNTIL" not in _api_env()
     assert "CHOREGOS_OIDC_RELINK_VERIFIED_EMAIL" not in _api_env()
-    window = _api_env('choregos-api.oidcRelinkUntil="2026-12-01T00:00:00Z"')
+    window = _api_env('tranibor-api.oidcRelinkUntil="2026-12-01T00:00:00Z"')
     assert window["CHOREGOS_OIDC_RELINK_UNTIL"]["value"] == "2026-12-01T00:00:00Z"
 
 
 def test_the_former_switch_fails_the_render_naming_its_replacement() -> None:
-    rendered = _render("choregos-api.oidcRelinkVerifiedEmail=true")
+    rendered = _render("tranibor-api.oidcRelinkVerifiedEmail=true")
     assert rendered.returncode != 0
     assert "oidcRelinkUntil" in rendered.stderr

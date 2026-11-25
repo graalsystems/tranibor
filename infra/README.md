@@ -8,7 +8,7 @@ reproducible from day one.
 ```
 bootstrap/   operators and tooling (sync-wave 0–2): cert-manager, ESO, Envoy Gateway,
              CNPG, Tekton, Argo Rollouts, Kyverno, monitoring, gVisor
-platform/    the `charts/choregos` umbrella, per environment (sync-wave 3)
+platform/    the `charts/tranibor` umbrella, per environment (sync-wave 3)
 projects/    written by ProjectProvisioning; one directory per project (sync-wave 4)
 policies/    Kyverno: images signed by digest, non-root, labels, quotas, RuntimeClass
 ```
