@@ -154,8 +154,7 @@ spec:
     - from: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-orchestrator } } }]
       ports: [{ protocol: TCP, port: {{ $port }} }]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+    {{- include "choregos.dnsEgress" (dict "root" $ "tcp" true) | nindent 4 }}
     # Base images, `pip install`, and a build registry on the Internet: never a private range.
     - to:
         - ipBlock:

@@ -67,6 +67,8 @@ global:
   # 1.29, which cannot run its native sidecar (S41-16). Empty: the version Helm or Argo CD renders
   # for (`.Capabilities.KubeVersion`, the cluster's own on `helm install`). Set it when rendering
   # offline for an older cluster. The executor checks the API server itself at every start anyway.
+  # The chart itself declares `kubeVersion: >=1.29.0-0` (S87-16): Helm and Argo CD refuse to render it
+  # for an older cluster, so this value only matters for an offline render or a version Helm misreads.
   kubernetesVersion: ""
   # What runs agent stages (ADR 0072): one setting for the API and for the workers.
   # `agent_sandbox` (kubernetes-sigs/agent-sandbox) is the default of a real deployment; the
@@ -412,13 +414,17 @@ global:
       # implementation applies its own default, and some cut a request at 15 seconds. Empty: the
       # field is not rendered, for a Gateway API whose HTTPRoute has no `timeouts` yet.
       requestTimeout: 60s
-      # `kind: ingress`: the door Ingress's own annotations. There is no portable one for a timeout:
-      # these two are ingress-nginx's and say nothing to another controller. Write your controller's
-      # equivalents here (a read timeout above 25 seconds, no response buffering), and its rate
-      # limit or its source restriction for this entrance.
-      annotations:
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+      # `kind: ingress`: there is no portable annotation for a timeout. `ingressController` names the
+      # controller whose timeout annotations the chart writes on the door's Ingress (S87-16):
+      # `ingress-nginx` (the default) writes `nginx.ingress.kubernetes.io/proxy-read-timeout: "60"` and
+      # `nginx.ingress.kubernetes.io/proxy-buffering: "off"`; `""` writes none, for another
+      # controller, whose own equivalents (a read timeout above 25 seconds, no response buffering)
+      # then go in `annotations`. A separate switch, because Helm merges a map given in your values
+      # into the chart's: a map default could not be replaced, only added to.
+      ingressController: ingress-nginx
+      # The door Ingress's own annotations, verbatim, over the controller's above (a key given here
+      # wins): another controller's timeouts, a rate limit, a source restriction for this entrance.
+      annotations: {}
       # false: the API serves the door, as one more router. true: the door has its own Deployment,
       # `choregos-outposts-door` (the API image, `python -m tranibor_api.outposts`): the four verbs
       # and nothing else of the API, with its own bounded connection pool, so that polls waiting by
@@ -722,6 +728,10 @@ global:
     enabled: true
     storeRef: choregos-cluster-store
     refreshInterval: 1h
+    # The ExternalSecret's API version: `external-secrets.io/v1` or `external-secrets.io/v1beta1`.
+    # Empty: `v1` when the cluster serves it (Argo CD, `helm install`), else `v1beta1` (an offline
+    # render, an operator older than `v1`). Set it for an offline render aimed at a recent operator.
+    apiVersion: ""
 
 choregos-api:
   enabled: true
@@ -977,7 +987,15 @@ monitoring:
   # it: on a VictoriaMetrics platform, a ServiceMonitor is an INERT object — the
   # deployment looks monitored and is not. Observed on a real tenant on 2026-09-26.
   flavour: prometheus
+  # The scrape object (`ServiceMonitor`, or `VMServiceScrape`) and the alert rules (`PrometheusRule`,
+  # or `VMRule`) are rendered only when the cluster serves their type (S87-16): a cluster without the
+  # operator would refuse the whole install. Argo CD and `helm install` tell the chart what the
+  # cluster serves; an offline render (`helm template` in CI, a preview, `helm template | kubectl
+  # apply`) does not, and leaves them out unless `skipCrdCheck` is true.
   serviceMonitor: true
+  # true: render them without asking the cluster, for an offline render aimed at a cluster that has
+  # the operator. Never needed under Argo CD or `helm install`.
+  skipCrdCheck: false
   dashboards: true
   # Annotations set on each dashboard ConfigMap. The Grafana sidecar files a
   # dashboard in the folder named by its `folderAnnotation` (often `grafana_folder`);
@@ -1023,10 +1041,43 @@ netops:
 
 networkPolicies:
   enabled: true
+  # The cluster's DNS resolver, which every egress policy of the chart opens (S87-16). The defaults
+  # are the upstream layout: the pods of `kube-system`, UDP 53 for the platform's own pods and UDP and
+  # TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder.
+  #   OpenShift: `{namespace: openshift-dns, ports: [{port: 5353, protocol: UDP}, {port: 5353, protocol: TCP}]}`
+  #     (its DNS pods listen on 5353, and a policy is matched after the Service's 53 is translated).
+  #   GKE with NodeLocal DNSCache: `cidrs: ["169.254.20.10/32"]` beside `kube-system`.
+  # Written from the providers' documentation; neither was run (docs/deployment.md, "On a managed cluster").
+  dns:
+    # The resolver's namespace. Empty: only `cidrs` are opened.
+    namespace: kube-system
+    # The resolver's pods in that namespace, as `matchLabels` (e.g. `{k8s-app: kube-dns}`). Empty: every
+    # pod of the namespace, as before.
+    podLabels: {}
+    # Resolver addresses no namespace holds: a node-local cache, a resolver outside the cluster.
+    cidrs: []
+    # `[{port: 53, protocol: UDP}, …]`, for every policy at once. Empty: each policy's ports above.
+    ports: []
   # Egress entries (NetworkPolicy `egress` rules, as written) added for the platform's own pods, in
   # `choregos-allow-platform`: never the runner pods, the egress proxy or the builder, which that
   # policy leaves out. Empty on a cluster, whose platform team opens the outside its own way (the
   # egress ceiling above says what it opened); the single-node profile opens it here (ADR 0184).
+  # On a managed cluster, what the platform reaches outside the namespace is opened here or by the
+  # platform team (docs/deployment.md, "On a managed cluster"). Examples, to adapt; none was run on a
+  # provider:
+  #   # The Kubernetes API server, which the API and the workers call to start agent pods. A policy
+  #   # matches the endpoint's address, not the `kubernetes` Service: give the control plane's
+  #   # (`kubectl get endpoints kubernetes -o wide`; EKS, GKE: the cluster's endpoint; AKS: the API
+  #   # server's FQDN, resolved). Some policy engines also want the `kubernetes` Service's ClusterIP.
+  #   - to: [{ ipBlock: { cidr: 203.0.113.10/32 } }]
+  #     ports: [{ protocol: TCP, port: 443 }]
+  #   # A managed PostgreSQL (RDS, Cloud SQL, Azure Database) at a private address.
+  #   - to: [{ ipBlock: { cidr: 10.20.0.0/24 } }]
+  #     ports: [{ protocol: TCP, port: 5432 }]
+  #   # The object store, the identity provider and the model gateway when they live outside the
+  #   # cluster: their addresses on 443 (a policy cannot name a host).
+  #   - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+  #     ports: [{ protocol: TCP, port: 443 }]
   platformEgress: []
 
 # S80-17: self-hosted web search for the governed `web_search` tool. Off by default; see
