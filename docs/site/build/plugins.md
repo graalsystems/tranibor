@@ -16,7 +16,7 @@ source your instance trusts, and install, upgrade or uninstall it in an organisa
 
 **Before you start:**
 
-- the [CLI](../cli/install.md); `choregos plugin` works offline, no instance needed;
+- the [CLI](../cli/install.md); `tranibor plugin` works offline, no instance needed;
 - an agent and a skill you want to share ([Build an agent](agents.md), [Write a skill](skills.md));
 - to install: an organisation administrator, and a plugin source your operator declared.
 
@@ -33,7 +33,7 @@ The manifest says what the plugin is and exactly which files it ships. Nothing e
 read, validated or packed:
 
 ```yaml title="billing-team/plugin.yaml"
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Plugin
 metadata:
   name: billing-team
@@ -104,8 +104,8 @@ description: How the billing team writes release notes. Use it whenever you writ
 ## 2. Validate and pack it
 
 ```bash
-choregos plugin validate billing-team/
-choregos plugin pack billing-team/ -o billing-team-1.0.0.tar.gz
+tranibor plugin validate billing-team/
+tranibor plugin pack billing-team/ -o billing-team-1.0.0.tar.gz
 ```
 
 **What you should see:** `✓ billing-team 1.0.0 sha256:…`. The **content digest** identifies the plugin:
@@ -125,14 +125,14 @@ published in an OCI registry or a git repository pinned to a commit. Write the i
 plugins:
 
 ```bash
-choregos plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/choregos-plugins
+tranibor plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/tranibor-plugins
 ```
 
 or, for plugins read from a git repository at an exact commit (a branch or a tag is refused, it can
 move):
 
 ```bash
-choregos plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
+tranibor plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
   --git-commit 0123456789abcdef0123456789abcdef01234567 --git-path plugins
 ```
 
@@ -177,4 +177,4 @@ it in **Plugins**.
   [Plugins, extensions and editions](plugins-and-trades.md).
 - The full plugin format, servers and trust:
   [plugins reference](../../plugins.md).
-- [CLI reference](../cli/reference.md#tranibor-plugin) for every option of `choregos plugin`.
+- [CLI reference](../cli/reference.md#tranibor-plugin) for every option of `tranibor plugin`.

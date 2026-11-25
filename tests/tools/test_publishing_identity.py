@@ -217,7 +217,7 @@ def test_moving_the_publication_is_one_edit_and_one_command(tmp_path: pathlib.Pa
     assert '- "registry.example.org/exampleorg/exampleware-api*"' in images
     assert 'imageReferences: ["registry.example.org/exampleorg/examplelegacy-*"]' in images
     install = (root / "docs/site/host/install.md").read_text(encoding="utf-8")
-    assert "oci://registry.example.org/exampleorg/charts/examplelegacy" in install
+    assert "oci://registry.example.org/exampleorg/charts/exampleware" in install
     # The plugins' images keep their own name under the registry: it is not an image prefix.
     assert "exampleorg/tranibor-agents/" in policy
 

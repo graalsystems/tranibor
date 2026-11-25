@@ -15,8 +15,8 @@ workflow schema: a key added to the schema without this page turns the build red
 Check a file before publishing it:
 
 ```bash
-choregos workflow validate ship-a-change.yaml
-choregos workflow show ship-a-change.yaml --process
+tranibor workflow validate ship-a-change.yaml
+tranibor workflow show ship-a-change.yaml --process
 ```
 
 ## A complete example
@@ -26,7 +26,7 @@ owner approves the specification, an agent implements it under gates, another ve
 opens and merges the pull request, and a release train ships it.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: ship-a-change
@@ -145,7 +145,7 @@ defaults:
 
 | Key | Required | What it is |
 | --- | --- | --- |
-| `apiVersion` | yes | always `choregos/v1` |
+| `apiVersion` | yes | always `tranibor/v1` |
 | `kind` | yes | always `Workflow` |
 | `metadata` | yes | the workflow's name, version and inputs ([below](#metadata)) |
 | `actors` | yes | who moves work items, by name ([below](#actors)) |
@@ -182,7 +182,7 @@ Each actor has a `type`.
 | `agent` | `role` (required), `agent`, `model`, `backend`, `playbook`, `max_turns`, `max_minutes`, `fresh_context`, `needs` | an agent run in a sandbox. `agent` names a registry agent (`slug` or `slug@version`) whose version sets the instructions, model, limits and budget ([Build an agent](../build/agents.md)). `model` is `profile:<name>`, `profile:by_size` (the default, by the work item's size) or a model id. `backend` is the coding agent, the project's default otherwise. `playbook` names the instructions when there is no registry agent (the role's own otherwise). `fresh_context: true` starts without the previous runs' context. `needs` lists the connector kinds the agent works through (`[scm]` for a repository), which the project must connect; a workflow whose agents declare no `needs` (one written before 0.27.17) has them guessed from the role (`implement`, `review`… need an `scm`) |
 | `human` | `group`, `user` (at least one), `sla_hours`, `escalate_to` | a person decides in the console: a member of the identity provider's `group`, or the person `user` names by e-mail. With both, that person is asked first and the group may answer once `sla_hours` (24 by default) has passed. An actor that approves a `train` names a `group` |
 | `system` | none | the platform itself: opens or merges a pull request (`does`), proposes an action |
-| `job` | `role` and `command` (required), `image`, `max_minutes` | a command run in the step's sandbox, without a model: `command` is an argument list, never a shell line; `image` is a job image the operator named. The facts it writes in `.choregos/facts.json` are measured |
+| `job` | `role` and `command` (required), `image`, `max_minutes` | a command run in the step's sandbox, without a model: `command` is an argument list, never a shell line; `image` is a job image the operator named. The facts it writes in `.tranibor/facts.json` are measured |
 | `decision` | `role`, `questions`, `state` (required), `model`, `timeout_seconds` | a decision model answers typed questions about the work item, without a sandbox. `state` lists what it reads (`title`, `description`, `labels`, `type`, `fields.<name>`, `outputs.<name>`). Each question writes an output `<name>` and `<name>_confidence`, which `when` reads |
 
 A decision question has a `type`, `instructions` (what is asked, 2,000 characters) and, by type:
@@ -321,7 +321,7 @@ result and the diff; the others wait for an event.
 A decision model sorts incoming bugs, a job reproduces the reproducible ones, the rest goes to a lead:
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: bug-triage

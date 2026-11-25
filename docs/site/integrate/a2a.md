@@ -9,7 +9,7 @@ sidebar_position: 2
 Your billing team's order system should be able to say "ship this change" to Tranibor and get the
 result back, without anyone opening the console. The **A2A door** does that: it serves your workflows
 as skills of the [A2A protocol](https://a2a-protocol.org), versions **0.3.0** and **1.0**, as JSON-RPC
-over HTTP. Any HTTP client can call it; the CLI's `choregos a2a` writes the JSON-RPC for you.
+over HTTP. Any HTTP client can call it; the CLI's `tranibor a2a` writes the JSON-RPC for you.
 
 **What you will be able to do:** open a workflow to the door, give an application its own account
 and token, list what it may start, start a work item with fields and a file, follow it to the end,
@@ -61,7 +61,7 @@ a2a:
 Publish the workflow as usual, from the console (the workflow's **YAML** view) or with the CLI:
 
 ```bash
-choregos workflow push acme:billing-api ship-a-change.yaml
+tranibor workflow push acme:billing-api ship-a-change.yaml
 ```
 
 The [workflow reference](../reference/workflow-yaml.md#a2a) lists every key.
@@ -79,12 +79,12 @@ token is shown once (*Token, shown once:*): copy it into the application's secre
 **With the CLI:**
 
 ```bash
-choregos machines create acme:billing-api partner-app --display-name "Partner app"
-choregos machines token acme:billing-api partner-app --name production --expires-in-days 90
+tranibor machines create acme:billing-api partner-app --display-name "Partner app"
+tranibor machines token acme:billing-api partner-app --name production --expires-in-days 90
 ```
 
 To rotate a token, issue the next one, switch the application to it, then revoke the old one with
-`choregos machines revoke acme:billing-api partner-app <token id>` (`choregos machines list
+`tranibor machines revoke acme:billing-api partner-app <token id>` (`tranibor machines list
 acme:billing-api` shows the ids, never the values). **Remove** ends the application: its tokens stop
 working at once.
 
@@ -93,21 +93,21 @@ working at once.
 once), or:
 
 ```bash
-choregos tokens create --name my-test --scope a2a --project acme:billing-api --expires-in-days 30
+tranibor tokens create --name my-test --scope a2a --project acme:billing-api --expires-in-days 30
 ```
 
 Keep both values at hand for the next steps:
 
 ```shell
 export TOKEN=chg_...
-export A2A=https://choregos.example.com/a2a/orgs/acme
+export A2A=https://tranibor.example.com/a2a/orgs/acme
 ```
 
-The CLI finds the door from its profile (`choregos login`, or `TRANIBOR_API_URL` and `TRANIBOR_ORG`)
+The CLI finds the door from its profile (`tranibor login`, or `TRANIBOR_API_URL` and `TRANIBOR_ORG`)
 and takes the token from `--token` or `TRANIBOR_A2A_TOKEN`:
 
 ```shell
-export TRANIBOR_API_URL=https://choregos.example.com TRANIBOR_ORG=acme TRANIBOR_A2A_TOKEN=chg_...
+export TRANIBOR_API_URL=https://tranibor.example.com TRANIBOR_ORG=acme TRANIBOR_A2A_TOKEN=chg_...
 ```
 
 Without either, it sends the profile's own token, usually a full-access one, which the door refuses
@@ -128,13 +128,13 @@ card, which a client that does not know it simply ignores:
 
 ```shell
 curl -s "$A2A/.well-known/agent-card.json" -H "Authorization: Bearer $TOKEN" | jq '.capabilities.extensions[]
-  | select(.uri == "https://choregos.dev/a2a/extensions/skill-fields/v1") | .params.skills'
+  | select(.uri == "https://tranibor.dev/a2a/extensions/skill-fields/v1") | .params.skills'
 ```
 
 With the CLI, a required field is marked with a `*`:
 
 ```bash
-choregos a2a skills
+tranibor a2a skills
 ```
 
 **What you should see:** one skill, `billing-api/ship-a-change`, taking `ticket` (required) and
@@ -161,7 +161,7 @@ curl -s "$A2A" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/j
 With the CLI:
 
 ```bash
-choregos a2a send billing-api/ship-a-change --message-id order-2026-0042 --title "Add credit notes" \
+tranibor a2a send billing-api/ship-a-change --message-id order-2026-0042 --title "Add credit notes" \
   --text "Customers need a credit note when an invoice is refunded." \
   --field ticket=FIN-42 --field priority=high
 ```
@@ -190,7 +190,7 @@ choregos a2a send billing-api/ship-a-change --message-id order-2026-0042 --title
         "key": "BIL-12",
         "project": "acme:billing-api",
         "state": "inbox",
-        "console_url": "https://choregos.example.com/p/billing-api/items/5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001"
+        "console_url": "https://tranibor.example.com/p/billing-api/items/5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001"
       }
     }
   }
@@ -222,7 +222,7 @@ With the CLI, `--file` reads the file and guesses its media type from the extens
 (`PATH;type=MEDIA/TYPE` names it otherwise):
 
 ```bash
-choregos a2a send billing-api/ship-a-change --message-id order-2026-0043 \
+tranibor a2a send billing-api/ship-a-change --message-id order-2026-0043 \
   --title "Apply the attached specification" --field ticket=FIN-43 --file spec.pdf
 ```
 
@@ -255,9 +255,9 @@ With the CLI, `get` reads once and `follow` keeps the stream open, reopening it 
 cut; `send --wait` starts and follows in one command:
 
 ```bash
-choregos a2a get <task id> --json
-choregos a2a follow <task id> --out ./result
-choregos a2a send billing-api/ship-a-change --text "Add a VAT column" --field ticket=FIN-44 --wait --out ./result
+tranibor a2a get <task id> --json
+tranibor a2a follow <task id> --out ./result
+tranibor a2a send billing-api/ship-a-change --text "Add a VAT column" --field ticket=FIN-44 --wait --out ./result
 ```
 
 `follow` and `send --wait` exit `0` when the task completed, `3` when it failed, `4` when it was
@@ -293,8 +293,8 @@ The answer carries `signing.secret`, **shown once**. Each notification POSTs the
 with:
 
 - `X-A2A-Notification-Token`: your `token`, to check the call is yours;
-- `X-Choregos-Event-Id`, also sent as `Idempotency-Key`: a receiver may see an event twice;
-- `X-Choregos-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`, computed with the
+- `X-Tranibor-Event-Id`, also sent as `Idempotency-Key`: a receiver may see an event twice;
+- `X-Tranibor-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`, computed with the
   secret: check it, and check that `t` is recent.
 
 A receiver that does not answer 2xx is called again with a growing delay, eight times at most. The
@@ -320,7 +320,7 @@ curl -s "$A2A" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/j
 ```
 
 ```bash
-choregos a2a cancel <task id>
+tranibor a2a cancel <task id>
 ```
 
 The work item stops as if someone had stopped it in the console. You need the right to control work

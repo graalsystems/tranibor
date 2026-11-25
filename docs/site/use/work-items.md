@@ -46,8 +46,8 @@ With Tranibor as the tracker, it gives the work item its key itself.
 On a project whose tracker is Tranibor itself:
 
 ```bash
-choregos items create onboarding --title "Arrival of a data engineer on 3 March" --size M
-choregos items create onboarding --title "Quarterly access review" --workflow access-review --field team=data
+tranibor items create onboarding --title "Arrival of a data engineer on 3 March" --size M
+tranibor items create onboarding --title "Quarterly access review" --workflow access-review --field team=data
 ```
 
 Work can also start on a schedule, from a webhook or from another system: see
@@ -113,9 +113,9 @@ event by event.
 From the command line:
 
 ```bash
-choregos items list billing-api --state needs_human
-choregos items show <item-id>
-choregos runs list <item-id>
+tranibor items list billing-api --state needs_human
+tranibor items show <item-id>
+tranibor runs list <item-id>
 ```
 
 ## Read a run
@@ -139,8 +139,8 @@ reads only what was observed.
 From the command line:
 
 ```bash
-choregos runs tail <run-id>
-choregos runs diff <run-id>
+tranibor runs tail <run-id>
+tranibor runs diff <run-id>
 ```
 
 ## Take over
@@ -156,10 +156,10 @@ choregos runs diff <run-id>
 The same from the command line:
 
 ```bash
-choregos items action <item-id> pause
-choregos items action <item-id> resume
-choregos items action <item-id> rerun_stage
-choregos items action <item-id> stop
+tranibor items action <item-id> pause
+tranibor items action <item-id> resume
+tranibor items action <item-id> rerun_stage
+tranibor items action <item-id> stop
 ```
 
 **More money is a decision.** Replaying a stage whose work item has spent its budget is refused unless
@@ -167,7 +167,7 @@ you grant more. The top-up adds to the work item's budget and is recorded in the
 name:
 
 ```bash
-choregos items action <item-id> rerun_stage --top-up 5
+tranibor items action <item-id> rerun_stage --top-up 5
 ```
 
 ## When work comes back

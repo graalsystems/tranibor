@@ -21,16 +21,17 @@ sidebar_position: 5
 
 ## Upgrade
 
-The same command as the install, with the new version:
+The same command as the install, with the new version (and the release name and namespace you installed
+with: they are your deployment's, and an upgrade never changes them):
 
 ```shell
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
-  --version 0.29.4 --namespace choregos -f my-values.yaml
+helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
+  --version 0.29.4 --namespace tranibor -f my-values.yaml
 ```
 
 - The database migrations run as a Helm hook **before** the new API starts
   (`python -m tranibor_api.migrate`, in a Job that waits for the database up to 300 seconds). With an
-  embedded database the hook runs after the install instead: keep `choregos-api.migrations.hook` as
+  embedded database the hook runs after the install instead: keep `tranibor-api.migrations.hook` as
   the chart sets it.
 - Work items in flight finish on the workflow version they started on; Temporal keeps their position
   across the restart of the workers.
@@ -39,12 +40,12 @@ helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/choregos \
 ## Check it
 
 ```shell
-kubectl -n choregos get pods
-kubectl -n choregos get jobs -l app.kubernetes.io/instance=choregos
-curl -s https://choregos.example.com/api/v1/edition
+kubectl -n tranibor get pods
+kubectl -n tranibor get jobs -l app.kubernetes.io/instance=tranibor
+curl -s https://tranibor.example.com/api/v1/edition
 ```
 
-**What you should see:** every pod `Running` on the new images, the job `choregos-migrations-<revision>`
+**What you should see:** every pod `Running` on the new images, the job `tranibor-migrations-<revision>`
 completed, and the edition answer's `version` naming the new version.
 
 ## When it goes wrong

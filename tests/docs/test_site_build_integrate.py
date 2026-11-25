@@ -10,8 +10,8 @@ reads the pages as they are and compares them with the code:
 - relative links resolve inside `docs/site`, anchors included; links to the repository name files and
   headings that exist; site-absolute links name a slug of the contract;
 - the pages are safe for MDX (Docusaurus 3): no bare `<` or `{` outside code;
-- every `tranibor` command (or `choregos`, its former name, until ADR 0224's R8) parses against the
-  CLI's own Typer app (options, arguments);
+- every `tranibor` command parses against the CLI's own Typer app (options, arguments); since ADR 0224
+  R8 a page writes the command's name only, and a `choregos …` line is a command this test does not know;
 - every YAML block is claimed by a check: a workflow parses without error or warning, a policy
   validates, Helm values name keys of the chart, the plugin of the plugins page validates;
 - the workflow reference names every key of the workflow schema and lists exactly the known gates;
@@ -300,7 +300,7 @@ def test_every_command_exists(page: str, command: str) -> None:
     for words in parts:
         if not words:
             continue
-        if words[0] in {"tranibor", "choregos"}:  # the former name runs the same CLI (ADR 0224 R5)
+        if words[0] == "tranibor":  # the pages write the command's name only (ADR 0224 R8)
             name = " ".join(["tranibor", *(w for w in words[1:3] if not w.startswith("-"))])
             problem = _cli_problem(words)
             if problem and name in UPCOMING:
@@ -335,8 +335,10 @@ def _chart_values() -> dict[str, Any]:
     values = yaml.safe_load((ROOT / "charts/tranibor/values.yaml").read_text(encoding="utf-8"))
     for chart in (ROOT / "charts/tranibor/charts").iterdir():
         own = yaml.safe_load((chart / "values.yaml").read_text(encoding="utf-8")) or {}
-        merged = values.setdefault(f"choregos-{chart.name}", {}) or {}
-        values[f"choregos-{chart.name}"] = {**own, **merged}
+        # A deployment sets a component under `tranibor-<component>` (ADR 0224 R6); the pages write that
+        # key only (R8), so the former `choregos-<component>` is not a key of the chart here.
+        merged = values.setdefault(f"tranibor-{chart.name}", {}) or {}
+        values[f"tranibor-{chart.name}"] = {**own, **merged}
     return dict(values)
 
 
@@ -371,7 +373,7 @@ def test_every_yaml_block_is_checked(page: str, info: str, block: str) -> None:
     elif kind in {"Plugin", "Assistant", "conversation"} or {"catalogue", "agent"} <= set(document):
         assert page in PLUGIN_PAGES, f"{page}: a plugin file outside the pages that are validated as a plugin"
         assert "title=" in info, f'{page}: a plugin file must say its path (title="plugin/file.yaml")'
-    elif set(document) & {"global", "choregos-api", "choregos-web"}:
+    elif set(document) & {"global", "tranibor-api", "tranibor-web"}:
         missing = [".".join(p) for p in _values_paths(document) if not _in_chart(p)]
         assert not missing, f"{page}: keys the chart does not have: {missing}"
     elif {"metadata", "a2a"} <= set(document):
@@ -383,7 +385,8 @@ def test_every_yaml_block_is_checked(page: str, info: str, block: str) -> None:
 def test_the_values_check_refuses_a_key_the_chart_does_not_have() -> None:
     assert _in_chart(("global", "oidc", "issuer"))
     assert _in_chart(("global", "mcp", "oauth", "clients", "claude-code", "clientId"))
-    assert _in_chart(("choregos-api", "ingress", "hostnames"))
+    assert _in_chart(("tranibor-api", "ingress", "hostnames"))
+    assert not _in_chart(("choregos-api", "ingress", "hostnames"))
     assert not _in_chart(("global", "oidc", "issuerUrl"))
     assert not _in_chart(("global", "databse", "host"))
 

@@ -1,25 +1,25 @@
 ---
 title: Install the CLI
-description: Get the choregos command from your instance or from the GitHub release, sign in, and keep it up to date.
+description: Get the tranibor command from your instance or from the GitHub release, sign in, and keep it up to date.
 sidebar_position: 1
 ---
 
 # Install the CLI
 
-The `choregos` command drives your instance from a terminal or a script: projects, workflows, work
+The `tranibor` command drives your instance from a terminal or a script: projects, workflows, work
 items, tokens, applications, the A2A door, plugins. It calls the same API as the console, with your
 rights.
 
 **What you will be able to do:** install the CLI, check what you downloaded, sign in to your instance,
 and keep the CLI at your instance's version.
 
-**Before you start:** the address of your Tranibor instance (here `https://choregos.example.com`) and
+**Before you start:** the address of your Tranibor instance (here `https://tranibor.example.com`) and
 an account on it.
 
 ## From your instance
 
 :::info Available from the release that follows 0.25.3
-The downloads served by the instance, the install scripts and `choregos self update` arrive with the
+The downloads served by the instance, the install scripts and `tranibor self update` arrive with the
 release that follows 0.25.3. On 0.25.3 and earlier, install from the GitHub release
 ([below](#from-the-github-release)).
 :::
@@ -31,39 +31,39 @@ below with your instance's address filled in.
 **Linux and macOS:**
 
 ```bash
-curl -fsSL https://choregos.example.com/cli/install.sh | sh
+curl -fsSL https://tranibor.example.com/cli/install.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://choregos.example.com/cli/install.ps1 | iex
+irm https://tranibor.example.com/cli/install.ps1 | iex
 ```
 
 The script picks the file for your system, checks its SHA-256 against the instance's manifest, and
-puts `choregos` on your path.
+puts `tranibor` on your path.
 
 **By hand**, download the file for your system from your instance:
 
 | System | File |
 | --- | --- |
-| Linux, x86-64 | `choregos-linux-x86_64` |
-| Linux, ARM64 | `choregos-linux-arm64` |
-| macOS, Apple silicon | `choregos-macos-arm64` |
-| macOS, Intel | `choregos-macos-x86_64` |
-| Windows, x86-64 | `choregos-windows-x86_64.exe` |
+| Linux, x86-64 | `tranibor-linux-x86_64` |
+| Linux, ARM64 | `tranibor-linux-arm64` |
+| macOS, Apple silicon | `tranibor-macos-arm64` |
+| macOS, Intel | `tranibor-macos-x86_64` |
+| Windows, x86-64 | `tranibor-windows-x86_64.exe` |
 
 ```bash
-curl -fsSLO https://choregos.example.com/downloads/cli/choregos-linux-x86_64
-curl -fsSL https://choregos.example.com/downloads/cli/manifest.json
+curl -fsSLO https://tranibor.example.com/downloads/cli/tranibor-linux-x86_64
+curl -fsSL https://tranibor.example.com/downloads/cli/manifest.json
 ```
 
 `manifest.json` gives the version and, for each file, its system, architecture, size and `sha256`.
 Compare it with the file you downloaded:
 
 ```shell
-sha256sum choregos-linux-x86_64
-chmod +x choregos-linux-x86_64 && mv choregos-linux-x86_64 ~/.local/bin/choregos
+sha256sum tranibor-linux-x86_64
+chmod +x tranibor-linux-x86_64 && mv tranibor-linux-x86_64 ~/.local/bin/tranibor
 ```
 
 On macOS, `shasum -a 256` gives the same digest. The same files, a `SHA256SUMS` file and their
@@ -79,7 +79,7 @@ The CLI tells you when its version differs from your instance's. Replace it with
 build:
 
 ```shell
-choregos self update
+tranibor self update
 ```
 
 ## From the GitHub release
@@ -100,38 +100,38 @@ wheels the same way with `--force`.
 
 ## Sign in
 
-`choregos login` opens your browser on the console, which shows a code; check it is the one the terminal
+`tranibor login` opens your browser on the console, which shows a code; check it is the one the terminal
 shows and approve. The CLI then holds a session of yours, listed under **My account**, *Sessions*:
 
 ```bash
-choregos login --api-url https://choregos.example.com --org acme
-choregos whoami
+tranibor login --api-url https://tranibor.example.com --org acme
+tranibor whoami
 ```
 
 Over SSH, or on a machine without a display, nothing opens: the terminal prints the link to open in a browser
-anywhere. Later runs of `choregos login` reuse the saved address. A script or a CI job saves an access token
+anywhere. Later runs of `tranibor login` reuse the saved address. A script or a CI job saves an access token
 instead (**My account**, *Access tokens*):
 
 ```bash
-choregos login --api-url https://choregos.example.com --token chg_... --org acme
+tranibor login --api-url https://tranibor.example.com --token chg_... --org acme
 ```
 
 **What you should see:** `whoami` prints who you are and your roles. The profile is saved in
-`~/.config/choregos/config.json` (`TRANIBOR_CONFIG` names another file). Without a profile, the CLI
+`~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` names another file). Without a profile, the CLI
 reads `TRANIBOR_API_URL`, `TRANIBOR_TOKEN` and `TRANIBOR_ORG`, which suits a CI job.
 
 ## What can go wrong
 
 | Symptom | Why | Fix |
 | --- | --- | --- |
-| `cannot reach http://localhost:8000` | no profile yet | `choregos login --api-url …` |
+| `cannot reach http://localhost:8000` | no profile yet | `tranibor login --api-url …` |
 | `401` | the token is unknown, revoked or expired | create a new one in **My account** |
 | `403` on every command | an MCP or A2A token in the profile | the CLI needs a full-access (`*`) token |
-| `no organisation` | neither `--org`, the profile nor `TRANIBOR_ORG` names one | `choregos login --org acme`, or `choregos orgs list` |
+| `no organisation` | neither `--org`, the profile nor `TRANIBOR_ORG` names one | `tranibor login --org acme`, or `tranibor orgs list` |
 | the digest does not match | an incomplete or altered download | download again; do not run the file |
-| `Windows refused to run` (or `refused access to`) `the downloaded choregos.exe` | a managed Windows: Defender's attack surface reduction blocks an executable that is new and not yet widespread or signed | ask your IT administrator for an exclusion of the install folder, or install [from the GitHub release](#from-the-github-release) |
+| `Windows refused to run` (or `refused access to`) `the downloaded tranibor.exe` | a managed Windows: Defender's attack surface reduction blocks an executable that is new and not yet widespread or signed | ask your IT administrator for an exclusion of the install folder, or install [from the GitHub release](#from-the-github-release) |
 
 ## Go further
 
 - [CLI reference](reference.md): every command and option.
-- [Start a workflow over A2A](../integrate/a2a.md) with `choregos a2a`.
+- [Start a workflow over A2A](../integrate/a2a.md) with `tranibor a2a`.
