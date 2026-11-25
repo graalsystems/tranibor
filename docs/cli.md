@@ -399,6 +399,56 @@ Options:
   --help                    Show this message and exit.
 ```
 
+## `choregos cluster`
+
+The cluster the platform is installed on
+
+### `choregos cluster check`
+
+```text
+Usage: choregos cluster check [OPTIONS]
+
+  What the chart needs, asked of the cluster before installing: exit 1 when
+  anything fails.
+
+  Read-only but for one namespace of its own (a NetworkPolicy and three small
+  pods), deleted at the end.
+
+Options:
+  -f, --values <file>             the chart's values file(s), as `helm -f`:
+                                  the settings below are read from them
+  --executor <str>                `global.runner.executor` (default
+                                  `agent_sandbox`)
+  --runtime-class <str>           `global.runner.runtimeClass`
+  --monitoring / --no-monitoring  `monitoring.serviceMonitor` and
+                                  `monitoring.alerts` (default on)
+  --monitoring-flavour <str>      `monitoring.flavour`: prometheus or
+                                  victoriametrics
+  --object-store-endpoint <str>   `global.objectStore.endpoint`: probed from a
+                                  pod when given
+  --gate / --no-gate              `choregos-
+                                  orchestrator.runner.egressGate.enabled`
+                                  (default on)
+  --gate-target <str>             the egress gate's `target` (default
+                                  1.1.1.1:443)
+  --gate-deadline <float>         the egress gate's `deadlineSeconds` (default
+                                  30)
+  --probe-image <str>             the probe pods' image (a mirror where the
+                                  nodes cannot pull registry.k8s.io)
+                                  [default: registry.k8s.io/e2e-test-
+                                  images/agnhost:2.56]
+  --read-only                     start no probe pod: the network checks are
+                                  then not applicable
+  --kubeconfig <str>              the kubeconfig (default: $KUBECONFIG, then
+                                  ~/.kube/config)
+  --context <str>                 the kubeconfig context (default: its current
+                                  one)
+  --server <str>                  an API server that needs no credentials,
+                                  `kubectl proxy`'s address
+  --json                          print the results as JSON
+  --help                          Show this message and exit.
+```
+
 ## `choregos decide`
 
 Decide what waits for you: confirm a write, approve an action, answer a step. One at a time.
