@@ -37,8 +37,6 @@ OUTSIDE_A_CLUSTER = frozenset({"aca"})
 WITHOUT_CLUSTER_TEST: Mapping[tuple[str, str], str] = {
     ("k8s_job", "queue"): "suspended Jobs admitted in arrival order: unit tests only, no cluster test yet",
     ("k8s_job", "renew"): "token replaced while queued: unit tests only, no cluster test yet",
-    # S86-05 builds it; S86-06 proves it on kind with Tekton Pipelines, then under gVisor, and removes this.
-    ("tekton", "separate_agent"): "the agent's sidecar in the inline Task: unit tests only, S86-06 proves it",
 }
 
 
@@ -152,7 +150,5 @@ def test_the_exemptions_only_shrink(monkeypatch: pytest.MonkeyPatch) -> None:
         if pair in proofs or pair[1] not in announced.get(pair[0], frozenset())
     )
     assert stale == [], f"{stale}: remove them from WITHOUT_CLUSTER_TEST"
-    # One exemption added since, time-boxed: S86-05 announces Tekton's agent sidecar and S86-06 (its cluster
-    # proof, the next story of the plan) removes the entry. Nothing else is added.
-    allowed = {("k8s_job", "queue"), ("k8s_job", "renew"), ("tekton", "separate_agent")}
+    allowed = {("k8s_job", "queue"), ("k8s_job", "renew")}
     assert set(WITHOUT_CLUSTER_TEST) <= allowed, "no new exemption"

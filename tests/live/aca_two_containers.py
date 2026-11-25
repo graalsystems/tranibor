@@ -60,6 +60,9 @@ from tranibor_runner.launcher import Launcher
 AGENT_SIDE = os.environ["S86_AGENT_SIDE"]
 MARKER = os.environ["S86_MARKER"]
 CHECKS = json.loads(os.environ["S86_CHECKS"])
+# Where the agent's side runs: the exchange directory, or the working tree where the platform shares one
+# (Tekton's workspace, S86-06): a tree the agent's container does not see makes the launcher fail (22).
+
 
 def finish(code: int, report: dict) -> None:
     report["exit"] = code
@@ -78,7 +81,7 @@ async def main() -> None:
     half = len(MARKER) // 2
     process = await launcher.spawn(
         ["python3", "-c", AGENT_SIDE, MARKER[:half], MARKER[half:]],
-        cwd="/exchange",
+        cwd=os.environ.get("S86_AGENT_CWD", "/exchange"),
         env={"PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin"},
     )
     out, err = await process.communicate()
