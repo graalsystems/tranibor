@@ -5,7 +5,7 @@
  * slow, the console. Any failure gives the default look.
  *
  * The theme is the instance's, or, when the person remembered an organisation (the cookie
- * `choregos_org`, S42-13), that organisation's: `GET /api/v1/theme?org=<slug>`, a public route, so the
+ * `tranibor_org`, formerly `choregos_org`, S42-13), that organisation's: `GET /api/v1/theme?org=<slug>`, a public route, so the
  * cookie only selects a look and never widens what anyone can read or do.
  *
  * On a host an organisation owns (ADR 0175) the host decides: the visitor's host is forwarded to the API
@@ -14,7 +14,7 @@
  * tenant host's memo entry is keyed by the host alone.
  */
 import { cookies, headers } from "next/headers";
-import { ORG_COOKIE, validOrgSlug } from "./remembered-org";
+import { FORMER_ORG_COOKIE, ORG_COOKIE, validOrgSlug } from "./remembered-org";
 import { DEFAULT_SERVED_THEME, sanitizeTheme, type ServedTheme } from "./served-theme";
 import { validHost } from "./tenant-host";
 
@@ -65,7 +65,8 @@ async function visitorHost(): Promise<string | null> {
 }
 
 export async function servedLook(): Promise<ServedLook> {
-  const org = validOrgSlug((await cookies()).get(ORG_COOKIE)?.value);
+  const jar = await cookies();
+  const org = validOrgSlug(jar.get(ORG_COOKIE)?.value ?? jar.get(FORMER_ORG_COOKIE)?.value);
   if (process.env.NEXT_PUBLIC_API_MODE === "mock") return { theme: await mockTheme(org), hostOrg: null };
   const host = await visitorHost();
   const now = Date.now();

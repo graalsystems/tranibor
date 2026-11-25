@@ -600,7 +600,7 @@ async def test_a_user_without_a_membership_reads_themselves(
         alone_id = alone.id
     async with AsyncClient(transport=ASGITransport(app=pg_app), base_url="http://test") as client:
         now = int(time.time())
-        client.cookies.set("choregos_session", sign_session({"sub": alone_id, "iat": now, "exp": now + 600}))
+        client.cookies.set("tranibor_session", sign_session({"sub": alone_id, "iat": now, "exp": now + 600}))
         me = await client.get("/api/v1/me")
         assert me.status_code == 200 and me.json()["email"] == "alone@nowhere.test", me.text
         created = await client.post("/api/v1/me/tokens", json={"name": "cli"})

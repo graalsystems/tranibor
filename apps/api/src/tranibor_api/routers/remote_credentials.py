@@ -81,7 +81,7 @@ async def _egress(session: Db, settings: Config, org: str | None = None) -> Asyn
 router = APIRouter(tags=["remote-agents"], dependencies=[Depends(_egress, scope="function")])
 
 Name = Annotated[str, Path(pattern=r"^[a-z][a-z0-9-]{1,62}$")]
-OAUTH_COOKIE = "choregos_remote_oauth"
+OAUTH_COOKIE = "tranibor_remote_oauth"  # formerly `choregos_remote_oauth` (ADR 0224, `former_cookies`)
 HANDSHAKE_S = 600
 CALLBACK_PATH = "/api/v1/remote-credentials/oauth/callback"
 #: Atlassian's OAuth 2.0 (3LO) wants these two on the authorisation request.

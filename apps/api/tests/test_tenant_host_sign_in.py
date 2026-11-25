@@ -156,12 +156,12 @@ async def _sign_in(
             "/api/v1/auth/login", params=params, headers=_on(login_on) if login_on else {}
         )
         assert start.status_code == 307, start.text
-        cookie = start.cookies.get("choregos_oidc") or ""
+        cookie = start.cookies.get("tranibor_oidc") or ""
         done = await client.get(
             "/api/v1/auth/callback",
             params={"code": "c", "state": _query(start)["state"][0]},
             headers=_on(callback_host) if callback_host else {},
-            cookies={"choregos_oidc": cookie},
+            cookies={"tranibor_oidc": cookie},
         )
     return start, done, token
 
@@ -222,7 +222,7 @@ async def test_the_handshake_cookie_is_host_only(client: AsyncClient, claims: Cl
     with respx.mock(assert_all_called=False) as mock:
         _discovery(mock)
         response = await client.get("/api/v1/auth/login", headers=_on(ACME_HOST))
-    (cookie,) = [c for c in _set_cookies(response) if c.startswith("choregos_oidc=")]
+    (cookie,) = [c for c in _set_cookies(response) if c.startswith("tranibor_oidc=")]
     assert "domain=" not in cookie.lower()
     assert "httponly" in cookie.lower() and "samesite=lax" in cookie.lower()
 
@@ -284,7 +284,7 @@ async def test_a_member_signs_in_on_the_host_and_the_cookie_stays_on_it(
     assert done.headers["location"] == "/projects"
     exchanged = token.calls.last.request.content.decode()
     assert f"redirect_uri=https%3A%2F%2F{ACME_HOST}%2Fapi%2Fv1%2Fauth%2Fcallback" in exchanged
-    (session_cookie,) = [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
+    (session_cookie,) = [c for c in _set_cookies(done) if c.startswith("tranibor_session=")]
     assert "domain=" not in session_cookie.lower()  # host-only: no sub-domain, no sibling gets it
     assert "httponly" in session_cookie.lower() and "samesite=lax" in session_cookie.lower()
     async with session_scope(orgs="*") as session:
@@ -306,7 +306,7 @@ async def test_a_member_of_another_organisation_only_is_refused_and_stored_nowhe
     )
     assert done.status_code == 403
     assert "not a member" in done.json()["detail"]
-    assert not [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
+    assert not [c for c in _set_cookies(done) if c.startswith("tranibor_session=")]
     async with session_scope(orgs="*") as session:
         assert (await session.execute(select(User))).scalars().all() == []
         assert (await session.execute(select(Membership))).scalars().all() == []
@@ -319,7 +319,7 @@ async def test_the_same_person_signs_in_on_the_instance_with_no_such_rule(
         client, login_on=None, groups=["choregos:globex:contributors"], email="eve@globex.example"
     )
     assert done.status_code == 307
-    assert [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
+    assert [c for c in _set_cookies(done) if c.startswith("tranibor_session=")]
     assert (
         "redirect_uri=https%3A%2F%2Fapi.choregos.example.test%2Fapi"
         in token.calls.last.request.content.decode()
@@ -351,7 +351,7 @@ async def test_a_sign_in_must_come_back_to_the_host_it_began_on(
         client, login_on=login_on, callback_on=callback_on, groups=["choregos:acme:contributors"]
     )
     assert done.status_code == 401
-    assert not [c for c in _set_cookies(done) if c.startswith("choregos_session=")]
+    assert not [c for c in _set_cookies(done) if c.startswith("tranibor_session=")]
     assert token.call_count == 0  # the code was never exchanged
 
 
@@ -366,7 +366,7 @@ async def test_a_claim_withdrawn_between_login_and_callback_refuses_the_sign_in(
         "/api/v1/auth/callback",
         params={"code": "c", "state": _query(start)["state"][0]},
         headers=_on(ACME_HOST),
-        cookies={"choregos_oidc": start.cookies.get("choregos_oidc") or ""},
+        cookies={"tranibor_oidc": start.cookies.get("tranibor_oidc") or ""},
     )
     assert done.status_code == 401
 
@@ -429,7 +429,7 @@ async def _post(client: AsyncClient, origin: str | None, **headers: str) -> int:
     if origin is not None:
         all_headers["origin"] = origin
     response = await client.post(
-        "/api/v1/auth/logout", headers=all_headers, cookies={"choregos_session": "x"}
+        "/api/v1/auth/logout", headers=all_headers, cookies={"tranibor_session": "x"}
     )
     return response.status_code
 
@@ -520,6 +520,6 @@ async def test_a_header_that_is_no_dns_name_never_reaches_the_resolver(
         await client.post(
             "/api/v1/auth/logout",
             headers={"origin": f"https://{ACME_HOST}", **_on(value)},
-            cookies={"choregos_session": "x"},
+            cookies={"tranibor_session": "x"},
         )
     assert claims.asked == []

@@ -59,7 +59,7 @@ router = APIRouter(tags=["session"])
 logger = get_logger("choregos.auth")
 
 #: Cookie that carries the PKCE `code_verifier` and the nonce between `/login` and `/callback`.
-OIDC_COOKIE = "choregos_oidc"
+OIDC_COOKIE = "tranibor_oidc"  # formerly `choregos_oidc`, read by `former_cookies` (ADR 0224)
 OIDC_HANDSHAKE_S = 600
 
 #: The role groups an identity provider sends, bare or as `tranibor:<org>:<group>` (ADR 0181 C1 named

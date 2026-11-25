@@ -485,6 +485,11 @@ def create_app() -> FastAPI:
     # After the limiter and before the logging middleware: logging stays outermost, so a refusal is
     # logged with its request id.
     install_origin_guard(app)
+    from .former_cookies import FormerCookiesMiddleware
+
+    # Outside the origin guard and every route: a cookie set under its former name (`choregos_*`) is
+    # read under its new one, then cleared (ADR 0224).
+    app.add_middleware(FormerCookiesMiddleware)
 
     @app.middleware("http")
     async def logging_middleware(

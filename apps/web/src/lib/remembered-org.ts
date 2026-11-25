@@ -2,13 +2,17 @@
 /**
  * The organisation the person last chose, remembered in the browser (S42-13).
  *
- * `localStorage` keeps the choice for the client; the non-HttpOnly cookie `choregos_org` carries
+ * `localStorage` keeps the choice for the client; the non-HttpOnly cookie `tranibor_org` carries
  * the same slug to the server, so the root layout can draw that organisation's theme (name, logo,
  * colours) on the first paint, sign-in page included. The cookie only SELECTS a public look: it
  * grants nothing, every API route still checks the session, and an unknown or malformed value
  * means the instance theme.
+ *
+ * Before ADR 0224 the cookie was `choregos_org`: the server still reads it when the new one is absent, and
+ * the next choice writes the new one and clears it.
  */
-export const ORG_COOKIE = "choregos_org";
+export const ORG_COOKIE = "tranibor_org";
+export const FORMER_ORG_COOKIE = "choregos_org";
 export const ORG_STORAGE_KEY = "choregos.org";
 
 /** The same shape the API accepts for an organisation slug (`theme.ORG_SLUG`). */
@@ -25,6 +29,7 @@ export function rememberOrgCookie(slug: string): void {
   if (!safe || typeof document === "undefined") return;
   const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${ORG_COOKIE}=${safe}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  document.cookie = `${FORMER_ORG_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
 }
 
 /** The slug remembered by `localStorage`, validated; null without one or without storage. */

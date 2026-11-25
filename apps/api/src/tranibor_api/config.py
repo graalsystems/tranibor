@@ -185,7 +185,9 @@ class Settings(BaseSettings):
     #: A verification-only key during a rotation (`TRANIBOR_SESSION_SECRET_PREVIOUS`): a value signed
     #: with it still reads, and nothing is signed with it.
     session_secret_previous: str = ""
-    session_cookie: str = "choregos_session"
+    #: `tranibor_session`; a browser holding the former `choregos_session` is moved to it (ADR 0224,
+    #: `former_cookies`). A name set here is the operator's and is never renamed.
+    session_cookie: str = "tranibor_session"
     session_max_age_s: int = 8 * 3600
     #: A developer surface's session (ADR 0154 §6): it ends after this long without a request, and in any case
     #: after `surface_session_max_age_s`. A device code lives `device_code_ttl_s` and is polled no faster than

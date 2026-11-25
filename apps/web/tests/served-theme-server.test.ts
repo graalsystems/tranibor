@@ -3,14 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_THEME } from "@/mocks/theme-sample";
 
 let cookie: string | undefined;
+let cookieName = "tranibor_org";
 let incoming: Record<string, string> = {};
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: (name: string) => (name === "choregos_org" && cookie ? { value: cookie } : undefined) }),
+  cookies: async () => ({ get: (name: string) => (name === cookieName && cookie ? { value: cookie } : undefined) }),
   headers: async () => ({ get: (name: string) => incoming[name] ?? null }),
 }));
 
 beforeEach(async () => {
   cookie = undefined;
+  cookieName = "tranibor_org";
   incoming = {};
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_API_MODE", "live");
@@ -62,6 +64,17 @@ describe("the instance theme, read on the server (S39-03b)", () => {
       "http://api.test/api/v1/theme?org=acme-labs",
       "http://api.test/api/v1/theme",
     ]);
+  });
+
+  it("reads the organisation remembered under the cookie's former name (ADR 0224)", async () => {
+    vi.stubEnv("TRANIBOR_API_URL", "http://api.test");
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(SAMPLE_THEME)));
+    vi.stubGlobal("fetch", fetcher);
+    const { instanceTheme } = await import("@/lib/served-theme-server");
+    cookieName = "choregos_org";
+    cookie = "acme-labs";
+    await instanceTheme();
+    expect((fetcher.mock.calls[0] as unknown as [string])[0]).toBe("http://api.test/api/v1/theme?org=acme-labs");
   });
 
   it.each(["../admin", "Acme", "a b", "acme?x=1", "-acme", "a".repeat(64), "acme/../x"])(
