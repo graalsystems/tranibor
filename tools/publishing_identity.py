@@ -65,6 +65,8 @@ GENERATED_CODE = frozenset({"packages/contracts/ts/api.ts"})
 
 #: The files that cannot read the definition and spell it out, rewritten by `--rewrite-from`.
 DERIVED: tuple[str, ...] = (
+    # The support matrix's record cites the CI runs that proved a cluster by their URL (S87-04).
+    "docs/support/clusters.yaml",
     # Repository metadata: GitHub teams, notices, the Claude Code marketplace and plugin.
     ".claude-plugin/marketplace.json",
     "CODEOWNERS",
