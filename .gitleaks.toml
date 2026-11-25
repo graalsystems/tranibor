@@ -14,6 +14,10 @@ description = "faux secrets de test et d'exemple, documentés"
 paths = [
   '''packages/core/tests/test_gates\.py''',
   '''packages/contracts/schemas/examples/.*\.json''',
+  # The chart's rename test (R6 of ADR 0224) draws the Secret a release of the former chart held, with
+  # made-up values (base64 of `former-session`, `former-hook`, `former-key`, `k1:former-kek`), to prove
+  # the renamed release keeps them. A Helm unit test's fixture, by path: its values change with the test.
+  '''charts/tranibor/tests/renamed_test\.yaml''',
 ]
 # Les historiques Temporal archivés portent l'URL de l'API interne des agents
 # (`choregos-api:8000/api/v1/internal`), que la règle « generic-api-key » prend pour une
@@ -28,6 +32,12 @@ regexes = [
   '''q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94''',
   '''BTBZMqHH6r4Tts7J_aSIgg''',
   '''choregos-api:8000/api/v1/internal''',
+  # The same internal URL under the chart's new name (R6 of ADR 0224).
+  '''tranibor-api:8000/api/v1/internal''',
+  # Azurite's well-known development account key, published by Microsoft for the emulator, and a
+  # deliberately wrong key (base64 of `wrong-key`): the object store conformance test (S86-17).
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  '''d3Jvbmcta2V5''',
   # ADR 0091 (S40-26d) describes the relay's token in prose: "the run-token key, `aud=choregos-relay`".
   # The `generic-api-key` rule reads `key, ` followed by a quoted word as a key. The CI scans every
   # branch (`fetch-depth: 0`), so one such sentence on one branch turned the `secrets` job red on
