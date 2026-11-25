@@ -63,6 +63,8 @@ EXCLUDED_PREFIXES = (
     # The compatibility shims are written with the old names, on purpose.
     "compat/",
     "tests/compat/",
+    # The former name's ceilings (ADR 0224) list the shims' paths, which hold the old names.
+    "tools/former_name_baseline.tsv",
 )
 #: Prose files a human edits by hand once the script has run (they say both names on purpose).
 SKIPPED_SUFFIXES = (".jpeg", ".png", ".jpg", ".gif", ".ico", ".woff2", ".woff", ".pdf", ".zip", ".whl")
