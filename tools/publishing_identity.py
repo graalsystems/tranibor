@@ -65,6 +65,8 @@ GENERATED_CODE = frozenset({"packages/contracts/ts/api.ts"})
 
 #: The files that cannot read the definition and spell it out, rewritten by `--rewrite-from`.
 DERIVED: tuple[str, ...] = (
+    # A measurement's record names the published images it ran (#2283).
+    "docs/load-testing.md",
     # Repository metadata: GitHub teams, notices, the Claude Code marketplace and plugin.
     ".claude-plugin/marketplace.json",
     "CODEOWNERS",

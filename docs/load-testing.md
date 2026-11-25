@@ -15,7 +15,7 @@ capacity statement; the numbers are for this machine and will move on yours.
 |:--|:--|
 | Machine | 4 vCPU (Intel Xeon @ 2.10 GHz), 16 GB RAM, a shared VM (a micro-VM sandbox: no promise on noisy neighbours) |
 | Docker | Engine 29.10.0, Compose 5.7.1 |
-| Repository | `graalsystems/tranibor` at `61d0b132e` (`main`, 2026-11-25); the load script is that commit's |
+| Repository | this repository at `61d0b132e` (`main`, 2026-11-25); the load script is that commit's |
 | Images | **The published 0.29.4 images** (`ghcr.io/graalsystems/tranibor-{api,orchestrator,web}:0.29.4`, API digest `sha256:979defbfbaf9cc3e53a1f953806e2d0d4bccd0d733362d025658c942afd00041`), tagged as the compose file expects (`choregos-api:local`, ...), then `docker compose up -d --no-build`. The sandbox cannot build the images (the build's package downloads do not go through its proxy), so these are the release's code, not necessarily every line of the commit. The workers' image is the published orchestrator image plus the Docker CLI layer the `worker-local` target adds |
 | Mode | `.env` from `.env.example`, no model key: **fakes**. Each agent stage returns what its transition declares and says that no model ran. Temporal, PostgreSQL, the gates and the human decision are the real path. No model latency is in any number below |
 | Topology | PostgreSQL 16 (with the compose file's `fsync=off`), Temporal `auto-setup` on the same PostgreSQL, **one API process** (`uvicorn`, no `--workers`), one worker container, LiteLLM, RustFS, the console |
