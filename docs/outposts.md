@@ -40,7 +40,7 @@ box is accepted.
 ## What an outpost is
 
 An outpost is a place of one organisation that a person enrols. One or more **instances** of the
-daemon `choregos-outpost` run there, each with keys it made itself. Every connection between an
+daemon `tranibor-outpost` run there, each with keys it made itself. Every connection between an
 outpost and the platform is opened by the outpost, to one hostname, on port 443: the outposts' door.
 The platform never connects to an outpost, stores no address of it and needs no route to it.
 
@@ -124,10 +124,10 @@ chart; what there is to arrange:
 ## Creating an outpost, enrolling and approving an instance
 
 An organisation's administrator does this (the right is `outpost:manage`), in **Administration →
-Outposts** or with `choregos outposts`. [Usage](usage.md#4-write-the-policy) describes the page and
+Outposts** or with `tranibor outposts`. [Usage](usage.md#4-write-the-policy) describes the page and
 the commands, under "Outposts"; the [CLI reference](cli.md) has each command.
 
-Before anyone tries, the page and `choregos outposts list` say whether the deployment would refuse:
+Before anyone tries, the page and `tranibor outposts list` say whether the deployment would refuse:
 outposts switched off (`TRANIBOR_OUTPOSTS`), so that nothing is created and no token issued, or a door
 without a signing key, so that no token is issued. Both come from the list of outposts (`enabled`,
 `door_signing_key`), not from a refusal.
@@ -136,8 +136,8 @@ without a signing key, so that no token is issued. Both come from the list of ou
 2. **Issue an enrolment token** for one instance. It is shown once, with what the outpost's operator
    needs: the door's origin, the door's keys to pin (`door_keys`) and the command to run. A token
    enrols one instance, once, and lives fifteen minutes at most. The tokens that can still enrol are
-   listed on the outpost's page and by `choregos outposts tokens <slug>`, never with their value, and
-   one pasted in the wrong place is cancelled there or with `choregos outposts cancel-token <slug>
+   listed on the outpost's page and by `tranibor outposts tokens <slug>`, never with their value, and
+   one pasted in the wrong place is cancelled there or with `tranibor outposts cancel-token <slug>
    <id>`: from then on it enrols nothing. A token that already enrolled an instance is not cancelled
    (`enrolment_used`): revoke that instance instead.
 3. **The operator enrols the instance** on their side ([their guide](outpost-operator.md#enrolment)).
@@ -177,7 +177,7 @@ and what it can refuse; the walk-through is the procedure
 ## Reading its calls
 
 - **Administration → Outposts**, the outpost's page, *Recent calls*; or
-  `choregos outposts calls <slug>`, with `--state refused` for the refusals. Each call has its state
+  `tranibor outposts calls <slug>`, with `--state refused` for the refusals. Each call has its state
   and, for a refusal, the outpost's code. Digests only: the platform keeps no arguments and no result
   of a call there ([Usage](usage.md#4-write-the-policy)). The list is paged in SQL (ADR 0206): **Older
   calls** (or `--cursor`) reads on, down to the oldest call the platform holds.

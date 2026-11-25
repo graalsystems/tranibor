@@ -340,7 +340,7 @@ tranibor-agents#8 does not, and their live cells skip with that reason, #1372).
      extraEnv:
        - name: TRANIBOR_EVAL_FAKE_SCENES
          value: "1"
-   choregos-orchestrator:
+   tranibor-orchestrator:
      runner:
        toolScripts:
          allowed: true        # TRANIBOR_TOOL_SCRIPTS_ALLOWED: the brake released (the default)

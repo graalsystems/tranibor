@@ -288,7 +288,7 @@
       {
         "key": "at",
         "title": "At the client",
-        "markdown": "Install the CLI (`choregos`). The Integrations page of this console gives the exact commands with this\nplatform's address filled in; open it with the link below the panel."
+        "markdown": "Install the CLI (`tranibor`). The Integrations page of this console gives the exact commands with this\nplatform's address filled in; open it with the link below the panel."
       },
       {
         "key": "permissions",
@@ -298,12 +298,12 @@
       {
         "key": "in_choregos",
         "title": "In Tranibor",
-        "markdown": "Mint a token (Integrations, or `choregos-admin tokens create` for the very first one), then\n`choregos login --api-url https://choregos.example.com --token <token> --org <org>`."
+        "markdown": "Mint a token (Integrations, or `tranibor-admin tokens create` for the very first one), then\n`tranibor login --api-url https://choregos.example.com --token <token> --org <org>`."
       },
       {
         "key": "test",
         "title": "Test it",
-        "markdown": "`choregos projects list` should list the projects you can read."
+        "markdown": "`tranibor projects list` should list the projects you can read."
       },
       {
         "key": "fails",
@@ -2101,12 +2101,12 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "- The server lives in a network nothing outside may connect to. An **outpost** is installed there:\n  the daemon `choregos-outpost`, which only dials out to Tranibor and makes the calls it is handed.\n- An organisation administrator has created the outpost in Tranibor, and a person has approved an\n  instance of it against the fingerprint the daemon printed. Without an approved instance that\n  polls, the connector answers \"offline\".\n- **An outpost does not keep data where it is.** A tool's result travels to Tranibor, is bounded and\n  screened there, and is read by a model. A result that must not leave that network must not be a\n  tool's answer.\n- An organisation administrator declares the connector. What an agent may then call is decided tool\n  by tool, below."
+        "markdown": "- The server lives in a network nothing outside may connect to. An **outpost** is installed there:\n  the daemon `tranibor-outpost`, which only dials out to Tranibor and makes the calls it is handed.\n- An organisation administrator has created the outpost in Tranibor, and a person has approved an\n  instance of it against the fingerprint the daemon printed. Without an approved instance that\n  polls, the connector answers \"offline\".\n- **An outpost does not keep data where it is.** A tool's result travels to Tranibor, is bounded and\n  screened there, and is read by a model. A result that must not leave that network must not be a\n  tool's answer.\n- An organisation administrator declares the connector. What an agent may then call is decided tool\n  by tool, below."
       },
       {
         "key": "at",
         "title": "At your outpost",
-        "markdown": "The address of the server and the credential that opens it are written in the outpost's own policy\nfile, by whoever runs the outpost. **Tranibor never holds either**: it names an alias, and the\noutpost decides alone what that alias reaches.\n\n1. In the policy file, under `endpoints`, give the server an alias: its `url` (reachable from the\n   outpost), where its credential is read (`auth.from_file`), and the tool-name patterns the outpost\n   lets through (`tools`).\n2. `writes` is `deny` unless the file says `allow`: a tool the server does not declare read-only is\n   refused by the outpost itself.\n3. Restart the daemon, then run `choregos-outpost doctor`: it checks the door, the policy file and\n   every alias."
+        "markdown": "The address of the server and the credential that opens it are written in the outpost's own policy\nfile, by whoever runs the outpost. **Tranibor never holds either**: it names an alias, and the\noutpost decides alone what that alias reaches.\n\n1. In the policy file, under `endpoints`, give the server an alias: its `url` (reachable from the\n   outpost), where its credential is read (`auth.from_file`), and the tool-name patterns the outpost\n   lets through (`tools`).\n2. `writes` is `deny` unless the file says `allow`: a tool the server does not declare read-only is\n   refused by the outpost itself.\n3. Restart the daemon, then run `tranibor-outpost doctor`: it checks the door, the policy file and\n   every alias."
       },
       {
         "key": "permissions",
@@ -2126,7 +2126,7 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- `422` at declaration: the outpost's name is not an outpost of your organisation, or an address or\n  a secret was typed where an alias is expected.\n- `409 outpost_paused`: the outpost is paused or revoked, or outposts are switched off on this\n  deployment. Nothing was sent.\n- `409 outpost_offline`: no instance of the outpost that serves this alias polled lately, or none\n  took the call in time. An instance announces the aliases of its policy file at every poll, so an\n  alias the file does not hold, or no longer holds, is answered this way too. Check that the daemon\n  runs, that `choregos-outpost doctor` passes, and that the alias is the one in its file.\n- `409 outpost_refused`: the outpost's own policy refused, and its `refusal` says which kind:\n  `tool_not_allowed`, `write_denied`,\n  `endpoint_unavailable` (the outpost cannot reach or open its server), `signature_refused` (the\n  policy file does not pin the key the platform's door signs with).\n- `409 outpost_timeout`: an instance took the call and its server did not answer in time. Raise the\n  timeout here and in the outpost's policy file.\n- `422` when a write is opened: its rule says neither that the tool takes the idempotency key nor\n  that an in-doubt outcome is accepted; or it names `action_key` for a tool that has no such argument.\n- An action **in doubt**: an instance took the write and never answered. Nothing replays it and\n  nothing was undone. Look at the system behind the outpost to see whether the write was made (the\n  action's page says which tool, which instance and when), then note what you found where your team\n  keeps such records: the action itself stays in doubt.\n- \"No tools\", or only a few: the patterns of the alias let no more through."
+        "markdown": "- `422` at declaration: the outpost's name is not an outpost of your organisation, or an address or\n  a secret was typed where an alias is expected.\n- `409 outpost_paused`: the outpost is paused or revoked, or outposts are switched off on this\n  deployment. Nothing was sent.\n- `409 outpost_offline`: no instance of the outpost that serves this alias polled lately, or none\n  took the call in time. An instance announces the aliases of its policy file at every poll, so an\n  alias the file does not hold, or no longer holds, is answered this way too. Check that the daemon\n  runs, that `tranibor-outpost doctor` passes, and that the alias is the one in its file.\n- `409 outpost_refused`: the outpost's own policy refused, and its `refusal` says which kind:\n  `tool_not_allowed`, `write_denied`,\n  `endpoint_unavailable` (the outpost cannot reach or open its server), `signature_refused` (the\n  policy file does not pin the key the platform's door signs with).\n- `409 outpost_timeout`: an instance took the call and its server did not answer in time. Raise the\n  timeout here and in the outpost's policy file.\n- `422` when a write is opened: its rule says neither that the tool takes the idempotency key nor\n  that an in-doubt outcome is accepted; or it names `action_key` for a tool that has no such argument.\n- An action **in doubt**: an instance took the write and never answered. Nothing replays it and\n  nothing was undone. Look at the system behind the outpost to see whether the write was made (the\n  action's page says which tool, which instance and when), then note what you found where your team\n  keeps such records: the action itself stays in doubt.\n- \"No tools\", or only a few: the patterns of the alias let no more through."
       }
     ],
     "values": {},
@@ -2705,7 +2705,7 @@
       {
         "key": "in_choregos",
         "title": "In Tranibor",
-        "markdown": "Set `runner.executor: aca` in the chart and declare the connector: `subscription_id`, `resource_group`,\n`environment_id` (required), `location` (default `westeurope`), `tenant_id`, `client_id`, `client_secret`\n(password field; or a ready `token` instead of the three identity fields), `identity_id`, `registry_server` and `log_analytics_workspace_id`.\n\nThe job runs outside the cluster and calls the platform back, so it needs an address it can reach: the\nin-cluster Service is not one. Give runs a hostname of their own, a **run door**: list it in\n`choregos-api.runDoor.hostnames` (the chart then routes it to the run's API and to nothing else), serve\nit over TLS, allow only the addresses your Container Apps environment leaves from where your ingress\ncan, and set `global.internalApiUrl` to `https://<that hostname>`. The deployment guide has the steps\nunder \"The run's API and the run door\"."
+        "markdown": "Set `runner.executor: aca` in the chart and declare the connector: `subscription_id`, `resource_group`,\n`environment_id` (required), `location` (default `westeurope`), `tenant_id`, `client_id`, `client_secret`\n(password field; or a ready `token` instead of the three identity fields), `identity_id`, `registry_server` and `log_analytics_workspace_id`.\n\nThe job runs outside the cluster and calls the platform back, so it needs an address it can reach: the\nin-cluster Service is not one. Give runs a hostname of their own, a **run door**: list it in\n`tranibor-api.runDoor.hostnames` (the chart then routes it to the run's API and to nothing else), serve\nit over TLS, allow only the addresses your Container Apps environment leaves from where your ingress\ncan, and set `global.internalApiUrl` to `https://<that hostname>`. The deployment guide has the steps\nunder \"The run's API and the run door\"."
       },
       {
         "key": "test",
@@ -2715,7 +2715,7 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- `AuthorizationFailed`: the service principal's role does not cover the resource group.\n- The job cannot pull its image: the managed identity lacks pull rights on the registry.\n- No logs: no Log Analytics workspace is configured.\n- A timeout: the egress allowlist must open `management.azure.com` and `login.microsoftonline.com`.\n- The job starts and ends within seconds, \"input not found\": its first call back did not get through.\n  A connection error means `global.internalApiUrl` is not reachable from the Container Apps\n  environment. A `404` means the API refused the hostname the job called: it is a public hostname of\n  the API and not a run door, while `choregos-api.internalApiGuard` is `enforce`."
+        "markdown": "- `AuthorizationFailed`: the service principal's role does not cover the resource group.\n- The job cannot pull its image: the managed identity lacks pull rights on the registry.\n- No logs: no Log Analytics workspace is configured.\n- A timeout: the egress allowlist must open `management.azure.com` and `login.microsoftonline.com`.\n- The job starts and ends within seconds, \"input not found\": its first call back did not get through.\n  A connection error means `global.internalApiUrl` is not reachable from the Container Apps\n  environment. A `404` means the API refused the hostname the job called: it is a public hostname of\n  the API and not a run door, while `tranibor-api.internalApiGuard` is `enforce`."
       }
     ],
     "values": {},
@@ -2821,7 +2821,7 @@
       {
         "key": "at",
         "title": "At the cluster",
-        "markdown": "Set the values of `choregos-orchestrator.runner` (see the deployment guide, \"Running agent stages\"):\n`executor`, `namespacePattern` (for example `proj-{slug}-runners`), `maxActive`, `limits`, and\n`envFromSecrets` for credentials mounted by reference into each agent pod."
+        "markdown": "Set the values of `tranibor-orchestrator.runner` (see the deployment guide, \"Running agent stages\"):\n`executor`, `namespacePattern` (for example `proj-{slug}-runners`), `maxActive`, `limits`, and\n`envFromSecrets` for credentials mounted by reference into each agent pod."
       },
       {
         "key": "permissions",

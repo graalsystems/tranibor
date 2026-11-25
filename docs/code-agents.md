@@ -77,7 +77,7 @@ from tranibor_agent_sdk import Context, Result, agent
 @agent(name="ticket-triager")
 async def run(ctx: Context) -> Result:
     ticket = ctx.task                                  # .choregos/task.md: the work item, inputs, expected outputs
-    tools = await ctx.tools()                          # the run's MCP servers (choregos-tools, memory, connectors)
+    tools = await ctx.tools()                          # the run's MCP servers (tranibor-tools, memory, connectors)
     if await tools.has("knowledge_search"):
         hits = await tools.call("knowledge_search", {"query": ticket[:200]})
     reply = await ctx.llm.chat([{"role": "user", "content": ticket}])

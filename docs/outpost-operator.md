@@ -6,7 +6,7 @@ does and what it cannot do, what it asks of you, and what stays yours. Whoever o
 platform, or administers your organisation on it, reads [Outposts](outposts.md) instead.
 
 An **outpost** is a place of your organisation that the platform (Tranibor) cannot connect to, and
-that connects out to it. The daemon `choregos-outpost` runs there. It polls one hostname of the
+that connects out to it. The daemon `tranibor-outpost` runs there. It polls one hostname of the
 platform, the **door**, for tool calls the platform has already decided; it makes the ones your own
 policy file allows, against MCP servers of your network; and it sends the answers back. The
 decisions behind it are [ADR 0147](adr/0147-an-outpost-only-dials-out.md),
@@ -274,7 +274,7 @@ of its own, and a person approves it.
 3. Enrol:
 
    ```bash
-   choregos-outpost enrol --token-file /run/secrets/enrolment-token
+   tranibor-outpost enrol --token-file /run/secrets/enrolment-token
    ```
 
    The token is read from `--token-file`, from `--token`, from `TRANIBOR_OUTPOST_ENROLMENT_TOKEN`,
@@ -291,7 +291,7 @@ of its own, and a person approves it.
        SHA256:09wT63TkuDIeTj6MxD5TFt7dxaJNpfKNrUkVyJymRJE
 
    Approve the instance in the console only if the fingerprint shown there is this one.
-   Then start the daemon: choregos-outpost run
+   Then start the daemon: tranibor-outpost run
    ```
 
 4. **A person approves the instance in the platform's console, by comparing the fingerprint shown
@@ -327,9 +327,9 @@ Three commands. The program's own options come before the command, a command's o
 and most can come from the environment instead:
 
 ```bash
-choregos-outpost enrol     # make the keys, present an enrolment token, print the fingerprint to compare
-choregos-outpost run       # poll the door and make the calls the policy file allows, until told to stop
-choregos-outpost doctor    # check the policy, the path to the door, the clock and each endpoint
+tranibor-outpost enrol     # make the keys, present an enrolment token, print the fingerprint to compare
+tranibor-outpost run       # poll the door and make the calls the policy file allows, until told to stop
+tranibor-outpost doctor    # check the policy, the path to the door, the clock and each endpoint
 ```
 
 | Option | Environment | Default | What |
@@ -384,8 +384,8 @@ cut.
 ### `doctor`
 
 ```bash
-choregos-outpost doctor
-choregos-outpost doctor --json
+tranibor-outpost doctor
+tranibor-outpost doctor --json
 ```
 
 One line per check, `ok`, `skipped` or `FAILED` with what to do; it ends with code 1 when one fails.
@@ -489,9 +489,9 @@ appending at each line and flushes each line to the disk, so a rotation by renam
 How long you keep it is your decision. Mind where it lives: when its disk is full the daemon stops
 ([above](#when-the-disk-refuses-a-record)).
 
-## Installing with the chart `choregos-outpost`
+## Installing with the chart `tranibor-outpost`
 
-The daemon ships as a container image, `ghcr.io/graalsystems/choregos-outpost`, and as a Helm
+The daemon ships as a container image, `ghcr.io/graalsystems/tranibor-outpost`, and as a Helm
 chart for your own cluster, `charts/tranibor-outpost`, which each release publishes beside the
 platform's, at the same version. The chart is not a subchart of the platform's and shares no value
 with it. Its page, `charts/tranibor-outpost/README.md`, holds every value, and
@@ -527,7 +527,7 @@ The last command prints the fingerprint to have approved. What to know before yo
 - **Check it** once it runs:
 
   ```bash
-  kubectl -n outposts exec factory-floor-choregos-outpost-0 -c outpost -- choregos-outpost doctor
+  kubectl -n outposts exec factory-floor-choregos-outpost-0 -c outpost -- tranibor-outpost doctor
   ```
 
 Outside Kubernetes, run the image under your own supervisor. Its entrypoint is the daemon and its
@@ -563,7 +563,7 @@ The daemon never upgrades itself, and no message of the platform makes it downlo
    ([Security](security.md#supply-chain)):
 
    ```bash
-   cosign verify ghcr.io/graalsystems/choregos-outpost:<version> --certificate-identity https://github.com/graalsystems/tranibor/.github/workflows/release.yml@refs/tags/v<version> --certificate-oidc-issuer https://token.actions.githubusercontent.com
+   cosign verify ghcr.io/graalsystems/tranibor-outpost:<version> --certificate-identity https://github.com/graalsystems/tranibor/.github/workflows/release.yml@refs/tags/v<version> --certificate-oidc-issuer https://token.actions.githubusercontent.com
    ```
 
    Its output names the digest that was signed (`docker-manifest-digest`).

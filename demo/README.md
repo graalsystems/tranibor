@@ -110,8 +110,8 @@ kubectl -n choregos exec deploy/demo-git -- sh -c \
 ## Watching
 
 ```bash
-kubectl -n choregos logs -l choregos/run-id --tail=50 -f         # the agents at work
-kubectl -n choregos port-forward deploy/choregos-web 3000:3000   # the front end
+kubectl -n choregos logs -l tranibor/run-id --tail=50 -f         # the agents at work
+kubectl -n choregos port-forward deploy/tranibor-web 3000:3000   # the front end
 ```
 
 The demonstration repository can be read back from the cluster:

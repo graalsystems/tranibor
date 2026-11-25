@@ -13,7 +13,7 @@ froze it automatically (`freeze_on_rollback: true`). The second case is the most
 and the most important: the platform refuses to redeploy by reflex after an incident.
 
 ```bash
-choregos trains status <project> --env prod
+tranibor trains status <project> --env prod
 # or straight from the workflow:
 temporal workflow query --workflow-id train-<project>-prod --name status_query
 ```
@@ -22,7 +22,7 @@ temporal workflow query --workflow-id train-<project>-prod --name status_query
 
 1. **Read the reason.** If it comes from a rollback, find the release:
    ```bash
-   choregos trains status <project> --env prod
+   tranibor trains status <project> --env prod
    curl -s "$API/api/v1/projects/<project>/releases?env=prod" | jq '.items[0]'
    ```
    `verdict.reason` says what failed (canary analysis, smoke, SLO), or which Argo CD event
@@ -32,7 +32,7 @@ temporal workflow query --workflow-id train-<project>-prod --name status_query
    carries the evidence.
 3. **Unfreeze** once the fix is on its way:
    ```bash
-   choregos trains unfreeze <project> --env prod
+   tranibor trains unfreeze <project> --env prod
    ```
 4. If a fix has to leave right now, use the **express lane**: put the `hotfix` label on the
    ticket. It shortens the soak, skips the cron and asks for the express lane's approval
@@ -42,7 +42,7 @@ temporal workflow query --workflow-id train-<project>-prod --name status_query
 
 ## Check it is fixed
 
-- `choregos trains status <project> --env prod`: `frozen: false`, a `next_departure`.
+- `tranibor trains status <project> --env prod`: `frozen: false`, a `next_departure`.
 - The batch departs: the release goes `departing` → `staging` → `done`.
 - The alert resolves by itself.
 

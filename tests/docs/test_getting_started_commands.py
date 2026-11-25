@@ -71,8 +71,7 @@ def test_every_command_exists(command: str) -> None:
                 assert words[index + 1] in _compose_profiles(), f"no compose profile `{words[index + 1]}`"
     elif tool in {"cp", "python3"}:
         assert (ROOT / words[1]).exists(), f"`{words[1]}` is not in the repository"
-    elif tool in {"tranibor", "choregos"}:  # the former name runs the same CLI (ADR 0224 R5)
-        words = ["tranibor", *words[1:]]
+    elif tool == "tranibor":  # the page writes the command's name only (ADR 0224 R8)
         path = " ".join(w for w in words[:3] if not w.startswith(("-", "<")) and w.isascii())
         known = _cli_commands() | {"tranibor login"}
         assert any(path == c or path.startswith(c + " ") for c in known), f"no CLI command for `{command}`"

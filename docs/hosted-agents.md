@@ -334,7 +334,7 @@ as `build-<key>` and run by its digest; without a repository the build fails, sa
   the platform: its archive is the build context.
 
 **The builder (S41-13).** With `global.images.hostedBuilder: buildkit` and a `buildRegistry`, the
-chart deploys `choregos-buildkitd`, a rootless BuildKit (`global.buildkitd`: its image pinned by
+chart deploys `tranibor-buildkitd`, a rootless BuildKit (`global.buildkitd`: its image pinned by
 digest, its port, its resources), and points the workers at it; `global.images.buildkitAddress`
 names a daemon of the operator's instead, and the chart then deploys none. The orchestrator image
 carries `buildctl`, copied from the very image the chart deploys.
@@ -466,7 +466,7 @@ answered 404, and on PostgreSQL a restrictive policy on `agent_sessions` and
 gateway's realtime socket (`ws(s)://<gateway>/realtime?model=…`), with the session's key.
 
 - **Before the socket is accepted**: a browser's `Origin` must be the console's, the API's or one of
-  `choregos-api.corsOrigins` (`TRANIBOR_CORS_ORIGINS`, rendered by the chart; no `Origin` — a CLI, a server — passes); the caller signs in with the session
+  `tranibor-api.corsOrigins` (`TRANIBOR_CORS_ORIGINS`, rendered by the chart; no `Origin` — a CLI, a server — passes); the caller signs in with the session
   cookie or an API token and needs `item.control`, as for `/responses`; the organisation's gateway
   must declare the `realtime` capability; the session is opened (one key, the same reservation) and
   the upstream socket connected. Any refusal closes with 1008 and its reason, and no key outlives it.
@@ -616,7 +616,7 @@ verifies, and `enforce` refuses every image with that reason. Every failure is a
 the publisher: cosign missing, 60 s without an answer, cosign's own `Error:` line.
 
 **At admission.** `hostedCosignPolicy: true` renders the Kyverno ClusterPolicy
-`choregos-hosted-images` (Kyverno required). In the release's namespace, `proj-*` and `choregos-*`,
+`tranibor-hosted-images` (Kyverno required). In the release's namespace, `proj-*`, `tranibor-*` and `choregos-*`,
 an image under `hostedRegistries` in `containers`, `initContainers` (a native sidecar is one) or
 `ephemeralContainers` runs only pinned by `@sha256:`; under `enforce`, Kyverno also verifies it
 against the same key Secret or keyless identity. The chart refuses to render the policy without

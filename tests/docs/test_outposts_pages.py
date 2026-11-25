@@ -52,7 +52,8 @@ FENCE = re.compile(r"^[ \t]*```(?P<lang>[a-z]*)[^\n]*\n(?P<body>.*?)^[ \t]*```[ 
 HEADING = re.compile(r"^(#{1,6}) (.+?)\s*$", re.M)
 INLINE = re.compile(r"`([^`\n]+)`")
 LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
-DAEMON = "choregos-outpost"
+#: The daemon's command since ADR 0224 R5; the pages name it so (R8).
+DAEMON = "tranibor-outpost"
 
 #: What the operator's guide carries, each under a heading (the plan's acceptance criteria). The
 #: first one comes before every other section: ADR 0147 §10.
@@ -231,8 +232,8 @@ def _fault(words: list[str]) -> str | None:
 
 
 def _shown_commands(page: Path) -> list[tuple[str, list[str]]]:
-    """Every `choregos-outpost …` the page shows: in a command block, also behind another program
-    (`kubectl exec … -- choregos-outpost doctor`), and in a sentence. With the words that follow."""
+    """Every `tranibor-outpost …` the page shows: in a command block, also behind another program
+    (`kubectl exec … -- tranibor-outpost doctor`), and in a sentence. With the words that follow."""
     text = _text(page)
     shown: list[tuple[str, list[str]]] = []
     for block in _blocks(text, "bash", "sh"):
@@ -479,9 +480,9 @@ def test_the_platform_s_commands_are_in_the_cli_reference() -> None:
         head.group(1): reference[head.end() : heads[i + 1].start() if i + 1 < len(heads) else None]
         for i, head in enumerate(heads)
     }
-    # The page may still write the former name until the documentation round of ADR 0224 (R8).
+    # The page writes the command's name (ADR 0224 R8): a span under the former name is not counted.
     spans = INLINE.findall(_prose(_text(PLATFORM)))
-    shown = [span for span in spans if span.startswith(("tranibor outposts", "choregos outposts"))]
+    shown = [span for span in spans if span.startswith("tranibor outposts")]
     assert len(shown) >= 2, "the page names no command of `tranibor outposts`"
     for span in shown:
         # The longest command the reference has for these words; a placeholder is not a word.

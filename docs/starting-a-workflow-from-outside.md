@@ -11,7 +11,7 @@ example that stops being true turns the suite red.
 
 | You are | Take | Credential | Gives you back |
 | --- | --- | --- | --- |
-| an application or an agent that wants the result, or a script that waits for it with `choregos a2a` | [**the A2A door**](#the-a2a-door-step-by-step) | an application's own token, or a person's, scope `a2a` | a task: its state, a stream or push notifications, the artefacts at the end |
+| an application or an agent that wants the result, or a script that waits for it with `tranibor a2a` | [**the A2A door**](#the-a2a-door-step-by-step) | an application's own token, or a person's, scope `a2a` | a task: its state, a stream or push notifications, the artefacts at the end |
 | a terminal, a script, a CI job | [**the CLI or the REST API**](#from-a-terminal-or-a-script) | a person's token, scope `*` | the work item, then whatever you read of it |
 | a system that can only send JSON: monitoring, a form, a CRM | [**an HTTP trigger**](#from-a-system-that-only-sends-json) | the trigger's own token, no person behind it | an acknowledgement and the work item's id; nothing follows |
 | an assistant: Claude, Cursor, VS Code | [the MCP door](integrations.md) (`create_work_item`) | a person's token, scope `mcp:write`, or OAuth | tools the assistant calls and reads |
@@ -27,7 +27,7 @@ so any HTTP client can call it. This page uses the 0.3.0 names; [In A2A 1.0](#in
 spelling. The rules behind each call are in the [reference](integrations.md#another-agent-over-a2a) and
 [ADR 0078](adr/0078-governed-workflows-as-a2a-skills.md).
 
-Each step shows the call with `curl`, then the same with the CLI's `choregos a2a`
+Each step shows the call with `curl`, then the same with the CLI's `tranibor a2a`
 ([reference](cli.md#tranibor-a2a)), which writes the JSON-RPC for you.
 
 ### 1. Open the workflow to the door
@@ -53,7 +53,7 @@ a2a:
 the fields, a file's media type for that file. Publish the workflow as usual:
 
 ```bash
-choregos workflow push acme:billing-api ship-a-change.yaml
+tranibor workflow push acme:billing-api ship-a-change.yaml
 ```
 
 The skill is now `billing-api/ship-a-change`, for callers who may read that project.
@@ -64,33 +64,33 @@ The skill is now `billing-api/ship-a-change`, for callers who may read that proj
 working when you leave, and never takes a decision. You need to be able to manage the project's members.
 
 ```bash
-choregos machines create acme:billing-api partner-app
-choregos machines token acme:billing-api partner-app --name production --expires-in-days 90
+tranibor machines create acme:billing-api partner-app
+tranibor machines token acme:billing-api partner-app --name production --expires-in-days 90
 ```
 
 The console does the same under **Settings › People › Applications**. A token lasts 365 days at most. To
-rotate one, issue the next, switch the application to it, then `choregos machines revoke` the old one.
+rotate one, issue the next, switch the application to it, then `tranibor machines revoke` the old one.
 
 **To try it yourself**, take a token that acts as you, from the console's **Integrations** page (*Create an
 A2A token*, 30 days, shown once) or:
 
 ```bash
-choregos tokens create --name my-test --scope a2a --project acme:billing-api --expires-in-days 30
+tranibor tokens create --name my-test --scope a2a --project acme:billing-api --expires-in-days 30
 ```
 
 `--project` keeps the token to that project. You must be able to control work items in the project.
 
 ```bash
 export TOKEN=chg_...
-export A2A=https://choregos.example.com/a2a/orgs/acme
+export A2A=https://tranibor.example.com/a2a/orgs/acme
 ```
 
-The CLI reads the door's address from its profile (`TRANIBOR_API_URL`, `TRANIBOR_ORG`, or `choregos login`)
+The CLI reads the door's address from its profile (`TRANIBOR_API_URL`, `TRANIBOR_ORG`, or `tranibor login`)
 and the token from `--token` or `TRANIBOR_A2A_TOKEN`. Without either it sends the profile's token, which is
 usually a `*` one: the door answers `403 insufficient_scope`, and the CLI says which token to create.
 
 ```bash
-export TRANIBOR_API_URL=https://choregos.example.com TRANIBOR_ORG=acme TRANIBOR_A2A_TOKEN=chg_...
+export TRANIBOR_API_URL=https://tranibor.example.com TRANIBOR_ORG=acme TRANIBOR_A2A_TOKEN=chg_...
 ```
 
 ### 3. See what you may start
@@ -107,14 +107,14 @@ A skill that takes `application/json` also says which fields it wants, as the JS
 
 ```bash
 curl -s "$A2A/.well-known/agent-card.json" -H "Authorization: Bearer $TOKEN" | jq '.capabilities.extensions[]
-  | select(.uri == "https://choregos.dev/a2a/extensions/skill-fields/v1") | .params.skills'
+  | select(.uri == "https://tranibor.dev/a2a/extensions/skill-fields/v1") | .params.skills'
 ```
 
 A client that ignores the extension still reads the card. The CLI lists both, a required field with a `*`:
 
 ```bash
-choregos a2a skills
-choregos a2a skills --json
+tranibor a2a skills
+tranibor a2a skills --json
 ```
 
 ### 4. Start the workflow
@@ -145,7 +145,7 @@ With the CLI, `--text` gives the text, each `--field` (or `--fields-json`, a fil
 the data part, `--title` the title:
 
 ```bash
-choregos a2a send billing-api/ship-a-change --message-id order-2026-0042 --title "Add credit notes" \
+tranibor a2a send billing-api/ship-a-change --message-id order-2026-0042 --title "Add credit notes" \
   --text "Customers need a credit note when an invoice is refunded." \
   --field ticket=FIN-42 --field priority=high
 ```
@@ -171,7 +171,7 @@ The answer is the task. Keep its `id`:
         "key": "BIL-12",
         "project": "acme:billing-api",
         "state": "inbox",
-        "console_url": "https://choregos.example.com/p/billing-api/items/5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001"
+        "console_url": "https://tranibor.example.com/p/billing-api/items/5f0c8a52-6c3e-5f0a-9d11-3a1c7be2f001"
       }
     }
   }
@@ -206,7 +206,7 @@ With the CLI, `--file` reads the file and sends it in base64, its media type gue
 `PATH;type=MEDIA/TYPE` names it when the extension does not:
 
 ```bash
-choregos a2a send billing-api/ship-a-change --message-id order-2026-0043 \
+tranibor a2a send billing-api/ship-a-change --message-id order-2026-0043 \
   --title "Apply the attached specification" --field ticket=FIN-43 --file spec.pdf
 ```
 
@@ -249,9 +249,9 @@ On `input-required` they print `decision_url` and go on waiting. `--json` prints
 answers it on standard output, and the progress on standard error.
 
 ```bash
-choregos a2a get <task id> --json
-choregos a2a follow <task id> --out ./result
-choregos a2a send billing-api/ship-a-change --text "..." --field ticket=FIN-44 --wait --out ./result
+tranibor a2a get <task id> --json
+tranibor a2a follow <task id> --out ./result
+tranibor a2a send billing-api/ship-a-change --text "..." --field ticket=FIN-44 --wait --out ./result
 ```
 
 `follow` and `send --wait` exit `0` when the task completed, `3` when it failed, `4` when it was canceled,
@@ -278,7 +278,7 @@ curl -s "$A2A" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/j
 With the CLI:
 
 ```bash
-choregos a2a cancel <task id>
+tranibor a2a cancel <task id>
 ```
 
 ### When it refuses
@@ -321,16 +321,16 @@ The same calls, under 1.0's names, at the same URL; the guards and the limits ar
 ## From a terminal or a script
 
 The CLI and the REST API take a token of scope `*`, which the A2A door refuses, and the other way round.
-`choregos a2a` is the CLI's way through the A2A door, with an `a2a` token: see
+`tranibor a2a` is the CLI's way through the A2A door, with an `a2a` token: see
 [the steps above](#the-a2a-door-step-by-step). The commands below go through REST.
 
 ```bash
-export TRANIBOR_API_URL=https://choregos.example.com TRANIBOR_TOKEN=chg_... TRANIBOR_ORG=acme
-choregos items create acme:billing-api --workflow ship-a-change \
+export TRANIBOR_API_URL=https://tranibor.example.com TRANIBOR_TOKEN=chg_... TRANIBOR_ORG=acme
+tranibor items create acme:billing-api --workflow ship-a-change \
   --title "Add credit notes" --body "Customers need a credit note when an invoice is refunded." \
   --field ticket=FIN-42 --field priority=high
-choregos items list acme:billing-api
-choregos items show BIL-12
+tranibor items list acme:billing-api
+tranibor items show BIL-12
 ```
 
 Without `--workflow`, the project's routing picks one from the `--label`s, then its default applies. See

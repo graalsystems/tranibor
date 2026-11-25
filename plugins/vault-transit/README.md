@@ -20,7 +20,7 @@ manifest sense.
 
 - `VaultTransitKeyWrapper` implements `KeyWrapper`: `wrap` is transit `encrypt` of the data key,
   `unwrap` is `decrypt`. `kek_id` is `<key>-v<N>` (at most 32 characters, so the key name is at most 24).
-- **Rotation**: `vault write -f transit/keys/<key>/rotate`, then `choregos admin secrets rewrap`. The rows
+- **Rotation**: `vault write -f transit/keys/<key>/rotate`, then `tranibor admin secrets rewrap`. The rows
   move with transit `rewrap`: the data key is never in the platform's memory. Rows sealed under the
   environment keyring (`TRANIBOR_SECRETS_KEKS`, kept as the `legacy` wrapper while it is still set) move
   to Vault by the same command.

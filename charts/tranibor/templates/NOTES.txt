@@ -1,4 +1,4 @@
-Choregos {{ .Chart.AppVersion }} is deployed in the namespace {{ .Release.Namespace }}.
+Tranibor {{ .Chart.AppVersion }} is deployed in the namespace {{ .Release.Namespace }}.
 
   Front      https://app.{{ .Values.global.domain }}
   API        https://api.{{ .Values.global.domain }}

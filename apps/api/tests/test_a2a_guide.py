@@ -158,8 +158,9 @@ async def test_the_card_says_which_fields_a_skill_takes(client: AsyncClient, pro
     from tranibor_api.a2a.door import SKILL_FIELDS_EXTENSION
     from tranibor_contracts import wire
 
-    # The card names both URIs for the window of ADR 0224; the guide names one of them (R8 moves it).
-    assert any(uri in _page() for uri in wire.A2A_SKILL_FIELDS_EXTENSIONS)
+    # The card names both URIs for the window of ADR 0224; the guide names the new one only (R8).
+    new, *former_uris = wire.A2A_SKILL_FIELDS_EXTENSIONS
+    assert new in _page() and not any(uri in _page() for uri in former_uris)
     await _publish(client, project)
     token = await _token(client)
     raw = (await client.get(CARD, headers={"Authorization": f"Bearer {token}"})).json()

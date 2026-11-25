@@ -83,11 +83,11 @@ stay closed. A project born from an earlier version keeps it until the file is p
 
 ## Before the first work item
 
-1. **Install the Choregos GitHub App** on the repository, and give the project its `tracker`
+1. **Install the Tranibor GitHub App** on the repository, and give the project its `tracker`
    (`github-issues`) and `scm` (`github`) connectors. Checks are read from the pull request: GitHub
    Actions needs no `ci` connector.
 2. **Branch protection** on the default branch: required status checks, **no required review** —
-   the platform merges, and the humans decide in Choregos. Set the `scm` connector's
+   the platform merges, and the humans decide in Tranibor. Set the `scm` connector's
    `merge_queue` to match the repository (`true` for a merge queue, `false` for a direct merge).
 3. **A `cd` connector** for the release train: Argo CD in real life; the `demo` type on a
    demonstration tenant.

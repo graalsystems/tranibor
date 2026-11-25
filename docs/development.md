@@ -306,9 +306,9 @@ the API would have been sent (`apps/web/e2e/creation-inputs-and-task-form.spec.t
 ## Writing a workflow
 
 ```bash
-choregos workflow templates                    # the shipped templates
-choregos workflow validate .choregos/workflow.yaml
-choregos workflow show .choregos/workflow.yaml --mermaid
+tranibor workflow templates                    # the shipped templates
+tranibor workflow validate .tranibor/workflow.yaml
+tranibor workflow show .tranibor/workflow.yaml --mermaid
 ```
 
 Validation is **local and offline**: the same code as the orchestrator, so what you see is
@@ -317,10 +317,10 @@ what will apply. Errors carry a line and a column.
 ## Debugging a run
 
 ```bash
-choregos items list <project>
-choregos runs list <ticket-id>
-choregos runs tail <run-id>      # ACP journal, live
-choregos runs diff <run-id>      # annotated diff: out-of-scope changes are marked
+tranibor items list <project>
+tranibor runs list <ticket-id>
+tranibor runs tail <run-id>      # ACP journal, live
+tranibor runs diff <run-id>      # annotated diff: out-of-scope changes are marked
 ```
 
 In the front, a run's page shows its **guarantees** (each gate and its verdict), its
@@ -329,7 +329,7 @@ In the front, a run's page shows its **guarantees** (each gate and its verdict),
 ## Shipping a workflow template from outside this tree
 
 Set `TRANIBOR_WORKFLOW_TEMPLATES_DIR` to one or more directories (separated by `:`) holding
-`<name>.yaml` workflows. They appear in `template_names()`, in `choregos workflow templates`, and
+`<name>.yaml` workflows. They appear in `template_names()`, in `tranibor workflow templates`, and
 can be loaded by name like the shipped ones.
 
 A deployment template **wins over a shipped one of the same name**, which is how a shop adapts
@@ -780,14 +780,14 @@ core. The wheel declares no dependency on the core (its wheels are GitHub releas
 on PyPI) and goes in with `--no-deps`:
 
 ```dockerfile
-FROM ghcr.io/graalsystems/choregos-api:<version>
+FROM ghcr.io/graalsystems/tranibor-api:<version>
 COPY choregos_ee-*.whl /tmp/
 RUN pip install --no-deps --no-index /tmp/choregos_ee-*.whl
 ```
 
 That obvious gesture is correct **only since the images set `PIP_PYTHON`**. The virtualenv in
 `/app/.venv` is created by uv and has no `pip`; the one on the `PATH` belongs to the system. On
-`choregos-api:0.8.3` and earlier the build succeeds, the wheel lands in `~/.local`, outside the
+`tranibor-api:0.8.3` and earlier the build succeeds, the wheel lands in `~/.local`, outside the
 virtualenv, and the platform runs as `community` without a word — only the start-up guard catches
 it, and only if `global.edition: enterprise` was set. On those images, write
 `pip --python /app/.venv/bin/python install …`. `tests/packaging/test_image_ee.py` builds a real

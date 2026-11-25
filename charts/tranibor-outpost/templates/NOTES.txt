@@ -30,4 +30,4 @@ journal or the audit log. `kubectl logs` gives the last words of each.
 What the daemon may reach is its NetworkPolicy{{ if not .Values.networkPolicy.enabled }} (switched OFF in these values){{ end }}, and it holds only where the
 cluster's network plugin enforces policies. Check the path to the door, the clock and each endpoint:
 
-     kubectl -n {{ .Release.Namespace }} exec {{ include "tranibor-outpost.statefulSetName" . }}-0 -c outpost -- choregos-outpost doctor
+     kubectl -n {{ .Release.Namespace }} exec {{ include "tranibor-outpost.statefulSetName" . }}-0 -c outpost -- tranibor-outpost doctor

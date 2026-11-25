@@ -1,6 +1,6 @@
 # tranibor-outpost
 
-The chart of the daemon `choregos-outpost`: what whoever runs an outpost installs in **their own**
+The chart of the daemon `tranibor-outpost`: what whoever runs an outpost installs in **their own**
 cluster ([ADR 0147](../../docs/adr/0147-an-outpost-only-dials-out.md)). It is not a subchart of the
 platform's chart and shares no value with it. The daemon's own page is
 [`packages/outpost/README.md`](../../packages/outpost/README.md); this one says what the chart
@@ -120,7 +120,7 @@ says the rotation is over. Nothing the platform sends changes that list.
 ## Enrolment
 
 The daemon has no "enrol if needed". The pod's init container looks first: an instance that already
-enrolled is left alone, and `choregos-outpost enrol` runs only for an instance without an identity,
+enrolled is left alone, and `tranibor-outpost enrol` runs only for an instance without an identity,
 with the token of `enrolment.existingSecret`. The token is mounted in that container only.
 
 - Without an identity and without a token, the init container fails and says which Secret to
@@ -168,7 +168,7 @@ it (`egress`). Point an endpoint of the policy at it: `http://<name>-<server>:<p
 - The daemon never upgrades itself and no message of the platform makes it download anything
   ([ADR 0147](../../docs/adr/0147-an-outpost-only-dials-out.md) §9). You choose when: verify the
   image's signature, set `image.digest`, upgrade the release. Pods are replaced one at a time.
-- `kubectl exec <pod> -c outpost -- choregos-outpost doctor` checks the policy, the path to the
+- `kubectl exec <pod> -c outpost -- tranibor-outpost doctor` checks the policy, the path to the
   door, the clock and each endpoint.
 
 ## What this chart does not do

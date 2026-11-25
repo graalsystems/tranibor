@@ -28,7 +28,7 @@ organisations must assume **a member of one will try to read another**.
 | changing what an agent does | an agent has a scope — common, organisation, project or personal — and one server-side function decides who may publish, suspend or pin it, with the reason for every refusal: common and organisation agents are an `org_admin`'s, a project's agent its `project_owner`'s, a personal agent its owner's (and an `org_admin`'s); an agent you may not see is a 404; a personal agent or another project's agent can neither be pinned nor named in a workflow nor run in one (ADR 0061) | `services/agent_governance.py`, `routers/agents/`, `services/agents.py`, `apps/api/tests/test_agent_governance_matrix.py` |
 | changing its own configuration | `.choregos/**` refused for writing (except `result.json`) | `guardrails.py` |
 | the platform calling a host nobody opened | an **organisation egress allowlist** (`org_egress_rules`), decided in the console by the organisation's administrator and enforced by the platform's own outbound clients on every request, redirects included, **failing closed** when a call has no policy in context; a deployment **ceiling** per pod family refuses, before sending, a host the cluster's network does not open; every governed "add" opens its host first (ADR 0066) | `tranibor_core/egress.py`, `tranibor_adapters/http/egress.py`, `services/egress.py`, `routers/egress.py` |
-| escaping the container | non-root, no capabilities, seccomp — **required** by a strict Kyverno rule on every pod of the `choregos` namespace, a `choregos-*` or a `proj-*` one (a pod with no security context is refused, not tolerated; a container's own `seccompProfile` or `appArmorProfile`, an init or ephemeral container's, or the pod's AppArmor profile, set to `Unconfined`, is refused too); no service-account token; `RuntimeClass gvisor` where the policy requires it, `runner.runtimeClass` (gVisor, Kata) for every agent pod where the deployment chooses it | `infra/policies/pod-security.yaml`, `tests/charts/test_pod_security.py`, `k8s_job.py`, `tekton.py` |
+| escaping the container | non-root, no capabilities, seccomp — **required** by a strict Kyverno rule on every pod of the `tranibor` or `choregos` namespace, a `tranibor-*`, `choregos-*` or `proj-*` one (a pod with no security context is refused, not tolerated; a container's own `seccompProfile` or `appArmorProfile`, an init or ephemeral container's, or the pod's AppArmor profile, set to `Unconfined`, is refused too); no service-account token; `RuntimeClass gvisor` where the policy requires it, `runner.runtimeClass` (gVisor, Kata) for every agent pod where the deployment chooses it | `infra/policies/pod-security.yaml`, `tests/charts/test_pod_security.py`, `k8s_job.py`, `tekton.py` |
 | the agent writing outside its workspace, or reaching the network around the egress proxy | the runner launches the agent through a Landlock self-restriction ([ADR 0094](adr/0094-the-kernel-confines-the-agent-at-launch.md)): writes beneath the workspace, `$TMPDIR` and `/dev` only; TCP connections to the proxy's and the direct platform endpoints' ports only, when a proxy is set; no `ptrace` of the runner. Ports, not hosts; UDP not filtered; nothing under gVisor (`best_effort` journals it, `enforce` refuses the run) | `tranibor_runner/confine.py`, `packages/runner/tests/test_confinement.py` |
 | the agent reading the runner's credentials (run token, git token, egress report key) or rewriting the runner | with `global.runner.agentIsolation: container` (`agent_sandbox`, `k8s_job` and `local_docker` executors, the chart's default from 0.27.17, [ADR 0146](adr/0146-the-runner-and-the-agent-do-not-share-a-container.md)) the agent and the project's checks run in their own container, as another user id, sharing only `/workspace` and an exchange directory, holding no model key, egress token or MCP header (the runner serves its loopback listeners, `gemini-cli`'s Gemini API paths included); a runner that finds no launcher stops (exit 100) instead of starting the agent itself. The local install (`docker compose up`) sets it too, on the `local_docker` executor, with the 0.29.3 runner image; `tekton` and `aca` cannot start the agent's container and refuse every run under `container`. In staging and prod the `process` mode (the agent beside the runner's credentials) is **refused by every executor and by the runner** unless the operator names the opt-out, `TRANIBOR_AGENT_ISOLATION=none-accepted` (the chart's `global.runner.acceptUnisolatedAgent`, refused at render otherwise), which each run logs, the runner journals and `/readiness` shows ([ADR 0222](adr/0222-an-agent-does-not-ship-unisolated-in-production-without-a-named-opt-out.md)). In `process` mode the two share a container and a user id: see [What a coding agent can run](#what-a-coding-agent-can-run). Proved on a kubelet with runc, not under gVisor; the compose shape is proved by the executor's tests, not by a `docker compose up` run | `launcher.py`, `sandbox.yaml`, `tests/cluster/test_agent_isolation.py`, `executor/isolation.py`, `tests/dev/test_local_install.py`, `packages/adapters/tests/test_agent_isolation_in_production.py` |
 | prompt injection through what the agent reads | lexical detection over the ticket, its documents and the memory pack **before** the run: `sandbox.prompt_injection: warn` journals a security event on the ticket, `block` (the `regulated` preset) stops the stage before any run with the reason — a net against the crude cases, not an understanding. A deployment may add a classifier model beside the patterns (`TRANIBOR_INJECTION_CLASSIFIER`, off by default, [ADR 0219](adr/0219-a-classifier-service-may-read-third-party-text-beside-the-patterns.md)): probabilistic, it misses attacks and flags innocent text, so it lowers the odds and guarantees nothing; the walls remain the ones below | `tranibor_core/injection.py`, `tranibor_core/injection_classifier.py`, `activities/injection_guard.py`, `apps/orchestrator/tests/test_injection.py`, `packages/adapters/tests/test_injection_classifier.py` |
@@ -38,7 +38,7 @@ organisations must assume **a member of one will try to read another**.
 | lying about evidence | the runner **runs** the tests and overwrites declared evidence; gates read the diff, not the prose | `dod.py`, `result.py`, `gates/` |
 | reading another organisation | PostgreSQL row-level security, **fail-closed**: every session declares the organisations it may see, an undeclared session sees nothing | `db/session.py`, `deps.py`, migrations `b2d4f6a8c0e1` and `c3e5a7f9b1d4` |
 | reading another organisation's audit trail | `audit_log` carries an organisation and is under the same policy; `GET /audit` additionally restricts to the organisations where the caller really holds `audit:read` — being a member is not enough. Platform-level rows (`org_id IS NULL`: logins, API tokens) are returned only when that right covers every organisation of the instance | `routers/admin.py`, `audit.py`, migration `c3e5a7f9b1d4` |
-| changing or erasing the audit trail after the fact | on PostgreSQL the log is a hash chain per organisation (and one for the platform's entries) that the database links at every insert, whoever writes; `UPDATE` and `TRUNCATE` are revoked from the API's role and refused by a trigger, and an entry is deleted only by its organisation's own deletion; `choregos-admin audit verify` reports the first altered, missing, forked or unlinked entry, and checkpoints signed with a key kept outside the database see a rewrite of the whole chain; an opt-in export ships every chain to a SIEM with the hashes the receiver verifies ([ADR 0182](adr/0182-the-audit-log-is-a-hash-chain-the-database-keeps.md), [ADR 0207](adr/0207-the-audit-chains-are-shipped-to-a-siem-from-a-durable-cursor.md); [below](#the-audit-log-as-evidence)) | migration `e2a4c6b8d0f3`, `audit_chain.py`, `admin_cli.py`, `apps/api/tests/test_audit_chain_postgres.py`, `apps/api/tests/test_audit_chain.py`, `audit_export/`, `apps/api/tests/test_audit_export.py` |
+| changing or erasing the audit trail after the fact | on PostgreSQL the log is a hash chain per organisation (and one for the platform's entries) that the database links at every insert, whoever writes; `UPDATE` and `TRUNCATE` are revoked from the API's role and refused by a trigger, and an entry is deleted only by its organisation's own deletion; `tranibor-admin audit verify` reports the first altered, missing, forked or unlinked entry, and checkpoints signed with a key kept outside the database see a rewrite of the whole chain; an opt-in export ships every chain to a SIEM with the hashes the receiver verifies ([ADR 0182](adr/0182-the-audit-log-is-a-hash-chain-the-database-keeps.md), [ADR 0207](adr/0207-the-audit-chains-are-shipped-to-a-siem-from-a-durable-cursor.md); [below](#the-audit-log-as-evidence)) | migration `e2a4c6b8d0f3`, `audit_chain.py`, `admin_cli.py`, `apps/api/tests/test_audit_chain_postgres.py`, `apps/api/tests/test_audit_chain.py`, `audit_export/`, `apps/api/tests/test_audit_export.py` |
 | a governed action running without a kept approval, or an approval never run | its workflow starts only after the approval commits, a relay in every API replica starts an action left `approved` (every `TRANIBOR_ACTION_RELAY_INTERVAL_S`, 30 s by default; two API processes relaying it still run it once, S40-23j), and the workflow's first activity runs nothing for an action that is not `approved` (a failed commit, a hand-made start, a finished action); an audit row and an event commit with the change they record, or not at all ([ADR 0085](adr/0085-the-approved-row-is-the-outbox-of-a-governed-action.md)) | `db/session.py`, `services/action_relay.py`, `activities/actions.py` |
 | an extension running code in the console | an extension's screens are **data** — forms, tables, actions, secrets shown once — rendered by the console's own blocks; the CSP stays `script-src 'self'`; a section naming a path no route serves stops start-up | `extensions.py`, `routers/ui.py`, `main.py`, ADR 0032 |
 | an organisation left without an administrator | the last `org_admin` of an organisation cannot be removed (409) | `routers/admin.py` |
@@ -138,7 +138,7 @@ or another organisation.
   `/api/v1/internal/*` still answers on the public hostnames to whoever presents a valid token. It reads names: a caller inside
   the cluster uses the Service's name and is not stopped by it (the tokens and the network policies
   are), a hostname routed to the API that nobody declared stays served
-  (`choregos-api.publicHostnames`), and a proxy that rewrites `Host` without writing
+  (`tranibor-api.publicHostnames`), and a proxy that rewrites `Host` without writing
   `X-Forwarded-Host` hides the public name. A run door is as public as its route: restrict it at the
   ingress ([deployment](deployment.md#the-runs-api-and-the-run-door)).
 - **The runner's guardrails are a net by default, a wall on request.** Claude Code's ACP
@@ -217,7 +217,7 @@ or another organisation.
 - **The fakes are a bench's switch, refused where the deployment says it is production.**
   `TRANIBOR_FAKES` (ADR 0005) relaxes the egress control to `warn` and lets the API keep connector
   secrets in memory. In `staging` and `prod` the chart refuses to render with it (`global.fakes`, or
-  `TRANIBOR_FAKES` in `choregos-orchestrator.runner.env`), and the API, the outposts' door, the
+  `TRANIBOR_FAKES` in `tranibor-orchestrator.runner.env`), and the API, the outposts' door, the
   orchestrator's workers and the runner refuse to start on it (`tranibor_core/production.py`, S80-03).
   The guard believes `TRANIBOR_ENV`: a production installation that leaves `global.environment` at its
   default, `dev`, is not refused anything (the same holds for the superuser and the development login).
@@ -301,7 +301,7 @@ platform with a weaker profile than the strict rule: it runs the `RUN` steps of 
 platform writes over files a user uploaded, and rootless BuildKit makes a user namespace (through
 the setuid `newuidmap`, so privilege escalation stays allowed and SETUID/SETGID stay in the bounding
 set) and mounts inside it, which the RuntimeDefault seccomp profile and AppArmor refuse. The
-container is therefore `Unconfined` for both, and a Kyverno `PolicyException` (`choregos-buildkitd`)
+container is therefore `Unconfined` for both, and a Kyverno `PolicyException` (`tranibor-buildkitd`)
 lifts the `non-root` rule of `choregos-pod-security` for that Deployment's pods only. That rule
 refuses `Unconfined` on any container, init container (native sidecars included), ephemeral
 container or pod AppArmor profile; the exception is the one place it is lifted.
@@ -501,7 +501,7 @@ connector's account.
 - **Jenkins** is reached with a user's API token (HTTP basic, sealed like any connector secret) and asks for
   a CSRF crumb before a trigger. Give the user `Job/Read` and `Job/Build` on one job and nothing else: the
   token can build that job with the connector's parameters, no more. Notifications arrive at
-  `/api/v1/webhooks/jenkins`, authenticated by the shared webhook secret (`X-Choregos-Secret`, or `?token=`
+  `/api/v1/webhooks/jenkins`, authenticated by the shared webhook secret (`X-Tranibor-Secret`, or `?token=`
   for the Notification plugin, whose URL then holds the secret: keep that URL out of logs and screenshots),
   and refused with 401 on any deployed instance that has no secret.
 - **GitHub Actions** needs no credential of its own: it uses the GitHub App, which now asks for `actions:
@@ -594,7 +594,7 @@ asks the source to revoke it (RFC 7009, best effort, only at the endpoint the pe
 the organisation and a restrictive owner-only policy: nobody else reads a person's account.
 
 At each call the platform draws an access token from the refresh token (re-sealing a rotated one), calls the
-source with it as bearer, and keeps nothing. A plugin's server receives it in `X-Choregos-User-Token` next to
+source with it as bearer, and keeps nothing. A plugin's server receives it in `X-Tranibor-User-Token` next to
 the platform's own bearer. With no account (or one the source stopped honouring) the call fails with the
 typed tool error `account_not_connected` carrying the console's connect URL
 (`<public url>/me/connected-accounts/{connector}/connect?org=<org>`); the agent tells the person and goes on
@@ -724,7 +724,7 @@ All eleven are fixed in this change. Nothing found was left open.
 - **Cross-organisation.** A connector, an account, a delegation and a sealed secret are all read under the
   organisation of the caller or of the conversation; no path takes an organisation from a request parameter without
   checking the caller's membership.
-- **Redirects with credentials.** The MCP and plugin clients do not follow redirects, so `X-Choregos-User-Token`
+- **Redirects with credentials.** The MCP and plugin clients do not follow redirects, so `X-Tranibor-User-Token`
   and the bearer never follow one to another host.
 
 ### Residual risks (not fixed, and why)
@@ -1042,7 +1042,7 @@ What an operator does with it:
 
 ```bash
 # Walk every chain; exit 1 and the first break if one is broken.
-kubectl -n choregos exec deploy/choregos-api -- choregos-admin audit verify
+kubectl -n tranibor exec deploy/tranibor-api -- tranibor-admin audit verify
 
 # A checkpoint key of its own, kept where the database and the API are not (never the outposts' door key).
 openssl genpkey -algorithm ed25519 -out audit-checkpoint.pem
@@ -1050,11 +1050,11 @@ openssl pkey -in audit-checkpoint.pem -pubout -outform DER | tail -c 32 | basenc
 
 # Verify each chain and sign its last entry; the key goes in on standard input and stays out of the pod.
 # Keep the printed lines OUTSIDE the database: they are what shows a rewrite of the whole chain.
-kubectl -n choregos exec -i deploy/choregos-api -- choregos-admin audit checkpoint --key-file - \
+kubectl -n tranibor exec -i deploy/tranibor-api -- tranibor-admin audit checkpoint --key-file - \
   < audit-checkpoint.pem >> audit-anchors.jsonl
 
 # Later, against the kept lines and the trusted public key (repeat --trust across a rotation).
-kubectl -n choregos exec -i deploy/choregos-api -- choregos-admin audit verify --anchor - \
+kubectl -n tranibor exec -i deploy/tranibor-api -- tranibor-admin audit verify --anchor - \
   --trust <public key> < audit-anchors.jsonl
 ```
 
@@ -1198,7 +1198,7 @@ migration role distinct from the API's own (each its own story).
   The repository ships one: `plugins/vault-transit`, a Vault Transit wrapper (an extension, not part of
   the core: the core imports no Vault client, `tests/architecture/test_core_ships_no_vault_client.py`).
   The data key is wrapped by transit `encrypt` and the KEK never leaves Vault; a rotation is
-  `transit/keys/<key>/rotate` then `choregos admin secrets rewrap`, which uses transit `rewrap` so the data
+  `transit/keys/<key>/rotate` then `tranibor admin secrets rewrap`, which uses transit `rewrap` so the data
   keys are never in the platform's memory; the API authenticates with its pod's service account (Vault
   Kubernetes auth) or a token. It is proved against a simulated Vault only, and `put`/`get_many` block the
   API's event loop for one Vault round trip per secret (the seam is synchronous). Setup:
@@ -1214,7 +1214,7 @@ migration role distinct from the API's own (each its own story).
   `state` is HMAC-signed, short-lived and bound to the signed-in person.
 - Webhook secrets: injected by the chart from the vault (or generated on a bench); an
   unconfigured GitHub webhook is refused in `staging`/`prod`. An Azure DevOps service hook carries the
-  shared secret as the password of its basic authentication (or `X-Choregos-Secret`), compared in constant
+  shared secret as the password of its basic authentication (or `X-Tranibor-Secret`), compared in constant
   time; with no secret configured every delivery is refused. The Azure Boards credentials (a personal access
   token, or an Entra service principal's client secret) are sealed connector secrets, and an Entra token is
   held in memory only, until a minute before it expires ([ADR 0209](adr/0209-the-azure-devops-family-boards-first-then-repos-and-pipelines.md)).

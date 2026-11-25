@@ -241,7 +241,7 @@ markdown_sections · no_secrets · provenance_signed · review_approved · scans
 ```
 
 A workflow that names one of them where the extension is not installed is refused when it is
-published, naming the plugin; `choregos workflow validate` offline reports it as a warning, since only
+published, naming the plugin; `tranibor workflow validate` offline reports it as a warning, since only
 the deployment knows what it installed.
 
 `output_schema` checks each named output against a JSON Schema (2020-12) written in the workflow
@@ -469,7 +469,7 @@ project already spent today (and its open keys); and with a LiteLLM gateway the 
 project joins: the gateway itself refuses calls once the day is spent, whichever run makes them.
 
 More money is a decision. "Replay the stage" on a work item whose budget is spent is refused (409)
-unless it carries a top-up (`top_up_usd`, or `choregos items action <id> rerun_stage --top-up 5`);
+unless it carries a top-up (`top_up_usd`, or `tranibor items action <id> rerun_stage --top-up 5`);
 the top-up adds to the work item's budget and the audit log records who granted it
 (`workitem.budget_top_up`).
 
