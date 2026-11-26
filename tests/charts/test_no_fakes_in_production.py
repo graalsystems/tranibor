@@ -1,6 +1,6 @@
 """The fakes are refused in staging and prod, at the render (S80-03).
 
-`global.fakes` becomes `CHOREGOS_FAKES` in every pod (`choregos.commonEnv`): on, the egress control
+`global.fakes` becomes `TRANIBOR_FAKES` in every pod (`choregos.commonEnv`): on, the egress control
 only warns and the API's secret store can be an in-memory fake. The processes refuse to start on it in
 staging and prod; the render says it before anything is deployed, and names the value. A bench
 (`values/dev.yaml`, `values/local.yaml`, the defaults) keeps rendering with it.
@@ -15,7 +15,7 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PRESETS = CHART / "values"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -35,13 +35,13 @@ def _rendered(
 
 
 def _fakes_of_the_pods(stdout: str) -> set[str]:
-    """Every value `CHOREGOS_FAKES` takes in a rendered container, wherever it is declared."""
+    """Every value `TRANIBOR_FAKES` takes in a rendered container, wherever it is declared."""
     found: set[str] = set()
     stack: list[object] = [document for document in yaml.safe_load_all(stdout) if document]
     while stack:
         item = stack.pop()
         if isinstance(item, dict):
-            if item.get("name") == "CHOREGOS_FAKES" and "value" in item:
+            if item.get("name") == "TRANIBOR_FAKES" and "value" in item:
                 found.add(str(item["value"]))
             stack.extend(item.values())
         elif isinstance(item, list):
@@ -70,10 +70,10 @@ def test_any_environment_named_prod_refuses_them_whatever_preset_it_starts_from(
 
 
 def test_the_fakes_handed_to_every_run_are_refused_in_production() -> None:
-    """`choregos-orchestrator.runner.env` reaches every runner (pod env and `CHOREGOS_RUNNER_ENV`)."""
-    rendu = _rendered("prod", strings=("choregos-orchestrator.runner.env.CHOREGOS_FAKES=1",))
+    """`tranibor-orchestrator.runner.env` reaches every runner (pod env and `TRANIBOR_RUNNER_ENV`)."""
+    rendu = _rendered("prod", strings=("tranibor-orchestrator.runner.env.TRANIBOR_FAKES=1",))
     assert rendu.returncode != 0
-    assert "choregos-orchestrator.runner.env.CHOREGOS_FAKES" in rendu.stderr
+    assert "tranibor-orchestrator.runner.env.TRANIBOR_FAKES" in rendu.stderr
 
 
 @pytest.mark.parametrize("preset", ["prod", "staging"])

@@ -39,7 +39,7 @@ project's: its connectors, its policy, its agent.
 
 **Governance parity** (the plan's §4.2 and §5.1): a live run counts only if what governs its calls agrees
 on how many there were — its booked `tool` lines of the ledger (a provisional `in_flight` line is not a
-call), its `choregos.tool.called` events, and the tool bridge's `tools.script.call` lines for the calls
+call), its `tranibor.tool.called` events, and the tool bridge's `tools.script.call` lines for the calls
 that came from a script (the MCP door has no journal of its own: its calls are the events of origin
 `model`). `parity` returns why they disagree; a run whose parity is broken is `invalid`: left out of the
 cell's rates and of every comparison, and reported, never counted.
@@ -298,7 +298,7 @@ def parity(
     """Why a run's governance records disagree on its tool calls, `""` when they agree.
 
     - `booked`: its `tool` lines of the ledger (`{provider, model, origin}`), `in_flight` ones left out;
-    - `called`: its `choregos.tool.called` events' payloads (`{tool, origin, status_code, script_sha256}`);
+    - `called`: its `tranibor.tool.called` events' payloads (`{tool, origin, status_code, script_sha256}`);
     - `relayed`: its `tools.script.call` lines (`{tool, status_code, script_sha256}`).
 
     Every call booked has its event and every event its line, per tool and door. Every event of a call
@@ -319,7 +319,7 @@ def parity(
         if lines[(tool, origin)] != events[(tool, origin)]:
             return (
                 f"governance parity broken: {lines[(tool, origin)]} ledger line(s) and "
-                f"{events[(tool, origin)]} choregos.tool.called event(s) for {tool} from {origin}"
+                f"{events[(tool, origin)]} tranibor.tool.called event(s) for {tool} from {origin}"
             )
     from_scripts = Counter(_relayed_key(e) for e in called if str(e.get("origin") or "model") == "script")
     bridge = Counter(_relayed_key(line) for line in relayed)

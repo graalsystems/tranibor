@@ -67,7 +67,7 @@ async def _events(setup: Fixture) -> list[Any]:
         return list(
             (
                 await session.execute(
-                    select(Event).where(Event.type == "choregos.security.injection_suspected")
+                    select(Event).where(Event.type == "tranibor.security.injection_suspected")
                 )
             )
             .scalars()

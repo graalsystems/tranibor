@@ -12,7 +12,7 @@ runs. Then onboard a real project.
 
 ```bash
 git clone https://github.com/graalsystems/tranibor.git
-cd choregos
+cd tranibor
 cp .env.example .env      # optional: every line has a default
 docker compose up
 ```
@@ -138,13 +138,13 @@ platform itself (hot reload, a development cluster), see [development](developme
 | | Why |
 | :-- | :-- |
 | An **installed platform** with its first organisation and administrators | [`deployment.md`](deployment.md): the chart bootstraps both (`global.bootstrap.*`) |
-| An **API token** | issued by the person who will use it (`choregos tokens create`, or *My account → Access tokens*, in the menu under your name); the very first one from the server side (`choregos-admin tokens create`) |
+| An **API token** | issued by the person who will use it (`tranibor tokens create`, or *My account → Access tokens*, in the menu under your name); the very first one from the server side (`tranibor-admin tokens create`) |
 | The **application repository** (GitHub, GitLab) — *if the work is code* | it is what agents modify, on a branch, through a PR. A business project has none |
 | A **GitOps repository** — *for a templated stack* | provisioning writes the project's manifests there, Argo CD applies them |
 | A **board** (GitHub Projects v2, Jira) — *or nothing* | with `tracker: internal` the requests are filed in Tranibor itself |
 | A **GitHub App** installed on the organisation — *for GitHub* | scoped installation tokens, webhooks; never a broad PAT. Install it from the console (*Settings → Connections → Install on GitHub*): the installation is discovered and claimed by your organisation, and you never type an installation id ([ADR 0073](adr/0073-github-app-installations-are-discovered-not-typed.md)). For companies other than the App's owner the App must be public ([deployment](deployment.md#the-github-app)) |
 | A **cluster** (or an Azure subscription) | agents run in `agent-sandbox` sandboxes by default (the platform team installs the operator, [ADR 0072](adr/0072-agent-sandbox-is-the-runtime-of-a-real-deployment.md)); Tekton or Jobs only where the deployment says so; or Container Apps jobs |
-| The **platform secrets** | `session-secret`, the run-token key pair, the webhook secrets, the App ID and its private key — in the vault, read by External Secrets (`charts/choregos/charts/api/templates/externalsecret.yaml`) |
+| The **platform secrets** | `session-secret`, the run-token key pair, the webhook secrets, the App ID and its private key — in the vault, read by External Secrets (`charts/tranibor/charts/api/templates/externalsecret.yaml`) |
 
 Models go through the platform's LiteLLM gateway: a project has no provider key of its own,
 it has a budget.
@@ -177,23 +177,23 @@ was removed (ADR 0181, O4-1).
 
 ### Install the CLI from your instance
 
-Your instance serves the `choregos` CLI in the version it runs, from the console's host; the console
+Your instance serves the `tranibor` CLI in the version it runs, from the console's host; the console
 shows the command for your system under **Integrations › CLI**:
 
 ```bash
-curl -fsSL https://choregos.example.com/cli/install.sh | sh     # Linux, macOS: ~/.local/bin/choregos
-irm https://choregos.example.com/cli/install.ps1 | iex          # Windows, in PowerShell
+curl -fsSL https://tranibor.example.com/cli/install.sh | sh     # Linux, macOS: ~/.local/bin/tranibor
+irm https://tranibor.example.com/cli/install.ps1 | iex          # Windows, in PowerShell
 ```
 
-`choregos self update` keeps it in step after an upgrade of the instance; the CLI says so on stderr,
+`tranibor self update` keeps it in step after an upgrade of the instance; the CLI says so on stderr,
 once a day, when the two versions differ (`TRANIBOR_NO_VERSION_CHECK=1` silences it). See
 [cli.md](cli.md#install-from-your-instance).
 
 ### Create the project
 
 ```bash
-choregos login --api-url https://choregos.example.com --org acme   # your browser opens; approve there
-choregos projects create billing-api \
+tranibor login --api-url https://tranibor.example.com --org acme   # your browser opens; approve there
+tranibor projects create billing-api \
   --repo https://github.com/acme/billing-api \
   --language python \
   --template github-tekton-argo-k8s
@@ -202,7 +202,7 @@ choregos projects create billing-api \
 `--template` chains into provisioning. To run it again and follow it:
 
 ```bash
-choregos projects provision billing-api --follow
+tranibor projects provision billing-api --follow
 ```
 
 Provisioning is **idempotent**: rerunning it after a failure resumes where it stopped,
@@ -211,8 +211,8 @@ without redoing what was done.
 A project without code takes its requests from Tranibor itself:
 
 ```bash
-choregos projects create staffing --name "Staffing"                    # no --repo → tracker `internal`
-choregos items create staffing --title "Data PM for a 6-month mission" --size M
+tranibor projects create staffing --name "Staffing"                    # no --repo → tracker `internal`
+tranibor items create staffing --title "Data PM for a 6-month mission" --size M
 ```
 
 ### What provisioning does
@@ -222,7 +222,7 @@ manifests written to the GitOps repository then synchronised by Argo CD, webhook
 project's memory tenant with an initial import (README, docs, ADRs, the year's issues and
 PRs), a team and a budget at the gateway, and a test message on the notification channel.
 
-Once provisioning is done, open *Settings* (or run `choregos projects readiness <slug>`): the readiness list tells you what is left, item by item, and who can fix it ([usage](usage.md#project-settings-and-readiness)).
+Once provisioning is done, open *Settings* (or run `tranibor projects readiness <slug>`): the readiness list tells you what is left, item by item, and who can fix it ([usage](usage.md#project-settings-and-readiness)).
 
 The board's fields are `Status`, `Cost (€)`, `Size`, `Risk` and `Run`. A board provisioned by
 Tranibor 0.17 or earlier named three of them `Coût (€)`, `Taille` and `Risque`: provisioning again
@@ -234,8 +234,8 @@ And a **scaffolding PR** on your repository:
 | File | Review before merging |
 | :-- | :-- |
 | `AGENTS.md` | the test, lint and type-check commands of *your* project |
-| `.choregos/workflow.yaml` | state labels must match your board; keep the gates |
-| `.choregos/policy.yaml` | budgets, allowed scope, sandbox, train rules (who approves a ticket is in the workflow) |
+| `.tranibor/workflow.yaml` | state labels must match your board; keep the gates |
+| `.tranibor/policy.yaml` | budgets, allowed scope, sandbox, train rules (who approves a ticket is in the workflow) |
 | `tekton/pipeline.yaml` | the project's CI |
 | `deploy/kustomization.yaml` | the deployment target |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `CODEOWNERS` | review |
@@ -243,7 +243,7 @@ And a **scaffolding PR** on your repository:
 Validate the workflow before committing:
 
 ```bash
-choregos workflow validate .choregos/workflow.yaml
+tranibor workflow validate .tranibor/workflow.yaml
 ```
 
 ### The first ticket
@@ -259,17 +259,17 @@ trigger. The platform:
 6. mirrors everything into the ticket: state, cost, run link.
 
 If a webhook is lost, a periodic catch-up picks the open `agent-ready` tickets nobody saw —
-there is nothing for you to do. With `tracker: internal`, `choregos items create` (or *New
+there is nothing for you to do. With `tracker: internal`, `tranibor items create` (or *New
 request* on the board) starts the ticket's interpreter at once.
 
 ### Follow, and take over
 
 ```bash
-choregos items list billing-api --state running
-choregos runs tail <run-id>        # the run's journal, live
-choregos runs diff <run-id>        # what the agent changed
-choregos items approve <item-id>   # release a human wait
-choregos items reject  <item-id> --reason "…"
+tranibor items list billing-api --state running
+tranibor runs tail <run-id>        # the run's journal, live
+tranibor runs diff <run-id>        # what the agent changed
+tranibor items approve <item-id>   # release a human wait
+tranibor items reject  <item-id> --reason "…"
 ```
 
 In the front: the **board** (columns are the workflow's states), a ticket's **timeline** and

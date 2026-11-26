@@ -2,7 +2,7 @@
 # item, the code, the decisions and memory, and finds the root causes and the actions that prevent a
 # recurrence; a reviewer critiques it; the maintainers accept it. The actions become work items of their
 # own (a `dev-fix`, a `dev-feature`), created by people from the accepted postmortem.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: incident-postmortem

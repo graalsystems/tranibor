@@ -23,7 +23,7 @@ def _contracts(count: int) -> list[dict[str, Any]]:
 
 
 def _job(root: Path) -> dict[str, Any]:
-    done: dict[str, Any] = json.loads((root / ".choregos" / "job.json").read_text(encoding="utf-8"))
+    done: dict[str, Any] = json.loads((root / ".tranibor" / "job.json").read_text(encoding="utf-8"))
     return done
 
 
@@ -65,7 +65,7 @@ def test_a_relay_that_fails_is_a_non_zero_exit(workspace: Path) -> None:
         raise RelayError("purchasing__list_contracts: down")
 
     assert main(["renewals", "--within-days", "30"], relay=relay) != 0
-    assert not (workspace / ".choregos" / "job.json").exists()
+    assert not (workspace / ".tranibor" / "job.json").exists()
 
 
 @pytest.mark.parametrize("bad", ["0", "101", "-1"])

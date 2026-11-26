@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import HumanActor, Role
+from tranibor_contracts import HumanActor, Role, wire
 from tranibor_core.dsl.groups import group_for, matches_some
 
 from ..db.models import Membership, Organization, Project, User, WorkItem
@@ -35,17 +35,19 @@ def groups_for_org(groups: Iterable[Any] | None, org_slug: str) -> set[str]:
     """The groups a person carries **for one organisation** (S40-27).
 
     The identity provider may send a group bare (`architects`) or namespaced for an organisation
-    (`choregos:acme:architects`, the same prefix that carries the role). For `org_slug` both count,
-    as the bare name; a group namespaced for **another** organisation does not, so two organisations of
-    one instance never confuse their `architects`. `User.groups` stays as sent.
+    (`tranibor:acme:architects`, the same prefix that carries the role; the former `choregos:` prefix is
+    read too, ADR 0226). For `org_slug` both count, as the bare name, and a namespaced group counts under
+    both prefixes; a group namespaced for **another** organisation does not, so two organisations of one
+    instance never confuse their `architects`. `User.groups` stays as sent.
     """
-    prefix = f"choregos:{org_slug}:"
     carried: set[str] = set()
     for raw in groups or []:
         group = str(raw)
         carried.add(group)
-        if group.startswith(prefix) and len(group) > len(prefix):
-            carried.add(group[len(prefix) :])
+        named = wire.group_org_and_name(group)
+        if named is not None and named[0] == org_slug:
+            carried.add(named[1])
+            carried.update(wire.group_names(org_slug, named[1]))
     return carried
 
 
@@ -77,9 +79,9 @@ def decider_group_verdict(principal: Principal, org_slug: str, group: str | None
 
 async def groups_known_in(session: AsyncSession, org_id: str) -> set[str]:
     """The groups the identity provider has sent for the organisation's members at their sign-ins, as
-    the organisation names them (a `choregos:<slug>:<group>` of this organisation counts as `<group>`;
-    the slug is read now, it can change), and the organisation's own groups that have a member
-    (ADR 0160): an empty group is carried by nobody either."""
+    the organisation names them (a `tranibor:<slug>:<group>`, or the former `choregos:` form, of this
+    organisation counts as `<group>`; the slug is read now, it can change), and the organisation's own groups
+    that have a member (ADR 0160): an empty group is carried by nobody either."""
     org_slug = (
         await session.execute(select(Organization.slug).where(Organization.id == org_id))
     ).scalar_one_or_none()

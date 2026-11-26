@@ -185,7 +185,9 @@ class Settings(BaseSettings):
     #: A verification-only key during a rotation (`TRANIBOR_SESSION_SECRET_PREVIOUS`): a value signed
     #: with it still reads, and nothing is signed with it.
     session_secret_previous: str = ""
-    session_cookie: str = "choregos_session"
+    #: `tranibor_session`; a browser holding the former `choregos_session` is moved to it (ADR 0226,
+    #: `former_cookies`). A name set here is the operator's and is never renamed.
+    session_cookie: str = "tranibor_session"
     session_max_age_s: int = 8 * 3600
     #: A developer surface's session (ADR 0154 §6): it ends after this long without a request, and in any case
     #: after `surface_session_max_age_s`. A device code lives `device_code_ttl_s` and is polled no faster than
@@ -215,7 +217,7 @@ class Settings(BaseSettings):
     bootstrap_org_name: str = ""
     bootstrap_admins: str = ""
     #: Organisation to which the NON-prefixed OIDC groups (`developers`, `org-admins`...) attach.
-    #: Empty: those groups are ignored, only the `choregos:<org>:<group>` groups give a role.
+    #: Empty: those groups are ignored, only the `tranibor:<org>:<group>` groups give a role.
     #: Before: any group gave the role on ALL the organisations of the instance.
     oidc_default_org: str = ""
 
@@ -266,6 +268,10 @@ class Settings(BaseSettings):
     #: text block that serializes its `structuredContent` is not counted again (#1374). The default is
     #: the bound the run's tool server shows the model (`tranibor_core.mcp.RESULT_MAX_BYTES`).
     broker_result_max_bytes: int = Field(default=RESULT_MAX_BYTES, ge=1024)
+    #: The most tools one profile entry of an agent's `mcp_servers` offers, over all the instances that
+    #: implement the profile (ADR 0224 §4): each instance brings its tools under its own name, and a model
+    #: given a hundred of them chooses worse. The ones left out are named in the run's journal.
+    broker_profile_tool_cap: int = Field(default=16, ge=1)
     #: The most an operation or a catalogue tool may raise its own cap to (S40-17): an organisation
     #: that needs one large answer opens it for that operation, never for the whole platform. The
     #: default is what the prompt loop lets through of one tool answer (`RESULT_CEILING_BYTES`).
@@ -328,6 +334,15 @@ class Settings(BaseSettings):
     #: How egress is narrowed: `networkpolicy` (public addresses on the configured ports) or `cilium`
     #: (a CiliumNetworkPolicy naming the exact hosts).
     plugin_servers_egress: Literal["networkpolicy", "cilium"] = "networkpolicy"
+    #: Private ranges a plugin server may reach (ADR 0224 §6a), as CIDRs: off when empty. A host an
+    #: instance's configuration names that resolves into one is admitted, for the organisation that owns
+    #: the range. The metadata, link-local and loopback ranges stay closed whatever is listed.
+    plugin_servers_egress_private_cidrs: list[str] = Field(default_factory=list)
+    #: On a multi-organisation deployment, the CIDRs each organisation owns, by slug (an alias of the
+    #: organisation counts, ADR 0090): `{"northwind": ["10.20.0.0/16"]}`. Each must be inside
+    #: `plugin_servers_egress_private_cidrs`, and each of those must be owned by one organisation or the
+    #: API does not start. Not read on a single-organisation deployment.
+    plugin_servers_egress_private_cidrs_by_org: dict[str, list[str]] = Field(default_factory=dict)
     #: The namespace of the API's pods, the only ones a server admits; empty: any namespace.
     plugin_servers_api_namespace: str = ""
     plugin_servers_cpu: str = "500m"
@@ -356,7 +371,9 @@ class Settings(BaseSettings):
     cluster_version: str = ""
     #: The `buildkitd` builds go through, as `buildctl --addr` takes it: the one the chart deploys
     #: (`global.buildkitd`, S41-13) unless `global.images.buildkitAddress` names another.
-    buildkit_address: str = "tcp://choregos-buildkitd:1234"
+    #: The chart renders the daemon as `tranibor-buildkitd` since 0.30.0 (ADR 0226, R6) and always sets this;
+    #: the default follows the chart (it named `choregos-buildkitd`, which no chart renders any more).
+    buildkit_address: str = "tcp://tranibor-buildkitd:1234"
     #: A directory holding `ca.crt`, `tls.crt` and `tls.key` for mutual TLS with `buildkitd`;
     #: empty speaks plain gRPC, which the chart's NetworkPolicy limits to the orchestrator's pods.
     buildkit_tls_dir: str = ""
@@ -465,8 +482,9 @@ class Settings(BaseSettings):
     api_url: str = "http://localhost:8000"
     #: Where the native `choregos` binaries, their `SHA256SUMS` and `manifest.json` lie (S62-07 puts
     #: them there in the API image). An absent directory is a build that bundles no CLI: the download
-    #: routes answer 404 and say where the GitHub release is (S62-08, `routers/cli_downloads.py`).
-    cli_dir: str = "/opt/choregos/cli"
+    #: routes answer 404 and say where the GitHub release is (S62-08, `routers/cli_downloads.py`). At this
+    #: default, the former `/opt/choregos/cli` is read when only it exists (ADR 0226, R9b).
+    cli_dir: str = "/opt/tranibor/cli"
 
     # Outposts (ADRs 0147-0149)
     #: `TRANIBOR_OUTPOSTS`, `off` by default (ADR 0147 §12). Off, the outposts' door is not mounted and
@@ -656,6 +674,20 @@ class Settings(BaseSettings):
             check_mirrors(self.plugin_servers_image_mirrors)
         except RegistryError as exc:
             raise ValueError(f"TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS: {exc}") from exc
+        return self
+
+    @model_validator(mode="after")
+    def _plugin_server_private_cidrs_are_well_formed(self) -> Settings:
+        """A typo in a private range, or a range that must stay closed, is refused at start-up (ADR 0224
+        §6a). The multi-organisation rule is the API's start-up, once the edition is known."""
+        from tranibor_adapters.private_egress import check_configuration
+
+        try:
+            check_configuration(
+                self.plugin_servers_egress_private_cidrs, self.plugin_servers_egress_private_cidrs_by_org
+            )
+        except ValueError as bad:
+            raise ValueError(f"TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS*: {bad}") from bad
         return self
 
     @model_validator(mode="after")

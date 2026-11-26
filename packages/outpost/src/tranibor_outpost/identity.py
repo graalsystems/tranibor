@@ -163,7 +163,7 @@ def load(directory: Path) -> Identity:
     """The identity a former `enrol` wrote; `IdentityError` when it is absent, partial or exposed."""
     signing_path, sealing_path = directory / SIGNING_FILE, directory / SEALING_FILE
     if not signing_path.exists() and not sealing_path.exists():
-        raise IdentityError(f"{directory} holds no identity: run `choregos-outpost enrol` first")
+        raise IdentityError(f"{directory} holds no identity: run `tranibor-outpost enrol` first")
     if not signing_path.exists() or not sealing_path.exists():
         raise IdentityError(f"{directory} holds one key of two: restore the other, or enrol a new instance")
     try:

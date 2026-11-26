@@ -35,8 +35,8 @@ if command -v tilt >/dev/null 2>&1; then
 fi
 
 echo "· Tilt is not installed: deploying the chart directly in development mode"
-helm upgrade --install choregos charts/choregos \
+helm upgrade --install choregos charts/tranibor \
   --namespace choregos-system \
-  -f charts/choregos/values.yaml -f charts/choregos/values/dev.yaml \
+  -f charts/tranibor/values.yaml -f charts/tranibor/values/dev.yaml \
   --wait --timeout 10m
 kubectl -n choregos-system get pods

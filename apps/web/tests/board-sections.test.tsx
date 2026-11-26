@@ -120,7 +120,7 @@ describe("the board shows every workflow of the project (2026-11-02)", () => {
     // 7 hidden in fon-support, 2 in fon-access.
     fireEvent.click(screen.getByRole("button", { name: "Show empty columns (9)" }));
     expect(within(support).getAllByRole("region")).toHaveLength(8);
-    expect(window.localStorage.getItem("choregos.board.show-empty-columns")).toBe("1");
+    expect(window.localStorage.getItem("tranibor.board.show-empty-columns")).toBe("1");
     fireEvent.click(screen.getByRole("button", { name: "Hide empty columns" }));
     expect(within(support).getAllByRole("region")).toHaveLength(1);
   });

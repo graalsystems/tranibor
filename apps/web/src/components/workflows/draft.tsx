@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useWorkflow } from "@/components/workflows/use-workflow";
 import { ApiError, api } from "@/lib/api";
+import { storedName } from "@/lib/stored-names";
 import type { WorkflowEditResult, WorkflowOperation, WorkflowValidation } from "@/lib/types";
 import type { WorkflowDocument } from "@/components/workflows/document";
 
@@ -38,7 +39,7 @@ export type Draft = ReturnType<typeof useDraftInternal>;
  * version: if another was published meanwhile, the conflict is told as before.
  */
 export function draftKey(slug: string, name: string): string {
-  return `choregos.draft.${slug}.${name}`;
+  return storedName(`draft.${slug}.${name}`);
 }
 
 function readDraft(key: string): DraftState | null {

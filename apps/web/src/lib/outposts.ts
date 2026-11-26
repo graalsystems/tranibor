@@ -24,7 +24,7 @@ import type {
   PlatformArgument,
 } from "./types";
 
-/** Where the daemon reads its policy unless told otherwise (`choregos-outpost --policy`). */
+/** Where the daemon reads its policy unless told otherwise (`tranibor-outpost --policy`). */
 export const POLICY_FILE = "/etc/choregos-outpost/policy.yaml";
 
 /** The `door_keys` line of an outpost's policy file: the only keys whose calls the outpost makes. */
@@ -48,7 +48,7 @@ export function policyLines(origin: string | null | undefined, keys: readonly st
 
 /** The command that enrols one instance, on the outpost's machine. */
 export function enrolCommand(token: string): string {
-  return `choregos-outpost enrol --token ${token}`;
+  return `tranibor-outpost enrol --token ${token}`;
 }
 
 /** Online, or when it was last seen: an outpost and an instance say it the same way. */

@@ -66,7 +66,7 @@ def _files() -> list[tuple[pathlib.Path, list[tuple[re.Pattern[str], str]]]]:
             # An old distribution (ADR 0176 R2) is an empty wheel that pins the new one it aliases.
             patterns.append((re.compile(r'("tranibor-[a-z-]+==)[^"]+(")'), r"\g<1>{v}\g<2>"))
         targets.append((pyproject, patterns))
-    umbrella = ROOT / "charts" / "choregos" / "Chart.yaml"
+    umbrella = ROOT / "charts" / "tranibor" / "Chart.yaml"
     targets.append(
         (
             umbrella,
@@ -77,10 +77,10 @@ def _files() -> list[tuple[pathlib.Path, list[tuple[re.Pattern[str], str]]]]:
             ],
         )
     )
-    subcharts = sorted((ROOT / "charts" / "choregos" / "charts").glob("*/Chart.yaml"))
+    subcharts = sorted((ROOT / "charts" / "tranibor" / "charts").glob("*/Chart.yaml"))
     # The outpost's chart is a chart of its own, published beside the umbrella (S65-16). Its image tag
     # is its appVersion: no value of it holds a version.
-    for chart in [*subcharts, ROOT / "charts" / "choregos-outpost" / "Chart.yaml"]:
+    for chart in [*subcharts, ROOT / "charts" / "tranibor-outpost" / "Chart.yaml"]:
         targets.append(
             (
                 chart,
@@ -90,7 +90,7 @@ def _files() -> list[tuple[pathlib.Path, list[tuple[re.Pattern[str], str]]]]:
                 ],
             )
         )
-    values = ROOT / "charts" / "choregos" / "values.yaml"
+    values = ROOT / "charts" / "tranibor" / "values.yaml"
     targets.append(
         (
             values,
@@ -171,7 +171,7 @@ def apply(version: str, *, check: bool) -> int:
     if check:
         print(f"version {version} everywhere")
     elif any("Chart.yaml" in str(f) for f, _ in _files()):
-        print("→ then: helm dependency update charts/choregos  (Chart.lock)")
+        print("→ then: helm dependency update charts/tranibor  (Chart.lock)")
     return 0
 
 

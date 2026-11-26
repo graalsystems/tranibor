@@ -81,8 +81,8 @@ describe("the procedure at the gestures of the batch-4 types (S39-23e)", () => {
   });
 
   it("typing Atlassian's card address switches the procedure to Rovo's", async () => {
-    window.localStorage.setItem("choregos.procedure.seen.agent.remote.a2a", "1");
-    window.localStorage.setItem("choregos.procedure.seen.agent.remote.a2a.atlassian-rovo", "1");
+    window.localStorage.setItem("tranibor.procedure.seen.agent.remote.a2a", "1");
+    window.localStorage.setItem("tranibor.procedure.seen.agent.remote.a2a.atlassian-rovo", "1");
     wrap(<NewRemoteAgentPage />);
     fireEvent.click(await screen.findByRole("button", { name: "How to set this up" }));
     expect(screen.getByTestId("procedure-panel")).toHaveTextContent("Add a remote agent (A2A)");

@@ -59,7 +59,7 @@ class ClaudeCodeBackend(Backend):
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": ".choregos/hooks/check_scope.sh",
+                                "command": ".tranibor/hooks/check_scope.sh",
                             }
                         ],
                     }
@@ -86,7 +86,7 @@ class ClaudeCodeBackend(Backend):
         files = {
             ".mcp.json": self.mcp_config_json(stage_input),
             ".claude/settings.json": json.dumps(settings, indent=2, ensure_ascii=False),
-            ".choregos/hooks/check_scope.sh": _scope_hook(
+            ".tranibor/hooks/check_scope.sh": _scope_hook(
                 offered_script_directory(stage_input), list(stage_input.permissions.deny_paths)
             ),
             "CLAUDE.md": _claude_md(stage_input),
@@ -152,8 +152,9 @@ def _scope_hook(scripts_dir: str = "", deny_paths: list[str] | None = None) -> s
     The script is dropped into the agent's workspace, which can read it: its comments
     are in English (ADR 0039). It answers as `GuardRails.check_write` does, rule for rule and in
     the same order (C2, `tests/test_write_guards_agree.py`): a secret-looking file, the run's script
-    directory, the platform's own files under `.choregos/`, the policy's `scope.deny_paths`, then
-    the allowed paths. The history of the `.choregos/` exception: `result.json` belongs to the
+    directory, the platform's own files under `.tranibor/` (and its former name `.choregos/`, ADR 0226
+    R9a), the policy's `scope.deny_paths`, then the allowed paths. The history of the run directory's
+    exception: `result.json` belongs to the
     PLATFORM, not to the ticket's scope. That is where the agent must write it, as the output
     contract requires. Refusing it put the agent in front of a contradiction; it wrote it in black
     and white in its transcript ("there is a contradiction between the allowed scope and the
@@ -204,16 +205,17 @@ if [ -n "$scripts_dir" ] && [ "$rel" = "$path" ]; then
     "$scripts_dir"/?*) exit 0 ;;
   esac
 fi
-# `.choregos/` belongs to the platform, not to the work item's scope: the agent writes its
+# `.tranibor/` belongs to the platform, not to the work item's scope: the agent writes its
 # `result.json` there, as the output contract requires, and its deliverables under `outputs/`.
+# Its former name `.choregos/` is the platform's too, until 0.32.0 (ADR 0226, R9a).
 case "$rel" in
-  .choregos/result.json) exit 0 ;;
-  .choregos/outputs/*)
+  .tranibor/result.json|.choregos/result.json) exit 0 ;;
+  .tranibor/outputs/*|.choregos/outputs/*)
     case "/$rel/" in */../*) ;; *) exit 0 ;; esac ;;
 esac
 case "$rel" in
-  .choregos/*)
-    refuse "the agent cannot change the Tranibor configuration (only .choregos/result.json is expected)" ;;
+  .tranibor|.tranibor/*|.choregos|.choregos/*)
+    refuse "the agent cannot change the Tranibor configuration (only .tranibor/result.json is expected)" ;;
 esac
 # The project's policy forbids these paths whatever the allowed paths say (scope.deny_paths).
 for pattern in @DENY_PATHS@; do
@@ -221,7 +223,7 @@ for pattern in @DENY_PATHS@; do
     refuse "$rel is forbidden by the project's policy (scope.deny_paths: $pattern), whatever the scope"
   fi
 done
-allowed_file=".choregos/allowed_paths.txt"
+allowed_file=".tranibor/allowed_paths.txt"
 [ -f "$allowed_file" ] || exit 0
 declared=0
 while read -r pattern; do
@@ -232,7 +234,7 @@ while read -r pattern; do
   fi
 done < "$allowed_file"
 [ "$declared" = 0 ] && exit 0
-refuse "path outside the allowed paths: $rel (see .choregos/allowed_paths.txt)"
+refuse "path outside the allowed paths: $rel (see .tranibor/allowed_paths.txt)"
 """
 
 
@@ -245,7 +247,7 @@ def _claude_md(stage_input: StageInput) -> str:
             "",
             f"- Work item: {stage_input.work_item.key} — {stage_input.work_item.title}",
             f"- Role: {stage_input.transition.role}",
-            "- Allowed paths: see `.choregos/allowed_paths.txt`.",
-            "- Finish by writing `.choregos/result.json`.",
+            "- Allowed paths: see `.tranibor/allowed_paths.txt`.",
+            "- Finish by writing `.tranibor/result.json`.",
         ]
     )

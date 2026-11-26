@@ -4,13 +4,20 @@
  * the host application, and the reading of a streamed turn. No React here, so each piece is tested alone.
  */
 
-/** The envelope of every message posted to the host: `{ source: "choregos.assistant", type, ... }`. */
-export const EMBED_SOURCE = "choregos.assistant";
+/** The envelope of every message posted to the host: `{ source: "tranibor.assistant", type, ... }`. */
+export const EMBED_SOURCE = "tranibor.assistant";
+/**
+ * The source a host page written before 0.30.0 checks (ADR 0226, R9c). Until 0.32.0 each event is posted twice,
+ * once under each source, the new one first: a host that checks `source`, as the documentation asks, receives
+ * each event once, whichever name it checks.
+ */
+export const FORMER_EMBED_SOURCE = "choregos.assistant";
+export const EMBED_SOURCES = [EMBED_SOURCE, FORMER_EMBED_SOURCE] as const;
 
 export type EmbedEventType = "conversation.started" | "action.confirmed" | "memory.updated" | "resize";
 
 export type EmbedEvent = {
-  source: typeof EMBED_SOURCE;
+  source: (typeof EMBED_SOURCES)[number];
   type: EmbedEventType;
   org: string;
   installation: string;
@@ -72,8 +79,10 @@ export function createEmitter(
 ) {
   return function emit(type: EmbedEventType, payload: Record<string, unknown> = {}): void {
     if (host === null) return;
-    const message: EmbedEvent = { source: EMBED_SOURCE, type, org, installation, ...payload };
-    for (const target of targets) host.postMessage(message, target);
+    for (const source of EMBED_SOURCES) {
+      const message: EmbedEvent = { source, type, org, installation, ...payload };
+      for (const target of targets) host.postMessage(message, target);
+    }
   };
 }
 

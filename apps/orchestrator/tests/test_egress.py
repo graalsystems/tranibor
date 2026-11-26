@@ -60,7 +60,10 @@ def test_only_the_proxy_goes_out_to_the_internet() -> None:
     netpol = {d["metadata"]["name"]: d for d in _docs(files["netpol.yaml"])}
     rules = netpol["allow-platform-egress"]["spec"]["egress"]
     destinations = [to for rule in rules for to in rule["to"]]
-    assert {"podSelector": {"matchLabels": {"app.kubernetes.io/name": EGRESS_NAME}}} in destinations
+    # The proxy's pods under either name (ADR 0226, R9b): a namespace provisioned again keeps the former
+    # pods until Argo CD prunes them.
+    proxy = {"key": "app.kubernetes.io/name", "operator": "In", "values": [EGRESS_NAME, "choregos-egress"]}
+    assert {"podSelector": {"matchExpressions": [proxy]}} in destinations
     namespaces = [to.get("namespaceSelector", {}).get("matchLabels", {}).get(KUBE_NS) for to in destinations]
     assert "choregos-egress" not in namespaces, "the phantom namespace is no longer promised"
     outbound = next(d for d in _docs(files["egress.yaml"]) if d["kind"] == "NetworkPolicy")

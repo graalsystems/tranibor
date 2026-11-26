@@ -3,7 +3,7 @@
 ## In five minutes
 
 ```bash
-git clone https://github.com/graalsystems/tranibor && cd choregos
+git clone https://github.com/graalsystems/tranibor && cd tranibor
 make setup          # uv sync + pnpm install
 make demo           # the whole chain, no cluster: start here
 make ci             # what blocks a PR
@@ -115,5 +115,5 @@ the origin, the proof and a proposal. It is exactly what we ask of agents.
 
 ## The repository is its own client
 
-Since M1, `choregos` is a Tranibor project: stories go through the platform. When you work
+Since M1, `tranibor` is a Tranibor project: stories go through the platform. When you work
 here, you also work on the tool that reviews you.

@@ -15,7 +15,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -31,8 +31,8 @@ def _documents(*overrides: str) -> list[dict[str, Any]]:
 def test_the_api_ingress_carries_the_a2a_door() -> None:
     ingress = next(
         d
-        for d in _documents("choregos-api.ingress.kind=ingress")
-        if d.get("kind") == "Ingress" and d["metadata"]["name"] == "choregos-api"
+        for d in _documents("tranibor-api.ingress.kind=ingress")
+        if d.get("kind") == "Ingress" and d["metadata"]["name"] == "tranibor-api"
     )
     paths = [p["path"] for p in ingress["spec"]["rules"][0]["http"]["paths"]]
     assert "/a2a" in paths, paths
@@ -40,7 +40,7 @@ def test_the_api_ingress_carries_the_a2a_door() -> None:
 
 def test_the_api_http_route_carries_the_a2a_door() -> None:
     route = next(
-        d for d in _documents() if d.get("kind") == "HTTPRoute" and d["metadata"]["name"] == "choregos-api"
+        d for d in _documents() if d.get("kind") == "HTTPRoute" and d["metadata"]["name"] == "tranibor-api"
     )
     prefixes = [m["path"]["value"] for rule in route["spec"]["rules"] for m in rule["matches"]]
     assert "/a2a" in prefixes, prefixes

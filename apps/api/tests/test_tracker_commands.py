@@ -125,7 +125,7 @@ async def test_the_reply_is_not_read_as_a_command(
     await _routed_item(client, project)
     await _comment(client, "d3", "/choregos approve")
     await _comment(client, "d4", "/choregos stop")
-    replies = [c.body for c in tracker.items[KEY].comments if "choregos:command" in c.body]
+    replies = [c.body for c in tracker.items[KEY].comments if "tranibor:command" in c.body]
     assert len(replies) == 2
     for reply in replies:
         assert parse_command(reply) is None

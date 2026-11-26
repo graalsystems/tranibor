@@ -1496,7 +1496,7 @@ export type AgentSpec = {
   /** The memories a run reads and writes (S40-11, ADR 0075), in precedence order (earlier wins). At most 8, no duplicates, at most one `write` (the target of the run's lessons, findings and proposals; a global target only ever receives proposals). Absent means: derive from `memory`. Sent together with a non-default `memory` it is a 422. */
   memories?: Array<AgentMemoryBinding> | null;
   network?: AgentNetwork;
-  /** The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.choregos/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`. */
+  /** The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.tranibor/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`. */
   workspace?: "none" | "read" | "write" | null;
   /** The agent's measured default for tool scripts (ADR 0122 §9, S57-15). Absent (left out of the stored spec, so no digest moves): no default. Refused with an `a2a` runtime. */
   tools?: AgentTools | null;
@@ -1920,13 +1920,15 @@ export type RunTool = {
   outputSchema?: {
     [key: string]: unknown;
   };
-  /** MCP tool annotations. `readOnlyHint` is true only for `x-choregos-access: read`. */
+  /** MCP tool annotations. `readOnlyHint` is true only for `x-tranibor-access: read`. */
   annotations: {
     readOnlyHint?: boolean;
     [key: string]: unknown;
   };
-  /** `read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name`. */
+  /** @deprecated The same value as `x-tranibor-access`, under its former name (ADR 0226), listed until 0.32.0 for a runner of an earlier release. A plugin tool may still declare it. */
   "x-choregos-access": "read" | "write" | "approval";
+  /** `read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name` (under this key or the former `x-choregos-access`). */
+  "x-tranibor-access": "read" | "write" | "approval";
   [key: string]: unknown;
 };
 
@@ -3960,7 +3962,7 @@ export type OutpostEnrolmentCreate = {
 /** An enrolment token, shown once. The platform keeps its digest. */
 export type OutpostEnrolmentCreated = {
   id: string;
-  /** The plaintext token, returned only once: what `choregos-outpost enrol` presents. */
+  /** The plaintext token, returned only once: what `tranibor-outpost enrol` presents. */
   token: string;
   expires_at: string;
   /** the door's origin, as the outpost's policy file names it (`control_plane`); null when the deployment declares none */
@@ -3983,7 +3985,7 @@ export type OutpostEnrolmentList = {
   items: Array<OutpostEnrolment>;
 };
 
-/** One copy of the daemon `choregos-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance. */
+/** One copy of the daemon `tranibor-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance. */
 export type OutpostInstance = {
   id: string;
   status: OutpostInstanceStatus;
@@ -4095,7 +4097,7 @@ export type OrgGroupUpdate = {
   description?: string | null;
 };
 
-/** A group that belongs to the organisation (ADR 0160). A person in it carries it as `choregos:<org>:<slug>` wherever a group is checked. */
+/** A group that belongs to the organisation (ADR 0160). A person in it carries it as `tranibor:<org>:<slug>` (formerly `choregos:<org>:<slug>`, read until 0.32.0, ADR 0226) wherever a group is checked. */
 export type OrgGroup = {
   slug: string;
   name: string;
@@ -5246,9 +5248,9 @@ export type BrowserSession = {
   id: string;
   /** How the session was opened: `oidc`, `saml`, `dev`... */
   channel: string;
-  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie. */
+  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`tranibor login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie. */
   kind: "browser" | "cli" | "editor";
-  /** What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser. */
+  /** What the surface called itself when it asked for its code (`tranibor 0.30.0 on host`), for the person to recognise it; null for a browser. */
   client_name?: string | null;
   /** When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known. */
   auth_time?: string | null;
@@ -5468,7 +5470,7 @@ export type TriggerToken = {
   name: string;
   url: string;
   token: string;
-  /** The HMAC-SHA256 key of `X-Choregos-Signature`; it changes with the token. */
+  /** The HMAC-SHA256 key of `X-Tranibor-Signature`; it changes with the token. */
   signing_secret: string;
 };
 
@@ -6746,7 +6748,7 @@ export type RunKnowledgePage = {
     name?: string;
     digest: string;
     documents: Array<{
-      /** relative to `.choregos/knowledge/<slug>/` */
+      /** relative to `.tranibor/knowledge/<slug>/` */
       path: string;
       title: string;
       filename?: string;
@@ -6804,7 +6806,7 @@ export type StageResult = S.StageResult;
 
 export type Artifact = S.Artifact;
 
-/** A declared input of a run, as the runner mounts it in `.choregos/inputs/` (ADR 0049). */
+/** A declared input of a run, as the runner mounts it in `.tranibor/inputs/` (ADR 0049). */
 export type RunInputFile = {
   name: string;
   version: number;

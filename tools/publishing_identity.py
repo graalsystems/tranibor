@@ -93,15 +93,15 @@ DERIVED: tuple[str, ...] = (
     "examples/agents/plain/Dockerfile",
     "examples/agents/pydantic-ai/Dockerfile",
     # The charts' defaults: registry, memory image, plugin source, runbook links, chart sources.
-    "charts/choregos-outpost/Chart.yaml",
-    "charts/choregos-outpost/README.md",
-    "charts/choregos-outpost/values.yaml",
-    "charts/choregos/Chart.yaml",
-    "charts/choregos/charts/ecphoria/Chart.yaml",
-    "charts/choregos/charts/ecphoria/values.yaml",
-    "charts/choregos/templates/_helpers.tpl",
-    "charts/choregos/tests/tenant_test.yaml",
-    "charts/choregos/values.yaml",
+    "charts/tranibor-outpost/Chart.yaml",
+    "charts/tranibor-outpost/README.md",
+    "charts/tranibor-outpost/values.yaml",
+    "charts/tranibor/Chart.yaml",
+    "charts/tranibor/charts/ecphoria/Chart.yaml",
+    "charts/tranibor/charts/ecphoria/values.yaml",
+    "charts/tranibor/templates/_helpers.tpl",
+    "charts/tranibor/tests/tenant_test.yaml",
+    "charts/tranibor/values.yaml",
     # The reference infrastructure: Argo CD sources, admission policies and their tests.
     "infra/README.md",
     "infra/bootstrap/agent-sandbox.yaml",
@@ -138,6 +138,8 @@ DERIVED: tuple[str, ...] = (
     "tests/fixtures/plugins/hello/plugin.yaml",
     "tests/fixtures/plugins/servicenow/plugin.yaml",
     "tests/fixtures/plugins/demo-itsm/plugin.yaml",
+    "tests/fixtures/profiles/notes/plugin.yaml",
+    "tests/fixtures/profiles/shelf/plugin.yaml",
     # The in-process plugin servers of a demonstration (ADR 0218): its sample names the agents repository.
     "examples/demo-plugin-servers/servicenow.yaml",
     # The contract's description of the documentation address, and the code generated from it.
@@ -174,6 +176,7 @@ DERIVED: tuple[str, ...] = (
     "tests/fixtures/plugins/hello/servers/hello.yaml",
     "tests/fixtures/plugins/servicenow/servers/servicenow.yaml",
     "tests/fixtures/plugins/demo-itsm/servers/demo-itsm.yaml",
+    "tests/fixtures/profiles/shelf/servers/shelf.yaml",
 )
 
 #: A character that continues a name: an occurrence is not matched inside a longer word.

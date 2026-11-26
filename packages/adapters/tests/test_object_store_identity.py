@@ -29,7 +29,7 @@ NOW = datetime(2026, 11, 25, 12, 0, tzinfo=UTC)
 SIGNED = {
     "method": "PUT",
     "host": "s3.eu-west-3.amazonaws.com",
-    "path": "/choregos/deck",
+    "path": "/tranibor/deck",
     "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "access_key": "ASIAEXAMPLE",
     "secret_key": "secret",
@@ -83,7 +83,7 @@ async def test_the_s3_store_signs_with_temporary_credentials() -> None:
         return httpx.Response(200)
 
     store = S3ObjectStore(
-        "s3://choregos",
+        "s3://tranibor",
         region="eu-west-3",
         credentials=StaticAwsCredentials("ASIAEXAMPLE", "secret", "FwoGZXIvYXdzEXAMPLE"),
         client=httpx.AsyncClient(transport=httpx.MockTransport(answer)),
@@ -124,7 +124,7 @@ async def test_irsa_exchanges_the_projected_token_at_sts_unsigned_and_caches_it(
     )
     assert isinstance(source, WebIdentityAwsCredentials)
     source._cache._clock = clock  # the cache's clock: the test moves time forward
-    store = S3ObjectStore("s3://choregos", region="eu-west-3", credentials=source, client=client)
+    store = S3ObjectStore("s3://tranibor", region="eu-west-3", credentials=source, client=client)
 
     await store.put("a", b"1", "text/plain")
     await store.put("b", b"2", "text/plain")
@@ -214,7 +214,7 @@ async def test_pod_identity_asks_the_agent_with_the_token_of_its_file(tmp_path: 
         client=client,
     )
     assert isinstance(source, ContainerAwsCredentials)
-    store = S3ObjectStore("s3://choregos", credentials=source, client=client)
+    store = S3ObjectStore("s3://tranibor", credentials=source, client=client)
     assert await store.get("k") == b"bytes"
     assert await store.get("k") == b"bytes"
     agent = [r for r in seen if r.url.host == "169.254.170.23"]
@@ -296,13 +296,13 @@ def test_the_credentials_are_chosen_in_order(tmp_path: pathlib.Path) -> None:
 
 async def test_a_store_without_any_credentials_says_so() -> None:
     store = S3ObjectStore(
-        "s3://choregos",
+        "s3://tranibor",
         client=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(403))),
     )
     with pytest.raises(ObjectStoreError, match="no AWS identity"):
         await store.check()
     with_identity = S3ObjectStore(
-        "s3://choregos",
+        "s3://tranibor",
         credentials=StaticAwsCredentials("A", "S"),
         client=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(403))),
     )
@@ -338,7 +338,7 @@ async def test_azure_workload_identity_presents_the_federated_token_as_client_as
     )
     assert identity is not None
     store = AzureBlobObjectStore(
-        "azblob://artifacts/choregos",
+        "azblob://artifacts/tranibor",
         endpoint="https://acme.blob.core.windows.net",
         token_source=identity,
         client=client,
@@ -410,7 +410,7 @@ async def test_gke_workload_identity_asks_the_metadata_server() -> None:
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(answer))
     token = GceMetadataToken(host="metadata.google.internal", client=client, clock=clock)
-    store = GcsObjectStore("gs://choregos-files/prod", token_source=token, client=client)
+    store = GcsObjectStore("gs://tranibor-files/prod", token_source=token, client=client)
     assert await store.get("deck") == b"bytes"
     assert await store.get("deck") == b"bytes"
     metadata = [r for r in seen if r.url.host == "metadata.google.internal"]

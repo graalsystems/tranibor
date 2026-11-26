@@ -9,11 +9,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from ._run_dir import readable, run_directory
 from .llm import Llm
 from .session import RunSession
 from .tools import Tools
 
-OUTPUTS_DIR = Path(".choregos") / "outputs"
+#: The step's deliverables, inside the run directory (`.tranibor/outputs`, ADR 0226 R9a).
+OUTPUTS_DIR = Path("outputs")
 
 
 class Context:
@@ -38,9 +40,9 @@ class Context:
 
     @property
     def task(self) -> str:
-        """The step's task (`.choregos/task.md`): the work item, the inputs, the expected outputs.
-        When the file is absent, the prompt."""
-        path = self.workspace / ".choregos" / "task.md"
+        """The step's task (`.tranibor/task.md`, or the former `.choregos/task.md` a runner before 0.30.0
+        lays down): the work item, the inputs, the expected outputs. When the file is absent, the prompt."""
+        path = readable(self.workspace, "task.md")
         return path.read_text(encoding="utf-8") if path.is_file() else self._prompt
 
     @property
@@ -49,8 +51,9 @@ class Context:
 
     @property
     def fields(self) -> dict[str, Any]:
-        """The work item's fields (`.choregos/fields.json`), when the runner wrote them."""
-        path = self.workspace / ".choregos" / "fields.json"
+        """The work item's fields (`.tranibor/fields.json`, else the former name), when the runner wrote
+        them."""
+        path = readable(self.workspace, "fields.json")
         if not path.is_file():
             return {}
         loaded = json.loads(path.read_text(encoding="utf-8"))
@@ -58,8 +61,9 @@ class Context:
 
     @property
     def inputs(self) -> list[Path]:
-        """The files the step's declared inputs were mounted as (`.choregos/inputs/`)."""
-        folder = self.workspace / ".choregos" / "inputs"
+        """The files the step's declared inputs were mounted as (`.tranibor/inputs/`, else the former
+        name)."""
+        folder = readable(self.workspace, "inputs")
         return sorted(p for p in folder.rglob("*") if p.is_file()) if folder.is_dir() else []
 
     @property
@@ -85,14 +89,16 @@ class Context:
     # ── effects ─────────────────────────────────────────────────────────────
 
     async def write_output(self, name: str, content: str | bytes) -> Path:
-        """Writes a deliverable to `.choregos/outputs/<name>`, after the runner's guard allowed it.
+        """Writes a deliverable to `.tranibor/outputs/<name>` (`.choregos/outputs/<name>` under a runner
+        before 0.30.0), after the runner's guard allowed it.
 
         The runner stores it as an artifact, never in a commit. Counts as a turn, as the runner counts
         it. Raises `PermissionDenied` when refused. `name` is a file name, not a path out of the folder.
         """
-        relative = (OUTPUTS_DIR / name).as_posix()
+        folder = run_directory(self.workspace).relative_to(self.workspace) / OUTPUTS_DIR
+        relative = (folder / name).as_posix()
         if not name or Path(name).is_absolute() or ".." in Path(name).parts:
-            raise ValueError(f"an output name stays inside .choregos/outputs/: {name!r}")
+            raise ValueError(f"an output name stays inside {folder.as_posix()}/: {name!r}")
         target = self.workspace / relative
 
         async def write() -> Path:

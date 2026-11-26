@@ -1,7 +1,7 @@
 """Can the migration hook start? Checked on the rendered chart.
 
 A `pre-install` hook (which Argo CD translates to PreSync) runs BEFORE any ordinary resource
-of the release. The migrations Job ran under `choregos-api`, which is an ordinary
+of the release. The migrations Job ran under `tranibor-api`, which is an ordinary
 resource: the controller answered "error looking up service account
 choregos/choregos-api: serviceaccount not found", no pod was born, and the sync
 waited for a hook that could not start. The dev tenant paid for it on 2026-09-26 --
@@ -25,7 +25,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 ENVIRONMENTS = ("local", "dev", "staging", "prod")
 PROFILE = CHART / "values" / "single-node.yaml"
 
@@ -63,7 +63,7 @@ def test_the_migration_job_depends_on_no_ordinary_resource(env: str) -> None:
         pytest.skip(f"{env} does not render a migration Job")
     job = jobs[0]
     account = job["spec"]["template"]["spec"].get("serviceAccountName")
-    assert account == "choregos-migrations", (
+    assert account == "tranibor-migrations", (
         f'{env}: the Job runs under "{account}". If it is not a hook account, the pod '
         "is never created in pre-install/PreSync."
     )
@@ -84,7 +84,7 @@ def test_the_account_of_the_hook_mounts_no_token(env: str) -> None:
     accounts = [
         d
         for d in documents
-        if d.get("kind") == "ServiceAccount" and d["metadata"]["name"] == "choregos-migrations"
+        if d.get("kind") == "ServiceAccount" and d["metadata"]["name"] == "tranibor-migrations"
     ]
     if not accounts:
         pytest.skip(f"{env} does not render the hook account")
@@ -96,7 +96,7 @@ def _database_url(pod: dict[str, Any]) -> Any:
     found = [
         variable.get("value") or variable.get("valueFrom")
         for variable in pod["containers"][0].get("env", [])
-        if variable["name"] == "CHOREGOS_DATABASE_URL"
+        if variable["name"] == "TRANIBOR_DATABASE_URL"
     ]
     return found[-1] if found else None
 
@@ -113,7 +113,7 @@ def test_the_migrations_connect_as_the_api_does(env: str) -> None:
     if not jobs:
         pytest.skip(f"{env} does not render a migration Job")
     job_url = _database_url(jobs[0]["spec"]["template"]["spec"])
-    api_url = _database_url(_un(documents, "Deployment", "choregos-api")["spec"]["template"]["spec"])
+    api_url = _database_url(_un(documents, "Deployment", "tranibor-api")["spec"]["template"]["spec"])
     assert job_url is not None and job_url == api_url, (
         f"{env}: the Job connects as {job_url}, the API as {api_url}"
     )
@@ -144,7 +144,7 @@ def test_the_service_account_annotations_follow_on_the_account_of_the_hook() -> 
         timeout=120,
     )
     documents = [d for d in yaml.safe_load_all(result.stdout) if d]
-    sa = _un(documents, "ServiceAccount", "choregos-migrations")
+    sa = _un(documents, "ServiceAccount", "tranibor-migrations")
     annotations = sa["metadata"]["annotations"]
     assert annotations["eks.amazonaws.com/role-arn"] == "arn:aws:iam::1:role/choregos"
     # And the caller's annotations did not overwrite the hook's.
@@ -193,7 +193,7 @@ def test_the_embedded_database_admits_the_migration_pod() -> None:
     policy = next(
         d
         for d in documents
-        if d["kind"] == "NetworkPolicy" and d["metadata"]["name"] == "choregos-postgresql-ingress"
+        if d["kind"] == "NetworkPolicy" and d["metadata"]["name"] == "tranibor-postgresql-ingress"
     )
     admitted = {
         value

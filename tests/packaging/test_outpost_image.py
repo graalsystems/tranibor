@@ -21,8 +21,9 @@ from tranibor_core.publishing import PUBLISHING
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "docker" / "outpost.Dockerfile"
 PACKAGE = "tranibor-outpost"
-#: The console script keeps its name: an operator types it (ADR 0176 R2).
-COMMAND = "choregos-outpost"
+#: The console script is `tranibor-outpost`; the former name an operator types stays for the window
+#: of ADR 0226 R5.
+COMMAND, FORMER_COMMAND = "tranibor-outpost", "choregos-outpost"
 
 
 def _stages() -> dict[str, str]:
@@ -39,7 +40,11 @@ def _instructions(stage: str) -> list[str]:
 
 def test_the_package_is_a_workspace_member_with_its_command() -> None:
     project = tomllib.loads((ROOT / "packages/outpost/pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["name"] == PACKAGE and project["scripts"] == {COMMAND: "tranibor_outpost.cli:main"}
+    assert project["name"] == PACKAGE
+    assert project["scripts"] == {
+        COMMAND: "tranibor_outpost.cli:main",
+        FORMER_COMMAND: "tranibor_outpost.cli:main",
+    }
     workspace = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert PACKAGE in workspace["project"]["dependencies"]
     assert workspace["tool"]["uv"]["sources"][PACKAGE] == {"workspace": True}
@@ -67,10 +72,12 @@ def test_the_image_listens_on_nothing_and_runs_as_the_daemon() -> None:
         "an outpost only dials out (ADR 0147 §1): its image announces no port and probes none"
     )
     assert "USER 1000" in runtime
-    assert runtime[-2:] == ['ENTRYPOINT ["/usr/bin/tini", "--", "choregos-outpost"]', 'CMD ["run"]']
+    assert runtime[-2:] == ['ENTRYPOINT ["/usr/bin/tini", "--", "tranibor-outpost"]', 'CMD ["run"]']
     # The daemon must start in the image and find its contract: the build fails otherwise.
     checks = " ".join(line for line in runtime if line.startswith("RUN"))
-    assert "choregos-outpost --version" in checks and "load_outpost_door()" in checks
+    # Both names start (ADR 0226 R5): `tranibor-outpost`, and the former one an operator's unit still calls.
+    assert "tranibor-outpost --version" in checks and "choregos-outpost --version" in checks
+    assert "load_outpost_door()" in checks
     # Nothing of the operator's is baked in: no secret, no address, no policy.
     text = DOCKERFILE.read_text(encoding="utf-8")
     assert not re.search(r"^(ARG|ENV)\b.*(TOKEN|SECRET|KEY|PASSWORD|CONTROL_PLANE)", text, re.M | re.I)

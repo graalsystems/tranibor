@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from tranibor_contracts import wire
 from tranibor_core import ChoregosError, ValidationError
 
 PROBLEM_JSON = "application/problem+json"
@@ -101,7 +102,7 @@ def upstream(service: str, detail: str, retry_after: int | None = None) -> ApiEr
         status.HTTP_502_BAD_GATEWAY,
         f"Error from the {service} service",
         detail,
-        type_=f"https://choregos.dev/problems/upstream/{service}",
+        type_=f"{wire.PROBLEM_BASE}upstream/{service}",
         retry_after=retry_after,
     )
 
@@ -122,7 +123,7 @@ def internal_error(request: Request, correlation: str) -> JSONResponse:
         status.HTTP_500_INTERNAL_SERVER_ERROR,
         "Internal server error",
         f"an unexpected error occurred; quote the correlation id {correlation} to the operators",
-        type_="https://choregos.dev/problems/internal",
+        type_=f"{wire.PROBLEM_BASE}internal",
     ).to_problem(str(request.url.path))
     problem["correlation_id"] = correlation
     return JSONResponse(

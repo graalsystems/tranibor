@@ -1,4 +1,4 @@
-"""`choregos findings list` shows the title a workflow gives a finding's type (ADR 0217)."""
+"""`tranibor findings list` shows the title a workflow gives a finding's type (ADR 0217)."""
 
 from __future__ import annotations
 

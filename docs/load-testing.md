@@ -94,9 +94,9 @@ p95 in milliseconds; "before" is the first run below (0.29.4 images), "after" th
   timeouts, `QueuePool limit of size 10 overflow 5 reached` (10 in the API's log, 18 in the worker's).
 * **The knee moved from about 10 to about 20 users.** At 10 users every read is under one second at
   p95 (the slowest, the inbox, at 0.75 s). At 20 users the inbox crosses it (1.7 s) while the board
-  is at 0.77 s. **`/me/pending` is now the slowest hot route**: it keeps a per-item pattern (each
-  waiting request asks who may answer it and whether its mark is readable), named in the row
-  `board-batched-reads` and not fixed.
+  is at 0.77 s. **`/me/pending` was then the slowest hot route**: it kept a per-item pattern (each
+  waiting request asked who may answer it and whether its mark is readable); batched since, see
+  [the third run](#the-inbox-batched-third-run-same-day).
 * **PostgreSQL is now the busiest container**: 117 % CPU at 10 users, 145 to 158 % from 20 on, while
   the API process stays at one core (93 to 105 %). The next limits are the API's single process and
   the database's CPU, not a per-item query.
@@ -174,6 +174,38 @@ asked again at its next poll.
 
 The API process held about 720 MiB from the first step, against 224 to 257 MiB for the 0.29.4 image:
 the image is a different build of more recent code, and the difference was not investigated.
+
+### The inbox batched (third run, same day)
+
+The rerun named `/me/pending` as the slowest hot route: for each waiting request it read the work item's
+workflow again (and parsed it), the project's slug, and whether the caller reads the restricted mark.
+`own_requests` now filters the requests a slice of 200 at a time (`assignees_of_requests` in
+`apps/api/src/tranibor_api/services/human_assignee.py`, `readable_ids`), and the governed actions read
+their work items and marks once per organisation: on SQLite an inbox of 44 waiting requests reads the
+same 14 statements as one of 4, where it read 84
+(`apps/api/tests/test_inbox_reads_at_once.py`, red on the code before). Then the same workload again,
+on a fresh install, with the API image built from that branch (the worker and console images of the
+rerun). Raw results:
+[`tools/load/results/2026-11-26-single-node-inbox.json`](../tools/load/results/2026-11-26-single-node-inbox.json).
+
+| Users | Reads/s (rerun → inbox batched) | Inbox p95 ms | Board p95 ms | Slowest read p95 ms | Reads failed |
+|--:|:--|:--|:--|:--|:--|
+| 1 | 3.1 → 3.4 | 220 → 60 | 85 → 101 | 220 → 101 | 0 → 0 |
+| 5 | 14.0 → 16.4 | 378 → 98 | 147 → 114 | 378 → 114 | 0 → 0 |
+| 10 | 22.5 → 28.6 | 747 → 188 | 312 → 236 | 747 → 236 | 0 → 0 |
+| 20 | 26.3 → 35.4 | 1719 → 604 | 765 → 850 | 1719 → 850 | 0 → 0 |
+| 50 | 25.0 → 38.1 | 3691 → 1692 | 2644 → 1991 | 3691 → 1991 | 0 → 0 |
+| 100 | 20.5 → 36.1 | 9664 → 4478 | 7432 → 4557 | 9664 → 4557 | 5 of 2,456 → 0 of 4,336 |
+
+* **Throughput up again by about half**, to about 36 to 38 reads per second from 20 users on; no read
+  and no creation failed in any step, 100 users included (the pool timeouts of the rerun are gone).
+* **The knee moved past 20 users**: at 20 every read is under one second at p95 (the board, now the
+  slowest again, at 0.85 s); at 50 none is (1.4 to 2.0 s).
+* The workflow kept up: 581 `approved` after the drain (360 in the rerun), 61 `awaiting_approval`, 18
+  `needs_human` (the budget note). PostgreSQL is the busiest container (143 to 180 % CPU from 20 users
+  on), the API process at one core (96 to 99 %); **one API process is now the limit**.
+* The API process held 235 to 282 MiB, against about 720 MiB in the rerun with the code before; the
+  difference was not investigated.
 
 ### Bursts (rerun)
 
