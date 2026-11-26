@@ -136,11 +136,11 @@ def test_the_chart_template_and_pool_are_accepted(namespace: str) -> None:
     (server-side dry run: validated, defaulted, admitted, and not stored)."""
     rendered = subprocess.run(
         [
-            "helm", "template", "choregos", "charts/choregos", "--namespace", namespace,
-            "--set", "choregos-orchestrator.runner.executor=agent_sandbox",
-            "--set", "choregos-orchestrator.runner.skipOperatorCheck=true",
-            "--set", f"choregos-orchestrator.runner.namespacePattern={namespace}",
-            "--show-only", "charts/choregos-orchestrator/templates/sandbox.yaml",
+            "helm", "template", "choregos", "charts/tranibor", "--namespace", namespace,
+            "--set", "tranibor-orchestrator.runner.executor=agent_sandbox",
+            "--set", "tranibor-orchestrator.runner.skipOperatorCheck=true",
+            "--set", f"tranibor-orchestrator.runner.namespacePattern={namespace}",
+            "--show-only", "charts/orchestrator/templates/sandbox.yaml",
         ],
         capture_output=True, text=True, check=True, timeout=120,
     ).stdout  # fmt: skip

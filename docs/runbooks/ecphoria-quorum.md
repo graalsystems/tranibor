@@ -40,7 +40,7 @@ kubectl -n choregos-memory logs ecphoria-0 | grep -i raft
 
 ```bash
 curl -s http://ecphoria.choregos-memory:8432/health | jq
-choregos items show <ticket>   # the next runs have context again
+tranibor items show <ticket>   # the next runs have context again
 ```
 
 ## Do not

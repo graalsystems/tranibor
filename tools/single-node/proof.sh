@@ -137,13 +137,13 @@ install() {
     --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
   local tag=()
   [ -n "${PROOF_IMAGE_TAG:-}" ] && tag=(--set "global.imageTag=$PROOF_IMAGE_TAG")
-  helm install "$RELEASE" "$ROOT/charts/choregos" -n "$NAMESPACE" \
-    -f "$ROOT/charts/choregos/values/single-node.yaml" \
+  helm install "$RELEASE" "$ROOT/charts/tranibor" -n "$NAMESPACE" \
+    -f "$ROOT/charts/tranibor/values/single-node.yaml" \
     --set global.domain=choregos.localtest.me \
     --set global.publicUrl=http://choregos.localtest.me \
     --set global.apiUrl=http://choregos.localtest.me \
-    --set "choregos-api.ingress.hostnames={choregos.localtest.me}" \
-    --set "choregos-web.ingress.hostnames={choregos.localtest.me}" \
+    --set "tranibor-api.ingress.hostnames={choregos.localtest.me}" \
+    --set "tranibor-web.ingress.hostnames={choregos.localtest.me}" \
     --set global.oidc.issuer=https://idp.invalid/realms/proof \
     --set global.bootstrap.org="$ORG" --set global.bootstrap.orgName=Proof \
     --set global.bootstrap.admins="$ADMIN" \
@@ -178,7 +178,7 @@ sys.exit(1)
 '
 probe() {
   local name="probe-$1-$2" image phase
-  image=$(k get deploy choregos-api -o jsonpath='{.spec.template.spec.containers[0].image}')
+  image=$(k get deploy tranibor-api -o jsonpath='{.spec.template.spec.containers[0].image}')
   k run "$name" --restart=Never --image="$image" --image-pull-policy=IfNotPresent \
     --labels=app.kubernetes.io/name=choregos-runner,app.kubernetes.io/component=runner,choregos/sandbox=true,choregos/run-id=proof \
     --command -- python -c "$PROBE" "$1" "$2" >/dev/null
@@ -195,7 +195,7 @@ probe() {
 # proxy, and never the embedded PostgreSQL or Temporal. k3s enforces the chart's NetworkPolicies.
 isolation() {
   local failed=0 target want got
-  for target in choregos-api:8000:open choregos-litellm:4000:open choregos-ecphoria:8432:open \
+  for target in tranibor-api:8000:open choregos-litellm:4000:open choregos-ecphoria:8432:open \
     choregos-egress:3128:open choregos-postgresql:5432:closed choregos-temporal:7233:closed; do
     IFS=: read -r host port want <<<"$target"
     got=$(probe "$host" "$port")
@@ -226,7 +226,7 @@ if gated and gate is None:
     sys.exit("this deployment does not turn the egress gate on (runner.egressGate.enabled)")
 executor = KubernetesJobExecutor(client=SimpleNamespace(), egress_gate=gate if gated else None)
 spec = StageJobSpec(run_id=name, project_slug="proof", namespace="choregos", runner_image=image,
-                    api_url="http://choregos-api:8000", run_token="unused")
+                    api_url="http://tranibor-api:8000", run_token="unused")
 job = executor._job(spec, name)
 pod = job["spec"]["template"]["spec"]
 runner = next(c for c in pod["containers"] if c["name"] == "runner")
@@ -249,8 +249,8 @@ print(json.dumps({"first": tries[0], "open": tries.count("open"), "attempts": le
 '
 agent_pod() {
   local name=$1 gated=$2 image phase
-  image=$(k get deploy choregos-api -o jsonpath='{.spec.template.spec.containers[0].image}')
-  k exec deploy/choregos-orchestrator-executor -- python -c "$AGENT_JOB" "$name" "$image" "$gated" "$FIRST_PACKETS" |
+  image=$(k get deploy tranibor-api -o jsonpath='{.spec.template.spec.containers[0].image}')
+  k exec deploy/tranibor-orchestrator-executor -- python -c "$AGENT_JOB" "$name" "$image" "$gated" "$FIRST_PACKETS" |
     k apply -f - >/dev/null
   for _ in $(seq 60); do
     phase=$(k get pod -l "job-name=$name" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || true)
@@ -276,7 +276,7 @@ egress_gate() {
 }
 
 token() {
-  k exec deploy/choregos-api -- choregos-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
+  k exec deploy/tranibor-api -- tranibor-admin tokens create --email "$ADMIN" --name proof --expires-in-days 1
 }
 
 # S80-41, #2185: a record of the memory, written to Ecphoria and read back by id, from the API's pod
@@ -285,7 +285,8 @@ token() {
 # <content>` fails unless the record holds that content.
 MEMORY_RECORD='
 import json, os, sys, urllib.request
-url, token = os.environ["CHOREGOS_MEMORY_URL"].rstrip("/"), os.environ["CHOREGOS_MEMORY_TOKEN"]
+env = lambda name: os.environ.get("TRANIBOR_" + name) or os.environ["CHOREGOS_" + name]
+url, token = env("MEMORY_URL").rstrip("/"), env("MEMORY_TOKEN")
 headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json", "X-Ecphoria-Tenant": "proof"}
 def ask(method, path, body=None):
     data = None if body is None else json.dumps(body).encode()
@@ -299,7 +300,7 @@ else:
     assert found.get("content") == sys.argv[3], found
     print("memory record " + sys.argv[2] + ": " + found["content"])
 '
-memory_record() { k exec deploy/choregos-api -- python -c "$MEMORY_RECORD" "$@"; }
+memory_record() { k exec deploy/tranibor-api -- python -c "$MEMORY_RECORD" "$@"; }
 
 trap 'status=$?; [ $status -ne 0 ] && echo "PROOF FAILED (exit $status) — workdir $WORK"; \
   if [ -z "${PROOF_KEEP:-}" ] && [ "$MODE" = k3d ]; then k3d cluster delete "$NAME" >/dev/null 2>&1; \
@@ -319,7 +320,7 @@ step "an agent pod's first packet out is refused: the egress gate holds it until
 egress_gate
 step "one work item to completion"
 TOKEN=$(token)
-ITEM=$(k exec -i deploy/choregos-api -- python - run "$ORG" "$TOKEN" <"$ROOT/tools/single-node/work_item.py")
+ITEM=$(k exec -i deploy/tranibor-api -- python - run "$ORG" "$TOKEN" <"$ROOT/tools/single-node/work_item.py")
 echo "  $ITEM"
 step "one memory record, written while Ecphoria runs"
 MEMORY_CONTENT="written by the proof at $(date -u +%FT%TZ)"
@@ -338,7 +339,7 @@ step "restore"
 "$ROOT/tools/single-node/restore.sh"
 step "the work item is still there"
 TOKEN=$(token)
-k exec -i deploy/choregos-api -- python - check "$ORG" "$TOKEN" "$ITEM" <"$ROOT/tools/single-node/work_item.py"
+k exec -i deploy/tranibor-api -- python - check "$ORG" "$TOKEN" "$ITEM" <"$ROOT/tools/single-node/work_item.py"
 step "the memory record is still there"
 memory_record read "$MEMORY_ID" "$MEMORY_CONTENT" | sed 's/^/  /'
 step "PROOF HELD: install, work item, backup, destroy, restore"

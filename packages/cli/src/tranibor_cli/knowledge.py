@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""A knowledge base as code (S39-18c): `choregos knowledge apply -f kb.yaml`.
+"""A knowledge base as code (S39-18c): `tranibor knowledge apply -f kb.yaml`.
 
 The manifest declares one base, its sources, its uploaded files and its eval set. `apply` compares it
 with what the API holds and does the difference, nothing more: run twice, the second run changes
@@ -76,7 +76,7 @@ class EvalCase(_Strict):
 
 
 class Manifest(_Strict):
-    apiVersion: Literal["choregos/v1"]  # noqa: N815
+    apiVersion: Literal["tranibor/v1", "choregos/v1"]  # noqa: N815 - the former is read (ADR 0226)
     kind: Literal["KnowledgeBase"]
     slug: str = Field(pattern=r"^[a-z][a-z0-9-]{1,62}$")
     name: str = Field(min_length=1, max_length=200)

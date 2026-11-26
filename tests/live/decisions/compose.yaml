@@ -39,7 +39,7 @@ services:
       start_period: 30s
 
   litellm:
-    # The chart's image (`charts/choregos/charts/litellm/values.yaml`).
+    # The chart's image (`charts/tranibor/charts/litellm/values.yaml`).
     image: ghcr.io/berriai/litellm-database:v1.108.12@sha256:1a5e629eee10f0a38a4eb276afea812411ed6c27031b826525134730c57f05ce
     command: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
     user: "1000:1000"
@@ -52,8 +52,8 @@ services:
     volumes:
       - ./litellm.yaml:/etc/litellm/config.yaml:ro
       # The chart's copies, the files the embedded gateway loads.
-      - ../../../charts/choregos/charts/litellm/files/choregos_guardrail.py:/etc/litellm/choregos_guardrail.py:ro
-      - ../../../charts/choregos/charts/litellm/files/choregos_llm_spans.py:/etc/litellm/choregos_llm_spans.py:ro
+      - ../../../charts/tranibor/charts/litellm/files/choregos_guardrail.py:/etc/litellm/choregos_guardrail.py:ro
+      - ../../../charts/tranibor/charts/litellm/files/choregos_llm_spans.py:/etc/litellm/choregos_llm_spans.py:ro
     networks: [default, decisions]
     depends_on:
       postgres: { condition: service_healthy }

@@ -44,9 +44,13 @@ def test_the_site_reads_the_pages_of_this_repository() -> None:
     assert "graalsystems" not in script
 
 
-def test_the_workflow_builds_on_pull_requests_and_publishes_from_main_and_releases() -> None:
+def test_the_workflow_builds_on_pull_requests_and_publishes_from_main_only() -> None:
     text = WORKFLOW.read_text("utf-8")
-    assert "pull_request:" in text and "branches: [main]" in text and "release:" in text
+    assert "pull_request:" in text and "branches: [main]" in text
+    # Not on a release: the `github-pages` environment deploys from main only, so a tag's deploy fails
+    # (v0.29.4), and a release the release workflow publishes starts no workflow (ADR 0185, amended).
+    triggers = text.split("\npermissions:", 1)[0]
+    assert "\n  release:" not in triggers and "github.event.release" not in text
     assert "actions/deploy-pages@" in text and "id-token: write" in text
     # The publishing job never runs for a pull request.
     assert re.search(r"deploy:\n\s+if: github\.event_name != 'pull_request'", text)

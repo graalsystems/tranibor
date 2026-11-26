@@ -22,7 +22,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_contracts.env import with_legacy_entries
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import RUN_GATEWAY_KEY_ENV, RUN_REMOTE_TOKEN_ENV, ExecRef, ExecStatus, StageJobSpec
@@ -129,7 +129,7 @@ class AcaExecutor:
     """One ACA job per run, triggered manually, cleaned up by the ACA lifecycle."""
 
     kind = ExecutorKind.ACA
-    #: The agent's own container (ADR 0146, ADR 0226 §2, S87-08): measured on a real subscription by
+    #: The agent's own container (ADR 0146, ADR 0227 §2, S87-08): measured on a real subscription by
     #: S87-07 (`tests/live/test_aca_two_containers_live.py`): the two containers of a job's replica share
     #: loopback and an `EmptyDir`, each has its own process namespace, and an execution ends only once
     #: every container has ended, so the launcher ends on the runner's done file.
@@ -240,11 +240,13 @@ class AcaExecutor:
         definition: dict[str, Any] = {
             "location": self.location,
             "tags": _tags(
-                {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                }
+                wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                )
             ),
             "properties": {
                 "environmentId": self.environment_id,

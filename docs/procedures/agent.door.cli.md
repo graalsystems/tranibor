@@ -14,7 +14,7 @@ not go through the MCP door.
 
 ## At the client
 
-Install the CLI (`choregos`). The Integrations page of this console gives the exact commands with this
+Install the CLI (`tranibor`). The Integrations page of this console gives the exact commands with this
 platform's address filled in; open it with the link below the panel.
 
 ## Permissions
@@ -24,12 +24,12 @@ refuses it. Keep it off shared machines and give it an expiry.
 
 ## In Tranibor
 
-Mint a token (Integrations, or `choregos-admin tokens create` for the very first one), then
-`choregos login --api-url <api_url> --token <token> --org <org>`.
+Mint a token (Integrations, or `tranibor-admin tokens create` for the very first one), then
+`tranibor login --api-url <api_url> --token <token> --org <org>`.
 
 ## Test it
 
-`choregos projects list` should list the projects you can read.
+`tranibor projects list` should list the projects you can read.
 
 ## When it fails
 

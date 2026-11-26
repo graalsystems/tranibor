@@ -62,7 +62,7 @@ def test_azure_blob_takes_the_workload_identity(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
     monkeypatch.setenv("TRANIBOR_OBJECT_STORE_KIND", "azure-blob")
-    monkeypatch.setenv("TRANIBOR_OBJECT_STORE_URL", "azblob://files/choregos")
+    monkeypatch.setenv("TRANIBOR_OBJECT_STORE_URL", "azblob://files/tranibor")
     monkeypatch.setenv("TRANIBOR_OBJECT_STORE_ENDPOINT", "https://acme.blob.core.windows.net")
     monkeypatch.setenv("AZURE_CLIENT_ID", "client")
     monkeypatch.setenv("AZURE_TENANT_ID", "tenant")
@@ -70,7 +70,7 @@ def test_azure_blob_takes_the_workload_identity(
     store = object_store()
     assert isinstance(store, AzureBlobObjectStore)
     assert isinstance(store.token_source, AzureWorkloadIdentity)
-    assert store.url_of("k") == "azblob://files/choregos/k"
+    assert store.url_of("k") == "azblob://files/tranibor/k"
 
 
 def test_gcs_and_the_fakes(monkeypatch: pytest.MonkeyPatch) -> None:

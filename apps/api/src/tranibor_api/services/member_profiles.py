@@ -25,7 +25,7 @@ from typing import Any, Final
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import Role
+from tranibor_contracts import Role, wire
 from tranibor_core import utcnow
 
 from ..db.models import (
@@ -72,8 +72,9 @@ RECENT: Final = 10
 AUDIT_RECENT: Final = 20
 #: How many waiting requests of the organisation are examined for the person: the oldest beyond are not.
 PENDING_SCAN: Final = 500
-#: The prefix of an identity provider's group namespaced for an organisation (`choregos:<org>:<group>`).
-_PREFIX = "choregos:"
+#: The prefixes of an identity provider's group namespaced for an organisation (`tranibor:<org>:<group>`,
+#: or the former `choregos:<org>:<group>`).
+_PREFIXES = wire.GROUP_PREFIXES
 
 
 def _aware(moment: datetime | None) -> datetime | None:
@@ -189,13 +190,13 @@ async def _groups(session: AsyncSession, organisation: Organization, user: User)
         MemberGroup(slug=slug, name=name, source="scim" if source == SCIM else "internal")
         for slug, name, source in rows
     ]
-    prefix = f"{_PREFIX}{organisation.slug}:"
     claimed: set[str] = set()
     for raw in user.groups or []:
         group = str(raw)
-        if group.startswith(prefix) and len(group) > len(prefix):
-            claimed.add(group[len(prefix) :])
-        elif not group.startswith(_PREFIX):
+        named = wire.group_org_and_name(group)
+        if named is not None and named[0] == organisation.slug:
+            claimed.add(named[1])
+        elif not group.startswith(_PREFIXES):
             claimed.add(group)
     groups += [MemberGroup(slug=g, name=g, source="identity_provider") for g in sorted(claimed)]
     return groups

@@ -2,14 +2,14 @@
 """Files in the shared tree, opened without following a link (ADR 0146 §6, S65-04b).
 
 The agent writes the tree: it can leave a symbolic link where the runner is about to read or write
-(`.choregos/result.json -> /proc/self/environ`, a `.choregos` that is itself a link). A path the runner opens
+(`.tranibor/result.json -> /proc/self/environ`, a `.tranibor` that is itself a link). A path the runner opens
 here is walked one component at a time from the tree's root, each component opened from its parent's
 descriptor with `O_NOFOLLOW`, as `hosted_workspace.py` does for the copy it brings back: nothing the agent
 planted is followed, and a link swapped in between the check and the open is refused by the open itself.
 A refusal is `LinkRefusedError`, which the caller journals; a missing file stays `FileNotFoundError`.
 
 A hard link is not a link to follow: `O_NOFOLLOW` does not see it. A file the agent made a second name for
-(`ln other .choregos/task.md`) is the same inode as `other`, so a runner that truncates it empties `other`,
+(`ln other .tranibor/task.md`) is the same inode as `other`, so a runner that truncates it empties `other`,
 and one that reads it reads `other`. A file with more than one name is therefore refused, for a write and for
 a read, before anything is truncated or returned (S65-04b, hard links). `docs/security.md` says what this
 does and does not cover.

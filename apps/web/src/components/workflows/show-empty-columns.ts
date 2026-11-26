@@ -2,10 +2,11 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { storedName } from "@/lib/stored-names";
 
 /** Whether this viewer asked the board to show its empty columns; kept in this browser only. */
-const KEY = "choregos.board.show-empty-columns";
-const EVENT = "choregos:board-show-empty-columns";
+const KEY = storedName("board.show-empty-columns");
+const EVENT = "tranibor:board-show-empty-columns";
 
 /** The choice when the browser refuses storage (private window, blocked site data): this page only. */
 let unstored = false;

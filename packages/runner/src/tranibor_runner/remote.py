@@ -7,7 +7,8 @@ same publication, same gates — except that no local agent starts. It:
 1. reads the agent's card again and refuses on drift (`remote_card_changed`) BEFORE any message: the
    card digest was pinned when the version was published, and what answers now is not what was reviewed;
 2. sends the instructions and the task as one text part (the declared inputs as file parts when the
-   agent takes them), with `metadata.choregos = {run_id, work_item}`;
+   agent takes them), with `metadata.tranibor = {run_id, work_item}` (and the former `metadata.choregos`,
+   ADR 0226);
 3. follows the task by streaming, or by polling when the agent cannot stream, until a final state or
    the step's time (then `tasks/cancel`);
 4. maps the answer: the final text is `outputs/response.md`, every artifact a file or an inline output,
@@ -43,10 +44,10 @@ from tranibor_adapters.a2a import (
     file_part,
     text_part,
 )
-from tranibor_contracts import StageInput, StageStatus
+from tranibor_contracts import StageInput, StageStatus, wire
 from tranibor_core.redaction import REDACTED
 
-from . import safe_files
+from . import run_dir, safe_files
 from .inputs import INPUTS_DIR
 from .outputs import OUTPUTS_DIR
 
@@ -98,7 +99,7 @@ def _message_text(stage_input: StageInput, workspace: Path) -> str:
     pieces = [(stage_input.playbook.prompt or "").strip()]
     for name in ("task.md", "context.md"):
         try:
-            pieces.append(safe_files.read_text(workspace, Path(".choregos") / name).strip())
+            pieces.append(safe_files.read_text(workspace, run_dir.path(name)).strip())
         except OSError:
             continue
     return "\n\n---\n\n".join(p for p in pieces if p)
@@ -163,13 +164,15 @@ async def run_remote(
             parts += _input_parts(workspace)
         except ValueError as exc:
             return failure("remote_input_too_large", str(exc), card_digest=card.digest)
-    metadata: dict[str, Any] = {
-        "choregos": {
+    # The platform's block under both keys (ADR 0226, R9c): the remote agent may be a Tranibor of the
+    # previous release, whose A2A door reads only `metadata.choregos.skill`.
+    metadata: dict[str, Any] = wire.a2a_metadata(
+        {
             "run_id": stage_input.run_id,
             "work_item": stage_input.work_item.key,
             **({"skill": remote.skill} if remote.skill else {}),
         }
-    }
+    )
     await emit(
         "remote.started",
         {
@@ -377,7 +380,7 @@ def _land(
     inline: dict[str, Any],
     facts: dict[str, str | int | float | bool],
 ) -> None:
-    """One artifact of the remote agent: a file in `.choregos/outputs/`, an inline output, or facts."""
+    """One artifact of the remote agent: a file in `.tranibor/outputs/`, an inline output, or facts."""
     for part in artifact.parts:
         if part.kind == "file" and part.content is not None:
             safe_files.write_bytes(

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """S87-07: what a Container Apps job does with two containers, on a real subscription.
 
-ADR 0226 §2 lets `aca` start the agent's own container only if a two-container job gives the shape
+ADR 0227 §2 lets `aca` start the agent's own container only if a two-container job gives the shape
 the other executors give (ADR 0146): the runner and the agent's launcher share loopback and an
 `EmptyDir`, the agent's container cannot read the runner's secrets, and the execution ends when the
 runner ends. Microsoft's documentation allows several containers in a job and shares an `EmptyDir`
@@ -9,7 +9,7 @@ between the containers of one replica; it says nothing of loopback, of the proce
 uid (no `securityContext`) or of when an execution with two containers ends. These tests run it.
 
 Both containers run the public runner image: the runner's side is `aca_two_containers.RUNNER_SIDE`
-(the runner image's Python and its launcher client), the agent's side is `choregos-runner launcher`,
+(the runner image's Python and its launcher client), the agent's side is `tranibor-runner launcher`,
 the program an isolated agent's container runs everywhere else. The runner holds a marker as a job
 secret, as it holds the run token.
 
@@ -42,7 +42,7 @@ pytestmark = pytest.mark.live
 IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", PUBLISHING.image_name("runner") + ":0.29.4")
 LAUNCHER = "/app/.venv/bin/choregos-runner"
 PYTHON = "/app/.venv/bin/python"
-#: The agent's container when it ends itself once the runner says it is done (ADR 0226 §2, S87-08).
+#: The agent's container when it ends itself once the runner says it is done (ADR 0227 §2, S87-08).
 LAUNCHER_UNTIL_DONE = (
     f"{LAUNCHER} launcher & pid=$!; until [ -f /exchange/.runner-done ]; do sleep 1; done; kill $pid; exit 0"
 )
@@ -75,7 +75,7 @@ def definition(
     checks = json.dumps({str(code): verdict for code, verdict in probe.CHECKS.items()})
     return {
         "location": os.environ.get("TRANIBOR_LIVE_AZURE_LOCATION", "westeurope"),
-        "tags": {"choregos-live": "s87-07"},
+        "tags": {"tranibor-live": "s87-07"},
         "properties": {
             "environmentId": environment_id,
             "configuration": {
@@ -192,9 +192,9 @@ async def test_the_executors_own_job_keeps_the_runners_secrets_from_the_agent(
     spec = StageJobSpec(
         run_id=run_id,
         project_slug="live-test",
-        namespace="choregos",
+        namespace="tranibor",
         runner_image=IMAGE,
-        api_url="https://choregos.invalid/api",
+        api_url="https://tranibor.invalid/api",
         run_token=f"s87-run-token-{uuid.uuid4().hex}",
         agent_isolation="container",
         timeout_minutes=10,

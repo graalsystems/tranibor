@@ -112,7 +112,7 @@ async def login(client: AsyncClient, email: str) -> None:
     assert start.status_code == 307, start.text
     callback = await client.get(start.headers["location"])
     assert callback.status_code == 307, callback.text
-    assert client.cookies.get("choregos_session"), "no session cookie was set"
+    assert client.cookies.get("tranibor_session"), "no session cookie was set"
 
 
 @pytest.fixture

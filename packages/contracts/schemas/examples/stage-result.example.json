@@ -1,5 +1,5 @@
 {
-  "schema": "choregos/StageResult/v1",
+  "schema": "tranibor/StageResult/v1",
   "status": "done",
   "reason": null,
   "summary": "Le total de facture tient compte des avoirs ; 3 tests ajoutés.",

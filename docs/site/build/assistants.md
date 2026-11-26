@@ -21,7 +21,7 @@ releases.
 
 **Before you start:**
 
-- the [CLI](../cli/install.md); `choregos plugin validate` works offline;
+- the [CLI](../cli/install.md); `tranibor plugin validate` works offline;
 - the plugin layout of [Package agents as a plugin](plugins.md) and an agent of runtime `prompt` or
   `hosted` ([Build an agent](agents.md)). An agent that needs a repository, as a code agent does, cannot
   be an assistant's.
@@ -31,7 +31,7 @@ releases.
 Four files: the plugin manifest, an agent, the assistant, and a conversation suite.
 
 ```yaml title="billing-assistant/plugin.yaml"
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Plugin
 metadata:
   name: billing-assistant
@@ -67,7 +67,7 @@ agent:
 ```
 
 ```yaml title="billing-assistant/assistants/billing-assistant.yaml"
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Assistant
 metadata:
   name: billing-assistant
@@ -106,7 +106,7 @@ cases:
 ```
 
 ```bash
-choregos plugin validate billing-assistant/
+tranibor plugin validate billing-assistant/
 ```
 
 **What you should see:** `✓ billing-assistant 0.1.0 sha256:…`.
@@ -328,7 +328,7 @@ model gateway; with no gateway, promotion is refused rather than let through (yo
 A thumb down from a person is proposed to the agent's managers as a pseudonymised candidate case. It
 never enters a suite on its own.
 
-## What `choregos plugin validate` refuses
+## What `tranibor plugin validate` refuses
 
 Each refusal names the file and the path in it.
 

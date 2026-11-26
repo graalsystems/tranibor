@@ -1,6 +1,6 @@
 """The session secret reaches the API alone, and the chart can carry a rotation's previous key (S47-01).
 
-The API refuses to start on an empty, published or short `CHOREGOS_SESSION_SECRET`. That check lives
+The API refuses to start on an empty, published or short `TRANIBOR_SESSION_SECRET`. That check lives
 in `create_app()`, not in `Settings`, because the orchestrator workers, the migrations Job and the
 trace-drift CronJob build the same `Settings` without the secret: the chart must therefore keep the
 secret out of those pods, and these tests hold it there.
@@ -17,9 +17,9 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 TEMPO = "http://tempo.monitoring.svc:3200"
-PREVIOUS = "CHOREGOS_SESSION_SECRET_PREVIOUS"
+PREVIOUS = "TRANIBOR_SESSION_SECRET_PREVIOUS"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -63,20 +63,20 @@ def test_only_the_api_receives_the_session_secret() -> None:
     pods = _pods(docs)
     workloads = {workload for workload, _, _ in pods}
     # the processes that build `Settings` and must keep starting without the secret
-    assert "choregos-trace-drift" in workloads, workloads
+    assert "tranibor-trace-drift" in workloads, workloads
     assert any("migrations" in workload for workload in workloads), workloads
     assert any("orchestrator" in workload for workload in workloads), workloads
 
     carriers = {
         (workload, name)
         for workload, name, container in pods
-        if {"CHOREGOS_SESSION_SECRET", PREVIOUS} & set(_env(container))
+        if {"TRANIBOR_SESSION_SECRET", PREVIOUS} & set(_env(container))
     }
-    assert carriers == {("choregos-api", "api")}, f"the session secret reached: {sorted(carriers)}"
+    assert carriers == {("tranibor-api", "api")}, f"the session secret reached: {sorted(carriers)}"
 
-    (api,) = [c for w, n, c in pods if (w, n) == ("choregos-api", "api")]
+    (api,) = [c for w, n, c in pods if (w, n) == ("tranibor-api", "api")]
     env = _env(api)
-    assert env["CHOREGOS_SESSION_SECRET"]["valueFrom"]["secretKeyRef"] == {
+    assert env["TRANIBOR_SESSION_SECRET"]["valueFrom"]["secretKeyRef"] == {
         "name": "choregos-api-secrets",
         "key": "session-secret",
     }
@@ -115,7 +115,7 @@ def test_the_external_secret_carries_the_previous_key_only_when_asked() -> None:
     default = _external_secret_keys()
     assert "session-secret" in default
     assert "session-secret-previous" not in default
-    asked = _external_secret_keys("choregos-api.externalSecrets.sessionSecretPrevious=true")
+    asked = _external_secret_keys("tranibor-api.externalSecrets.sessionSecretPrevious=true")
     assert "session-secret-previous" in asked
     assert sorted(set(asked) - {"session-secret-previous"}) == sorted(default), "nothing else changes"
 

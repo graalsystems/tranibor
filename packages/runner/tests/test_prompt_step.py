@@ -157,7 +157,7 @@ async def test_the_workspace_is_read_and_nothing_outside_it(
 ) -> None:
     model = (
         FakeModelServer(key=KEY)
-        .call("read_file", {"path": ".choregos/task.md"})
+        .call("read_file", {"path": ".tranibor/task.md"})
         .call("read_file", {"path": "../../../etc/passwd"})
         .say("Read.")
     )

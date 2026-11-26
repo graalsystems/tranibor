@@ -68,19 +68,19 @@ On the trigger's line, choose **Mint the token**. The token (it starts with `cht
 The line also shows the URL to call:
 
 ```text
-POST https://choregos.example.com/api/v1/webhooks/triggers/acme/billing-api/error-alert
+POST https://tranibor.example.com/api/v1/webhooks/triggers/acme/billing-api/error-alert
 ```
 
 ## 3. Give the URL and the token to the sender
 
 In the sender's webhook settings, set the URL, the method `POST`, the header
 `Authorization: Bearer chtrg_...` and the content type `application/json`. A sender that cannot set a
-header may send `X-Choregos-Token: chtrg_...` or add `?token=chtrg_...` to the URL instead.
+header may send `X-Tranibor-Token: chtrg_...` or add `?token=chtrg_...` to the URL instead.
 
 Try it from a terminal:
 
 ```shell
-curl -s -X POST "https://choregos.example.com/api/v1/webhooks/triggers/acme/billing-api/error-alert" \
+curl -s -X POST "https://tranibor.example.com/api/v1/webhooks/triggers/acme/billing-api/error-alert" \
   -H "Authorization: Bearer $TRIGGER_TOKEN" -H 'Content-Type: application/json' -d '{
   "id": "4f1c9e2a",
   "issue_key": "ERR-311",
@@ -137,7 +137,7 @@ A delivery sent twice (the same `Idempotency-Key` header, or without one the sam
 ## Signed calls
 
 With `"auth": "signature"`, the trigger takes no bearer token: each call carries
-`X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>`, in hex or base64, computed with the trigger's
+`X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>`, in hex or base64, computed with the trigger's
 **signing secret** (it starts with `chsig_`), shown once with the token when you mint it. Use it for
 senders that sign their webhooks, such as many monitoring and ticketing tools.
 

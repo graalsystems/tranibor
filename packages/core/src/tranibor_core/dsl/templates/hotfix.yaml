@@ -1,7 +1,7 @@
 # An urgent production fix (S59-02): the shortest safe path. The developer fixes test first, the tester
 # and one reviewer check it, a maintainer approves the pull request within hours, and the release train
 # takes it to production under a release captain, then an agent checks production.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: hotfix

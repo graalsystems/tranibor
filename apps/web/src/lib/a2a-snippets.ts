@@ -122,7 +122,7 @@ export function a2aBlock(workflow: string, description?: string | null): string 
 
 /** What the snippets are written for: this instance, this organisation, one skill, a token if minted. */
 export interface SnippetContext {
-  /** The platform's origin, `https://choregos.example`, or the MCP URL it is derived from. */
+  /** The platform's origin, `https://tranibor.example`, or the MCP URL it is derived from. */
   origin: string;
   org: string;
   skill: Extract<Exposure, { exposed: true }> | null;
@@ -174,7 +174,7 @@ function requiredData(skill: SnippetContext["skill"]): Record<string, SkillField
 
 function cliSnippet(context: SnippetContext): Snippet {
   const skill = context.skill?.skillId ?? "<project>/<skill>";
-  const send = [`choregos a2a send ${skill} --message-id ${MESSAGE_ID} --title ${shellQuote(TITLE)}`];
+  const send = [`tranibor a2a send ${skill} --message-id ${MESSAGE_ID} --title ${shellQuote(TITLE)}`];
   if (sendsText(context.skill)) send.push(`--text ${shellQuote(TEXT)}`);
   if (sendsFields(context.skill)) {
     for (const [name, value] of Object.entries(requiredData(context.skill))) {
@@ -187,17 +187,17 @@ function cliSnippet(context: SnippetContext): Snippet {
   return {
     id: "cli",
     label: "CLI",
-    where: "a terminal, with the choregos CLI installed",
+    where: "a terminal, with the tranibor CLI installed",
     code: [
       `export TRANIBOR_API_URL=${origineDe(context.origin)} TRANIBOR_ORG=${context.org} TRANIBOR_A2A_TOKEN=${context.token ?? PLACEHOLDER}`,
       "# The workflows this token may start, and their fields (* = required)",
-      "choregos a2a skills",
+      "tranibor a2a skills",
       "# Start one and follow it to its end; the message id is your idempotency key",
       send.join(" \\\n  "),
       "# Later: read it once, follow it again, or stop it",
-      "choregos a2a get <task id> --json",
-      "choregos a2a follow <task id> --out ./result",
-      "choregos a2a cancel <task id>",
+      "tranibor a2a get <task id> --json",
+      "tranibor a2a follow <task id> --out ./result",
+      "tranibor a2a cancel <task id>",
     ].join("\n"),
   };
 }
@@ -270,17 +270,17 @@ export function a2aSnippets(context: SnippetContext): Snippet[] {
 /** The commands that give an application its account and token, for one project (`org:slug`). */
 export function machineCommands(project: string, application = "partner-app"): string {
   return [
-    `choregos machines create ${project} ${application}`,
-    `choregos machines token ${project} ${application} --name production --expires-in-days 90`,
+    `tranibor machines create ${project} ${application}`,
+    `tranibor machines token ${project} ${application} --name production --expires-in-days 90`,
   ].join("\n");
 }
 
 /** A token that acts as you, to try the door yourself. */
 export function personalTokenCommand(project: string | null): string {
-  return `choregos tokens create --name a2a-try --scope a2a${project ? ` --project ${project}` : ""} --expires-in-days 30`;
+  return `tranibor tokens create --name a2a-try --scope a2a${project ? ` --project ${project}` : ""} --expires-in-days 30`;
 }
 
 /** How an application's token is revoked from a terminal. */
 export function revokeCommand(project: string, application: string): string {
-  return `choregos machines revoke ${project} ${application} <token id>`;
+  return `tranibor machines revoke ${project} ${application} <token id>`;
 }

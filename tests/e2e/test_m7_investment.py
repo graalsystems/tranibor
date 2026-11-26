@@ -840,14 +840,14 @@ async def test_a_relaunched_campaign_reads_the_stored_snapshot_and_computes_the_
     # (2) Both backtests read, from their workspace, the very bytes the snapshot stored.
     assert len(bars) == 1 and bars[0].digest.startswith("sha256:"), "the stored bars did not change"
     read = [
-        artifact_digest((runs / s.run_id / ".choregos" / "inputs" / "bars.csv").read_bytes())
+        artifact_digest((runs / s.run_id / ".tranibor" / "inputs" / "bars.csv").read_bytes())
         for s in played("backtest")
     ]
     assert read == [bars[0].digest] * 2, read
     # (3) The same job on the same snapshot, twice: byte-identical metrics, one revision.
     assert len(metrics) == 1, [(m.version, m.digest) for m in metrics]
     # The engine that died had computed for real: its files are the very bytes of the one that finished.
-    died, finished = (runs / s.run_id / ".choregos" for s in played("backtest"))
+    died, finished = (runs / s.run_id / ".tranibor" for s in played("backtest"))
     for name in ("job.json", "outputs/results.csv", "outputs/report.html"):
         assert (died / name).read_bytes() == (finished / name).read_bytes(), name
     await _replayed(interpreter, "wi-campaign-relaunched-S38-16.json")

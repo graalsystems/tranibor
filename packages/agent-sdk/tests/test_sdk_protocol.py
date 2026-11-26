@@ -73,12 +73,12 @@ async def test_a_code_agent_runs_through_the_runners_client(
     assert info["agentInfo"]["name"] == "calls-tool"
     assert info["agentCapabilities"]["loadSession"] is False
     assert client.outcome.stop_reason == "end_turn", client.stderr_tail
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.ok, load.error
     assert load.result is not None
     assert load.result.summary == "tool said: hit for refund policy"
     assert load.result.evidence.facts == {"n": 1, "ok": True}
-    assert (tmp_path / ".choregos" / "outputs" / "note.md").read_text() == "hit for refund policy / hi"
+    assert (tmp_path / ".tranibor" / "outputs" / "note.md").read_text() == "hit for refund policy / hi"
     # The model was called through the run's gateway with the run's own key.
     assert [g["authorization"] for g in gateway.seen] == [f"Bearer {RUN_KEY}"]
     assert gateway.seen[0]["model"] == "platform/standard"
@@ -100,7 +100,7 @@ async def test_the_guard_is_asked_before_a_tool_is_called(
     asked = events.index("guard:other:choregos-tools/knowledge_search")
     called = events.index("mcp:knowledge_search:refund policy")
     assert asked < called, events
-    assert "guard:edit:write .choregos/outputs/note.md" in events
+    assert "guard:edit:write .tranibor/outputs/note.md" in events
 
 
 async def test_a_refused_tool_call_is_not_made_and_the_step_says_why(
@@ -115,7 +115,7 @@ async def test_a_refused_tool_call_is_not_made_and_the_step_says_why(
         allow=lambda call: "knowledge_search" not in str(call.get("title")),
     )
     assert not any(e.startswith("mcp:") for e in mcp_server.events), "the guard refused: no call"
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.ok and load.result is not None
     assert load.result.status == "failed" and load.result.reason == "permission_denied"
     assert gateway.seen == [], "the agent stopped before the model call"
@@ -129,22 +129,22 @@ async def test_a_refused_write_does_not_happen(tmp_path: Path, gateway: Gateway,
         servers=_servers(mcp_server),
         allow=lambda call: call.get("kind") != "edit",
     )
-    assert not (tmp_path / ".choregos" / "outputs" / "note.md").exists()
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    assert not (tmp_path / ".tranibor" / "outputs" / "note.md").exists()
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.result is not None and load.result.reason == "permission_denied"
 
 
 async def test_the_agent_stops_at_the_steps_max_turns(tmp_path: Path, gateway: Gateway) -> None:
     await _drive("two_model_calls", tmp_path, _env(gateway, tmp_path, TRANIBOR_MAX_TURNS="1"))
     assert len(gateway.seen) == 1, "the second call is refused before it is made"
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.result is not None
     assert (load.result.status, load.result.reason) == ("failed", "max_turns")
 
 
 async def test_an_exception_becomes_a_valid_failed_result(tmp_path: Path, gateway: Gateway) -> None:
     await _drive("raises", tmp_path, _env(gateway, tmp_path))
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.ok and load.result is not None
     assert (load.result.status, load.result.reason) == ("failed", "agent_error")
     assert "RuntimeError: boom" in load.result.summary
@@ -154,7 +154,7 @@ async def test_a_result_the_contract_refuses_is_replaced_by_a_failed_one(
     tmp_path: Path, gateway: Gateway
 ) -> None:
     await _drive("raises", tmp_path, _env(gateway, tmp_path), prompt="bad-fact")
-    load = load_result(tmp_path / ".choregos" / "result.json")
+    load = load_result(tmp_path / ".tranibor" / "result.json")
     assert load.ok and load.result is not None and load.result.reason == "agent_error"
 
 
@@ -168,7 +168,7 @@ async def test_cancelling_the_session_stops_the_function(tmp_path: Path, gateway
         await client.cancel()
         outcome = await asyncio.wait_for(turn, timeout=15)
     assert outcome.stop_reason == "cancelled"
-    assert not (tmp_path / ".choregos" / "result.json").exists(), "a cancelled step writes no result"
+    assert not (tmp_path / ".tranibor" / "result.json").exists(), "a cancelled step writes no result"
 
 
 async def test_a_second_prompt_runs_the_function_again(tmp_path: Path, gateway: Gateway) -> None:
@@ -179,4 +179,4 @@ async def test_a_second_prompt_runs_the_function_again(tmp_path: Path, gateway: 
         await client.prompt("first", timeout=30)
         await client.prompt("repair: rewrite your result", timeout=30)
     assert len(gateway.seen) == 4
-    assert json.loads((tmp_path / ".choregos" / "result.json").read_text())["status"] == "done"
+    assert json.loads((tmp_path / ".tranibor" / "result.json").read_text())["status"] == "done"

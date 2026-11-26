@@ -44,7 +44,7 @@ def _assert_clean(result: Any, url: str) -> None:
     flat = " ".join(result.output.split())  # rich wraps long lines
     assert "Traceback" not in flat
     assert f"cannot reach {url}" in flat
-    assert "choregos login --api-url" in flat
+    assert "tranibor login --api-url" in flat
 
 
 def test_whoami_on_a_closed_port_fails_cleanly(api_url: str) -> None:

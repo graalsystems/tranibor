@@ -17,7 +17,7 @@ items, see what waits for a person, and open work items, all with **your** right
 **Before you start:**
 
 - an account on your Tranibor instance, signed in to the console at least once;
-- the instance's address (here `https://choregos.example.com`);
+- the instance's address (here `https://tranibor.example.com`);
 - for the clients that call from their vendor's cloud (claude.ai, ChatGPT), an instance reachable on
   a public HTTPS address with OAuth enabled by your operator.
 
@@ -35,8 +35,8 @@ its tab.
 
 | URL | What it serves |
 | --- | --- |
-| `https://choregos.example.com/mcp` | every project you can read; tools take a `project` argument (`org:slug`) |
-| `https://choregos.example.com/mcp/projects/acme:billing-api` | one project; tools need no `project` argument |
+| `https://tranibor.example.com/mcp` | every project you can read; tools take a `project` argument (`org:slug`) |
+| `https://tranibor.example.com/mcp/projects/acme:billing-api` | one project; tools need no `project` argument |
 
 Transport: Streamable HTTP, stateless, JSON responses; protocol versions `2025-11-25`, `2025-06-18`
 and `2025-03-26`.
@@ -88,12 +88,12 @@ a token you mint, with an MCP scope:
 **With the CLI:**
 
 ```bash
-choregos tokens create --name claude-code --scope mcp:write --project acme:billing-api --expires-in-days 30
+tranibor tokens create --name claude-code --scope mcp:write --project acme:billing-api --expires-in-days 30
 ```
 
 The door refuses a full-access (`*`) token, and the REST API refuses an MCP token. The token sits in
 your client's configuration in clear: mint one per client, keep it narrow and short-lived, and revoke
-it when the client is gone (`choregos tokens list`, then `choregos tokens revoke <id>`).
+it when the client is gone (`tranibor tokens list`, then `tranibor tokens revoke <id>`).
 
 ## 2. Connect your client
 
@@ -101,7 +101,7 @@ it when the client is gone (`choregos tokens list`, then `choregos tokens revoke
 
 ```shell
 export TRANIBOR_TOKEN=chg_...
-claude mcp add --transport http choregos https://choregos.example.com/mcp \
+claude mcp add --transport http tranibor https://tranibor.example.com/mcp \
   --header "Authorization: Bearer $TRANIBOR_TOKEN"
 ```
 
@@ -112,10 +112,10 @@ at the identity provider, the Integrations page shows this command first; no tok
 
 ```shell
 claude mcp add --transport http --client-id choregos-claude-code --callback-port 33418 \
-  choregos https://choregos.example.com/mcp
+  tranibor https://tranibor.example.com/mcp
 ```
 
-Then type `/mcp` in Claude Code, choose `choregos`, then *Authenticate*: your browser opens your
+Then type `/mcp` in Claude Code, choose `tranibor`, then *Authenticate*: your browser opens your
 identity provider's sign-in page.
 
 **The Tranibor plugin for Claude Code** bundles the door and a skill that teaches Claude the rules (it
@@ -135,9 +135,9 @@ network, run a local bridge in `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "choregos": {
+    "tranibor": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://choregos.example.com/mcp", "--header", "Authorization:${AUTH}"],
+      "args": ["-y", "mcp-remote", "https://tranibor.example.com/mcp", "--header", "Authorization:${AUTH}"],
       "env": { "AUTH": "Bearer chg_..." }
     }
   }
@@ -153,8 +153,8 @@ Add `"--allow-http"` to `args` if the instance is served over plain HTTP. Restar
 ```json
 {
   "mcpServers": {
-    "choregos": {
-      "url": "https://choregos.example.com/mcp",
+    "tranibor": {
+      "url": "https://tranibor.example.com/mcp",
       "headers": { "Authorization": "Bearer ${env:TRANIBOR_TOKEN}" }
     }
   }
@@ -167,12 +167,12 @@ Add `"--allow-http"` to `args` if the instance is served over plain HTTP. Restar
 
 ```json
 {
-  "inputs": [{ "type": "promptString", "id": "choregos-token", "description": "Tranibor MCP token", "password": true }],
+  "inputs": [{ "type": "promptString", "id": "tranibor-token", "description": "Tranibor MCP token", "password": true }],
   "servers": {
-    "choregos": {
+    "tranibor": {
       "type": "http",
-      "url": "https://choregos.example.com/mcp",
-      "headers": { "Authorization": "Bearer ${input:choregos-token}" }
+      "url": "https://tranibor.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${input:tranibor-token}" }
     }
   }
 }
@@ -196,7 +196,7 @@ your identity provider to sign in.
 
 ChatGPT also calls from its vendor's cloud and signs in with OAuth: the same two conditions as
 claude.ai apply. Add Tranibor as a custom connector in ChatGPT with the URL
-`https://choregos.example.com/mcp`, and sign in when ChatGPT asks. The Integrations page's **ChatGPT**
+`https://tranibor.example.com/mcp`, and sign in when ChatGPT asks. The Integrations page's **ChatGPT**
 tab gives what to enter when your operator registered a ChatGPT client.
 
 ### Any other MCP client
@@ -204,7 +204,7 @@ tab gives what to enter when your operator registered a ChatGPT client.
 Point it at the door with your token:
 
 ```text
-URL:        https://choregos.example.com/mcp
+URL:        https://tranibor.example.com/mcp
 Transport:  Streamable HTTP
 Header:     Authorization: Bearer chg_...
 ```

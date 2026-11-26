@@ -190,7 +190,7 @@ async def test_another_protocol_opens_a_session_exactly_like_oidc(saml_client: A
     assert response.status_code == 307
     # The target is bounded as for OIDC: no open redirect through this path.
     assert not response.headers["location"].startswith("https://evil.example")
-    cookie = saml_client.cookies.get("choregos_session")
+    cookie = saml_client.cookies.get("tranibor_session")
     assert cookie, "no session set"
     payload = read_session(cookie)
     assert payload is not None and isinstance(payload.get("iat"), int)

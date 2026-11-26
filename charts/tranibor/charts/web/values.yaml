@@ -1,0 +1,28 @@
+enabled: true
+replicaCount: 2
+image:
+  repository: tranibor-web
+  tag: ""
+  digest: ""
+service:
+  port: 3000
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { cpu: 500m, memory: 512Mi }
+ingress:
+  enabled: true
+  # Ingress annotations (`kind: ingress`). For a controller that refuses two Ingresses on the same
+  # host — NGINX Inc.: "All hosts are taken by other resources" — the API and the console on a single
+  # host are declared as minions of a master Ingress: `nginx.org/mergeable-ingress-type: minion`.
+  annotations: {}
+  hostnames: ["app.choregos.local"]
+  # `kind: ingress`: the Ingress's `spec.tls`, as written, e.g.
+  # `[{secretName: tranibor-tls, hosts: [api.example.com, app.example.com]}]` (a cert-manager
+  # annotation in `annotations` can fill the Secret). Empty: no TLS block, the controller's default
+  # certificate or a TLS terminated in front of it. `kind: httproute` carries TLS on the Gateway.
+  tls: []
+  gateway: choregos-gateway
+  gatewayNamespace: gateway
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

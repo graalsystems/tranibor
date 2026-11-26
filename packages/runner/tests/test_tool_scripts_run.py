@@ -151,7 +151,7 @@ async def test_a_script_chains_three_calls_and_the_model_reads_one_line(
     ]
     assert _events(client, "tools.client") == [{"written": True, "tools": 3, "modules": ["pfsense"]}]
     # What the tools returned stayed in the script: not in the journal, not in what the agent printed.
-    transcript = (settings.workspace / ".choregos" / "transcript.jsonl").read_text(encoding="utf-8")
+    transcript = (settings.workspace / ".tranibor" / "transcript.jsonl").read_text(encoding="utf-8")
     assert "RAW-RULE-NOT-FOR-THE-MODEL" not in transcript + json.dumps(client.events) + run["stdout"]
 
 
@@ -219,7 +219,7 @@ async def test_the_first_prompt_carries_the_scripts_section_when_the_run_is_offe
         {"included": True, "bytes": len(section.encode("utf-8"))}
     ]
     # Once: the task is the task, the section is not repeated at its tail.
-    task = (settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
+    task = (settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
     assert HEADING not in task
 
 
@@ -236,7 +236,7 @@ async def test_without_scripts_the_agent_gets_nothing_new(
         "TMPDIR": str(own_tmp),
     }
     assert not (own_tmp / "choregos").exists(), "no client written"
-    task = (settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
+    task = (settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
     assert HEADING not in task and "choregos_tools" not in task
     assert _events(client, "tools.client") == []
 
@@ -251,5 +251,5 @@ async def test_a_client_that_cannot_be_written_leaves_the_run_without_it(
     [event] = _events(client, "tools.client")
     assert event["written"] is False and event["error"]
     assert ran["env"]["TRANIBOR_TOOLS_DIR"] is None
-    assert HEADING not in (settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
+    assert HEADING not in (settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
     assert HEADING not in ran["prompts"][0] and _events(client, "tools.instructions") == []

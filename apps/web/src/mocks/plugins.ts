@@ -5,9 +5,10 @@
  * with its server, and `triage` with an upgrade waiting), and one request from another administrator.
  * A plugin that brings a server answers 202; the administrator who asked cannot approve it (403).
  *
- * Who is looking: an administrator unless `sessionStorage["choregos.mock.role"]` is `contributor`.
+ * Who is looking: an administrator unless `sessionStorage["tranibor.mock.role"]` is `contributor`.
  */
 import { ApiError } from "@/lib/api";
+import { storedName } from "@/lib/stored-names";
 import { PLUGIN_INDEX, PLUGIN_REPOSITORY } from "@/lib/publishing";
 import type {
   InstalledPlugin,
@@ -212,7 +213,7 @@ let counter = pluginApprovals.length;
 
 function role(): "org_admin" | "contributor" {
   try {
-    return typeof window !== "undefined" && window.sessionStorage.getItem("choregos.mock.role") === "contributor" ? "contributor" : "org_admin";
+    return typeof window !== "undefined" && window.sessionStorage.getItem(storedName("mock.role")) === "contributor" ? "contributor" : "org_admin";
   } catch {
     return "org_admin";
   }

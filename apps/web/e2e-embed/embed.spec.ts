@@ -51,7 +51,7 @@ test.describe("a host application frames the assistant", () => {
     const inner = page.frames().find((f) => f.url().includes("/embed/assistants/northwind/coach"));
     expect(inner).toBeTruthy();
     await inner!.evaluate(
-      ([t, e]) => window.postMessage({ type: "choregos.embed.signed-in", token: t, expires_in: e }, window.location.origin),
+      ([t, e]) => window.postMessage({ type: "tranibor.embed.signed-in", token: t, expires_in: e }, window.location.origin),
       [token, expires_in] as const,
     );
 

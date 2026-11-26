@@ -28,9 +28,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_core import utcnow
 
 from ..db.models import HumanRequest, Organization, Project, WorkItem
-from ..knowledge.marked import readable
+from ..knowledge.marked import readable_ids
 from ..rbac import Permission, Principal
-from .human_assignee import assignee_of_the_request, decider_verdict, sla_passed
+from .human_assignee import assignee_of_the_request, assignees_of_requests, decider_verdict, sla_passed
 from .personal_spaces import listed
 
 #: What a draft may propose, by the request's kind (the decision route's own rules, `post_decision`).
@@ -42,6 +42,8 @@ KINDS: dict[str, tuple[str, ...]] = {
 }
 SUMMARY_CHARS = 300
 TEXT_CHARS = {"answer": 20_000, "reason": 2_000, "note": 2_000}
+#: How many waiting requests `own_requests` filters at once (one batch of queries each, #2285 follow-up).
+ANSWERABLE_SLICE = 200
 
 
 class DraftRefused(Exception):  # noqa: N818 - a refusal told to the client, not a failure
@@ -86,17 +88,36 @@ async def own_requests(
     )
     if work_item_id is not None:
         query = query.where(WorkItem.id == work_item_id)
+    rows = [
+        OwnRequest(row, item, project, org)
+        for row, item, project, org in (await session.execute(query)).all()
+    ]
     found: list[OwnRequest] = []
-    for row, item, project, org in (await session.execute(query)).all():
-        if not principal.can(Permission.PROJECT_READ, org, project.slug):
-            continue
-        if await may_answer(session, principal, item, project, org, row) != "ok":
-            continue
-        if not await readable(session, principal, item, project.org_id):
-            continue  # the request is the run's content (ADR 0114)
-        found.append(OwnRequest(row, item, project, org))
-        if len(found) >= limit:
-            break
+    # The same three filters as one request at a time (`may_answer`, then `readable`), each applied to a
+    # slice of the list at once: a long inbox costs a few queries per slice, not a few per request.
+    for start in range(0, len(rows), ANSWERABLE_SLICE):
+        candidates = [
+            own
+            for own in rows[start : start + ANSWERABLE_SLICE]
+            if principal.can(Permission.PROJECT_READ, own.org, own.project.slug)
+            and principal.can(Permission.ITEM_DECIDE, own.org, own.project.slug)
+        ]
+        assignees = await assignees_of_requests(session, [(own.item, own.request) for own in candidates])
+        answerable = [
+            own
+            for own, assignee in zip(candidates, assignees, strict=True)
+            if decider_verdict(principal, own.org, assignee, after_sla=sla_passed(own.request)) == "ok"
+        ]
+        seen: set[str] = set()
+        for org_id in sorted({own.project.org_id for own in answerable}):
+            items = [own.item for own in answerable if own.project.org_id == org_id]
+            seen |= await readable_ids(session, principal, items, org_id)
+        for own in answerable:
+            if own.item.id not in seen:
+                continue  # the request is the run's content (ADR 0114)
+            found.append(own)
+            if len(found) >= limit:
+                return found
     return found
 
 

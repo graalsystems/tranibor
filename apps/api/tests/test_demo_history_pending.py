@@ -217,7 +217,7 @@ async def test_an_approver_decides_it_and_no_workflow_hears_of_it(
     assert (await _waiting_item(client, project))["pending_request"] is None
     assert (
         await _count(
-            Event, Event.type == "choregos.workitem.human_decided", Event.payload["imported"].as_boolean()
+            Event, Event.type == "tranibor.workitem.human_decided", Event.payload["imported"].as_boolean()
         )
         == 1
     )

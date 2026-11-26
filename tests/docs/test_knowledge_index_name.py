@@ -2,7 +2,7 @@
 
 ADR 0174 renamed a `files` base's `INDEX.md` to `index.md` (OKF reserves the lower-case name), and two
 role prompts kept sending agents to `INDEX.md`, a file no run has any more: on a case-sensitive file
-system the agent finds nothing. Every shipped prompt or template that mentions `.choregos/knowledge`
+system the agent finds nothing. Every shipped prompt or template that mentions `.tranibor/knowledge`
 names the index exactly as `tranibor_runner.knowledge.INDEX` does.
 """
 

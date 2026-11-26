@@ -1,5 +1,5 @@
 # Preset `team`: a product team, cross review, gVisor sandbox, prod approved by the train.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Policy
 metadata:
   name: team
@@ -28,7 +28,7 @@ attempts:
   dod_iterations: 3
 scope:
   auto_grant_max_files: 2
-  deny_paths: [".choregos/**", ".github/workflows/**", "charts/**", "infra/**", "deploy/**"]
+  deny_paths: [".tranibor/**", ".choregos/**", ".github/workflows/**", "charts/**", "infra/**", "deploy/**"]
 sandbox:
   runtime: gvisor
   deny_commands: [kubectl, "terraform apply", "git push --force", sudo, "helm upgrade"]

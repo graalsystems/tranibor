@@ -16,7 +16,7 @@ and let claude.ai or Claude Code sign in to the MCP door with single sign-on.
 
 At your identity provider, register a **confidential** client:
 
-- redirect URI: `https://choregos.example.com/api/v1/auth/callback` (your `apiUrl` followed by
+- redirect URI: `https://tranibor.example.com/api/v1/auth/callback` (your `apiUrl` followed by
   `/api/v1/auth/callback`);
 - scopes: `openid profile email groups`;
 - a `groups` claim in the userinfo answer, and `sub` and `email`.
@@ -40,18 +40,18 @@ URI to register, whether the secret is set), never a secret's value.
 
 | Group at the identity provider | Role in Tranibor |
 | --- | --- |
-| `choregos:<org>:org-admins` | `org_admin` of the organisation |
-| `choregos:<org>:product-owners` | `project_owner` |
-| `choregos:<org>:approvers` | `approver` |
-| `choregos:<org>:contributors` | `contributor` |
-| `choregos:<org>:viewers` | `viewer` |
+| `tranibor:<org>:org-admins` | `org_admin` of the organisation |
+| `tranibor:<org>:product-owners` | `project_owner` |
+| `tranibor:<org>:approvers` | `approver` |
+| `tranibor:<org>:contributors` | `contributor` |
+| `tranibor:<org>:viewers` | `viewer` |
 
 `approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
 ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md) round C1). The former groups give no role
 since 0.29.0: make the identity provider send the new ones before upgrading.
 
 The same claim carries the human groups workflows name: a step for `group: architects` is offered to
-members carrying `architects` or `choregos:acme:architects`. Groups without the `choregos:<org>:`
+members carrying `architects` or `tranibor:acme:architects`. Groups without the `tranibor:<org>:`
 prefix count only when `global.oidc.defaultOrg` names the organisation.
 
 The first administrators come from `global.bootstrap.admins` ([Install](install.md#1-write-your-values)).
@@ -87,11 +87,11 @@ before the door knows them. Setting up Keycloak for it:
 ## Changing the identity provider
 
 A new provider gives every person a new `sub`. Plan the change with
-`choregos admin identity relink --issuer <new issuer>`, then switch the issuer and open a re-link window
+`tranibor admin identity relink --issuer <new issuer>`, then switch the issuer and open a re-link window
 in the same deployment:
 
 ```yaml
-choregos-api:
+tranibor-api:
   oidcRelinkUntil: "2026-12-15T00:00:00Z"   # an end, at most 31 days ahead
 ```
 
@@ -106,7 +106,7 @@ account carries it. The whole procedure:
 | --- | --- |
 | sign-in answers `503` | the discovery document cannot be read, or its `issuer` differs from `global.oidc.issuer` |
 | sign-in answers `401` | the ID token's issuer, audience or nonce does not match the sign-in |
-| a person signs in with no role | no `choregos:<org>:…` group, or an unprefixed group without `defaultOrg` |
+| a person signs in with no role | no `tranibor:<org>:…` group, or an unprefixed group without `defaultOrg` |
 | an existing account is not linked | the provider says `email_verified: false` |
 | after a change of provider, `401` "belongs to another identity" | no re-link window is open, the provider does not assert `email_verified: true`, or the account already moved to another identity of the new provider |
 | after a change of provider, `401` "several accounts carry this address" | two accounts differ only by letter case: resolve them, then sign in again |

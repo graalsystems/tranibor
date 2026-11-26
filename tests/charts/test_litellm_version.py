@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "compose.yaml"
 # The live tracing stack says it runs the chart's image: what it proves must be what the chart ships.
 LIVE_OTEL_COMPOSE = ROOT / "tests" / "live" / "otel" / "compose.yaml"
-CHART_VALUES = ROOT / "charts" / "choregos" / "charts" / "litellm" / "values.yaml"
+CHART_VALUES = ROOT / "charts" / "tranibor" / "charts" / "litellm" / "values.yaml"
 REPOSITORY = "ghcr.io/berriai/litellm-database"
 # The first release out of GHSA-7hp6-4w63-5g45 on the main line (also fixed: 1.101.3, 1.102.2, 1.103.1).
 FIRST_FIXED = (1, 100, 4)

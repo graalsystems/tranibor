@@ -91,7 +91,7 @@ Read it in order the first time: what it is, the ideas, a first project, then th
 | ▸ [A2A](integrate/a2a.md) | Start and follow a workflow from another agent or an application |
 | ▸ [Triggers](integrate/triggers.md) | Start work from a schedule, a webhook or a tracker |
 | ▸ [REST API](integrate/rest.md) | Script anything the console does |
-| **Command line** | Use the `choregos` command |
+| **Command line** | Use the `tranibor` command |
 | ▸ [Install](cli/install.md) | Install the command on your machine |
 | ▸ [Reference](cli/reference.md) | Look up every command and option |
 | [Host Tranibor](host/index.md) | Deploy, secure and upgrade an instance |

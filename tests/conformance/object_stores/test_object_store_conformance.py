@@ -85,7 +85,7 @@ async def test_the_fake() -> None:
     objects: dict[str, FakeObjectStore] = {}
 
     def make(prefix: str) -> ObjectStore:
-        return objects.setdefault(prefix, FakeObjectStore(f"memory://choregos/{prefix}"))
+        return objects.setdefault(prefix, FakeObjectStore(f"memory://tranibor/{prefix}"))
 
     missing = FakeObjectStore()
     missing.fail_next("no bucket")
@@ -93,12 +93,12 @@ async def test_the_fake() -> None:
 
 
 async def test_s3_against_its_emulator() -> None:
-    client = httpx.AsyncClient(transport=httpx.MockTransport(emulators.s3({"choregos"})))
+    client = httpx.AsyncClient(transport=httpx.MockTransport(emulators.s3({"tranibor"})))
 
     def store(url: str) -> S3ObjectStore:
         return S3ObjectStore(url, endpoint="http://s3.test", access_key="A", secret_key="S", client=client)
 
-    await exercise(lambda prefix: store(f"s3://choregos/{prefix}"), store("s3://absent"))
+    await exercise(lambda prefix: store(f"s3://tranibor/{prefix}"), store("s3://absent"))
 
 
 async def test_azure_blob_against_its_emulator() -> None:
@@ -113,12 +113,12 @@ async def test_azure_blob_against_its_emulator() -> None:
 
 
 async def test_gcs_against_its_emulator() -> None:
-    client = httpx.AsyncClient(transport=httpx.MockTransport(emulators.gcs({"choregos"})))
+    client = httpx.AsyncClient(transport=httpx.MockTransport(emulators.gcs({"tranibor"})))
 
     def store(url: str) -> GcsObjectStore:
         return GcsObjectStore(url, token_source=StaticToken("ya29"), client=client)
 
-    await exercise(lambda prefix: store(f"gs://choregos/{prefix}"), store("gs://absent"))
+    await exercise(lambda prefix: store(f"gs://tranibor/{prefix}"), store("gs://absent"))
 
 
 # ───────── with Docker: the real servers ─────────

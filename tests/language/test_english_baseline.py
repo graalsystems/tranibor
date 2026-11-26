@@ -343,7 +343,7 @@ def test_there_are_23_areas_and_the_longest_prefix_wins() -> None:
         "docs/plan/STATUS.md": "docs-plan",
         "docs/usage.md": "docs",
         "trials/lakehouse/README.md": "trials",
-        "charts/choregos/values.yaml": "ops",
+        "charts/tranibor/values.yaml": "ops",
         "infra/policies/x.yaml": "ops",
         "docker/api.Dockerfile": "ops",
         "Makefile": "repo",

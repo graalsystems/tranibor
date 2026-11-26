@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos activity`: the live tree of what runs in an organisation (ADR 0154 §2-3, ADR 0142 §1).
+"""`tranibor activity`: the live tree of what runs in an organisation (ADR 0154 §2-3, ADR 0142 §1).
 
 Project → work item → run (stage · agent · model), and the person's own agent sessions, each line with
 its status (a glyph and a word, then a colour), its elapsed time, its tokens and its cost so far. A spend the
@@ -10,7 +10,7 @@ until the stream ends or the person interrupts it.
 It reads `GET /orgs/{org}/activity` and its stream, the sub-agents of each run (`GET /runs/{id}/agents`,
 S67-12: the platform names them, this command never reads a backend's `_meta`), and nothing else but
 today's spend for the status line (`GET /orgs/{org}/costs`, "—" for a person who may not read it). It is
-read-only: stopping stays where it is today (`choregos items action … stop`, the console).
+read-only: stopping stays where it is today (`tranibor items action … stop`, the console).
 """
 
 from __future__ import annotations
@@ -208,7 +208,7 @@ def _follow(
         finally:
             events.put(None)
 
-    threading.Thread(target=read, name="choregos-activity-stream", daemon=True).start()
+    threading.Thread(target=read, name="tranibor-activity-stream", daemon=True).start()
     try:
         with Live(
             render(board, organisation, today, out, pricing=pricing), console=out, auto_refresh=False
@@ -284,7 +284,7 @@ def status_line(
     currency: str | None = None,
 ) -> Text:
     """`acme · 3 running · 2 waiting for you · €1.24 today`: `waiting` is what `GET /me/pending` lists, "—"
-    where it is not read (`choregos activity` reads no such list). `today` is an `Amount` (the organisation's
+    where it is not read (`tranibor activity` reads no such list). `today` is an `Amount` (the organisation's
     `currency` picks the figure); a bare number is dollars, as the gateway counts them."""
     if isinstance(today, int | float):
         today = money.Amount(usd=float(today))
@@ -362,7 +362,7 @@ def agent_line(node: dict[str, Any], now: datetime, out: Console) -> Text:
 @dataclass
 class Grouped:
     """The tree's shape, without its drawing: runs by project then work item, and the person's own
-    sessions and turns. The workspace (`choregos chat`) draws the same shape with Textual."""
+    sessions and turns. The workspace (`tranibor chat`) draws the same shape with Textual."""
 
     projects: dict[str, dict[str, list[dict[str, Any]]]] = field(default_factory=dict)
     sessions: list[dict[str, Any]] = field(default_factory=list)

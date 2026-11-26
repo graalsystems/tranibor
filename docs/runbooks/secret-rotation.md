@@ -23,7 +23,7 @@ therefore accepts **two** verification keys during the rotation window.
 4. After 24 h without errors, delete the old key on GitHub's side **then** in the vault.
 
 ```bash
-kubectl -n choregos-system logs deploy/choregos-api | grep -c "github.*401"   # must stay 0
+kubectl -n choregos-system logs deploy/tranibor-api | grep -c "github.*401"   # must stay 0
 ```
 
 ### The App's OAuth client secret
@@ -58,7 +58,7 @@ under the new one. Nothing reads a `-next` entry. A token lives `max_minutes + 1
 run's agent holds its token for as long as the run lasts, so the rotation is a **replacement in a
 quiet window**, not a transition.
 
-1. Pick a window with no run in flight (`choregos runs list`, or the runs that are not terminal on
+1. Pick a window with no run in flight (`tranibor runs list`, or the runs that are not terminal on
    the console), and stop the intake of new ones if you can. A run still active when the key is
    replaced gets `401` ("Signature verification failed") on its next `/internal` call and fails.
    Those runs can be retried afterwards; nothing else is lost.
@@ -78,7 +78,7 @@ wrapped it, so a rotation is a list, never a swap ([ADR 0058](../adr/0058-connec
 1. Generate a key: `python -c "import os,base64;print('k2:'+base64.b64encode(os.urandom(32)).decode())"`.
 2. In the vault, put it **first**: `k2:<new>,k1:<old>`. Redeploy the API and the workers: new
    writes are sealed under `k2`, every existing value still opens under `k1`.
-3. Re-wrap: `choregos admin secrets rewrap` (platform administrator). It re-wraps the data keys
+3. Re-wrap: `tranibor admin secrets rewrap` (platform administrator). It re-wraps the data keys
    under `k2`; the values are never read out. It answers the number of rows changed and is safe to
    repeat.
 4. When it answers `0` and a connector test passes, **keep `k1` in the list** until the oldest
