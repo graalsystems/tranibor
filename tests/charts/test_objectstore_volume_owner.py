@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 
 def _objectstore_pod() -> dict:
@@ -22,10 +22,10 @@ def _objectstore_pod() -> dict:
         [
             "helm",
             "template",
-            "choregos",
+            "tranibor",
             str(CHART),
             "-n",
-            "choregos",
+            "tranibor",
             "-f",
             str(CHART / "values" / "all-in-one.yaml"),
             "--set",
@@ -38,9 +38,9 @@ def _objectstore_pod() -> dict:
         text=True,
     ).stdout
     for doc in yaml.safe_load_all(rendered):
-        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "choregos-objectstore":
+        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "tranibor-objectstore":
             return doc["spec"]["template"]["spec"]
-    raise AssertionError("the all-in-one profile renders no choregos-objectstore Deployment")
+    raise AssertionError("the all-in-one profile renders no tranibor-objectstore Deployment")
 
 
 def test_the_object_store_pod_owns_its_volume_as_the_images_user() -> None:

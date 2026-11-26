@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos decide`: what waits for the person, decided from the terminal (ADR 0154 §7, ADR 0153).
+"""`tranibor decide`: what waits for the person, decided from the terminal (ADR 0154 §7, ADR 0153).
 
 Four kinds wait for a person (`GET /me/pending`): a write or a workflow start an assistant proposed in their
 conversation, a governed action awaiting an approver, and a human step of a workflow. Each is decided on the
-route that already decides it, **as the person**: a decision needs their session (`choregos login`), never a
+route that already decides it, **as the person**: a decision needs their session (`tranibor login`), never a
 pasted API token, and the API refuses one (`decision_requires_session`); the CLI does not try to second-guess
 it, it relays the API's message and says how to sign in.
 
@@ -41,8 +41,8 @@ KIND_LABEL = {
 }
 #: A value longer than this is cut, and says so: a screen is no place for a whole file.
 MAX_VALUE = 1500
-SIGN_IN = "sign in as yourself with `choregos login` (a pasted API token cannot decide)"
-FRESH = "your sign-in is too old for this decision: run `choregos login --fresh`, then repeat it"
+SIGN_IN = "sign in as yourself with `tranibor login` (a pasted API token cannot decide)"
+FRESH = "your sign-in is too old for this decision: run `tranibor login --fresh`, then repeat it"
 
 decide_app = typer.Typer(
     help="Decide what waits for you: confirm a write, approve an action, answer a step. One at a time."
@@ -231,7 +231,7 @@ def _find(api: Client, item_id: str) -> dict[str, Any]:
     for item in _pending(api):
         if item["id"] == item_id:
             return item
-    _fail(f"nothing waits for you under {clean(item_id)}: `choregos decide list` shows what does")
+    _fail(f"nothing waits for you under {clean(item_id)}: `tranibor decide list` shows what does")
     raise typer.Exit(1)  # unreachable: `fail` raises
 
 
@@ -265,7 +265,7 @@ def list_pending() -> None:
             clean(place),
         )
     out.print(table)
-    out.print(Text("decide one: `choregos decide approve|reject|answer ID`", style="dim"))
+    out.print(Text("decide one: `tranibor decide approve|reject|answer ID`", style="dim"))
 
 
 @decide_app.command("show")

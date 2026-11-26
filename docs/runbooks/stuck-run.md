@@ -9,7 +9,7 @@
 
 ```bash
 RUN=<run-id>; PROJ=<project>
-kubectl -n proj-$PROJ-runners get pipelineruns -l choregos/run-id=$RUN
+kubectl -n proj-$PROJ-runners get pipelineruns -l tranibor/run-id=$RUN
 kubectl -n proj-$PROJ-runners describe pipelinerun run-$RUN | tail -30
 kubectl -n proj-$PROJ-runners get events --sort-by=.lastTimestamp | tail -20
 ```
@@ -21,7 +21,7 @@ kubectl -n proj-$PROJ-runners get events --sort-by=.lastTimestamp | tail -20
 | pod `Running` but no ACP event | the agent is stuck or the model does not answer | read the `run` step's logs |
 
 ```bash
-kubectl -n proj-$PROJ-runners logs -l choregos/run-id=$RUN -c step-run --tail=100
+kubectl -n proj-$PROJ-runners logs -l tranibor/run-id=$RUN -c step-run --tail=100
 ```
 
 With the `k8s_job` executor, a Job created **suspended** is not stuck: it is waiting for a
@@ -35,20 +35,20 @@ so on its first request (`GET …/api/v1/internal/runs/<id>/input`), and the exi
 | What the runner's log says | Cause | Action |
 | :-- | :-- | :-- |
 | a name that does not resolve, a refused or timed-out connection | the callback address (`global.internalApiUrl`) is not reachable from where the run executes | from that place, resolve and call the address; a runner namespace of its own needs the Service's full name |
-| `404` | the API's guard refused the request: the run called back under a public hostname while `choregos-api.internalApiGuard` is `enforce` | below |
+| `404` | the API's guard refused the request: the run called back under a public hostname while `tranibor-api.internalApiGuard` is `enforce` | below |
 | `401`, `403` | the token: the workers and the API do not hold the same run-token key | compare `TRANIBOR_RUN_TOKEN_PRIVATE_KEY` in both |
 
 For the `404`, the API's log names what it refused:
 
 ```bash
-kubectl -n choregos logs deploy/choregos-api --since=15m | grep internal_api.
+kubectl -n tranibor logs deploy/tranibor-api --since=15m | grep internal_api.
 ```
 
 - `internal_api.refused` with `path_prefix=/api/v1/internal/runs`: the `host` it shows is the name
-  the run arrived under. Either that name should be a run door (`choregos-api.runDoor.hostnames`,
+  the run arrived under. Either that name should be a run door (`tranibor-api.runDoor.hostnames`,
   for runs outside the cluster), or runs should not use it (`global.internalApiUrl` back to the
   Service). `header=x-forwarded-host` means a proxy between the run and the API wrote a public name.
-- To stop the refusals at once, set `choregos-api.internalApiGuard: warn` and roll the API: nothing
+- To stop the refusals at once, set `tranibor-api.internalApiGuard: warn` and roll the API: nothing
   else changes, and the same lines come back as `internal_api.would_refuse`.
 - `internal_api.guard_not_enforced` at start-up is not a failure: it says the guard is holding
   `enforce` back because runs call a public hostname.
@@ -64,7 +64,7 @@ changed keeps the one it was started with), or that it goes through a proxy. See
    session, the runner posts a `failed(reason=limit)` result, the orchestrator retries.
 2. **Force the stop** if it really is stuck:
    ```bash
-   choregos items action <ticket-id> stop
+   tranibor items action <ticket-id> stop
    ```
    The `cancel_run` activity closes the run first — status `cancelled`, a result whose reason is
    `cancelled` — then deletes the `PipelineRun` and its Secret. The run is closed whether or not
@@ -79,7 +79,7 @@ changed keeps the one it was started with), or that it goes through a proxy. See
    that already ended answers `409` with how it ended.
 3. **replay the stage** once the cause is fixed:
    ```bash
-   choregos items action <ticket-id> rerun_stage
+   tranibor items action <ticket-id> rerun_stage
    ```
    This also works on a work item parked in `needs_human` whose interpreter was started again
    since it escalated (S22-41): the interpreter reads, from the work item's state changes, the
@@ -94,7 +94,7 @@ says so before the executor is asked to remove anything. When that removal fails
 logs it and goes on:
 
 ```bash
-kubectl -n choregos-system logs -l app.kubernetes.io/name=choregos-orchestrator --tail=-1 | grep run.cancel_failed
+kubectl -n choregos-system logs -l app.kubernetes.io/component=orchestrator --tail=-1 | grep run.cancel_failed
 ```
 
 Each line names a `run_id` whose pod, Job or claim may still exist. That process can no longer
@@ -102,7 +102,7 @@ post a result, call a tool, take a git token or read its input (409 `run_closed`
 does shows in the run's journal and in the API's log (`run.closed_refused`). Remove what is left:
 
 ```bash
-kubectl -n proj-$PROJ-runners delete job,pipelinerun -l choregos/run-id=$RUN
+kubectl -n proj-$PROJ-runners delete job,pipelinerun -l tranibor/run-id=$RUN
 ```
 
 A git token it took before the run was closed lives up to one hour: if the run's branch moved

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-outpost enrol | run | doctor`: the program an outpost's operator installs.
+"""`tranibor-outpost enrol | run | doctor`: the program an outpost's operator installs.
 
 - `enrol` makes the instance's keys if it has none, presents an enrolment token to the door, and
   prints the fingerprint a person compares in the console before approving the instance.
@@ -57,13 +57,13 @@ def _say(text: str) -> None:
 
 
 def _fail(text: str, code: int = 1) -> typer.Exit:
-    typer.echo(f"choregos-outpost: {text}", err=True)
+    typer.echo(f"tranibor-outpost: {text}", err=True)
     return typer.Exit(code)
 
 
 def _version(value: bool) -> None:
     if value:
-        _say(f"choregos-outpost {__version__} (protocol {PROTOCOL})")
+        _say(f"tranibor-outpost {__version__} (protocol {PROTOCOL})")
         raise typer.Exit
 
 
@@ -118,7 +118,7 @@ def _policy(settings: Settings) -> OutpostPolicy:
     try:
         return policy.load(settings.policy)
     except policy.PolicyError as error:
-        typer.echo(f"choregos-outpost: {settings.policy} is not a valid policy:", err=True)
+        typer.echo(f"tranibor-outpost: {settings.policy} is not a valid policy:", err=True)
         for fault in error.faults:
             typer.echo(f"  - {fault}", err=True)
         raise typer.Exit(CANNOT_START) from error
@@ -211,17 +211,17 @@ def enrol(
     _say(f"    {own.fingerprint}")
     _say("")
     _say("Approve the instance in the console only if the fingerprint shown there is this one.")
-    _say("Then start the daemon: choregos-outpost run")
+    _say("Then start the daemon: tranibor-outpost run")
     if answer.fingerprint != own.fingerprint:
         # The fingerprint printed above is this machine's own. What the answer echoes is not signed.
         typer.echo(
-            f"choregos-outpost: WARNING: the answer echoed another fingerprint ({answer.fingerprint}). "
+            f"tranibor-outpost: WARNING: the answer echoed another fingerprint ({answer.fingerprint}). "
             "Something between this machine and the door rewrote the enrolment: do not approve it.",
             err=True,
         )
     if answer.protocol.minimum > PROTOCOL:
         typer.echo(
-            f"choregos-outpost: WARNING: the door serves protocol {answer.protocol.minimum} and above; this "
+            f"tranibor-outpost: WARNING: the door serves protocol {answer.protocol.minimum} and above; this "
             f"daemon speaks {PROTOCOL}. Upgrade it before it runs.",
             err=True,
         )
@@ -236,7 +236,7 @@ async def _serve(
         await journal.open(time.time())
         await audit.check()
     except (JournalError, AuditWriteError) as error:
-        typer.echo(f"choregos-outpost: {error}", err=True)
+        typer.echo(f"tranibor-outpost: {error}", err=True)
         journal.close()
         return int(Exit.CANNOT_RECORD)
     door = uplink.Uplink(
@@ -265,7 +265,7 @@ async def _serve(
         await door.aclose()
         journal.close()
     if result in _FINAL_WORDS:
-        typer.echo(f"choregos-outpost: {_FINAL_WORDS[result]}", err=True)
+        typer.echo(f"tranibor-outpost: {_FINAL_WORDS[result]}", err=True)
     return int(result)
 
 
@@ -290,7 +290,7 @@ def run(
         raise _fail(str(error), CANNOT_START) from error
     if enrolment is None:
         raise _fail(
-            f"{settings.identity_dir} holds keys that never enrolled: run `choregos-outpost enrol`", 2
+            f"{settings.identity_dir} holds keys that never enrolled: run `tranibor-outpost enrol`", 2
         )
     raise typer.Exit(asyncio.run(_serve(settings, loaded, own, enrolment.instance_id, grace_s)))
 

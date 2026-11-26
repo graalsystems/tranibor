@@ -33,14 +33,16 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import httpx
+from tranibor_contracts import wire
 
 from ..http.egress import guarded
 from .base import Changes, SourceItem, SourceRefusedError
 
-USER_AGENT = "ChoregosKnowledge/1.0 (+https://choregos.dev)"
+#: The former product token is sent beside the new one for the window of ADR 0226: a site keyed on it.
+USER_AGENT = "TraniborKnowledge/1.0 ChoregosKnowledge/1.0 (+https://tranibor.dev)"
 #: The names a site's `robots.txt` may address the crawler by: its historical one, and the platform's
 #: (ADR 0070). A page either of them is refused is not read; the longer `Crawl-delay` wins.
-ROBOTS_TOKENS = ("ChoregosKnowledge", "Choregos")
+ROBOTS_TOKENS = (*wire.ROBOTS_TOKENS, *wire.FORMER_ROBOTS_TOKENS)
 MAX_DEPTH = 5
 MAX_PAGES = 500
 MAX_PAGE_BYTES = 5 * 1024 * 1024
@@ -179,7 +181,7 @@ class WebCrawlSource:
             if not (300 <= response.status_code < 400 and location):
                 return url, response
             target = urldefrag(urljoin(url, location))[0]
-            if not self._inside(target) or (robots is not None and not robots.can_fetch(USER_AGENT, target)):
+            if not self._inside(target) or (robots is not None and not self._can_fetch(robots, target)):
                 return url, response
             url = target
         return url, response

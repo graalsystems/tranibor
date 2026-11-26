@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Helpers for the tests of the public pages (`docs/site/`, S62-09b): run a page's CLI command for real.
 
-`run_cli` runs a `choregos …` command line, as a page prints it, through the CLI's own Typer app, and
+`run_cli` runs a `tranibor …` command line, as a page prints it, through the CLI's own Typer app, and
 sends the HTTP requests the command makes to the test's ASGI application instead of a server. The CLI
 is synchronous, so the command runs in a thread while the event loop serves its requests.
 """
@@ -54,10 +54,10 @@ def to_test_org(words: list[str]) -> list[str]:
 
 
 async def run_cli(http: AsyncClient, words: list[str], cwd: Path | None = None) -> Result:
-    """Run `choregos <words[1:]>` against the test application, with the session `http` holds."""
+    """Run `tranibor <words[1:]>` against the test application, with the session `http` holds."""
     from tranibor_cli import main
 
-    assert words[0] == "choregos", words
+    assert words[0] == "tranibor", words
     loop = asyncio.get_running_loop()
     forward = _Forward(http, loop)
 

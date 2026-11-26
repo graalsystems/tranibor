@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""A scriptable fake outpost (ADR 0005): what the daemon `choregos-outpost` does with a call, and,
+"""A scriptable fake outpost (ADR 0005): what the daemon `tranibor-outpost` does with a call, and,
 for a platform that has no door to meet it at, the rendezvous itself, in memory.
 
 It has two sides, and a test picks the one it needs.

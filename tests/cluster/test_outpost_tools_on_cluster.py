@@ -12,7 +12,7 @@ answer that connection "refused", or serve it: that is the difference this test 
   outposts switched on, the door at the in-cluster Service's origin, its signing key, the key
   wrapper and the run tokens' key derived from labels;
 - **the outpost**, in another: the daemon image (`choregos-outpost:dev`) installed with
-  `charts/choregos-outpost` and its NetworkPolicy, and a test MCP server beside it behind the alias
+  `charts/tranibor-outpost` and its NetworkPolicy, and a test MCP server beside it behind the alias
   (`assets/outpost_mcp_server.py`), which a NetworkPolicy of the test opens to the daemon's pods
   only, as the chart's own `servers` are.
 
@@ -56,7 +56,7 @@ pytestmark = [pytest.mark.cluster, pytest.mark.slow]
 #: The two images, as `make images` tags them; another tag can be named for a bench of one's own.
 API_IMAGE = os.environ.get("TRANIBOR_CLUSTER_API_IMAGE", "choregos-api:dev")
 OUTPOST_IMAGE = os.environ.get("TRANIBOR_CLUSTER_OUTPOST_IMAGE", "choregos-outpost:dev")
-CHART = Path(__file__).parents[2] / "charts" / "choregos-outpost"
+CHART = Path(__file__).parents[2] / "charts" / "tranibor-outpost"
 SERVER_SCRIPT = Path(__file__).parent / "assets" / "outpost_mcp_server.py"
 RELEASE = "site"
 SLUG = "factory-floor"

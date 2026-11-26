@@ -84,7 +84,7 @@ from tranibor_api.services import (
     tracker_is_internal,
 )
 from tranibor_api.services.initiator import initiator
-from tranibor_contracts import EventType
+from tranibor_contracts import EventType, wire
 from tranibor_core import elapsed_seconds, utcnow
 from tranibor_core.agent_catalogue import PLUGIN_CASE, plugin_ref
 from tranibor_core.tool_scripts_switch import tool_scripts_refusal
@@ -1463,7 +1463,7 @@ def _agent_case_verdict(
 
 
 async def _parity_of(session: Any, run: Run, events: list[RunEvent]) -> str:
-    """`eval_live_cases.parity` on the run's rows: its ledger's tool lines, its `choregos.tool.called`
+    """`eval_live_cases.parity` on the run's rows: its ledger's tool lines, its `tranibor.tool.called`
     events, its bridge's `tools.script.call` lines."""
     booked = (
         await session.execute(
@@ -1475,7 +1475,9 @@ async def _parity_of(session: Any, run: Run, events: list[RunEvent]) -> str:
     called = (
         (
             await session.execute(
-                select(Event.payload).where(Event.subject == run.id, Event.type == str(EventType.TOOL_CALLED))
+                select(Event.payload).where(
+                    Event.subject == run.id, Event.type.in_(wire.event_type_twins(EventType.TOOL_CALLED))
+                )
             )
         )
         .scalars()
@@ -1512,7 +1514,7 @@ def _unfaithful_door(run: Run, events: list[RunEvent], tools: str) -> str:
 
 
 async def _observed(session: Any, run: Run, events: list[RunEvent], tools: str) -> dict[str, Any]:
-    """What a live run did with its tools, for the cell's line: its calls from `choregos.tool.called`
+    """What a live run did with its tools, for the cell's line: its calls from `tranibor.tool.called`
     (origin `model` when the event has none, before S57-05), its security events, its actions, its scripts
     from the journal (no exit code: a live run's is the agent's shell's, which the platform does not see)."""
     rows = (
@@ -1521,7 +1523,12 @@ async def _observed(session: Any, run: Run, events: list[RunEvent], tools: str) 
                 select(Event)
                 .where(
                     Event.subject == run.id,
-                    Event.type.in_([str(EventType.TOOL_CALLED), str(EventType.SECURITY_INJECTION_SUSPECTED)]),
+                    Event.type.in_(
+                        [
+                            *wire.event_type_twins(EventType.TOOL_CALLED),
+                            *wire.event_type_twins(EventType.SECURITY_INJECTION_SUSPECTED),
+                        ]
+                    ),
                 )
                 .order_by(Event.ts)
             )
@@ -1531,7 +1538,7 @@ async def _observed(session: Any, run: Run, events: list[RunEvent], tools: str) 
     )
     actions = (await session.execute(select(Action).where(Action.run_id == run.id))).scalars().all()
     journal = [
-        {"type": event.type, "payload": event.payload or {}}
+        {"type": wire.event_type(event.type), "payload": event.payload or {}}
         for event in events
         if event.type in {SCRIPT_EVENT, SCRIPT_CALL_EVENT}
     ]
@@ -1546,15 +1553,15 @@ async def _observed(session: Any, run: Run, events: list[RunEvent], tools: str) 
                 "status_code": (row.payload or {}).get("status_code"),
             }
             for row in rows
-            if row.type == str(EventType.TOOL_CALLED)
+            if wire.event_type(row.type) == EventType.TOOL_CALLED
         ],
         "actions": [
             {"tool": action.kind.replace(".", "__", 1), "status": action.status} for action in actions
         ],
         "security_events": [
-            {"type": row.type, "tool": (row.payload or {}).get("tool")}
+            {"type": wire.event_type(row.type), "tool": (row.payload or {}).get("tool")}
             for row in rows
-            if row.type == str(EventType.SECURITY_INJECTION_SUSPECTED)
+            if wire.event_type(row.type) == EventType.SECURITY_INJECTION_SUSPECTED
         ],
         "scripts": eval_doors.scripts_of({"journal": journal}),
     }

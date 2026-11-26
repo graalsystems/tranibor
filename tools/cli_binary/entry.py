@@ -1,7 +1,7 @@
-"""The native binary's entry point (S62-07): the `choregos` console script, writing UTF-8.
+"""The native binary's entry point (S62-07): the `tranibor` console script, writing UTF-8.
 
 A Python started by hand on Windows writes to a pipe or a file in the locale's code page (cp1252),
-where `✓` and `✗` cannot be encoded: `choregos workflow validate x.yaml > out.txt` would die on its
+where `✓` and `✗` cannot be encoded: `tranibor workflow validate x.yaml > out.txt` would die on its
 first line. A Python has `PYTHONUTF8=1` for that; a binary without a Python gets it here.
 """
 

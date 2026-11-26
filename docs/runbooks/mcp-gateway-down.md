@@ -24,7 +24,7 @@ namespace), not a gateway one.
 1. Run the test endpoint and read the failure it names:
    `curl -X POST -H "Authorization: Bearer $TOKEN" $API/api/v1/orgs/$ORG/mcp-gateway/test`
 2. The gateway's own egress: check the `global.mcpGateway` NetworkPolicy lets the API reach the
-   gateway host (`kubectl -n choregos get networkpolicy`).
+   gateway host (`kubectl -n tranibor get networkpolicy`).
 3. The organisation's egress rules of origin `mcp-gateway` must name the gateway host: list them on
    the organisation's network page, or query the `network_rules` table.
 4. With `jwt_assertion`, the gateway must reach the JWKS URL of the API to verify the assertion:

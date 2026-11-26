@@ -228,7 +228,10 @@ async def test_a_policy_accepted_but_not_enforced_fails_and_names_it() -> None:
     kinds = cluster.created_kinds()
     assert kinds == ["Namespace", "NetworkPolicy", "Pod", "Pod", "Pod"]
     fenced = cluster.created[-1][1]
-    assert fenced["metadata"]["labels"]["app.kubernetes.io/name"] == "choregos-runner"
+    assert (
+        fenced["metadata"]["labels"]["app.kubernetes.io/name"]
+        == cluster_check.RUNNER_POD_LABELS["app.kubernetes.io/name"]
+    )
 
 
 async def test_the_server_unreachable_without_a_policy_is_inconclusive_not_a_pass() -> None:
@@ -399,7 +402,7 @@ def test_the_values_files_are_read_as_helm_merges_them(tmp_path: Path) -> None:
                     "objectStore": {"endpoint": "http://rustfs:9000", "embedded": False},
                 },
                 "monitoring": {"flavour": "victoriametrics", "alerts": False},
-                "choregos-orchestrator": {
+                "tranibor-orchestrator": {
                     "runner": {
                         "egressGate": {"enabled": True, "target": "192.0.2.1:443", "deadlineSeconds": 20}
                     }

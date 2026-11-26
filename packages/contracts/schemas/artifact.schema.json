@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/artifact.schema.json",
+  "$id": "https://tranibor.dev/schemas/artifact.schema.json",
   "title": "Artifact",
   "description": "One revision of a named output of a work item: typed, stored and traced (ADR 0049).",
   "type": "object",

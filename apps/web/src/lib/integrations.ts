@@ -149,9 +149,9 @@ export function extrait(
       if (enregistre) {
         const port = enregistre.callback_port ? ` --callback-port ${enregistre.callback_port}` : "";
         return {
-          where: "a terminal — then /mcp in Claude Code, choose choregos and Authenticate: your browser signs you in",
+          where: "a terminal — then /mcp in Claude Code, choose tranibor and Authenticate: your browser signs you in",
           language: "bash",
-          code: `claude mcp add --transport http --client-id ${enregistre.client_id}${port} choregos ${url}`,
+          code: `claude mcp add --transport http --client-id ${enregistre.client_id}${port} tranibor ${url}`,
         };
       }
       return {
@@ -159,7 +159,7 @@ export function extrait(
         language: "bash",
         code: [
           `export TRANIBOR_TOKEN=${token}`,
-          `claude mcp add --transport http choregos ${url} --header "Authorization: Bearer $TRANIBOR_TOKEN"`,
+          `claude mcp add --transport http tranibor ${url} --header "Authorization: Bearer $TRANIBOR_TOKEN"`,
         ].join("\n"),
       };
     case "claude-desktop":
@@ -169,7 +169,7 @@ export function extrait(
         code: JSON.stringify(
           {
             mcpServers: {
-              choregos: {
+              tranibor: {
                 command: "npx",
                 args: ["-y", "mcp-remote", url, "--header", "Authorization:${AUTH}", ...(http ? ["--allow-http"] : [])],
                 env: { AUTH: `Bearer ${token}` },
@@ -185,7 +185,7 @@ export function extrait(
         where: "~/.cursor/mcp.json — then export TRANIBOR_TOKEN in your shell",
         language: "json",
         code: JSON.stringify(
-          { mcpServers: { choregos: { url, headers: { Authorization: "Bearer ${env:TRANIBOR_TOKEN}" } } } },
+          { mcpServers: { tranibor: { url, headers: { Authorization: "Bearer ${env:TRANIBOR_TOKEN}" } } } },
           null,
           2,
         ),
@@ -196,8 +196,8 @@ export function extrait(
         language: "json",
         code: JSON.stringify(
           {
-            inputs: [{ type: "promptString", id: "choregos-token", description: "Tranibor MCP token", password: true }],
-            servers: { choregos: { type: "http", url, headers: { Authorization: "Bearer ${input:choregos-token}" } } },
+            inputs: [{ type: "promptString", id: "tranibor-token", description: "Tranibor MCP token", password: true }],
+            servers: { tranibor: { type: "http", url, headers: { Authorization: "Bearer ${input:tranibor-token}" } } },
           },
           null,
           2,
@@ -215,7 +215,7 @@ export function extrait(
       return {
         where: "a terminal — the CLI needs a full-access token, created in My account (Create an API token)",
         language: "bash",
-        code: `choregos login --api-url ${origineDe(url)} --token <full-access token>`,
+        code: `tranibor login --api-url ${origineDe(url)} --token <full-access token>`,
       };
     case "rest":
       return {

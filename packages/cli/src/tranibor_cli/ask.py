@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos ask`: one turn of a durable conversation with an assistant, streamed, scriptable (ADR 0154 §3).
+"""`tranibor ask`: one turn of a durable conversation with an assistant, streamed, scriptable (ADR 0154 §3).
 
 The terminal is a surface of the platform, not an agent: the turn runs on the platform, under the assistant's
 installation, its caps and its audit; nothing runs here. The conversation is the durable one of ADR 0134, so a
 conversation opened here is resumed in the console, through the MCP door or here again (`--conversation`,
 `--continue`).
 
-Standard output carries the answer and nothing else, so `choregos ask "…" > answer.md` keeps only it. What a
+Standard output carries the answer and nothing else, so `tranibor ask "…" > answer.md` keeps only it. What a
 person reads beside it goes to standard error: the conversation's id, the tokens and the money, and every
 write the assistant proposed during this turn with where to confirm it. A write is never confirmed from here:
 the confirmation is the console's until a developer-surface session exists (ADR 0154 §6-7).
@@ -109,7 +109,7 @@ def _message(message: str | None) -> str:
 
     text = sys.stdin.read() if message in (None, "-") else str(message)
     if not text.strip():
-        main.fail("nothing to ask: give a message, or pipe one into `choregos ask -`")
+        main.fail("nothing to ask: give a message, or pipe one into `tranibor ask -`")
     return text
 
 
@@ -136,7 +136,7 @@ def _assistant(api: Client, organisation: str, chosen: str | None) -> str:
     if chosen:
         found = next((a for a in mine if a.get("slug") == chosen), None)
         if found is None:
-            raise AskError(f"no assistant `{chosen}` for you in {organisation} (`choregos ask --help`)")
+            raise AskError(f"no assistant `{chosen}` for you in {organisation} (`tranibor ask --help`)")
         if found.get("status") != "ready":
             raise AskError(f"the assistant `{chosen}` is {found.get('status')}: its owners must complete it")
         return chosen

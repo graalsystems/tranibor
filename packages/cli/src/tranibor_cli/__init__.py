@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""CLI `choregos`."""
+"""CLI `tranibor`."""
 
 from __future__ import annotations
 

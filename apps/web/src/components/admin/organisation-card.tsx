@@ -143,7 +143,7 @@ export function OrganisationCard({ org, canEdit }: { org: string; canEdit: boole
                 it is updated: console URLs already copied, MCP addresses{" "}
                 <code className="font-mono">/mcp/projects/{org}:&lt;project&gt;</code>, A2A addresses{" "}
                 <code className="font-mono">/a2a/orgs/{org}</code>, identity-provider groups{" "}
-                <code className="font-mono">choregos:{org}:&lt;group&gt;</code> and CLI profiles{" "}
+                <code className="font-mono">tranibor:{org}:&lt;group&gt;</code> and CLI profiles{" "}
                 <code className="font-mono">--org {org}</code>. Projects, members, tokens and global memories follow. Type the new
                 slug to confirm.
               </>

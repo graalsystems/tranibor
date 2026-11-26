@@ -33,7 +33,7 @@ fields:
 - The project key.
 - The platform's shared webhook secret (`TRANIBOR_GENERIC_WEBHOOK_SECRET`), held by whoever operates
   Tranibor. Jira Cloud does not sign webhooks, so the platform accepts a delivery only if it carries this
-  secret in an `X-Choregos-Secret` header.
+  secret in an `X-Tranibor-Secret` header.
 
 ## At Atlassian
 
@@ -49,11 +49,11 @@ fields:
 2. **The project.** Jira project, **Project settings**, **People** (or **Access**): add the account
    with a role that holds the permissions below. **A token's scopes give no right on a project by
    themselves**: without this step every call answers `404` or `403`.
-3. **Webhook.** The endpoint is `{{webhook_url:jira}}` and it requires the header `X-Choregos-Secret`.
+3. **Webhook.** The endpoint is `{{webhook_url:jira}}` and it requires the header `X-Tranibor-Secret`.
    Jira's own System, **WebHooks** screen lets you set a URL; check there whether it can add a header.
    If it cannot, use a **Jira Automation** rule: trigger on issue created, issue updated and comment
    added in the project, action **Send web request** to that URL with a custom header
-   `X-Choregos-Secret`. This path has not been exercised against a live site from this repository.
+   `X-Tranibor-Secret`. This path has not been exercised against a live site from this repository.
 
 ## Permissions
 
@@ -99,7 +99,7 @@ tools its version names, under each tool connector's account, listed on its run.
    returns it: it is hidden unless the person's profile shows it), the **labels**, and the **answers**
    of the issue's form: every non-empty custom field, keyed by its display name, as text (an option's
    value, a user's name, a list joined with commas, rich text as plain text), each cut at 2000
-   characters. Agents read it as `ticket.fields.tracker`, jobs in `.choregos/fields.json`. It is the
+   characters. Agents read it as `ticket.fields.tracker`, jobs in `.tranibor/fields.json`. It is the
    requester's text, never an instruction. Each webhook delivery refreshes it; an issue the poll alone
    feeds keeps what it said when it was taken on.
 
@@ -119,8 +119,9 @@ the board.
 - `404` on the project: wrong `project_key`, or the account is not in the project (step 2 at Atlassian).
 - `cannot read the cloud id`: the site's `/_edge/tenant_info` did not answer; set `cloud_id` by hand
   (it is on that page, from a browser).
-- A webhook answered `401 invalid shared secret`: the `X-Choregos-Secret` header is missing or differs
-  from the platform's shared secret.
+- A webhook answered `401 invalid shared secret`: the `X-Tranibor-Secret` header is missing or differs
+  from the platform's shared secret. A rule written before 0.30.0 sends `X-Choregos-Secret`: it is still
+  accepted until 0.32.0; rename the header in the rule before then.
 - Nothing starts after labelling: the label must be exactly `agent-ready`, and the webhook must reach
   this platform from Jira.
 - A timeout: the egress allowlist must open the Atlassian site and, for a scoped token,

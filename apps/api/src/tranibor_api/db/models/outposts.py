@@ -50,7 +50,7 @@ class Outpost(Base, PkMixin, TimestampMixin):
 
 
 class OutpostInstance(Base, TimestampMixin):
-    """One copy of the daemon `choregos-outpost`, with keys made on the spot (ADR 0147 §2). Public
+    """One copy of the daemon `tranibor-outpost`, with keys made on the spot (ADR 0147 §2). Public
     halves only: the platform never holds a private key of an instance.
 
     The id starts with its outpost's id (`services.outposts.outpost_id_of_instance`): a request signed

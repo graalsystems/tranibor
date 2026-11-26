@@ -49,8 +49,8 @@ steps:
   - repo.scaffold_pr:
       files:
         - AGENTS.md
-        - .choregos/workflow.yaml
-        - .choregos/policy.yaml
+        - .tranibor/workflow.yaml
+        - .tranibor/policy.yaml
         - tekton/pipeline.yaml
         - deploy/kustomization.yaml
         - .github/PULL_REQUEST_TEMPLATE.md

@@ -1,5 +1,5 @@
 {
-  "schema": "choregos/DemoHistory/v1",
+  "schema": "tranibor/DemoHistory/v1",
   "prices": {
     "anthropic/claude-sonnet-5": {
       "input_usd_per_mtok": 3.0,

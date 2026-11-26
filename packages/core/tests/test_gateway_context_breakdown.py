@@ -30,7 +30,7 @@ RUN_ID = "PROJ-7-implement-1"
 CANARY = "canary-90b1-the-ticket-said-this"
 PLAYBOOK = (
     "You implement one step of the workflow. Read the task, change the code it names, run the tests,\n"
-    "then write `.choregos/result.json` with the step's status and a summary of what you changed."
+    "then write `.tranibor/result.json` with the step's status and a summary of what you changed."
 )
 TASK = (
     "# Task\n\n"
@@ -41,8 +41,8 @@ CLAUDE_MD = (
     "# Instructions (Tranibor)\n\n"
     "This repository follows `AGENTS.md`. In addition, for this step:\n\n"
     "- Work item: PROJ-7 — Discounts\n- Role: implement\n"
-    "- Allowed paths: see `.choregos/allowed_paths.txt`.\n"
-    "- Finish by writing `.choregos/result.json`."
+    "- Allowed paths: see `.tranibor/allowed_paths.txt`.\n"
+    "- Finish by writing `.tranibor/result.json`."
 )
 SKILL = (
     "---\nname: pricing\ndescription: The pricing rules.\n---\n\n"

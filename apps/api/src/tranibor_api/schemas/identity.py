@@ -116,7 +116,7 @@ class BrowserSessionDto(Dto):
     id: str
     #: How it was opened: `oidc`, `saml`, `dev`...
     channel: str
-    #: What holds it (ADR 0154 §6): the console's cookie, `choregos login`, an editor extension.
+    #: What holds it (ADR 0154 §6): the console's cookie, `tranibor login`, an editor extension.
     kind: Literal["browser", "cli", "editor"] = "browser"
     created_at: datetime
     expires_at: datetime

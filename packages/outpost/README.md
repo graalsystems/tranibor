@@ -1,4 +1,4 @@
-# choregos-outpost
+# tranibor-outpost
 
 The daemon an outpost's operator installs in their own network
 ([ADR 0147](../../docs/adr/0147-an-outpost-only-dials-out.md),
@@ -25,9 +25,9 @@ This page is the package's own. The guide for whoever runs an outpost is a separ
 ## Commands
 
 ```
-choregos-outpost enrol    # make the keys, present an enrolment token, print the fingerprint to compare
-choregos-outpost run      # poll the door and make the calls the policy file allows
-choregos-outpost doctor   # check the policy, the path to the door, the clock and each endpoint
+tranibor-outpost enrol    # make the keys, present an enrolment token, print the fingerprint to compare
+tranibor-outpost run      # poll the door and make the calls the policy file allows
+tranibor-outpost doctor   # check the policy, the path to the door, the clock and each endpoint
 ```
 
 Options come before the command, or from the environment:

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from datetime import timedelta
@@ -43,6 +44,7 @@ from .metric_series import (  # noqa: F401 - the names `metrics` has always expo
     declare_series,
     emitted_names,
     forget_series,
+    former_name,
 )
 from .services.personal_spaces import PERSONAL, is_personal
 
@@ -108,68 +110,68 @@ class PlatformCollector(Collector):
         # what an operator is connected to is to call `/edition` by hand, and nothing says it in
         # the history of the metrics.
         edition = GaugeMetricFamily(
-            "choregos_edition_info", "Edition that is running (ADR 0024)", labels=["edition", "version"]
+            "tranibor_edition_info", "Edition that is running (ADR 0024)", labels=["edition", "version"]
         )
         edition.add_metric([current_edition(), __version__], 1.0)
         yield edition
-        yield GaugeMetricFamily("choregos_runs_active", "Runs queued or running", value=s.runs_active)
-        g = GaugeMetricFamily("choregos_runs_total", "Runs by final state", labels=["status"])
+        yield GaugeMetricFamily("tranibor_runs_active", "Runs queued or running", value=s.runs_active)
+        g = GaugeMetricFamily("tranibor_runs_total", "Runs by final state", labels=["status"])
         for status, n in s.runs_total.items():
             g.add_metric([status], n)
         yield g
         yield HistogramMetricFamily(
-            "choregos_run_start_seconds",
+            "tranibor_run_start_seconds",
             "From the creation of a run to its start (last 30 days)",
             buckets=s.run_start[0],
             sum_value=s.run_start[1],
         )
         g = GaugeMetricFamily(
-            "choregos_cost_usd_total", "Spend in the ledger, USD", labels=["project", "stage", "model"]
+            "tranibor_cost_usd_total", "Spend in the ledger, USD", labels=["project", "stage", "model"]
         )
         for (project, stage, model), v in s.cost.items():
             g.add_metric([project, stage, model], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_project_daily_cost_usd", "Spend of the day (UTC) per project", labels=["project"]
+            "tranibor_project_daily_cost_usd", "Spend of the day (UTC) per project", labels=["project"]
         )
         for project, v in s.daily_cost.items():
             g.add_metric([project], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_project_daily_budget_usd", "Daily budget of the policy", labels=["project"]
+            "tranibor_project_daily_budget_usd", "Daily budget of the policy", labels=["project"]
         )
         for project, v in s.daily_budget.items():
             g.add_metric([project], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_first_pass_merge_rate", "Share of PRs merged on the first pass", labels=["project"]
+            "tranibor_first_pass_merge_rate", "Share of PRs merged on the first pass", labels=["project"]
         )
         for project, v in s.first_pass.items():
             g.add_metric([project], v)
         yield g
         yield HistogramMetricFamily(
-            "choregos_lead_time_seconds",
+            "tranibor_lead_time_seconds",
             "From the creation of a ticket to its closing (last 90 days)",
             buckets=s.lead_time[0],
             sum_value=s.lead_time[1],
         )
         g = GaugeMetricFamily(
-            "choregos_permission_denials_total", "Permission requests refused", labels=["project"]
+            "tranibor_permission_denials_total", "Permission requests refused", labels=["project"]
         )
         for project, v in s.denials.items():
             g.add_metric([project], v)
         yield g
         yield GaugeMetricFamily(
-            "choregos_memory_pending", "Memory facts awaiting validation", value=s.memory_pending
+            "tranibor_memory_pending", "Memory facts awaiting validation", value=s.memory_pending
         )
         g = GaugeMetricFamily(
-            "choregos_context_pack_empty_total", "Runs started with an empty context pack", labels=["project"]
+            "tranibor_context_pack_empty_total", "Runs started with an empty context pack", labels=["project"]
         )
         for project, v in s.context_pack_empty.items():
             g.add_metric([project], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_outpost_poll_conflicts_total",
+            "tranibor_outpost_poll_conflicts_total",
             "Alerts raised for a second poll under one outpost instance's key (ADR 0148)",
             labels=["org"],
         )
@@ -177,7 +179,7 @@ class PlatformCollector(Collector):
             g.add_metric([org], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_audit_export_lag_entries",
+            "tranibor_audit_export_lag_entries",
             "Audit entries written and not yet accepted by the SIEM sink (ADR 0207)",
             labels=["sink"],
         )
@@ -185,7 +187,7 @@ class PlatformCollector(Collector):
             g.add_metric([sink], v)
         yield g
         g = GaugeMetricFamily(
-            "choregos_audit_export_progress_timestamp_seconds",
+            "tranibor_audit_export_progress_timestamp_seconds",
             "When the SIEM sink's cursors last moved (ADR 0207)",
             labels=["sink"],
         )
@@ -199,8 +201,31 @@ class PlatformCollector(Collector):
 registry.register(PlatformCollector())
 
 
+class _WithFormerNames:
+    """The registry, each `tranibor_*` family followed by its `choregos_*` twin, the same samples under the
+    former name (ADR 0226, R9b; `metric_series.PREFIX` says why and what it costs). The twin is built at
+    exposure, from the family itself: a process counter and a snapshot gauge are counted once and served
+    twice, so the two names can never disagree."""
+
+    def __init__(self, source: CollectorRegistry) -> None:
+        self.source = source
+
+    def collect(self) -> Iterable[Any]:
+        for family in self.source.collect():
+            yield family
+            twin_name = former_name(family.name)
+            if twin_name is None:
+                continue
+            twin = copy.copy(family)
+            twin.name = twin_name
+            twin.samples = [
+                sample._replace(name=former_name(sample.name) or sample.name) for sample in family.samples
+            ]
+            yield twin
+
+
 def expose() -> bytes:
-    return generate_latest(registry)
+    return generate_latest(_WithFormerNames(registry))
 
 
 async def refresh() -> Snapshot:

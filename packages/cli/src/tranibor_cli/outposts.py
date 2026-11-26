@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos outposts`: an organisation's outposts and their instances (ADR 0147).
+"""`tranibor outposts`: an organisation's outposts and their instances (ADR 0147).
 
 An outpost is a place a person enrols, of one organisation, that only dials out to the platform. These
 commands are its administrator's (`outpost:manage`): they call the management routes
 (`/orgs/{org}/outposts…`) and nothing else. The door an outpost dials is its daemon's business
-(`choregos-outpost`), never this CLI's.
+(`tranibor-outpost`), never this CLI's.
 
 What the operator of the outpost needs is printed ready to use: the lines of the policy file, which
-pin the door's keys (ADR 0148 §13), and the `choregos-outpost enrol` command. Those lines are printed
+pin the door's keys (ADR 0148 §13), and the `tranibor-outpost enrol` command. Those lines are printed
 as they are and never wrapped: a token or a key cut by the width of a terminal is one nobody can paste.
 """
 
@@ -24,8 +24,12 @@ from .client import ApiError, Client, NoOrganisationError
 outposts_app = typer.Typer(help="Outposts: places that only dial out to the platform, and their instances")
 console = Console()
 
-#: Where the daemon reads its policy unless told otherwise (`choregos-outpost --policy`).
+#: Where the daemon reads its policy unless told otherwise (`tranibor-outpost --policy`).
 POLICY_FILE = "/etc/choregos-outpost/policy.yaml"
+#: The command the outpost's operator runs (ADR 0226, R5: the outpost image has had it since 0.30.0); an
+#: outpost installed earlier has only the former daemon's name, said once beside it.
+ENROL_COMMAND = "tranibor-outpost enrol"
+FORMER_DAEMON = "choregos-outpost"
 #: Where a person approves an instance: the API takes no approval from a token.
 CONSOLE_PAGE = "Administration → Outposts"
 #: The code of the API's 403 when a token tries to approve (S65-24): a refusal of rights has none.
@@ -33,7 +37,7 @@ APPROVAL_REQUIRES_SESSION = "approval_requires_session"
 
 OrgOption = Annotated[str | None, typer.Option("--org", help="the organisation; the profile's otherwise")]
 InstanceArgument = Annotated[
-    str, typer.Argument(help="the instance's id, as `choregos outposts instances` shows it")
+    str, typer.Argument(help="the instance's id, as `tranibor outposts instances` shows it")
 ]
 
 
@@ -102,7 +106,7 @@ def create(
 ) -> None:
     """Create an outpost of the organisation, with no instance yet.
 
-    An instance comes from an enrolment token (`choregos outposts token`) and a person's approval.
+    An instance comes from an enrolment token (`tranibor outposts token`) and a person's approval.
     Refused while the deployment keeps outposts switched off.
     """
     api, organisation = _target(org)
@@ -111,7 +115,7 @@ def create(
         body["display_name"] = display_name
     outpost = api.post(f"/orgs/{organisation}/outposts", json=body)
     _done(f"outpost `{outpost['slug']}` created: {outpost['status']}, no instance yet")
-    _verbatim(f"  enrol its first instance with a token: choregos outposts token {outpost['slug']}")
+    _verbatim(f"  enrol its first instance with a token: tranibor outposts token {outpost['slug']}")
 
 
 @outposts_app.command("list")
@@ -210,7 +214,7 @@ def revoke(slug: str, org: OrgOption = None) -> None:
 def delete(slug: str, org: OrgOption = None) -> None:
     """Delete a revoked outpost, with its instances and what is left of its calls.
 
-    Refused while connectors still route to it (`choregos outposts show` names them), and while it is
+    Refused while connectors still route to it (`tranibor outposts show` names them), and while it is
     not revoked.
     """
     api, organisation = _target(org)
@@ -230,7 +234,7 @@ def token(
 
     Single use, valid 15 minutes at most. It is printed with what the outpost's operator needs: the
     lines of the policy file (the door's origin and the door's keys to pin) and the
-    `choregos-outpost enrol` command to run there. The instance it enrols is born pending, and is
+    `tranibor-outpost enrol` command to run there. The instance it enrols is born pending, and is
     handed nothing until a person approves it in the console.
     """
     api, organisation = _target(org)
@@ -249,14 +253,18 @@ def token(
     _verbatim()
     _verbatim("2. On the outpost's machine, before the token expires:")
     _verbatim()
-    _verbatim(f"choregos-outpost enrol --token {created['token']}")
+    _verbatim(f"{ENROL_COMMAND} --token {created['token']}")
+    _verbatim()
+    _verbatim(
+        f"   An outpost installed before 0.30.0 has the same command under its former name, {FORMER_DAEMON}."
+    )
     _verbatim()
     _verbatim(
         "3. `enrol` prints the fingerprint of the instance's signing key. Approve the pending instance in "
         f"the console ({CONSOLE_PAGE} → {slug}) only if the fingerprint shown there is that one."
     )
     _verbatim()
-    _verbatim(f"Pasted in the wrong place? Cancel it: choregos outposts cancel-token {slug} {created['id']}")
+    _verbatim(f"Pasted in the wrong place? Cancel it: tranibor outposts cancel-token {slug} {created['id']}")
 
 
 @outposts_app.command("tokens")
@@ -264,7 +272,7 @@ def tokens(slug: str, org: OrgOption = None) -> None:
     """The enrolment tokens of the outpost that can still enrol an instance, newest first.
 
     Never a token itself: the platform keeps its digest only. An instance names the token it enrolled
-    with (`choregos outposts instances`).
+    with (`tranibor outposts instances`).
     """
     api, organisation = _target(org)
     listed = api.get(f"/orgs/{organisation}/outposts/{slug}/enrolments")["items"]
@@ -280,19 +288,19 @@ def tokens(slug: str, org: OrgOption = None) -> None:
             enrolment["expires_at"],
         )
     console.print(table)
-    _verbatim(f"cancel one: choregos outposts cancel-token {slug} <token>")
+    _verbatim(f"cancel one: tranibor outposts cancel-token {slug} <token>")
 
 
 @outposts_app.command("cancel-token")
 def cancel_token(
     slug: str,
-    enrolment: Annotated[str, typer.Argument(help="the token's id, as `choregos outposts tokens` shows it")],
+    enrolment: Annotated[str, typer.Argument(help="the token's id, as `tranibor outposts tokens` shows it")],
     org: OrgOption = None,
 ) -> None:
     """Cancel an enrolment token that enrolled nothing: from now on it enrols no instance.
 
     A token that already enrolled an instance is not cancelled (409 `enrolment_used`): revoke that
-    instance instead (`choregos outposts revoke-instance`).
+    instance instead (`tranibor outposts revoke-instance`).
     """
     api, organisation = _target(org)
     api.delete(f"/orgs/{organisation}/outposts/{slug}/enrolments/{enrolment}")
@@ -305,7 +313,7 @@ def instances(slug: str, org: OrgOption = None) -> None:
     api, organisation = _target(org)
     listed = api.get(f"/orgs/{organisation}/outposts/{slug}/instances")["items"]
     if not listed:
-        _verbatim(f"no instance yet: enrol one with `choregos outposts token {slug}`")
+        _verbatim(f"no instance yet: enrol one with `tranibor outposts token {slug}`")
         return
     for instance in listed:
         facts = " ".join(f"{name}={value}" for name, value in sorted((instance.get("facts") or {}).items()))
@@ -347,7 +355,7 @@ def approve(
         str,
         typer.Option(
             "--fingerprint",
-            help="the fingerprint `choregos-outpost enrol` printed on the outpost's machine, as read there",
+            help="the fingerprint `tranibor-outpost enrol` printed on the outpost's machine, as read there",
         ),
     ],
     org: OrgOption = None,
@@ -439,4 +447,4 @@ def calls(
     _verbatim("arguments: the first 12 characters of their SHA-256, as the outpost's own audit log writes it")
     meta = page.get("meta") or {}
     if meta.get("has_more") and meta.get("next_cursor"):
-        _verbatim(f"older calls: choregos outposts calls {slug} --cursor {meta['next_cursor']}")
+        _verbatim(f"older calls: tranibor outposts calls {slug} --cursor {meta['next_cursor']}")

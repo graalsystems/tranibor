@@ -92,7 +92,7 @@ platform fills.
    per argument rather than an `arguments_from` mapping, because the governed action already renders
    these templates for pfSense, so a plugin's compensation runs through the same code; and
    `platform_arguments` (`action_key`, `work_item_key`), filled by the platform, whatever the agent wrote
-   under those names being dropped.
+   under those names being dropped. *Amended 2026-11-26 (S86-06, ADR 0224 §6a):* a deployment may list private CIDRs (`plugins.servers.privateCidrs`, bound per organisation in a multi-organisation deployment); a host resolving inside one is admitted for its organisation and the policy opens that host's resolved address and port only (`toCIDR` with Cilium). Metadata and link-local stay closed whatever is listed.
 
 ## Consequences
 

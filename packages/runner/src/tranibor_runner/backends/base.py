@@ -62,7 +62,7 @@ class Backend:
     capabilities: ClassVar[frozenset[str]] = frozenset({"acp"})
     model_constraint: ClassVar[tuple[str, ...]] = ()
     #: Where the backend reads an agent's skills (ADR 0033); `None`: it reads none, and the runner
-    #: puts them under `.choregos/skills` with their index in the prompt.
+    #: puts them under `.tranibor/skills` with their index in the prompt.
     skills_dir: ClassVar[str | None] = None
     #: The shell filters its launch plan wires (ADR 0055). Another one asked of it is not applied,
     #: and the run says so.

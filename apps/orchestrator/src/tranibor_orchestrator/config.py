@@ -47,7 +47,7 @@ class OrchestratorSettings(BaseSettings):
     memory_url: str = "http://localhost:8432"
     #: The address of the tool catalogue's MCP server, as the agent sees it. It is LOCAL to the
     #: agent pod, and the runner itself serves it on every executor (`runner/local_tools.py`, which
-    #: starts the server if nothing answers); Tekton's former `choregos-tools` sidecar is gone with
+    #: starts the server if nothing answers); Tekton's former `tranibor-tools` sidecar is gone with
     #: the Task it was in (S87-05).
     tools_mcp_url: str = "http://localhost:7777/mcp"
     runner_image: str = PUBLISHING.image_name("runner") + ":1.0.0"
@@ -66,6 +66,9 @@ class OrchestratorSettings(BaseSettings):
     # reference.
     runner_env: dict[str, str] = {}
     runner_namespace_pattern: str = "proj-{slug}-runners"
+    #: The namespace the platform runs in, which provisioning opens to the runners and binds the executor
+    #: Role to (`gitops.py`). The chart sets its release namespace; the default is `infra/platform`'s.
+    platform_namespace: str = "choregos-system"
     # The proxy an agent pod goes out through (`HTTP_PROXY`/`HTTPS_PROXY`), with `{namespace}` for
     # the runners' one: provisioning deploys a Squid there whose allowlist is the project policy's.
     # Empty: no proxy, as on the local bench, whose namespace has neither NetworkPolicy nor proxy.

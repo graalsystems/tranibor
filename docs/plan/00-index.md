@@ -39,7 +39,7 @@ Working decision: **Choregos**. Optional vocabulary for communication (never in 
 | D6 | Model gateway | LiteLLM proxy; one virtual key per run; cost counted at the gateway |
 | D7 | Memory | Ecphoria (refocused on memory + knowledge base); pgvector fallback |
 | D8 | Day-1 tracker / SCM / CI / CD | GitHub Issues + Projects v2 / GitHub / Tekton / Argo CD + Argo Rollouts |
-| D9 | Platform deployment | Kubernetes, Helm umbrella `charts/choregos`, GitOps Argo CD app-of-apps from `choregos-infra` |
+| D9 | Platform deployment | Kubernetes, Helm umbrella `charts/tranibor`, GitOps Argo CD app-of-apps from `choregos-infra` |
 | D10 | Database | PostgreSQL 16 via CloudNativePG, `pgvector` extension |
 | D11 | Auth | OIDC (Keycloak in dev, the organisation's IdP in prod); RBAC with 5 roles |
 | D12 | Observability | OpenTelemetry → Prometheus / Loki / Tempo / Grafana (kube-prometheus-stack); Azure Monitor as an export option; Langfuse **optional** (phase 2) |

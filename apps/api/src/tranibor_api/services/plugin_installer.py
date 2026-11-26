@@ -44,8 +44,10 @@ from tranibor_core import procedures as core_procedures
 from tranibor_core.agent_catalogue import CatalogueEntry, entry_of
 from tranibor_core.agent_catalogue.evals import evaluate
 from tranibor_core.paths import PathOutsideError, SymlinkRefusedError, files_under, inside
-from tranibor_core.plugins import Plugin
+from tranibor_core.plugins import Plugin, conformance_problems, foreign_profile_names
 from tranibor_core.plugins.assistants import named_files as assistant_named_files
+from tranibor_core.plugins.profiles import profile_name
+from tranibor_core.plugins.versions import VersionError, admits
 
 from ..audit import record
 from ..config import Settings, get_settings
@@ -140,6 +142,62 @@ def _agent_errors(error: ValidationError) -> list[dict[str, Any]]:
     return [{"loc": list(e["loc"]), "msg": e["msg"]} for e in error.errors()]
 
 
+async def _installed_profiles(
+    session: AsyncSession, org_id: str, owners: set[str]
+) -> dict[str, dict[str, Any]]:
+    """The profiles of the installed plugins `owners`, `<plugin>/<name>@<version>` -> document, read from
+    the files stored with the installed version (ADR 0224: the check is against what is installed)."""
+    found: dict[str, dict[str, Any]] = {}
+    for owner in sorted(owners):
+        row = await _row(session, org_id, owner)
+        if row is None:
+            continue
+        for ref in (row.manifest.get("contents") or {}).get("profiles") or []:
+            text = await plugin_text(session, org_id, owner, str(ref))
+            document = yaml.safe_load(text) if text else None
+            if isinstance(document, dict) and "name" in document and "version" in document:
+                found[profile_name(owner, document)] = document
+    return found
+
+
+async def _range_problems(session: AsyncSession, org_id: str, plugin: Plugin, owners: set[str]) -> list[str]:
+    """The installed version of a profile's plugin is inside the range `requires.plugins` gives it: the
+    profile the server was written against is one that version declares (ADR 0224 §2)."""
+    problems: list[str] = []
+    for required in (plugin.manifest.get("requires") or {}).get("plugins") or []:
+        if not isinstance(required, dict) or str(required.get("name")) not in owners:
+            continue
+        row = await _row(session, org_id, str(required["name"]))
+        if row is None:
+            continue
+        try:
+            inside = admits(str(required["version"]), row.version)
+        except VersionError:
+            inside = False
+        if not inside:
+            problems.append(
+                f"`{required['name']}` {row.version} is installed, outside the range `{required['version']}`"
+                f" that `{plugin.name}` requires of it, so its profiles are not the ones to implement"
+            )
+    return problems
+
+
+async def _check_profiles(session: AsyncSession, org_id: str, plugin: Plugin) -> None:
+    """A server that implements another plugin's profile keeps it, against the installed version of that
+    plugin (ADR 0224 §2; the loader and `plugin validate` checked it against the files they were given)."""
+    names = foreign_profile_names(plugin)
+    if not names:
+        return
+    owners = {name.partition("/")[0] for name in names}
+    problems = await _range_problems(session, org_id, plugin, owners)
+    problems += conformance_problems(plugin, await _installed_profiles(session, org_id, owners))
+    if problems:
+        raise unprocessable(
+            f"`{plugin.name}` does not keep the profiles its servers implement",
+            [{"msg": problem} for problem in problems],
+        )
+
+
 async def _prepare(
     session: AsyncSession, org_id: str, plugin: Plugin, settings: Settings, *, replacing: OrgPlugin | None
 ) -> _Prepared:
@@ -151,6 +209,7 @@ async def _prepare(
         name = str(required.get("name") if isinstance(required, dict) else required)
         if await _row(session, org_id, name) is None:
             raise unprocessable(f"`{plugin.name}` requires the plugin `{name}`, which is not installed")
+    await _check_profiles(session, org_id, plugin)
 
     for ref in contents.get("skills", []):
         paths = _dir_files(root, ref)
@@ -165,7 +224,12 @@ async def _prepare(
         for name, path in paths.items():
             prepared.files[f"{ref}/{name}"] = path.read_bytes()
 
-    for ref in [*contents.get("agents", []), *contents.get("matrix_cases", [])]:
+    # A profile's file is read again by the plugins that implement it (ADR 0224).
+    for ref in [
+        *contents.get("agents", []),
+        *contents.get("matrix_cases", []),
+        *contents.get("profiles", []),
+    ]:
         prepared.files[ref] = inside(root, ref).read_bytes()
 
     # An assistant's file and the files it names ship with the plugin: an installation reads them again.

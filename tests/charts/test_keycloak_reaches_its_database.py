@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 
 def _postgresql_clients(*extra: str) -> set[str]:
@@ -23,10 +23,10 @@ def _postgresql_clients(*extra: str) -> set[str]:
         [
             "helm",
             "template",
-            "choregos",
+            "tranibor",
             str(CHART),
             "-n",
-            "choregos",
+            "tranibor",
             "-f",
             str(CHART / "values" / "all-in-one.yaml"),
             "--set",
@@ -43,18 +43,18 @@ def _postgresql_clients(*extra: str) -> set[str]:
         if (
             doc
             and doc.get("kind") == "NetworkPolicy"
-            and doc["metadata"]["name"] == "choregos-postgresql-ingress"
+            and doc["metadata"]["name"] == "tranibor-postgresql-ingress"
         ):
             (expression,) = doc["spec"]["ingress"][0]["from"][0]["podSelector"]["matchExpressions"]
             return set(expression["values"])
-    raise AssertionError("no choregos-postgresql-ingress policy rendered")
+    raise AssertionError("no tranibor-postgresql-ingress policy rendered")
 
 
 def test_the_embedded_keycloak_may_reach_the_embedded_postgresql() -> None:
-    assert "choregos-keycloak" in _postgresql_clients()
+    assert "tranibor-keycloak" in _postgresql_clients()
 
 
 def test_a_keycloak_on_its_own_database_is_not_admitted() -> None:
-    assert "choregos-keycloak" not in _postgresql_clients(
-        "--set", "choregos-keycloak.database.host=db.example"
+    assert "tranibor-keycloak" not in _postgresql_clients(
+        "--set", "tranibor-keycloak.database.host=db.example"
     )

@@ -71,7 +71,7 @@ class Api:
         assert start.status_code == 307, start.text
         callback = http.get(start.headers["location"])
         assert callback.status_code == 307, callback.text
-        assert http.cookies.get("choregos_session"), "no session cookie"
+        assert http.cookies.get("tranibor_session"), "no session cookie"
         return http
 
 

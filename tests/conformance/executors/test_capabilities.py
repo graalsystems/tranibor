@@ -133,7 +133,7 @@ async def test_tekton_declares_the_agents_own_container_and_starts_it(
 
 
 async def test_aca_declares_the_agents_own_container_and_starts_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    """S87-08: a Container Apps job carries the agent's container beside the runner's (ADR 0146, ADR 0226
+    """S87-08: a Container Apps job carries the agent's container beside the runner's (ADR 0146, ADR 0227
     §2): ACA declares `separate_agent`, has no reason left in `WHY_NOT_SEPARATE`, and a run under
     `container` reaches ARM with a job whose second container is the launcher, ending on the runner's
     done file, with no secret; the two share the working tree and the exchange directory."""

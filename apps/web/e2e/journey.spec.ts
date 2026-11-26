@@ -199,7 +199,7 @@ test("integrations: a token for Claude Code, slipped into the snippet", async ({
   await page.goto("/integrations");
   await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
   await expect(page.getByTestId("mcp-url")).toHaveText("http://localhost:3000/mcp");
-  await expect(page.getByTestId("snippet")).toContainText("claude mcp add --transport http choregos");
+  await expect(page.getByTestId("snippet")).toContainText("claude mcp add --transport http tranibor");
   await page.getByRole("button", { name: "Create an access token" }).click();
   await expect(page.getByTestId("snippet")).toContainText("chg_demo_jeton_affiche_une_fois");
   await expect(page.getByTestId("connection-status")).toBeVisible();

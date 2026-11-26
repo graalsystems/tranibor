@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The `choregos` CLI, served by the instance it talks to (S62-08).
+"""The `tranibor` CLI, served by the instance it talks to (S62-08).
 
 A person installs the CLI from their own Tranibor, in the exact version it runs, through the host
 of the console: no firewall to open towards GitHub, and it works on a network without internet.
-The native binaries (S62-07) lie in `TRANIBOR_CLI_DIR` (`/opt/choregos/cli` in the API image) with
+The native binaries (S62-07) lie in `TRANIBOR_CLI_DIR` (`/opt/tranibor/cli` in the API image) with
 `SHA256SUMS` and `manifest.json` (the shared contract of S62-07/08):
 
 - `GET /downloads/cli/manifest.json`: the manifest, as the build wrote it, once checked.
 - `GET /downloads/cli/<name>`: a file the manifest lists, or `SHA256SUMS`. Nothing else: the name
-  is looked up in the manifest, never joined to a path, so `../` reaches nothing.
+  is looked up in the manifest, never joined to a path, so `../` reaches nothing. For the window of
+  ADR 0226 R5 a file is also served under its other name (`choregos-linux-x86_64` for
+  `tranibor-linux-x86_64`, and the reverse for a bundle built before the rename): a script or a
+  `choregos self update` that asks for the former name gets the same bytes.
 - `GET /cli/install.sh`, `GET /cli/install.ps1`: the install scripts, with this instance's public
   URL written in them; they fetch the manifest and the binary from the same host and verify the
   sha256 before installing.
@@ -80,7 +83,7 @@ def _no_cli_bundled() -> ApiError:
     return ApiError(
         status.HTTP_404_NOT_FOUND,
         "No CLI bundled",
-        f"this build of Tranibor bundles no `choregos` CLI; download version {__version__} from "
+        f"this build of Tranibor bundles no `tranibor` CLI; download version {__version__} from "
         f"{release_url()}",
         type_="https://choregos.dev/problems/no-cli-bundled",
         extra={"code": "no_cli_bundled", "version": __version__, "release_url": release_url()},
@@ -98,8 +101,18 @@ def _broken(detail: str) -> ApiError:
     )
 
 
+#: Where the API image keeps the binaries (ADR 0226, R9b), and where an image built before 0.30.0 kept them.
+CLI_DIR = Path("/opt/tranibor/cli")
+FORMER_CLI_DIR = Path("/opt/choregos/cli")
+
+
 def cli_dir() -> Path:
-    return Path(get_settings().cli_dir)
+    """`TRANIBOR_CLI_DIR`; at its default, `/opt/tranibor/cli/`, else the former `/opt/choregos/cli/` when
+    only that one exists (an image built from an earlier Dockerfile, a volume an operator mounted there)."""
+    configured = Path(get_settings().cli_dir)
+    if configured == CLI_DIR and not CLI_DIR.is_dir() and FORMER_CLI_DIR.is_dir():
+        return FORMER_CLI_DIR
+    return configured
 
 
 def read_manifest(directory: Path) -> tuple[CliManifest, bytes]:
@@ -118,6 +131,16 @@ def read_manifest(directory: Path) -> tuple[CliManifest, bytes]:
     if len(set(names)) != len(names) or {MANIFEST, SUMS} & set(names):
         raise _broken(f"the bundled {MANIFEST} lists a name twice, or names itself")
     return manifest, raw
+
+
+def _listed(manifest: CliManifest, name: str) -> CliFile | None:
+    """The manifest's entry for `name`, or for its other name (ADR 0226 R5): the same file either way."""
+    twin = PUBLISHING.cli_twin(name)
+    for wanted in (name, twin):
+        entry = next((candidate for candidate in manifest.files if candidate.name == wanted), None)
+        if entry is not None:
+            return entry
+    return None
 
 
 def _etag(sha256: str) -> str:
@@ -156,7 +179,7 @@ async def cli_file(name: str, request: Request) -> Response:
         return FileResponse(
             sums, media_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-cache"}
         )
-    entry = next((candidate for candidate in manifest.files if candidate.name == name), None)
+    entry = _listed(manifest, name)
     if entry is None:
         listed = ", ".join(candidate.name for candidate in manifest.files) or "none"
         raise ApiError(
@@ -176,7 +199,7 @@ async def cli_file(name: str, request: Request) -> Response:
     return FileResponse(
         path,
         media_type="application/octet-stream",
-        filename=entry.name,
+        filename=name,  # the name asked for: the current one or, for the window, the former
         headers=headers,
     )
 
@@ -218,5 +241,5 @@ async def install_sh() -> Response:
 
 @router.get("/cli/install.ps1", include_in_schema=False)
 async def install_ps1() -> Response:
-    """`irm <instance>/cli/install.ps1 | iex`: Windows, into `%LOCALAPPDATA%\\Programs\\choregos`."""
+    """`irm <instance>/cli/install.ps1 | iex`: Windows, into `%LOCALAPPDATA%\\Programs\\tranibor`."""
     return _script("install.ps1")

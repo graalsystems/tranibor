@@ -51,8 +51,8 @@ from the inbox, or open it and use its **Decision awaited** card.
 From the command line:
 
 ```bash
-choregos items approve <item-id>
-choregos items reject <item-id> --reason "The export must include credit notes."
+tranibor items approve <item-id>
+tranibor items reject <item-id> --reason "The export must include credit notes."
 ```
 
 ## Answer a question
@@ -66,7 +66,7 @@ When an agent is blocked, it does not guess: it asks. The work item moves to a w
 The agent's stage resumes where it stopped, with your answer and one more attempt.
 
 ```bash
-choregos items answer <item-id> "Use the customer's billing currency."
+tranibor items answer <item-id> "Use the customer's billing currency."
 ```
 
 ## Accept or refuse a change of scope
@@ -117,8 +117,8 @@ for an approval before production:
    many work items it carries.
 
 ```bash
-choregos trains status billing-api
-choregos trains approve <release-id> --note "Checked with support"
+tranibor trains status billing-api
+tranibor trains approve <release-id> --note "Checked with support"
 ```
 
 ## Deadlines and escalations
@@ -156,7 +156,7 @@ the audit log as an override (`workitem.decision.group_override`), with the grou
 
 ## Decisions stay in the console
 
-A `/choregos approve`, `reject` or `answer` comment on an issue does not decide anything. Tranibor
+A `/tranibor approve`, `reject` or `answer` comment on an issue does not decide anything. Tranibor
 replies on the issue with a link to the inbox. A decision is taken by a signed-in person, in the
 console or with their own token.
 

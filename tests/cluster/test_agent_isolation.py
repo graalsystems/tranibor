@@ -33,8 +33,8 @@ the gateway, the memory, the egress proxy). The warm-pool probe pod then carries
 a platform's run-pod policy selects, as a Job's pod does. On the dev cluster:
 
     TRANIBOR_ISOLATION_CLOSED=temporal-frontend:7233,temporal-frontend:8233,choregos-pg:5432,\
-    firecrawl-redis:6379,searxng:8080,firecrawl:3002,choregos-web:3000,choregos-demo-fakes:8090 \
-    TRANIBOR_ISOLATION_OPEN=choregos-api:8000,litellm:4000,ecphoria:8432,choregos-egress:3128 ...
+    firecrawl-redis:6379,searxng:8080,firecrawl:3002,tranibor-web:3000,tranibor-demo-fakes:8090 \
+    TRANIBOR_ISOLATION_OPEN=tranibor-api:8000,litellm:4000,ecphoria:8432,choregos-egress:3128 ...
 
 What this does NOT prove: a real agent (the probe is a shell), what a run's real CONNECT listener
 carries (a run's journal does: `hosted.egress`), the agent-sandbox operator's suspension.

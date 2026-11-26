@@ -104,7 +104,9 @@ async def test_a_remote_agent_carries_the_step_and_its_answer_goes_through_the_p
     types = [event["type"] for event in client.events]
     assert types.index("remote.started") < types.index("remote.update") < types.index("remote.finished")
     sent = fake.requests[0]["params"]["message"]
-    assert sent["metadata"]["choregos"]["run_id"] == step.run_id
+    assert sent["metadata"]["tranibor"]["run_id"] == step.run_id
+    # A remote Tranibor of the previous release reads only the former key (ADR 0226, R9c).
+    assert sent["metadata"]["choregos"] == sent["metadata"]["tranibor"]
     assert fake.tokens and set(fake.tokens) == {TOKEN}, "the run's access token is what the endpoint receives"
 
 

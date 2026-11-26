@@ -50,7 +50,7 @@ off, no endpoint) says `not applicable` and why. The command exits 1 when any ch
 reach the API server.
 
 The last three checks need pods, so the command creates one namespace of its own
-(`tranibor-preflight-…`), a NetworkPolicy that mirrors `choregos-runner-egress` (DNS to `kube-system`,
+(`tranibor-preflight-…`), a NetworkPolicy that mirrors `tranibor-runner-egress` (DNS to `kube-system`,
 nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
 under no policy (the baseline: without it, "denied" could mean "down"), and a probe with the runner pods'
 labels, which runs the egress gate's own loop (three failed attempts in a row, one-second connection
@@ -82,7 +82,7 @@ this page when it differs from the record, and any page that calls a provider su
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
 | The first operator's dev cluster (bare metal) | k3s 1.31 | gVisor (`gvisor` RuntimeClass) | Cilium 1.16 | `agent_sandbox`, `k8s_job` | 2026-11-21, 0.27.17: real agent runs on both executors, the agent's own container under gVisor, the egress gate, the operator's suspension and resumption (`docs/plan/status/S65.md`, `docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md`) | **supported** |
 | The first operator's production cluster (bare metal) | k3s 1.31 | gVisor (`gvisor` RuntimeClass) | Cilium 1.16 | `agent_sandbox`, `k8s_job` | 2026-11-20, 0.27.16: real agent runs on the warm pool and on k8s_job, the agent's own container under gVisor (`docs/plan/status/S65.md`, `docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md`) | **supported** |
-| kind (CI and development) | kind, Kubernetes 1.34.0 | runc | Calico 3.28.2 | `k8s_job` | 2026-11-12: the outposts end to end (the chart's door, the real daemon) on kind-choregos; the hosted pods on k8s_job (S41-24, undated) (`docs/plan/status/S65.md`, `docs/plan/status/S41.md`) | **supported** |
+| kind (CI and development) | kind, Kubernetes 1.34.0 | runc | Calico 3.28.2 | `k8s_job` | 2026-11-12: the outposts end to end (the chart's door, the real daemon) on kind-tranibor; the hosted pods on k8s_job (S41-24, undated) (`docs/plan/status/S65.md`, `docs/plan/status/S41.md`) | **supported** |
 | One k3s node (the single-node profile) | k3s v1.35.5 in k3d 5.9.0 | runc | k3s's embedded kube-router | `k8s_job` | 2026-11-18, main at c8cb64fdc: install, a work item to approved, backup, the node destroyed, restore (`tools/single-node/proof.sh`) (`docs/plan/status/S80.md`, [run](https://github.com/graalsystems/tranibor/actions/runs/44275902560)) | **supported** |
 | Azure Container Apps, the ACA executor alone (no installation of the platform on Azure) | Container Apps jobs, Consumption environment | Container Apps | none | `aca` | 2026-11-25, 0.29.4 (runner image with `launcher --until-file`, built from this tree): the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S87-07, S87-08); the six earlier live tests of S13-05 (`docs/plan/status/S87.md`, `tests/live/test_aca_two_containers_live.py`, `docs/runbooks/aca-live.md`) | **supported** |
 | Amazon EKS | — | — | — | — | never run | **unknown** |
@@ -97,16 +97,18 @@ this page when it differs from the record, and any page that calls a provider su
 ## Install
 
 ```bash
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.5 --namespace choregos --create-namespace \
+helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
+  --version 0.29.5 --namespace tranibor --create-namespace \
   -f my-values.yaml
 ```
 
 Images are published under `ghcr.io/graalsystems/tranibor-{api,orchestrator,web,tools,runner,laya,outpost}`,
-multi-arch and signed; the chart is also published as `oci://ghcr.io/graalsystems/charts/tranibor`, with the same content as `…/charts/choregos`. The former names,
-`choregos-*`, carry the same digests for the ADR 0176 window and are still the chart's defaults (see "Upgrading
-past 0.27.13"). The published packages are public: pulls are anonymous. The chart's `global.imageTag`
-follows the chart version.
+multi-arch and signed; the chart is published as `oci://ghcr.io/graalsystems/charts/tranibor` and, for the
+window, under its former name `…/charts/choregos`, with the same content. The former image names,
+`choregos-*`, carry the same digests for the ADR 0176 window (see "Upgrading past 0.27.13"); the chart's
+defaults name the `tranibor-*` ones (see "Upgrading to 0.30.0: the chart takes the name tranibor").
+The published packages are public: pulls are anonymous. The chart's `global.imageTag` follows the chart
+version.
 
 ## On a managed cluster
 
@@ -120,7 +122,7 @@ run on each provider proves them; the support matrix says which have one.
 | The Kubernetes version | `kubeVersion: ">=1.29.0-0"` in `Chart.yaml`: Helm and Argo CD refuse an older cluster before anything is applied. `-0` admits the providers' suffixed versions (`v1.29.4-eks-…`, `v1.30.5-gke.…`) | — |
 | The cluster's resolver | `networkPolicies.dns`: `namespace`, `podLabels` (its pods, as `matchLabels`), `cidrs` (addresses no namespace holds), `ports` (`[{port, protocol}]`, for every policy at once). An empty `namespace` with no `cidrs` fails the render | `kube-system`, every pod, no address; UDP 53 for the platform's own pods, UDP and TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder (what each policy always opened) |
 | The Prometheus Operator's types | `monitoring.skipCrdCheck`: rendered when the cluster serves them, or when this says so for an offline render ([Verifying an installation](#verifying-an-installation)) | `false` |
-| TLS on an Ingress | `choregos-api.ingress.tls`, `choregos-web.ingress.tls` (`kind: ingress`): the Ingress's `spec.tls`, as written | `[]` |
+| TLS on an Ingress | `tranibor-api.ingress.tls`, `tranibor-web.ingress.tls` (`kind: ingress`): the Ingress's `spec.tls`, as written | `[]` |
 | The outposts door's timeouts | `global.outposts.door.ingressController` (`ingress-nginx` or `""`) and `global.outposts.door.annotations`, verbatim ([Outposts](#outposts-adrs-0147-0149)) | `ingress-nginx` |
 | The External Secrets API | `global.externalSecrets.apiVersion`: `external-secrets.io/v1` or `…/v1beta1`; empty follows the cluster ([Secrets](#platform-secrets-from-vault-external-secrets-operator)) | empty: `v1` when served, else `v1beta1` |
 | What the platform reaches outside the cluster | `networkPolicies.platformEgress`: egress rules, as written, for the platform's own pods (commented examples in `values.yaml`) | `[]`: the platform team opens it its own way |
@@ -191,7 +193,7 @@ global:
     tokenSecret: ""                 # key `token`, empty means no auth header
   objectStore:                      # file artifacts: decks, spreadsheets, images (ADR 0049)
     kind: s3                        # s3 (default), azure-blob or gcs (S87-17)
-    url: s3://choregos              # bucket and optional prefix (azblob://container/prefix, gs://bucket/prefix)
+    url: s3://tranibor              # bucket and optional prefix (azblob://container/prefix, gs://bucket/prefix)
     endpoint: ""                    # an S3-compatible server (RustFS, MinIO); empty means AWS
     region: us-east-1
     secretRef: ""                   # keys `access-key`, `secret-key`; read by the API only
@@ -215,7 +217,7 @@ probes the bucket when a workflow declares a file output and names the cause.
 `global.objectStore.kind` picks the protocol, read as `TRANIBOR_OBJECT_STORE_KIND` for the API and the
 workers (the two processes that read the store). Each kind takes keys from `secretRef` for a bench, or the
 cloud identity of its pod, with no key in a Secret, for a managed cloud. The identity is bound through
-`global.serviceAccount.annotations`, which the chart puts on the `choregos-api` and `choregos-orchestrator`
+`global.serviceAccount.annotations`, which the chart puts on the `tranibor-api` and `tranibor-orchestrator`
 service accounts.
 
 | `kind` | `url` | `endpoint` | `secretRef` keys (a bench) | Without `secretRef`: the pod's identity |
@@ -244,16 +246,16 @@ proved against scripted transports only (`packages/adapters/tests/test_object_st
 Azure or Google account ran this**. Each cloud's identity is proved on its cluster by S87-11 to S87-13.
 
 Turning all four on gives a self-contained bench on a single node:
-`-f charts/choregos/values/local.yaml`.
+`-f charts/tranibor/values/local.yaml`.
 
 ### The embedded Temporal as an operator runs it ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
 
-`global.temporal.embedded=true` renders the `choregos-temporal` subchart, in one of two modes.
+`global.temporal.embedded=true` renders the `tranibor-temporal` subchart, in one of two modes.
 
 ```yaml
 global:
   temporal: { embedded: true, serviceName: temporal-frontend }
-choregos-temporal:
+tranibor-temporal:
   mode: server                       # `dev` (start-dev, SQLite: a bench) or `server` (auto-setup, PostgreSQL)
   database:                          # `server` only; empty host/user/secret: `global.database`
     host: choregos-pg
@@ -281,28 +283,28 @@ choregos-temporal:
   issuer names an earlier deployment created. Switching a running Temporal onto the chart is one
   Deployment replaced, never a database or a volume recreated: remove the old Deployment first (two
   SQLite writers corrupt the file), then let the chart's Deployment start on the same claim.
-- `choregos-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
+- `tranibor-temporal.tls.enabled` needs `global.temporal.tls.enabled`: the render refuses a TLS server whose
   clients would speak clear.
-- **Mutual TLS on the embedded Temporal** (ADR 0183 point 5). `choregos-temporal.tls.requireClientCert: true`
+- **Mutual TLS on the embedded Temporal** (ADR 0183 point 5). `tranibor-temporal.tls.requireClientCert: true`
   refuses, at the handshake, a client with no certificate from the server Secret's `ca.crt`. In `dev` the
   relay verifies it (`ssl_verify_client`). In `server` mode the frontend and the internal services require
   it; they present the server certificate to each other, and so does the bootstrap CLI. The render refuses
-  it without `choregos-temporal.tls.enabled` and without `global.temporal.tls.mutual: true`, because the API
+  it without `tranibor-temporal.tls.enabled` and without `global.temporal.tls.mutual: true`, because the API
   and the workers would present nothing. With `certManager.enabled` the client Secret
   (`tls.clientSecretName`) already holds a `client auth` certificate from the same CA. Switch the clients
   first (`mutual: true`; a server that does not ask ignores the certificate), then the server. A client
   reads its certificate once, at start: a process that outlives its certificate (`certManager.duration`,
   90 days by default, renewed 30 days before) must be restarted.
-- **The dev UI off the network.** `choregos-temporal.ui.loopbackOnly: true` binds the UI to the pod's loopback
+- **The dev UI off the network.** `tranibor-temporal.ui.loopbackOnly: true` binds the UI to the pod's loopback
   and drops port 8233 from the pod and the Service. `kubectl port-forward` still reaches it, after Kubernetes
   has authenticated the person. The UI has no login, and its write actions (terminate, signal, reset) are on.
   With TLS, the readiness probe then runs `temporal operator cluster health` inside the pod, because the
   frontend is on loopback too. For the same reason, `ui.enabled: false` with TLS is no longer refused.
 - **Adopting a Deployment and its labels** (#2150). The embedded Ecphoria and the web-search pieces take
-  what a site's own manifests already name: `choregos-ecphoria.deploymentName` (the volume keeps
+  what a site's own manifests already name: `tranibor-ecphoria.deploymentName` (the volume keeps
   `persistence.existingClaim` and the Service `global.memory.serviceName`; Deployments of the web-search
-  pieces follow `choregos-websearch.names.*`), and, per piece (`choregos-ecphoria`,
-  `choregos-websearch.searxng|firecrawl|redis|relay`), `selectorLabels` and `podLabels`. `selectorLabels`
+  pieces follow `tranibor-websearch.names.*`), and, per piece (`tranibor-ecphoria`,
+  `tranibor-websearch.searxng|firecrawl|redis|relay`), `selectorLabels` and `podLabels`. `selectorLabels`
   **replaces** the default `app.kubernetes.io/name: choregos-<piece>` + `app.kubernetes.io/instance` in the
   pods, the Deployment's selector and the Service's selector, so a site's NetworkPolicy keeps matching; a
   selector is immutable, so it must equal the live Deployment's. `podLabels` only adds labels to the pods.
@@ -314,12 +316,12 @@ choregos-temporal:
 `staging` and `prod` admit `global.gateway.embedded` and `global.memory.embedded` when they rest on no bench
 dependency, as they admit the embedded Temporal in `server` mode:
 
-- **The gateway** needs `global.database.embedded=false`: its database (`choregos-litellm.database.name`,
+- **The gateway** needs `global.database.embedded=false`: its database (`tranibor-litellm.database.name`,
   default `litellm`) is on the operator's PostgreSQL, the `global.database` server or
-  `choregos-litellm.database.host`. The operator creates that database; only the embedded PostgreSQL creates
+  `tranibor-litellm.database.host`. The operator creates that database; only the embedded PostgreSQL creates
   it at initdb. On the embedded PostgreSQL the render is refused and says
   `global.gateway.embedded (on global.database.embedded, the bench PostgreSQL)`.
-- **The memory** needs `choregos-ecphoria.persistence.enabled=true` (the default): its DuckDB and SQLite
+- **The memory** needs `tranibor-ecphoria.persistence.enabled=true` (the default): its DuckDB and SQLite
   files live on the chart's claim `<release>-ecphoria` or on the adopted `persistence.existingClaim`. Without
   it the pod writes to an emptyDir that a restart wipes, and the render is refused. The chart's scheduled
   backup (`backup.enabled`) mounts the claim Ecphoria mounts, the adopted one included (S80-27), beside its
@@ -343,28 +345,28 @@ then remove them from your application, let the chart's application take them ov
 annotation once the chart's application is their only owner.
 
 **Budget reservation** (#2181, #2182). The embedded LiteLLM runs with `disable_budget_reservation: true`
-(`choregos-litellm.budgetReservation: false`, the default): a run key's budget is checked against its
+(`tranibor-litellm.budgetReservation: false`, the default): a run key's budget is checked against its
 recorded spend, not against the worst case of a call in flight (its input plus `max_tokens`), which at a
 frontier model's price used up a few-cent budget and refused the agent's other calls. A run can pass its
 budget by the calls in flight when it is reached; `true` restores the reservation, for a gateway whose
 budgets sit far above one call's worst case.
 
-**Price sheets.** `choregos-litellm.models[].modelInfo` is rendered as written, with one change: a price
+**Price sheets.** `tranibor-litellm.models[].modelInfo` is rendered as written, with one change: a price
 `toYaml` would write as `1e-08`, which LiteLLM's YAML 1.1 reader takes for a string, is written `1.0e-08`,
 so every price of a sheet, `tiered_pricing` included, is a float.
 
 
 ### Self-hosted web search ([ADR 0195](adr/0195-the-core-ships-the-generic-deployment-an-operators-repository-keeps-its-values.md))
 
-`choregos-websearch.enabled=true` deploys what the governed `web_search` tool (the `firecrawl` connector)
+`tranibor-websearch.enabled=true` deploys what the governed `web_search` tool (the `firecrawl` connector)
 calls: SearXNG, a search-only Firecrawl (`POST /v1/search`; no scrape, crawl or browser) and its Redis,
-which keeps nothing. `choregos-websearch.relay.enabled=true` adds the egress proxy's relay (ADR 0091)
+which keeps nothing. `tranibor-websearch.relay.enabled=true` adds the egress proxy's relay (ADR 0091)
 from the core API image; its Secret (`relay.secretName`) holds `api-token` and `client-token`, and the
 chart only references it. Service names are `<release>-firecrawl`, `<release>-searxng`, ... or the ones
-set in `choregos-websearch.names.*`. Firecrawl has no authentication when self-hosted: open no network
+set in `tranibor-websearch.names.*`. Firecrawl has no authentication when self-hosted: open no network
 path to it except from the platform's namespace, and none to the internet from its pod.
 
-SearXNG asks the engines of `choregos-websearch.searxng.engines` (default `bing`, `startpage`, `mojeek`,
+SearXNG asks the engines of `tranibor-websearch.searxng.engines` (default `bing`, `startpage`, `mojeek`,
 `privacywall`, measured on a cluster's egress in #2183), and only those: each listed engine is loaded and
 enabled, though upstream ships most of them off. Each one is a host its egress (or the relay's) must
 reach on 443: `www.bing.com`, `www.startpage.com`, `www.mojeek.com`, `www.privacywall.org`. An entry may
@@ -400,9 +402,10 @@ global:
       allowClear: false             # the explicit opt-out, see below
 ```
 
-- The TLS Secret is mounted at `/etc/choregos/temporal-tls`; a cert-manager `Certificate` issued by the
+- The TLS Secret is mounted at `/etc/tranibor/temporal-tls` (and at its former `/etc/choregos/` path until
+  0.32.0); a cert-manager `Certificate` issued by the
   CA the Temporal frontend trusts produces exactly `ca.crt`, `tls.crt` and `tls.key`.
-- The codec Secret is mounted at `/etc/choregos/temporal-codec`. Generate a key with
+- The codec Secret is mounted at `/etc/tranibor/temporal-codec`. Generate a key with
   `echo "k1:$(head -c 32 /dev/urandom | base64)"`. The **first** key encrypts, every listed key decrypts.
   To rotate: put the new key first, roll the API and the workers, and drop the old key only once no open
   workflow history still carries it (a payload under a key no longer listed fails with the key's name).
@@ -516,7 +519,7 @@ To rotate it, move the old value to `session-secret-previous`, put the new one i
 redeploy, and remove `session-secret-previous` once `session_max_age_s` (8 hours) has passed: until
 then a session signed with the old key still signs its holder in, and nothing new is signed with it.
 On a deployed instance the previous key must also be at least 32 bytes. With an ExternalSecret, set
-`choregos-api.externalSecrets.sessionSecretPrevious: true` once the vault holds the property (a
+`tranibor-api.externalSecrets.sessionSecretPrevious: true` once the vault holds the property (a
 missing property fails the whole ExternalSecret sync). Do not pass it through `global.extraEnv`: a
 `TRANIBOR_SESSION_SECRET_PREVIOUS` there fails the render, because the API chart already sets it. The
 sign-ins in flight at the deploy that adds the purposes (10 minutes at most) fail once and are
@@ -534,7 +537,7 @@ Both the API and the orchestrator read it (`global.secrets.keksSecretRef`, defau
 `global.secrets.keksKey`, default `secrets-keks`; the entry is optional in the pod spec). Without
 it, `env:` references keep working, the API logs `secrets.key_missing` at start-up, and typing a
 secret answers 409. Keep it in the vault: **losing it loses every sealed value**. To rotate, put the
-new key first, redeploy, then run `choregos admin secrets rewrap` (see
+new key first, redeploy, then run `tranibor admin secrets rewrap` (see
 [the runbook](runbooks/secret-rotation.md#connector-secrets-key-secrets-keks)) before dropping the
 old key, and drop it only once no database backup older than the rewrap can still be restored. `global.secrets.keksInExternalSecret: true` lists the entry in the chart's `ExternalSecret`
 (turn it on once the key exists in the store: a missing remote property fails the whole object).
@@ -623,8 +626,8 @@ path "transit/decrypt/choregos" { capabilities = ["update"] }
 path "transit/rewrap/choregos"  { capabilities = ["update"] }
 path "transit/keys/choregos"    { capabilities = ["read"] }
 HCL
-vault write auth/kubernetes/role/choregos bound_service_account_names=choregos-api,choregos-orchestrator \
-  bound_service_account_namespaces=choregos policies=choregos-transit ttl=1h
+vault write auth/kubernetes/role/choregos bound_service_account_names=tranibor-api,choregos-orchestrator \
+  bound_service_account_namespaces=tranibor policies=choregos-transit ttl=1h
 ```
 
 Then the API and the workers get the settings (`global.extraEnv`; the same list reaches both):
@@ -639,10 +642,10 @@ Then the API and the workers get the settings (`global.extraEnv`; the same list 
 
 To move an installation that already has sealed secrets, keep `TRANIBOR_SECRETS_KEKS` set while you
 roll out: it becomes the extension's legacy wrapper, so existing rows still open, then run
-`choregos admin secrets rewrap`. It answers the rows moved; run it again for `0`, and only then remove the
+`tranibor admin secrets rewrap`. It answers the rows moved; run it again for `0`, and only then remove the
 old keyring (the same backup rule as [the rotation runbook](runbooks/secret-rotation.md#connector-secrets-key-secrets-keks)).
 To rotate the Vault key: `vault write -f transit/keys/choregos/rotate`, wait for the API's cache (30 s), run
-`choregos admin secrets rewrap` (it uses transit `rewrap`: the data keys never reach the platform), and raise
+`tranibor admin secrets rewrap` (it uses transit `rewrap`: the data keys never reach the platform), and raise
 `min_decryption_version` only when it answers `0` and no backup older than the rewrap can be restored.
 
 Know the limits: the key wrapper seam is synchronous, so each `put` and `get_many` holds the API's event
@@ -708,7 +711,7 @@ under the active key of `TRANIBOR_SECRETS_KEKS` with the private key, the webhoo
 generated and the client secret. Nothing is written to the Kubernetes Secret. Creating and forgetting
 are audited (`github_app.create`, `github_app.forget`).
 
-**Rotating and forgetting.** `choregos admin secrets rewrap` moves the App's envelope to a new key with
+**Rotating and forgetting.** `tranibor admin secrets rewrap` moves the App's envelope to a new key with
 the connector secrets. *Forget this App* deletes the stored credentials; the App stays on GitHub, where
 its owner deletes it (or keeps it and puts its id and a new private key in the deployment's settings,
 which then win). Losing the secrets key loses the App's private key: generate a new one on GitHub and set
@@ -760,7 +763,7 @@ global:
     executor: k8s_job
     # What a project may pick as its `runtime` connector. Empty: only `executor`.
     allowedExecutors: []
-choregos-orchestrator:
+tranibor-orchestrator:
   runner:
     # Empty follows the executor: the release namespace for agent_sandbox,
     # `proj-{slug}-runners` for the others.
@@ -800,7 +803,7 @@ each namespace, and each project's content.
 
 **Upgrading from 0.17 or earlier**, which defaulted to Tekton: set
 `global.runner.executor: tekton` to keep it. An override of only
-`choregos-orchestrator.runner.executor` fails the render and names the global setting.
+`tranibor-orchestrator.runner.executor` fails the render and names the global setting.
 
 Under a namespace `LimitRange`, set `runner.limits` **below** the per-container ceiling.
 Above it, the pod is rejected and the Job waits without saying why.
@@ -839,7 +842,8 @@ subprocess. `requireDigest: false` is for a bench only. The `agent_sandbox` exec
 warm pool built from the runner image: use `k8s_job` for steps that name their own image.
 
 An image in a private registry project pulls with the same `global.imagePullSecrets` as the chart's
-own pods (S51-09): the chart puts them on the `choregos-runner` ServiceAccount and hands their names
+own pods (S51-09): the chart puts them on the runners' ServiceAccounts (`tranibor-runner`, and the former
+`choregos-runner` until 0.32.0) and hands their names
 to every worker (`TRANIBOR_RUNNER_IMAGE_PULL_SECRETS`), and the `k8s_job` executor names them in each
 runner pod it creates — a job step's image and a hosted agent's container alike. Each secret must
 exist in the namespace the runner pods run in (`runner.namespacePattern`).
@@ -859,7 +863,7 @@ global:
     hostedCosignIdentity: ""       #   the certificate identity, a regular expression
     hostedCosignIssuer: ""         #   its OIDC issuer, a regular expression
     hostedCosignTlog: true         # false: skip Rekor, for a key whose signatures were never uploaded
-    hostedCosignPolicy: false      # render the Kyverno ClusterPolicy `choregos-hosted-images`
+    hostedCosignPolicy: false      # render the Kyverno ClusterPolicy `tranibor-hosted-images`
 ```
 
 Hosted agents need Kubernetes 1.29 or later. The chart renders the cluster's version as
@@ -907,7 +911,7 @@ global:
   runner:
     executor: agent_sandbox           # the default, written here to make the choice visible
     runtimeClass: gvisor              # the template's RuntimeClass; "" = the cluster's
-choregos-orchestrator:
+tranibor-orchestrator:
   runner:
     # namespacePattern empty = the release namespace: the template lives there
     warmPool: { size: 2 }             # sandboxes made in advance, never used, holding nothing
@@ -924,7 +928,7 @@ upgrade changes the runner image), the controller deletes the unclaimed warm san
 new ones. With the operator's default, `OnReplenish`, a stale sandbox stays in the pool until a
 claim takes it, so the first run after an upgrade ran in the previous version's runner.
 
-The chart also renders `choregos-runner-assignment`, a NetworkPolicy that lets only the
+The chart also renders `tranibor-runner-assignment`, a NetworkPolicy that lets only the
 orchestrator's `executor` workers reach the assignment port. Where the platform lays the
 namespace's NetworkPolicies and refuses a tenant's (an Argo CD AppProject that blacklists
 `NetworkPolicy` fails the whole sync on that one object), set
@@ -933,11 +937,12 @@ other pod of the namespace itself. Otherwise any pod there can push first and ho
 until the real run gets a 409: it cannot read a run's token (the assignment is sealed to the
 pod's key), but it can deny the run its sandbox.
 
-Every pod an agent runs in carries the same three labels, whichever executor started it (the warm pool's
+Every pod an agent runs in carries the same labels, whichever executor started it (the warm pool's
 template and `k8s_job`'s Jobs): `app.kubernetes.io/name: choregos-runner`, `app.kubernetes.io/component:
-runner` and `choregos/sandbox: "true"`. A platform that holds agent pods with a policy of its own (a Cilium
-refusal of everything but the API, the model gateway, the egress proxy and the memory, say) selects
-`choregos/sandbox: "true"` and holds both. Up to 0.27.17 a `k8s_job` pod lacked that label and was outside
+runner`, and `tranibor/sandbox: "true"` with, until 0.32.0, its former `choregos/sandbox: "true"`. A
+platform that holds agent pods with a policy of its own (a Cilium refusal of everything but the API, the
+model gateway, the egress proxy and the memory, say) selects `tranibor/sandbox: "true"` (a policy written
+before 0.30.0 selects the former key, which still matches) and holds both. Up to 0.27.17 a `k8s_job` pod lacked that label and was outside
 such a policy (finding #2082); `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
 
 How a run goes ([ADR 0053](adr/0053-agent-sandbox-as-built.md)): the executor writes the run's
@@ -968,7 +973,7 @@ Task is inline too (`taskSpec`). Nothing of the agent stage is read from the run
 Pipeline is installed or copied there for the platform, so no older copy can run. Under `container` that
 Task has the agent's own container as a sidecar, `agent`: the container `k8s_job` starts (uid 1001,
 read-only root, every capability dropped, no Secret, no `envFrom`, `TMPDIR` and `HOME` at `/exchange`,
-`choregos-runner launcher` as its process), with the Task's workspace, which Tekton mounts in every step and
+`tranibor-runner launcher` as its process), with the Task's workspace, which Tekton mounts in every step and
 sidecar at `$(workspaces.source.path)` (the runner is told the same path, `TRANIBOR_WORKSPACE`), an
 `emptyDir` `/exchange` shared with the runner's step and an `emptyDir` `/tmp` of its own. The runner's step
 gets the environment `k8s_job`'s runner container gets, plus `TRANIBOR_RUNNER_AGENT_ISOLATION=container`
@@ -994,7 +999,8 @@ gave it and when. A conversation that reloads gets no recap. The run's journal r
 `session/recap` (sizes and sections, never the text).
 
 The chart then renders a `SandboxTemplate` and a `SandboxWarmPool`, both named
-`choregos-runner`. A warm sandbox's pod mounts no service account token and no secret: its
+`tranibor-runner` (and, until 0.32.0, the former pair `choregos-runner`, its pool at size 0, for the
+sandboxes suspended before the upgrade: see the upgrade notes of R9b). A warm sandbox's pod mounts no service account token and no secret: its
 runner waits for one assignment, pushed by the executor after a claim has bound the sandbox to a
 run. A per-project `namespacePattern` (`proj-{slug}-runners`) is refused at render time; the
 provisioning does not write a template per project yet.
@@ -1045,12 +1051,12 @@ look (colours per mode, radii, title font, logo, product name, footer, default m
 enterprise feature: an extension calls `tranibor_api.extensions.declare_theme_provider(fn)` with
 `fn(session, org) -> dict | None` and the core validates what it returns (schema, then the
 console's contrast budget on the effective colours). An invalid theme is replaced by the default
-(`X-Choregos-Theme: fallback`, with the violations in the API log); an extension can check a theme
+(`X-Tranibor-Theme: fallback`, with the violations in the API log); an extension can check a theme
 itself with `tranibor_api.theme.validate_theme`. The radii a theme may set are `radius.control` (0 to 8 px),
 `radius.surface` (0 to 12 px) and `radius.pill` (0 to 999 px, on badges, chips, counters and bars; absent
 keeps them round, 0 makes them square; dots and avatars always stay round, S39-03d, ADR 0210). A theme cannot change the mono font, the layout or
 the attribution line. Fonts and images are served by the API under `/api/v1/` so that the console's
-CSP stays unchanged; hand files to a plugin with `choregos-api.extraVolumes` (S39-03c).
+CSP stays unchanged; hand files to a plugin with `tranibor-api.extraVolumes` (S39-03c).
 The console reads the instance theme on the server before drawing anything (`TRANIBOR_API_URL`,
 1.5 s timeout, cached 60 s; any failure gives the default look) and applies it as CSS variables in
 the page, so the first paint is already themed; the person's organisation theme replaces it right
@@ -1059,7 +1065,7 @@ after hydration. A person's own light/dark choice always wins over the theme's d
 
 An organisation's own look (S42-13) follows the person, not only the instance:
 - When the person picks or is given an organisation, the console remembers its slug in
-  `localStorage` (`choregos.org`) and in the non-HttpOnly cookie `choregos_org`. The root layout
+  `localStorage` (`choregos.org`) and in the non-HttpOnly cookie `tranibor_org`. The root layout
   reads the cookie and asks `GET /api/v1/theme?org=<slug>`, so the first paint, sign-in page
   included, already wears that organisation's name, logo, favicon, colours and footer. The cookie
   only SELECTS a public look: it grants nothing, a value that is not a slug (`[a-z0-9-]`, 63
@@ -1080,13 +1086,13 @@ Both are brought by the deployment, as ConfigMaps, and both are optional.
 ```yaml
 global:
   playbooks:
-    configMap: choregos-playbooks      # one key per role: <role>.md
-    mountPath: /etc/choregos/playbooks
+    configMap: tranibor-playbooks      # one key per role: <role>.md
+    mountPath: /etc/tranibor/playbooks
   toolCatalog:
-    configMap: choregos-tools          # key: catalogue.yaml
+    configMap: tranibor-tools          # key: catalogue.yaml
     mountPath: /etc/choregos/tools
     fileName: catalogue.yaml
-    credentialsSecret: choregos-tool-keys   # provider keys, injected into the API
+    credentialsSecret: tranibor-tool-keys   # provider keys, injected into the API
 ```
 
 Playbooks let a deployment replace **any** role prompt, including `implement`, without
@@ -1127,6 +1133,10 @@ tools:
 entry; `TRANIBOR_BROKER_RESULT_CEILING_BYTES` (1 MiB) bounds both, and an organisation's
 per-operation caps on its connectors too ([usage](usage.md), S40-17).
 
+`TRANIBOR_BROKER_PROFILE_TOOL_CAP` (16 by default, at least 1) bounds the tools one profile entry of an
+agent's `mcp_servers` offers over all the instances that implement the profile; the ones left out are named
+in the run's journal ([plugins](plugins.md#calling-a-profile), ADR 0224).
+
 ### How a tool reaches the agent
 
 An agent never calls a provider. It calls an MCP server that runs **in its own pod**, on
@@ -1161,8 +1171,8 @@ through it, holding no credential of its own.
 
 | Route | What it does |
 |---|---|
-| `GET /bridge/v1/tools` | the run's tool list as `GET /internal/runs/{id}/tools` answers it, whole (`inputSchema`, `outputSchema`, `x-choregos-access`) |
-| `POST /bridge/v1/tools/{name}` | the body is the arguments (empty means `{}`), relayed to `POST /internal/runs/{id}/tools/{name}` with the run token, `X-Choregos-Tool-Origin: script` and the request's `X-Choregos-Script` (64 lowercase hexadecimal characters, else `400`); the API's answer comes back unchanged, status and bytes: a `200` carrying `{status_code, result, remaining, suspicions}`, or the API's problem with its own status (`404`, `409`, `429`, `400`) |
+| `GET /bridge/v1/tools` | the run's tool list as `GET /internal/runs/{id}/tools` answers it, whole (`inputSchema`, `outputSchema`, `x-tranibor-access`) |
+| `POST /bridge/v1/tools/{name}` | the body is the arguments (empty means `{}`), relayed to `POST /internal/runs/{id}/tools/{name}` with the run token, `X-Tranibor-Tool-Origin: script` and the request's `X-Tranibor-Script` (64 lowercase hexadecimal characters, else `400`); the API's answer comes back unchanged, status and bytes: a `200` carrying `{status_code, result, remaining, suspicions}`, or the API's problem with its own status (`404`, `409`, `429`, `400`) |
 | `POST /bridge/v1/scripts` | `{"sha256", "text"}`: the script's text, journaled once per digest (`201` the first time, `200` after); a text over 64 KiB or a digest that is not the SHA-256 of the UTF-8 text is a `400` |
 
 The bridge adds no rule: the API governs each call as it governs the model's. It bounds what it relays: at most
@@ -1175,7 +1185,7 @@ It journals `tools.script` (`sha256`, `bytes`, `text`) and, for each relayed cal
 `status_code`, the answer's own on a `200`, `202` for a proposal, the HTTP status otherwise; `duration_ms`;
 `response_bytes`, what it handed back; `script_sha256`, or null; `action`, the id of the governed action a `202` proposal
 created, when the API named one). The runner's own server writes them into the
-run's journal and says `bridge: true` on its `tools.local` event. A `choregos-tools` server started apart from the
+run's journal and says `bridge: true` on its `tools.local` event. A `tranibor-tools` server started apart from the
 runner (a deployment's own sidecar; Tekton's Task had one until S87-05) is not told its run's input: it reads it
 from the API (`GET /internal/runs/{id}/input`, with the run token) on the bridge's first request, and posts its
 events through `POST /internal/runs/{id}/events`, numbered from 1,000,000,000 so that they never take a number of
@@ -1298,7 +1308,7 @@ NetworkPolicies on, the chart still has to let the platform reach the one you ru
 |---|---|
 | `internalHosts` | Exact host names, rendered as `TRANIBOR_MCP_GATEWAY_INTERNAL_HOSTS` (a JSON list) on the API and the workers. The API refuses them as a run's destination, and the platform may call them. |
 | `hosts` | Appended to the `api` and `workers` families of `global.egress.ceiling`, only when you declared those families (an undeclared family stays *unknown*; `runners` is never touched). |
-| `namespace`, `podLabels` | In-cluster gateway: the policy `choregos-mcp-gateway-egress` opens that namespace (and those pod labels). |
+| `namespace`, `podLabels` | In-cluster gateway: the policy `tranibor-mcp-gateway-egress` opens that namespace (and those pod labels). |
 | `cidrs` | External gateway: one `ipBlock` per CIDR. |
 | `ports` | TCP ports opened (default `[443]`). |
 
@@ -1359,22 +1369,22 @@ the instance. Four things make it work, in this order; the chart does the third 
        kind: nginx-mergeable        # ingress | nginx-mergeable | httproute
        className: nginx
        certificate:
-         issuerRef: { name: choregos-issuer, kind: Issuer }   # the tenant's namespaced HTTP-01 Issuer
+         issuerRef: { name: tranibor-issuer, kind: Issuer }   # the tenant's namespaced HTTP-01 Issuer
    ```
 
    | Value | Default | What it does |
    | :-- | :-- | :-- |
    | `hosts` | `[]` | bare lower-case DNS names, with a dot. No scheme, port, path or wildcard. A name the chart already routes (console, API, run door, outposts' door, `publicUrl`, `apiUrl`) fails the render, and so do two hosts that give the same object name |
    | `kind` | `ingress` | `ingress`: one Ingress per host (TLS, API paths, then the console). `nginx-mergeable`: NGINX Inc. (`nginx.org`) accepts one Ingress per host, so each host gets a **master** (host and TLS secret, no path) and two **minions** (the API's paths, the console's). `httproute`: one HTTPRoute per host on the Gateway; the Gateway listener and its certificate are then the operator's (a route cannot add a listener) |
-   | `className` | `choregos-api.ingress.className` | `ingressClassName` of the Ingresses |
+   | `className` | `tranibor-api.ingress.className` | `ingressClassName` of the Ingresses |
    | `annotations`, `minionAnnotations` | `{}` | the Ingress's (the master's) own annotations, and the minions' (`kind: nginx-mergeable`). `nginx.org/mergeable-ingress-type` is the chart's and cannot be overridden |
    | `gateway`, `gatewayNamespace` | the API's | `kind: httproute` only |
-   | `certificate.enabled` | `true` | one cert-manager `Certificate` per host, `choregos-host-<host with dashes>`, whose secret `<name>-tls` the Ingress terminates TLS with. Off: bring the secrets |
+   | `certificate.enabled` | `true` | one cert-manager `Certificate` per host, `tranibor-host-<host with dashes>`, whose secret `<name>-tls` the Ingress terminates TLS with. Off: bring the secrets |
    | `certificate.issuerRef` | name empty | the Issuer (name, kind `Issuer`, group). Required when `certificate.enabled`: the render fails without a name |
 
    The routes are the canonical host's: the API's paths (`/api`, `/mcp`, `/a2a`, `/healthz`, `/readyz`,
    `/downloads`, the OAuth metadata and the two install scripts), everything else to the console. A test
-   (`tests/charts/test_custom_hosts.py`) fails if they drift from `choregos-api`'s own route.
+   (`tests/charts/test_custom_hosts.py`) fails if they drift from `tranibor-api`'s own route.
    **Guards are not weakened**: the hosts are added to `TRANIBOR_PUBLIC_HOSTS`, so the run's API
    (`/api/v1/internal`) is closed on them as on the canonical host **before** any proof, and the
    verified hosts follow at run time (origin guard, redirect targets), with no setting. The ingress must
@@ -1447,7 +1457,7 @@ global:
 | :-- | :-- | :-- |
 | `enabled` | `false` | `TRANIBOR_OUTPOSTS=on` for the API and for every worker (whoever places a call reads the switch), the door's settings for the API, the door's route, and the alert rule below |
 | `callsInFlight.perOutpost`, `.perOrganisation` | `128`, `512` | the two quotas, for the API and the workers |
-| `door.hostnames` | `[]` | the hostnames of the route `choregos-outposts-door`, which serves `/outposts` and nothing else, in the entry form of `choregos-api.ingress` (an HTTPRoute or an Ingress, the API's class and gateway). A hostname that is also the console's (`choregos-web.ingress.hostnames`, `global.publicUrl`), the API's (`choregos-api.ingress.hostnames`, `global.apiUrl`) or a run door's fails the render: the one name an outpost's firewall opens is a name of its own |
+| `door.hostnames` | `[]` | the hostnames of the route `tranibor-outposts-door`, which serves `/outposts` and nothing else, in the entry form of `tranibor-api.ingress` (an HTTPRoute or an Ingress, the API's class and gateway). A hostname that is also the console's (`tranibor-web.ingress.hostnames`, `global.publicUrl`), the API's (`tranibor-api.ingress.hostnames`, `global.apiUrl`) or a run door's fails the render: the one name an outpost's firewall opens is a name of its own |
 | `door.url` | empty | `TRANIBOR_OUTPOSTS_DOOR_URL`. Empty: `https://` and the first hostname. Enabled with neither a hostname nor a URL, or with a URL that has a path, the render fails and names the value, before the API would refuse to start |
 | `door.signingKey.existingSecret`, `.key` | empty, `signing-key` | the Secret the API (and the door's Deployment) reads `TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY` from, by reference and not optional. Empty: the chart's own Secret, below |
 | `door.announcedKeys` | `[]` | `TRANIBOR_OUTPOSTS_DOOR_ANNOUNCED_KEYS`. A key that is not one, a key listed twice or a fourth one fails the render |
@@ -1477,7 +1487,7 @@ action `in_doubt` ([Security](security.md#a-connector-at-an-outpost)). A worker 
 outpost's claim and the record of its answer loses nothing for fifteen minutes: the retry reads the
 answer where the door stored it. After that the answer is gone and the action ends in doubt rather
 than being sent again. Watch the actions in doubt (`GET /api/v1/projects/{id}/actions?status=in_doubt`,
-or the `choregos.action.failed` events whose `status` is `in_doubt`): a count that rises says the link
+or the `tranibor.action.failed` events whose `status` is `in_doubt`): a count that rises says the link
 between an outpost and the platform loses answers. Upgrade the API and the workers together before an
 administrator opens a write: a worker of an earlier version places no write through an outpost, and
 the action fails saying so. The upgrade adds two columns to `connector_operations`
@@ -1525,7 +1535,7 @@ is one key for its whole life (the chart's own is immutable).
 3. When the operators have dropped the former key, empty `announcedKeys`, upgrade, and delete the
    former Secret.
 
-An outpost whose operator uses the `choregos-outpost` chart follows by adding the next key to
+An outpost whose operator uses the `tranibor-outpost` chart follows by adding the next key to
 `policy.door_keys` at step 1 and removing the former one after step 3: each change restarts its pods.
 
 The API refuses to start on a door URL that is not an origin, on a signing key that is not an Ed25519
@@ -1586,7 +1596,7 @@ former and the new key run side by side, a daemon may be refused a few times in 
 **The door's own Deployment** (`global.outposts.door.dedicated: true`,
 [ADR 0148](adr/0148-the-outpost-door-is-a-third-door-with-its-own-contract.md) §8). Polls wait by the
 hundred. Split out, they take no worker and no pooled connection from the console and the runs: the
-chart renders a Deployment `choregos-outposts-door` from the API image, started as
+chart renders a Deployment `tranibor-outposts-door` from the API image, started as
 `python -m tranibor_api.outposts` (`apps/api/src/tranibor_api/outposts/alone.py`), a Service of the
 same name, a disruption budget, and the route then leads there.
 
@@ -1612,20 +1622,20 @@ same name, a disruption budget, and the route then leads there.
 - **The API still mounts the door**, in both layouts: `TRANIBOR_OUTPOSTS` is one switch. With the door
   split out no route leads to the API's copy from outside the cluster.
 - **Network policies** (`networkPolicies.enabled`): the door's pods get a policy of their own,
-  `choregos-outposts-door-net`. They take requests from the entrance's namespace
-  (`choregos-api.ingress.gatewayNamespace`) and reach DNS and the database, nothing else; they are
+  `tranibor-outposts-door-net`. They take requests from the entrance's namespace
+  (`tranibor-api.ingress.gatewayNamespace`) and reach DNS and the database, nothing else; they are
   left out of the platform's own egress policy. Nothing in this chart opens a way to an outpost,
   because there is none to open: an outpost dials out.
 - **Not there**: the door's own process exposes no `/metrics`. The poll-conflict series is the API's
   (it counts audit events), but the door's request counts are not in `http_requests_total` once it is
   split out.
 
-### The outpost's side: the chart `choregos-outpost`
+### The outpost's side: the chart `tranibor-outpost`
 
 Whoever runs an outpost installs the daemon in THEIR cluster with a chart of its own, published
 beside the platform's (`oci://ghcr.io/graalsystems/charts/tranibor-outpost`). It is not a subchart
-of this one and shares no value with it: its page is `charts/choregos-outpost/README.md`, and a
-complete example is `charts/choregos-outpost/values/example.yaml`. What you hand its operator is
+of this one and shares no value with it: its page is `charts/tranibor-outpost/README.md`, and a
+complete example is `charts/tranibor-outpost/values/example.yaml`. What you hand its operator is
 what the management API returns with an enrolment token: the door's origin (`policy.control_plane`),
 the door's keys (`policy.door_keys`), and the token itself. Hand them
 [Running an outpost](outpost-operator.md) with it: that page is written for them, and says first
@@ -1674,7 +1684,7 @@ global:
 
 A syslog sink: `sink: syslog`, `syslog: {host: siem.example, port: 6514}`, `format: cef` for CEF. A CA that
 is not in the system's roots is a path in the API pod (`caFile`, mounted with
-[`choregos-api.extraVolumes`](#extra-volumes-for-the-api)). `organisations: [a, b]` limits the export to
+[`tranibor-api.extraVolumes`](#extra-volumes-for-the-api)). `organisations: [a, b]` limits the export to
 those slugs (default: every organisation) and `platform: false` leaves the platform's chain out (sign-ins,
 tokens).
 
@@ -1714,7 +1724,7 @@ global:
     format: elastic-bulk
     url: https://opensearch.example:9200/_bulk
     index: choregos-audit
-    caFile: /etc/siem/root-ca.pem       # mounted with choregos-api.extraVolumes
+    caFile: /etc/siem/root-ca.pem       # mounted with tranibor-api.extraVolumes
     token: { secretRef: siem-token, key: audit-export-token, scheme: Basic }
 ```
 
@@ -1773,27 +1783,27 @@ What is removed: the longest prefix of a chain that is older than the rule, **pa
 when `TRANIBOR_AUDIT_EXPORT` is on and covers the chain, **has been accepted by the SIEM sink** (its cursor is
 the ceiling; no cursor, nothing removed). A sink that is down therefore holds retention back and the log grows:
 watch `ChoregosAuditExportStalled` and `choregos_audit_retention_held_back_total`. Entries that do not verify are
-never removed, and `choregos-admin audit verify` shows the break. Before each delete a `prune` checkpoint
+never removed, and `tranibor-admin audit verify` shows the break. Before each delete a `prune` checkpoint
 (the last removed entry's `seq` and `hash`, the count, the rule) is written and an `audit.retention.prune` entry
-records it in the chain; `choregos-admin audit verify` walks what remains from the checkpoint and says how far
+records it in the chain; `tranibor-admin audit verify` walks what remains from the checkpoint and says how far
 retention went. Removed entries are no longer evidence in the database: keep the SIEM's copy as long as your
 policy requires. Do not rename the export (`TRANIBOR_AUDIT_EXPORT_NAME`) or delete cursors on a pruned log: the
 export would ship it again from entry 1 and log `audit.export.chain_discontinuity`.
 
-`choregos-admin audit prune --dry-run` says what the next pass would remove; without `--dry-run` it applies the
+`tranibor-admin audit prune --dry-run` says what the next pass would remove; without `--dry-run` it applies the
 rule once. `/metrics`: `choregos_audit_retention_pruned_entries_total`, `choregos_audit_retention_held_back_total`,
 `choregos_audit_retention_failures_total` (per process). Logs: `audit.retention.pruned`, `.held_back`,
 `.chain_broken`, `.failed`.
 
 ## Extra volumes for the API
 
-`choregos-api.extraVolumes` and `choregos-api.extraVolumeMounts` are appended verbatim to the
+`tranibor-api.extraVolumes` and `tranibor-api.extraVolumeMounts` are appended verbatim to the
 API pod and container, so a deployment can hand files to a plugin without forking the chart:
 
 ```yaml
-choregos-api:
+tranibor-api:
   extraVolumes: [{ name: theme, configMap: { name: my-theme } }]
-  extraVolumeMounts: [{ name: theme, mountPath: /etc/choregos/theme, readOnly: true }]
+  extraVolumeMounts: [{ name: theme, mountPath: /etc/tranibor/theme, readOnly: true }]
 ```
 
 A volume named like one the chart owns (`tmp`, `catalogue`, `workflow-templates`, `playbooks`, `mcp-catalogue`)
@@ -1804,7 +1814,7 @@ fails at render.
 A `bundled` skill of the skills catalogue is in the image and needs no network. A `git` entry (a
 copyleft licence, a high-risk skill) is fetched at its pinned commit from **`codeload.github.com`**, as
 the existing *Import from a repository* is: the API pod's egress must allow that host (an egress rule
-in your network policy). `choregos-api.egressHosts` is only the hint the console shows (`egress:
+in your network policy). `tranibor-api.egressHosts` is only the hint the console shows (`egress:
 undeclared` on a `git` entry when the list is set and lacks `codeload.github.com`); it restricts
 nothing. Without the egress rule, installing a bundled skill still works and a git one answers `502`.
 
@@ -1814,13 +1824,13 @@ The image ships a catalogue of well-known MCP servers ([ADR 0065](adr/0065-catal
 an administrator installs an entry from *Library → MCP servers* (it then appears under *Administration → Installed connectors*). Two chart values
 belong to the deployment:
 
-- `choregos-api.egressHosts` (a list, `*.` wildcards allowed) declares the hosts the API pod may
+- `tranibor-api.egressHosts` (a list, `*.` wildcards allowed) declares the hosts the API pod may
   reach. It becomes `TRANIBOR_API_EGRESS_HOSTS` and **restricts nothing**: your network policy
   does. The catalogue uses it to tell an administrator, before a silent timeout, that a server's host
   (`mcp.notion.com`) is `undeclared`. Keep it equal to the egress allowlist of the namespace, and add
   a host there (an egress rule, then here) before enabling a server that needs it. Empty: the
   catalogue says `unknown` and warns about nothing.
-- `choregos-api.mcpCatalogueExtra` is the name of a ConfigMap holding a `catalogue.yaml`
+- `tranibor-api.mcpCatalogueExtra` is the name of a ConfigMap holding a `catalogue.yaml`
   (`entries: [...]`, the fields of the shipped catalogue) that lists **your own** MCP servers, merged
   after the shipped ones and shown as `site` entries. An id already in the shipped catalogue is
   refused, not shadowed, and a malformed file makes the catalogue answer `422` naming the entry.
@@ -1841,8 +1851,8 @@ are handled.
 Put one Markdown file per procedure in a ConfigMap and name it in the API's values:
 
 ```yaml
-choregos-api:
-  proceduresExtra: choregos-procedures   # a ConfigMap; mounted read-only at /etc/choregos/procedures
+tranibor-api:
+  proceduresExtra: tranibor-procedures   # a ConfigMap; mounted read-only at /etc/tranibor/procedures
 ```
 
 - `<id>.site.md` appends an **On this platform** section to the procedure `<id>`
@@ -1853,7 +1863,7 @@ choregos-api:
   front matter of the shipped ones. It cannot replace a shipped id.
 
 A refused file is logged (`procedures.file.refused`) and skipped: the API still starts and the other
-files still apply. A plugin can supply the same directory through a `choregos.procedures` entry point
+files still apply. A plugin can supply the same directory through a `tranibor.procedures` entry point
 whose value is a path. Outside the chart, the setting is `TRANIBOR_PROCEDURES_EXTRA`.
 
 ## Where the console's help links point
@@ -1866,7 +1876,7 @@ documentation, `https://graalsystems.github.io/tranibor` by default. An installa
 global:
   extraEnv:
     - name: TRANIBOR_DOCS_URL
-      value: https://docs.intranet.example/choregos
+      value: https://docs.intranet.example/tranibor
 ```
 
 The API serves it as `docs_url` in `GET /edition`, without its trailing slash; the console appends the
@@ -1888,7 +1898,7 @@ global:
         trust:                    # a keyless cosign signer (regular expressions, matched whole)…
           identity: https://github\.com/graalsystems/tranibor-agents/\.github/workflows/publish\.yml@refs/heads/main
           issuer: https://token\.actions\.githubusercontent\.com
-          # key: /etc/choregos/plugins-keys/acme.pub   # …or a public key, mounted with api.extraVolumes
+          # key: /etc/tranibor/plugins-keys/acme.pub   # …or a public key, mounted with api.extraVolumes
         egress: []                # hosts its fetches may reach beyond the index's own
     defaultPlugins:               # the chart's default: the built-in agents (ADR 0093 §6)
       - { source: tranibor, name: software-delivery, version: "^1.0", preapproved: true }
@@ -1899,8 +1909,9 @@ global:
     offline: /opt/choregos/plugins   # plugins baked into the image: air-gapped, demo, CI
 ```
 
-The chart renders these values into the ConfigMap `choregos-plugins`, mounted read-only in the API at
-`/etc/choregos/plugins/plugins.yaml` and named by `TRANIBOR_PLUGINS_CONFIG`. By default they install the
+The chart renders these values into the ConfigMap `tranibor-plugins`, mounted read-only in the API at
+`/etc/tranibor/plugins/plugins.yaml` (and at the former `/etc/choregos/plugins/` until 0.32.0, for a `key:`
+written there) and named by `TRANIBOR_PLUGINS_CONFIG`. By default they install the
 platform's own agents — `software-delivery`, `netops`, `authoring`, `mcp-clients` and `requests` of
 [`graalsystems/tranibor-agents`](https://github.com/graalsystems/tranibor-agents) — from the image's
 offline directory, where the API image ships them pinned by `plugins.lock`: no network is needed at
@@ -1950,7 +1961,7 @@ each pass is the log line `plugin.default.reconciled` (installed, waiting, faile
 
 **Egress.** Fetches go through the API's egress guard, opened for each source's own hosts within the
 deployment's ceiling (`global.egress`); the API's network policy must also let it reach the index and
-registry hosts (`choregos-api.egressHosts` documents them for the catalogues).
+registry hosts (`tranibor-api.egressHosts` documents them for the catalogues).
 
 ### Plugin servers
 
@@ -1970,18 +1981,33 @@ global:
       imageMirrors: {}          # registry prefix -> mirror prefix, for the pull only (below)
       # imagePullSecrets: []    # unset: global.imagePullSecrets; the Secrets live in the servers' namespace
       rbac: true                # false: the platform lays the Role and RoleBinding down itself
+      privateCidrs: []          # private ranges a server may reach (below); empty: none, the default
+      privateCidrsByOrg: {}     # multi-organisation: organisation slug -> its CIDRs, e.g. { northwind: [10.20.0.0/16] }
 ```
+
+**Private ranges (opt-in, [ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md) §6a).**
+By default a server reaches public addresses only, and a host typed in a plugin's configuration that
+resolves to a private address is refused (422). To let servers reach a controller on a private network,
+list its range in `privateCidrs`: a host that resolves inside it is admitted, within the organisation's
+network bounds, and the server's NetworkPolicy opens that host's address and port only (`toCIDR` with
+`egress: cilium`). Link-local, metadata (`169.254.169.254`, `fd00:ec2::254`, `100.100.100.200`) and loopback
+ranges are refused whatever is listed, and the API does not start on one. A deployment with several
+organisations (the enterprise edition's `multi_org`) must bind every listed CIDR to one organisation in
+`privateCidrsByOrg`, keyed by its slug (a former slug, ADR 0090, still matches): the API refuses to start
+otherwise, and an organisation never gets another's range. The address is the one resolved when the server
+is provisioned or reconciled.
 
 With `enabled`, the chart renders a Role in that namespace (Deployments, Services, NetworkPolicies,
 Secrets; CiliumNetworkPolicies with `egress: cilium`) bound to the API's ServiceAccount, nothing
 cluster-wide, and opens the platform's egress towards the namespace. The namespace must not be the
 release's. Per organisation and server the API writes a Deployment, a Service, a NetworkPolicy and a
-Secret, named `<server>-<hash of the organisation>` and labelled `choregos.dev/plugin`,
-`choregos.dev/server`, `choregos.dev/org`.
+Secret, named `<server>-<hash of the organisation>` and labelled `tranibor.dev/plugin`,
+`tranibor.dev/server`, `tranibor.dev/org`.
 
 The server's NetworkPolicy admits, on its port and from the release's namespace, the three kinds of
-callers a server has (#2192): the **API** (`app.kubernetes.io/name: choregos-api`: the broker, discovery,
-the connector test, the webhook) and the **orchestrator's workers** (`choregos-orchestrator`, every
+callers a server has (#2192): the **API** (`app.kubernetes.io/name: tranibor-api` or, by default until
+0.32.0, `choregos-api`: the broker, discovery, the connector test, the webhook) and the **orchestrator's
+workers** (`tranibor-orchestrator` or `choregos-orchestrator`, every
 queue: the `tracker` queue polls and writes a `tracker/plugin`, the `orchestrator` queue plays a governed
 action's `connector.call`, and every activity builds its project's adapters). A runner pod is never
 admitted. A platform that writes its own policies for the servers' namespace (a tenant baseline that
@@ -1990,7 +2016,7 @@ API's own policy is enough wherever nothing else denies. A server already runnin
 at its next reconcile (a change of its connector's configuration).
 
 What stays with the operator: the namespace (unless `create`), the registry allowlist in two places —
-`registries` here and the prefix of the Kyverno policy `choregos-plugin-server-images`
+`registries` here and the prefix of the Kyverno policy `tranibor-plugin-server-images`
 (`infra/policies/plugin-servers.yaml`, the namespace name too if it is not `choregos-plugins`) — and,
 for `cilium`, a cluster that runs Cilium with its DNS proxy. Signatures follow `images.hostedCosign`
 and its signer.
@@ -2009,12 +2035,12 @@ the mirror serves is the content that was signed, or the pull fails. `registries
 declared prefix, not the mirror's. A mirror that is not a prefix (no registry host, a tag, a digest)
 stops the API at start-up. A private mirror needs `imagePullSecrets`, Secrets of the servers'
 namespace (unset: `global.imagePullSecrets`, which must then exist there too). A Kyverno policy that
-judges the servers' pods (`choregos-plugin-server-images`, or the platform's own) must admit the
+judges the servers' pods (`tranibor-plugin-server-images`, or the platform's own) must admit the
 mirror's prefix.
 
 **A platform that lays the Role down** (`rbac: false`, as `rbac.jobRunner: false`). The chart then
 renders neither the Role nor the RoleBinding; the platform grants, in the servers' namespace, to the
-ServiceAccount `choregos-api` of the release's namespace:
+ServiceAccount `tranibor-api` of the release's namespace:
 
 | API group | Resources | Verbs |
 |:--|:--|:--|
@@ -2044,7 +2070,7 @@ Alembic runs as a Helm hook before the API starts, through `python -m tranibor_a
 (`upgrade heads`: the core, then the branch of any installed plugin that ships a schema):
 
 ```yaml
-choregos-api:
+tranibor-api:
   migrations:
     hook: pre-install,pre-upgrade    # post-install,post-upgrade when the database is EMBEDDED
     waitForDatabaseSeconds: 300      # an init container waits for it
@@ -2072,25 +2098,25 @@ the LiteLLM gateway, the Ecphoria memory. **What the site brings**:
 | :-- | :-- |
 | An OIDC provider (people sign in through it; there is no development sign-in) | `global.oidc.*`, secret `choregos-oidc` |
 | The application secrets (run-token key, session secret, `secrets-keks`), kept in the site's vault | secret `choregos-api-secrets`, [Secrets](#secrets) |
-| The model provider's key | `choregos-litellm.upstream.apiKeySecret` |
+| The model provider's key | `tranibor-litellm.upstream.apiKeySecret` |
 | An S3 bucket **off the machine** for the backups | `backup.target.s3.*`, secret `choregos-backup-target` (`access-key`, `secret-key`) |
 | An object store, if workflows produce files | `global.objectStore.*`, then `backup.objectStore: true` |
 
 ```bash
-helm install choregos charts/choregos -n choregos --create-namespace \
-  -f charts/choregos/values/single-node.yaml -f my-site.yaml
+helm install tranibor charts/tranibor -n tranibor --create-namespace \
+  -f charts/tranibor/values/single-node.yaml -f my-site.yaml
 ```
 
 `my-site.yaml` sets `global.domain`, `global.publicUrl`, `global.apiUrl`, the hostnames of
-`choregos-api.ingress` and `choregos-web.ingress`, `global.oidc`, `global.bootstrap` and
+`tranibor-api.ingress` and `tranibor-web.ingress`, `global.oidc`, `global.bootstrap` and
 `backup.target.s3.{url,endpoint,region}`.
 
-**The backup.** The CronJob `choregos-backup` runs every night at 02:00 UTC (`backup.schedule`) and
+**The backup.** The CronJob `<release>-backup` (`tranibor-backup` here) runs every night at 02:00 UTC (`backup.schedule`) and
 writes one directory per run: a `pg_dump -Fc --create` of every database (Temporal's included in
 `server` mode), an online copy of Temporal's SQLite file in `dev` mode, the memory as Ecphoria backs it up itself while it runs
 (`/api/v1/admin/backup`, S80-41), the object store when asked, a `MANIFEST` and a
 `COMPLETE` marker; it keeps the 7 newest complete backups (`backup.keep`). To take one now:
-`kubectl -n choregos create job --from=cronjob/choregos-backup backup-now`. A `volume` target
+`kubectl -n tranibor create job --from=cronjob/tranibor-backup backup-now`. A `volume` target
 (`backup.target.kind: volume`) is accepted, and is a backup only if that volume is not on the
 machine's own disk. Restore: [the runbook](runbooks/single-node-restore.md), `tools/single-node/restore.sh`.
 
@@ -2110,7 +2136,7 @@ checks it).
 NetworkPolicy 1.2 to 5.2 s after its containers start (measured, #1854): in that window an agent pod
 reaches the outside directly. So every agent pod's first init container is a gate that lets nothing
 else of the pod start until a direct connection out is refused. The profile keeps it on, and the chart
-refuses `choregos-orchestrator.runner.egressGate.enabled: false` with it.
+refuses `tranibor-orchestrator.runner.egressGate.enabled: false` with it.
 
 **What it does not have**, said before anyone signs:
 
@@ -2157,7 +2183,7 @@ replaces it). The runner journals what the gate measured as `egress.gate` (`wait
 `open_at_s`).
 
 ```yaml
-choregos-orchestrator:
+tranibor-orchestrator:
   runner:
     egressGate:
       enabled: true          # the default; the single-node profile refuses false
@@ -2195,8 +2221,8 @@ spends most of its twenty minutes building images.
 ```bash
 make demo-up        # kind cluster, namespace, in-cluster git, ConfigMaps, the chart
 make demo-images    # builds local/choregos-*:demo and LOADS them into the kind node
-kubectl -n choregos create secret generic platform-llm-key --from-literal=api-key=sk-ant-…
-kubectl -n choregos rollout restart deploy/choregos-litellm
+kubectl -n tranibor create secret generic platform-llm-key --from-literal=api-key=sk-ant-…
+kubectl -n tranibor rollout restart deploy/tranibor-litellm
 make demo-seed      # two projects, five tickets, one Temporal workflow per ticket
 make demo-status    # ticket states and the cost ledger
 ```
@@ -2218,18 +2244,18 @@ catalogue). A ticket still in its initial state after fifteen minutes is not wai
 dead; `temporal workflow describe` says why. `demo/README.md` has the rest, including what
 this bench does **not** prove.
 
-**Hardened runtime for agent pods.** `global.runner.runtimeClass` (gVisor, Kata; `""` = the cluster's) applies to every agent pod unless the project policy demands gVisor, which always wins. It is the RuntimeClass of the `agent_sandbox` warm pool's template and reaches the API and every worker (`TRANIBOR_RUNNER_RUNTIME_CLASS`); it is deliberately not set by default. An install that sets only `choregos-orchestrator.runner.runtimeClass` renders as before, but the API is then told nothing and cannot judge a gVisor policy (no `runtime-class` item, no false alarm); both set must agree, else the render is refused. With `global.runner.runtimeClass` set, a project whose policy asks for gVisor on a pool that does not run it sees a `runtime-class` item in its readiness (`docs/usage.md`) instead of a run stuck in `queued`. The strict Kyverno rule in `infra/policies/pod-security.yaml` refuses any pod of a platform or project namespace without a non-root, seccomp-profiled security context — the chart's own pods are checked against it by `tests/charts`.
+**Hardened runtime for agent pods.** `global.runner.runtimeClass` (gVisor, Kata; `""` = the cluster's) applies to every agent pod unless the project policy demands gVisor, which always wins. It is the RuntimeClass of the `agent_sandbox` warm pool's template and reaches the API and every worker (`TRANIBOR_RUNNER_RUNTIME_CLASS`); it is deliberately not set by default. An install that sets only `tranibor-orchestrator.runner.runtimeClass` renders as before, but the API is then told nothing and cannot judge a gVisor policy (no `runtime-class` item, no false alarm); both set must agree, else the render is refused. With `global.runner.runtimeClass` set, a project whose policy asks for gVisor on a pool that does not run it sees a `runtime-class` item in its readiness (`docs/usage.md`) instead of a run stuck in `queued`. The strict Kyverno rule in `infra/policies/pod-security.yaml` refuses any pod of a platform or project namespace without a non-root, seccomp-profiled security context — the chart's own pods are checked against it by `tests/charts`.
 
 **Installing the admission policies.** `kubectl apply -k infra/policies` installs the five default ClusterPolicies; they need Kyverno ≥ 1.12 and the agent-sandbox operator's CRDs, nothing else (`tests/charts/test_policies_install_on_a_bare_cluster.py`). Where Tekton runs (`global.runner.executor: tekton`), add `kubectl apply -k infra/policies/tekton`: its `PipelineRun` rule is kept apart because Kyverno refuses a whole policy whose kinds the cluster does not know.
 
-**Context reduction kill switch.** `choregos-orchestrator.runner.contextReduction.enabled: false` (env `TRANIBOR_CONTEXT_REDUCTION=off`) refuses rtk and headroom to every run, whatever a project's policy asks ([ADR 0055](adr/0055-fewer-tokens-per-run.md)). Left at `true`, each policy decides, and a policy without `context` reduces nothing.
+**Context reduction kill switch.** `tranibor-orchestrator.runner.contextReduction.enabled: false` (env `TRANIBOR_CONTEXT_REDUCTION=off`) refuses rtk and headroom to every run, whatever a project's policy asks ([ADR 0055](adr/0055-fewer-tokens-per-run.md)). Left at `true`, each policy decides, and a policy without `context` reduces nothing.
 
 **Tool scripts: the organisation decides, the deployment sets the default and keeps a brake.** Each organisation switches tool scripts for its runs ([ADR 0122](adr/0122-an-agent-may-call-its-run-s-tools-from-a-script.md) §6, amended 2026-11-05, S57-05b): its administrator sets `tool_scripts` to `enabled` or `disabled` with `PATCH /orgs/{org}` (or on *Administration → Tool scripts*), or to `null` to follow the deployment. Two orchestrator values, read by every worker:
 
 | Value | Env | Default | Meaning |
 |:--|:--|:--|:--|
-| `choregos-orchestrator.runner.toolScripts.enabled` | `TRANIBOR_TOOL_SCRIPTS` | `false` | The **default** of an organisation that does not choose. `false`: its runs are offered no tool bridge; `true`: its ceiling and each project's policy decide, and a policy without `tools` offers nothing. An organisation's `enabled` or `disabled` wins over it. |
-| `choregos-orchestrator.runner.toolScripts.allowed` | `TRANIBOR_TOOL_SCRIPTS_ALLOWED` | `true` | The **hard brake**. `false`: no run of any organisation is offered tool scripts, whatever its setting says. |
+| `tranibor-orchestrator.runner.toolScripts.enabled` | `TRANIBOR_TOOL_SCRIPTS` | `false` | The **default** of an organisation that does not choose. `false`: its runs are offered no tool bridge; `true`: its ceiling and each project's policy decide, and a policy without `tools` offers nothing. An organisation's `enabled` or `disabled` wins over it. |
+| `tranibor-orchestrator.runner.toolScripts.allowed` | `TRANIBOR_TOOL_SCRIPTS_ALLOWED` | `true` | The **hard brake**. `false`: no run of any organisation is offered tool scripts, whatever its setting says. |
 
 Before S57-05b, `enabled: false` refused tool scripts to every run; it now only sets the default, and an organisation administrator can enable them for their organisation. To keep them refused everywhere — while the runner image predates the bridge (S57-07: an older runner refuses a stage input that carries `tools.scripts`), or in an emergency — set `allowed: false`. The API does not know these values: the console says "the deployment's default" without saying which.
 
@@ -2237,32 +2263,32 @@ Before S57-05b, `enabled: false` refused tool scripts to every run; it now only 
 
 A cluster with nothing but Kubernetes (1.29 or later is advised) and a **default StorageClass** gets a working
 platform from one `helm install` ([ADR 0208](adr/0208-the-chart-deploys-every-solution-the-platform-requires-in-one-install.md)).
-The profile `charts/choregos/values/all-in-one.yaml` embeds, beside the PostgreSQL (pgvector), Temporal, LiteLLM
+The profile `charts/tranibor/values/all-in-one.yaml` embeds, beside the PostgreSQL (pgvector), Temporal, LiteLLM
 and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 
 | Prerequisite (table above) | In all-in-one mode |
 |:--|:--|
-| An OIDC provider | **Keycloak** (`choregos-keycloak`): one replica, its database `keycloak` in the embedded PostgreSQL, a realm `choregos` with a confidential client for the console (`choregos`), a public client for the CLI (the console's client id followed by `-cli`, device grant), the `groups` claim in the form `choregos:<org>:<role>`, the five role groups of the bootstrap organisation, and one administrator (the first of `global.bootstrap.admins`, in `choregos:<org>:org-admins`). Served at `https://auth.<global.domain>` by its own Ingress |
-| An S3-compatible object store | **RustFS** (`choregos-objectstore`): one replica, one volume, an S3 API on 9000 (no Service for its console), and a hook Job that makes the bucket of `global.objectStore.url` |
+| An OIDC provider | **Keycloak** (`tranibor-keycloak`): one replica, its database `keycloak` in the embedded PostgreSQL, a realm `choregos` with a confidential client for the console (`choregos`), a public client for the CLI (the console's client id followed by `-cli`, device grant), the `groups` claim in the form `choregos:<org>:<role>` (the platform reads it beside `tranibor:<org>:<role>`), the five role groups of the bootstrap organisation, and one administrator (the first of `global.bootstrap.admins`, in `choregos:<org>:org-admins`). Served at `https://auth.<global.domain>` by its own Ingress |
+| An S3-compatible object store | **RustFS** (`tranibor-objectstore`): one replica, one volume, an S3 API on 9000 (no Service for its console), and a hook Job that makes the bucket of `global.objectStore.url` |
 | The agent-sandbox operator | **Not installed**: its CRDs are cluster-scoped, which a chart installed into a namespace cannot lay down. The profile falls back to the `k8s_job` executor (each agent stage is a Job of the release namespace) and `NOTES.txt` says so. Install `infra/operators/agent-sandbox` and set `global.runner.executor: agent_sandbox` to use the operator |
 | External Secrets Operator | **Off** (`global.externalSecrets.enabled: false`, and the render refuses it on). The chart draws every Secret itself: `choregos-api-secrets` (session secret, run-token signing key, connector-secret key, egress report key), `choregos-oidc` (the client secret, shared by the realm and the API), `choregos-object-store` (access and secret keys), the PostgreSQL, gateway and memory Secrets, and `<release>-keycloak` (the master realm's `admin-password` and the platform administrator's `realm-admin-password`). Each is drawn once and **re-read** on upgrades |
 | Kyverno | Optional, unchanged: not needed |
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.5 \
-  -n choregos --create-namespace \
-  -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
+helm install tranibor oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.5 \
+  -n tranibor --create-namespace \
+  -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/tranibor/values/ of the chart
 ```
 
 `my-site.yaml` sets what only you know: `global.domain`, `global.publicUrl`, `global.apiUrl`, the two ingresses'
 `hostnames` (and `className` when the cluster has no default IngressClass), `global.bootstrap.org` and
 `global.bootstrap.admins` (the render is refused without them: nobody could otherwise sign in and create the first
-organisation), and the model provider's key (`choregos-litellm.upstream`). The DNS name `auth.<domain>` must resolve
-**from inside the cluster too**: the API reads the issuer's discovery document there (`choregos-keycloak.ingress.hostname`
-changes the host; `choregos-api.hostAliases` is the escape where DNS cannot).
+organisation), and the model provider's key (`tranibor-litellm.upstream`). The DNS name `auth.<domain>` must resolve
+**from inside the cluster too**: the API reads the issuer's discovery document there (`tranibor-keycloak.ingress.hostname`
+changes the host; `tranibor-api.hostAliases` is the escape where DNS cannot).
 
-After the install: `kubectl -n choregos get secret choregos-keycloak -o jsonpath='{.data.realm-admin-password}' | base64 -d`
+After the install: `kubectl -n tranibor get secret tranibor-keycloak -o jsonpath='{.data.realm-admin-password}' | base64 -d`
 gives the administrator's password; sign in at `global.publicUrl` as the first bootstrap admin.
 
 **Each piece is overridable**, so a customer brings their own:
@@ -2271,7 +2297,7 @@ gives the administrator's password; sign in at `global.publicUrl` as the first b
 |:--|:--|
 | Keycloak or another OIDC provider | `global.oidc.embedded: false`, `global.oidc.generateSecret: false`, `global.oidc.issuer`, `clientId`, `secretRef` (your Secret) |
 | An S3 | `global.objectStore.embedded: false`, `generateSecret: false`, `url`, `endpoint`, `secretRef` |
-| A PostgreSQL | `global.database.embedded: false`, `secretRef`; the embedded Keycloak then needs `choregos-keycloak.database.host` and `secretRef` (the database `keycloak` made by you) |
+| A PostgreSQL | `global.database.embedded: false`, `secretRef`; the embedded Keycloak then needs `tranibor-keycloak.database.host` and `secretRef` (the database `keycloak` made by you) |
 | Temporal, the gateway, the memory | their `embedded` switches, as in [Dependencies](#dependencies-embedded-or-external) |
 
 **Sizing.** One node of 8 vCPU, 32 GiB and 250 GB is the same as the single-node profile, plus Keycloak
@@ -2284,11 +2310,11 @@ is 50 GiB, the backup volume 50 GiB. The volumes use the default StorageClass.
 volumes' owners (`Recreate`). The recovery point is the backup interval (24 h), and the backup lands on a volume
 of the same cluster until `backup.target` points off it (`kind: s3`). The backup pod mounts the embedded volumes
 beside their owners, which a one-node cluster allows and a multi-node one may not. The realm is imported **once**,
-at Keycloak's first start: later changes to `choregos-keycloak.realm` do not alter a realm that exists. The
+at Keycloak's first start: later changes to `tranibor-keycloak.realm` do not alter a realm that exists. The
 NetworkPolicies need a CNI that enforces them (the egress gate holds every agent pod until a direct connection out
 is refused, and holds forever where nothing refuses it). `RustFS` and `Keycloak`'s images are pinned by tag and digest
-(`choregos-objectstore.image`, `choregos-keycloak.image`); RustFS names its user instead of numbering it, so an
-admission policy that demands a numeric `runAsUser` needs `choregos-objectstore.podSecurityContext`.
+(`tranibor-objectstore.image`, `tranibor-keycloak.image`); RustFS names its user instead of numbering it, so an
+admission policy that demands a numeric `runAsUser` needs `tranibor-objectstore.podSecurityContext`.
 
 **What was verified.** The render, by `tests/charts/test_all_in_one.py`: the objects, the wiring between them, the
 guards, the pins, and that an install without the mode renders what it did. Installed on a real cluster on
@@ -2314,7 +2340,7 @@ global:
 
 At every start the API creates the organisation if it is missing and gives those people
 `org_admin` on it; it never touches what already exists. They can then create other
-organisations (`POST /orgs`, `choregos orgs create`) and invite members.
+organisations (`POST /orgs`, `tranibor orgs create`) and invite members.
 
 `global.bootstrap.org` is the **slug** of the first organisation and `orgName` its display name:
 name them for the installation (there is no default organisation, neither in the chart nor in the
@@ -2325,22 +2351,22 @@ The bootstrap **never renames** an organisation that exists: changing `bootstrap
 instance creates a second organisation (refused on the community edition, which holds one). To
 rename, call `PATCH /api/v1/orgs/<slug>` with `{"name": "…"}` (an organisation administrator), or
 `{"slug": "…"}` (a platform administrator, who need not be a member). The old slug stays an
-alias of the organisation (ADR 0090): the IdP groups (`choregos:<old>:<group>`), every MCP address
+alias of the organisation (ADR 0090): the IdP groups (`tranibor:<old>:<group>`), every MCP address
 (`/mcp/projects/<old>:<project>`), every copied console URL, `bootstrap.org` and `oidc.defaultOrg`
 keep resolving to it, so a restart does not create a second organisation. Update them when convenient,
 not before the rename. The memory tenant (`org:<key>`) never changes. A platform administrator frees an
 alias with `DELETE /api/v1/orgs/<slug>/aliases/<alias>`.
 
 The CLI and CI authenticate with API tokens, which a person issues for themselves once
-logged in (`POST /me/tokens`, `choregos tokens create`). Before anyone has logged in, the
+logged in (`POST /me/tokens`, `tranibor tokens create`). Before anyone has logged in, the
 first token comes from the server side:
 
 ```bash
-kubectl -n choregos exec deploy/choregos-api -- choregos-admin tokens create --email alice@acme.example
-choregos login --api-url https://api.choregos.example --token chg_… --org acme
+kubectl -n tranibor exec deploy/tranibor-api -- tranibor-admin tokens create --email alice@acme.example
+tranibor login --api-url https://api.tranibor.example --token chg_… --org acme
 ```
 
-A person signs the CLI in as themselves with `choregos login` (no token to paste): the console's `/device` page
+A person signs the CLI in as themselves with `tranibor login` (no token to paste): the console's `/device` page
 approves a short code, and the CLI holds a session of that person, listed and ended under My account (ADR 0154
 §6). Its limits are settings of the API: `TRANIBOR_SURFACE_SESSION_IDLE_S` (7 days without a request, sliding),
 `TRANIBOR_SURFACE_SESSION_MAX_AGE_S` (30 days in all), `TRANIBOR_DEVICE_CODE_TTL_S` (600 s to approve a code) and
@@ -2351,8 +2377,8 @@ organisation is approved only by a member of it, and, for an account bound to a 
 A project with no repository takes its requests from Tranibor itself:
 
 ```bash
-choregos projects create staffing --name "Staffing"            # no --repo: tracker `internal`
-choregos items create staffing --title "Data PM for 6 months" --size M
+tranibor projects create staffing --name "Staffing"            # no --repo: tracker `internal`
+tranibor items create staffing --title "Data PM for 6 months" --size M
 ```
 
 ## HTTPS behind a platform-issued certificate
@@ -2363,8 +2389,8 @@ what the API builds everything from, namely the OIDC `redirect_uri`
 Integrations page and the links in notifications. Serve it over HTTPS by putting TLS on the
 ingress (the certificate comes from the platform, or from cert-manager) and by setting both
 URLs to `https://…`. With `kind: httproute` the TLS is the Gateway's listener's; with `kind: ingress`,
-`choregos-api.ingress.tls` and `choregos-web.ingress.tls` are each Ingress's `spec.tls`, as written
-(`[{secretName: choregos-tls, hosts: [api.example.com]}]`), and nothing is rendered when they are empty. Nothing else follows from the chart: the console's CSP and CORS are derived
+`tranibor-api.ingress.tls` and `tranibor-web.ingress.tls` are each Ingress's `spec.tls`, as written
+(`[{secretName: tranibor-tls, hosts: [api.example.com]}]`), and nothing is rendered when they are empty. Nothing else follows from the chart: the console's CSP and CORS are derived
 from the same two values.
 
 The session cookie and the sign-in handshake cookie are `Secure` when `TRANIBOR_ENV` is
@@ -2385,14 +2411,14 @@ redirect URI `<api_url>/api/v1/auth/callback` and the scopes `openid profile ema
 Discovery is **required**, and the document's `issuer` must equal `global.oidc.issuer`. When it cannot be
 read, or names another issuer, the sign-in answers 503 and tries again on the next attempt (ADR 0100);
 there is no guess at a Keycloak layout any more. A provider that publishes no discovery document is
-configured with its three endpoints instead: `choregos-api.oidcEndpoints.authorization`, `.token` and
+configured with its three endpoints instead: `tranibor-api.oidcEndpoints.authorization`, `.token` and
 `.userinfo` (all three or none; the render fails otherwise). A per-organisation provider (ADR 0108) follows
 the same rules with its own `issuer` and endpoints.
 
 The userinfo answer must give `sub` and `email`. A sign-in is bound to `sub`: a returning subject keeps its
 account even when its e-mail changed, and an existing account is linked by e-mail only while it is not bound
 to another subject. A provider that says `email_verified: false` never links an existing account by e-mail
-(`choregos-api.oidcRequireEmailVerified`, default `true`; a provider that omits the claim, such as Entra ID,
+(`tranibor-api.oidcRequireEmailVerified`, default `true`; a provider that omits the claim, such as Entra ID,
 is accepted); it also refuses a new account for such an address and keeps a returning account's stored
 address. An account bound to another subject is refused, except that a per-organisation provider re-links
 an address of its own domains (audited `user.relink`), so an organisation can move to its own provider.
@@ -2405,18 +2431,18 @@ Roles come from **groups**, and a group names its organisation:
 
 | Group in the IdP | Role in Tranibor |
 |---|---|
-| `choregos:<org>:org-admins` | `org_admin` on `<org>` |
-| `choregos:<org>:product-owners` | `project_owner` |
-| `choregos:<org>:approvers` | `approver` |
-| `choregos:<org>:contributors` | `contributor` |
-| `choregos:<org>:viewers` | `viewer` |
+| `tranibor:<org>:org-admins` | `org_admin` on `<org>` |
+| `tranibor:<org>:product-owners` | `project_owner` |
+| `tranibor:<org>:approvers` | `approver` |
+| `tranibor:<org>:contributors` | `contributor` |
+| `tranibor:<org>:viewers` | `viewer` |
 
 `approvers` and `contributors` are the neutral names of the former `release-captains` and `developers`
 ([ADR 0181](adr/0181-the-contracts-speak-no-trade.md) round C1), which give no role since 0.29.0.
 
 The same claim carries an organisation's **human groups** (ADR 0052): a workflow's
-`group: architects` is matched by a member carrying `architects` or `choregos:<org>:architects`
-(the one mapper prefix `choregos:<org>:` serves roles and human groups). A group namespaced for
+`group: architects` is matched by a member carrying `architects` or `tranibor:<org>:architects`
+(the one mapper prefix `tranibor:<org>:` serves roles and human groups). A group namespaced for
 another organisation never counts. The groups are stored as sent.
 
 Unprefixed groups (`contributors`, `org-admins`) apply only when `global.oidc.defaultOrg`
@@ -2487,7 +2513,7 @@ provider"), or creates an empty account for an address the instance does not kno
 memberships, the runs, decisions and approvals they recorded and the audit trail would be orphaned.
 
 A **re-link window** moves them ([ADR 0164](adr/0164-a-change-of-identity-provider-re-links-accounts-in-a-time-boxed-window.md)).
-Until `choregos-api.oidcRelinkUntil` (`TRANIBOR_OIDC_RELINK_UNTIL`, an ISO 8601 instant at most 31 days
+Until `tranibor-api.oidcRelinkUntil` (`TRANIBOR_OIDC_RELINK_UNTIL`, an ISO 8601 instant at most 31 days
 ahead, UTC when it names no zone), a sign-in through the instance's provider whose subject is unknown moves
 an account to that subject when:
 
@@ -2509,7 +2535,7 @@ its user ids) needs no window: set the new issuer, and each account follows its 
 
 1. At the new provider, register the confidential client with the redirect URI
    `<apiUrl>/api/v1/auth/callback` (the new `apiUrl` if the instance's host name changes in the same
-   deployment), the scopes `openid profile email groups`, and the same `choregos:<org>:<group>` groups.
+   deployment), the scopes `openid profile email groups`, and the same `tranibor:<org>:<group>` groups.
    Make the addresses arrive **verified** and **equal** to the accounts' addresses. A provider that
    federates the previous one must pass its addresses on as verified (Keycloak: the identity provider's
    *Trust Email*); a provider that never asserts `email_verified` (Entra ID omits it by default) cannot be
@@ -2517,7 +2543,7 @@ its user ids) needs no window: set the new issuer, and each account follows its 
 2. Plan, while the instance still signs in with the old provider:
 
    ```bash
-   choregos admin identity relink --issuer https://new-idp.example.com/realms/acme
+   tranibor admin identity relink --issuer https://new-idp.example.com/realms/acme
    ```
 
    (`--json` gives the whole plan; it is `GET /api/v1/platform/identity/relink?issuer=…`, for the platform
@@ -2531,7 +2557,7 @@ its user ids) needs no window: set the new issuer, and each account follows its 
    `BEGIN; SELECT set_config('app.current_orgs', '*', true); UPDATE users SET email =
    'retired-<id>@invalid' WHERE id = '<id>'; COMMIT;`. Then plan again until `ambiguous` is empty. Check that the addresses listed to re-link are the ones the new provider
    will assert.
-3. Rehearse it on a non-production instance first, the same way. The proof to look for: `choregos whoami`
+3. Rehearse it on a non-production instance first, the same way. The proof to look for: `tranibor whoami`
    shows the same user id before and after a person's first sign-in through the new provider, and their
    runs and approvals are still theirs.
 
@@ -2541,14 +2567,14 @@ its user ids) needs no window: set the new issuer, and each account follows its 
    the new provider's, and open the window with an end:
 
    ```yaml
-   choregos-api:
+   tranibor-api:
      oidcRelinkUntil: "2026-12-15T00:00:00Z"   # at most 31 days ahead
    ```
 
    A date further than 31 days fails the API's start; the former switch `oidcRelinkVerifiedEmail: true`
    fails the render.
 5. Check: *Admin → Identity* shows the new issuer and "Re-link window: open until …";
-   `choregos admin identity relink` (no `--issuer`: the configured one) says `re-link window: open`.
+   `tranibor admin identity relink` (no `--issuer`: the configured one) says `re-link window: open`.
 6. People sign in. Each move is in the audit log (`user.relink`); run the plan again to watch the accounts
    to re-link go down.
 
@@ -2570,8 +2596,8 @@ listed to re-link: align the address at the provider before the day.
 ## Verifying an installation
 
 ```bash
-kubectl -n choregos get pods                      # API, web, four worker queues
-kubectl -n choregos logs deploy/choregos-api      # structured JSON logs
+kubectl -n tranibor get pods                      # API, web, four worker queues
+kubectl -n tranibor logs deploy/tranibor-api      # structured JSON logs
 curl -s https://<api-host>/healthz                # {"status":"ok"}
 ```
 
@@ -2610,7 +2636,7 @@ itself.
 Off by default. A process sends spans only when the standard `OTEL_EXPORTER_OTLP_ENDPOINT` (or
 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) is set, over OTLP/HTTP, batched; the other `OTEL_*` variables
 of the SDK apply. `global.tracing.otlpEndpoint` sets it on the API, each worker, the migration Job
-and the embedded gateway (S40-20b); `choregos-allow-platform` already lets them reach port 4318 in
+and the embedded gateway (S40-20b); `tranibor-allow-platform` already lets them reach port 4318 in
 the collector's namespace. The collector the bootstrap installs (`infra/bootstrap/otel-collector.yaml`) listens
 at `http://otel-collector.monitoring.svc:4318`, sends every span to Tempo and derives the span
 metrics of the `Tranibor — Traces` dashboard. An install that set the variable through
@@ -2651,7 +2677,7 @@ overrides:
 
 On that tenant, Tempo is the platform's own, deployed by its infrastructure repository.
 
-`global.tracing.tempoUrl` renders the CronJob `choregos-trace-drift` (`api.traceDrift.schedule`,
+`global.tracing.tempoUrl` renders the CronJob `tranibor-trace-drift` (`api.traceDrift.schedule`,
 03:17 by default) and a network policy that opens that port to its pods only. Each
 night it reads the runs whose spend was collected in the last 24 hours (`api.traceDrift.hours`),
 leaving out the last 30 minutes (`settleMinutes`, spans arrive late), and compares each run's model
@@ -2663,7 +2689,7 @@ whose trace has no gateway usage is counted as `missing` and not recorded, since
 sampled or dropped. The job prints its counts as one JSON line and fails only when Tempo answers
 with an error. Run it by hand with `python -m tranibor_api.trace_drift --hours 72`.
 
-The agent pods are not given the endpoint, and `choregos-runner-egress` does not open the
+The agent pods are not given the endpoint, and `tranibor-runner-egress` does not open the
 collector to them (#946): they run the agent's code, which could otherwise forge the gateway's
 spans, and so a false drift, or carry data out past the run's egress proxy. The runner's
 `invoke_agent` span is therefore not exported. Relaying it through the API, which would stamp the
@@ -2681,7 +2707,7 @@ parts the runner registered (paragraph digests, never the text) and `backend`, s
 call's `prompt_tokens`, and posts at most one breakdown per 5 seconds per run to the API's internal
 routes, each signed for its run with the gateway's master key. The embedded LiteLLM gets
 `TRANIBOR_CONTEXT_API_URL` (`global.internalApiUrl` + `/api/v1/internal`) and the NetworkPolicy
-`choregos-litellm-to-api`. An external LiteLLM measures nothing unless it loads the callback and sets
+`tranibor-litellm-to-api`. An external LiteLLM measures nothing unless it loads the callback and sets
 `TRANIBOR_CONTEXT_API_URL` and `LITELLM_MASTER_KEY` (the same key as the API's
 `TRANIBOR_GATEWAY_MASTER_KEY`) itself; an ACP CLI's run then says "not measurable" until its first
 breakdown.
@@ -2703,7 +2729,7 @@ loses spans: the ledger stays the record of spend, the run journal the record of
 global:
   workflowTemplates:
     configMap: mes-templates      # keys are <name>.yaml
-    mountPath: /etc/choregos/workflow-templates
+    mountPath: /etc/tranibor/workflow-templates
 ```
 
 Mounted into **both** the API and the orchestrator, and `TRANIBOR_WORKFLOW_TEMPLATES_DIR` points
@@ -2725,7 +2751,7 @@ global:
 Every pod the chart renders carries it — the four Tranibor components **and** the embedded
 dependencies, because a platform that admits a single registry sends every image through it, not
 only ours. The runner pods the chart does not render carry it too: the `agent_sandbox` template, the
-`choregos-runner` ServiceAccount and every `k8s_job` runner pod, so a job step's own image pulls
+runners' ServiceAccounts and every `k8s_job` runner pod, so a job step's own image pulls
 from the same registry (S51-09). The secret must already exist in the namespace; on a shared platform it is usually the
 tenant's base layer that creates it from a secret store, not this chart.
 
@@ -2737,9 +2763,9 @@ edition serves its API and orchestrator images from a private project, the rest 
 core:
 
 ```yaml
-choregos-api:
+tranibor-api:
   image: { registry: harbor.example.org/choregos-ee, repository: choregos-api-ee }
-choregos-orchestrator:
+tranibor-orchestrator:
   image: { registry: harbor.example.org/choregos-ee, repository: choregos-orchestrator-ee }
 ```
 
@@ -2752,7 +2778,7 @@ The migration job follows the API's image. An image from another registry is ano
 `demoFakes.enabled: true` deploys **one** pod — the API image, `python -m
 tranibor_adapters.fakes.server` — serving the fakes of the HR scenario: MCP endpoints for the device
 manager, the carrier, the badge readers and the supplier's agent
-(`http://choregos-demo-fakes:8090/{mdm,shipping,access_control,supplier}/mcp`), and a fake
+(`http://tranibor-demo-fakes:8090/{mdm,shipping,access_control,supplier}/mcp`), and a fake
 Microsoft Graph (`…/graph/v1.0`, `…/login`). One replica is the point: the API runs two and the
 orchestrator is apart, and in-memory fakes would show each process its own directory. The network
 policy opens that pod to the platform; `demoFakes.tokenSecret` (a secret reference) protects it
@@ -2763,7 +2789,7 @@ Before it listens, the server loads the desks of the installed extensions (since
 the 0.28.1 API image, 34 s at 200m of CPU, 12 s at 500m, 6 s at one CPU, longer with more extensions
 (the enterprise edition's image). The pod therefore has a startup probe on `/healthz`
 (`demoFakes.startupProbe`: 36 tries 5 s apart, 180 s) before the liveness probe applies, and a CPU
-limit of 500m (`demoFakes.resources`); it has the deployment's `TRANIBOR_ENV` (the chart still renders it as `CHOREGOS_ENV`, which ADR 0176 R4 maps), which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
+limit of 500m (`demoFakes.resources`); it has the deployment's `TRANIBOR_ENV`, which an extension may read. A deployment that raised the limit to keep the 0.28.1 pod from
 being killed by its liveness probe (#2139) can return to the defaults.
 
 ### Which edition am I running?
@@ -2835,7 +2861,7 @@ with no visible connection to its cause. Two guards now close that gap:
 | Where | What it refuses | Why there |
 |---|---|---|
 | `helm template` | `edition: enterprise` with no `global.imagePullSecrets` | the enterprise images live in a private registry; that pull secret **is** the access control in phase 1 ([ADR 0024](adr/0024-two-editions.md), decision 5). Without it the pods sit in `ImagePullBackOff`, which never names the cause |
-| API start-up | `TRANIBOR_EDITION=enterprise` while no extension declared itself | the image is the community one, or `choregos-ee` is not installed, or its `choregos.plugins` entry point does not call `declare`. The refusal names all three |
+| API start-up | `TRANIBOR_EDITION=enterprise` while no extension declared itself | the image is the community one, or `choregos-ee` is not installed, or its `tranibor.plugins` entry point does not call `declare`. The refusal names all three |
 
 The reverse is **not** refused: a deployment that announces nothing and loads the enterprise
 plugin is simply one that forgot to say so, and denying it start-up would help no one. `/edition`
@@ -2852,8 +2878,8 @@ the chart already assumes.
 
 `TRANIBOR_GITHUB_WEBHOOK_SECRET` signs GitHub deliveries (HMAC). `TRANIBOR_GENERIC_WEBHOOK_SECRET` is
 the shared secret of every other webhook — Argo CD, Alertmanager, Jira, GitLab, Azure DevOps Boards, Repos
-and Pipelines (the password of the service hook's basic authentication, or an `X-Choregos-Secret` header),
-Jenkins (`…/api/v1/webhooks/jenkins`, the secret in `X-Choregos-Secret` or `?token=`) and **Tekton since
+and Pipelines (the password of the service hook's basic authentication, or an `X-Tranibor-Secret` header),
+Jenkins (`…/api/v1/webhooks/jenkins`, the secret in `X-Tranibor-Secret` or `?token=`) and **Tekton since
 0.10.1**: Tekton's CloudEvents sink is configured by URL and cannot add a header, so the secret goes in
 the sink URL, `…/api/v1/webhooks/tekton?token=<secret>` (the former spelling was removed in 0.24.0,
 see "Upgrading to 0.24"). On any deployed instance (`staging` or `prod`, or any instance served over https whatever its
@@ -2899,16 +2925,16 @@ byte. What changes:
 A deployment on `tekton` with `global.runner.agentIsolation: container` (the default) had every run refused
 (`agent_isolation_unavailable`): Tekton could not start the agent's container. The agent stage's Task now carries
 it as a sidecar, inline in each PipelineRun (S87-05), and the chart also renders a second executor for `tekton`
-under `container`, `choregos-orchestrator.runner.customImageExecutor`, for a run Tekton could not isolate
+under `container`, `tranibor-orchestrator.runner.customImageExecutor`, for a run Tekton could not isolate
 (S87-02; with this version, none).
 
 | What | What happens | What to do |
 | :-- | :-- | :-- |
-| A deployment on `tekton` under `container` | Its runs start as PipelineRuns whose agent stage has two containers: the runner's step requests `choregos-orchestrator.runner.ownResources` (250m and 512Mi by default) and the agent's sidecar the run's requests, so a namespace quota sees more requested per run, and a LimitRange judges each container. `/readiness` says `agent-isolation` is done. Tekton Chains signs the PipelineRun as before. Not yet run on a cluster (S87-06). | Check the runner namespace's quota and LimitRange. Keep `await-sidecar-readiness` at its default (`"true"`). |
+| A deployment on `tekton` under `container` | Its runs start as PipelineRuns whose agent stage has two containers: the runner's step requests `tranibor-orchestrator.runner.ownResources` (250m and 512Mi by default) and the agent's sidecar the run's requests, so a namespace quota sees more requested per run, and a LimitRange judges each container. `/readiness` says `agent-isolation` is done. Tekton Chains signs the PipelineRun as before. Not yet run on a cluster (S87-06). | Check the runner namespace's quota and LimitRange. Keep `await-sidecar-readiness` at its default (`"true"`). |
 | A deployment on `tekton` under `process` | Unchanged: no sidecar, every run on Tekton (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container` to isolate the agent. |
-| A `Pipeline` `choregos-agent` or a Task `choregos-agent-stage` in a runner namespace | No longer run: the PipelineRun carries its own. The chart no longer publishes the `choregos-agent-stage-task` ConfigMap (`choregos-tools.publishTask` is gone), and the template no longer ships `tekton/pipeline-agent.yaml` nor `tekton/agent-stage.yaml`. | Delete them from the namespaces. Keep the catalogue's `git-clone` Task there. |
+| The `Pipeline` `choregos-agent` (a name the rename to tranibor kept) or a Task copied from the `tranibor-agent-stage-task` ConfigMap (`choregos-agent-stage` before 0.30.0) in a runner namespace | No longer run: the PipelineRun carries its own. The chart no longer publishes the `tranibor-agent-stage-task` ConfigMap (`tranibor-tools.publishTask` is gone), and the template no longer ships `tekton/pipeline-agent.yaml` nor `tekton/agent-stage.yaml`. | Delete them from the namespaces. Keep the catalogue's `git-clone` Task there. |
 | A `runtime` connector of type `tekton` whose configuration names `pipeline` | Ignored: there is no Pipeline to name. | Remove the field when next editing the connector. |
-| The `choregos-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
+| The `tranibor-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
 
 ## Upgrading past 0.29.5: a Container Apps job runs the agent in its own container
 
@@ -2923,6 +2949,178 @@ container has ended. The job now carries the agent's container beside the runner
 | The agent's uid on `aca` | The image's own `USER`, the same as the runner's (1000): Container Apps has no `securityContext`. What keeps the run's credentials from the agent is its own process namespace and a container given no secret; a file the runner leaves in `/workspace` or `/exchange` is writable by the agent, as on the other executors through the shared group. | Nothing; an agent image with its own `USER` gives it another uid. |
 | A deployment on `aca` under `process` | Unchanged: one container (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container`. |
 
+## Upgrading to 0.30.0: the commands and files take the name tranibor (ADR 0226, R5)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R5.) The commands a person
+or a script types, and the files the CLI and a repository keep, are named `tranibor`. Each former name keeps
+working for the window of ADR 0226 §1: it is read (or still installed, or still served) for two minor
+versions from the release that ships this change, and removed in the minor after, in a PR of its own. This
+change ships in 0.30.0: the former names work through 0.31.x and go in 0.32.0. Nothing an installation, a script or a repository does today stops
+working on upgrade.
+
+| What | From this release | The former name, for the window | What to do |
+| :-- | :-- | :-- | :-- |
+| The native CLI's files (release assets, the API image's `/opt/tranibor/cli/`, the manifest) | `tranibor-<platform>`: `tranibor-linux-x86_64`, `-linux-arm64`, `-macos-arm64`, `-macos-x86_64`, `-windows-x86_64.exe`; the manifest lists these names | The GitHub release also attaches each file under `choregos-<platform>` (the same bytes, with its cosign bundle), `SHA256SUMS` gives each digest under both names, and the instance serves `/downloads/cli/choregos-<platform>` as the same file | A script that downloads a binary by name moves to `tranibor-<platform>` |
+| The command the install scripts put on the PATH (`/cli/install.sh`, `/cli/install.ps1`) | `tranibor` (`~/.local/bin/tranibor`; on Windows `%LOCALAPPDATA%\Programs\tranibor\tranibor.exe`) | `choregos` beside it: a link to `tranibor` (a `choregos.cmd` on Windows), which replaces the binary an earlier install left; on Windows the `choregos.exe` of the former default folder is removed, so `choregos` finds the new binary | Run the install script again, or `choregos self update` (it replaces the binary it runs from, whatever its name). Type `tranibor` from now on |
+| `self update` | Accepts the instance's file under either name | An instance released before this change lists `choregos-<platform>` and still updates the CLI | Nothing |
+| The images' commands | `tranibor-admin`, `tranibor-api`, `tranibor-orchestrator`, `tranibor-runner`, `tranibor-outpost`, `tranibor-tools`; the images start the new ones (the runner's and the outpost's entrypoints, the tools sidecar's command) | `choregos-admin`, `choregos-api`, `choregos-orchestrator`, `choregos-runner`, `choregos-outpost`, `choregos-tools`, installed beside them on the same functions (the runner image links both names into `/usr/local/bin`) | A runbook, a Job or a pipeline that runs `choregos-admin …` or `choregos-runner run` moves to the new name |
+| The CLI's profile | `~/.config/tranibor/config.json`; `tranibor login` writes it | `~/.config/choregos/config.json` is read when the new file is absent and `TRANIBOR_CONFIG` names no other file; it is never written again | Nothing: the next `tranibor login` writes the new file. Delete the former one once you have signed in again, as it holds a token |
+| The workflow a repository declares | `.tranibor/workflow.yaml` (and `.tranibor/policy.yaml`); `tranibor workflow validate`, `show` and `push` read it when no path is given, and a template's scaffold pull request writes `.tranibor/` | `.choregos/workflow.yaml` is read when the repository has no `.tranibor/workflow.yaml` | Move the files with `git mv .choregos .tranibor` when convenient. The policy presets and the templates' policies deny agents both `.tranibor/**` and `.choregos/**` |
+| The version check's state, the native CLI's unpacked files | `~/.cache/tranibor/` | The former `~/.cache/choregos/` is no longer read: the next command checks the instance's version once more, and the binary unpacks itself once more | Delete `~/.cache/choregos/` if you like |
+
+**Not in this round** (they keep their former names, each to move in a later round of ADR 0226 with its own
+window): the directory a run's workspace uses between the runner and the agent or the job (it moves in R9a,
+"the run workspace and the stage results" below); the chart and the objects it renders (R6, the next section); the headers, manifests' `apiVersion`, labels, groups and cookies (R7); the documentation's pages (R8).
+
+## Upgrading to 0.30.0: the chart takes the name tranibor (ADR 0226, R6)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R6.) The chart, its
+subcharts, the objects it renders and its values keys take the name `tranibor`. The former names are
+read for a window of **two minor versions** from this release (0.30.x and 0.31.x), then go in 0.32.0.
+What holds data keeps its name, and so do the Secret names the chart defaults to.
+
+**The chart's address.** The directories are `charts/tranibor` and `charts/tranibor-outpost`, the charts
+are named `tranibor` and `tranibor-outpost`, the only names a release publishes since 0.29.4 ("Upgrading
+past 0.29.4" below). A deployment that takes the chart from this repository by path (an Argo CD `source.path`, a
+vendored copy) changes the path from charts/choregos to `charts/tranibor`. The Helm release's name, the namespace,
+the database and its role are deployment values and stay what each deployment chose.
+
+**The values keys.** A component is set under `tranibor-<component>`. The former key is read too, for the
+window, and renders the same objects:
+
+| The key from now on | The former key, read for the window |
+| :-- | :-- |
+| `tranibor-api`, `tranibor-web`, `tranibor-orchestrator`, `tranibor-tools` | `choregos-api`, `choregos-web`, `choregos-orchestrator`, `choregos-tools` |
+| `tranibor-postgresql`, `tranibor-temporal`, `tranibor-litellm`, `tranibor-ecphoria`, `tranibor-laya` | `choregos-postgresql`, `choregos-temporal`, `choregos-litellm`, `choregos-ecphoria`, `choregos-laya` |
+| `tranibor-websearch`, `tranibor-objectstore`, `tranibor-keycloak` | `choregos-websearch`, `choregos-objectstore`, `choregos-keycloak` |
+
+A values file may be moved key by key: what is left under a former key and what moved are both read. A
+setting written under **both** names (`tranibor-api.replicaCount` and `choregos-api.replicaCount`, or a
+map under one name and a key inside it under the other) **refuses to render**, and the message names
+both: keep the new one. The chart's own `values.yaml` holds each component's defaults under its
+directory's name (`api:`, `web:`, `orchestrator:`…); those blocks are the chart's, not a place for a
+deployment's values. To move a values file: rename each top-level `choregos-<component>:` to
+`tranibor-<component>:`, and each `--set choregos-<component>.` to `--set tranibor-<component>.`.
+
+**The renamed objects.** Every object the chart named `choregos-*` is now `tranibor-*`: the API's,
+the console's and the workers' Deployments (`tranibor-api`, `tranibor-web`,
+`tranibor-orchestrator-<queue>`), their Services, ServiceAccounts, budgets, routes and Ingresses, the
+migration Job and its ServiceAccount, the ConfigMaps (`tranibor-plugins`, `tranibor-dashboard-*`), the
+NetworkPolicies (`tranibor-allow-platform`, `tranibor-runner-egress`…), the builder, the outposts' door,
+the demonstration fakes, the trace-drift CronJob, the custom hosts' objects (`tranibor-host-<host>`,
+whose certificates cert-manager issues once more under the new name), the Kyverno policy the chart
+renders (`tranibor-hosted-images`), the ServiceMonitor and the PrometheusRule (`tranibor`). A
+`helm upgrade` (or an Argo CD sync that prunes) **creates the new objects and deletes the former ones**:
+each Deployment is replaced rather than rolled, so its pods restart once, without the protection of a
+disruption budget (the budget is a new object too). Plan the upgrade as you would a restart of the
+platform. Objects named after the release (`<release>-litellm`, `<release>-temporal`, `<release>-keycloak`,
+the drawn Secrets `<release>-gateway`, `<release>-memory`…) do not change.
+
+**The in-cluster addresses follow.** The API's Service is `tranibor-api`, so the default
+`global.internalApiUrl` is `http://tranibor-api:8000`; the builder is dialled at `tcp://tranibor-buildkitd:1234`;
+the routes send the console to `tranibor-web` and the door to `tranibor-outposts-door`. **The former
+`choregos-api` Service is kept for the window**, on the same pods (and not scraped twice): a run that
+started before the upgrade was given `http://choregos-api:8000` and calls back there until it ends, a
+suspended sandbox perhaps days later, and a `global.internalApiUrl`, a NetworkPolicy or a relay of yours
+that names `choregos-api` keeps working. Move them to `tranibor-api` within the window. Anything else of
+yours that names a renamed object (an Ingress or a monitoring rule that names `choregos-web`, a script
+that runs `kubectl logs deploy/choregos-api`) moves to the new name with the upgrade.
+
+**What keeps the former name, and why:**
+
+| Object | Kept because | Until |
+| :-- | :-- | :-- |
+| ServiceAccount `choregos-runner` | Rendered beside `tranibor-runner` (R9b): a project namespace provisioned before 0.30.0 has only it, and a Job or a suspended sandbox started there runs as it | 0.32.0 |
+| SandboxTemplate and SandboxWarmPool `choregos-runner` | Rendered beside `tranibor-runner`, the pool at size 0 (R9b): the template's claim template holds the workspaces of suspended sandboxes, and their claims name the pool | `runner.sandbox.formerPool: false` once no claim names it; 0.32.0 |
+| ServiceAccount `choregos-orchestrator` | The workers still run as it: a project namespace provisioned before 0.30.0 binds the executor's Role to it alone (R9b binds `tranibor-orchestrator` beside it) | A later release, once every project is provisioned again |
+| Service `choregos-egress` | A second name of `tranibor-egress` on the same pods, in the release namespace and every project's (R9b): a namespace provisioned before 0.30.0 has only it, so the default `tranibor-orchestrator.runner.egressProxy` (`http://choregos-egress.{namespace}.svc:3128`) keeps naming it | 0.32.0 |
+| The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` values (`choregos-api`, `choregos`…) | A label has one value and your NetworkPolicies may select it; `global.labelValues: tranibor` moves them (R9b). The runners' pods keep `choregos-runner` (the code writes it), and a StatefulSet named after the release its selector | 0.32.0 |
+| The default Secret names: `choregos-api-secrets` (`global.apiSecretRef`), `choregos-db` (`global.database.secretRef`), `choregos-gateway-secrets` (`global.gateway.secretRef`), `choregos-oidc` (`global.oidc.secretRef`), `choregos-object-store` (all-in-one), `choregos-backup-target` (single-node), `choregos-netops-cilium-reader` (`netops.ciliumReader.name`, and its token Secret), and the ExternalSecret that targets `global.apiSecretRef` | Stored state (ADR 0226 §6), see below | A later, documented migration; never in place |
+| The ExternalSecret's remote key `choregos/api` | It is a path in your secret store | Your store's own move |
+| The alerts' names (`ChoregosApi5xxErrors`…) and the rule group `choregos.platform` | Alertmanager routes, silences and inhibitions match `alertname`, and `rule_group` filters the rules' own series; a twin would fire every alert twice (R9b) | A later release, announced in its upgrade notes |
+| The dashboards' uids (`choregos-runners`…) | Grafana's links and bookmarks name a dashboard by its uid; a new uid is a new dashboard (R9b) | A later release |
+
+The chart's variables are `TRANIBOR_*`, its mount paths `/etc/tranibor/…` and its Kyverno policies
+`tranibor-*` since R9b (the next sections); the Keycloak realm, client and groups, and the default
+namespaces of external dependencies (`choregos-data`, `choregos-plugins`…) stay deployment values.
+
+**What holds data keeps its name.** The platform's claims and StatefulSets are named after the release
+and do not move: `<release>-postgresql` (its claim `data-<release>-postgresql-0`, its selector unchanged),
+`<release>-temporal`, `<release>-ecphoria`, `<release>-objectstore`, `<release>-backup`. The **outpost's**
+StatefulSet keeps its name, `<release>-choregos-outpost` (or the release's, when it holds that name),
+and so its claims `data-<release>-choregos-outpost-<n>`, which hold each instance's keys, journal and
+audit log: renamed, every instance would start on an empty volume, as a new instance to enrol and
+approve. The outpost's other objects (its ServiceAccount, ConfigMap, NetworkPolicies and servers) are
+`<release>-tranibor-outpost[-…]`. To give the StatefulSet the new name, move the claims first, one
+outpost at a time:
+
+1. Stop the instances: `kubectl -n <ns> scale statefulset <release>-choregos-outpost --replicas=0`.
+2. For each instance `<n>`, copy its claim to the new name, for example as a clone where the storage
+   class supports it: a PersistentVolumeClaim `data-<release>-tranibor-outpost-<n>` with
+   `dataSource: { kind: PersistentVolumeClaim, name: data-<release>-choregos-outpost-<n> }` and the same
+   size, access modes and storage class (or a volume snapshot restored under that name).
+3. Set `persistence.statefulSetName: <release>-tranibor-outpost` and upgrade the release: the former
+   StatefulSet is deleted (its claims are not), the new one's pods take the copied claims.
+4. Check that each instance kept its identity (`kubectl -n <ns> exec <release>-tranibor-outpost-<n> -c
+   outpost -- choregos-outpost doctor`: the same fingerprint, no new enrolment pending), then delete the
+   former claims.
+
+**The default Secret names keep their former names.** A Secret name is stored state ([ADR
+0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md) §6), like a claim: a deployment
+provided the Secret under that name (a sealed secret, a vault operator, `kubectl create secret`), or the
+chart drew it once and re-reads it under that name on every upgrade (`global.devSecrets`, the all-in-one
+profile). Renamed in place, the first would leave the pods waiting for a Secret that does not exist
+(`CreateContainerConfigError`), and a renderer that does not read the cluster (`helm template`, Argo CD)
+would find no former Secret to re-read and draw new keys, `secrets-keks` among them, which seals every
+stored connector secret: those would become unreadable. So `global.apiSecretRef`,
+`global.database.secretRef`, `global.gateway.secretRef`, `global.oidc.secretRef`, the profiles'
+`global.objectStore.secretRef` and `backup.target.s3.secretRef`, and `netops.ciliumReader.name` keep their
+defaults (`choregos-api-secrets`, `choregos-db`, …), and `tests/charts/test_secret_names_are_stored_state.py`
+pins every Secret name the chart reads or draws. The defaults change only by a later, documented
+migration, never in place.
+
+A deployment that wants `tranibor-*` names copies each Secret under its new name first, for example
+`kubectl -n <ns> get secret choregos-api-secrets -o json | jq '.metadata = {name: "tranibor-api-secrets"}' | kubectl -n <ns> apply -f -`,
+then sets the new names in its values (`global.apiSecretRef: tranibor-api-secrets`, and so on), and
+deletes the former Secrets once the platform runs on the copies. With External Secrets
+(`global.externalSecrets.enabled`), setting `global.apiSecretRef` renames the ExternalSecret and its
+target, which syncs from the same remote key.
+
+**The images.** The chart's defaults name the images `tranibor-*` (`tranibor-api`, `tranibor-web`,
+`tranibor-orchestrator`, `tranibor-tools`, `tranibor-laya`, `tranibor-outpost`, and the runners'
+`tranibor-orchestrator.runner.image: tranibor-runner`), the only names a release publishes since 0.29.4.
+A values file that sets `image.repository` keeps what it sets; an admission
+policy must admit `tranibor-*` (`infra/policies/images.yaml` does).
+
+**The labels and the policies.** The workers carry their queue under both label names, `tranibor/queue`
+and `choregos/queue`; the new Deployments and budgets select `tranibor/queue`, and the policy that lets
+the executor workers reach a warm sandbox admits either. `infra/policies` judges the namespaces `tranibor`
+and `tranibor-*` as it judges `choregos` and `choregos-*`, and takes a project's object labelled
+`tranibor/project` or `choregos/project`. Apply them before you install into a namespace named after
+`tranibor`.
+
+## Upgrading to 0.30.0: the wire names take the name tranibor (ADR 0226, R7)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R7.) Every name the platform puts on the wire or in a tracker gets its `tranibor` twin. From
+the release that ships this round (0.30.0) the platform **reads both** names and **writes the new one**; where a
+reader of the former name may still be on the other side (a receiver you wrote, a plugin server, a site's
+`robots.txt`, an edition's group mapper) it sends both. The former names are read **until 0.32.0** and removed in
+that minor, in their own change. Nothing that worked the day before the upgrade stops working the day after.
+
+| Family | Accepted on input | Written / sent | Before 0.32.0 |
+| :-- | :-- | :-- | :-- |
+| HTTP headers `X-Choregos-*` (`Secret`, `Token`, `Signature`, `Digest`, `Embed`, `Egress-Key`, `Tool-Origin`, `Script`, `User-Token`, `Event-Id`, `Theme`, `Host-Org`) | `X-Tranibor-<Name>` first, else `X-Choregos-<Name>`, on every route that reads one (the webhooks, the triggers, the assistant task events, the egress report, the embed frame, the run's tool and output routes). A signature is computed the same way under either name. | `X-Tranibor-<Name>`. **Both names, same value**, on: the A2A push notifications and the assistant task webhook deliveries (`Signature`, `Event-Id`), a plugin server's `User-Token`, a tracker delivery relayed to a plugin's tracker server (each `X-*-` header under both names), the API's response headers (`Digest`, `Theme`, `Host-Org`), the egress proxy's report and the tool client's calls (an API of the previous release during a rolling upgrade). | Change every sender you configured (Jira Automation, Azure DevOps service hooks, Argo CD notifications, Jenkins, Alertmanager, trigger callers, task event senders) to `X-Tranibor-*`; make every receiver of a signed delivery check `X-Tranibor-Signature`. |
+| The tool list's access key `x-choregos-access` | An extension's tool may declare `x-tranibor-access` or the former key. | `getRunTools` lists both keys with the same value. | An extension declares `x-tranibor-access`. |
+| Manifests `apiVersion: choregos/v1` | `tranibor/v1` and `choregos/v1` (workflow, policy, plugin, plugin index, template, assistant, knowledge manifest). A stored document is read as it was written, and a workflow's checksum does not change with the name: a work item pinned to it still finds it. | `tranibor/v1`: the shipped templates and presets, the plugin index, the local demo. The schemas' `$id` are `https://tranibor.dev/schemas/*`. | Rewrite your manifests to `tranibor/v1`. |
+| Identity provider groups `choregos:<org>:<group>` | `tranibor:<org>:<group>` and the former prefix, for roles, a human step's group, approvals and member profiles. | The SAML sign-in, the development sign-in and the organisation's own groups emit **both** prefixes (an edition's mapper may read only the former). | Rename the groups at the identity provider (or the claim mapping) to `tranibor:<org>:<group>`. |
+| Cookies `choregos_session`, `choregos_oidc`, `choregos_saml`, `choregos_remote_oauth`, `choregos_forge_link`, `choregos_consent`, `choregos_org` | The former cookie is read under the new name when the new one is absent. | `tranibor_*`. The session is set again under `tranibor_session` and the former cleared, so nobody is signed out; a handshake cookie is cleared once read. A session cookie name set in `TRANIBOR_SESSION_COOKIE` is yours and is not renamed. The console writes `tranibor_org` and clears `choregos_org`. | Nothing: browsers move at their next request. |
+| Tracker markers `<!-- choregos:status -->`, `[choregos:status]`, `choregos:delivered`, `choregos:already-fixed`, `choregos:fields`, the pfSense rule marker `[choregos:<hash>]` | A comment, a description block or a firewall rule written under the former marker is found and rewritten in place (a replayed action finds its rule: no double effect). | `tranibor:*`. A plugin's tracker server is still handed the former bare marker (`choregos:status`): it finds its notes by the exact marker, and every note written before carries it. | Nothing on your side. |
+| Labels `choregos/run-id`, `choregos/project`, `choregos/work-item`, `choregos.dev/plugin`, `choregos.dev/server`, `choregos.dev/org` | A PipelineRun labelled `tranibor/sha` or `choregos/sha` (and the run, project and work item labels) is found and mapped. | Both families on the Jobs, Secrets, PipelineRuns, sandbox claims, ACA tags and GitOps manifests the platform writes, and on plugin servers' objects (their pods roll once on the upgrade). Selectors keep the former key for the window: every object carries it. The runner pod's own labels (`choregos/sandbox`) and the sandbox's (`choregos/queued`, `choregos/assigned-at`) get their twins in round R9b. | Move policies, network policies and dashboards that select on `choregos.dev/*` or `choregos/*` to the new family; label your PipelineRuns `tranibor/sha`. |
+| The MCP door's `serverInfo.name`, the A2A extension URI, the problem types, the web fetch | — | `serverInfo.name` is `tranibor`. The agent card announces the skill-fields extension under `https://tranibor.dev/a2a/extensions/skill-fields/v1` **and** the former `https://choregos.dev/…` URI; the CLI reads either. Problem types are `https://tranibor.dev/problems/…`. The web fetch sends `User-Agent: Tranibor/<version> Choregos/<version> (+contact)` and the knowledge crawler `TraniborKnowledge/1.0 ChoregosKnowledge/1.0`; a page is read only when `robots.txt` allows **every** token, new and former, and the longest `Crawl-delay` wins. | Compare problem types and the extension URI by the new names. |
+
+**What does not change**: the A2A task ids (their UUID namespace is an input to a hash, renamed in the code only,
+its value kept), the session signing domain, the Temporal task queues and workflow types, the database names and the
+sealed-secret paths (ADR 0226 §6: stored state moves by a documented migration, never by a rename).
 ## Upgrading past 0.29.4: the images and charts have one name, `tranibor-*`
 
 **The former names are no longer published** (S75-05, step (e) of [ADR
@@ -2960,6 +3158,102 @@ plugin (S83-12, S83-13), without a window.
 | :-- | :-- | :-- |
 | The organisation's policy ceiling `scope.max_diff_files`, `scope.max_diff_lines` | Only `delivery.scope.*` of the ceiling, which caps the policy's `delivery.scope.*`. The migration `6eb670a63a1b` rewrites `organizations.settings.policy_ceiling`; its downgrade moves the caps back. `PUT /orgs/{org}/policy-ceiling` with a former cap is refused (`422`, naming the section). The audit log keeps each ceiling as it was written. | A script or a client that writes the ceiling writes `delivery.scope`. |
 | The stage roles `fix_ci`, `address_review`, `release_notes`, `verify_prod` | No longer members of `StageRole` nor of the playbooks' `KNOWN_ROLES`: the plugin's extension declares them, with their playbooks (`tranibor_software_delivery/roles/`). The strings do not change, so no row is rewritten: stored workflows, `runs.stage_role` and recorded histories keep them. `release_notes_markdown` is no longer a named field of a step's outputs; it is read as any output, under its name. | Where the plugin's extension is absent, a workflow naming one of these roles without an `agent:` is published with the warning `role.playbook_not_found`, and its step fails for lack of a playbook: install the plugin, or bring the playbook (`TRANIBOR_PLAYBOOKS_DIR`). A Python import of `StageRole.FIX_CI` (and the three others) fails. |
+
+## Upgrading to 0.30.0: the run workspace and the stage results take the name tranibor (ADR 0226, R9a)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R9a.) The directory the runner
+keeps a step's files in, inside the step's sandbox, is `.tranibor/`; the documents the runner and the
+orchestrator exchange carry `schema: tranibor/<Name>/v1`. Agents, the agent SDK and job images built outside
+this repository may still know only `.choregos/` and `choregos/StageResult/v1`: both keep working until 0.32.0.
+
+| What | From 0.30.0 | The former name, until 0.32.0 | What to do |
+| :-- | :-- | :-- | :-- |
+| What the runner lays down for the agent or the job to read: `task.md`, `context.md`, `allowed_paths.txt`, `fields.json`, `inputs/` | Written under `.tranibor/` | **Also copied** under `.choregos/`, as real files (no symbolic link: the runner follows none, and some volumes refuse them) | Read `.tranibor/` |
+| What the agent or the job writes: `result.json`, `job.json`, `outputs/` | Read under `.tranibor/` first | Read under `.choregos/` when `.tranibor/` holds none; a deliverable present in both folders is taken from `.tranibor/outputs/` | Write `.tranibor/` |
+| The runner's own files: the journal, the agent's session, the knowledge bases, the skills a backend does not read, Claude Code's scope hook | `.tranibor/` only | A journal or a session a runner of 0.29 left in a workspace kept across a person's answer is taken over from `.choregos/` | Nothing |
+| The guard rails, the scope check, Claude Code's scope hook, the hosted workspace, the pull request | Both directories are the runner's: the agent may write only `result.json` and `outputs/` under either; nothing under either is committed, pushed, charged to the agent's scope or brought back from a hosted container but `outputs/` | — | Nothing |
+| The agent SDK (`tranibor-agent-sdk` 0.30.0) | Reads and writes `.tranibor/`, the result with `tranibor/StageResult/v1` | Under a runner before 0.30.0 (only `.choregos/` was laid down) it reads and writes `.choregos/`, the result with `choregos/StageResult/v1`, the only id that runner reads | Rebuild your agent images with the new SDK when convenient |
+| The shipped job images (`tranibor-procurement`, `choregos-quant`) | `.tranibor/` | `.choregos/` under a runner before 0.30.0, the same way | Nothing |
+| The policy's default `scope.deny_paths`, the presets | `.tranibor/**`, `.choregos/**`, `.github/workflows/**`, `charts/**` | `.choregos/**` stays in the list | A policy that lists its own `deny_paths` adds `.tranibor/**` |
+| The write scope of a `workspace: read` run | `.tranibor/outputs/**` | A run recorded before the upgrade with `.choregos/outputs/**` is still read-only: it never widens its scope | Nothing |
+| The `schema` of `StageInput`, `StageResult`, `ContextPack` and the demo history document | `tranibor/<Name>/v1` | `choregos/<Name>/v1` is accepted on input. A document stored before the upgrade (a run's input and result, a Temporal history) is read as it was written and keeps its id: replay stays deterministic (ADR 0008) | An agent that writes its result itself writes `tranibor/StageResult/v1`, or leaves `schema` out (the runner fills it in) |
+
+The A2A task id namespace, the Temporal task queues and workflow types and the stored documents are not renamed
+(ADR 0226 §6). The former directory, its copies and the former ids are removed in 0.32.0, in their own change.
+
+## Upgrading to 0.30.0: the names the chart and the code share take the name tranibor (ADR 0226, R9b)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R9b.) R6 renamed what the
+chart alone owns; this round renames what the chart, the platform's code and provisioning name **together**:
+the runners' service account and warm pool, the egress proxy, the orchestrator's binding, the pods' labels,
+the variables, the mount paths, the Kyverno policies and the metrics. The rule is the same: from 0.30.0 the
+platform **reads both** names and **writes the new one**, and writes both where a reader of the former one
+may be outside the repository; the former names are read **until 0.32.0** and go in that minor, in a change
+of their own. Where a third party keys on a name and a twin cannot work, the name stays, with its reason and
+the move that will take it (the last table). Nothing that worked the day before the upgrade stops working
+the day after.
+
+| What | From 0.30.0 | The former name, for the window | What to do |
+| :-- | :-- | :-- | :-- |
+| The runners' ServiceAccount | `tranibor-runner`, rendered by the chart in the release namespace and by provisioning in each project's runners namespace. The `k8s_job` and `tekton` executors run a pod as `tranibor-runner` where the namespace has it, else as `choregos-runner`: they ask the namespace first (the Role now grants `get` on service accounts) and read a refusal as "absent", since a Role written before 0.30.0 grants nothing on them; the answer is kept, the former one for five minutes only, so a namespace provisioned again moves without a restart | `choregos-runner`, rendered beside it with the same pull secrets: a namespace provisioned before 0.30.0 has only it, and a Job or a sandbox started before the upgrade runs as it | Provision each project again within the window (any change of its policy or connectors does it); a namespace whose runners' account you manage by hand gets a `tranibor-runner` beside it, with the same pull secrets and annotations |
+| The warm pool | The SandboxTemplate and SandboxWarmPool `tranibor-runner` (and the template's service account); new claims name it. A runtime connector whose `warm_pool` holds the form's former default, `choregos-runner`, is read as the default | The former pair `choregos-runner`, the pool at **size 0**: the claim template holds the workspace of every sandbox suspended before the upgrade, and their claims name the pool. Nothing new is warmed from it; a suspended sandbox resumes from it | Once `kubectl -n <ns> get sandboxclaims -o jsonpath='{.items[*].spec.warmPoolRef.name}'` lists no `choregos-runner`, set `tranibor-orchestrator.runner.sandbox.formerPool: false`. 0.32.0 removes the pair |
+| The executor's binding | Provisioning binds each project's `choregos-executor` Role to `tranibor-orchestrator` **and** `choregos-orchestrator` of the platform's namespace, and opens the runners towards the API there. That namespace is the release's (`TRANIBOR_PLATFORM_NAMESPACE`, which the chart sets), no longer a constant: a release installed outside `choregos-system` had runners namespaces bound to, and opened towards, a namespace that does not exist | The workers keep running as `choregos-orchestrator`, which every namespace provisioned before 0.30.0 binds alone | Provision every project again within the window; a later release moves the workers to `tranibor-orchestrator` |
+| The egress proxy | The chart's Deployment `tranibor-egress`, and provisioning's in each project; each answers as the Service `tranibor-egress` and, on the same pods, `choregos-egress`. The runners' policies admit the proxy's pods under either value of their name. The all-in-one and single-node profiles name `http://tranibor-egress.{namespace}.svc:3128` (their runners live in the release namespace, which has both) | The Service `choregos-egress`: a run started before the upgrade, or a suspended sandbox, was given it, and a project namespace provisioned before 0.30.0 has only it, so the default `tranibor-orchestrator.runner.egressProxy` keeps `http://choregos-egress.{namespace}.svc:3128` | Once every project has been provisioned again, set `runner.egressProxy` to `http://tranibor-egress.{namespace}.svc:3128`; a policy of yours that names the proxy's Deployment follows it |
+| The builder's address | The API's default `buildkit_address` is `tcp://tranibor-buildkitd:1234`, the daemon the chart renders since R6 (the chart sets the address whenever it deploys one) | — | A builder of your own named `choregos-buildkitd` that the platform found by the default: set `global.images.buildkitAddress` |
+| The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` | `global.labelValues: tranibor` gives the platform's own pods `tranibor-api`, `tranibor-orchestrator`, `tranibor-web`, `tranibor-egress`…, `part-of: tranibor`. The chart's policies, the egress family selectors of a platform change (`app.kubernetes.io/name in (tranibor-api,choregos-api)`), the plugin servers' policies and the ServiceMonitor admit either value; the Deployments, Services and budgets select on `app.kubernetes.io/component` (and the instance and the queue), so the switch rolls the pods and recreates nothing | `former`, the default: a label has one value, and your NetworkPolicies, Cilium policies, log and metric queries may select `choregos-api` | Make your own selectors admit either value (`app.kubernetes.io/name in (tranibor-api, choregos-api)`, or `app.kubernetes.io/component`), then set `global.labelValues: tranibor`. 0.32.0 makes it the only value. The runners' pods keep `choregos-runner`, and a StatefulSet named after the release keeps its selector |
+| The run's labels | Every run pod carries `tranibor/sandbox: "true"` and `tranibor/run-id`; a queued run's Secret `tranibor/queued`, a claim's push the annotation `tranibor/assigned-at` | Written beside each, `choregos/sandbox`, `choregos/run-id`, `choregos/queued`, `choregos/assigned-at`; the executor reads the **former** first, since every worker writes it (the previous release's too, during the rolling upgrade), and the chart's run-pod policy selects it | Move a run-pod policy of yours to `tranibor/sandbox: "true"` |
+| The variables | The chart renders `TRANIBOR_*` everywhere (the API, the workers, the migration Job, the door, the warm pool, the outpost's chart): every process has read `TRANIBOR_*` since 0.27.17 (ADR 0176 R4). An entry of `global.extraEnv` (or the door's) is rendered under the name it was written with | `CHOREGOS_X` in `extraEnv` still reaches every process, which reads it as `TRANIBOR_X`. Refused, with both names: a `CHOREGOS_X` for a variable the chart sets (it was refused before 0.30.0 too, as the same name), and `CHOREGOS_X` beside `TRANIBOR_X` with another value (the process would keep `TRANIBOR_X` without a word) | Rename your `extraEnv` entries to `TRANIBOR_*`; a script that reads a pod's environment reads `TRANIBOR_*` |
+| The mount paths | The chart's files are mounted under `/etc/tranibor/` (`temporal-tls`, `temporal-codec`, `plugins`, `cosign`, `procedures`, `mcp-catalogue`, `buildkit`, and the defaults of `global.playbooks.mountPath`, `global.workflowTemplates.mountPath`, `global.toolCatalog.mountPath`); the variables name those paths | The same volume, read only, at its former path under `/etc/choregos/`: a plugin source's `key:`, a variable of yours, may name it. A mount path your values set is yours and mounted once | Move whatever of yours names `/etc/choregos/…` to `/etc/tranibor/…` |
+| The CLI in the API image | `/opt/tranibor/cli/` | `/opt/choregos/cli` is a link to it, and the API, at the default `TRANIBOR_CLI_DIR`, reads the former directory when only it exists (a volume mounted there, an image built from an earlier Dockerfile) | A `TRANIBOR_CLI_DIR` or a volume of yours that names `/opt/choregos/cli` moves to `/opt/tranibor/cli` |
+| The Kyverno policies of `infra/policies` | `tranibor-pod-security`, `tranibor-image-tags`, `tranibor-verify-images`, `tranibor-plugin-server-images`, `tranibor-quotas-and-runtime`, `tranibor-sandbox-template-security`, `tranibor-tekton-labels`. The chart's PolicyException (`tranibor-buildkitd`) names `tranibor-pod-security` **and** `choregos-pod-security` | Applied by hand, the former policies stay installed beside the new ones (the same rules, the same verdicts) until you delete them | Apply `infra/policies`. An Argo CD application that prunes removes the former ones itself; otherwise, once the new ones are ready, `kubectl delete clusterpolicy choregos-pod-security choregos-image-tags choregos-verify-images choregos-plugin-server-images choregos-quotas-and-runtime choregos-sandbox-template-security choregos-tekton-labels`. A PolicyException of yours that names a former policy names the new one too |
+| The metrics | Every series of the platform is `tranibor_*` (`tranibor_runs_active`, `tranibor_cost_usd_total`, `tranibor_audit_export_lag_entries`…, and a plugin's: `tranibor_train_status`…); the chart's dashboards and alert rules query them | Each is served under its `choregos_*` name too, with the same samples, built from the same family at each scrape so the two never disagree. The cost: the platform's own families stored twice, a few dozen series families whose cardinality is the projects (times stages and models for the costs) and the audit sinks, never the runs. The chart's dashboards show the new series from the upgrade on; the history before it is under `choregos_*` | Move your dashboards, recording rules and alerts to `tranibor_*` within the window (a query on both names, `{__name__=~"(tranibor\|choregos)_…"}`, counts everything twice) |
+| The dashboards | Titled `Tranibor — …`, tagged `tranibor` beside `choregos` | Their uids (`choregos-runners`, `choregos-couts`…) do not change | Nothing |
+
+**What keeps its name in this round, and why** (each moves in a later release, announced in its notes):
+
+| Name | Kept because | The move |
+| :-- | :-- | :-- |
+| The alerts (`ChoregosApi5xxErrors`, `ChoregosDailyBudgetHigh`…) and the rule group `choregos.platform` | Alertmanager routes, silences and inhibitions match `alertname`, and `rule_group` labels the rules' own series; the same alert under two names would page twice | A later release renames them after its notes have asked for routes that match either name (`alertname=~".*DailyBudgetHigh"`) |
+| The runners' `app.kubernetes.io/name: choregos-runner` | The code writes it on every run pod, with no switch, and a platform's run-pod policy may select it | 0.32.0, with the switch's default |
+| The default namespaces of external dependencies (`choregos-data`, `choregos-temporal`, `choregos-gateway`, `choregos-memory`, `choregos-plugins`), the platform's namespace provisioning assumes when the deployment does not say (`choregos-system`), the default hostnames (`*.choregos.local`), the Gateway API gateway `choregos-gateway`, the audit export's `source: choregos` and index `choregos-audit` | Deployed things live under these names: a changed default would point an upgraded release at a namespace, a host or an index that does not exist, or split a SIEM's history | They are values: set them to move |
+| A project's `choregos-executor` Role and binding, `choregos-quota` and `choregos-limits`, the Tekton pipeline `choregos-agent`, the plugin servers' `app.kubernetes.io/name: choregos-plugin-server`, the egress token's audience, the proxy's messages, the images' `/opt/choregos/plugins` and `/opt/choregos/docs` | Not in this round's scope | A later round of ADR 0226 |
+
+## Upgrading to 0.30.0: what the product shows, posts and loads takes the name tranibor (ADR 0226, R9c)
+
+([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R9c.) The names the platform
+shows to a person or exchanges with a tracker, a chat tool, a plugin or an event subscriber get their `tranibor`
+form in 0.30.0. As in R7, the platform **reads both** and **writes the new one**; it sends or posts both where a
+reader of the former may sit outside the repository (a branch protection, a client of the A2A door, a host page,
+a tracker's saved search). The former names are read **until 0.32.0** and removed in that minor. Nothing that
+worked the day before the upgrade stops working the day after.
+
+| Family | Accepted on input | Written / sent | Before 0.32.0 |
+| :-- | :-- | :-- | :-- |
+| The A2A task's metadata block `metadata.choregos` | A message whose `metadata.tranibor.skill` (or the former `metadata.choregos.skill`) names the skill. | The task, its artefacts and a push configuration carry the block under **both** `metadata.tranibor` and `metadata.choregos`, the same values. A remote A2A step sends both. `tranibor a2a` reads either. | Read `metadata.tranibor`. |
+| The tracker comment command `/choregos approve` (`reject`, `answer`, `scope`, `pause`, `resume`, `stop`) | `/tranibor <verb>` and `/choregos <verb>`, on GitHub, GitLab, Jira and Azure Boards. | The platform's answers and its request comments name `/tranibor <verb>`; a control done from a comment is audited as `/tranibor <verb> on the tracker`. | Type `/tranibor`. |
+| Tracker state labels `choregos:<state>` (GitLab's scoped `choregos::<state>`) | A state label under either prefix is the platform's: the next state change removes it. | A state the workflow does not label is written `tranibor:<state>`; the shipped templates label their inbox `tranibor:inbox`, and project provisioning creates that label. On every state change the previous state's label is removed **and** the former twin of each (`choregos:<state>`), on GitHub, GitLab (`remove_labels`), Jira and Azure Boards, so an issue never carries two states; a replayed change removes nothing more and adds nothing twice. A label a workflow names itself is written as the workflow names it. | Rename the `choregos:` labels your own workflows declare, and the tracker filters and automations that key on them. |
+| The label of an issue the platform files, `source:choregos` | — | `source:tranibor` **and** `source:choregos`. | Move saved searches to `source:tranibor`. |
+| Check runs `choregos/scope`, `choregos/evidence` (GitHub), commit statuses `choregos/<check>` of genre `choregos` (Azure Repos) | — | **Both** names, with the same verdict: `tranibor/scope` and `choregos/scope`, `tranibor/evidence` and `choregos/evidence` (on Azure Repos, genre `tranibor` and genre `choregos`). | Make branch protections and branch policies require `tranibor/scope` and `tranibor/evidence`. |
+| Slack buttons' `action_id` `choregos:<action>` | Nothing in the platform reads a button back today; a reader names the action under either prefix (`wire.chat_action_name`). | `tranibor:<action>` (`tranibor:open`). | A Slack app of yours that handles the buttons accepts `tranibor:`. |
+| The MCP client's `clientInfo.name` | — | `tranibor`. | An MCP server that keys on the client's name accepts `tranibor`. |
+| Event types `choregos.<object>.<event>` (`choregos.run.finished`, `choregos.release.promoted`…) and the CloudEvents `source` `/choregos/api` | A stored event, a notification from another replica or an extension's declared type under `choregos.` reads as its `tranibor.` twin; every query on stored events matches both spellings; an extension that declares a `choregos.` type gets its `tranibor.` twin. | **The new type only**, `tranibor.<object>.<event>`, with `source` `/tranibor/api` (or `/tranibor/orchestrator`): in the `events` rows, on the SSE streams (the named event of a run's and a provisioning stream) and in the schema. It is not sent twice: a reader that takes every message (the CLI's `--follow`, an SSE client's `onmessage`) would see each event twice, and the `events` table and its counts would double. | A subscriber that compares the type (an SSE listener named after it, a filter) compares `tranibor.*`, or strips either prefix. |
+| Python entry-point groups `choregos.plugins`, `choregos.migrations`, `choregos.procedures` | Both groups are loaded, the new one first; a plugin registered under both is loaded once (by its name). | The plugins of this repository register under `tranibor.plugins`. | A plugin you build (`graalsystems/tranibor-agents`, an in-house extension) registers under `tranibor.plugins` (and `tranibor.migrations`, `tranibor.procedures`). |
+| The console's browser storage `choregos.theme`, `choregos.sidebar`, `choregos.org`, a workflow draft, the procedures seen, a frame's token | The head script moves every `choregos.*` key of `localStorage` and `sessionStorage` to its `tranibor.*` name before the first paint (the new one wins when both exist). | `tranibor.*`. | Nothing: browsers move at their next page. |
+| The embedded assistant's `postMessage` source `"choregos.assistant"`; the sign-in popup's message | The frame accepts the popup's `tranibor.embed.signed-in` and the former `choregos.embed.signed-in` (a popup of the previous release during a rolling upgrade). | Each event is posted **twice**, once with `source: "tranibor.assistant"` and once with the former source, the new first: a host page that checks `source`, as the documentation asks, receives each event once. | Make the host page check `event.data.source === "tranibor.assistant"`. |
+| The Integrations snippets, the CLI download page, the A2A snippets | — | The MCP server is named `tranibor` in the `claude mcp add`, Claude Desktop, Cursor and VS Code snippets (`tranibor-token` for VS Code's input), and the commands are `tranibor …`. A client already configured under the name `choregos` keeps working: the name is the client's own. | Nothing. |
+| `choregos-outpost enrol`, printed by `tranibor outposts enrol`, the console and the API's descriptions | — | `tranibor-outpost enrol` (the outpost image has both commands since 0.30.0, R5); the CLI says once that an outpost installed before 0.30.0 has it under `choregos-outpost`. | Nothing. |
+| The investment-research plugin's job command `choregos-quant` | A workflow stored before 0.30.0 runs `choregos-quant`: the plugin's job image installs both commands. | `tranibor-quant` (its usage, its summaries). | Rewrite `command: [choregos-quant, …]` to `tranibor-quant`. |
+| The terminal workspaces' titles | — | `tranibor` and `tranibor live`. | — |
+
+**What keeps its former name, and why**: the session signing domain, the A2A task ids' namespace and the outpost
+protocol's `typ`, `Upgrade` token and nonce label (inputs to a hash or a signature); the audit chain's `choregos.audit/1`
+(hashed into every entry); the local demo's administrator `admin@choregos.local` (the local install's database
+holds that user with its memberships: renaming the default would sign a returning person in as a new user with none
+of their projects); the Claude Code plugin and its marketplace, `choregos@choregos` (published from this public
+repository: each user's Claude Code stored the install under that key, a marketplace has one name, and renaming it
+orphans every install; it moves in 0.32.0 with a re-install named in those notes); the Slack notifier's default channel `#choregos` (a channel in your workspace: a renamed default would post where no channel exists; set `channel` to move); the database, its role, the
+Keycloak realm and clients, the Temporal names (ADR 0226 §6). The run's workspace directory, the stage schema ids,
+the chart's labels, environment variables and metrics move in their own rounds (R9a, R9b).
 
 ## Upgrading past 0.29.3: no agent runs beside the runner's credentials in staging or prod without a named opt-out
 
@@ -3017,7 +3311,7 @@ that names its extension (`requires.extensions: [software-delivery]`, core `>=0.
 1.2.0's changes: ten generic skills beside `madr-4` (`test-first`, `conventional-commits`, `code-review`,
 `security-review`, `release-notes`, `ci-failure-triage`, `work-item-sizing`, `acceptance-criteria`,
 `safe-rollout`, `primary-sources`), `architect` reading primary sources on the web, and the agents that
-apply an organisation's conventions reading the knowledge bases under `.choregos/knowledge/`.
+apply an organisation's conventions reading the knowledge bases under `.tranibor/knowledge/`.
 
 - **Sixteen of its nineteen agents' documents change** (`compliance`, `secops` and `ux-designer` do
   not): each moves one version, so an organisation that installed them is **offered the update**; nothing
@@ -3567,13 +3861,13 @@ What the chart does for a multi-node installation, and the knobs behind it:
 
 | Concern | Mechanism | Value |
 | :-- | :-- | :-- |
-| A node drain must not take the API, the front or a worker queue down | one `PodDisruptionBudget` per component, and per orchestrator queue — rendered only when there is more than one replica (a budget on a single replica blocks the drain and protects nothing) | `choregos-api.podDisruptionBudget`, `choregos-web.podDisruptionBudget`, `choregos-orchestrator.podDisruptionBudget` |
+| A node drain must not take the API, the front or a worker queue down | one `PodDisruptionBudget` per component, and per orchestrator queue — rendered only when there is more than one replica (a budget on a single replica blocks the drain and protects nothing) | `tranibor-api.podDisruptionBudget`, `tranibor-web.podDisruptionBudget`, `tranibor-orchestrator.podDisruptionBudget` |
 | Two replicas must not share a node | pod anti-affinity on `kubernetes.io/hostname`: `soft` (preferred, the default — a one-node bench still schedules), `hard` (one replica per node, or no pod), `none` | `global.antiAffinity` |
 | The database must not be exhausted under load | a **bounded** connection pool per process: at most `size + maxOverflow` connections, a short wait beyond. Size PostgreSQL's `max_connections` as (API replicas + workers) × (size + maxOverflow), plus room for migrations and an operator | `global.database.pool.{size,maxOverflow,timeoutSeconds}` |
-| A serious environment must not run on bench dependencies | the chart **refuses to render** in `staging` and `prod` when any `embedded` dependency, `devSecrets`, `devLogin`, `demoFakes`, the fakes (`global.fakes`) or fakes handed to every run (`choregos-orchestrator.runner.env.TRANIBOR_FAKES`) is on, and names the value; the API, the outposts' door, the workers and the runner refuse to start on `TRANIBOR_FAKES` there too (S80-03) | `templates/guard.yaml`, `tranibor_core/production.py` |
-| A worker must not stay attached to a dead node | tolerations of 20 s instead of Kubernetes' 300 s | `choregos-orchestrator.unreachableTolerationSeconds` |
-| A worker pod's load is bounded, and the bound is yours to set | the Temporal worker's slots, as `TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES` / `_WORKFLOW_TASKS` / `_LOCAL_ACTIVITIES` and `TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS`. Defaults 20 / 100 / 100 / 1000, the values the worker always had. An executor activity holds a run's stage for its whole length, so `activities` × executor replicas bounds the simultaneous runs (20 × 2 = 40 by default) | `choregos-orchestrator.concurrency.{activities,workflowTasks,localActivities,cachedWorkflows}`, overridden per queue by `queues[].concurrency` |
-| An agent must not reach the Internet except where the policy says | in **per-project runner namespaces** the provisioning deploys a **Squid proxy per project** with the policy's `allow_domains` (project-level, host-level, no per-agent wall), and every agent pod gets `HTTPS_PROXY` pointing to it. No allowed domain, no proxy, no door. In the **release namespace** (the `agent_sandbox` executor) the chart's **`choregos-egress`** proxy is per run: it knows which run is calling, applies the agent ∩ project ∩ organisation network, and reports every decision ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md)) | `policy.sandbox.network.allow_domains`, `choregos-orchestrator.runner.egressProxy` (empty on a bench), `runner.egressImage` to pin by digest; `global.egress.*` for `choregos-egress` |
+| A serious environment must not run on bench dependencies | the chart **refuses to render** in `staging` and `prod` when any `embedded` dependency, `devSecrets`, `devLogin`, `demoFakes`, the fakes (`global.fakes`) or fakes handed to every run (`tranibor-orchestrator.runner.env.TRANIBOR_FAKES`) is on, and names the value; the API, the outposts' door, the workers and the runner refuse to start on `TRANIBOR_FAKES` there too (S80-03) | `templates/guard.yaml`, `tranibor_core/production.py` |
+| A worker must not stay attached to a dead node | tolerations of 20 s instead of Kubernetes' 300 s | `tranibor-orchestrator.unreachableTolerationSeconds` |
+| A worker pod's load is bounded, and the bound is yours to set | the Temporal worker's slots, as `TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES` / `_WORKFLOW_TASKS` / `_LOCAL_ACTIVITIES` and `TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS`. Defaults 20 / 100 / 100 / 1000, the values the worker always had. An executor activity holds a run's stage for its whole length, so `activities` × executor replicas bounds the simultaneous runs (20 × 2 = 40 by default) | `tranibor-orchestrator.concurrency.{activities,workflowTasks,localActivities,cachedWorkflows}`, overridden per queue by `queues[].concurrency` |
+| An agent must not reach the Internet except where the policy says | in **per-project runner namespaces** the provisioning deploys a **Squid proxy per project** with the policy's `allow_domains` (project-level, host-level, no per-agent wall), and every agent pod gets `HTTPS_PROXY` pointing to it. No allowed domain, no proxy, no door. In the **release namespace** (the `agent_sandbox` executor) the chart's **`choregos-egress`** proxy is per run: it knows which run is calling, applies the agent ∩ project ∩ organisation network, and reports every decision ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md)) | `policy.sandbox.network.allow_domains`, `tranibor-orchestrator.runner.egressProxy` (empty on a bench), `runner.egressImage` to pin by digest; `global.egress.*` for `choregos-egress` |
 | Temporal must be restorable | it holds the position of every ticket in flight; `docs/runbooks/temporal-backup.md` says what to copy and how to reconcile afterwards | — |
 
 The proxy is the honest part of "egress allowlist": before 2026-09-25 the NetworkPolicy
@@ -3581,9 +3875,10 @@ opened a `choregos-egress` namespace that no chart delivered, and the allowlist 
 annotation. It is verified on a cluster (`tests/cluster/test_egress_proxy.py`: an
 allowed domain answers 200 through the proxy, any other gets 403 from Squid).
 
-### The per-run egress proxy (`choregos-egress`)
+### The per-run egress proxy (`tranibor-egress`)
 
-`global.egress.enabled: true` renders a Deployment and a Service named `choregos-egress` in the release
+`global.egress.enabled: true` renders a Deployment and a Service named `tranibor-egress` (and, until 0.32.0,
+a second Service on the same pods under the former name `choregos-egress`) in the release
 namespace, from the API image (`python -m tranibor_api.egress`), with a restricted pod (non-root,
 read-only root file system, all capabilities dropped, `RuntimeDefault` seccomp, no service account
 token). Nothing is rendered by default.
@@ -3598,16 +3893,17 @@ token). Nothing is rendered by default.
 | `global.egress.cacheSeconds` | `60` | how long a run's network is cached: a revoked agent or a changed ceiling applies within this time |
 | `global.egress.resources` | 50m/64Mi, limits 500m/256Mi | |
 
-`choregos-orchestrator.runner.egressProxy` MUST name the Service
-(`http://choregos-egress.<release-namespace>.svc:3128`) — the chart refuses to render
+`tranibor-orchestrator.runner.egressProxy` MUST name the Service
+(`http://tranibor-egress.<release-namespace>.svc:3128`, or its former name) — the chart refuses to render
 `global.egress.enabled` with an empty value (`templates/guard.yaml`): a proxy nobody sends traffic to
 would look like a control. The default value, `http://choregos-egress.{namespace}.svc:3128`, resolves to
-it when `runner.namespacePattern` is the release namespace.
+it when `runner.namespacePattern` is the release namespace; it keeps the former name until 0.32.0 because a
+project namespace provisioned before 0.30.0 has only that one.
 
-With `networkPolicies.enabled` the chart goes with it: `choregos-allow-platform` no longer selects runner
-pods or the proxy (a runner must not reach PostgreSQL or Temporal); `choregos-runner-egress` lets runner
+With `networkPolicies.enabled` the chart goes with it: `tranibor-allow-platform` no longer selects runner
+pods or the proxy (a runner must not reach PostgreSQL or Temporal); `tranibor-runner-egress` lets runner
 pods reach only DNS, the API pods, the gateway, the memory service, telemetry and, when the proxy is on,
-`choregos-egress` on its port; `choregos-egress-net` takes traffic from runner pods only and lets the proxy
+the proxy on its port; `tranibor-egress-net` takes traffic from runner pods only and lets the proxy
 reach the API and the Internet **except the private ranges** (`10/8`, `172.16/12`, `192.168/16`,
 `169.254/16`) on the configured ports. The proxy also refuses, by itself, a name that resolves to a
 non-public address, and it connects to the address it resolved.
@@ -3627,7 +3923,7 @@ credentials are not a live run's.
 
 **On a platform whose infrastructure owns egress** with Cilium FQDN policies (one operator's case), runner pods may reach eight
 hosts directly, identically for every project and agent, so the Tranibor proxy is a net there until infra
-(1) gives the `choregos-egress` pods an FQDN egress rule for the hosts the instance allows and (2) removes
+(1) gives the proxy's pods an FQDN egress rule for the hosts the instance allows and (2) removes
 the runner entry's direct FQDNs. Until then a `502 unreachable` also appears if the proxy pod itself has no
 FQDN rule. The deploy repository sets `global.egress.enabled` and `runner.egressProxy` only after that.
 
@@ -3653,8 +3949,8 @@ webhook address, say); a client inside them can (see below). An IPv6 client is k
 
 | Setting | Chart value | Default | What it does |
 | :-- | :-- | :-- | :-- |
-| `TRANIBOR_TRUSTED_PROXY_CIDRS` | `choregos-api.trustedProxyCidrs` | code: `[]`; chart: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7` | a JSON list of the proxies' networks. A peer outside them is the client; otherwise `X-Forwarded-For` is read right to left and the first entry outside them is the client. Empty: the TCP peer is the client and the header is ignored |
-| `TRANIBOR_TRUSTED_PROXY_HOPS` | `choregos-api.trustedProxyHops` | `0` | only without CIDRs: the number of proxies that each append one entry; the client is the entry the farthest of them appended |
+| `TRANIBOR_TRUSTED_PROXY_CIDRS` | `tranibor-api.trustedProxyCidrs` | code: `[]`; chart: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7` | a JSON list of the proxies' networks. A peer outside them is the client; otherwise `X-Forwarded-For` is read right to left and the first entry outside them is the client. Empty: the TCP peer is the client and the header is ignored |
+| `TRANIBOR_TRUSTED_PROXY_HOPS` | `tranibor-api.trustedProxyHops` | `0` | only without CIDRs: the number of proxies that each append one entry; the client is the entry the farthest of them appended |
 
 The API refuses to start on a value of `TRANIBOR_TRUSTED_PROXY_CIDRS` that is not a network, and when
 both settings are set. The chart owns both names: `global.extraEnv` naming either fails at render.
@@ -3664,7 +3960,7 @@ server) has a private address. The cost is that any other client inside a truste
 the API can write `X-Forwarded-For` entries the API will believe:
 
 - **Runner pods, on any cluster with a private pod network, cloud or on-prem.** They run agent code,
-  their pod address is inside the default ranges, and `choregos-runner-egress` lets them call the API
+  their pod address is inside the default ranges, and `tranibor-runner-egress` lets them call the API
   directly. Agent code can send webhook requests that carry a provider's address (GitHub's, say) and
   spend that provider's budget on every replica the Service reaches. The provider's real deliveries then get `429` until the minute
   passes, and GitHub does not redeliver on its own. An invalid signature does not help: the limiter
@@ -3674,12 +3970,12 @@ the API can write `X-Forwarded-For` entries the API will believe:
 **Narrow the list** to the networks of the ingress controller (or gateway) pods and the console pods
 where the pod network allows it, i.e. where those pods draw from an IP pool that runners do not use (a
 dedicated node pool's pod range, a CNI IP pool per namespace). With every hop's address known, list
-only those (`--set-json 'choregos-api.trustedProxyCidrs=["10.42.0.0/16"]'`). On a flat pod network,
+only those (`--set-json 'tranibor-api.trustedProxyCidrs=["10.42.0.0/16"]'`). On a flat pod network,
 where every pod shares one pod CIDR, the default leaves the runner case open. #1061 tracks trusting
 proxies by identity rather than by range.
 
 **Widen the list** when a load balancer, CDN or WAF in front of the API has public proxy addresses: add
-every address it connects from or writes into `X-Forwarded-For` to `choregos-api.trustedProxyCidrs`
+every address it connects from or writes into `X-Forwarded-For` to `tranibor-api.trustedProxyCidrs`
 (Google Cloud load balancers: `35.191.0.0/16`, `130.211.0.0/22` and the forwarding rule's own address,
 which they append after the client's; a CDN: its edge ranges). `--set-json` replaces the whole list, so
 keep the private ranges in it. Otherwise the API takes that proxy's address for the client, and every
@@ -3702,10 +3998,10 @@ you changed it. The API therefore guards these routes by the name a request arri
 
 | Setting | Chart value | Default | What it does |
 | :-- | :-- | :-- | :-- |
-| `TRANIBOR_INTERNAL_API_GUARD` | `choregos-api.internalApiGuard` | `warn`; `enforce` in `values/staging.yaml` and `values/prod.yaml` | `off`: nothing. `warn`: a request for the run's API that arrives under a public hostname is served and logged (`internal_api.would_refuse`). `enforce`: it gets the 404 of an unknown route, before any token is read (`internal_api.refused`) |
-| `TRANIBOR_PUBLIC_HOSTS` | `choregos-api.ingress.hostnames` when the chart renders the route, plus `choregos-api.publicHostnames` and `global.customHosts.hosts` | code: `[]`; chart: the route's hostnames | public hostnames beyond the hosts of `global.publicUrl`, `global.apiUrl` and `choregos-api.corsOrigins`, which always count. Put in `publicHostnames` a name the chart cannot know: a route made outside it, a second name on a load balancer. `*.` may lead |
-| `TRANIBOR_RUN_DOOR_HOSTS` | `choregos-api.runDoor.hostnames` | `[]` | run doors: hostnames the run's API answers under although they are public. The chart renders their route, `choregos-run-door` |
-| — | `choregos-api.runDoor.annotations` | `{}` | the door Ingress's own annotations (`ingress.kind: ingress`) |
+| `TRANIBOR_INTERNAL_API_GUARD` | `tranibor-api.internalApiGuard` | `warn`; `enforce` in `values/staging.yaml` and `values/prod.yaml` | `off`: nothing. `warn`: a request for the run's API that arrives under a public hostname is served and logged (`internal_api.would_refuse`). `enforce`: it gets the 404 of an unknown route, before any token is read (`internal_api.refused`) |
+| `TRANIBOR_PUBLIC_HOSTS` | `tranibor-api.ingress.hostnames` when the chart renders the route, plus `tranibor-api.publicHostnames` and `global.customHosts.hosts` | code: `[]`; chart: the route's hostnames | public hostnames beyond the hosts of `global.publicUrl`, `global.apiUrl` and `tranibor-api.corsOrigins`, which always count. Put in `publicHostnames` a name the chart cannot know: a route made outside it, a second name on a load balancer. `*.` may lead |
+| `TRANIBOR_RUN_DOOR_HOSTS` | `tranibor-api.runDoor.hostnames` | `[]` | run doors: hostnames the run's API answers under although they are public. The chart renders their route, `tranibor-run-door` |
+| — | `tranibor-api.runDoor.annotations` | `{}` | the door Ingress's own annotations (`ingress.kind: ingress`) |
 | `TRANIBOR_INTERNAL_API_URL` | `global.internalApiUrl` | `http://choregos-api:8000` | where runs call back: the workers hand it to each run, the per-run egress proxy uses it, and the API reads it so that the guard never refuses that address |
 
 A request *arrives under* the name in its `Host` header and under every name in `X-Forwarded-Host`
@@ -3717,7 +4013,7 @@ service, `localhost`, an address.
 
 The API refuses to start on a mode outside the three, and on a door or a public hostname written as a
 URL or with a port. The chart owns the first three names: `global.extraEnv` naming one fails the
-render, and so does a door hostname that is also in `choregos-api.ingress.hostnames`.
+render, and so does a door hostname that is also in `tranibor-api.ingress.hostnames`.
 
 **What `enforce` cannot do: refuse the address runs are sent to.** When the host of
 `global.internalApiUrl` is itself a public hostname and no run door covers it, refusing there would end
@@ -3737,17 +4033,17 @@ hostname of their own before enforcing:
 
 1. Choose a hostname that is not one of the API's (`runs.example.com`), point it at the ingress and
    serve it over TLS: the run token travels on it.
-2. List it in `choregos-api.runDoor.hostnames`. The chart renders `choregos-run-door`, an Ingress or an
+2. List it in `tranibor-api.runDoor.hostnames`. The chart renders `tranibor-run-door`, an Ingress or an
    HTTPRoute like the API's (`ingress.kind`, `className`, `gateway`), which sends `/api/v1/internal`
    to the API and nothing else: the console, the REST API, the doors and the webhooks do not answer on
    that hostname.
 3. Restrict it where your ingress can: the source addresses your runs leave from, a request rate.
    With `ingress.kind: ingress` the door's `annotations` are its own, so a rule written there does not
    land on the public route; with the Gateway API, attach your implementation's policy to the route
-   `choregos-run-door`.
+   `tranibor-run-door`.
 4. Set `global.internalApiUrl` to `https://runs.example.com`. It is one value for every run of the
    installation: stages that run in the cluster call the door too, so check that their pods can reach
-   it (with `networkPolicies.enabled`, `choregos-runner-egress` lets runner pods reach the API pods,
+   it (with `networkPolicies.enabled`, `tranibor-runner-egress` lets runner pods reach the API pods,
    not an ingress).
 5. Then `enforce`, in a later roll-out, once the runs started before step 4 have ended: a run keeps
    the address it was started with, and those still call the public hostname.
@@ -3755,7 +4051,7 @@ hostname of their own before enforcing:
 ```yaml
 global:
   internalApiUrl: https://runs.example.com
-choregos-api:
+tranibor-api:
   internalApiGuard: enforce
   ingress:
     kind: ingress
@@ -3782,14 +4078,14 @@ one that overrides the presets' mode, follows these steps:
    run door (above), a relay or a script to the Service or to the door. Lines that are nobody of yours
    are what `enforce` will stop answering. After moving a caller, wait until its lines stop: a run in
    flight keeps the address it was started with.
-4. Set `choregos-api.internalApiGuard: enforce`, staging first. `internal_api.refused` then counts what
+4. Set `tranibor-api.internalApiGuard: enforce`, staging first. `internal_api.refused` then counts what
    is refused. To go back, set `warn`: nothing else changes.
 
 The default stays `warn` in the code, the chart and the `dev`, `local` and `single-node` presets. The
 shipped `staging` and `prod` presets enforce since the first release after 0.27.13 (S80-03b): runs call
 the in-cluster Service there, which `enforce` never refuses. An installation built on them whose runs
 call back through a public hostname sets a run door and `global.internalApiUrl` (above), or writes
-`choregos-api.internalApiGuard: warn` back.
+`tranibor-api.internalApiGuard: warn` back.
 
 An installation that decides to keep its runs on a public hostname sets `off`: `warn` logs one line
 per call back.
@@ -3806,7 +4102,8 @@ its route.
 
 ### The CLI served by the instance (S62-08)
 
-The API image carries the native `choregos` binaries (S62-07) in `/opt/choregos/cli/`, with their
+The API image carries the native `tranibor` binaries (S62-07) in `/opt/tranibor/cli/` (and, until 0.32.0,
+a link to it at the former `/opt/choregos/cli/`), with their
 `SHA256SUMS` and `manifest.json` (`TRANIBOR_CLI_DIR` points elsewhere). The instance serves them on the
 console's host, so a person installs the CLI of the exact version it runs without reaching GitHub:
 
@@ -3853,7 +4150,7 @@ runs receive, the same for every run: scope it at the gateway with its own rate 
 
 A LiteLLM you run yourself (`global.gateway.embedded: false`, type `litellm`) is the platform's
 `litellm` gateway: the API mints marked keys for it and expects the secret guard on the path. Load
-it as the embedded one does: put `charts/choregos/charts/litellm/files/choregos_guardrail.py` next
+it as the embedded one does: put `charts/tranibor/charts/litellm/files/choregos_guardrail.py` next
 to LiteLLM's `config.yaml` (same release, byte for byte) and declare it in that config:
 
 ```yaml
@@ -3870,7 +4167,7 @@ and nothing fails to say so. `GET /guardrails/list` with the master key shows `c
 when the guard is loaded. LiteLLM reads its config only at start: restart it after the change.
 
 Turn LiteLLM's budget reservation off in the same config, as the embedded gateway does
-(`choregos-litellm.budgetReservation: false`, #2181):
+(`tranibor-litellm.budgetReservation: false`, #2181):
 
 ```yaml
 general_settings:
@@ -3897,7 +4194,7 @@ global:
   gateway:
     embedded: true                  # required: only the embedded LiteLLM serves it
   decisions:
-    embedded: true                  # deploys `charts/choregos/charts/laya` and adds `platform/decide` to LiteLLM
+    embedded: true                  # deploys `charts/tranibor/charts/laya` and adds `platform/decide` to LiteLLM
     apiKeySecret: ""                # key `api-key`; empty: the chart generates one and keeps it
     inputCostPerToken: 0.00000002   # USD per token read: the internal price (ADR 0004)
 ```
@@ -3910,7 +4207,7 @@ What it renders:
   only once the checkpoint is loaded; the probes read `GET /health`, which answers without a credential.
 - **A NetworkPolicy** that admits LiteLLM's pods only, on port 8000, and lets Laya reach nothing. The
   platform never calls a decision model directly: the cost is counted and the cap enforced at the
-  gateway. With `networkPolicies.enabled`, `choregos-allow-platform` opens the platform's egress to it.
+  gateway. With `networkPolicies.enabled`, `tranibor-allow-platform` opens the platform's egress to it.
 - **`platform/decide`** in LiteLLM's `model_list`:
 
   ```yaml
@@ -3935,7 +4232,7 @@ Laya counts the tokens it read as `input_tokens` and answers none, so its spend 
 documentation): until the decision ledger has measured it on a workflow, a threshold on its confidence
 is a guess.
 
-Each model of `choregos-litellm.models` may also name its own `apiBase`, `apiKeyEnv` (the environment
+Each model of `tranibor-litellm.models` may also name its own `apiBase`, `apiKeyEnv` (the environment
 variable LiteLLM reads its key from) and `inputCostPerToken` / `outputCostPerToken`; an entry that sets
 none of them renders as before.
 

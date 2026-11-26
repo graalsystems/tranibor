@@ -17,7 +17,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PATHS = ("/mcp", "/.well-known/oauth-protected-resource")
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -33,8 +33,8 @@ def _documents(*surcharges: str) -> list[dict[str, Any]]:
 def test_the_ingress_of_the_api_carries_mcp() -> None:
     ingress = next(
         d
-        for d in _documents("choregos-api.ingress.kind=ingress")
-        if d.get("kind") == "Ingress" and d["metadata"]["name"] == "choregos-api"
+        for d in _documents("tranibor-api.ingress.kind=ingress")
+        if d.get("kind") == "Ingress" and d["metadata"]["name"] == "tranibor-api"
     )
     paths = [p["path"] for p in ingress["spec"]["rules"][0]["http"]["paths"]]
     assert set(PATHS) <= set(paths), paths
@@ -42,7 +42,7 @@ def test_the_ingress_of_the_api_carries_mcp() -> None:
 
 def test_the_http_route_of_the_api_carries_mcp() -> None:
     route = next(
-        d for d in _documents() if d.get("kind") == "HTTPRoute" and d["metadata"]["name"] == "choregos-api"
+        d for d in _documents() if d.get("kind") == "HTTPRoute" and d["metadata"]["name"] == "tranibor-api"
     )
     prefixes = [m["path"]["value"] for rule in route["spec"]["rules"] for m in rule["matches"]]
     assert set(PATHS) <= set(prefixes), prefixes
