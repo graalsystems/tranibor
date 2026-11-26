@@ -47,7 +47,7 @@ lists the installed plugins' procedures beside the platform's. Three gaps:
    never takes its group's index name (`index`, `readme`, the group's own name: `mcp/mcp` is written
    `mcp/mcp-setup.md`). Every procedure goes through the ADR 0067 parser. A platform procedure that does
    not parse fails the build, always. A plugin's fails it on a pull request of this repository; a publish
-   (`--plugins-lenient`: a push to `main`, a release, the daily run) leaves that plugin out with a
+   (`--plugins-lenient`: a push to `main`, the daily run; ADR 0185 as amended on 2026-11-25) leaves that plugin out with a
    warning, so one plugin never stops the platform's pages from being published. The source links derive
    from the publishing identity (ADR 0156), never a literal.
 4. **The site's workflow builds them.** After `import-docs.mjs` copies `docs/site/` (which it empties
