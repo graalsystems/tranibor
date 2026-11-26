@@ -296,6 +296,7 @@ SCHEMA_FILES = (
     "plugin-index.schema.json",
     "plugin-evals.schema.json",
     "plugin-tracker-profile.schema.json",
+    "plugin-profile.schema.json",
     "assistant.schema.json",
     "conversation-evals.schema.json",
     "outpost-policy.schema.json",

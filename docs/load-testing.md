@@ -1,15 +1,20 @@
 # Load testing: one node, fakes mode
 
-> **Scope, read first.** One run of the local install (`docker compose up`) on one shared 4 vCPU
-> machine, **fakes mode** (no model is called), measured on 2026-11-25. It says how many concurrent
-> console users one API process serves before it slows, and what breaks first. It does **not** say
-> that the platform is highly available, how it behaves on a cluster, with real models, with several
-> nodes, or over hours. [What this does not prove](#what-this-does-not-prove) lists the rest.
+> **Scope, read first.** Two runs of the local install (`docker compose up`) on one shared 4 vCPU
+> machine, **fakes mode** (no model is called): the first on 2026-11-25 with the published 0.29.4
+> images, the second on 2026-11-26 with images built from `main` after the two fixes the first run
+> asked for (#2284, #2285). They say how many concurrent console users one API process serves before
+> it slows, and what breaks first. They do **not** say that the platform is highly available, how it
+> behaves on a cluster, with real models, with several nodes, or over hours.
+> [What this does not prove](#what-this-does-not-prove) lists the rest.
 
 It answers a gap named by a buyer's review (B6): "no load test". It is a first measurement, not a
 capacity statement; the numbers are for this machine and will move on yours.
 
 ## The setup
+
+The first run's; [the rerun](#rerun-on-main-2026-11-26-after-2284-and-2285) changes the repository, the
+images and the console.
 
 | | |
 |:--|:--|
@@ -53,7 +58,153 @@ Why a Python script and not k6: `httpx` is already a dependency of the platform 
 pin), the sign-in and the decision need a cookie session beside the token, and the script reads
 `docker stats` in the same loop. k6 would add a pinned image to the lock for the same arithmetic.
 
-## Results
+## Rerun on `main`, 2026-11-26 (after #2284 and #2285)
+
+The same machine, the same workload and the same command (`--steps 1,5,10,20,50,100`, 120 s a step,
+15 s of warm-up, the script's default since the first run), on a fresh install. What changed:
+
+| | |
+|:--|:--|
+| Repository | `graalsystems/tranibor` at `026bc3561` (`main`, 2026-11-26): the key race fixed (#2284, a per-project advisory lock) and the board batched (#2285, a page's facts read once) |
+| Images | **Built here from that commit** (`choregos-api:local`, `choregos-orchestrator:local` from `docker/api.Dockerfile` targets `api` and `worker-local`, `choregos-web:local` through `docker compose build web`; the API container reports build revision `026bc3561`), behind the sandbox's TLS-inspecting proxy through the `build-ca` seam (#2308). One exception, which the measured paths do not run: the SkillSpector stage was taken from the published 0.29.4 API image (`--build-context skillspector=docker-image://ghcr.io/graalsystems/tranibor-api:0.29.4`), because the sandbox's policy refuses the GitHub archive download that stage makes |
+| Console | Built from the same commit, it relays to the API (the published 0.29.4 web image could not). The generator still calls the API directly, so the numbers stay comparable; the console's own cost is not measured |
+
+Raw results:
+[`tools/load/results/2026-11-26-single-node-main.json`](../tools/load/results/2026-11-26-single-node-main.json).
+
+### Before and after
+
+p95 in milliseconds; "before" is the first run below (0.29.4 images), "after" this one.
+
+| Users | Reads/s before | Reads/s after | Board p95 before | Board p95 after | Inbox p95 before | Inbox p95 after | Creations failed before | Creations failed after |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 2.4 | 3.1 | 393 | 85 | 274 | 220 | 0 % | 0 % |
+| 5 | 9.3 | 14.0 | 829 | 147 | 552 | 378 | 0 % | 0 % |
+| 10 | 12.7 | 22.5 | 1518 | 312 | 1108 | 747 | 4.7 % | 0 % |
+| 20 | 13.0 | 26.3 | 3064 | 765 | 2102 | 1719 | 11.8 % | 0 % |
+| 50 | 12.7 | 25.0 | 6074 | 2644 | 5735 | 3691 | 18.5 % | 0 % |
+| 100 | 12.8 | 20.5 | 10381 | 7432 | 10096 | 9664 | 19.4 % | 0 % |
+
+* **Throughput about doubles**: the five reads plateau at about 25 requests per second from 20 users
+  on, against 13 from 10 users on.
+* **The board is no longer the slowest route.** At one user its p50 went from 330 ms to 59 ms
+  (one work item: 28 ms); at 10 users its p95 from 1.5 s to 0.31 s.
+* **No creation failed** in any step (the first run lost 25 to the key race), and no read failed up
+  to 50 users. At 100 users 5 reads of 2,456 answered 500 (0.2 %, against 4.5 %): connection pool
+  timeouts, `QueuePool limit of size 10 overflow 5 reached` (10 in the API's log, 18 in the worker's).
+* **The knee moved from about 10 to about 20 users.** At 10 users every read is under one second at
+  p95 (the slowest, the inbox, at 0.75 s). At 20 users the inbox crosses it (1.7 s) while the board
+  is at 0.77 s. **`/me/pending` is now the slowest hot route**: it keeps a per-item pattern (each
+  waiting request asks who may answer it and whether its mark is readable), named in the row
+  `board-batched-reads` and not fixed.
+* **PostgreSQL is now the busiest container**: 117 % CPU at 10 users, 145 to 158 % from 20 on, while
+  the API process stays at one core (93 to 105 %). The next limits are the API's single process and
+  the database's CPU, not a per-item query.
+
+All routes, all steps (p50 / p95 / p99 in ms, errors included):
+
+| Users | Route | Requests | req/s | Errors % | p50 ms | p95 ms | p99 ms |
+|--:|:--|--:|--:|--:|--:|--:|--:|
+| 1 | board (work items list) | 107 | 0.89 | 0.0 | 59 | 85 | 123 |
+| 1 | one work item | 64 | 0.53 | 0.0 | 28 | 38 | 53 |
+| 1 | inbox `/me/pending` | 80 | 0.67 | 0.0 | 181 | 220 | 341 |
+| 1 | runs of a work item | 71 | 0.59 | 0.0 | 20 | 27 | 39 |
+| 1 | findings | 53 | 0.44 | 0.0 | 21 | 43 | 53 |
+| 1 | create a work item | 10 | 0.08 | 0.0 | 62 | 110 | 110 |
+| 5 | board (work items list) | 488 | 4.07 | 0.0 | 80 | 147 | 302 |
+| 5 | one work item | 344 | 2.87 | 0.0 | 36 | 81 | 129 |
+| 5 | inbox `/me/pending` | 333 | 2.77 | 0.0 | 244 | 378 | 483 |
+| 5 | runs of a work item | 249 | 2.08 | 0.0 | 28 | 79 | 106 |
+| 5 | findings | 266 | 2.22 | 0.0 | 28 | 64 | 143 |
+| 5 | create a work item | 51 | 0.42 | 0.0 | 82 | 156 | 200 |
+| 10 | board (work items list) | 848 | 7.07 | 0.0 | 143 | 312 | 475 |
+| 10 | one work item | 531 | 4.42 | 0.0 | 70 | 168 | 365 |
+| 10 | inbox `/me/pending` | 530 | 4.42 | 0.0 | 429 | 747 | 874 |
+| 10 | runs of a work item | 372 | 3.1 | 0.0 | 60 | 145 | 321 |
+| 10 | findings | 418 | 3.48 | 0.0 | 65 | 151 | 275 |
+| 10 | create a work item | 76 | 0.63 | 0.0 | 203 | 552 | 723 |
+| 20 | board (work items list) | 950 | 7.92 | 0.0 | 388 | 765 | 989 |
+| 20 | one work item | 609 | 5.08 | 0.0 | 224 | 537 | 645 |
+| 20 | inbox `/me/pending` | 657 | 5.47 | 0.0 | 1138 | 1719 | 1917 |
+| 20 | runs of a work item | 481 | 4.01 | 0.0 | 199 | 519 | 627 |
+| 20 | findings | 452 | 3.77 | 0.0 | 213 | 518 | 599 |
+| 20 | create a work item | 93 | 0.78 | 0.0 | 473 | 943 | 1186 |
+| 50 | board (work items list) | 871 | 7.26 | 0.0 | 1578 | 2644 | 3279 |
+| 50 | one work item | 603 | 5.03 | 0.0 | 1308 | 2150 | 2891 |
+| 50 | inbox `/me/pending` | 645 | 5.38 | 0.0 | 2664 | 3691 | 4453 |
+| 50 | runs of a work item | 444 | 3.7 | 0.0 | 1319 | 2222 | 3296 |
+| 50 | findings | 430 | 3.58 | 0.0 | 1351 | 2299 | 2867 |
+| 50 | create a work item | 98 | 0.82 | 0.0 | 1772 | 3014 | 3637 |
+| 100 | board (work items list) | 724 | 6.03 | 0.0 | 4324 | 7432 | 8872 |
+| 100 | one work item | 493 | 4.11 | 0.2 | 4134 | 7829 | 9007 |
+| 100 | inbox `/me/pending` | 497 | 4.14 | 0.6 | 6325 | 9664 | 11107 |
+| 100 | runs of a work item | 374 | 3.12 | 0.27 | 4027 | 7259 | 8891 |
+| 100 | findings | 368 | 3.07 | 0.0 | 4035 | 5505 | 8361 |
+| 100 | create a work item | 80 | 0.67 | 0.0 | 4500 | 5578 | 8484 |
+
+### What the platform did with the work items (rerun)
+
+| Users | Created | Approved (decisions) | Approvals per minute | Creation to `awaiting_approval`, p50 / p95 |
+|--:|--:|--:|--:|:--|
+| 1 | 10 | 38 | 19.0 | 49.6 s / 52.9 s |
+| 5 | 51 | 51 | 25.5 | 1.7 s / 2.6 s |
+| 10 | 76 | 76 | 38.0 | 2.4 s / 4.6 s |
+| 20 | 93 | 91 | 45.5 | 4.1 s / 7.2 s |
+| 50 | 98 | 64 | 32.0 | 18.6 s / 50.6 s |
+| 100 | 80 | 36 | 18.0 | 101.2 s / 173.2 s |
+
+Creations follow the users now that none fails (98 at 50 users against 44). From 50 users on the one
+approver falls behind: its poll and its decisions wait in the same queue as the users' reads (one poll
+took 4.6 s at 100 users), so items wait longer in `awaiting_approval`; this is the generator's single
+approver, not a ceiling of the workflow. After the 30 s drain: 360 `approved`, 80 `awaiting_approval`,
+33 `needs_human` (the budget note below). The 34 refused decisions are the approver's own 409 (`no
+human request is pending`: the state reads `awaiting_approval` a moment before the request exists),
+asked again at its next poll.
+
+### What the containers cost (rerun)
+
+| Users | api CPU % mean (max) | postgres CPU % mean (max) | temporal CPU % mean (max) | worker CPU % mean (max) | web CPU % mean (max) | api MiB max | postgres MiB max |
+|--:|:--|:--|:--|:--|:--|--:|--:|
+| 1 | 29 (45) | 16 (36) | 11 (30) | 11 (53) | 9 (23) | 727 | 317 |
+| 5 | 57 (83) | 68 (86) | 19 (29) | 20 (40) | 7 (24) | 719 | 336 |
+| 10 | 93 (120) | 117 (137) | 30 (52) | 23 (55) | 7 (23) | 722 | 386 |
+| 20 | 100 (125) | 145 (175) | 30 (49) | 26 (52) | 12 (28) | 720 | 400 |
+| 50 | 102 (135) | 158 (190) | 31 (50) | 29 (45) | 6 (22) | 717 | 423 |
+| 100 | 105 (125) | 155 (191) | 30 (56) | 21 (41) | 10 (25) | 736 | 432 |
+
+The API process held about 720 MiB from the first step, against 224 to 257 MiB for the 0.29.4 image:
+the image is a different build of more recent code, and the difference was not investigated.
+
+### Bursts (rerun)
+
+On a fresh install, with nothing else running and **no patch hot-copied** (the first run's bursts
+needed one):
+
+| Burst | Created | Decided within 300 s | After both bursts |
+|:--|:--|:--|:--|
+| 40 work items, 4 at a time | 40 of 40 in 3.1 s | 34 | |
+| 100 work items, 10 at a time (same install, after the first) | **100 of 100 in 6.4 s** (0.29.4 without the patch: 16) | 39 | 88 `approved`, 67 `needs_human`, 1 `received` (with the warm-ups' items) |
+
+The creations hold under concurrency now. The workflow's rate is still not measured: the work items
+that did not reach a decision were parked in `needs_human` by the daily budget, all 67 with the same
+reason, "the stage `plan` did not start: 0.00 $ left (bound by project_day; stage 8.00 $, ticket
+25.00 $, project_day 0.00 $)".
+
+**The budget note, explained.** What is left under the project's daily cap is the cap minus the day's
+spend **minus the caps of the gateway keys still open** (`open_reservations`,
+`apps/api/src/tranibor_api/services/budgets.py`, read by the stage's reservation in
+`apps/orchestrator/src/tranibor_orchestrator/activities/stage_refusals.py`). Every stage in flight
+holds a key reserved at its stage cap (8 $ for `plan`), spent or not: in fakes mode nothing is spent,
+yet once enough stages are in flight their reservations use up the day, and the next stage is refused
+and parked in `needs_human` instead of waiting for a reservation to close. The keys are released as
+their runs end (after the bursts, all 88 were revoked, none left open). So this is the budget guard
+doing what it says, under a burst far above what the demo project's policy allows in flight; whether
+a refused stage should wait instead of parking is a product question, not a load defect.
+
+## First run, 2026-11-25 (published 0.29.4 images)
+
+The numbers below are the first run's, before #2284 and #2285; the setup table above describes it.
+The knee and the bottlenecks that follow are the first run's too, each with what the rerun changed.
 
 ### What the users see
 
@@ -123,7 +274,8 @@ follow the creation rate (3 % of the iterations), they are not a ceiling.
 
 The platform's own throughput was measured separately, on a fresh install with nothing else running
 (`--burst`). **These two bursts ran with a candidate patch for bottleneck 4 below hot-copied into the
-API container; the patch is not in the repository.** Without it, the same 100-item burst created 16:
+API container; the patch is not in the repository (the fix that replaced it, #2284, is a per-project
+advisory lock).** Without it, the same 100-item burst created 16:
 
 | Burst | Created | Decided | Terminal (`approved`) | Rate |
 |:--|:--|:--|:--|:--|
@@ -147,29 +299,36 @@ LiteLLM held about 600 MiB and the object store about 110 MiB throughout, nearly
 
 ## The knee
 
-Defined as the concurrency where the p95 of a hot read passes one second, or errors appear.
+Defined as the concurrency where the p95 of a hot read passes one second, or errors appear. In the
+first run (below) it was about 10 users; in the rerun on `main` it is **about 20 users**, the inbox
+first, with no creation failing.
 
 * **About 10 users.** At 10 users the board's p95 is 1.5 s and the API process is at 113 % CPU: one
   core, saturated; the inbox is at 1.1 s. Below, at 5 users, every route is under 1 s at p95 and
   nothing fails. The cheap reads (`work item`, `runs`, `findings`) hold under one second at p95 up to
   20 users (0.75 to 0.93 s) and cross it at 50 (3.6 to 4.7 s).
 * **Errors start at 100 users** on reads (4.5 %), and earlier on creation (4.7 % at 10 users, 12 % at
-  20): that one is a race, not saturation (bottleneck 4).
+  20): that one is a race, not saturation (bottleneck 4, fixed since by #2284).
 * **A sensible reading for this machine:** a single API process answers about 13 requests per second
   of this mix, which is about 10 users who each act every few seconds. It is a floor for this
   machine under a generator that steals CPU from it, not a ceiling for a production node.
 
 ## Bottlenecks seen
 
-**1. The board is an N+1 (the slowest hot route, and the cause of most of the CPU).** On an idle
+**1. The board was an N+1 (the slowest hot route, and the cause of most of the CPU).** On an idle
 install, one `GET /projects/demo:demo/work-items` of 21 work items takes about 150 ms (`curl`), and
 `/me/pending` about 40 ms. With PostgreSQL's statement log on, that one board request ran 4 queries
 per work item (`workflow_defs`, `runs`, `human_requests`, `cost_ledger`: 21 each), 84 round trips on
 top of the page's own, from `work_item_dto` (`apps/api/src/tranibor_api/services/tickets.py`), called
 once per item by `list_work_items`; there are more for the repository view and the cost estimate. The
 page size is 50, so a full page is about 200 queries. At 1 user the board's p50 is 330 ms against 32
-ms for one work item. Not fixed here: batching the per-item reads is not a small change, and it
-touches the DTO every route shares. **A finding for a story of its own.**
+ms for one work item. **Fixed since by #2285** (status row `board-batched-reads`): the page reads each
+kind once for all its work items (`work_item_dtos`), so a page reads the same number of statements
+whatever its size: 14 on SQLite for a page of 4, 40 or 50 work items (16 for a member who does not
+read a restricted mark), where it read 270 for 50; a test guards it
+(`apps/api/tests/test_board_reads_a_page_at_once.py`). Measured in the rerun on `main`: the board's
+p50 at one user went from 330 ms to 59 ms, its p95 at 10 users from 1.5 s to 0.31 s, and the reads'
+throughput from about 13 to about 25 requests per second.
 
 **2. One API process and one core.** The API container runs one `uvicorn` process; its CPU sits at
 110 to 119 % from 10 users on, PostgreSQL at about 100 %. Both are saturated, on a machine that also
@@ -184,29 +343,42 @@ logged the same error on its own pool (20 concurrent activities against a pool o
 concurrency is a setting since S80-07a). The pool was not changed here: raising it moves the queue to
 PostgreSQL, which was already saturated.
 
-**4. Concurrent creations on one project fail with HTTP 500 (found, not fixed here).**
-`internal_work_item_key` reads `max(n) + 1` over the project's keys and the unique constraint
-`project_tracker_key` is the only guard: two requests in flight take the same number and the second
-gets an `IntegrityError` as a 500. On the real PostgreSQL, **10 creations in flight at once on one
-project: 84 of 100 answered 500** (16 created); in the main run, 25 creations failed that way, and the
-worker logged 118 "unknown work item" tracebacks (the cause of those was not traced: they stop with the
-patch below, which suggests the same collisions). A candidate patch, tried on the running containers
-only: insert in `create_work_item` inside `session.begin_nested()` and read the next number again on
-`IntegrityError`, five times at most. With it, 100 of 100 were created, with no 500 and no "unknown
-work item". It is **not included**, because it is not safe as it stands: on SQLite (development and
-the unit tests) releasing the outermost savepoint commits the transaction, and
+**4. Concurrent creations on one project failed with HTTP 500 (found here, fixed since, #2284).**
+`internal_work_item_key` read `max(n) + 1` over the project's keys and the unique constraint
+`project_tracker_key` was the only guard: two requests in flight took the same number and the second
+got an `IntegrityError` as a 500. On the real PostgreSQL, **10 creations in flight at once on one
+project: 84 of 100 answered 500** (16 created); in the main run, 25 creations failed that way. A
+candidate patch, tried on the running containers only (insert inside `session.begin_nested()` and read
+the next number again on `IntegrityError`), created 100 of 100, but was not kept: on SQLite releasing
+the outermost savepoint commits the transaction, and
 `apps/api/tests/test_work_item_files.py::test_start_true_on_a_workflow_that_requires_files_is_refused`
-(a refused creation must leave nothing) went red. A fix wants its own story: a PostgreSQL-only guard
-(an advisory lock per project, as `budgets.lock_budget_scopes` does for budgets, made re-entrant) and a
-test on a real PostgreSQL with concurrent sessions. Until then, **create work items on one project one
-at a time, or retry a 500**.
+went red. **The fix (#2284)** serialises the minting per project on PostgreSQL: `lock_key_minting`
+(`apps/api/src/tranibor_api/services/tickets.py`) takes a `pg_advisory_xact_lock` on the project
+before the keys are read, held until the transaction commits or rolls back, so the next creation reads
+the number this one inserted; nothing changes on SQLite. It covers every path that mints a number (the
+route, the MCP and A2A doors, triggers without a key, actions, and the orchestrator's findings through
+`internal_ticket_key`). `apps/api/tests/test_work_item_key_concurrency.py` proves it on PostgreSQL: 20
+creations at once through the route, then 20 findings minted at once in their own sessions, each get
+a distinct key with no error; without the lock 18 of 20 answered 500. In the rerun on `main`, none of the 408 creations of
+the steps failed and the burst of 100, 10 at a time, created 100 of 100 with no patch. **The workaround (one creation
+at a time, or retry a 500) is no longer needed.** The lock is held from the minting to the commit: two
+creations on one project now take turns for that span, which includes the routing model's answer when
+the project's strategy is `llm`; creations on different projects do not wait on each other.
+
+The 118 "unknown work item" tracebacks the worker logged in the main run were traced to another cause:
+the interpreter is started inside the creating transaction, before its commit, and the worker's first
+activity (`load_context`) can read before the row is visible, then retries (2 s, at most 5 attempts).
+The key race does not start interpreters: a creation that loses it fails at its `INSERT`, before the
+start (checked on PostgreSQL without the lock: 2 created, 2 interpreters started, none on a row that
+was not committed). It is a finding of its own, #2291; it is not fixed here.
 
 **5. Not a performance failure: `needs_human` on a budget refusal.** Under a burst of 100, 41
 work items ended in `needs_human` with this event: "the stage `plan` did not start: 0.00 $ left
 (bound by project_day; stage 8.00 $, ticket 25.00 $, project_day 0.00 $)". In fakes mode nothing is
 spent, so this is the day cap of the demo project refusing to reserve a stage's budget while many
-stages are in flight. The cap's value and exactly what holds the reservations were not read: treat
-"how many work items a project runs at once in fakes mode" as unmeasured. The 3 stuck
+stages are in flight. What holds the reservations was read in the rerun: the open gateway keys of the
+stages in flight, each at its stage cap ([the budget note](#bursts-rerun)); the cap's value was not
+read, so "how many work items a project runs at once in fakes mode" stays unmeasured. The 3 stuck
 `awaiting_approval` were not explained either (a decision accepted by hand later did go through).
 
 ## What this does not prove
@@ -219,10 +391,15 @@ stages are in flight. The cap's value and exactly what holds the reservations we
   no spend, no object-store artifacts of size. A real stage lasts minutes and holds a worker slot for
   that time: the work items per minute here say nothing about it.
 * **Several nodes, replicas or a bigger machine.** The knee is one process on 4 shared vCPUs.
-* **A long run.** Each step is 2 minutes, the whole run about 15 minutes: no memory growth over
-  hours, no table growth (about 270 work items), no vacuum or retention behaviour.
-* **The console.** The Next.js server and the browser were not in the path; neither were SSE streams
-  (`/events/stream`), uploads, or the MCP and A2A doors.
+* **A long run.** Each step is 2 minutes, each run about 15 minutes: no memory growth over
+  hours, no table growth (about 270 work items in the first run, 470 in the rerun), no vacuum or
+  retention behaviour.
+* **The console.** The Next.js server and the browser were not in the path, in either run (the rerun's
+  console, built from `main`, relays to the API, but the generator called the API directly); neither
+  were SSE streams (`/events/stream`), uploads, or the MCP and A2A doors.
+* **Every line of the image.** The rerun's images are built from `026bc3561`, except the SkillSpector
+  stage, taken from the published 0.29.4 image (the sandbox refuses its download); no measured route
+  runs it.
 * **Other mixes.** A different ratio of reads and writes, other routes (audit export, costs,
   knowledge), other organisation sizes, or many organisations at once.
 * **A clean machine.** The generator and the platform share the CPUs, and `fsync` is off in the
