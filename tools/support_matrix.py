@@ -55,6 +55,8 @@ class Entry:
     version: str | None
     what: str | None
     evidence: tuple[str, ...]
+    #: The `as_of` of the record the entry was read from: the date its word counts from by default.
+    as_of: datetime.date
 
     def word(self, today: datetime.date) -> str:
         if not self.proved:
@@ -98,6 +100,7 @@ def _entry(raw: Any, today: datetime.date) -> Entry:
         version=None if proof is None or proof.get("version") is None else str(proof["version"]),
         what=None if proof is None else proof.get("what"),
         evidence=() if proof is None else tuple(str(e) for e in proof["evidence"]),
+        as_of=today,
     )
 
 
@@ -135,9 +138,14 @@ def _evidence(item: str) -> str:
     return f"`{item}`"
 
 
+def _as_of_of(entries: list[Entry]) -> datetime.date:
+    """The date the entries were read against: their own record's `as_of`, not the repository's."""
+    return entries[0].as_of if entries else as_of()
+
+
 def render(entries: list[Entry], today: datetime.date | None = None) -> str:
     """The section between the markers, markers included."""
-    today = today or as_of()
+    today = today or _as_of_of(entries)
     lines = [
         BEGIN,
         "",
@@ -192,7 +200,7 @@ def unsupported_claims(text: str, entries: list[Entry], today: datetime.date | N
 
     Narrow on purpose: a sentence counts only when it names one of an entry's `names` (whole words, as
     written) and says `supported` or `supports` without a negation in front."""
-    today = today or as_of()
+    today = today or _as_of_of(entries)
     found: list[str] = []
     for sentence in _SENTENCE.findall(text):
         if not _CLAIM.search(_NEGATED.sub("", sentence)):
