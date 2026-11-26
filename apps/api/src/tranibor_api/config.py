@@ -330,6 +330,15 @@ class Settings(BaseSettings):
     #: How egress is narrowed: `networkpolicy` (public addresses on the configured ports) or `cilium`
     #: (a CiliumNetworkPolicy naming the exact hosts).
     plugin_servers_egress: Literal["networkpolicy", "cilium"] = "networkpolicy"
+    #: Private ranges a plugin server may reach (ADR 0224 §6a), as CIDRs: off when empty. A host an
+    #: instance's configuration names that resolves into one is admitted, for the organisation that owns
+    #: the range. The metadata, link-local and loopback ranges stay closed whatever is listed.
+    plugin_servers_egress_private_cidrs: list[str] = Field(default_factory=list)
+    #: On a multi-organisation deployment, the CIDRs each organisation owns, by slug (an alias of the
+    #: organisation counts, ADR 0090): `{"northwind": ["10.20.0.0/16"]}`. Each must be inside
+    #: `plugin_servers_egress_private_cidrs`, and each of those must be owned by one organisation or the
+    #: API does not start. Not read on a single-organisation deployment.
+    plugin_servers_egress_private_cidrs_by_org: dict[str, list[str]] = Field(default_factory=dict)
     #: The namespace of the API's pods, the only ones a server admits; empty: any namespace.
     plugin_servers_api_namespace: str = ""
     plugin_servers_cpu: str = "500m"
@@ -651,6 +660,20 @@ class Settings(BaseSettings):
             check_mirrors(self.plugin_servers_image_mirrors)
         except RegistryError as exc:
             raise ValueError(f"TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS: {exc}") from exc
+        return self
+
+    @model_validator(mode="after")
+    def _plugin_server_private_cidrs_are_well_formed(self) -> Settings:
+        """A typo in a private range, or a range that must stay closed, is refused at start-up (ADR 0224
+        §6a). The multi-organisation rule is the API's start-up, once the edition is known."""
+        from tranibor_adapters.private_egress import check_configuration
+
+        try:
+            check_configuration(
+                self.plugin_servers_egress_private_cidrs, self.plugin_servers_egress_private_cidrs_by_org
+            )
+        except ValueError as bad:
+            raise ValueError(f"TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS*: {bad}") from bad
         return self
 
     @model_validator(mode="after")

@@ -568,14 +568,20 @@ def configuration_problems(server: dict[str, Any], config: dict[str, Any], *, pa
 
 async def check_egress(session: AsyncSession, instance: OrgConnector, config: dict[str, Any]) -> None:
     """At configuration: every host the server would reach passes the organisation's network bounds
-    (ADR 0070): a deny wins, an allowed set bounds it."""
+    (ADR 0070): a deny wins, an allowed set bounds it; and none resolves to an address that is closed
+    (ADR 0096 §8) unless the deployment lists its range for the organisation (ADR 0224 §6a)."""
     from .platform_network import check_platform_host
+    from .private_egress import check_hosts
 
     server = instance.plugin_server or {}
-    for host, port in egress_of(server, config):
+    hosts = egress_of(server, config)
+    for host, port in hosts:
         await check_platform_host(
             session, instance.org_id, f"https://{host}:{port}", f"server `{instance.name}`"
         )
+    # What a host resolves to: a private range the deployment lists for the organisation is admitted
+    # (ADR 0224 §6a); any other private, link-local or metadata address is refused.
+    await check_hosts(session, instance.org_id, hosts, f"server `{instance.name}`")
 
 
 async def _apply(awaitable: Any, instance: OrgConnector) -> None:
@@ -620,6 +626,9 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     problems = configuration_problems(
         server, {k: v for k, v in resolved.items() if k in names}, partial=False
     )
+    from .private_egress import admitted_targets
+
+    hosts = egress_of(server, resolved)
     d = ServerDeployment(
         name=str(server["object"]),
         namespace=settings.plugin_servers_namespace,
@@ -643,7 +652,8 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         cpu=settings.plugin_servers_cpu,
         memory=settings.plugin_servers_memory,
         api_namespace=settings.plugin_servers_api_namespace,
-        egress=egress_of(server, resolved),
+        egress=hosts,
+        private_egress=await admitted_targets(session, instance.org_id, hosts, settings),
         egress_mode=settings.plugin_servers_egress,
         image_pull_secrets=tuple(settings.plugin_servers_image_pull_secrets),
     )

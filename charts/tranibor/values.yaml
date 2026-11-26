@@ -665,6 +665,18 @@ global:
       # networkpolicy: egress to public addresses on the configured ports (Kubernetes cannot name a
       # host); cilium: a CiliumNetworkPolicy that names the exact hosts (`toFQDNs`).
       egress: networkpolicy
+      # Private ranges the servers may reach (ADR 0224 §6a, docs/deployment.md#plugin-servers). Off when
+      # `privateCidrs` is empty: a server's egress is the public internet, never the private, carrier-grade
+      # or link-local ranges (ADR 0096 §8). Listed, a host a server's instance names that resolves into a
+      # listed CIDR is admitted for the organisation that owns it, and its NetworkPolicy opens that
+      # address and port, nothing else. The metadata and link-local ranges stay closed whatever is listed
+      # (the API does not start with one). On a multi-organisation deployment each CIDR must be owned by
+      # one organisation in `privateCidrsByOrg`, by slug (an alias counts), or the API does not start;
+      # each `privateCidrsByOrg` CIDR must be inside `privateCidrs`.
+      #   privateCidrs: [10.20.0.0/16, 10.30.4.0/24]
+      #   privateCidrsByOrg: { northwind: [10.20.0.0/16], contoso: [10.30.4.0/24] }
+      privateCidrs: []
+      privateCidrsByOrg: {}
       resources:
         limits: { cpu: 500m, memory: 512Mi }
       # Where the pods pull a server's image from (S80-20), for a cluster that admits only its mirror:

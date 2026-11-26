@@ -127,6 +127,7 @@ from .services.conversation_gate import set_conversation_source
 from .services.installed_suites import installed_suite_source
 from .services.plugin_defaults import check_configuration, reconcile_in_background
 from .services.plugin_supply import warm_shipping
+from .services.private_egress import refuse_unbound_ranges
 from .services.skill_scanner import mirror_loop
 from .services.temporal_keys import install_organisation_data_keys
 
@@ -180,6 +181,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from .services.plugin_servers import in_process_servers
 
         in_process_servers(settings)
+    # Private ranges plugin servers may reach (ADR 0224 §6a): on a multi-organisation deployment each is
+    # owned by one organisation, or the API does not start.
+    refuse_unbound_ranges(settings)
     if not settings.is_sqlite:
         await _refuse_the_superuser()
     _warn_without_secrets_key(settings.fakes)
