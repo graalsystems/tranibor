@@ -723,7 +723,7 @@ async def _send(door: Door, params: dict[str, Any]) -> dict[str, Any]:
             canal="a2a",
         )
     if stored:
-        await start_work_item(project, item)
+        await start_work_item(project, item, door.session)
     door.wrote = True
     return await task_of(door, item, project)
 
