@@ -152,7 +152,7 @@ async def test_an_idp_that_cannot_answer_silently_sends_the_browser_back_with_si
     back = await client.get("/api/v1/auth/callback", params={"error": error, "state": parameters["state"][0]})
     assert back.status_code == 307, back.text
     assert back.headers["location"] == "/embed/assistants/northwind/coach?context=e30&signin=required"
-    assert not client.cookies.get("choregos_session"), "no session was opened"
+    assert not client.cookies.get("tranibor_session"), "no session was opened"
 
 
 async def test_any_other_idp_error_is_refused_and_a_forged_state_is_too(

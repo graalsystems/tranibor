@@ -106,7 +106,7 @@ async def test_a_member_links_their_github_account_and_it_is_verified(
     assert url.startswith("https://github.com/login/oauth/authorize?")
     assert query["scope"] == "read:user" and query["code_challenge_method"] == "S256"
     assert query["redirect_uri"].endswith("/api/v1/auth/linked-accounts/callback")
-    cookie = next(c for c in client.cookies.jar if c.name == "choregos_forge_link")
+    cookie = next(c for c in client.cookies.jar if c.name == "tranibor_forge_link")
     assert cookie.path == "/api/v1/auth/linked-accounts", "only the callback receives the PKCE verifier"
     # The verifier in the cookie is the one the challenge was derived from: the forge checks it.
     assert query["code_challenge"] not in str(cookie.value)
@@ -143,7 +143,7 @@ async def test_a_state_that_is_not_this_sessions_is_refused_before_the_forge_is_
 
     # A state that is not the one signed for this handshake.
     other = parse_qs(urlparse(await _start(client)).query)["state"][0]
-    client.cookies.delete("choregos_forge_link")
+    client.cookies.delete("tranibor_forge_link")
     await _start(client)  # the cookie of a third handshake
     forged = f"{parsed.path}?code={params['code'][0]}&state={other}"
     assert await _callback(client, f"https://api.test{forged}") == {"link_error": ["handshake"]}

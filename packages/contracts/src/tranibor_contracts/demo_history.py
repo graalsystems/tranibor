@@ -131,7 +131,8 @@ class DemoWorkItem(Strict):
 class DemoHistory(Strict):
     """The document `POST /projects/{id}/demo-history` takes."""
 
-    schema_: Literal["choregos/DemoHistory/v1"] = Field(alias="schema")
+    #: `tranibor/DemoHistory/v1`; the former `choregos/DemoHistory/v1` is accepted until 0.32.0 (ADR 0226).
+    schema_: Literal["tranibor/DemoHistory/v1", "choregos/DemoHistory/v1"] = Field(alias="schema")
     workflow: str | None = Field(default=None, min_length=1, max_length=64)
     prices: dict[str, DemoPrice] = Field(default_factory=dict)
     work_items: list[DemoWorkItem] = Field(min_length=1, max_length=500)

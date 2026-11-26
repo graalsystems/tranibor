@@ -1,6 +1,6 @@
 # The full workflow: triage, approved scoping, plan, implementation, verification,
 # an agent review, then staging and production through two successive trains.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: advanced

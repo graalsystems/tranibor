@@ -30,13 +30,13 @@ def _doc(kind: str, expires_on: str | None) -> dict[str, Any]:
 
 def _hand(root: Path, documents: list[dict[str, Any]], **fields: str) -> None:
     doc = {"identity": IDENTITY, "documents": documents}
-    (root / ".choregos" / "inputs" / input_filename(SUPPLIER_FILE)).write_text(json.dumps(doc))
+    (root / ".tranibor" / "inputs" / input_filename(SUPPLIER_FILE)).write_text(json.dumps(doc))
     request = {"legal_name": IDENTITY["legal_name"], "registration_number": IDENTITY["registration_number"]}
-    (root / ".choregos" / "fields.json").write_text(json.dumps({**request, **fields}))
+    (root / ".tranibor" / "fields.json").write_text(json.dumps({**request, **fields}))
 
 
 def _job(root: Path) -> dict[str, Any]:
-    done: dict[str, Any] = json.loads((root / ".choregos" / "job.json").read_text(encoding="utf-8"))
+    done: dict[str, Any] = json.loads((root / ".tranibor" / "job.json").read_text(encoding="utf-8"))
     return done
 
 
@@ -88,9 +88,9 @@ def test_an_identity_that_differs_by_one_digit_is_a_mismatch(workspace: Path) ->
 
 def test_a_missing_field_is_a_broken_contract(workspace: Path) -> None:
     _hand(workspace, [])
-    (workspace / ".choregos" / "fields.json").write_text("{}")
+    (workspace / ".tranibor" / "fields.json").write_text("{}")
     assert main(["supplier-check", "--required", "x", "--as-of", "2026-11-20"]) == 2
-    assert not (workspace / ".choregos" / "job.json").exists()
+    assert not (workspace / ".tranibor" / "job.json").exists()
 
 
 def test_no_required_kind_and_a_bad_date_are_refused(workspace: Path) -> None:
@@ -142,4 +142,4 @@ def test_a_relay_that_fails_is_a_non_zero_exit_never_zero_duplicates(workspace: 
 
     argv = ["supplier-check", "--required", "x", "--as-of", "2026-11-20", "--duplicates"]
     assert main(argv, relay=relay) != 0
-    assert not (workspace / ".choregos" / "job.json").exists()
+    assert not (workspace / ".tranibor" / "job.json").exists()

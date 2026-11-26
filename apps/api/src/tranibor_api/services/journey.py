@@ -19,7 +19,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import EventType, Workflow
+from tranibor_contracts import EventType, Workflow, wire
 from tranibor_contracts.workflow import AGENT_WILDCARD
 from tranibor_core import to_graph, to_process
 
@@ -133,7 +133,7 @@ async def journey(session: AsyncSession, item: WorkItem) -> WorkItemJourney:
                 select(Event)
                 .where(
                     Event.work_item_id == item.id,
-                    Event.type == str(EventType.WORKITEM_STATE_CHANGED),
+                    Event.type.in_(wire.event_type_twins(EventType.WORKITEM_STATE_CHANGED)),
                 )
                 .order_by(Event.ts)
             )

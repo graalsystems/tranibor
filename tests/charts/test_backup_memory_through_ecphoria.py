@@ -30,7 +30,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROFILE = CHART / "values" / "single-node.yaml"
 SITE = ("backup.target.s3.url=s3://backups/choregos", "backup.target.s3.endpoint=http://s3:8333")
 TOKEN = "admin-key"
@@ -128,7 +128,7 @@ def test_ecphoria_s_data_directory_is_the_volume_the_steps_mount(
 
 def test_the_backup_and_the_restore_may_reach_ecphoria(docs: list[dict[str, Any]]) -> None:
     """Egress is denied by default in the namespace: the steps' pods must be let out to port 8432."""
-    platform = _one(docs, "NetworkPolicy", "choregos-allow-platform")["spec"]
+    platform = _one(docs, "NetworkPolicy", "tranibor-allow-platform")["spec"]
     (excluded,) = platform["podSelector"]["matchExpressions"]
     assert excluded["operator"] == "NotIn"
     for pod in ("choregos-backup", "choregos-restore"):
@@ -145,7 +145,7 @@ def test_the_backup_and_the_restore_may_reach_ecphoria(docs: list[dict[str, Any]
     ]
     assert to_memory, platform["egress"]
     # And no ingress policy of its own keeps them out of Ecphoria's pods (the namespace's
-    # `choregos-allow-ingress` admits every pod of the namespace).
+    # `tranibor-allow-ingress` admits every pod of the namespace).
     for policy in (d for d in docs if d["kind"] == "NetworkPolicy"):
         spec = policy["spec"]
         selected = spec["podSelector"].get("matchLabels", {}).get("app.kubernetes.io/name")
@@ -155,7 +155,7 @@ def test_the_backup_and_the_restore_may_reach_ecphoria(docs: list[dict[str, Any]
 
 def test_a_memory_without_a_volume_has_no_memory_step() -> None:
     """Nothing to carry: Ecphoria's backup would land in a directory no other pod can read."""
-    docs = _docs("choregos-ecphoria.persistence.enabled=false")
+    docs = _docs("tranibor-ecphoria.persistence.enabled=false")
     for cronjob in ("c-backup", "c-restore"):
         assert "memory" not in _steps(docs, cronjob), cronjob
 

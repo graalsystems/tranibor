@@ -615,7 +615,7 @@ export function outpostsApi(method: string, bare: string, query: string, body: u
   if (sent !== target.fingerprint)
     throw conflict(
       "fingerprint_mismatch",
-      "the fingerprint sent is not the one this instance enrolled with: compare it with what `choregos-outpost enrol` printed, and approve nothing that differs",
+      "the fingerprint sent is not the one this instance enrolled with: compare it with what `tranibor-outpost enrol` printed, and approve nothing that differs",
       { outpost: outpost.slug },
     );
   // Approved, its daemon starts and polls: it is there from now on, and says what its policy file serves.

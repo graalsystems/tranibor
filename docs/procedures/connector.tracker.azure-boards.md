@@ -13,7 +13,7 @@ For a project owner. Procedure `connector.tracker.azure-boards`, version 1, revi
 - The platform's shared webhook secret (`TRANIBOR_GENERIC_WEBHOOK_SECRET`), held by whoever operates
   Tranibor. A service hook does not sign its deliveries, so the platform accepts one only if it carries
   this secret: as the **password** of the subscription's basic authentication (any user name), or in an
-  `X-Choregos-Secret` header.
+  `X-Tranibor-Secret` header.
 
 ## At Azure DevOps
 

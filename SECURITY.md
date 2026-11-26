@@ -74,10 +74,10 @@ until then, upgrading is the fix.
   Temporal termination closes nothing.
 - **The audit log is tamper-evident, not tamper-proof, and keeps no retention rule.** Since ADR 0182
   each organisation's entries, and the platform's, form a hash chain that PostgreSQL links in a trigger;
-  `UPDATE` and `TRUNCATE` are revoked and refused by a trigger, and `choregos-admin audit verify` reports
+  `UPDATE` and `TRUNCATE` are revoked and refused by a trigger, and `tranibor-admin audit verify` reports
   the first break. But the API's database role owns the tables: with DDL it could grant itself `UPDATE`
   again or drop a trigger, and a superuser can do anything. What reaches past that hand is a copy kept
-  elsewhere: a checkpoint signed with a key the database does not hold (`choregos-admin audit checkpoint`,
+  elsewhere: a checkpoint signed with a key the database does not hold (`tranibor-admin audit checkpoint`,
   run by an operator, not on a schedule), or the SIEM export of ADR 0207 (off by default), which narrows
   the window to the entries the sink has not yet received. History written before the chain was installed
   is chained from that point only. No code deletes audit entries other than an organisation's own

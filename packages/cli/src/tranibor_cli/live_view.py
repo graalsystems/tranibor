@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos live`'s drawing (S67-28, ADR 0187 §4): a workflow's flow as text, from the shared reduction.
+"""`tranibor live`'s drawing (S67-28, ADR 0187 §4): a workflow's flow as text, from the shared reduction.
 
 Pure: no Textual, no clock, no network. It takes what `live_flow.view` gives (lanes, cards, ticker) and the
 workflow's validated graph, and draws the same flow the console draws (`apps/web/src/components/workflows/

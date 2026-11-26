@@ -18,10 +18,10 @@ provide its secrets, upgrade it, back it up, and know what protects what.
 
 | Component | What it does |
 | --- | --- |
-| **API** (`choregos-api`) | the REST API, the MCP and A2A doors, webhooks, sign-in; the only component that reads the object store |
-| **Console** (`choregos-web`) | the web interface |
-| **Orchestrator workers** (`choregos-orchestrator`) | the Temporal workers that move work items and start agent runs, one deployment per queue |
-| **Tools** (`choregos-tools`) | the platform's MCP tool server for runs |
+| **API** (`tranibor-api`) | the REST API, the MCP and A2A doors, webhooks, sign-in; the only component that reads the object store |
+| **Console** (`tranibor-web`) | the web interface |
+| **Orchestrator workers** (`tranibor-orchestrator`) | the Temporal workers that move work items and start agent runs, one deployment per queue |
+| **Tools** (`tranibor-tools`) | the platform's MCP tool server for runs |
 | **Runner** | the image every agent run starts in, one sandboxed pod per run |
 
 They depend on PostgreSQL, Temporal, a model gateway (LiteLLM), an S3-compatible object store and an

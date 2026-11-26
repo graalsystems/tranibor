@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """A run's steps, read back from its ACP journal (S67-03, ADR 0154 §2-3, §5).
 
-No Rich, no Textual, no network: events in, steps out, so `choregos activity --run` and the workspace's
+No Rich, no Textual, no network: events in, steps out, so `tranibor activity --run` and the workspace's
 expanded node (S67-09) read a journal the same way. A tool call is born from a `tool_call` and lives by its
 `tool_call_update`s, which carry only what changes; all share a `toolCallId`. The agent's plan is the whole
 list of its tasks every time it publishes one (ACP `plan`: the client replaces it), or, for opencode, the

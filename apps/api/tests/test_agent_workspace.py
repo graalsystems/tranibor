@@ -91,9 +91,19 @@ async def test_the_proxy_opens_the_repository_host_only_to_a_run_that_cloned_it(
 # ───────────────────────── the scope ─────────────────────────
 
 
-async def test_a_read_only_run_never_widens_its_scope(client: AsyncClient, project: dict[str, Any]) -> None:
+@pytest.mark.parametrize(
+    "scope",
+    [
+        pytest.param(".tranibor/outputs/**", id="new"),
+        # A run recorded before 0.30.0 (ADR 0226, R9a), still read-only until 0.32.0.
+        pytest.param(".choregos/outputs/**", id="former"),
+    ],
+)
+async def test_a_read_only_run_never_widens_its_scope(
+    client: AsyncClient, project: dict[str, Any], scope: str
+) -> None:
     """The path the policy grants automatically to a writing run is refused to a reading one."""
-    reader = await _run(project, "run-ws-read", allowed_paths=[".choregos/outputs/**"])
+    reader = await _run(project, "run-ws-read", allowed_paths=[scope])
     writer = await _run(project, "run-ws-write", allowed_paths=["src/orders/**"])
     ask = {"paths": ["src/shared/util.py"], "justification": "a shared helper"}
 
@@ -101,7 +111,7 @@ async def test_a_read_only_run_never_widens_its_scope(client: AsyncClient, proje
     assert refused.status_code == 200, refused.text
     assert refused.json()["decision"] == "denied"
     assert "read-only workspace" in refused.json()["reason"]
-    assert refused.json()["allowed_paths"] == [".choregos/outputs/**"]
+    assert refused.json()["allowed_paths"] == [scope]
 
     granted = await client.post("/api/v1/internal/runs/run-ws-write/scope-change", headers=writer, json=ask)
     assert granted.json()["decision"] == "granted", "the same request, from a writing run"

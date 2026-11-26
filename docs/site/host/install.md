@@ -13,14 +13,14 @@ sidebar_position: 2
 
 ## 1. Write your values
 
-A first `my-values.yaml` for an instance at `https://choregos.example.com`, with external
+A first `my-values.yaml` for an instance at `https://tranibor.example.com`, with external
 dependencies:
 
 ```yaml
 global:
   environment: prod
-  publicUrl: https://choregos.example.com
-  apiUrl: https://choregos.example.com
+  publicUrl: https://tranibor.example.com
+  apiUrl: https://tranibor.example.com
   database:
     host: choregos-pg-rw.choregos-data.svc
     name: choregos
@@ -32,7 +32,7 @@ global:
     url: http://litellm.choregos-gateway.svc:4000
     secretRef: choregos-gateway-secrets
   objectStore:
-    url: s3://choregos-artefacts
+    url: s3://tranibor-artefacts
     secretRef: choregos-object-store
   oidc:
     issuer: https://sso.example.com/realms/acme
@@ -42,12 +42,12 @@ global:
     org: acme
     orgName: ACME
     admins: "alice@acme.example,bob@acme.example"
-choregos-api:
+tranibor-api:
   ingress:
-    hostnames: ["choregos.example.com"]
-choregos-web:
+    hostnames: ["tranibor.example.com"]
+tranibor-web:
   ingress:
-    hostnames: ["choregos.example.com"]
+    hostnames: ["tranibor.example.com"]
 ```
 
 - `publicUrl` and `apiUrl` are what the API builds every address from: the sign-in callback, the
@@ -66,8 +66,8 @@ For a single-node bench with every dependency embedded, start from the chart's
 ## 2. Install
 
 ```shell
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.5 --namespace choregos --create-namespace -f my-values.yaml
+helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
+  --version 0.29.5 --namespace tranibor --create-namespace -f my-values.yaml
 ```
 
 The chart's version is the product's version; the images
@@ -83,21 +83,21 @@ kubectl apply -k infra/policies
 ## 3. Check it
 
 ```shell
-kubectl -n choregos get pods
-curl -s https://choregos.example.com/healthz
+kubectl -n tranibor get pods
+curl -s https://tranibor.example.com/healthz
 ```
 
 **What you should see:** the API, the console and the worker deployments `Running`, and
-`{"status":"ok"}`. Open `https://choregos.example.com` and sign in as one of the `bootstrap.admins`.
+`{"status":"ok"}`. Open `https://tranibor.example.com` and sign in as one of the `bootstrap.admins`.
 
 ## 4. The first token
 
-Once signed in, a person creates their own tokens (**My account**, or `choregos tokens create`).
+Once signed in, a person creates their own tokens (**My account**, or `tranibor tokens create`).
 Before anyone has signed in, the first one comes from the server side:
 
 ```shell
-kubectl -n choregos exec deploy/choregos-api -- choregos-admin tokens create --email alice@acme.example
-choregos login --api-url https://choregos.example.com --token chg_... --org acme
+kubectl -n tranibor exec deploy/tranibor-api -- tranibor-admin tokens create --email alice@acme.example
+tranibor login --api-url https://tranibor.example.com --token chg_... --org acme
 ```
 
 ## What can go wrong

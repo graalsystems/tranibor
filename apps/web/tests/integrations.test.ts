@@ -10,7 +10,7 @@ describe("snippets of the Integrations page (ADR 0030)", () => {
     expect(extrait("claude-code", URL_HTTPS, TOKEN)?.code).toBe(
       [
         `export TRANIBOR_TOKEN=${TOKEN}`,
-        `claude mcp add --transport http choregos ${URL_HTTPS} --header "Authorization: Bearer $TRANIBOR_TOKEN"`,
+        `claude mcp add --transport http tranibor ${URL_HTTPS} --header "Authorization: Bearer $TRANIBOR_TOKEN"`,
       ].join("\n"),
     );
   });
@@ -77,7 +77,7 @@ const OAUTH: OAuth = {
 describe("sign-in through the IdP, when the gate accepts it (S15-09)", () => {
   it("Claude Code: the registered client and its port, no token", () => {
     expect(extrait("claude-code", URL_HTTP, TOKEN, OAUTH)?.code).toBe(
-      `claude mcp add --transport http --client-id choregos-claude-code --callback-port 33418 choregos ${URL_HTTP}`,
+      `claude mcp add --transport http --client-id choregos-claude-code --callback-port 33418 tranibor ${URL_HTTP}`,
     );
     expect(extrait("claude-code", URL_HTTP, TOKEN, OAUTH)?.code).not.toContain(TOKEN);
   });
@@ -85,7 +85,7 @@ describe("sign-in through the IdP, when the gate accepts it (S15-09)", () => {
   it("without a registered port, Claude Code picks its own", () => {
     const sansPort: OAuth = { enabled: true, clients: { "claude-code": { client_id: "cc" } } };
     expect(extrait("claude-code", URL_HTTPS, TOKEN, sansPort)?.code).toBe(
-      `claude mcp add --transport http --client-id cc choregos ${URL_HTTPS}`,
+      `claude mcp add --transport http --client-id cc tranibor ${URL_HTTPS}`,
     );
   });
 

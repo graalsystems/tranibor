@@ -19,26 +19,32 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from tranibor_contracts import ArtifactDisplay, ContextPack, StageInput
+from tranibor_contracts import STAGE_RESULT_SCHEMA, ArtifactDisplay, ContextPack, StageInput
 from tranibor_contracts.delivery import repository_of
 from tranibor_contracts.env import with_legacy
 
-from . import safe_files
+from . import run_dir, safe_files
 from .config import agent_base_environment
 from .launcher import NOT_STARTED, Launcher, LauncherError
 
-# Files written by the runner in the workspace: they do not belong to the repository.
-RUNNER_FILES = (
-    ".choregos/task.md",
-    ".choregos/context.md",
-    ".choregos/allowed_paths.txt",
-    ".choregos/transcript.jsonl",
-    ".choregos/result.json",
-    # The agent's conversation id, kept for a resumed run (S35-03): never part of a commit.
-    ".choregos/acp-session.json",
-    # A job step's (ADR 0056): the work item's fields it reads, the result it writes (S51-08).
-    ".choregos/fields.json",
-    ".choregos/job.json",
+# Files written by the runner in the workspace: they do not belong to the repository. Each one under
+# both names of the run directory (ADR 0226, R9a): `.tranibor/`, and `.choregos/`, which the runner
+# still mirrors and reads for the window (`run_dir`).
+RUNNER_FILES = tuple(
+    path
+    for name in (
+        "task.md",
+        "context.md",
+        "allowed_paths.txt",
+        "transcript.jsonl",
+        "result.json",
+        # The agent's conversation id, kept for a resumed run (S35-03): never part of a commit.
+        "acp-session.json",
+        # A job step's (ADR 0056): the work item's fields it reads, the result it writes (S51-08).
+        "fields.json",
+        "job.json",
+    )
+    for path in run_dir.excluded(name)
 )
 
 GIT_ENV = {
@@ -454,7 +460,7 @@ class Workspace:
         return resolved
 
     def _tree_has_content(self) -> bool:
-        return any(entry.name not in (".git", ".choregos") for entry in self.path.iterdir())
+        return any(entry.name not in (".git", *run_dir.DIRECTORIES) for entry in self.path.iterdir())
 
     def _seed_agent_repository(self) -> None:
         """Give the agent a `.git` of its own, a copy of the runner's, made before the agent starts and
@@ -523,10 +529,10 @@ class Workspace:
             handle.write("\n# Tranibor — files outside the repository\n" + "\n".join(lines) + "\n")
 
     def write_context_files(self, stage_input: StageInput, context: ContextPack | None) -> None:
-        """Write `.choregos/task.md` and `.choregos/context.md`: what the agent must read."""
+        """Write `.tranibor/task.md` and `.tranibor/context.md`: what the agent must read."""
         # On a workspace kept across a person's answer the agent has already worked here: it may have left a
         # link or a second name in place of one of these files. `safe_files` follows neither (S65-04b).
-        folder = Path(".choregos")
+        folder = Path(run_dir.DIRECTORY)
         safe_files.write_text(self.path, folder / "task.md", _task_markdown(stage_input))
         safe_files.write_text(self.path, folder / "context.md", _context_markdown(context))
         safe_files.write_text(
@@ -534,7 +540,9 @@ class Workspace:
         )
 
     def result_path(self) -> Path:
-        return self.path / ".choregos" / "result.json"
+        """The step's result: `.tranibor/result.json`, or the former `.choregos/result.json` an agent built
+        on an older SDK wrote (ADR 0226, R9a); the new path when there is none yet."""
+        return run_dir.found(self.path, "result.json")
 
     async def base_sha(self, base_branch: str) -> str:
         """The reference against which all the run's work will be compared.
@@ -707,7 +715,8 @@ def _task_markdown(stage_input: StageInput) -> str:
         f"{stage_input.budget.max_minutes} minutes",
         "",
         "## Expected output",
-        "Write `.choregos/result.json`, conforming to the `choregos/StageResult/v1` contract.",
+        f"Write `{run_dir.path('result.json').as_posix()}`, conforming to the `{STAGE_RESULT_SCHEMA}` "
+        "contract.",
         *(
             [
                 "When you finish (`status: done`), `outputs` holds exactly these keys, each at the top "

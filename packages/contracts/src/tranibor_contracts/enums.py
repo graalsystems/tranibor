@@ -173,57 +173,62 @@ class ApiFormat(StrEnum):
 
 
 class EventType(StrEnum):
-    WORKITEM_CREATED = "choregos.workitem.created"
-    WORKITEM_STATE_CHANGED = "choregos.workitem.state_changed"
-    WORKITEM_CLOSED = "choregos.workitem.closed"
-    WORKITEM_HUMAN_REQUESTED = "choregos.workitem.human_requested"
-    WORKITEM_HUMAN_DECIDED = "choregos.workitem.human_decided"
+    """The internal events' types (CloudEvents `type`), `tranibor.<object>.<event>` since 0.30.0 (ADR 0226,
+    R9c). A type stored or published under the former `choregos.` prefix reads as its member
+    (`EVENT_TYPES.check`, `wire.event_type`), and a query on stored events matches both spellings
+    (`wire.event_type_twins`) until 0.32.0."""
+
+    WORKITEM_CREATED = "tranibor.workitem.created"
+    WORKITEM_STATE_CHANGED = "tranibor.workitem.state_changed"
+    WORKITEM_CLOSED = "tranibor.workitem.closed"
+    WORKITEM_HUMAN_REQUESTED = "tranibor.workitem.human_requested"
+    WORKITEM_HUMAN_DECIDED = "tranibor.workitem.human_decided"
     #: The ticket's interpreter is dead (activity failed for good, timeout): the ticket will not
     #: move again until it is restarted. Seen on the 2026-09-24 bench, where two HR tickets stayed
     #: "pending" with no screen saying they were dead.
-    WORKITEM_WORKFLOW_FAILED = "choregos.workitem.workflow_failed"
+    WORKITEM_WORKFLOW_FAILED = "tranibor.workitem.workflow_failed"
     #: The ticket changed definition (`migrate`): the pin follows, the state is remapped.
-    WORKITEM_MIGRATED = "choregos.workitem.migrated"
+    WORKITEM_MIGRATED = "tranibor.workitem.migrated"
     #: An impossible migration (state missing from the target, no mapping): the ticket stays alive,
     #: on its own definition. This event is what says so.
-    WORKITEM_MIGRATION_REFUSED = "choregos.workitem.migration_refused"
+    WORKITEM_MIGRATION_REFUSED = "tranibor.workitem.migration_refused"
     #: The tracker did not take the work item's status comment once its retries were spent: the work
     #: item goes on (S62-17), and this says the board may lag until the next state rewrites the comment.
-    WORKITEM_STATUS_COMMENT_MISSED = "choregos.workitem.status_comment_missed"
-    RUN_QUEUED = "choregos.run.queued"
-    RUN_STARTED = "choregos.run.started"
-    RUN_PROGRESS = "choregos.run.progress"
-    RUN_FINISHED = "choregos.run.finished"
-    FINDING_REPORTED = "choregos.finding.reported"
-    FINDING_CREATED = "choregos.finding.created"
-    FINDING_DUPLICATE = "choregos.finding.duplicate"
-    FINDING_DISMISSED = "choregos.finding.dismissed"
-    TOOL_CALLED = "choregos.tool.called"
-    NETWORK_DENIED = "choregos.network.denied"
+    WORKITEM_STATUS_COMMENT_MISSED = "tranibor.workitem.status_comment_missed"
+    RUN_QUEUED = "tranibor.run.queued"
+    RUN_STARTED = "tranibor.run.started"
+    RUN_PROGRESS = "tranibor.run.progress"
+    RUN_FINISHED = "tranibor.run.finished"
+    FINDING_REPORTED = "tranibor.finding.reported"
+    FINDING_CREATED = "tranibor.finding.created"
+    FINDING_DUPLICATE = "tranibor.finding.duplicate"
+    FINDING_DISMISSED = "tranibor.finding.dismissed"
+    TOOL_CALLED = "tranibor.tool.called"
+    NETWORK_DENIED = "tranibor.network.denied"
     #: Prompt-injection patterns in what the agent was about to read (ticket, documents,
     #: memory): always logged, blocking according to `sandbox.prompt_injection`.
-    SECURITY_INJECTION_SUSPECTED = "choregos.security.injection_suspected"
-    COST_RECORDED = "choregos.cost.recorded"
-    COST_ALERT = "choregos.cost.alert"
-    PROVISIONING_STEP = "choregos.project.provisioning.step"
-    PROVISIONING_COMPLETED = "choregos.project.provisioning.completed"
-    PROVISIONING_FAILED = "choregos.project.provisioning.failed"
+    SECURITY_INJECTION_SUSPECTED = "tranibor.security.injection_suspected"
+    COST_RECORDED = "tranibor.cost.recorded"
+    COST_ALERT = "tranibor.cost.alert"
+    PROVISIONING_STEP = "tranibor.project.provisioning.step"
+    PROVISIONING_COMPLETED = "tranibor.project.provisioning.completed"
+    PROVISIONING_FAILED = "tranibor.project.provisioning.failed"
     #: Governed actions (ADR 0035): proposed, decided, each effect done or compensated,
     #: and its end. The evidence file of an arrival or a departure is read from these events.
-    ACTION_PROPOSED = "choregos.action.proposed"
-    ACTION_DECIDED = "choregos.action.decided"
-    ACTION_EFFECT_DONE = "choregos.action.effect_done"
-    ACTION_EFFECT_COMPENSATED = "choregos.action.effect_compensated"
-    ACTION_SUCCEEDED = "choregos.action.succeeded"
+    ACTION_PROPOSED = "tranibor.action.proposed"
+    ACTION_DECIDED = "tranibor.action.decided"
+    ACTION_EFFECT_DONE = "tranibor.action.effect_done"
+    ACTION_EFFECT_COMPENSATED = "tranibor.action.effect_compensated"
+    ACTION_SUCCEEDED = "tranibor.action.succeeded"
     #: An action that ended and did not succeed. Its data carries the `status` it ended with:
     #: `failed` (what it had done was compensated, and it says what it could not undo) or `in_doubt`
     #: (nothing was compensated, ADR 0149 §5). A consumer that reads the type alone reads "not
     #: succeeded", which is true of both.
-    ACTION_FAILED = "choregos.action.failed"
+    ACTION_FAILED = "tranibor.action.failed"
     #: A person recorded what they found of an action in doubt (ADR 0149 §5): its data carries the
     #: `outcome` (`made` or `not_made`), the effect's `position` and who settled it. The action then
     #: resumes, and its end is said again by `succeeded` or `failed`.
-    ACTION_SETTLED = "choregos.action.settled"
+    ACTION_SETTLED = "tranibor.action.settled"
 
 
 class ActionStatus(StrEnum):

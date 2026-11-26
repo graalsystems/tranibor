@@ -1,4 +1,4 @@
-# The `choregos-tools` MCP sidecar: it holds nothing but the run's token.
+# The `tranibor-tools` MCP sidecar (`choregos-tools`, its former name, is installed beside it): it holds nothing but the run's token.
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never
 COPY --from=ghcr.io/astral-sh/uv:0.5.11@sha256:0ac957607303916420297a4c9c213bb33fbd3c888f9cd7f4f7273596ebf42b85 /uv /usr/local/bin/uv
@@ -19,7 +19,7 @@ RUN mkdir -p apps/api/src apps/orchestrator/src \
  && uv sync --frozen --no-dev --package tranibor-tools-mcp
 
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS runtime
-ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH" CHOREGOS_TOOLS_PORT=7777
+ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH" TRANIBOR_TOOLS_PORT=7777
 # Debian's security fixes, applied at build time: the base image (a tag, rebuilt at its own pace)
 # can carry a package already fixed in `bookworm-security` — perl-base 5.36.0-7+deb12u3 and its
 # three CRITICALs stopped release 0.16.0 at the Trivy scan.
@@ -34,4 +34,4 @@ EXPOSE 7777
 HEALTHCHECK --interval=15s --timeout=3s \
   CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:7777/healthz')"
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["choregos-tools"]
+CMD ["tranibor-tools"]

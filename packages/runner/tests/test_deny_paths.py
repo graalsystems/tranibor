@@ -29,7 +29,7 @@ from .test_runner_flow import execute, valid_result
 #: The work item's scope in these tests: wide on purpose, so a denied path sits INSIDE it.
 SCOPE = ["src/**", ".github/**", "tests/**"]
 #: The project's policy.
-DENY = [".choregos/**", ".github/workflows/**", "src/generated/**"]
+DENY = [".tranibor/**", ".choregos/**", ".github/workflows/**", "src/generated/**"]
 
 #: (case, path relative to the workspace, allowed)
 CASES: list[tuple[str, str, bool]] = [
@@ -38,10 +38,15 @@ CASES: list[tuple[str, str, bool]] = [
     ("a CI workflow, denied inside the scope", ".github/workflows/ci.yml", False),
     ("beside the denied folder", ".github/CODEOWNERS", True),
     ("outside the scope", "docs/readme.md", False),
-    ("the step's result, under a denied `.choregos/**`", ".choregos/result.json", True),
-    ("a deliverable", ".choregos/outputs/report.md", True),
-    ("climbing out of the deliverables", ".choregos/outputs/../hooks/check_scope.sh", False),
-    ("the platform's own file", ".choregos/allowed_paths.txt", False),
+    ("the step's result, under a denied `.tranibor/**`", ".tranibor/result.json", True),
+    ("a deliverable", ".tranibor/outputs/report.md", True),
+    ("climbing out of the deliverables", ".tranibor/outputs/../hooks/check_scope.sh", False),
+    ("the platform's own file", ".tranibor/allowed_paths.txt", False),
+    # The run directory's former name (ADR 0226, R9a): an agent on an older SDK writes there.
+    ("the step's result, under the former run directory", ".choregos/result.json", True),
+    ("a deliverable, under the former run directory", ".choregos/outputs/report.md", True),
+    ("climbing out of the former deliverables", ".choregos/outputs/../task.md", False),
+    ("the platform's own file, under its former name", ".choregos/task.md", False),
     ("a secret-looking file in the scope", "src/.env", False),
 ]
 IDS = [case for case, *_ in CASES]
@@ -64,11 +69,11 @@ def _check_write(workspace: Path, path: str, deny: list[str]) -> bool:
 def _hook(stage_input: StageInput, workspace: Path, path: str) -> bool:
     """Claude Code's scope hook, as the runner writes it for this run, run on a Write of `path`."""
     files = ClaudeCodeBackend().launch_plan(stage_input, workspace).files
-    hook = workspace / ".choregos" / "hooks" / "check_scope.sh"
+    hook = workspace / ".tranibor" / "hooks" / "check_scope.sh"
     hook.parent.mkdir(parents=True, exist_ok=True)
-    hook.write_text(files[".choregos/hooks/check_scope.sh"], encoding="utf-8")
+    hook.write_text(files[".tranibor/hooks/check_scope.sh"], encoding="utf-8")
     hook.chmod(0o755)
-    (workspace / ".choregos" / "allowed_paths.txt").write_text("\n".join(SCOPE) + "\n", encoding="utf-8")
+    (workspace / ".tranibor" / "allowed_paths.txt").write_text("\n".join(SCOPE) + "\n", encoding="utf-8")
     payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": path, "content": "x = 1\n"}})
     ran = subprocess.run(
         [str(hook)], input=payload, capture_output=True, text=True, cwd=workspace, check=False

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tranibor_contracts import Permissions
+from tranibor_contracts.wire import run_relative
 from tranibor_core import matches_any
 from tranibor_core.network import allowed as host_allowed
 from tranibor_core.network import validate_pattern
@@ -206,16 +207,18 @@ class GuardRails:
                 "write",
                 path,
             )
-        if normalized == ".choregos/result.json":
-            return Decision(True, "writing the step's result: allowed", "write", path)
-        if normalized.startswith(".choregos/outputs/") and ".." not in normalized.split("/"):
-            # The step's deliverables (ADR 0049): stored as artifacts, never committed.
-            return Decision(True, "writing a deliverable in `.choregos/outputs/`: allowed", "write", path)
-        if normalized.startswith(".choregos/"):
+        # The run directory under either name (ADR 0226, R9a): an agent built on an older SDK still
+        # writes `.choregos/result.json`, and the runner reads it there when `.tranibor/` holds none.
+        if (inside := run_relative(normalized)) is not None:
+            if inside == "result.json":
+                return Decision(True, "writing the step's result: allowed", "write", path)
+            if inside.startswith("outputs/") and ".." not in inside.split("/"):
+                # The step's deliverables (ADR 0049): stored as artifacts, never committed.
+                return Decision(True, "writing a deliverable in `.tranibor/outputs/`: allowed", "write", path)
             return Decision(
                 False,
                 "the agent cannot change the Tranibor configuration "
-                "(only `.choregos/result.json` is expected)",
+                "(only `.tranibor/result.json` is expected)",
                 "write",
                 path,
             )
@@ -252,7 +255,7 @@ class GuardRails:
         root = self.workspace.rstrip("/")
         if root and (path == root or path.startswith(root + "/")):
             path = path[len(root) :]
-        return path.removeprefix("./").lstrip("/")  # `lstrip(".")` mangerait `.choregos`
+        return path.removeprefix("./").lstrip("/")  # `lstrip(".")` would mangle `.tranibor`
 
     def check_command(self, command: str) -> Decision:
         """Judges the command, and every form the agent may have written before rtk rewrote it

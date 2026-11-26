@@ -1,5 +1,5 @@
 {
-  "apiVersion": "choregos/v1",
+  "apiVersion": "tranibor/v1",
   "kind": "PluginIndex",
   "plugins": {
     "servicenow": {

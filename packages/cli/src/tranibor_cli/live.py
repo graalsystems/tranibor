@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos live`: a workflow's flow in the terminal (S67-28, ADR 0187 §4).
+"""`tranibor live`: a workflow's flow in the terminal (S67-28, ADR 0187 §4).
 
-Like `chat`, this module holds no Textual: `choregos --version` and every other command start as fast as
+Like `chat`, this module holds no Textual: `tranibor --version` and every other command start as fast as
 before. The screen is `live_app.py`, imported here when, and only when, the person opens it.
 """
 
@@ -43,14 +43,14 @@ def live(
     Stations from left to right, side states (rejections, retries, waits) below, each item a token coloured
     by what it is doing: blue runs, amber waits for a person, red failed (with why). A token that changes
     station travels along its arrow. Enter opens an item, q quits. It needs a terminal, and writes nothing;
-    `choregos activity` is the scriptable form.
+    `tranibor activity` is the scriptable form.
     """
     from . import main
     from .client import ApiError
 
     if not interactive():
         main.fail(
-            "`choregos live` needs a terminal; use `choregos activity` or `choregos items list` in a script"
+            "`tranibor live` needs a terminal; use `tranibor activity` or `tranibor items list` in a script"
         )
     api = main.client()
     try:

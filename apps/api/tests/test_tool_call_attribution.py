@@ -2,7 +2,7 @@
 
 ADR 0122 §4: the door — `model` (the agent's MCP client), `script` (a script, through the runner's
 tool bridge), `job` (a job step, ADR 0056) — and the script's digest land on the call's ledger line,
-its `choregos.tool.called` event and its `execute_tool` span. A job step's calls are `job` whatever
+its `tranibor.tool.called` event and its `execute_tool` span. A job step's calls are `job` whatever
 they send: the API reads it from the run. A run that is not a job step cannot claim `job` (400). The
 cost reports group by it (`group_by=origin`).
 
@@ -106,7 +106,7 @@ async def _events(run_id: str) -> list[dict[str, Any]]:
     from tranibor_api.db.session import session_scope
 
     async with session_scope() as session:
-        rows = (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars()
+        rows = (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars()
         return [dict(e.payload) for e in rows if e.subject == run_id]
 
 
@@ -135,8 +135,19 @@ def _provider_answers(monkeypatch: pytest.MonkeyPatch, seen: list[Any]) -> None:
         # Whatever it says: the door is read from the run, and a job step has no bridge to journal a script.
         (True, SCRIPT, "job", None),
         (True, {"X-Choregos-Tool-Origin": "model"}, "job", None),
+        # The names of ADR 0226 (`X-Tranibor-*`), read beside the former ones for the window.
+        (False, {"X-Tranibor-Tool-Origin": "script", "X-Tranibor-Script": DIGEST}, "script", DIGEST),
     ],
-    ids=["model-by-default", "model", "script", "job", "job-says-job", "job-says-script", "job-says-model"],
+    ids=[
+        "model-by-default",
+        "model",
+        "script",
+        "job",
+        "job-says-job",
+        "job-says-script",
+        "job-says-model",
+        "script-new-names",
+    ],
 )
 async def test_a_call_is_booked_with_its_door_on_the_ledger_the_event_and_the_span(
     client: AsyncClient,
@@ -195,7 +206,7 @@ async def test_a_run_that_is_not_a_job_step_cannot_claim_to_be_one(
     assert response.status_code == 400, response.text
     assert response.headers["content-type"].startswith("application/problem+json")
     (error,) = response.json()["errors"]
-    assert error["code"] == "tool_origin_refused" and error["loc"] == ["header", "X-Choregos-Tool-Origin"]
+    assert error["code"] == "tool_origin_refused" and error["loc"] == ["header", "X-Tranibor-Tool-Origin"]
     assert "not a job step" in error["msg"]
     assert seen == [], "the provider is never called"
     assert await _booked(run_id) == [] and await _events(run_id) == []

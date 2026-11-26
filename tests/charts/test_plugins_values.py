@@ -1,9 +1,9 @@
-"""`global.plugins` renders the ConfigMap `choregos-plugins` the API reads (ADR 0093 §5, S43-05).
+"""`global.plugins` renders the ConfigMap `tranibor-plugins` the API reads (ADR 0093 §5, S43-05).
 
 By default (S43-09) the built-in agents' four plugins are installed from the `tranibor` source, pre-approved,
 taken from the image's offline directory; emptied, nothing is rendered or mounted. With values, the file
 is the one `tranibor_core.plugins.sources.parse_config` accepts, mounted read-only and named by
-`CHOREGOS_PLUGINS_CONFIG`; a source without a trust policy refuses to render.
+`TRANIBOR_PLUGINS_CONFIG`; a source without a trust policy refuses to render.
 """
 
 from __future__ import annotations
@@ -17,8 +17,10 @@ import pytest
 import yaml
 from tranibor_core.publishing import PUBLISHING
 
+from .conftest import both_paths, etc_mounts
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm is missing")
 
@@ -55,15 +57,15 @@ def _docs(values: dict[str, Any] | None, tmp_path: pathlib.Path) -> list[dict[st
 
 def _api(docs: list[dict[str, Any]]) -> dict[str, Any]:
     for doc in docs:
-        if doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "choregos-api":
+        if doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "tranibor-api":
             spec: dict[str, Any] = doc["spec"]["template"]["spec"]
             return spec
-    raise AssertionError("no choregos-api Deployment rendered")
+    raise AssertionError("no tranibor-api Deployment rendered")
 
 
 def _config_map(docs: list[dict[str, Any]]) -> dict[str, Any] | None:
     return next(
-        (d for d in docs if d.get("kind") == "ConfigMap" and d["metadata"]["name"] == "choregos-plugins"),
+        (d for d in docs if d.get("kind") == "ConfigMap" and d["metadata"]["name"] == "tranibor-plugins"),
         None,
     )
 
@@ -109,7 +111,7 @@ def test_emptied_there_is_no_plugin_configuration(tmp_path: pathlib.Path) -> Non
     docs = _docs({"global": {"plugins": NONE}}, tmp_path)
     spec = _api(docs)
     assert _config_map(docs) is None
-    assert "CHOREGOS_PLUGINS_CONFIG" not in {e["name"] for e in spec["containers"][0]["env"]}
+    assert "TRANIBOR_PLUGINS_CONFIG" not in {e["name"] for e in spec["containers"][0]["env"]}
     assert "plugins-config" not in {v["name"] for v in spec["volumes"]}
     # No source and no hosted image check: nothing for cosign to cache (choregos#1327).
     assert "TUF_ROOT" not in {e["name"] for e in spec["containers"][0]["env"]}
@@ -132,13 +134,10 @@ def test_the_values_become_the_file_the_api_reads(tmp_path: pathlib.Path) -> Non
 
     spec = _api(docs)
     env = {e["name"]: e.get("value") for e in spec["containers"][0]["env"]}
-    assert env["CHOREGOS_PLUGINS_CONFIG"] == "/etc/choregos/plugins/plugins.yaml"
-    assert {"name": "plugins-config", "configMap": {"name": "choregos-plugins"}} in spec["volumes"]
-    assert {
-        "name": "plugins-config",
-        "mountPath": "/etc/choregos/plugins",
-        "readOnly": True,
-    } in spec["containers"][0]["volumeMounts"]
+    assert env["TRANIBOR_PLUGINS_CONFIG"] == "/etc/tranibor/plugins/plugins.yaml"
+    assert {"name": "plugins-config", "configMap": {"name": "tranibor-plugins"}} in spec["volumes"]
+    # The former path too (ADR 0226, R9b): a source's `key:` written as `/etc/choregos/plugins/…` still reads.
+    assert etc_mounts(spec["containers"][0], "plugins-config") == both_paths("/etc/tranibor/plugins")
 
 
 def test_an_offline_directory_alone_is_enough(tmp_path: pathlib.Path) -> None:

@@ -588,7 +588,7 @@ function run(id: string, role: string, status: string, cost: number, summary: st
     initiated_by: "person:augustin@northwind.dev",
     tool_connectors: [{ name: "atlassian", type: "mcp", auth_scheme: "basic", account: "svc-choregos@northwind.dev" }],
     result: {
-      schema: "choregos/StageResult/v1",
+      schema: "tranibor/StageResult/v1",
       status: status === "running" ? "done" : "done",
       summary,
       // The coverage comes from the agent's own account; the rest, the runner measured (ADR 0045).
@@ -733,7 +733,7 @@ export const remoteRunDrifted: Run = {
   ...run("r-remote-drift", "ask-rovo", "failed", 0, "card changed"),
   backend: "a2a",
   model: "a2a:rovo",
-  result: { schema: "choregos/StageResult/v1", status: "failed", reason: "remote_card_changed", summary: "card changed" } as Run["result"],
+  result: { schema: "tranibor/StageResult/v1", status: "failed", reason: "remote_card_changed", summary: "card changed" } as Run["result"],
 };
 const remoteEvents = (drift: boolean): RunEventDto[] =>
   drift
@@ -1629,7 +1629,7 @@ export function builtinAgentDemo(path: string): BuiltinAgent {
     role,
     playbook,
     playbook_origin: "package",
-    instructions: `You carry the ${role} role.\n\n## Work item\n**<work item key>** — <work item title>\n\n## Invariants\n- Write \`.choregos/result.json\`.`,
+    instructions: `You carry the ${role} role.\n\n## Work item\n**<work item key>** — <work item title>\n\n## Invariants\n- Write \`.tranibor/result.json\`.`,
     instructions_error: null,
     instructions_template: `You carry the ${role} role.\n\n## Work item\n**{{ ticket.get('key', '') }}** — {{ ticket.get('title', '') }}\n`,
     model,

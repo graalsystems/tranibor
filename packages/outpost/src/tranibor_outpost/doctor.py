@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-outpost doctor`: what stands between this machine and a working outpost.
+"""`tranibor-outpost doctor`: what stands between this machine and a working outpost.
 
 One check each, and each says what to do when it fails:
 
@@ -93,7 +93,7 @@ def policy_check(path: Path) -> tuple[Check, OutpostPolicy | None]:
 
 def identity_check(directory: Path) -> Check:
     if not identities.exists(directory):
-        return _skipped("identity", f"{directory}: no key yet; `choregos-outpost enrol` makes them")
+        return _skipped("identity", f"{directory}: no key yet; `tranibor-outpost enrol` makes them")
     try:
         identity = identities.load(directory)
         enrolment = identities.load_enrolment(directory)

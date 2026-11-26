@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/finding.schema.json",
+  "$id": "https://tranibor.dev/schemas/finding.schema.json",
   "title": "Finding",
   "description": "A problem an agent found outside its scope.",
   "type": "object",

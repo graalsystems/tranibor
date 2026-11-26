@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The step's result: what the agent returns, written as `.choregos/result.json`.
+"""The step's result: what the agent returns, written as `.tranibor/result.json`.
 
-The file is exactly what the runner reads (`choregos/StageResult/v1`); the SDK validates it with the
+The file is exactly what the runner reads (`tranibor/StageResult/v1`); the SDK validates it with the
 contract's own model before writing, so a result the runner would send back for repair never leaves
-the agent.
+the agent. Under a runner before 0.30.0, which laid only `.choregos/` and reads only the former id, it is
+written as `.choregos/result.json` with `choregos/StageResult/v1` (ADR 0226, R9a; until 0.32.0).
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from tranibor_contracts import StageResult
+
+from ._run_dir import FORMER_RESULT_SCHEMA, RESULT_SCHEMA, is_former, run_directory
 
 Status = Literal["done", "failed", "blocked", "needs_human"]
 
@@ -45,7 +48,7 @@ class Result:
         # failed its step before writing any result (S62-18).
         facts = {name: value for name, value in self.facts.items() if value is not None}
         payload: dict[str, Any] = {
-            "schema": "choregos/StageResult/v1",
+            "schema": RESULT_SCHEMA,
             "status": self.status,
             "summary": (self.summary.strip() or "(no summary)")[:SUMMARY_MAX],
             "outputs": dict(self.outputs),
@@ -62,10 +65,14 @@ def failure(summary: str, reason: str) -> Result:
 
 
 def write_result(workspace: Path, result: Result) -> Path:
-    """Validates, then writes `.choregos/result.json`. A result the contract refuses raises."""
+    """Validates, then writes `.tranibor/result.json` (or the former path and id, for a runner before
+    0.30.0). A result the contract refuses raises."""
     stage_result = result.to_stage_result()
-    path = workspace / ".choregos" / "result.json"
+    directory = run_directory(workspace)
+    path = directory / "result.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     document = stage_result.model_dump(mode="json", by_alias=True, exclude_none=True)
+    if is_former(directory):
+        document["schema"] = FORMER_RESULT_SCHEMA
     path.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
     return path

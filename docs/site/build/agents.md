@@ -100,7 +100,7 @@ repository:
 A step names the agent with `agent:`. Here a short workflow: the agent drafts, a person approves.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: release-notes
@@ -151,8 +151,8 @@ The gate `outputs_present` checks that the agent really wrote `release_notes` be
 moves on; `on_fail` retries twice, then hands it to a person. Publish it:
 
 ```bash
-choregos workflow validate release-notes.yaml
-choregos workflow push acme:billing-api release-notes.yaml
+tranibor workflow validate release-notes.yaml
+tranibor workflow push acme:billing-api release-notes.yaml
 ```
 
 `agent: release-notes` runs the project's pinned version of the agent, or else its latest; write
@@ -162,7 +162,7 @@ workflows in its **Agents** page.
 **What you should see:** open a work item in this workflow, from the console's board or with the CLI:
 
 ```bash
-choregos items create acme:billing-api --workflow release-notes --title "Release 2.4" --field ticket=FIN-42
+tranibor items create acme:billing-api --workflow release-notes --title "Release 2.4" --field ticket=FIN-42
 ```
 
 The run appears on the work item with its model, its cost and its journal, and the

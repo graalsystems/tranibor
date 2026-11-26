@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos outposts` (S65-17a, ADR 0147): what each command asks the API, and what it prints.
+"""`tranibor outposts` (S65-17a, ADR 0147): what each command asks the API, and what it prints.
 
 The API is mocked here with respx, call by call; `apps/api/tests/test_outposts_cli.py` drives the same
 commands against the real management routes, in process.
@@ -117,7 +117,7 @@ def test_create_sends_the_slug_and_says_how_to_enrol_an_instance() -> None:
         "display_name": "The factory floor",
     }
     assert "outpost `factory-floor` created: active" in made.output
-    assert "choregos outposts token factory-floor" in made.output
+    assert "tranibor outposts token factory-floor" in made.output
     bare = _run("create", "cold-store")
     assert bare.exit_code == 0 and json.loads(route.calls[1].request.content) == {"slug": "cold-store"}
 
@@ -263,7 +263,9 @@ def test_token_prints_the_token_once_its_expiry_the_policy_lines_and_the_enrol_c
         "\n".join(text for text in lines if re.match(r"(control_plane|door_keys):", text))
     )
     assert policy == {"control_plane": "https://outposts.example.com", "door_keys": KEYS}
-    assert f"choregos-outpost enrol --token {TOKEN}" in lines, "the command, ready to run"
+    assert f"tranibor-outpost enrol --token {TOKEN}" in lines, "the command, ready to run"
+    # An outpost installed before 0.30.0 has the daemon under its former name only (ADR 0226, R9c).
+    assert any("former name, choregos-outpost" in line for line in lines)
     assert "/etc/choregos-outpost/policy.yaml" in issued.output
     assert "Administration → Outposts → factory-floor" in issued.output
     assert "only if the fingerprint shown there is that one" in issued.output
@@ -277,7 +279,7 @@ def test_what_is_pasted_is_never_cut_by_the_terminals_width(monkeypatch: pytest.
     respx.get(ONE).mock(return_value=Response(200, json=_outpost()))
     respx.get(f"{ONE}/instances").mock(return_value=Response(200, json={"items": [_instance()]}))
     issued = _run("token", "factory-floor").output.splitlines()
-    assert TOKEN in issued and f"choregos-outpost enrol --token {TOKEN}" in issued
+    assert TOKEN in issued and f"tranibor-outpost enrol --token {TOKEN}" in issued
     assert 'door_keys: ["' + '", "'.join(KEYS) + '"]' in issued
     assert 'door_keys: ["' + '", "'.join(KEYS) + '"]' in _run("show", "factory-floor").output.splitlines()
     listed = _run("instances", "factory-floor").output.splitlines()
@@ -313,7 +315,7 @@ def test_a_token_refused_for_want_of_a_door_key_prints_the_apis_words() -> None:
     refused = _run("token", "factory-floor")
     assert refused.exit_code == 1
     assert f"409 — {words}" in " ".join(refused.output.split())
-    assert "choregos-outpost enrol" not in refused.output
+    assert "outpost enrol" not in refused.output
 
 
 # ───────────────────────── instances ─────────────────────────
@@ -358,7 +360,7 @@ def test_instances_shows_each_fingerprint_and_where_a_pending_one_is_approved() 
 def test_instances_says_how_to_enrol_the_first_one_and_does_not_send_to_the_console_for_nothing() -> None:
     route = respx.get(f"{ONE}/instances")
     route.mock(return_value=Response(200, json={"items": []}))
-    assert "choregos outposts token factory-floor" in _run("instances", "factory-floor").output
+    assert "tranibor outposts token factory-floor" in _run("instances", "factory-floor").output
     route.mock(return_value=Response(200, json={"items": [_instance(status="active")]}))
     assert "approved in the console" not in _run("instances", "factory-floor").output
 
@@ -502,7 +504,7 @@ def test_calls_shows_states_and_refusal_codes_as_digests_only() -> None:
         ],
         ["2026-11-12T10:05:00Z", "(tool listing)", "tracker", "—", "answered", "result", "—", "read", "—"],
     ]
-    assert "choregos outposts calls factory-floor --cursor c-2" in shown.output
+    assert "tranibor outposts calls factory-floor --cursor c-2" in shown.output
 
 
 @respx.mock
@@ -561,7 +563,7 @@ def test_token_prints_its_id_and_how_to_cancel_it() -> None:
     shown = _run("token", "factory-floor")
     assert shown.exit_code == 0, shown.output
     assert "enrolment token enr-1 for `factory-floor`" in shown.output
-    assert "choregos outposts cancel-token factory-floor enr-1" in shown.output
+    assert "tranibor outposts cancel-token factory-floor enr-1" in shown.output
 
 
 @respx.mock
@@ -585,7 +587,7 @@ def test_tokens_lists_what_can_still_enrol_and_never_a_token() -> None:
     assert route.called and shown.exit_code == 0, shown.output
     (row,) = [line for line in shown.output.splitlines() if "enr-2" in line]
     assert "ada@example.com" in row and "2026-11-12T10:15:00Z" in row
-    assert "choregos outposts cancel-token factory-floor <token>" in shown.output
+    assert "tranibor outposts cancel-token factory-floor <token>" in shown.output
     route.mock(return_value=Response(200, json={"items": []}))
     assert "no token of `factory-floor` can still enrol" in _run("tokens", "factory-floor").output
 

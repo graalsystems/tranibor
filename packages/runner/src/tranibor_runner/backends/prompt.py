@@ -3,7 +3,7 @@
 
 It launches nothing: `runner.py` runs `tranibor_runner.prompt` instead of an ACP agent. The class is
 here so that the backend's name is known, and so that its skills go where a backend that reads none
-puts them — under `.choregos/skills`, with their index in the prompt.
+puts them — under `.tranibor/skills`, with their index in the prompt.
 """
 
 from __future__ import annotations

@@ -19,7 +19,7 @@ def _restore() -> Iterator[None]:
 
 
 def test_the_entry_point_is_declared_under_the_group() -> None:
-    points = {p.name: p.value for p in metadata.entry_points(group="choregos.plugins")}
+    points = {p.name: p.value for p in metadata.entry_points(group="tranibor.plugins")}
     assert points["vault-transit"] == "tranibor_vault_transit.extension:register"
 
 

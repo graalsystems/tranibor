@@ -1,0 +1,60 @@
+# ADR 0226 R6: the default Secret names are stored state (§6) and keep their former names. A drawn
+# Secret is re-read under the name it was written with, so an upgrade keeps its values: above all
+# `secrets-keks`, which seals every stored connector secret. `helm template` cannot `lookup`;
+# helm-unittest's provider stands in for the cluster.
+suite: the drawn Secrets keep their names
+templates:
+  - templates/values/keys/merged/first.yaml
+  - templates/embedded-secrets.yaml
+release:
+  namespace: platform
+set:
+  tranibor-orchestrator.runner.skipOperatorCheck: true
+  global.devSecrets: true
+kubernetesProvider:
+  scheme:
+    "v1/Secret":
+      gvr:
+        version: v1
+        resource: secrets
+      namespaced: true
+  objects:
+    # What a release of the former chart drew, under the name the chart still renders.
+    - kind: Secret
+      apiVersion: v1
+      metadata:
+        name: choregos-api-secrets
+        namespace: platform
+      data:
+        session-secret: Zm9ybWVyLXNlc3Npb24= # former-session
+        github-webhook-secret: Zm9ybWVyLWhvb2s= # former-hook
+        run-token-private-key: Zm9ybWVyLWtleQ== # former-key
+        secrets-keks: azE6Zm9ybWVyLWtlaw== # k1:former-kek
+tests:
+  - it: the application secrets keep their name and the values already drawn
+    template: templates/embedded-secrets.yaml
+    documentSelector:
+      path: metadata.name
+      value: choregos-api-secrets
+    asserts:
+      - equal:
+          path: stringData.session-secret
+          value: former-session
+      - equal:
+          path: stringData.run-token-private-key
+          value: former-key
+      - equal:
+          path: stringData.secrets-keks
+          value: k1:former-kek
+
+  - it: a name the operator set is looked up as it is, never under another name
+    template: templates/embedded-secrets.yaml
+    set:
+      global.apiSecretRef: site-secrets
+    documentSelector:
+      path: metadata.name
+      value: site-secrets
+    asserts:
+      - notEqual:
+          path: stringData.session-secret
+          value: former-session

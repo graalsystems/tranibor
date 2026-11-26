@@ -29,7 +29,7 @@ from typing import Any, Literal, Protocol
 
 import structlog
 from jsonschema import Draft202012Validator
-from tranibor_contracts import InboundEvent, ProjectConfig, load_schema
+from tranibor_contracts import InboundEvent, ProjectConfig, load_schema, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 from tranibor_core.plugins import TRACKER_PROFILE
 
@@ -254,8 +254,13 @@ class PluginTracker:
 
 def _marker(marker: str) -> str:
     """The profile's marker alphabet (`[A-Za-z0-9._:-]{1,80}`): Tranibor's markers are HTML comments
-    (`<!-- choregos:status -->`), reduced to their name."""
-    bare = marker.strip().removeprefix("<!--").removesuffix("-->").strip()
+    (`<!-- tranibor:status -->`), reduced to their name.
+
+    A plugin's server finds its status note by the exact marker it was handed, and every note written
+    before ADR 0226 carries the former name: for the window the server is handed the former form
+    (`choregos:status`), so that note is rewritten, never duplicated. The new form is handed when the
+    window closes."""
+    bare = wire.marker_twins(marker)[-1].strip().removeprefix("<!--").removesuffix("-->").strip()
     cleaned = "".join(ch for ch in bare if ch.isascii() and (ch.isalnum() or ch in "._:-"))
     return (cleaned or "status")[:80]
 

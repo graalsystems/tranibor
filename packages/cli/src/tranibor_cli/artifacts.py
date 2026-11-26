@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos artifacts`: a work item's artefacts, the person's inbox and a run's diff (S67-11, ADR 0154 §2).
+"""`tranibor artifacts`: a work item's artefacts, the person's inbox and a run's diff (S67-11, ADR 0154 §2).
 
 List, download to a path, open with the system's viewer, compare two revisions of a text artefact. Everything
 reads routes that exist: `GET /work-items/{id}/artifacts`, `…/{ref}`, `…/{ref}/content`, `GET /me/inbox` and
@@ -30,11 +30,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from tranibor_contracts.wire import header, read_header
 
 from . import theme
 from .client import ApiError, Client
 
-DIGEST_HEADER = "X-Choregos-Digest"
+#: The digest the API sends with the bytes, `X-Tranibor-Digest`; an API of a release before ADR 0226
+#: sends `X-Choregos-Digest`, which is read too.
+DIGEST_HEADER = header("Digest")
 #: Media types, beyond `text/*`, that are text and so can be compared line by line.
 TEXT_MEDIA_TYPES = frozenset(
     {"application/json", "application/xml", "application/yaml", "application/x-yaml", "application/toml"}
@@ -90,7 +93,7 @@ def fetch(api: Client, work_item: str, ref: str) -> Content:
     with them: bytes that do not match are never handed on (the API refuses them too, with a 409)."""
     response = api.get_raw(f"/work-items/{work_item}/artifacts/{ref}/content", params={"download": "true"})
     data = response.content
-    digest = response.headers.get(DIGEST_HEADER)
+    digest = read_header(response.headers, "Digest") or None
     if digest:
         actual = "sha256:" + hashlib.sha256(data).hexdigest()
         if actual != digest:
@@ -176,7 +179,7 @@ def system_opener(path: Path) -> None:
 def open_in_viewer(content: Content, opener: Opener | None = None) -> Path:
     """Write a private temporary copy under the artefact's name and hand it to the opener. The copy is left
     in place: the viewer reads it after this returns."""
-    folder = Path(tempfile.mkdtemp(prefix="choregos-"))
+    folder = Path(tempfile.mkdtemp(prefix="tranibor-"))
     path = folder / default_name(content.ref)
     path.write_bytes(content.data)
     path.chmod(0o600)

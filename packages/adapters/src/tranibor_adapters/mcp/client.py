@@ -47,6 +47,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final
 
 import httpx
+from tranibor_contracts import wire
 
 from ..http.egress import guarded
 
@@ -251,7 +252,7 @@ class McpClient:
             {
                 "protocolVersion": CLIENT_VERSIONS[0],
                 "capabilities": {},
-                "clientInfo": {"name": "choregos", "version": "1"},
+                "clientInfo": {"name": wire.MCP_CLIENT_NAME, "version": "1"},
             },
         )
         self.server = dict(result or {})

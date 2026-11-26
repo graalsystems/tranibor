@@ -90,7 +90,7 @@ async def test_the_runner_registers_what_it_wrote_before_the_agent_starts(
     for text, section in [
         (PLAYBOOK, "system"),
         ((workspace / "CLAUDE.md").read_text(encoding="utf-8"), "system"),
-        ((workspace / ".choregos" / "task.md").read_text(encoding="utf-8"), "messages"),
+        ((workspace / ".tranibor" / "task.md").read_text(encoding="utf-8"), "messages"),
         (SKILL["SKILL.md"], "skills"),
     ]:
         assert paragraphs(text), section
