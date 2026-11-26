@@ -26,7 +26,7 @@ with: they are your deployment's, and an upgrade never changes them):
 
 ```shell
 helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.5 --namespace tranibor -f my-values.yaml
+  --version 0.30.0 --namespace tranibor -f my-values.yaml
 ```
 
 - The database migrations run as a Helm hook **before** the new API starts
