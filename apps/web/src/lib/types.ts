@@ -15,6 +15,7 @@ export type {
   ApiToken,
   ApiTokenCreate,
   ApiTokenCreated,
+  AuthMethods,
   BrowserSession,
   DeviceRequest,
   EndedSessions,

@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { buttonClasses, Heading, Input, Lead } from "@/components/ui";
+import { buttonClasses, Code, Heading, Input, Lead } from "@/components/ui";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useHostOrg } from "@/components/served-theme";
 import { api, IS_MOCK } from "@/lib/api";
+import type { AuthMethods } from "@/lib/types";
 
 /**
  * The sign-in page. The front end had none: a visitor who was not signed in saw a raw
  * error on every page. Here: a button to the IdP (the API does the redirect,
  * PKCE and `state` included), and, when the deployment allows it, the development
  * sign-in by e-mail, never in production, the API refuses it by itself.
+ *
+ * A personal installation (ADR 0228 §4) has no identity provider: the page asks `/auth/methods` first, and on
+ * the computer's own address (the loopback door) it shows the owner's way in, `choregos local open`, instead.
  */
 export default function LoginPage() {
   return (
@@ -33,6 +37,8 @@ function Connexion() {
   const hostOrg = useHostOrg();
   const org = hostOrg ?? params.get("org") ?? undefined;
   const [workEmail, setWorkEmail] = useState("");
+  const methods = useAuthMethods();
+  if (methods?.posture === "personal") return <PersonalSignIn methods={methods} />;
 
   return (
     <div className="mx-auto max-w-md space-y-8 py-12">
@@ -92,6 +98,58 @@ function Connexion() {
             Enter
           </button>
         </form>
+      )}
+    </div>
+  );
+}
+
+/** What `/auth/methods` says of this door; `null` until it answers, in demo mode, or when it cannot be read. */
+function useAuthMethods(): AuthMethods | null {
+  const [methods, setMethods] = useState<AuthMethods | null>(null);
+  useEffect(() => {
+    if (IS_MOCK) return;
+    let current = true;
+    api.authMethods().then(
+      (answer) => {
+        if (current) setMethods(answer);
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
+  return methods;
+}
+
+/** A personal installation's sign-in: no identity provider, no password, one way in per door (ADR 0228 §4). */
+function PersonalSignIn({ methods }: { methods: AuthMethods }) {
+  const owner = methods.methods.includes("owner");
+  return (
+    <div className="mx-auto max-w-md space-y-8 py-12">
+      <div className="space-y-3">
+        <Heading as="h1" size="xl">
+          Sign in
+        </Heading>
+        <Lead>This installation is yours alone: there is no password to type.</Lead>
+      </div>
+      {owner ? (
+        <div className="space-y-2 text-sm">
+          <p>
+            On this computer, run <Code>choregos local open</Code>, or open the desktop app: it signs you in with
+            this installation&apos;s owner key and opens the console.
+          </p>
+          <p className="text-xs text-ink-muted">The link it opens is valid for one minute, once.</p>
+        </div>
+      ) : methods.door === "relay" ? (
+        <p className="text-sm">
+          Signing in through the relay is not available yet: open the console on the computer the installation
+          runs on.
+        </p>
+      ) : (
+        <p className="text-sm">
+          This installation has no owner key yet: run <Code>choregos local init</Code> on its computer.
+        </p>
       )}
     </div>
   );

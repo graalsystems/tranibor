@@ -4,7 +4,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { api, ApiError, DEFAULT_ORG, IS_MOCK, orgSlug, setCurrentOrg } from "./api";
+import { api, ApiError, DEFAULT_ORG, IS_MOCK, isSignInPage, orgSlug, setCurrentOrg } from "./api";
 import { pickOrg, rememberOrgCookie, rememberedOrg } from "./remembered-org";
 import type { MeDto, Org } from "./types";
 
@@ -99,12 +99,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }
 
   // Without a session, `request()` has already redirected to /login; nothing else is rendered
-  // meanwhile. The sign-in page itself, of course, does render, and so does the embedded component
-  // (`/embed/`, S63-12): framed, it is never redirected and asks the person to sign in itself.
+  // meanwhile. The sign-in pages themselves, of course, do render (`/login`, and `/auth/owner` where the
+  // owner key signs in, ADR 0228 §4), and so does the embedded component (`/embed/`, S63-12): framed, it is
+  // never redirected and asks the person to sign in itself.
   const nonConnecte =
     me.error instanceof ApiError &&
     me.error.status === 401 &&
-    !pathname.startsWith("/login") &&
+    !isSignInPage(pathname) &&
     !pathname.startsWith("/embed/");
   return (
     <SessionContext.Provider

@@ -245,6 +245,19 @@ class DeviceAuthorization(Base, PkMixin, TimestampMixin):
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class OwnerTicket(Base, PkMixin, TimestampMixin):
+    """An owner ticket taken (ADR 0228 §4): `POST /auth/owner` records its `jti`, unique, in the transaction
+    that opens the session, so that a ticket opens one session whatever the replica that receives it, and the
+    loser of a race is refused. A row is of no use once its ticket has expired, since an expired ticket is
+    refused before its `jti` is read: each exchange deletes those. Under forced RLS, platform scope only: the
+    exchange has no principal yet."""
+
+    __tablename__ = "owner_tickets"
+
+    jti: Mapped[str] = mapped_column(String(128), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class LinkedAccount(Base, PkMixin, TimestampMixin):
     """A member's account on a code forge (ADR 0161; before it, `tracker_identities`, ADR 0102).
 

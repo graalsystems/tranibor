@@ -188,6 +188,16 @@ class Settings(BaseSettings):
     session_secret_previous: str = ""
     session_cookie: str = "choregos_session"
     session_max_age_s: int = 8 * 3600
+    #: A personal installation's owner key (ADR 0228 §4, `TRANIBOR_OWNER_PUBLIC_KEY_FILE`): the file holding
+    #: the PEM public half of the Ed25519 key `choregos local init` generated; the private half never leaves
+    #: the installation's data directory. Read in the personal posture only, where `POST /auth/owner` checks
+    #: an owner ticket against it; a file that is set and unreadable stops the start-up. Empty: no owner
+    #: ticket opens anything.
+    owner_public_key_file: str = ""
+    #: The console's address on a personal installation's loopback door (`TRANIBOR_LOOPBACK_URL`, ADR 0228
+    #: §5), `http://127.0.0.1:<port>`: an origin of the console beside its public address (the relay's), so
+    #: that a change made with the loopback door's cookie is accepted from it. Empty: none.
+    loopback_url: str = ""
     #: A developer surface's session (ADR 0154 §6): it ends after this long without a request, and in any case
     #: after `surface_session_max_age_s`. A device code lives `device_code_ttl_s` and is polled no faster than
     #: every `device_poll_interval_s`.
@@ -608,7 +618,8 @@ class Settings(BaseSettings):
         a deployment behind a TLS-terminating ingress is served over HTTPS whatever `env` says
         (a dev tenant on https must not send its session cookie in clear on a stray http hop).
         A personal installation (ADR 0228) is served on http://127.0.0.1 by its loopback door: its
-        cookies follow its URLs here, and the door each request came through decides them later.
+        other cookies follow its URLs here, and its session cookie follows the door each request came
+        through (`doors.py`: none on the loopback door, `Secure` on the relay door).
         """
         https = any(u.strip().lower().startswith("https://") for u in (self.public_url, self.api_url))
         return (is_production(self.env) and not is_personal(self.env)) or https

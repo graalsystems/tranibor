@@ -33,6 +33,7 @@ from .db.session import (
     run_after_commit,
     run_after_end,
 )
+from .doors import read_session_cookie
 from .errors import ApiError, forbidden, not_found, run_closed, unauthorized
 from .logging import bind, get_logger
 from .rbac import Permission, Principal
@@ -249,7 +250,8 @@ async def current_principal(
     if frame:
         return await _frame_principal(request, session, settings, frame)
 
-    payload = read_session(request.cookies.get(settings.session_cookie, ""), settings)
+    # On a personal installation, the cookie of the request's door, issued for that door (ADR 0228 §5).
+    payload = read_session_cookie(request, settings)
     if payload is None:
         raise unauthorized()
     user = await session.get(User, str(payload.get("sub", "")))

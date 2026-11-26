@@ -113,6 +113,7 @@ import type {
   AgentImageInfo,
   ApiTokenCreate,
   ApiTokenCreated,
+  AuthMethods,
   DeviceRequest,
   EndedSessions,
   Artifact,
@@ -388,10 +389,18 @@ export async function problemOf(response: Response): Promise<Problem> {
   return problem;
 }
 
-/** On a 401 outside the sign-in page: go there, keeping where one comes from. A framed page (`/embed/`) never
+/**
+ * The pages a person reaches signed out: the sign-in page, and the page the owner key signs in on (`/auth/owner`,
+ * ADR 0228 §4), which must not be sent to `/login` before it has posted its ticket.
+ */
+export function isSignInPage(pathname: string): boolean {
+  return pathname.startsWith("/login") || pathname === "/auth/owner" || pathname.startsWith("/auth/owner/");
+}
+
+/** On a 401 outside the sign-in pages: go there, keeping where one comes from. A framed page (`/embed/`) never
  * navigates: the console's login refuses to be framed, and the embedded component asks the person itself. */
 function versLaConnexion(): void {
-  if (typeof window === "undefined" || window.location.pathname.startsWith("/login")) return;
+  if (typeof window === "undefined" || isSignInPage(window.location.pathname)) return;
   if (window.location.pathname.startsWith("/embed/")) return;
   const next = encodeURIComponent(window.location.pathname + window.location.search);
   // A full navigation, on purpose: the session is dead, and so is the React state.
@@ -599,6 +608,27 @@ export const api = {
     return `${API_BASE}/auth/login${q ? `?${q}` : ""}`;
   },
   logout: () => request<void>("/auth/logout", { method: "POST" }),
+  /**
+   * How a person signs in on the door this page came through (ADR 0228 §4): an organisation's identity
+   * provider, or, on a personal installation, the methods of its loopback or relay door.
+   */
+  authMethods: () => request<AuthMethods>("/auth/methods"),
+  /**
+   * Exchanges the owner ticket `choregos local open` put in the fragment of `/auth/owner` for a session, on
+   * the loopback door (ADR 0228 §4). A refusal is the caller's to show: a 401 here is a stale or used link,
+   * not a dead session, so it does not send the page to `/login`.
+   */
+  signInAsOwner: async (ticket: string): Promise<void> => {
+    if (IS_MOCK) return;
+    const response = await fetch(`${API_BASE}/auth/owner`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket }),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new ApiError(response.status, await problemOf(response));
+  },
   /**
    * The organisations the caller can see, by slug, one page at a time (ADR 0206). `q` is the server's
    * filter (slug, name or a former slug, substring); `slug` is the exact address, a former one included.

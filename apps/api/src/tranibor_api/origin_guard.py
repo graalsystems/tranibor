@@ -18,6 +18,10 @@ tenant-host resolver says is VERIFIED (`tenant_host.verified_host_cached`, cache
 be the host this very request was made for (`X-Forwarded-Host`, else `Host`). The last condition keeps a
 page on one verified host from acting on another's cookie when two of them share a registrable domain.
 An unverified host, a claimed-but-unproved one and any sibling sub-domain stay refused.
+
+A personal installation (ADR 0228 §5) has a session cookie per door, and the rule holds for both: the loopback
+door's `choregos_session` and the relay door's `__Host-choregos_session`. The console's loopback address
+(`TRANIBOR_LOOPBACK_URL`) is an origin of the console beside the public one, the relay's.
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from .config import Settings, get_settings
+from .doors import session_cookie_names
 from .errors import PROBLEM_JSON
 from .tenant_host import normalise_host, request_host, verified_host_cached
 
@@ -53,8 +58,14 @@ def origin_of(url: str) -> str:
 
 
 def allowed_origins(settings: Settings) -> set[str]:
-    """The console's, the API's and every `TRANIBOR_CORS_ORIGINS` origin."""
-    return {origin_of(settings.public_url), origin_of(settings.api_url), *map(origin_of, settings.cors_list)}
+    """The console's, the API's, every `TRANIBOR_CORS_ORIGINS` origin and the console's loopback address."""
+    loopback = [settings.loopback_url] if settings.loopback_url.strip() else []
+    return {
+        origin_of(settings.public_url),
+        origin_of(settings.api_url),
+        *map(origin_of, settings.cors_list),
+        *map(origin_of, loopback),
+    }
 
 
 def origin_allowed(origin: str | None, settings: Settings) -> bool:
@@ -94,7 +105,8 @@ def install_origin_guard(app: FastAPI) -> None:
         # Only a bearer token exempts the request: `deps.current_principal` falls back to the cookie for
         # any other `Authorization` value.
         bearer = request.headers.get("authorization", "").lower().startswith("bearer ")
-        if request.method not in SAFE_METHODS and settings.session_cookie in request.cookies and not bearer:
+        cookie = any(name in request.cookies for name in session_cookie_names(settings))
+        if request.method not in SAFE_METHODS and cookie and not bearer:
             origin = request.headers.get("origin", "").strip()
             if origin:
                 refused = origin == "null" or not (

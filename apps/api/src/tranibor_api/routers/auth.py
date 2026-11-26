@@ -15,6 +15,10 @@ What this router guarantees, and why each guarantee exists:
   role on ALL the organisations of the instance.
 - **Development sign-in**: off by default, refused in staging/prod, and
   ORG_ADMIN only for the e-mails listed in `dev_admin_emails`.
+- **A personal installation** (ADR 0228 §4) has no identity provider: `/auth/login` and `/auth/callback`
+  answer 404 there, `GET /auth/methods` names the methods of the request's door, and `POST /auth/owner`
+  exchanges an owner ticket for a session on the loopback door (`owner_sign_in.py`). Each door has its own
+  session cookie (`doors.py`).
 """
 
 from __future__ import annotations
@@ -29,11 +33,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import quote, urlencode, urlsplit
 
-from fastapi import APIRouter, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import String, cast, func, not_, or_, select
 from tranibor_contracts import Role
 from tranibor_core import utcnow
+from tranibor_core.production import is_personal
 
 from ..audit import record
 from ..browser_sessions import end_session, open_session
@@ -41,12 +46,22 @@ from ..config import Settings, get_settings
 from ..db.models import ApiToken, Membership, Organization, User
 from ..db.org_aliases import current_slugs, organisation_by_slug_or_alias
 from ..deps import Config, Db, Me, Pagination, PlatformDb, resolve_project
+from ..doors import (
+    LOOPBACK,
+    clear_session_cookie,
+    door_claims,
+    door_of,
+    read_session_cookie,
+    set_session_cookie,
+)
 from ..edition import group_mapper
 from ..errors import ApiError, forbidden, not_found, unauthorized, unprocessable
 from ..keyset import keyset_page
 from ..logging import get_logger
+from ..owner_sign_in import on_the_loopback_door, owner_key_configured, take_owner_ticket
 from ..rbac import Permission, rank_of
 from ..schemas import ApiTokenCreate, ApiTokenCreated, ApiTokenPage, MeDto, MembershipDto
+from ..schemas.identity import AuthMethodsDto, OwnerTicketExchangeDto, SignInMethod
 from ..security import generate_api_token, read_session, sign_session
 from ..services.api_tokens import api_token_dto, linked_projects
 from ..services.avatars import avatar_url
@@ -308,6 +323,13 @@ def _check_id_token_claims(claims: dict[str, Any], *, issuer: str, client_id: st
         raise unauthorized("the ID token nonce does not match this sign-in")
 
 
+def no_identity_provider_here(request: Request) -> None:
+    """A personal installation has no identity provider (ADR 0228 §4): its OIDC routes answer 404, as an
+    unknown route does, the development sign-in with them (refused in production anyway, S87-09)."""
+    if is_personal(get_settings().env):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
 def _poser_cookie_oidc(response: Response, cookie: str, settings: Settings) -> None:
     response.set_cookie(
         OIDC_COOKIE,
@@ -319,7 +341,7 @@ def _poser_cookie_oidc(response: Response, cookie: str, settings: Settings) -> N
     )
 
 
-@router.get("/auth/login", operation_id="authLogin")
+@router.get("/auth/login", operation_id="authLogin", dependencies=[Depends(no_identity_provider_here)])
 async def login(
     request: Request,
     session: PlatformDb,
@@ -866,7 +888,7 @@ async def _development_groups(session: Any, email: str, settings: Settings) -> l
     return [f"choregos:{org}:{name}" for org in orgs]
 
 
-@router.get("/auth/callback", operation_id="authCallback")
+@router.get("/auth/callback", operation_id="authCallback", dependencies=[Depends(no_identity_provider_here)])
 async def callback(
     request: Request,
     state: Annotated[str, Query()],
@@ -1065,6 +1087,26 @@ async def ouvrir_la_session(
     with nothing to signal it. `terminer_la_connexion` adds the user and their
     roles.
     """
+    cookie = await signed_session(session, user, settings, canal=canal, auth_time=auth_time, request=request)
+    response = RedirectResponse(
+        url=redirection_sure(target, settings, host), status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
+    # No `Domain`: the cookie is valid on the host that answered (a verified tenant host, or the instance's)
+    # and on no other, sub-domains included.
+    set_session_cookie(response, request, settings, cookie, max_age=settings.session_max_age_s)
+    return response
+
+
+async def signed_session(
+    session: Any,
+    user: User,
+    settings: Settings,
+    *,
+    canal: str,
+    auth_time: int | None,
+    request: Request | None,
+) -> str:
+    """The audit trace, the recorded session and the signed cookie of a sign-in, whatever its protocol."""
     # a sign-in precedes the organisation resolution: a platform event
     await record(session, None, "auth.login", org_id=None, target_type="user", target_id=user.id, canal=canal)
     # `iat`: the authentication time. It is what a door demanding a RECENT authentication reads
@@ -1087,21 +1129,9 @@ async def ouvrir_la_session(
     # SSO reconnection opens a new session (fresh `iat`) on an old authentication.
     if auth_time is not None:
         session_claims["auth_time"] = auth_time
-    cookie = sign_session(session_claims, settings)
-    response = RedirectResponse(
-        url=redirection_sure(target, settings, host), status_code=status.HTTP_307_TEMPORARY_REDIRECT
-    )
-    # No `Domain`: the cookie is valid on the host that answered (a verified tenant host, or the instance's)
-    # and on no other, sub-domains included.
-    response.set_cookie(
-        settings.session_cookie,
-        cookie,
-        max_age=settings.session_max_age_s,
-        httponly=True,
-        samesite="lax",
-        secure=settings.cookies_secure,
-    )
-    return response
+    # The door that issues it, on a personal installation (ADR 0228 §5): the cookie is read on that door only.
+    session_claims |= door_claims(request, settings)
+    return sign_session(session_claims, settings)
 
 
 async def terminer_la_connexion(  # noqa: PLR0913 - one sign-in, fact by fact, keyword-only
@@ -1155,14 +1185,55 @@ async def terminer_la_connexion(  # noqa: PLR0913 - one sign-in, fact by fact, k
 async def logout(request: Request, session: PlatformDb, settings: Config, response: Response) -> Response:
     """Sign out: the cookie is cleared, and the session it named ends on the server too (ADR 0130),
     so a copy of the cookie no longer opens anything."""
-    payload = read_session(request.cookies.get(settings.session_cookie, ""), settings)
+    payload = read_session_cookie(request, settings)
     if payload and isinstance(payload.get("sid"), str) and isinstance(payload.get("sub"), str):
         await end_session(session, payload["sub"], payload["sid"])
         from ..services.identity_exchange import forget_refresh_token
 
         await forget_refresh_token(session, await _org_ids_of(session, payload["sub"]), payload["sub"])
-    response.delete_cookie(settings.session_cookie)
+    clear_session_cookie(response, request, settings)
     response.status_code = status.HTTP_204_NO_CONTENT
+    return response
+
+
+# ───────────────────────── a personal installation (ADR 0228 §4) ─────────────────────────
+
+
+@router.get("/auth/methods", response_model=AuthMethodsDto, operation_id="getAuthMethods")
+async def auth_methods(request: Request, settings: Config) -> AuthMethodsDto:
+    """How a person signs in on the door this request came through: what the sign-in page reads first.
+
+    An organisation's installation signs in through its identity provider, and has no doors. A personal one
+    names the methods its door serves: the owner key on the loopback door; on the relay door, pairing a phone
+    (S87-13) and passkeys (S87-14) once they are served, and nothing before.
+    """
+    if not is_personal(settings.env):
+        return AuthMethodsDto(posture="organisation", door=None, methods=["identity_provider"])
+    door = door_of(request, settings)
+    methods: list[SignInMethod] = ["owner"] if door == LOOPBACK and owner_key_configured(settings) else []
+    return AuthMethodsDto(posture="personal", door=door, methods=methods)
+
+
+@router.post(
+    "/auth/owner",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="signInAsOwner",
+    dependencies=[Depends(on_the_loopback_door)],
+)
+async def sign_in_as_owner(
+    body: OwnerTicketExchangeDto, request: Request, session: PlatformDb, settings: Config
+) -> Response:
+    """Exchange an owner ticket for a session of the installation's one person, on the loopback door.
+
+    The ticket is checked and taken once (`owner_sign_in.take_owner_ticket`); the session's authentication
+    time is now, and its cookie is the loopback door's (`choregos_session`, without `Secure`).
+    """
+    owner = await take_owner_ticket(session, body.ticket, settings)
+    cookie = await signed_session(
+        session, owner, settings, canal="owner", auth_time=int(time.time()), request=request
+    )
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    set_session_cookie(response, request, settings, cookie, max_age=settings.session_max_age_s)
     return response
 
 

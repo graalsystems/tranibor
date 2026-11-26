@@ -240,6 +240,26 @@ class DeviceAuthorizationDto(Dto):
     interval: int
 
 
+#: A way to sign in (`AuthMethods.methods`): an organisation's identity provider, or one of a personal
+#: installation's (ADR 0228 §4).
+SignInMethod = Literal["identity_provider", "owner", "device_pairing", "passkey"]
+
+
+class AuthMethodsDto(Dto):
+    """How a person signs in on the door a request came through (ADR 0228 §4): `AuthMethods`."""
+
+    posture: Literal["organisation", "personal"]
+    #: The door the edge named (ADR 0228 §6); `None` outside the personal posture, which has no doors.
+    door: Literal["loopback", "relay"] | None = None
+    methods: list[SignInMethod]
+
+
+class OwnerTicketExchangeDto(Dto):
+    """The ticket `choregos local open` signed, as the console read it from its URL's fragment."""
+
+    ticket: str = Field(min_length=1, max_length=4096)
+
+
 class DeviceTokenRequestDto(Dto):
     grant_type: Literal["urn:ietf:params:oauth:grant-type:device_code"]
     device_code: str = Field(max_length=256)

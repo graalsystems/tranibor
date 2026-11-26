@@ -38,6 +38,7 @@ from .audit_retention import retention_loop as audit_retention_loop
 from .bootstrap import bootstrap_installation
 from .config import DEFAULT_DOCS_URL, Settings, get_settings
 from .db.session import create_all, dispose_engine
+from .doors import install_door_guard
 from .errors import REQUEST_ID_PATTERN, install_error_handlers, internal_error
 from .events import PostgresRelay
 from .internal_api_guard import announce as announce_the_internal_api_guard
@@ -47,6 +48,7 @@ from .logging import bind, clear, configure_logging, get_logger
 from .metrics import expose, http_requests, refresh_loop
 from .origin_guard import check_cors_origins, install_origin_guard
 from .outposts import rendezvous as outpost_rendezvous
+from .owner_sign_in import check_the_owner_key
 from .personal_installation import check_the_installation, refuse_what_the_settings_forbid
 from .routers import (
     actions,
@@ -454,6 +456,8 @@ def create_app() -> FastAPI:
     # The API signs the sessions, so it alone refuses a session secret that cannot sign safely: the
     # orchestrator and the migrations Job build the same Settings without it (see `check_session_secret`).
     check_session_secret(settings)
+    # A personal installation's owner key (ADR 0228 §4): a key file that is set and unreadable stops it here.
+    check_the_owner_key(settings)
     # The plugin sources and default plugins (ADR 0093): an unreadable configuration stops the API here,
     # naming the setting, rather than answering 500 at the first install.
     check_configuration(settings)
@@ -500,6 +504,9 @@ def create_app() -> FastAPI:
     # After the limiter and before the logging middleware: logging stays outermost, so a refusal is
     # logged with its request id.
     install_origin_guard(app)
+    # A personal installation answers through its edge only, which names the door (ADR 0228 §6): outside the
+    # origin guard and the limiter, inside the logging middleware, so that a refusal is logged with its id.
+    install_door_guard(app)
 
     @app.middleware("http")
     async def logging_middleware(

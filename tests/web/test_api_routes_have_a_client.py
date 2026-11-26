@@ -125,11 +125,8 @@ NO_CLIENT_YET: dict[str, str] = {
     "is API-only in the core; the enterprise edition's platform route has no console screen either",
     "/orgs/{org}/saml": "the organisation's SAML provider (ADR 0170, D5) is API-only in the core; the "
     "enterprise edition's console section writes it today",
-    # S87-08: a personal installation's sign-in (ADR 0228 §4); S87-12 to S87-14 serve it and give it a client.
-    "/auth/methods": "the sign-in page reads it to show the door's methods; S87-12 serves it and gives it "
-    "its client",
-    "/auth/owner": "the console's loopback page posts the owner ticket `choregos local open` put in its "
-    "fragment; S87-12 serves it and gives it its client",
+    # S87-08: a personal installation's sign-in (ADR 0228 §4); S87-13 and S87-14 serve it and give it a client
+    # (S87-12 served `/auth/methods` and `/auth/owner`, which the sign-in and `/auth/owner` pages call).
     "/me/device-pairings": "My account on the computer shows the pairing link as a QR code; S87-13 serves "
     "it and gives it its client",
     "/auth/device/session": "the phone's `/pair` page posts the code its link carried; S87-13 serves it and "

@@ -18,10 +18,11 @@ from ..browser_sessions import (
 )
 from ..db.models import User, UserSession
 from ..deps import Config, Db, Me, Pagination
+from ..doors import clear_session_cookie, read_session_cookie, set_session_cookie
 from ..errors import not_found, unauthorized
 from ..keyset import keyset_page
 from ..schemas import BrowserSessionDto, BrowserSessionPage, EndedSessionsDto
-from ..security import read_session, sign_session
+from ..security import sign_session
 
 router = APIRouter(tags=["session"])
 
@@ -67,14 +68,14 @@ async def list_my_sessions(
 
 
 @router.delete("/me/sessions/{id}", status_code=status.HTTP_204_NO_CONTENT, operation_id="endMySession")
-async def end_my_session(id: str, session: Db, principal: Me, settings: Config) -> Response:
+async def end_my_session(id: str, request: Request, session: Db, principal: Me, settings: Config) -> Response:
     """End one of the caller's sessions: its cookie is refused from its next request, wherever it is."""
     if not await end_session(session, principal.user_id, id):
         raise not_found("Session", id)
     await record(session, principal, "session.end", org_id=None, target_type="session", target_id=id)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if id == principal.session_id:
-        response.delete_cookie(settings.session_cookie)
+        clear_session_cookie(response, request, settings)
     return response
 
 
@@ -91,7 +92,7 @@ async def end_my_other_sessions(
     if user is None:
         raise unauthorized()
     ended = await end_other_sessions(session, user, principal.session_id)
-    payload = read_session(request.cookies.get(settings.session_cookie, ""), settings)
+    payload = read_session_cookie(request, settings)
     if principal.session_id is None and payload is not None and payload.get("sub") == user.id:
         expires = int(payload.get("exp", 0))
         recorded = await open_session(
@@ -102,13 +103,12 @@ async def end_my_other_sessions(
             request=request,
             settings=settings,
         )
-        response.set_cookie(
-            settings.session_cookie,
+        set_session_cookie(
+            response,
+            request,
+            settings,
             sign_session({**payload, "sid": recorded.id}, settings),
             max_age=max(0, expires - int(datetime.now(UTC).timestamp())),
-            httponly=True,
-            samesite="lax",
-            secure=settings.cookies_secure,
         )
     await record(
         session,

@@ -12,8 +12,6 @@ PREFIX = "/api/v1"
 # names the story that implements it; an entry the API does serve must be removed from here.
 CONTRACT_ONLY: dict[str, str] = {
     # S87-08 (ADR 0228 §4): a personal installation's sign-in, by door.
-    "getAuthMethods": "S87-12",
-    "signInAsOwner": "S87-12",
     "createMyDevicePairing": "S87-13",
     "exchangeDevicePairing": "S87-13",
     "listMyPasskeys": "S87-14",
@@ -33,8 +31,6 @@ CONTRACT_ONLY: dict[str, str] = {
     "postAgentSessionTurnDeltas": "S87-37",
 }
 CONTRACT_ONLY_PATHS: set[str] = {
-    "/auth/methods",
-    "/auth/owner",
     "/me/device-pairings",
     "/auth/device/session",
     "/me/passkeys",

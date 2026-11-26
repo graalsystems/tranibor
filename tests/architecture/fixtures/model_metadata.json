@@ -10689,6 +10689,59 @@
   ],
   "uniques": []
  },
+ "owner_tickets": {
+  "columns": [
+   {
+    "name": "jti",
+    "type": "String(length=128)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "expires_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "id",
+    "type": "String(length=36)",
+    "nullable": false,
+    "default": "<function uuid7>",
+    "server_default": null
+   },
+   {
+    "name": "created_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   },
+   {
+    "name": "updated_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   }
+  ],
+  "primary_key": [
+   "id"
+  ],
+  "foreign_keys": [],
+  "uniques": [
+   [
+    "uq_owner_tickets_jti",
+    [
+     "jti"
+    ]
+   ]
+  ],
+  "checks": [],
+  "indexes": []
+ },
  "policies": {
   "checks": [],
   "columns": [
