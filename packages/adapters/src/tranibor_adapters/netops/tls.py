@@ -17,13 +17,14 @@ import ssl
 from typing import Any
 
 import structlog
+from tranibor_core.production import PRODUCTION_ENVIRONMENTS
 
 from ..errors import ConfigurationError
 
 log = structlog.get_logger(__name__)
 
-#: The environments where an unverified connection is refused outright.
-STRICT_ENVIRONMENTS = frozenset({"staging", "prod"})
+#: The environments where an unverified connection is refused outright: production.
+STRICT_ENVIRONMENTS = PRODUCTION_ENVIRONMENTS
 
 
 def tls_verification(connector: str, config: dict[str, Any]) -> bool | ssl.SSLContext:

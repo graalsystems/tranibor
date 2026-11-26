@@ -20,6 +20,7 @@ from typing import Any, cast
 
 from tranibor_adapters import AdapterSet, declare_adapter_slot, register
 from tranibor_adapters.fakes.hr import declare_demo_desk
+from tranibor_core.production import is_production
 
 from ..names import NAME
 from .base import CdAdapter, CiAdapter, ScmAdapter
@@ -175,7 +176,7 @@ def _demo_cd(cfg: dict[str, Any]) -> Any:
     from .fakes.demo_cd import DemoCd, FakeDemoCd
 
     environment = _env("TRANIBOR_ENV", "dev")
-    if environment in {"staging", "prod"}:
+    if is_production(environment):
         raise ConfigurationError(
             f"connector `cd: demo` refused in {environment}: a simulated environment, a "
             "demonstration, not a deployment."

@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from tranibor_adapters import fake_mcp_server, load_extensions
 from tranibor_core import telemetry
 from tranibor_core.production import (
+    is_production,
     refuse_demo_history_import,
     refuse_demo_inline_worker,
     refuse_demo_mcp_tools,
@@ -319,7 +320,7 @@ async def _refuse_the_superuser() -> None:
             "the API connects to PostgreSQL as a SUPERUSER: RLS does not apply, "
             "the organisations are not isolated. Use an application role without SUPERUSER."
         )
-        if get_settings().env in {"staging", "prod"}:
+        if is_production(get_settings().env):
             raise RuntimeError(message)
         logger.error(message)
 

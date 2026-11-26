@@ -15,6 +15,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Path, Query, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tranibor_core.production import is_production
 from tranibor_core.secrets import is_store_reference
 
 from ..audit import record
@@ -225,7 +226,7 @@ async def _check_org_gateway(session: AsyncSession, organisation: Organization, 
     the alphabetical order of their names. The `direct` gateway hands out the key it was given: no key
     per run, no hard cap, no measured cost — refused here as it is for a project (`putConnector`).
     """
-    if type_name == "direct" and get_settings().env in {"staging", "prod"}:
+    if type_name == "direct" and is_production(get_settings().env):
         raise unprocessable(
             "the `direct` gateway is refused in this environment: it measures no cost and "
             "enforces no cap. Use `litellm` or `openai-compatible`."

@@ -16,6 +16,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import delete, select
+from tranibor_core.production import is_production
 
 from ..audit import record
 from ..config import get_settings
@@ -194,7 +195,7 @@ async def login(
     )
     # The provider's answer is a CROSS-SITE POST: a `Lax` cookie would not travel with it. `None` needs
     # `Secure`, which cannot travel over the plain http of development and tests: `Lax` there.
-    remote = settings.env in {"staging", "prod"}
+    remote = is_production(settings.env)
     response.set_cookie(
         COOKIE, state, max_age=saml_service.REQUEST_LIFETIME_S, httponly=True,
         samesite="none" if remote else "lax", secure=remote,

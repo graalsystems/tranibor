@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """What production is, and the fakes it refuses (S80-03).
 
-Production is `TRANIBOR_ENV` set to `staging` or `prod` (the chart's `global.environment`): the same
-notion that already refuses a PostgreSQL superuser, the development sign-in and the demonstration
-connectors there. Nothing else says "production": no second variable, no guess from a URL.
+Production is `TRANIBOR_ENV` set to `staging`, `prod` or `personal` (the chart's `global.environment`
+for the first two; `personal` is one person's own installation, ADR 0228): the same notion that refuses
+a PostgreSQL superuser, the development sign-in and the demonstration connectors there. Nothing else says
+"production": no second variable, no guess from a URL, and no other module spells the set
+(`tests/architecture/test_production_is_named_once.py`).
 
 `TRANIBOR_FAKES` (ADR 0005) switches the whole platform to its in-memory fakes. That is what the
 tests, the end-to-end suite and `make demo` run on, and it is a bench's switch only: on, it relaxes the
@@ -18,8 +20,10 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 
-#: The `TRANIBOR_ENV` values that are production.
-PRODUCTION_ENVIRONMENTS = frozenset({"staging", "prod"})
+#: The posture of one person's own installation (ADR 0228): production, with rules of its own on top.
+PERSONAL_ENVIRONMENT = "personal"
+#: The `TRANIBOR_ENV` values that are production. The one place that spells them.
+PRODUCTION_ENVIRONMENTS = frozenset({"staging", "prod", PERSONAL_ENVIRONMENT})
 #: The variable that turns the fakes on, and the one that names the environment.
 FAKES_VARIABLE = "TRANIBOR_FAKES"
 ENVIRONMENT_VARIABLE = "TRANIBOR_ENV"
@@ -33,6 +37,11 @@ class FakesInProductionError(RuntimeError):
 
 def is_production(environment: str | None) -> bool:
     return (environment or "").strip().lower() in PRODUCTION_ENVIRONMENTS
+
+
+def is_personal(environment: str | None) -> bool:
+    """Whether `TRANIBOR_ENV` names a personal installation (ADR 0228), which is also production."""
+    return (environment or "").strip().lower() == PERSONAL_ENVIRONMENT
 
 
 def fakes_on(value: str | bool | None) -> bool:

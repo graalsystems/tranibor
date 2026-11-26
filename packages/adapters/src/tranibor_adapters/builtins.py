@@ -14,6 +14,8 @@ import ssl
 from collections.abc import Callable
 from typing import Any
 
+from tranibor_core.production import is_production
+
 import tranibor_adapters as _package
 
 from .errors import AdapterError, ConfigurationError
@@ -156,7 +158,7 @@ def _direct_gateway(cfg: dict[str, Any]) -> Any:
     from .gateway.direct import DirectGateway  # a lazy import, like the others'
 
     environment = _env("TRANIBOR_ENV", "dev")
-    if environment in {"staging", "prod"}:
+    if is_production(environment):
         raise ConfigurationError(
             f"connector `gateway: direct` refused in {environment}: this gateway measures no "
             "cost and applies no ceiling. Use `litellm`, which issues a virtual key capped per run."
@@ -350,7 +352,7 @@ def _demo_desk(family: str, *, refuse_in_production: bool) -> Any:
         from .fakes.hr import FAKES_BY_FAMILY, Desk
 
         environment = _env("TRANIBOR_ENV", "dev")
-        if refuse_in_production and environment in {"staging", "prod"}:
+        if refuse_in_production and is_production(environment):
             raise ConfigurationError(
                 f"connector `{family}: demo` refused in {environment}: an in-memory fake, which "
                 "each process holds for itself: a demonstration, not a company system."

@@ -25,7 +25,7 @@ class OrchestratorSettings(BaseSettings):
     #: The deployment's environment, the API's `TRANIBOR_ENV` (the chart's `global.environment`):
     #: `staging` and `prod` are production, where the workers refuse the fakes (S80-03) and the
     #: runners they start are told where they run.
-    env: Literal["dev", "staging", "prod", "test"] = "dev"
+    env: Literal["dev", "staging", "prod", "personal", "test"] = "dev"
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
     fakes: bool = Field(default=False, validation_alias="TRANIBOR_FAKES")

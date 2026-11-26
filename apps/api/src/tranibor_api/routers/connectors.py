@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tranibor_core.production import is_production
 
 from ..audit import record
 from ..config import get_settings
@@ -120,7 +121,7 @@ async def put_connector(
     session: Db,
 ) -> ConnectorDto:
     ctx.require(Permission.CONNECTOR_WRITE)
-    if kind == "gateway" and body.type == "direct" and get_settings().env in {"staging", "prod"}:
+    if kind == "gateway" and body.type == "direct" and is_production(get_settings().env):
         # The direct gateway returns the key it was given: no virtual key per run, no hard cap,
         # no measured cost. The bench ran like that for a week and "proved" a spend cap that had
         # never measured any spend. The adapter factory already refuses it; we also refuse to

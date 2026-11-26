@@ -29,12 +29,14 @@ UNRESOLVED = "non résolus"  # lang: fr-ok
 # ───────────────────────── development login ─────────────────────────
 
 
-async def test_the_development_login_is_refused_in_production() -> None:
+@pytest.mark.parametrize("environment", ["staging", "prod", "personal"])
+async def test_the_development_login_is_refused_in_production(environment: str) -> None:
+    """A personal installation (ADR 0228) is production: the development sign-in is refused there too."""
     from tranibor_api.config import Settings
 
-    with pytest.raises(ValueError, match="staging/prod"):
-        Settings(env="prod", dev_login_enabled=True)
-    assert Settings(env="prod", dev_login_enabled=False).dev_login_enabled is False
+    with pytest.raises(ValueError, match=f"TRANIBOR_DEV_LOGIN_ENABLED=true in {environment}"):
+        Settings(env=environment, dev_login_enabled=True)
+    assert Settings(env=environment, dev_login_enabled=False).dev_login_enabled is False
 
 
 async def test_the_development_login_is_off_by_default() -> None:

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from tranibor_core.images import check_image_map
 from tranibor_core.mcp import RESULT_CEILING_BYTES, RESULT_MAX_BYTES
+from tranibor_core.production import is_personal, is_production
 from tranibor_core.publishing import PUBLISHING
 
 #: What a Go template engine writes when the variable does not exist: it renders this string
@@ -91,7 +92,7 @@ def ed25519_public_key(private_pem: str) -> str:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TRANIBOR_", env_file=".env", extra="ignore")
 
-    env: Literal["dev", "staging", "prod", "test"] = "dev"
+    env: Literal["dev", "staging", "prod", "personal", "test"] = "dev"
     # Listening port. In a container, 8000; on a development machine, 8000 is often already taken,
     # and `choregos-api` exited on "Address already in use" with no way to change it other than
     # editing the code.
@@ -606,9 +607,11 @@ class Settings(BaseSettings):
         Always in staging/prod; and in any environment whose public or API URL is https, because
         a deployment behind a TLS-terminating ingress is served over HTTPS whatever `env` says
         (a dev tenant on https must not send its session cookie in clear on a stray http hop).
+        A personal installation (ADR 0228) is served on http://127.0.0.1 by its loopback door: its
+        cookies follow its URLs here, and the door each request came through decides them later.
         """
         https = any(u.strip().lower().startswith("https://") for u in (self.public_url, self.api_url))
-        return self.env in {"staging", "prod"} or https
+        return (is_production(self.env) and not is_personal(self.env)) or https
 
     @property
     def deployed(self) -> bool:
@@ -650,9 +653,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _no_back_door_in_production(self) -> Settings:
-        if self.dev_login_enabled and self.env in {"staging", "prod"}:
+        if self.dev_login_enabled and is_production(self.env):
             raise ValueError(
-                "TRANIBOR_DEV_LOGIN_ENABLED=true in staging/prod: the development sign-in "
+                f"TRANIBOR_DEV_LOGIN_ENABLED=true in {self.env}: the development sign-in "
                 "opens the API to anyone who reaches /auth/callback. Refused."
             )
         return self

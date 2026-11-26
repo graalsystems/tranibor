@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import pytest
 from tranibor_core.production import (
+    PERSONAL_ENVIRONMENT,
     PRODUCTION_ENVIRONMENTS,
     FakesInProductionError,
     fakes_on,
+    is_personal,
+    is_production,
     refuse_fakes_in_production,
     refuse_fakes_in_this_environment,
 )
 
 
-def test_production_is_staging_and_prod_as_everywhere_else() -> None:
-    """The same two values that refuse a superuser, the development sign-in and `verify_tls: false`."""
-    assert {"staging", "prod"} == PRODUCTION_ENVIRONMENTS
+def test_production_is_staging_prod_and_a_personal_installation() -> None:
+    """The values that refuse a superuser, the development sign-in and `verify_tls: false` everywhere."""
+    assert frozenset({"staging", "prod", "personal"}) == PRODUCTION_ENVIRONMENTS
 
 
 @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "on", " y ", "t", True])
@@ -45,3 +48,16 @@ def test_read_from_a_process_environment() -> None:
     with pytest.raises(FakesInProductionError):
         refuse_fakes_in_this_environment("thing", {"TRANIBOR_ENV": "prod", "TRANIBOR_FAKES": "yes"})
     refuse_fakes_in_this_environment("thing", {"TRANIBOR_FAKES": "yes"})
+
+
+def test_a_personal_installation_is_production() -> None:
+    """ADR 0228: `personal` is production, so every refusal of staging and prod reaches it."""
+    assert PERSONAL_ENVIRONMENT in PRODUCTION_ENVIRONMENTS
+    assert is_production("personal") and is_production(" Personal ")
+    assert is_personal("personal") and not is_personal("prod") and not is_personal(None)
+
+
+def test_the_fakes_are_refused_in_a_personal_installation() -> None:
+    with pytest.raises(FakesInProductionError) as refused:
+        refuse_fakes_in_production(environment="personal", fakes="1", process="API")
+    assert "TRANIBOR_ENV=personal" in str(refused.value)

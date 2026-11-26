@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tranibor_contracts import CONNECTOR_KINDS, ConnectorKind
+from tranibor_core.production import PRODUCTION_ENVIRONMENTS
 
 from .base import (
     DecisionClient,
@@ -316,8 +317,8 @@ def account_of(kind: str, type_name: str, config: dict[str, Any] | None) -> str 
     return None
 
 
-#: The environments where a `dev_only` type is refused.
-ENVIRONMENTS_WITHOUT_DEMOS = frozenset({"staging", "prod"})
+#: The environments where a `dev_only` type is refused: production, as `tranibor_core.production` names it.
+ENVIRONMENTS_WITHOUT_DEMOS = PRODUCTION_ENVIRONMENTS
 
 
 def offered_connector_types(environment: str) -> list[tuple[str, str, ConnectorTypeSpec]]:

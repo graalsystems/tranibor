@@ -43,7 +43,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from tranibor_adapters import load_extensions
 from tranibor_contracts.outpost import MAX_WAIT_S
-from tranibor_core.production import refuse_fakes_in_production
+from tranibor_core.production import is_production, refuse_fakes_in_production
 
 from .. import __version__
 from ..config import Settings, get_settings
@@ -79,7 +79,7 @@ async def _refuse_the_superuser(settings: Settings) -> None:
         "the outposts' door connects to PostgreSQL as a SUPERUSER: row-level security does not apply, "
         "one outpost is not kept from another's rows. Use an application role without SUPERUSER."
     )
-    if settings.env in {"staging", "prod"}:
+    if is_production(settings.env):
         raise RuntimeError(message)
     logger.error(message)
 
