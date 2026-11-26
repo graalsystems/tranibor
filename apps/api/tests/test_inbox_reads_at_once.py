@@ -21,7 +21,7 @@ PENDING = "/api/v1/me/pending"
 MEMBER_EMAIL, ELSEWHERE = "member@northwind.dev", "elsewhere@northwind.dev"
 MEMBER = {"projects": {"billing-api": "contributor"}}
 
-INBOX = f"""apiVersion: choregos/v1
+INBOX = f"""apiVersion: tranibor/v1
 kind: Workflow
 metadata: {{name: inbox, version: 1}}
 actors:
