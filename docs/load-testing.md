@@ -225,7 +225,7 @@ The same workload once more, on a fresh install, with **all three images built h
 | 100 | 36.1 → 39.4 | 4478 → 3613 | 4557 → 3653 | 4557 → 3653 | 0 → 0 of 4,724 |
 
 * **No "unknown work item" any more.** The worker logged none over the steps' 676 creations and the
-  bursts below (__BURST_CREATED__ more), where the first run logged 118 (#2291). The work item relay
+  two bursts below (140 more), where the first run logged 118 (#2291). The work item relay
   logged nothing either: no start was lost, so it had nothing to make again.
 * **Throughput a little higher again**, about 40 to 44 reads per second from 20 users on, with no read
   and no creation failed in any step; at 20 users every read is under 0.55 s at p95. One run on a
@@ -240,7 +240,17 @@ The same workload once more, on a fresh install, with **all three images built h
   to it (628 `approved`, 86 `awaiting_approval`, 28 `needs_human` after the drain).
 * The approver's 41 refused decisions are its own 409, as in the rerun.
 
-__BURSTS__
+Then the rerun's two bursts on another fresh install, with nothing else running:
+
+| Burst | Created (rerun → 0.30.0) | Decided within 300 s | After both bursts |
+|:--|:--|:--|:--|
+| 40 work items, 4 at a time | 40 of 40 in 3.1 s → 40 of 40 in 2.3 s | 34 → 27 | |
+| 100 work items, 10 at a time (same install, after the first) | 100 of 100 in 6.4 s → 100 of 100 in 8.7 s | 39 → 53 | 88 → 96 `approved`, 67 → 61 `needs_human`, 1 → 1 `received` |
+
+The same picture as the rerun: every creation holds, and the work items that did not reach a decision
+were parked by the daily budget (all 61 with "the stage `plan` did not start: 0.00 $ left (bound by
+project_day ...)", [the budget note](#bursts-rerun)). The worker logged no "unknown work item" and 39
+pool timeouts.
 
 ### Bursts (rerun)
 
@@ -472,9 +482,9 @@ read, so "how many work items a project runs at once in fakes mode" stays unmeas
 * **The console.** The Next.js server and the browser were not in the path, in either run (the rerun's
   console, built from `main`, relays to the API, but the generator called the API directly); neither
   were SSE streams (`/events/stream`), uploads, or the MCP and A2A doors.
-* **Every line of the image.** The rerun's images are built from `026bc3561`, except the SkillSpector
-  stage, taken from the published 0.29.4 image (the sandbox refuses its download); no measured route
-  runs it.
+* **Every line of the image.** The rerun's images are built from `026bc3561`, the fourth run's from
+  `d5a6307f3`, each except the SkillSpector stage, taken from the published 0.29.4 image (the sandbox
+  refuses its download); no measured route runs it.
 * **Other mixes.** A different ratio of reads and writes, other routes (audit export, costs,
   knowledge), other organisation sizes, or many organisations at once.
 * **A clean machine.** The generator and the platform share the CPUs, and `fsync` is off in the
