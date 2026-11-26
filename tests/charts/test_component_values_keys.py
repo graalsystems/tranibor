@@ -254,7 +254,8 @@ def test_every_kept_name_has_its_twin() -> None:
 
 @helm
 def test_the_api_keeps_its_former_address_for_the_runs_in_flight() -> None:
-    docs = _docs("--set", "monitoring.serviceMonitor=true")
+    # Offline, with the operator's API only: the monitoring objects are rendered on request (S87-16).
+    docs = _docs("--set", "monitoring.serviceMonitor=true", "--set", "monitoring.skipCrdCheck=true")
     services = {d["metadata"]["name"]: d for d in docs if d["kind"] == "Service"}
     current, former = services["tranibor-api"], services["choregos-api"]
     assert former["spec"]["selector"] == current["spec"]["selector"]

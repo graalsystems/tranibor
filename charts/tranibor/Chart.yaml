@@ -6,6 +6,10 @@ description: >-
 type: application
 version: 0.30.0
 appVersion: "0.30.0"
+# The default agent isolation (`container`, ADR 0146) runs the agent beside the runner as a native
+# sidecar, which Kubernetes serves from 1.29 (S87-16). Helm and Argo CD refuse an older cluster here,
+# before anything is applied; `-0` admits the providers' suffixed versions (v1.29.4-eks-…, -gke.…).
+kubeVersion: ">=1.29.0-0"
 home: https://github.com/graalsystems/tranibor
 sources:
   - https://github.com/graalsystems/tranibor

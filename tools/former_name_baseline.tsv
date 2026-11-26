@@ -1265,6 +1265,7 @@
 7	tests/charts/test_buildkitd_chart.py
 11	tests/charts/test_chart_names.py
 1	tests/charts/test_cli_downloads_routed.py
+1	tests/charts/test_cluster_assumptions.py
 35	tests/charts/test_component_values_keys.py
 1	tests/charts/test_context_reduction.py
 2	tests/charts/test_cors_origins.py

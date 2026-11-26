@@ -154,8 +154,7 @@ spec:
     - from: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "orchestrator" }}] } }]
       ports: [{ protocol: TCP, port: {{ $port }} }]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+    {{- include "tranibor.dnsEgress" (dict "root" $ "tcp" true) | nindent 4 }}
     # Base images, `pip install`, and a build registry on the Internet: never a private range.
     - to:
         - ipBlock:

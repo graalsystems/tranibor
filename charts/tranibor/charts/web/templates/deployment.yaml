@@ -72,6 +72,11 @@ spec:
   {{- with .Values.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
+  {{- with .Values.ingress.tls }}
+  # S87-16: the Ingress's TLS block, as written (`[{secretName, hosts}]`); the Gateway API carries it on
+  # the Gateway's listener instead.
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
   rules:
     {{- range .Values.ingress.hostnames }}
     - host: {{ . | quote }}

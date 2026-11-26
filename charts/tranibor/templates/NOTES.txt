@@ -20,6 +20,15 @@ chart, immutable and kept on uninstall. Every outpost pins its public half: back
 delete it outside a rotation (docs/deployment.md, "Outposts").
 {{- end }}
 {{- end }}
+{{- $unserved := list }}
+{{- if and .Values.monitoring.serviceMonitor (not (include "tranibor.monitoringServed" (dict "root" . "kind" "scrape"))) }}{{ $unserved = append $unserved (include "tranibor.monitoringApi" (dict "root" . "kind" "scrape")) }}{{ end }}
+{{- if and .Values.monitoring.alerts (not (include "tranibor.monitoringServed" (dict "root" . "kind" "rules"))) }}{{ $unserved = append $unserved (include "tranibor.monitoringApi" (dict "root" . "kind" "rules")) }}{{ end }}
+{{- if $unserved }}
+
+Monitoring: this cluster does not serve {{ join ", " $unserved }}; not rendered, so nothing scrapes
+the API or evaluates its alerts. Install the operator and upgrade, or set `monitoring.skipCrdCheck`
+for an offline render aimed at a cluster that has it (docs/deployment.md, "On a managed cluster").
+{{- end }}
 {{- if .Values.global.fakes }}
 
 ⚠ `global.fakes` is on: the connectors are simulated. Use only in development.

@@ -28,8 +28,7 @@ spec:
         values: [tranibor-runner, choregos-runner, tranibor-egress, choregos-egress, tranibor-buildkitd, choregos-buildkitd{{ if $outpostsDoor }}, tranibor-outposts-door, choregos-outposts-door{{ end }}]
   policyTypes: ["Egress"]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }]
+    {{- include "tranibor.dnsEgress" (dict "root" $ "tcp" false) | nindent 4 }}
     {{- /* Each dependency in its own namespace, or, embedded, as pods of this one (ADR 0184). */}}
     {{- range $dependency := include "tranibor.networkDependencies" . | fromYamlArray }}
     - to: [{{ include "tranibor.networkDependencyPeer" (dict "root" $ "dependency" $dependency) }}]
@@ -151,8 +150,7 @@ spec:
       - {{ include "tranibor.anyPodName" "runner" }}
   policyTypes: ["Egress"]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+    {{- include "tranibor.dnsEgress" (dict "root" $ "tcp" true) | nindent 4 }}
     # The API it reports to, never the database or Temporal.
     - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "api" }}] } }]
       ports: [{ protocol: TCP, port: {{ $apiPort }} }]
@@ -205,8 +203,7 @@ spec:
     - from: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "runner" }}] } }]
       ports: [{ protocol: TCP, port: {{ $egressPort }} }]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+    {{- include "tranibor.dnsEgress" (dict "root" $ "tcp" true) | nindent 4 }}
     - to: [{ podSelector: { matchExpressions: [{{ include "tranibor.anyPodName" "api" }}] } }]
       ports: [{ protocol: TCP, port: {{ $apiPort }} }]
     # The Internet, minus the private ranges, on the ports the proxy opens.
@@ -241,8 +238,7 @@ spec:
     - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: {{ ($api.ingress | default dict).gatewayNamespace | default "gateway" }} } } }]
       ports: [{ protocol: TCP, port: 8000 }]
   egress:
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
-      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+    {{- include "tranibor.dnsEgress" (dict "root" $ "tcp" true) | nindent 4 }}
     {{- if .Values.global.database.embedded }}
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: choregos-postgresql } } }]
       ports: [{ protocol: TCP, port: 5432 }]
