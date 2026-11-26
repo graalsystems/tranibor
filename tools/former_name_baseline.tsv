@@ -1472,6 +1472,7 @@
 4	tools/gen_contracts.py
 2	tools/hosted_dockerfile.py
 420	tools/load/results/2026-11-25-single-node.json
+420	tools/load/results/2026-11-26-single-node-0.30.0.json
 420	tools/load/results/2026-11-26-single-node-inbox.json
 420	tools/load/results/2026-11-26-single-node-main.json
 2	tools/load/single_node_load.py
