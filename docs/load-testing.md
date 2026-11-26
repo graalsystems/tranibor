@@ -237,7 +237,10 @@ The same workload once more, on a fresh install, with **all three images built h
 * **The worker's pool is the next failure.** The worker logged 20 `QueuePool limit of size 10 overflow
   5 reached` during the steps (the API none): the worker runs more activities at once than its pool has
   connections ([bottleneck 3](#bottlenecks-seen)). The activities were retried; no work item was lost
-  to it (628 `approved`, 86 `awaiting_approval`, 28 `needs_human` after the drain).
+  to it (628 `approved`, 86 `awaiting_approval`, 28 `needs_human` after the drain). Not a leak: sampled
+  every 2 s at 20 users, the worker held at most 10 connections, none idle in a transaction for more
+  than a second. **Changed since (#2331)**: the worker's activities wait up to 120 s for a connection
+  instead of failing after 10 s (not measured under load again).
 * The approver's 41 refused decisions are its own 409, as in the rerun.
 
 Then the rerun's two bursts on another fresh install, with nothing else running:
@@ -418,7 +421,12 @@ behind the CPU, they hold their connections, the 16th waits 10 s and answers HTT
 (`QueuePool limit of size 10 overflow 5 reached`): 76 such errors in the first run, and the worker
 logged the same error on its own pool (20 concurrent activities against a pool of 15; the worker's
 concurrency is a setting since S80-07a). The pool was not changed here: raising it moves the queue to
-PostgreSQL, which was already saturated.
+PostgreSQL, which was already saturated. **The worker's side changed since (#2331)**: one worker process
+runs `worker_max_concurrent_activities` activities on each of its queues (80 for the local install's
+four) against its 15 connections, so its activities now wait for a connection up to
+`TRANIBOR_WORKER_DB_POOL_TIMEOUT_S` (120 s, bounded by each activity's deadline) instead of failing
+after the API's 10 s and being retried from their start, and its start logs
+`worker.activities_outnumber_connections`. The API keeps its 10 s: a person waits on a request.
 
 **4. Concurrent creations on one project failed with HTTP 500 (found here, fixed since, #2284).**
 `internal_work_item_key` read `max(n) + 1` over the project's keys and the unique constraint
