@@ -44,7 +44,7 @@ async def check_agent_grants(session: AsyncSession, org_id: str, spec: AgentSpec
     was written — one grant with `anyOf` says it."""
     for index, server in enumerate(spec.mcp_servers):
         grants = [tool for tool in server.tools if isinstance(tool, AgentToolGrant)]
-        if not grants:
+        if not grants or server.connector is None:  # a profile entry binds no connector's operation here
             continue
         operations = await _operations(session, org_id, server.connector)
         taken: dict[str, str] = {}

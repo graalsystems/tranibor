@@ -89,6 +89,7 @@ from .tickets import (
     totals_from,
     tracker_is_internal,
     work_item_dto,
+    work_item_dtos,
 )
 
 
@@ -162,6 +163,7 @@ __all__ = [
     "totals_from",
     "tracker_is_internal",
     "work_item_dto",
+    "work_item_dtos",
     "work_item_workflow",
     "workflow_model",
     "workflow_yaml",

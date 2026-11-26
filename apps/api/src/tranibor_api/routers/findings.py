@@ -15,7 +15,7 @@ from ..db.models import Finding, Project, WorkItem
 from ..deps import Db, Me, Pagination, ProjectCtx, resolve_project
 from ..errors import forbidden, not_found
 from ..keyset import keyset_page
-from ..knowledge.marked import readable
+from ..knowledge.marked import readable, readable_ids
 from ..rbac import Permission
 from ..schemas import FindingAction, FindingDto, FindingPage
 from ..services import persist_event
@@ -77,7 +77,8 @@ async def _hidden_origins(session: Db, ctx: Any) -> list[str]:
     if not marked:
         return []
     items = (await session.execute(select(WorkItem).where(WorkItem.id.in_(marked)))).scalars().all()
-    return [item.id for item in items if not await readable(session, ctx.principal, item, ctx.project.org_id)]
+    seen = await readable_ids(session, ctx.principal, items, ctx.project.org_id)
+    return [item.id for item in items if item.id not in seen]
 
 
 @router.get("/projects/{id}/findings", response_model=FindingPage, operation_id="listFindings")
@@ -102,19 +103,14 @@ async def list_findings(
             or_(Finding.origin_work_item_id.is_(None), Finding.origin_work_item_id.not_in(hidden))
         )
     window, meta = await keyset_page(session, query, sort=Finding.created_at, tiebreak=Finding.id, page=page)
-    # The title a workflow gives a type: one workflow load per version, not one per finding (ADR 0217).
-    origins = {
-        item.id: item
-        for item in (
-            await session.execute(
-                select(WorkItem).where(
-                    WorkItem.id.in_({r.origin_work_item_id for r in window if r.origin_work_item_id})
-                )
-            )
-        )
-        .scalars()
-        .all()
+    # The work items the page names, its findings' origins and the ones they created, in one query: `_dto`
+    # then finds them in the session, not one query per finding (#2285). The title a workflow gives a
+    # type: one workflow load per version, not one per finding (ADR 0217).
+    named = {r.origin_work_item_id for r in window if r.origin_work_item_id} | {
+        r.created_work_item_id for r in window if r.created_work_item_id
     }
+    loaded = (await session.execute(select(WorkItem).where(WorkItem.id.in_(named)))).scalars().all()
+    origins = {item.id: item for item in loaded}
     titles = await titles_for(session, origins, _pairs(list(window)))
     return FindingPage(items=[await _dto(session, row, ctx.slug, titles) for row in window], meta=meta)
 

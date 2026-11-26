@@ -189,9 +189,17 @@
     "implements": {
       "type": "array",
       "uniqueItems": true,
+      "description": "the profiles this server implements: `tracker` (the core's, plugin-tracker-profile.schema.json) or a profile a plugin declares, `<plugin>/<name>@<version>` (plugin-profile.schema.json, ADR 0224); the plugin that declares it is among the implementing plugin's `requires.plugins`, and the server declares every tool of the profile with the same access and a governance never weaker",
       "items": {
-        "enum": [
-          "tracker"
+        "anyOf": [
+          {
+            "const": "tracker"
+          },
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}/[a-z][a-z0-9-]{0,31}@[1-9][0-9]{0,8}$",
+            "description": "`<plugin>/<profile name>@<profile version>`"
+          }
         ]
       }
     },
