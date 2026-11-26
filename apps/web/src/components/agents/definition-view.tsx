@@ -260,10 +260,14 @@ export function AgentMcpServers({ servers, agent }: { servers: NonNullable<Agent
   return (
     <ul>
       {servers.map((s) => (
-        <li key={s.connector}>
-          <Link href={orgConnectorHref(s.connector)} className="font-mono underline">
-            {s.connector}
-          </Link>
+        <li key={s.connector ?? s.profile}>
+          {s.connector === undefined ? (
+            <span className="font-mono">{s.profile}</span>
+          ) : (
+            <Link href={orgConnectorHref(s.connector)} className="font-mono underline">
+              {s.connector}
+            </Link>
+          )}
           <span className="text-ink-muted"> {"—"} {toolsLabel(s.tools)}</span>
         </li>
       ))}
