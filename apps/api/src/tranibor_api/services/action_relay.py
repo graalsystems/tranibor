@@ -25,6 +25,7 @@ from tranibor_core.temporal_connection import organisation_scope
 from ..db.models import Action
 from ..db.session import ALL_ORGS, session_scope
 from ..logging import get_logger
+from .work_item_relay import start_unstarted_work_items
 
 logger = get_logger("choregos.actions.relay")
 
@@ -88,4 +89,12 @@ async def relay_loop(interval_s: float | None = None) -> None:
             raise
         except Exception as error:
             logger.warning("action.relay.pass_failed", error=str(error)[:200])
+        try:
+            # The same outbox for the new work items' interpreters (#2291): their start follows the
+            # commit, and a start the commit's callback lost is made again here.
+            await start_unstarted_work_items()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            logger.warning("work_item.relay.pass_failed", error=str(error)[:200])
         await asyncio.sleep(interval_s)
