@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import ChoregosEvent, EventType
+from tranibor_contracts import ChoregosEvent, EventType, wire
 from tranibor_core import (
     utcnow,
 )
@@ -31,7 +31,9 @@ async def persist_event(
     row = Event(
         project_id=project_id,
         work_item_id=work_item_id,
-        type=str(type_),
+        # A type written under the former `choregos.` prefix (an extension of the previous release) is stored
+        # under its new name (ADR 0226, R9c).
+        type=wire.event_type(type_),
         subject=subject,
         payload=payload,
         ts=utcnow(),
@@ -39,7 +41,7 @@ async def persist_event(
     session.add(row)
     # `source` may come from the caller ("github", "jira"): it is the CloudEvents source,
     # not data, and the former `emit()` took it the same way.
-    source = str(payload.get("source") or "/choregos/api")
+    source = str(payload.get("source") or "/tranibor/api")
     data = {k: v for k, v in payload.items() if k != "source"}
     # The ids travel with the event, so that the bus files it under its project and its work item: the
     # console's live pages listen to those (S59-08), whatever slug or subject the caller gave.

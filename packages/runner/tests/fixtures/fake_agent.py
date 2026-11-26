@@ -3,7 +3,7 @@
 
 It serves the conformance suite and the runner's tests: it answers `initialize`,
 opens a session, asks for permissions, writes files, and produces a
-`.choregos/result.json`. Its scenario is given by `FAKE_AGENT_SCRIPT` (JSON).
+`.tranibor/result.json`. Its scenario is given by `FAKE_AGENT_SCRIPT` (JSON).
 """
 
 from __future__ import annotations
@@ -575,7 +575,8 @@ def _write_result(plan: dict[str, Any], workspace: Path) -> None:
     # replaces `{grep}` in the result summary.
     found = _grep(plan, workspace)
     if "result" in plan:
-        result_path = workspace / ".choregos" / "result.json"
+        # `result_dir`: an agent on an older SDK writes it under the former `.choregos/` (ADR 0226, R9a).
+        result_path = workspace / plan.get("result_dir", ".tranibor") / "result.json"
         result_path.parent.mkdir(parents=True, exist_ok=True)
         content = _decorate(plan["result"], seen, found)
         result_path.write_text(

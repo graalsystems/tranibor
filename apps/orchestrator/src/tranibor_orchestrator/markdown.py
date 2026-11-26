@@ -11,7 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-STATUS_MARKER = "<!-- choregos:status -->"
+from tranibor_contracts import wire
+
+#: `<!-- tranibor:status -->`; the trackers find a comment written under the former `choregos:` too.
+STATUS_MARKER = wire.marker("status")
+#: The human request's comment, `<!-- tranibor:human -->` (formerly `<!-- choregos:human -->`).
+HUMAN_MARKER = wire.marker("human")
 TABLE_HEADER = "| # | Step | Actor | Backend · model | Tokens in / out (cached) | Cost | Duration | Result |"
 
 
@@ -151,13 +156,13 @@ def render_human_request(kind: str, payload: dict[str, object], public_url: str,
     """Comment posted when the platform asks for a human decision.
 
     It points to the INTERFACE, the only path that settles a request. It used to invite a reply
-    with `/choregos approve`: those comments are parsed but the workflow translates them into
+    with `/tranibor approve`: those comments are parsed but the workflow translates them into
     nothing (#138), so the human replied and the ticket stayed blocked with no sign.
     """
     if kind == "question":
         options = payload.get("options") or []
         lines = [
-            "<!-- choregos:human -->",
+            HUMAN_MARKER,
             "### Tranibor — question",
             str(payload.get("question", "")),
         ]
@@ -172,7 +177,7 @@ def render_human_request(kind: str, payload: dict[str, object], public_url: str,
         paths = payload.get("paths") or []
         return "\n".join(
             [
-                "<!-- choregos:human -->",
+                HUMAN_MARKER,
                 "### Tranibor — wider scope requested",
                 f"Reason: {payload.get('justification', '')}",
                 "",
@@ -184,7 +189,7 @@ def render_human_request(kind: str, payload: dict[str, object], public_url: str,
         )
     return "\n".join(
         [
-            "<!-- choregos:human -->",
+            HUMAN_MARKER,
             "### Tranibor — approval requested",
             str(payload.get("summary", "A person's decision is needed to continue.")),
             "",

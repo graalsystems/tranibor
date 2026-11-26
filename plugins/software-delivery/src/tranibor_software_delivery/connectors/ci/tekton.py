@@ -8,6 +8,7 @@ from typing import Any
 
 from tranibor_adapters.executor.tekton import CORE_API, TEKTON_API, KubernetesClient
 from tranibor_contracts import InboundEvent
+from tranibor_contracts.wire import label_keys, read_label
 from tranibor_core.domain import CheckRun, CiStatus
 
 from ...names import DeliveryEvent
@@ -18,6 +19,12 @@ CLOUD_EVENT_MAP = {
     "dev.tekton.event.pipelinerun.failed.v1": DeliveryEvent.CI_FAILED,
     "dev.tekton.event.pipelinerun.unknown.v1": DeliveryEvent.CI_STARTED,
 }
+
+
+def _identity(run: dict[str, Any]) -> str:
+    """A PipelineRun's identity, for a run both selectors return (it carries both label families)."""
+    metadata = run.get("metadata") or {}
+    return str(metadata.get("uid") or metadata.get("name") or "")
 
 
 class TektonCi:
@@ -33,12 +40,17 @@ class TektonCi:
         self.pipeline = pipeline
 
     async def status_for(self, repo: str, sha: str) -> CiStatus:
-        payload = await self.client.request(
-            "GET",
-            f"{TEKTON_API}/namespaces/{self.namespace}/pipelineruns",
-            params={"labelSelector": f"choregos/sha={sha}"},
-        )
-        runs = (payload or {}).get("items", [])
+        # A pipeline labels its runs `tranibor/sha=<commit>`, or, written before ADR 0226, `choregos/sha`:
+        # a selector names one key, so both are asked.
+        runs: list[dict[str, Any]] = []
+        for key in label_keys("sha", domain=False):
+            payload = await self.client.request(
+                "GET",
+                f"{TEKTON_API}/namespaces/{self.namespace}/pipelineruns",
+                params={"labelSelector": f"{key}={sha}"},
+            )
+            seen = {_identity(r) for r in runs}
+            runs += [r for r in (payload or {}).get("items", []) if _identity(r) not in seen]
         if not runs:
             return CiStatus(state="unknown", sha=sha)
         checks: list[CheckRun] = []
@@ -105,12 +117,12 @@ class TektonCi:
                 type=CLOUD_EVENT_MAP.get(ce_type, DeliveryEvent.CI_STARTED),
                 source="tekton",
                 delivery_id=headers.get("ce-id", headers.get("Ce-Id", "")),
-                project_slug=labels.get("choregos/project"),
-                work_item_key=labels.get("choregos/work-item"),
+                project_slug=read_label(labels, "project", domain=False),
+                work_item_key=read_label(labels, "work-item", domain=False),
                 payload={
                     "pipeline_run": (run.get("metadata") or {}).get("name"),
-                    "sha": labels.get("choregos/sha"),
-                    "run_id": labels.get("choregos/run-id"),
+                    "sha": read_label(labels, "sha", domain=False),
+                    "run_id": read_label(labels, "run-id", domain=False),
                 },
             )
         ]

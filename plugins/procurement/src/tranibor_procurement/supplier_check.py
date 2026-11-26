@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """`supplier-check`: the measured facts of a supplier's onboarding file (ADR 0202).
 
-Reads `.choregos/inputs/supplier_file.json` (the shape of `schemas/supplier_file.schema.json`) and the
-fields `legal_name`, `registration_number` and `country` of `.choregos/fields.json`. The kinds a file
+Reads `.tranibor/inputs/supplier_file.json` (the shape of `schemas/supplier_file.schema.json`) and the
+fields `legal_name`, `registration_number` and `country` of `.tranibor/fields.json`. The kinds a file
 must hold are arguments the workflow writes: no kind is required by default. No bank detail is read:
 only the identity and the dated documents, and a document's `identifier` is never copied out.
 """

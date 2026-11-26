@@ -74,7 +74,7 @@ diff: `no_secrets` in all three, the size limit of the implementation in `dev-si
 record's sections and its `accepted` status in `study`. A commit that lands on the branch before the
 merge is read by them; a refusal goes where a red CI goes (the CI fixer, or the architect for a
 study), then to a person. The scope is read there over the whole change (`scope_respected` with
-`over: work_item`): no file under a path the policy forbids (`.choregos/`, `.github/workflows/`,
+`over: work_item`): no file under a path the policy forbids (`.tranibor/` and its former name `.choregos/`, `.github/workflows/`,
 `deploy/`) is merged, whichever step or person wrote it, and a study merges nothing outside
 `docs/adr/`. A work item's allowed paths are still checked on what each agent step wrote, not at the
 merge: forbid in the policy, or close on GitHub (rulesets, code owners), the other paths that must
@@ -83,11 +83,11 @@ stay closed. A project born from an earlier version keeps it until the file is p
 
 ## Before the first work item
 
-1. **Install the Choregos GitHub App** on the repository, and give the project its `tracker`
+1. **Install the Tranibor GitHub App** on the repository, and give the project its `tracker`
    (`github-issues`) and `scm` (`github`) connectors. Checks are read from the pull request: GitHub
    Actions needs no `ci` connector.
 2. **Branch protection** on the default branch: required status checks, **no required review** —
-   the platform merges, and the humans decide in Choregos. Set the `scm` connector's
+   the platform merges, and the humans decide in Tranibor. Set the `scm` connector's
    `merge_queue` to match the repository (`true` for a merge queue, `false` for a direct merge).
 3. **A `cd` connector** for the release train: Argo CD in real life; the `demo` type on a
    demonstration tenant.
@@ -108,7 +108,7 @@ stay closed. A project born from an earlier version keeps it until the file is p
 
 The policy (`policy.yaml`) sets the budgets (10 / 30 / 80 / 160 USD per work item by size, 150 USD per
 day), the trains (staging every 15 minutes on weekdays, production every half hour in working
-hours), and never touches `.choregos/`, `.github/workflows/` or `deploy/`.
+hours), and never touches `.tranibor/` (nor `.choregos/`), `.github/workflows/` or `deploy/`.
 
 ## Known limits
 

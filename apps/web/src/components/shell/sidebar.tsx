@@ -13,7 +13,7 @@ import { useSession } from "@/lib/session";
 import { NavigationList } from "./navigation";
 
 /** A fold made in THIS tab: `storage` only warns the others. */
-const LOCAL_EVENT = "choregos:sidebar";
+const LOCAL_EVENT = "tranibor:sidebar";
 
 function abonner(rappel: () => void): () => void {
   const surStockage = (event: StorageEvent) => {
@@ -34,7 +34,7 @@ function barreAffichee(): Barre {
   return document.documentElement.dataset.sidebar === "rail" ? "rail" : "full";
 }
 
-/** The bar, full or folded, and what toggles it; the choice is kept (`choregos.sidebar`). */
+/** The bar, full or folded, and what toggles it; the choice is kept (`tranibor.sidebar`). */
 export function useBarre(): [Barre, () => void] {
   const barre = useSyncExternalStore(abonner, barreAffichee, (): Barre => "full");
   const basculer = useCallback(() => {

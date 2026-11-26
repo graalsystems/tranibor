@@ -632,7 +632,7 @@
           "type": "integer"
         },
         "warm_pool": {
-          "default": "choregos-runner",
+          "default": "tranibor-runner",
           "type": "string"
         }
       },

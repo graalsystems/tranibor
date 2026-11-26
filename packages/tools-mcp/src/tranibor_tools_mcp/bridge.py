@@ -5,9 +5,10 @@ The model calls a platform tool through `POST /mcp`. A script the agent wrote ca
 through three routes of the same server, on the same loopback port, holding no credential:
 
 - `GET /bridge/v1/tools` hands back the run's tool list as `getRunTools` answers it, whole
-  (`inputSchema`, `outputSchema`, `x-choregos-access`): the generated client (S57-08) is built from it;
+  (`inputSchema`, `outputSchema`, `x-tranibor-access`): the generated client (S57-08) is built from it;
 - `POST /bridge/v1/tools/{name}`, the arguments as the body, relays to `callRunTool` with the run
-  token, `X-Choregos-Tool-Origin: script` and the script's `X-Choregos-Script` when it sends one, and
+  token, `X-Tranibor-Tool-Origin: script` and the script's `X-Tranibor-Script` when it sends one (the
+  former `X-Choregos-*` names are read too, ADR 0226), and
   hands back the API's answer unchanged: the same status, the same bytes, a problem included;
 - `POST /bridge/v1/scripts` takes a script's text once (`{"sha256", "text"}`) and journals it.
 
@@ -34,6 +35,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from tranibor_contracts import ToolScripts
+from tranibor_contracts.wire import read_header
 from tranibor_core.redaction import REDACTED
 
 from .client import SCRIPT_HEADER, InternalClient, Relayed
@@ -314,7 +316,7 @@ def mount(app: FastAPI, source: BridgeSource) -> None:
         bridge = await offered()
         if isinstance(bridge, Response):
             return bridge
-        script = request.headers.get(SCRIPT_HEADER)
+        script = read_header(request.headers, "Script") or None
         if script is not None and _SHA256.fullmatch(script) is None:
             return problem(
                 400,

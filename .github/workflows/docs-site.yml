@@ -2,7 +2,10 @@ name: Documentation site
 
 # The public documentation (`docs/site/`) is built with Docusaurus (`website/`) and published on GitHub
 # Pages of this repository: https://graalsystems.github.io/tranibor/ (ADR 0185). A pull request that
-# touches the pages or the site builds it, to prove it; a push to main and a release publish it.
+# touches the pages or the site builds it, to prove it; a push to main and the daily run publish it.
+# Not a release (ADR 0185, amended 2026-11-25): the `github-pages` environment deploys from `main`
+# only, a release the release workflow publishes starts no workflow, and the next push to main would
+# overwrite a tag's build anyway.
 # The connector pages (`connectors/`, ADR 0215) are generated at build time from the setup procedures:
 # the platform's, and the plugins' of graalsystems/tranibor-agents at its main. A daily run publishes a
 # plugin's new or changed procedure without waiting for a release of the core.
@@ -23,8 +26,6 @@ on:
       - "packages/core/src/tranibor_core/procedures/**"
       - "tools/procedures/**"
       - ".github/workflows/docs-site.yml"
-  release:
-    types: [published]
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
@@ -63,12 +64,12 @@ jobs:
         run: npm test
       - name: Copy docs/site, rewriting the links that leave it to GitHub
         env:
-          REF: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+          REF: ${{ github.sha }}
         run: node scripts/import-docs.mjs --source .. --ref "$REF"
       # After the import, which empties website/docs/ first: the generated pages land beside the
       # hand-written connectors/index.md, never in docs/site/.
       # A pull request of this repository fails on a plugin procedure this parser refuses; a publish
-      # (main, release, the daily run) leaves that plugin out with a warning, so one plugin never stops
+      # (main, the daily run) leaves that plugin out with a warning, so one plugin never stops
       # the platform's pages from being published (ADR 0215).
       - name: Write a page per setup procedure, the platform's and the plugins'
         env:

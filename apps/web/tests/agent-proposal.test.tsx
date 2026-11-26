@@ -11,7 +11,7 @@ const analysis = run({
   started_at: "2026-11-02T09:29:00Z",
   agent_slug: "fon-access-analyst",
   result: {
-    schema: "choregos/StageResult/v1",
+    schema: "tranibor/StageResult/v1",
     status: "done",
     summary: "analysed",
     outputs: {

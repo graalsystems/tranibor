@@ -13,7 +13,7 @@ Two gaps, said plainly on 2026-11-25:
    verified against a real Azure subscription, alone: no installation of the platform on Azure, and
    nothing on EKS, GKE, AKS or OpenShift. Whether it works there is not known.
 
-Checked against `main` at `d5e2dc9`. This page changes no code. ADR: **0226**, to write in wave 0
+Checked against `main` at `d5e2dc9`. This page changes no code. ADR: **0227**, to write in wave 0
 (story S87-01). When this page and the code disagree, the code wins and the page is a bug.
 
 Status words: **exists** (in the code), **missing**, **unknown** (only a run on the real system can
@@ -40,7 +40,7 @@ say).
 ### The clusters
 
 What the chart and the code assume about a cluster, and where each assumption was run. Paths are under
-`charts/choregos/` unless they start elsewhere.
+`charts/tranibor/` unless they start elsewhere.
 
 | What | Where | Today | Run on |
 |:--|:--|:--|:--|
@@ -91,7 +91,7 @@ runtime, and the operator on a managed cluster.
 | D1 | Tekton: isolate, or retire it as an agent executor | **Isolate** with an inline Task (no copy in the namespaces), because Chains' provenance is the reason to choose Tekton; route to `k8s_job` meanwhile (S87-02) | project lead |
 | D2 | ACA: isolate, or keep it for `dev`/`test` only | **Isolate if the live spike is green**; otherwise ACA is documented as unfit for production and staging and prod refuse it even with the opt-out | project lead, after S87-07 |
 | D3 | Which managed clouds the platform claims | **GKE, EKS and AKS first, one European provider (Scaleway Kapsule or OVHcloud MKS) second, OpenShift third**. Nothing is called supported before its proof is green | project lead |
-| D4 | What "supported" means | A provider is **supported** when its install proof ran green in the last 30 days, **tested** when it ran green once, **unknown** otherwise; the documentation reads the record, never prose | ADR 0226 |
+| D4 | What "supported" means | A provider is **supported** when its install proof ran green in the last 30 days, **tested** when it ran green once, **unknown** otherwise; the documentation reads the record, never prose | ADR 0227 |
 | D5 | Cloud accounts and budget | One account per provider, a spending cap, credentials in the CI's secret store, every cluster destroyed at the end of its run | project lead (action) |
 
 ---
@@ -101,7 +101,7 @@ runtime, and the operator on a managed cluster.
 | Story | Wave | Size | Title | Depends on |
 |:--|:-:|:-:|:--|:--|
 | S87-00 | 0 | S | This plan, the backlog and the status rows | — |
-| S87-01 | 0 | S | ADR 0226: a cloud is claimed only by its proof; Tekton and ACA isolate or are refused | — |
+| S87-01 | 0 | S | ADR 0227: a cloud is claimed only by its proof; Tekton and ACA isolate or are refused | — |
 | S87-02 | 1 | S | A deployment on `tekton` routes an agent step to `k8s_job` | — |
 | S87-03 | 1 | M | A cluster preflight: what the chart needs, asked of the cluster | — |
 | S87-04 | 1 | S | The support matrix is a record, and the docs read it | S87-01 |
@@ -142,7 +142,7 @@ cluster lacks, instead of finding it in a hung pod.
   the backlog, no S87 story the page lacks, and every dependency before its story; red with one
   backlog entry removed.
 
-### S87-01 · docs(adr): 0226, a cloud is claimed only by its proof; Tekton and ACA isolate or are refused
+### S87-01 · docs(adr): 0227, a cloud is claimed only by its proof; Tekton and ACA isolate or are refused
 
 - Records D1 to D4 as the project lead answers them. Amends ADR 0222 §5 (Tekton and ACA "are not
   isolated here") into a time-boxed path: isolated by S87-06 and S87-08, or refused.
@@ -254,7 +254,7 @@ cluster lacks, instead of finding it in a hung pod.
 
 ### S87-10 · feat(charts): provider profiles
 
-- `charts/choregos/values/{gke,eks,aks}.yaml`, then the European provider and OpenShift: only what
+- `charts/tranibor/values/{gke,eks,aks}.yaml`, then the European provider and OpenShift: only what
   differs per provider (RuntimeClass, StorageClass, ingress, object store endpoint, the image
   registry's pull secret), each commented with the provider setting it relies on.
 - What each provider offers, from its documentation (to be confirmed by S87-11 to S87-13): GKE

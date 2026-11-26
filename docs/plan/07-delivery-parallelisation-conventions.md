@@ -15,7 +15,7 @@ Week 1 (S0) produces `packages/contracts` (schemas, OpenAPI, generated types) an
 | **S4 Gateway & costs** | LiteLLM deployment (chart, config), `GatewayAdapter` (mint/spend/revoke), `cost_ledger`, aggregates, estimation, `GET /costs`, Claude Code compatibility matrix (headers) | Exact cost per run visible in the database and through the API | S0 | 4.1–4.3 |
 | **S5 Front end** | `apps/web`: all pages against the mock API (Prism) then the real one; workflow editor; SSE | Wizard → board → run → trains → findings → memory usable | S0 (OpenAPI) | 3.4 |
 | **S6 API** | `apps/api`: REST, OIDC auth, RLS, webhooks (normalisation → Temporal), internal, SSE, audit | Postman/Schemathesis 100% of OpenAPI; signed GitHub/Tekton/Argo webhooks | S0 | 1.8, 3.5 |
-| **S7 K8s platform** | `charts/choregos`, `choregos-infra` (bootstrap, platform, projects ApplicationSet, Kyverno policies), dev/staging/prod environments, backups, observability, egress proxy | `argocd app sync` deploys the complete platform in staging from Git | S0 | 6 |
+| **S7 K8s platform** | `charts/tranibor`, `choregos-infra` (bootstrap, platform, projects ApplicationSet, Kyverno policies), dev/staging/prod environments, backups, observability, egress proxy | `argocd app sync` deploys the complete platform in staging from Git | S0 | 6 |
 | **S8 Templates & provisioning** | `templates/github-tekton-argo-k8s` (manifest, Tekton CI, Argo apps, scaffold), `ProjectProvisioning` activities, template tests | A project created from the wizard gets its scaffolding PR and its namespaces through Argo | S1, S3, S7 | 3.2–3.3 |
 | **S9 Release train & GitOps** | `ReleaseTrain`, Argo `CdAdapter`, GitOps layout, Rollouts + `AnalysisTemplate`, smoke Jobs, Atlantis, Trains page (with S5) | Two merges → one batch; broken canary → rollback + freeze | S1, S3, S7 | 5.1–5.3 |
 | **S10 Findings & memory (Choregos side)** | `FindingsTriage`, Ecphoria + pgvector `MemoryAdapter`, `MemoryIngestion`, `build_context_pack`, memory MCP, Findings/Memory page (with S5) | Deduplicated finding → linked ticket; context pack injected and traced | S1, S2, S11 (E-05/E-06) | 4.4, 5.4 |
@@ -81,7 +81,7 @@ Agentic delivery platform (Varga Foundation, Apache 2.0). Full plan: `docs/plan/
 - Everything: `make ci` (lint + typecheck + unit tests) · `make dev-up` / `make dev-down` (kind + Tilt) · `make e2e`
 - Python (uv) : `uv run ruff check . && uv run ruff format --check . && uv run mypy packages apps && uv run pytest -q`
 - Web : `pnpm -C apps/web lint && pnpm -C apps/web typecheck && pnpm -C apps/web test && pnpm -C apps/web build`
-- Charts : `helm lint charts/choregos && helm template charts/choregos | kubeconform -strict`
+- Charts : `helm lint charts/tranibor && helm template charts/tranibor | kubeconform -strict`
 - Contracts: `make contracts` (regenerates the types; commit the result)
 
 ## Conventions

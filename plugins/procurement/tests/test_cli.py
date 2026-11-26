@@ -19,7 +19,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 
 def _job(root: Path) -> dict[str, object]:
-    doc: dict[str, object] = json.loads((root / ".choregos" / "job.json").read_text(encoding="utf-8"))
+    doc: dict[str, object] = json.loads((root / ".tranibor" / "job.json").read_text(encoding="utf-8"))
     return doc
 
 
@@ -78,7 +78,7 @@ def test_a_job_whose_files_are_all_unreadable_still_exits_zero_and_says_so(
 
 def test_the_field_number_format_reaches_the_extraction(hand: Callable[..., Path]) -> None:
     root = hand("brightfield-offer.docx")
-    (root / ".choregos" / "fields.json").write_text(json.dumps({"number_format": "decimal_point"}))
+    (root / ".tranibor" / "fields.json").write_text(json.dumps({"number_format": "decimal_point"}))
     assert main(["extract"]) == 0
     files = _job(root)["outputs"]["offers_text"]["files"]  # type: ignore[index]
     assert files[0]["notation"] == "decimal_point" and "11 500,00 EUR" in files[0]["text"]
@@ -88,10 +88,10 @@ def test_an_unknown_number_format_field_breaks_the_contract(
     hand: Callable[..., Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = hand("alderbrook-lines.csv")
-    (root / ".choregos" / "fields.json").write_text(json.dumps({"number_format": "european"}))
+    (root / ".tranibor" / "fields.json").write_text(json.dumps({"number_format": "european"}))
     assert main(["extract"]) == 2
     assert "number_format" in capsys.readouterr().err
-    assert not (root / ".choregos" / "job.json").exists()
+    assert not (root / ".tranibor" / "job.json").exists()
 
 
 def test_no_inputs_directory_breaks_the_contract(
@@ -100,7 +100,7 @@ def test_no_inputs_directory_breaks_the_contract(
     monkeypatch.setenv("TRANIBOR_WORKSPACE", str(tmp_path))
     assert main(["extract"]) == 2
     assert "no inputs directory" in capsys.readouterr().err
-    assert not (tmp_path / ".choregos" / "job.json").exists()
+    assert not (tmp_path / ".tranibor" / "job.json").exists()
 
 
 def test_an_output_past_the_inline_bound_breaks_the_contract_and_writes_nothing(
@@ -110,7 +110,7 @@ def test_an_output_past_the_inline_bound_breaks_the_contract_and_writes_nothing(
     monkeypatch.setattr(job, "MAX_INLINE_BYTES", 200)
     assert main(["extract"]) == 2
     assert "inline output" in capsys.readouterr().err
-    assert not (root / ".choregos" / "job.json").exists()
+    assert not (root / ".tranibor" / "job.json").exists()
 
 
 def test_the_options_reach_the_extraction(hand: Callable[..., Path]) -> None:

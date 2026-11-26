@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-answer.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-answer.schema.json",
   "title": "OutpostAnswer",
   "description": "What a daemon reports of a call it took to its server, before it seals it to the call's `answer_key` (ADR 0148 §5). An answer says the call passed the outpost's own checks; a call that did not is a refusal (`outpost-refusal.schema.json`), never an answer.",
   "type": "object",

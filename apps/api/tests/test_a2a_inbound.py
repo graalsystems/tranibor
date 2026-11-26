@@ -171,7 +171,9 @@ async def test_a_resent_message_is_the_same_task(client: AsyncClient, project: d
     other = await _send(client, token, message_id="m-43")
     assert first["id"] == again["id"] != other["id"]
     assert first["status"]["state"] == "working"
-    assert first["metadata"]["choregos"]["project"] == "northwind:billing-api"
+    assert first["metadata"]["tranibor"]["project"] == "northwind:billing-api"
+    # Until 0.32.0 the block is written under the former key too, the same values (ADR 0226, R9c).
+    assert first["metadata"]["choregos"] == first["metadata"]["tranibor"]
     async with session_scope() as session:
         items = list((await session.execute(select(WorkItem))).scalars())
         calls = list((await session.execute(select(AuditLog).where(AuditLog.action == "a2a.call"))).scalars())

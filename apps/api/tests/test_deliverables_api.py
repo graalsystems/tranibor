@@ -61,7 +61,7 @@ def _put(
         f"/api/v1/internal/runs/{run_id}/outputs/deck",
         params={"type": type_},
         content=data,
-        headers={**headers, "X-Choregos-Digest": digest, "Content-Type": "application/octet-stream"},
+        headers={**headers, "X-Tranibor-Digest": digest, "Content-Type": "application/octet-stream"},
     )
 
 

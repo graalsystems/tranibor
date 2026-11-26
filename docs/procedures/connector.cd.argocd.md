@@ -16,7 +16,7 @@ For the person who operates the platform. Procedure `connector.cd.argocd`, versi
 
 1. Create a local account or use a project role for the platform, and generate an **API token** for it
    (`argocd account generate-token --account <name>`). Give it read access to the applications only.
-2. Send application health events to `<api_url>/api/v1/webhooks/argocd` with the header `X-Choregos-Secret` set to
+2. Send application health events to `<api_url>/api/v1/webhooks/argocd` with the header `X-Tranibor-Secret` set to
    the shared secret (an Argo CD Notifications webhook service does this).
 3. Name applications by one pattern. The connector looks for `{app}-{env}` (for example `billing-prod`)
    unless `app_pattern` says otherwise.

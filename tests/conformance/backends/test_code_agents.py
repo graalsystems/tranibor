@@ -9,15 +9,18 @@ observable is a deliverable the SDK writes through the guard.
 | --- | --- |
 | initialize | `initialize` answers with the agent's info |
 | mcp | `session/new` accepts the run's MCP servers |
-| prompt_trivial | one prompt turn ends and leaves a deliverable in `.choregos/outputs/` |
+| prompt_trivial | one prompt turn ends and leaves a deliverable in the run directory's `outputs/` |
 | permission_denied | in a second session where every write is refused, the deliverable is not written |
-| result_valid | `.choregos/result.json` is valid after the turn, accepted and refused alike |
+| result_valid | the run directory's `result.json` is valid after the turn, accepted and refused alike |
 | max_turns | the agent's first turn made no more calls (tool and model calls) than `max_turns` |
 | cost_at_gateway | the run's key is in the agent's environment; the gateway saw no other key |
 
 The agents under test come from `TRANIBOR_CONFORMANCE_CODE_AGENTS`, JSON `{name: argv}` or
 `{name: {"image": ref, "command": argv}}` (the agent then runs in that image, through `docker run -i`);
 without it, the plain example runs. `make conformance-agent IMAGE=<ref>` sets it for one image.
+
+The run directory is `.tranibor/`, or its former name `.choregos/` for an agent built on an SDK before
+0.30.0 (ADR 0226, R9a): the checks look under both.
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ from typing import Any
 
 import pytest
 from tranibor_contracts import StageInput
+from tranibor_runner import run_dir
 from tranibor_runner.acp import AcpClient, AgentUnreachableError
 from tranibor_runner.acp.guard import TurnGuard
 from tranibor_runner.backends import get_backend
@@ -173,6 +177,10 @@ def code_stage_input(command: list[str], gateway_url: str, workspace: Path) -> S
     )
 
 
+def _delivered(folders: list[Path]) -> bool:
+    return any(folder.is_dir() and any(folder.iterdir()) for folder in folders)
+
+
 async def run_code_suite(
     name: str, spec: Any, gateway: FakeGateway, workspace: Path, launcher: Launcher | None = None
 ) -> ConformanceResult:
@@ -190,8 +198,8 @@ async def run_code_suite(
         command = plan.command
     else:
         command = container_command(image, plan.command, workspace, env) if image else plan.command
-    outputs = workspace / ".choregos" / "outputs"
-    result_path = workspace / ".choregos" / "result.json"
+    # The run directory under both names (ADR 0226, R9a): an agent on an older SDK writes the former.
+    folders = [workspace / directory / "outputs" for directory in run_dir.DIRECTORIES]
     deny_writes = False
     decisions: list[tuple[str, bool]] = []
 
@@ -222,14 +230,14 @@ async def run_code_suite(
             asked_before = len(gateway.seen)
             first = await client.prompt(stage_input.work_item.title, timeout=90)
             reached = len(gateway.seen) - asked_before
-            delivered = outputs.is_dir() and any(outputs.iterdir())
+            delivered = _delivered(folders)
             verdict(
                 "prompt_trivial",
                 first.stop_reason == "end_turn" and delivered,
                 f"stop reason {first.stop_reason!r}, deliverable {'present' if delivered else 'missing'}: "
                 f"{client.stderr_tail[-3:]}",
             )
-            first_result = load_result(result_path)
+            first_result = load_result(run_dir.found(workspace, "result.json"))
             calls = guard.turns
             # What the runner heard of, and what the gateway actually served: a model client the SDK
             # does not count shows only in the second.
@@ -244,16 +252,17 @@ async def run_code_suite(
             guard.max_turns = None
             # Same agent, a fresh session (the agent's own turn count starts again), every write now refused.
             await client.new_session(str(workspace), plan.mcp_servers)
-            shutil.rmtree(outputs, ignore_errors=True)
+            for folder in folders:
+                shutil.rmtree(folder, ignore_errors=True)
             deny_writes = True
             await client.prompt(stage_input.work_item.title, timeout=90)
             refused = any(kind == "edit" and not allowed for kind, allowed in decisions)
             verdict(
                 "permission_denied",
-                refused and not (outputs.is_dir() and any(outputs.iterdir())),
+                refused and not _delivered(folders),
                 "the refused write happened anyway, or none was asked",
             )
-            second_result = load_result(result_path)
+            second_result = load_result(run_dir.found(workspace, "result.json"))
 
             verdict(
                 "result_valid",

@@ -50,7 +50,10 @@ def test_the_engine_needs_nothing_but_the_standard_library() -> None:
 
 def test_the_distribution_declares_the_command() -> None:
     data = tomllib.loads((PLUGIN / "pyproject.toml").read_text(encoding="utf-8"))
-    assert data["project"]["scripts"]["choregos-quant"] == "tranibor_investment_research.quant.cli:main"
+    scripts = data["project"]["scripts"]
+    assert scripts["tranibor-quant"] == "tranibor_investment_research.quant.cli:main"
+    # The former name, which the locked template's job steps still run, until 0.32.0 (ADR 0226, R9c).
+    assert scripts["choregos-quant"] == scripts["tranibor-quant"]
     assert (QUANT / "schemas" / "strategies.schema.json").is_file(), (
         "the strategies' schema ships in the package"
     )
@@ -61,7 +64,8 @@ def test_the_job_image_is_the_runner_plus_the_command() -> None:
     assert "ARG RUNNER_IMAGE\n" in text, "no default runner: the release passes its own, by digest"
     assert "FROM ${RUNNER_IMAGE}\n" in text
     assert "--no-deps" in text and "/app/.venv/bin/python" in text
-    assert "choregos-quant --help" in text and "/usr/local/bin/choregos-quant" in text
+    assert "for command in tranibor-quant choregos-quant; do" in text, "both names linked and started"
+    assert '"/usr/local/bin/${command}"' in text and '"${command}" --help' in text
     assert text.rstrip().endswith("USER 1000"), "a job runs as the runner does, uid 1000"
 
 
@@ -100,4 +104,5 @@ def test_ci_builds_it_from_the_runner_it_just_built() -> None:
         s for s in workflow["jobs"]["images"]["steps"] if "investment-research job image" in s.get("name", "")
     ]
     assert step["if"] == "matrix.image == 'runner'"
-    assert "plugins/investment-research/Dockerfile" in step["run"] and "choregos-quant" in step["run"]
+    assert "plugins/investment-research/Dockerfile" in step["run"]
+    assert "for command in tranibor-quant choregos-quant" in step["run"], "both names start in the image"

@@ -153,7 +153,10 @@ def ns() -> Iterator[str]:
     name = f"choregos-hosted-{secrets.token_hex(3)}"
     kubectl_shared("create", "namespace", name)
     try:
-        kubectl_shared("create", "serviceaccount", "choregos-runner", "-n", name)
+        # Both runner accounts, as provisioning creates them since R9b of ADR 0226: a test that renders
+        # the Job itself (`executor._job`) names the new one, the executor falls back on the former.
+        for account in ("tranibor-runner", "choregos-runner"):
+            kubectl_shared("create", "serviceaccount", account, "-n", name)
         yield name
     finally:
         kubectl_shared("delete", "namespace", name, "--wait=false", "--ignore-not-found", check=False)

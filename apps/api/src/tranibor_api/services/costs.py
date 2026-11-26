@@ -149,7 +149,7 @@ async def record_cost(  # noqa: PLR0913 — one ledger line, field by field, as 
         session,
         ChoregosEvent.emit(
             EventType.COST_RECORDED,
-            source="/choregos/api",
+            source="/tranibor/api",
             subject=run_id,
             cost_usd=cost_usd,
             model=model,

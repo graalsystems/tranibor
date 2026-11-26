@@ -113,8 +113,10 @@ FAKE_NETOPS: dict[str, Any] = {}
 FAUX_METIER: dict[str, Any] = {}  # lang: fr-ok (not renamed by S45-10: the business fakes keep their name)
 
 #: The entry-point group the platform reads at startup. A package installed alongside (the
-#: enterprise edition, an in-house connector) declares itself there and registers itself.
-EXTENSION_GROUP = "choregos.plugins"
+#: enterprise edition, an in-house connector) declares itself there and registers itself. Until 0.32.0
+#: the former group `choregos.plugins` is read too (ADR 0226, R9c): a plugin installed from outside the
+#: repository may still register there; one that registers under both is loaded once.
+EXTENSION_GROUP = "tranibor.plugins"
 
 
 def load_extensions(group: str = EXTENSION_GROUP) -> list[str]:
@@ -131,13 +133,13 @@ def load_extensions(group: str = EXTENSION_GROUP) -> list[str]:
     and as the refusal of an unresolved setting: someone installed it so that it would serve, and
     a silently absent extension leaves a platform that looks complete and is not.
     """
-    from importlib import metadata
+    from tranibor_contracts import wire
 
     from .registry import extensions_loaded
 
     extensions_loaded()
     loaded: list[str] = []
-    for point in metadata.entry_points(group=group):
+    for point in wire.entry_points(group):
         try:
             point.load()()
         except Exception as error:

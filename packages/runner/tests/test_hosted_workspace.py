@@ -106,13 +106,13 @@ async def test_what_the_container_writes_is_committed_and_pushed(
 async def test_the_container_gets_no_git_and_none_of_the_runners_files(
     stage_input: StageInput, settings: Any, shared: Path
 ) -> None:
-    script = [("read", ".git/config"), ("read", ".choregos/task.md")]
+    script = [("read", ".git/config"), ("read", ".tranibor/task.md")]
     _, client, agent = await _go(_working(stage_input, "read"), script, settings, shared)
 
     assert agent.seen[0] is None, "no `.git`: the history and the remote stay the runner's"
     assert agent.seen[1] and "Corriger le total" in agent.seen[1], "the task is there to read"
     assert not (shared / ".git").exists()
-    assert not (shared / ".choregos" / "transcript.jsonl").exists()
+    assert not (shared / ".tranibor" / "transcript.jsonl").exists()
     files = [path for path in shared.rglob("*") if path.is_file()]
     assert files and all(b"tok" not in path.read_bytes() for path in files), "no run token"
     assert _events(client, "hosted.workspace") == [{"mode": "read", "files": len(files)}]
@@ -148,8 +148,11 @@ async def test_under_none_there_is_no_tree_and_nothing_is_pushed(
         (("symlink", "tests/leak", "/proc/self/environ"), "tests/leak", "absolute path"),
         (("symlink", "tests/up", "../.."), "tests/up", "out of the repository"),
         (("write", "tests/.git/config", "[core]\n"), "tests/.git", "`.git` path"),
-        (("write", ".choregos/result.json", "{}"), ".choregos/result.json", "only the files of"),
+        (("write", ".tranibor/result.json", "{}"), ".tranibor/result.json", "only the files of"),
+        (("write", ".tranibor/task.md", "do else"), ".tranibor/task.md", "only the files of"),
+        # The run directory's former name (ADR 0226, R9a): the runner's too.
         (("write", ".choregos/task.md", "do else"), ".choregos/task.md", "only the files of"),
+        (("write", ".choregos/result.json", "{}"), ".choregos/result.json", "only the files of"),
         (("fifo", "tests/fifo"), "tests/fifo", "not a regular file"),
     ],
 )
@@ -263,6 +266,17 @@ async def test_what_the_repository_ignores_is_neither_refused_nor_brought_back(
 async def test_a_deliverable_comes_back_from_the_outputs(
     stage_input: StageInput, settings: Any, shared: Path
 ) -> None:
+    script = [("write", ".tranibor/outputs/report.md", "# Report\n")]
+    _, client, _ = await _go(_working(stage_input, "write"), script, settings, shared)
+
+    assert _events(client, "hosted.workspace.imported")[0]["written"] == [".tranibor/outputs/report.md"]
+    assert (settings.workspace / ".tranibor" / "outputs" / "report.md").read_text() == "# Report\n"
+
+
+async def test_a_deliverable_comes_back_from_the_former_outputs_too(
+    stage_input: StageInput, settings: Any, shared: Path
+) -> None:
+    """A container whose agent knows only the former run directory (ADR 0226, R9a)."""
     script = [("write", ".choregos/outputs/report.md", "# Report\n")]
     _, client, _ = await _go(_working(stage_input, "write"), script, settings, shared)
 

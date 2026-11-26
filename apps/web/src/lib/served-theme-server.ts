@@ -5,15 +5,16 @@
  * slow, the console. Any failure gives the default look.
  *
  * The theme is the instance's, or, when the person remembered an organisation (the cookie
- * `choregos_org`, S42-13), that organisation's: `GET /api/v1/theme?org=<slug>`, a public route, so the
+ * `tranibor_org`, formerly `choregos_org`, S42-13), that organisation's: `GET /api/v1/theme?org=<slug>`, a public route, so the
  * cookie only selects a look and never widens what anyone can read or do.
  *
  * On a host an organisation owns (ADR 0175) the host decides: the visitor's host is forwarded to the API
  * (`X-Forwarded-Host`), which serves that organisation's theme whatever the cookie says and names the
- * organisation (`X-Choregos-Host-Org`); a tenant host's memo entry is keyed by the host alone.
+ * organisation (`X-Tranibor-Host-Org`, or the former `X-Choregos-Host-Org` from an API before ADR 0226); a
+ * tenant host's memo entry is keyed by the host alone.
  */
 import { cookies, headers } from "next/headers";
-import { ORG_COOKIE, validOrgSlug } from "./remembered-org";
+import { FORMER_ORG_COOKIE, ORG_COOKIE, validOrgSlug } from "./remembered-org";
 import { DEFAULT_SERVED_THEME, sanitizeTheme, type ServedTheme } from "./served-theme";
 import { validHost } from "./tenant-host";
 
@@ -64,7 +65,8 @@ async function visitorHost(): Promise<string | null> {
 }
 
 export async function servedLook(): Promise<ServedLook> {
-  const org = validOrgSlug((await cookies()).get(ORG_COOKIE)?.value);
+  const jar = await cookies();
+  const org = validOrgSlug(jar.get(ORG_COOKIE)?.value ?? jar.get(FORMER_ORG_COOKIE)?.value);
   if (process.env.NEXT_PUBLIC_API_MODE === "mock") return { theme: await mockTheme(org), hostOrg: null };
   const host = await visitorHost();
   const now = Date.now();
@@ -83,7 +85,7 @@ export async function servedLook(): Promise<ServedLook> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const theme = response.ok ? sanitizeTheme(await response.json()) : DEFAULT_SERVED_THEME;
-    const hostOrg = response.ok ? validOrgSlug(response.headers.get("x-choregos-host-org")) : null;
+    const hostOrg = response.ok ? validOrgSlug(response.headers.get("x-tranibor-host-org") ?? response.headers.get("x-choregos-host-org")) : null;
     // A failure is memoised too: a down API must not cost 1.5 s on every page.
     remember(hostOrg && tenantKey ? tenantKey : key, now, { theme, hostOrg });
     return { theme, hostOrg };

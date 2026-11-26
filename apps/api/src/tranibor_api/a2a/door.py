@@ -42,6 +42,7 @@ from tranibor_contracts import (
     A2aConfig,
     Control,
     type_of_filename,
+    wire,
 )
 from tranibor_core.mcp import (
     INTERNAL_ERROR,
@@ -143,10 +144,12 @@ TERMINAL = frozenset({"completed", "failed", "canceled"})
 _STREAMS: Counter[str] = Counter()
 #: The stream's clock for its lifetime; a test moves it instead of waiting an hour.
 _clock = time.monotonic
-#: Derives a task id from (org, client, messageId): a resent message finds its work item.
-TASK_NAMESPACE = uuid5(NAMESPACE_URL, "https://choregos.dev/a2a/task")
+#: Derives a task id from (org, client, messageId): a resent message finds its work item. An input to a
+#: hash, not a name (ADR 0226 §4): its value never changes, or every task id would.
+A2A_TASK_ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://choregos.dev/a2a/task")
 #: The card's extension that says which fields a skill takes: A2A's `AgentSkill` has no place for it.
-SKILL_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+#: Announced under its new URI and, for the window of ADR 0226, under the former one a client may key on.
+SKILL_FIELDS_EXTENSION = wire.A2A_SKILL_FIELDS_EXTENSION
 _ARTIFACT_NAME = re.compile(ARTIFACT_NAME_PATTERN)
 
 
@@ -376,13 +379,17 @@ def _extensions(served: list[Skill]) -> dict[str, Any]:
     fields = {s.id: s.fields for s in served if s.fields is not None and "application/json" in s.input_modes}
     if not fields:
         return {}
-    extension = {
-        "uri": SKILL_FIELDS_EXTENSION,
-        "description": "params.skills maps a skill id to the JSON Schema of its data part.",
-        "required": False,
-        "params": {"skills": fields},
+    return {
+        "extensions": [
+            {
+                "uri": uri,
+                "description": "params.skills maps a skill id to the JSON Schema of its data part.",
+                "required": False,
+                "params": {"skills": fields},
+            }
+            for uri in wire.A2A_SKILL_FIELDS_EXTENSIONS
+        ]
     }
-    return {"extensions": [extension]}
 
 
 # ───────────────────────── routes ─────────────────────────
@@ -529,8 +536,8 @@ async def _audit(door: Door, method: str, outcome: str) -> None:
 
 
 def _pick_skill(served: list[Skill], metadata: dict[str, Any]) -> Skill:
-    nested = metadata.get("choregos")
-    wanted = metadata.get("skill") or (nested.get("skill") if isinstance(nested, dict) else None)
+    # The platform's block under `metadata.tranibor`, or the former `metadata.choregos` (ADR 0226, R9c).
+    wanted = metadata.get("skill") or wire.read_a2a_metadata(metadata).get("skill")
     if wanted is None:
         if len(served) == 1:
             return served[0]
@@ -641,7 +648,7 @@ def _read_parts(parts: Any, skill: Skill, spelling: Spelling) -> tuple[str, dict
 
 def task_id_of(org_id: str, client: str, message_id: str) -> str:
     """The work item a message opens, the same however many times it is sent (ADR 0008)."""
-    return str(uuid5(TASK_NAMESPACE, f"{org_id}|{client}|{message_id}"))
+    return str(uuid5(A2A_TASK_ID_NAMESPACE, f"{org_id}|{client}|{message_id}"))
 
 
 async def _send(door: Door, params: dict[str, Any]) -> dict[str, Any]:
@@ -838,15 +845,16 @@ async def task_of(door: Door, item: WorkItem, project: Project) -> dict[str, Any
         "contextId": item.id,
         "status": {"state": state, "message": _status_message(item, state, parts)},
         "artifacts": artifacts,
-        "metadata": {
-            "choregos": {
+        # Under both keys until 0.32.0: a client of the previous release reads `metadata.choregos` (R9c).
+        "metadata": wire.a2a_metadata(
+            {
                 "work_item": item.id,
                 "key": item.tracker_key,
                 "project": f"{door.org.slug}:{project.slug}",
                 "state": item.state,
                 "console_url": link,
             }
-        },
+        ),
     }
 
 
@@ -895,7 +903,7 @@ async def _artifacts(door: Door, item: WorkItem, link: str) -> list[dict[str, An
                 "artifactId": f"{row.name}@{row.version}",
                 "name": row.name,
                 "parts": [part or {"kind": "data", "data": description}],
-                "metadata": {"choregos": description},
+                "metadata": wire.a2a_metadata(description),
             }
         )
     return served
@@ -996,7 +1004,7 @@ def _mark(task: dict[str, Any]) -> tuple[str, str, Any]:
     """What makes a new status worth sending: the A2A state, the workflow's state, the request."""
     data = [p.get("data") for p in task["status"]["message"]["parts"] if p.get("kind") == "data"]
     request = data[0].get("request_id") if data and isinstance(data[0], dict) else None
-    return task["status"]["state"], task["metadata"]["choregos"]["state"], request
+    return task["status"]["state"], wire.read_a2a_metadata(task["metadata"])["state"], request
 
 
 async def _follow(

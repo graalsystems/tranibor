@@ -21,16 +21,17 @@ sidebar_position: 5
 
 ## Upgrade
 
-The same command as the install, with the new version:
+The same command as the install, with the new version (and the release name and namespace you installed
+with: they are your deployment's, and an upgrade never changes them):
 
 ```shell
-helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.5 --namespace choregos -f my-values.yaml
+helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
+  --version 0.29.5 --namespace tranibor -f my-values.yaml
 ```
 
 - The database migrations run as a Helm hook **before** the new API starts
   (`python -m tranibor_api.migrate`, in a Job that waits for the database up to 300 seconds). With an
-  embedded database the hook runs after the install instead: keep `choregos-api.migrations.hook` as
+  embedded database the hook runs after the install instead: keep `tranibor-api.migrations.hook` as
   the chart sets it.
 - Work items in flight finish on the workflow version they started on; Temporal keeps their position
   across the restart of the workers.
@@ -39,12 +40,12 @@ helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
 ## Check it
 
 ```shell
-kubectl -n choregos get pods
-kubectl -n choregos get jobs -l app.kubernetes.io/instance=choregos
-curl -s https://choregos.example.com/api/v1/edition
+kubectl -n tranibor get pods
+kubectl -n tranibor get jobs -l app.kubernetes.io/instance=tranibor
+curl -s https://tranibor.example.com/api/v1/edition
 ```
 
-**What you should see:** every pod `Running` on the new images, the job `choregos-migrations-<revision>`
+**What you should see:** every pod `Running` on the new images, the job `tranibor-migrations-<revision>`
 completed, and the edition answer's `version` naming the new version.
 
 ## When it goes wrong
@@ -57,6 +58,24 @@ completed, and the edition answer's `version` naming the new version.
 
 Upgrading Temporal itself has its own
 [runbook](../../runbooks/temporal-upgrade.md).
+
+## Upgrading to 0.30
+
+0.30 gives the platform's remaining names their `tranibor` form: the chart and its objects, the commands,
+the wire names, and what the chart, the code and provisioning share (the runners' service account and warm
+pool, the egress proxy, the pods' labels, the variables, the mount paths, the admission policies, the
+metrics). Each former name keeps working until 0.32, and the
+[deployment reference](../../deployment.md#upgrading-to-0300-the-names-the-chart-and-the-code-share-take-the-name-tranibor-adr-0226-r9b)
+lists them with what to do. In short, within 0.30.x and 0.31.x:
+
+1. **Provision every project again** (any change of its policy or connectors does it): its namespace gets
+   the new runners' account, the new proxy name and the new binding.
+2. **Apply the admission policies of `infra/policies`**, then delete the former ones if you applied them by
+   hand (an Argo CD application that prunes does it itself).
+3. **Move your dashboards, recording rules and alerts to the `tranibor_*` series**: the former ones are
+   served until 0.32 with the same samples.
+4. **Make your own selectors admit either value of the pods' names**, then set
+   `global.labelValues: tranibor`.
 
 ## Upgrading to 0.26
 

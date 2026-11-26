@@ -163,18 +163,28 @@ async def bridged(make_bridged: Callable[..., Awaitable[Bridged]]) -> AsyncItera
         yield http, api, journal
 
 
+async def test_a_script_of_the_former_client_is_still_read(bridged: Bridged) -> None:
+    """A client generated before ADR 0226 sends `X-Choregos-Script`: the bridge reads it."""
+    http, api, _ = bridged
+    response = await http.post(f"/bridge/v1/tools/{TOOL}", json={}, headers={"X-Choregos-Script": DIGEST})
+    assert response.status_code == 200
+    [sent] = api.requests
+    assert sent.headers["x-tranibor-script"] == DIGEST
+
+
 async def test_a_call_is_relayed_with_the_run_token_the_origin_and_the_script(bridged: Bridged) -> None:
     http, api, journal = bridged
     arguments = b'{"interface": "wan",  "limit": 5}'
     response = await http.post(
-        f"/bridge/v1/tools/{TOOL}", content=arguments, headers={"X-Choregos-Script": DIGEST}
+        f"/bridge/v1/tools/{TOOL}", content=arguments, headers={"X-Tranibor-Script": DIGEST}
     )
 
     [sent] = api.requests
     assert (sent.method, sent.url.path) == ("POST", f"/api/v1/internal/runs/{RUN}/tools/{TOOL}")
     assert sent.headers["authorization"] == f"Bearer {TOKEN}", "the runner's run token, not the agent's"
-    assert sent.headers["x-choregos-tool-origin"] == "script"
-    assert sent.headers["x-choregos-script"] == DIGEST
+    # The new names (ADR 0226), and the former ones beside them for an API of the previous release.
+    assert sent.headers["x-tranibor-tool-origin"] == sent.headers["x-choregos-tool-origin"] == "script"
+    assert sent.headers["x-tranibor-script"] == sent.headers["x-choregos-script"] == DIGEST
     assert sent.content == arguments, "the arguments as the script sent them"
     assert response.status_code == 200
     assert response.content == ANSWER, "the API's answer, byte for byte: status_code, remaining, suspicions"

@@ -1,4 +1,4 @@
-"""Binary deliverables (S31-05, ADR 0049): what an agent writes in `.choregos/outputs/` is stored
+"""Binary deliverables (S31-05, ADR 0049): what an agent writes in `.tranibor/outputs/` is stored
 as a typed artifact with its digest; a declared file that is absent fails the step."""
 
 from __future__ import annotations
@@ -68,8 +68,8 @@ async def test_a_fake_agents_pptx_is_stored_with_its_digest_and_media_type(
         [
             {
                 "writes": [
-                    _write(".choregos/outputs/deck.pptx", DECK),
-                    _write(".choregos/outputs/chart.png", chart),
+                    _write(".tranibor/outputs/deck.pptx", DECK),
+                    _write(".tranibor/outputs/chart.png", chart),
                 ],
                 # The agent cannot vouch for its own files: what it writes here is replaced.
                 "result": valid_result("deck ready", artifacts={"files": {"fake": CLAIMED}}),
@@ -93,15 +93,15 @@ async def test_a_fake_agents_pptx_is_stored_with_its_digest_and_media_type(
     assert result.artifacts.files["chart.png"].media_type == "image/png"
     assert set(result.artifacts.files) == {"deck", "chart.png"}
     tracked = subprocess.run(
-        ["git", "ls-files", ".choregos"],
+        ["git", "ls-files", ".tranibor"],
         cwd=runner_settings.workspace,
         capture_output=True,
         text=True,
         check=True,
     )
     assert "outputs" not in tracked.stdout, "a deliverable is an artifact, never a commit"
-    task = (runner_settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
-    assert "`.choregos/outputs/deck.pptx` (pptx)" in task
+    task = (runner_settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
+    assert "`.tranibor/outputs/deck.pptx` (pptx)" in task
 
 
 async def test_a_declared_xlsx_that_is_absent_fails_the_step(
@@ -111,7 +111,7 @@ async def test_a_declared_xlsx_that_is_absent_fails_the_step(
     outcome, client = await _execute(
         stage_input,
         runner_settings,
-        [{"writes": [_write(".choregos/outputs/deck.pptx", DECK)], "result": valid_result("deck ready")}],
+        [{"writes": [_write(".tranibor/outputs/deck.pptx", DECK)], "result": valid_result("deck ready")}],
     )
     assert outcome.exit_code is Exit.INVALID_RESULT
     result = client.results[0]
@@ -129,7 +129,7 @@ async def test_a_declared_file_the_platform_could_not_store_fails_the_step(
     outcome, client = await _execute(
         stage_input,
         runner_settings,
-        [{"writes": [_write(".choregos/outputs/deck.pptx", DECK)], "result": valid_result("deck ready")}],
+        [{"writes": [_write(".tranibor/outputs/deck.pptx", DECK)], "result": valid_result("deck ready")}],
         refuse={"deck"},
     )
     assert outcome.exit_code is Exit.OK
@@ -141,7 +141,7 @@ async def test_a_declared_file_the_platform_could_not_store_fails_the_step(
 async def test_a_symbolic_link_in_the_outputs_is_not_stored(
     stage_input: StageInput, runner_settings: Any
 ) -> None:
-    outputs = runner_settings.workspace / ".choregos" / "outputs"
+    outputs = runner_settings.workspace / ".tranibor" / "outputs"
     outputs.mkdir(parents=True)
     (outputs / "secrets.txt").symlink_to("/etc/hostname")
     outcome, client = await _execute(stage_input, runner_settings, [{"result": valid_result()}])

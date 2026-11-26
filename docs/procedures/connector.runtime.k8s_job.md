@@ -12,7 +12,7 @@ For the person who operates the platform. Procedure `connector.runtime.k8s_job`,
 
 ## At the cluster
 
-Set the values of `choregos-orchestrator.runner` (see the deployment guide, "Running agent stages"):
+Set the values of `tranibor-orchestrator.runner` (see the deployment guide, "Running agent stages"):
 `executor`, `namespacePattern` (for example `proj-{slug}-runners`), `maxActive`, `limits`, and
 `envFromSecrets` for credentials mounted by reference into each agent pod.
 

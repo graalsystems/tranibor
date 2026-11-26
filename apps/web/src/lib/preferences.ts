@@ -14,8 +14,10 @@
  * `data-sidebar="rail"` on <html>, set before the paint, never rendered by React.
  */
 
-/** The key, modelled on `choregos.org` (lib/session.tsx). */
-export const THEME_KEY = "choregos.theme";
+import { MIGRATION_SCRIPT, storedName } from "./stored-names";
+
+/** The key, modelled on `tranibor.org` (lib/session.tsx); `choregos.theme` before 0.30.0 (`stored-names.ts`). */
+export const THEME_KEY = storedName("theme");
 
 export type Theme = "dark" | "light";
 export type PreferenceDeTheme = Theme | "system";
@@ -51,16 +53,17 @@ export function themeResolu(
 }
 
 /** The sidebar's key: "rail" folds it; any other value, or none, leaves it full. */
-export const SIDEBAR_KEY = "choregos.sidebar";
+export const SIDEBAR_KEY = storedName("sidebar");
 
 export type Barre = "full" | "rail";
 
 /**
  * The head script: the SAME rule as `themeResolu` and `readSidebar`, written to run alone, without
  * a module, before React. A refused storage (strict private browsing) gives the defaults, without an
- * error. `tests/preferences.test.tsx` runs it for every stored value and compares it to both.
+ * error. `tests/preferences.test.tsx` runs it for every stored value and compares it to both. It first moves the
+ * keys a browser kept under the former names (`MIGRATION_SCRIPT`, ADR 0226), so it reads the new ones only.
  */
-export const SCRIPT_DES_PREFERENCES = `(function(){var d=document.documentElement;var f=d.dataset.defaultTheme==="light"?"light":"dark";try{var p=localStorage.getItem(${JSON.stringify(
+export const SCRIPT_DES_PREFERENCES = `${MIGRATION_SCRIPT}(function(){var d=document.documentElement;var f=d.dataset.defaultTheme==="light"?"light":"dark";try{var p=localStorage.getItem(${JSON.stringify(
   THEME_KEY,
 )});var t=p==="light"||p==="dark"?p:p==="system"?window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"light":"dark":f;d.dataset.theme=t;if(localStorage.getItem(${JSON.stringify(
   SIDEBAR_KEY,

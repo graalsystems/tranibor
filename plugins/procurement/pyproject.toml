@@ -10,7 +10,7 @@ dependencies = [
   "openpyxl==3.1.5",
 ]
 
-# The command a job step runs (ADR 0056). No `choregos.plugins` entry point, on purpose: the plugin
+# The command a job step runs (ADR 0056). No `tranibor.plugins` entry point, on purpose: the plugin
 # registers nothing, and the API and the workers never import this distribution (ADR 0202 point 1).
 [project.scripts]
 tranibor-procurement = "tranibor_procurement.cli:main"

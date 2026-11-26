@@ -351,7 +351,7 @@ def test_a_gvisor_policy_on_a_pool_with_the_cluster_default_is_to_do(
     assert item.state == "todo" and item.fix.by == "platform_operator"
     for wanted in (
         "sandbox.runtime: gvisor",
-        "choregos-runner",
+        "tranibor-runner",  # the warm pool, renamed in 0.30.0 (ADR 0226, R9b)
         "the cluster default",
         "runner.runtimeClass",
     ):

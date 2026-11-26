@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos outposts` against the real management routes (S65-17a), in process.
+"""`tranibor outposts` against the real management routes (S65-17a), in process.
 
 Each command runs through the CLI's own Typer app and its own client, the one that turns an API
 refusal into a red line and exit code 1; only the socket is replaced, by the test's ASGI application.
@@ -50,7 +50,7 @@ class _Wire:
 
 
 async def cli(http: AsyncClient, *words: str) -> Result:
-    """Run `choregos outposts <words>` for the organisation of the fixtures."""
+    """Run `tranibor outposts <words>` for the organisation of the fixtures."""
     from tranibor_cli import main
 
     loop = asyncio.get_running_loop()
@@ -119,7 +119,7 @@ async def test_the_switch_and_the_missing_key_are_said_in_the_apis_words(
     no_key = await cli(token_holder, "token", SLUG)
     assert no_key.exit_code == 1
     assert "409 — the outposts' door has no signing key on this deployment" in said(no_key)
-    assert "choregos-outpost enrol" not in no_key.output
+    assert "outpost enrol" not in no_key.output
     shown = await cli(token_holder, "show", SLUG)
     assert shown.exit_code == 0 and "No key to pin" in shown.output and "door_keys:" not in shown.output
 
@@ -178,9 +178,9 @@ async def test_the_token_command_prints_what_the_operator_pastes(
     )
     assert policy.door_keys == door.keys
 
-    (command,) = [line for line in lines if line.startswith("choregos-outpost ")]
+    (command,) = [line for line in lines if line.startswith("tranibor-outpost ")]
     words = command.split()
-    assert words[:3] == ["choregos-outpost", "enrol", "--token"] and len(words) == 4
+    assert words[:3] == ["tranibor-outpost", "enrol", "--token"] and len(words) == 4
     token = words[3]
     assert token in lines, "the token is also on a line of its own"
     # The command is one the daemon's own command line takes. Its options are read from its declaration:
@@ -223,7 +223,7 @@ async def test_instances_are_listed_and_a_token_cannot_approve(
     """Enrolment needs a person twice (ADR 0147 §4): the CLI holds a token, and says what the API said."""
     await kit.create(client, SLUG)
     none = await cli(token_holder, "instances", SLUG)
-    assert none.exit_code == 0 and f"choregos outposts token {SLUG}" in none.output
+    assert none.exit_code == 0 and f"tranibor outposts token {SLUG}" in none.output
 
     instance = await kit.enrolled_instance(client, SLUG, facts={"hostname": "outpost-0"})
     fingerprint = await kit.fingerprint_of_instance(client, SLUG, instance)
@@ -396,7 +396,7 @@ async def test_calls_shows_states_and_refusal_codes_and_no_payload(
     assert [row[0] for row in rows(refused)] == ["create_issue"]
     first = await cli(token_holder, "calls", SLUG, "--limit", "2")
     assert [row[0] for row in rows(first)] == ["(tool listing)", "create_issue"]
-    more = re.search(rf"choregos outposts calls {SLUG} --cursor (\S+)", first.output)
+    more = re.search(rf"tranibor outposts calls {SLUG} --cursor (\S+)", first.output)
     assert more, first.output
     second = await cli(token_holder, "calls", SLUG, "--limit", "2", "--cursor", more.group(1))
     assert [row[0] for row in rows(second)] == ["search_issues"] and "--cursor" not in second.output
@@ -415,7 +415,7 @@ async def test_tokens_are_listed_cancelled_and_said_against_the_real_routes(
     enrolment = re.search(r"enrolment token (\S+) for", issued.output)
     assert enrolment, issued.output
     token_id = enrolment.group(1)
-    assert f"choregos outposts cancel-token {SLUG} {token_id}" in said(issued)
+    assert f"tranibor outposts cancel-token {SLUG} {token_id}" in said(issued)
     listed = await cli(token_holder, "tokens", SLUG)
     assert listed.exit_code == 0 and token_id in listed.output, listed.output
 

@@ -578,7 +578,7 @@ def _register_runtimes() -> None:
     from tranibor_core.egress_gate import gate_from_env
 
     from .executor.aca import AcaExecutor, AzureArmClient
-    from .executor.agent_sandbox import DEFAULT_TTL_SECONDS, AgentSandboxExecutor
+    from .executor.agent_sandbox import DEFAULT_TTL_SECONDS, AgentSandboxExecutor, warm_pool_of
     from .executor.k8s_job import KubernetesJobExecutor
     from .executor.local_docker import LocalDockerExecutor
     from .executor.tekton import KubernetesClient, TektonExecutor
@@ -612,9 +612,7 @@ def _register_runtimes() -> None:
     register("runtime", "agent_sandbox", _SHIPPED_SPECS[("runtime", "agent_sandbox")])(
         lambda cfg: AgentSandboxExecutor(
             KubernetesClient(**cfg.get("kubernetes", {})),
-            warm_pool=cfg.get(
-                "warm_pool", os.environ.get("TRANIBOR_SANDBOX_WARM_POOL", "") or "choregos-runner"
-            ),
+            warm_pool=warm_pool_of(cfg.get("warm_pool"), os.environ.get("TRANIBOR_SANDBOX_WARM_POOL", "")),
             assignment_port=int(
                 cfg.get("assignment_port", os.environ.get("TRANIBOR_SANDBOX_ASSIGNMENT_PORT", "") or 8765)
             ),

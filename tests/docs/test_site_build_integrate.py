@@ -10,7 +10,8 @@ reads the pages as they are and compares them with the code:
 - relative links resolve inside `docs/site`, anchors included; links to the repository name files and
   headings that exist; site-absolute links name a slug of the contract;
 - the pages are safe for MDX (Docusaurus 3): no bare `<` or `{` outside code;
-- every `choregos` command parses against the CLI's own Typer app (options, arguments);
+- every `tranibor` command parses against the CLI's own Typer app (options, arguments); since ADR 0226
+  R8 a page writes the command's name only, and a `choregos …` line is a command this test does not know;
 - every YAML block is claimed by a check: a workflow parses without error or warning, a policy
   validates, Helm values name keys of the chart, the plugin of the plugins page validates;
 - the workflow reference names every key of the workflow schema and lists exactly the known gates;
@@ -74,7 +75,7 @@ LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
 LANGUAGES = {"bash", "shell", "powershell", "json", "yaml", "python", "markdown", "text", "mermaid"}
 #: Commands a page may announce before the CLI has them, each with the story that brings it. The page
 #: must mark them with an "Available from" note.
-UPCOMING = {"choregos self update": "S62-08, the CLI served by the instance"}
+UPCOMING = {"tranibor self update": "S62-08, the CLI served by the instance"}
 
 
 def _rel(page: Path) -> str:
@@ -236,9 +237,9 @@ def _cli() -> Any:
 
 
 def _cli_problem(words: list[str]) -> str | None:
-    """None when `choregos <words>` is a command the CLI parses, else why not."""
+    """None when `tranibor <words>` is a command the CLI parses, else why not."""
     command = _cli()
-    path = ["choregos"]
+    path = ["tranibor"]
     rest = list(words[1:])
     while getattr(command, "commands", None) is not None:
         if not rest or rest[0] not in command.commands:
@@ -299,8 +300,8 @@ def test_every_command_exists(page: str, command: str) -> None:
     for words in parts:
         if not words:
             continue
-        if words[0] == "choregos":
-            name = " ".join(w for w in words[:3] if not w.startswith("-"))
+        if words[0] == "tranibor":  # the pages write the command's name only (ADR 0226 R8)
+            name = " ".join(["tranibor", *(w for w in words[1:3] if not w.startswith("-"))])
             problem = _cli_problem(words)
             if problem and name in UPCOMING:
                 text = (SITE / page).read_text(encoding="utf-8")
@@ -313,11 +314,11 @@ def test_every_command_exists(page: str, command: str) -> None:
 
 def test_the_command_check_refuses_what_the_cli_does_not_have() -> None:
     """The guard itself: an unknown subcommand, an unknown option, a missing argument."""
-    assert _cli_problem(["choregos", "machines", "launch"])
-    assert _cli_problem(["choregos", "a2a", "send", "x", "--colour", "red"])
-    assert _cli_problem(["choregos", "machines", "create", "acme:billing-api"])
-    assert _cli_problem(["choregos", "a2a", "send", "--text", "x"])  # the skill argument is required
-    assert _cli_problem(["choregos", "a2a", "send", "billing-api/ship-a-change", "--text", "x"]) is None
+    assert _cli_problem(["tranibor", "machines", "launch"])
+    assert _cli_problem(["tranibor", "a2a", "send", "x", "--colour", "red"])
+    assert _cli_problem(["tranibor", "machines", "create", "acme:billing-api"])
+    assert _cli_problem(["tranibor", "a2a", "send", "--text", "x"])  # the skill argument is required
+    assert _cli_problem(["tranibor", "a2a", "send", "billing-api/ship-a-change", "--text", "x"]) is None
 
 
 # ───────────────────────── YAML and JSON ─────────────────────────
@@ -331,11 +332,13 @@ def _values_paths(document: Any, prefix: tuple[str, ...] = ()) -> list[tuple[str
 
 @cache
 def _chart_values() -> dict[str, Any]:
-    values = yaml.safe_load((ROOT / "charts/choregos/values.yaml").read_text(encoding="utf-8"))
-    for chart in (ROOT / "charts/choregos/charts").iterdir():
+    values = yaml.safe_load((ROOT / "charts/tranibor/values.yaml").read_text(encoding="utf-8"))
+    for chart in (ROOT / "charts/tranibor/charts").iterdir():
         own = yaml.safe_load((chart / "values.yaml").read_text(encoding="utf-8")) or {}
-        merged = values.setdefault(f"choregos-{chart.name}", {}) or {}
-        values[f"choregos-{chart.name}"] = {**own, **merged}
+        # A deployment sets a component under `tranibor-<component>` (ADR 0226 R6); the pages write that
+        # key only (R8), so the former `choregos-<component>` is not a key of the chart here.
+        merged = values.setdefault(f"tranibor-{chart.name}", {}) or {}
+        values[f"tranibor-{chart.name}"] = {**own, **merged}
     return dict(values)
 
 
@@ -370,7 +373,7 @@ def test_every_yaml_block_is_checked(page: str, info: str, block: str) -> None:
     elif kind in {"Plugin", "Assistant", "conversation"} or {"catalogue", "agent"} <= set(document):
         assert page in PLUGIN_PAGES, f"{page}: a plugin file outside the pages that are validated as a plugin"
         assert "title=" in info, f'{page}: a plugin file must say its path (title="plugin/file.yaml")'
-    elif set(document) & {"global", "choregos-api", "choregos-web"}:
+    elif set(document) & {"global", "tranibor-api", "tranibor-web"}:
         missing = [".".join(p) for p in _values_paths(document) if not _in_chart(p)]
         assert not missing, f"{page}: keys the chart does not have: {missing}"
     elif {"metadata", "a2a"} <= set(document):
@@ -382,7 +385,8 @@ def test_every_yaml_block_is_checked(page: str, info: str, block: str) -> None:
 def test_the_values_check_refuses_a_key_the_chart_does_not_have() -> None:
     assert _in_chart(("global", "oidc", "issuer"))
     assert _in_chart(("global", "mcp", "oauth", "clients", "claude-code", "clientId"))
-    assert _in_chart(("choregos-api", "ingress", "hostnames"))
+    assert _in_chart(("tranibor-api", "ingress", "hostnames"))
+    assert not _in_chart(("choregos-api", "ingress", "hostnames"))
     assert not _in_chart(("global", "oidc", "issuerUrl"))
     assert not _in_chart(("global", "databse", "host"))
 

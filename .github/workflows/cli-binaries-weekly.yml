@@ -1,4 +1,4 @@
-# Every week on main: the five native `choregos` CLI binaries (S62-07, ADR 0151) built and
+# Every week on main: the five native `tranibor` CLI binaries (S62-07, ADR 0151) built and
 # smoke-tested on the runners `release.yml` builds them on, with the steps of its `cli-binaries` job
 # minus the signatures and minus anything published (no release, no cosign, no secret). The pull
 # request CI builds the Linux x86_64 binary only (`ci.yml`, job `cli-binary`): without this, a change
@@ -32,11 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: choregos-linux-x86_64, runner: ubuntu-24.04, build: --manylinux, smoke: --container debian:bookworm-slim }
-          - { name: choregos-linux-arm64, runner: ubuntu-24.04-arm, build: --manylinux, smoke: --container debian:bookworm-slim }
-          - { name: choregos-macos-arm64, runner: macos-15, build: "", smoke: "" }
-          - { name: choregos-macos-x86_64, runner: macos-15-intel, build: "", smoke: "" }
-          - { name: choregos-windows-x86_64.exe, runner: windows-2022, build: "", smoke: "" }
+          - { name: tranibor-linux-x86_64, runner: ubuntu-24.04, build: --manylinux, smoke: --container debian:bookworm-slim }
+          - { name: tranibor-linux-arm64, runner: ubuntu-24.04-arm, build: --manylinux, smoke: --container debian:bookworm-slim }
+          - { name: tranibor-macos-arm64, runner: macos-15, build: "", smoke: "" }
+          - { name: tranibor-macos-x86_64, runner: macos-15-intel, build: "", smoke: "" }
+          - { name: tranibor-windows-x86_64.exe, runner: windows-2022, build: "", smoke: "" }
     env:
       NUITKA_CACHE_DIR: ${{ github.workspace }}/build/cli-binary/cache/nuitka
     defaults:

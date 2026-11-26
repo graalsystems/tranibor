@@ -109,7 +109,7 @@ paths:
       operationId: endMySession
       summary: End one of the caller's sessions (browser or developer surface); its credential is refused from its next request
       description: >-
-        The same route ends a developer-surface session (`choregos logout` calls it on the session it holds):
+        The same route ends a developer-surface session (`tranibor logout` calls it on the session it holds):
         the next call with that credential is a 401.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -169,7 +169,7 @@ paths:
       security: []
       summary: Start a developer-surface sign-in (RFC 8628 device authorisation, ADR 0154 §6)
       description: >-
-        The terminal (`choregos login`) or an editor extension asks for a code, then sends the person to
+        The terminal (`tranibor login`) or an editor extension asks for a code, then sends the person to
         `verification_uri` (the console's `/device` page), where they sign in through their organisation's
         identity provider (ADR 0108) and approve the code. Meanwhile the surface polls
         `POST /auth/device/token`. The request is JSON, not form-encoded as RFC 8628 has it. Nothing is
@@ -1560,10 +1560,10 @@ paths:
     post:
       tags: [work-items]
       operationId: createWorkItem
-      summary: File a work item, in Choregos and in the project's tracker when it is external
+      summary: File a work item, in Tranibor and in the project's tracker when it is external
       description: >-
         With an internal tracker (or none) the platform mints the key. With an external tracker
-        (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:choregos` plus the
+        (GitHub, Jira, GitLab) it first creates the issue there, labelled `source:tranibor` (and, until 0.32.0, the former `source:choregos`) plus the
         request's labels and never `agent-ready`, and records the work item under the issue's key.
         Fields, workflow and budget are validated before the issue is created, so a 422 leaves
         nothing behind. If the tracker refuses or does not answer, nothing is created (502).
@@ -1840,7 +1840,7 @@ paths:
         - { name: download, in: query, description: "attachment rather than inline", schema: { type: boolean, default: false } }
       responses:
         "200":
-          description: The content; `X-Choregos-Digest` and `ETag` carry the digest.
+          description: The content; `X-Tranibor-Digest` (and the former `X-Choregos-Digest`, until 0.32.0) and `ETag` carry the digest.
           content: { "*/*": { schema: { type: string, format: binary } } }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -3278,7 +3278,7 @@ paths:
       operationId: createOutpostEnrolment
       description: >-
         Issues an enrolment token for one instance of this outpost: single use, valid 15 minutes at most, stored
-        as a digest, and its plaintext is returned only once (ADR 0147 §4). `choregos-outpost enrol` presents
+        as a digest, and its plaintext is returned only once (ADR 0147 §4). `tranibor-outpost enrol` presents
         it; the instance it enrols is born pending. A stolen token enrols an instance nobody approves. The
         answer also carries what the operator writes in the outpost's policy file: the door's origin and the
         door's keys to pin (ADR 0148 §13).
@@ -3502,7 +3502,7 @@ paths:
       description: >-
         Deprecated (ADR 0161): use `declareMemberLinkedAccount`. Link the member to their account on the tracker by the provider's numeric user id (S47-14, ADR 0102).
         Asserted by an organisation administrator: nothing proves the member owns the account. A
-        `/choregos pause|resume|stop` comment is honoured only from a signed GitHub delivery by this id.
+        `/tranibor pause|resume|stop` comment (or the former `/choregos …`) is honoured only from a signed GitHub delivery by this id.
         Replaces the member's previous link on that tracker. 409 when the id is linked to another member.
       requestBody:
         required: true
@@ -3983,7 +3983,7 @@ paths:
       operationId: mintMyEmbedToken
       description: >-
         The frame token of the embedded component in a cross-site frame (ADR 0139 point 6): a signed value valid for
-        fifteen minutes, for the caller, their browser session and this installation, sent as `X-Choregos-Embed`. It
+        fifteen minutes, for the caller, their browser session and this installation, sent as `X-Tranibor-Embed` (the former `X-Choregos-Embed` is read until 0.32.0). It
         opens only the routes the component calls (open a conversation of the installation, read and write that
         conversation, read its memory spaces), the conversation must be the installation's, and it carries a role in
         this organisation only. Called with the console's session cookie (the sign-in popup), never with a frame
@@ -5462,7 +5462,8 @@ paths:
       - { name: slug, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" } }
       - { name: task, in: path, required: true, schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,62}$" } }
       - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
-      - { name: X-Choregos-Signature, in: header, required: true, schema: { type: string }, description: "`sha256=<hex>`: the HMAC-SHA256 of the body under the task's event key." }
+      - { name: X-Tranibor-Signature, in: header, required: false, schema: { type: string }, description: "`sha256=<hex>`: the HMAC-SHA256 of the body under the task's event key. Required, under this name or the former one." }
+      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0226), read until 0.32.0." }
     post:
       tags: [webhooks]
       security: []
@@ -6297,7 +6298,9 @@ paths:
       tags: [webhooks]
       security: []
       operationId: jiraWebhook
-      parameters: [{ name: X-Choregos-Secret, in: header, required: true, schema: { type: string } }]
+      parameters:
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/azure-boards:
@@ -6306,7 +6309,8 @@ paths:
       security: []
       operationId: azureBoardsWebhook
       parameters:
-        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6327,7 +6331,8 @@ paths:
       operationId: azureDevopsWebhook
       description: The service hooks of Azure Repos pull requests (`git.pullrequest.*`) and of Azure Pipelines builds and runs (`build.complete`, `ms.vss-pipelines.run-state-changed-event`).
       parameters:
-        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; the password of the service hook's basic authentication may carry it instead" }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses:
@@ -6342,7 +6347,8 @@ paths:
       parameters:
         - { name: ce-type, in: header, required: true, schema: { type: string } }
         - { name: ce-id, in: header, required: true, schema: { type: string } }
-        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a sink that is set by a URL and adds no header" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6353,7 +6359,8 @@ paths:
       security: []
       operationId: jenkinsWebhook
       parameters:
-        - { name: X-Choregos-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret; `token` may carry it instead" }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
         - { name: token, in: query, required: false, schema: { type: string }, description: "The shared webhook secret, for a Notification plugin endpoint that is set by a URL and adds no header" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
@@ -6363,7 +6370,9 @@ paths:
       tags: [webhooks]
       security: []
       operationId: argocdWebhook
-      parameters: [{ name: X-Choregos-Secret, in: header, required: true, schema: { type: string } }]
+      parameters:
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/alertmanager:
@@ -6371,7 +6380,9 @@ paths:
       tags: [webhooks]
       security: []
       operationId: alertmanagerWebhook
-      parameters: [{ name: X-Choregos-Secret, in: header, required: true, schema: { type: string } }]
+      parameters:
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The shared webhook secret. Required, under this name or the former one." }
+        - { name: X-Choregos-Secret, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Secret` (ADR 0226), read until 0.32.0." }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
   /webhooks/plugins/{org}/{plugin}/{server}:
@@ -6402,8 +6413,10 @@ paths:
       - { name: project, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" } }
       - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" } }
       - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
-      - { name: X-Choregos-Token, in: header, required: false, schema: { type: string } }
-      - { name: X-Choregos-Signature, in: header, required: false, schema: { type: string }, description: "`sha256=<hex or base64>` of the body, for a trigger with `auth: signature` (S56-04)." }
+      - { name: X-Tranibor-Token, in: header, required: false, schema: { type: string } }
+      - { name: X-Choregos-Token, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Token` (ADR 0226), read until 0.32.0." }
+      - { name: X-Tranibor-Signature, in: header, required: false, schema: { type: string }, description: "`sha256=<hex or base64>` of the body, for a trigger with `auth: signature` (S56-04)." }
+      - { name: X-Choregos-Signature, in: header, required: false, deprecated: true, schema: { type: string }, description: "The former name of `X-Tranibor-Signature` (ADR 0226), read until 0.32.0." }
       - { name: token, in: query, required: false, schema: { type: string }, description: "For a sender that can only set a URL." }
     post:
       tags: [webhooks]
@@ -6412,13 +6425,13 @@ paths:
       summary: Another system opens a work item through the project's trigger
       description: >-
         An HTTP trigger declared in the project's configuration (S56-01, ADR 0113), called with its token
-        (`Authorization: Bearer`, `X-Choregos-Token` or `?token=`). The JSON object is mapped onto a work item (title,
+        (`Authorization: Bearer`, `X-Tranibor-Token` or `?token=`). The JSON object is mapped onto a work item (title,
         description, labels with `trigger:<name>`, fields by JSON pointer) that starts in the trigger's workflow or the
         one the project's routing picks. A replayed delivery (`Idempotency-Key`, else the body's digest) answers
         `duplicate`; a trigger with a `key` opens one work item per value and answers `already_open` after, or
         `reopened` once that work item has ended: the key starts its new pass (C1). Every call
         past the token leaves a received event, refused ones included; a payload its `when` does not match is
-        acknowledged as `ignored` (S56-05). A trigger with `auth: signature` takes `X-Choregos-Signature` instead of the
+        acknowledged as `ignored` (S56-05). A trigger with `auth: signature` takes `X-Tranibor-Signature` instead of the
         token (S56-04). 404 when the trigger does not exist or has no token, 401 on a wrong token or signature.
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses:
@@ -6511,9 +6524,9 @@ paths:
       description: |
         Every tool THIS run may call — catalogue, plugin extension, organisation connector (broker),
         `web_fetch`, `web_search` — in MCP's `tools/list` format, with what the platform knows of
-        each (ADR 0122): MCP `annotations.readOnlyHint` and `x-choregos-access`, and `outputSchema`
+        each (ADR 0122): MCP `annotations.readOnlyHint` and `x-tranibor-access` (and the former `x-choregos-access`), and `outputSchema`
         when the operation declares one. The run's tool server (`choregos-tools`) lists them to the
-        model without `outputSchema` and without the `x-choregos-*` keys: it relays the API's whole
+        model without `outputSchema` and without the platform's `x-tranibor-*` and `x-choregos-*` keys: it relays the API's whole
         answer as `structuredContent`, which an operation's output schema does not describe.
       responses:
         "200":
@@ -6543,22 +6556,35 @@ paths:
         (run, tool, arguments) returns the same action. A write under approval (`approval`) returns
         202: a person decides.
 
-        The two `X-Choregos-*` headers say which door the call came through (ADR 0122 §4): they
+        The two `X-Tranibor-*` headers (or their former `X-Choregos-*` names, read until 0.32.0, ADR 0226)
+        say which door the call came through (ADR 0122 §4): they
         are attribution, recorded on the call's ledger line (`group_by=origin` of the cost
-        reports), on `choregos.tool.called` (`origin`, `script_sha256`) and on its `execute_tool`
+        reports), on `tranibor.tool.called` (`origin`, `script_sha256`) and on its `execute_tool`
         span (`choregos.tool.origin`, `choregos.tool.script_sha256`), and no authorisation reads
         them — a call is governed the same way whatever its origin. A job step's calls are `job`
         whatever they send, read from the run (S57-06).
       parameters:
-        - name: X-Choregos-Tool-Origin
+        - name: X-Tranibor-Tool-Origin
           in: header
           required: false
           description: "Who made the call: `model` (the agent's MCP client; the default when absent), `script` (a script, through the runner's tool bridge), `job` (a job step, ADR 0056). A job step's calls are `job` whatever this header says, and a run that is not a job step sending `job` is a 400 problem, as any other value is."
           schema: { type: string, enum: [model, script, job], default: model }
-        - name: X-Choregos-Script
+        - name: X-Tranibor-Script
           in: header
           required: false
           description: "The SHA-256 of the script that made the call, 64 lowercase hexadecimal characters; anything else is a 400 problem."
+          schema: { type: string, pattern: "^[0-9a-f]{64}$" }
+        - name: X-Choregos-Tool-Origin
+          in: header
+          required: false
+          deprecated: true
+          description: "The former name of `X-Tranibor-Tool-Origin` (ADR 0226), read when the new one is absent, until 0.32.0."
+          schema: { type: string, enum: [model, script, job], default: model }
+        - name: X-Choregos-Script
+          in: header
+          required: false
+          deprecated: true
+          description: "The former name of `X-Tranibor-Script` (ADR 0226), read when the new one is absent, until 0.32.0."
           schema: { type: string, pattern: "^[0-9a-f]{64}$" }
       requestBody:
         required: true
@@ -6838,7 +6864,7 @@ paths:
       description: >-
         What the egress proxy or the runner let through or refused for this run. Counters are CUMULATIVE per
         (layer, host, decision, reason): a replayed batch replaces the totals and never adds twice. The first
-        `denied` of a host for the run is journaled as `choregos.network.denied`. With the egress token, the
+        `denied` of a host for the run is journaled as `tranibor.network.denied`. With the egress token, the
         proxy's own key must come too (ADR 0145): the agent inherits the egress token, not the key, so it cannot
         rewrite its run's counters. A deployment that configured no key accepts the egress token alone, as before.
       requestBody:
@@ -6885,7 +6911,7 @@ paths:
       operationId: getRunInputs
       description: >-
         The declared inputs of the run that an earlier step produced, latest revision of each (ADR 0049).
-        The runner mounts them as files in `.choregos/inputs/`. One page at a time (ADR 0206): a page is a number of
+        The runner mounts them as files in `.tranibor/inputs/`. One page at a time (ADR 0206): a page is a number of
         DECLARED inputs, so one nothing has produced yet leaves it shorter; the runner follows `meta.next_cursor`
         to the end.
       parameters:
@@ -6918,13 +6944,14 @@ paths:
       security: [{ runToken: [] }]
       operationId: putRunOutput
       description: >-
-        A deliverable the agent wrote in `.choregos/outputs/` (ADR 0049). The API hashes the bytes,
-        refuses them unless they match `X-Choregos-Digest`, stores them in the object store and records
+        A deliverable the agent wrote in `.tranibor/outputs/` (ADR 0049). The API hashes the bytes,
+        refuses them unless they match `X-Tranibor-Digest` (or the former `X-Choregos-Digest`), stores them in the object store and records
         a typed artifact revision with its produced receipt. Same bytes, same version. Closed once the
         run's result is posted.
       parameters:
         - { name: type, in: query, required: true, description: "a type of the artifact vocabulary", schema: { type: string } }
-        - { name: X-Choregos-Digest, in: header, required: true, description: "sha256:<hex> of the body", schema: { type: string } }
+        - { name: X-Tranibor-Digest, in: header, required: false, description: "sha256:<hex> of the body. Required, under this name or the former one.", schema: { type: string } }
+        - { name: X-Choregos-Digest, in: header, required: false, deprecated: true, description: "The former name of `X-Tranibor-Digest` (ADR 0226), read until 0.32.0.", schema: { type: string } }
       requestBody:
         required: true
         content: { application/octet-stream: { schema: { type: string, format: binary } } }
@@ -7082,7 +7109,7 @@ paths:
         Public: the sign-in page needs it. The community edition serves its default theme; a plugin
         may provide another through `declare_theme_provider`. A theme that fails validation (schema,
         or the console's contrast budget) is never served: the response is then the default theme
-        with `X-Choregos-Theme: fallback`.
+        with `X-Tranibor-Theme: fallback` (and the same value in the former `X-Choregos-Theme`, until 0.32.0).
       parameters:
         - name: org
           in: query
@@ -7093,9 +7120,20 @@ paths:
         "200":
           description: OK
           headers:
-            X-Choregos-Theme:
+            X-Tranibor-Theme:
               description: "`default` (no provider, or nothing to provide), `provided`, or `fallback` (the provider failed or returned an invalid theme)"
               schema: { type: string, enum: [default, provided, fallback] }
+            X-Choregos-Theme:
+              description: "The same value under the former name (ADR 0226), sent until 0.32.0."
+              deprecated: true
+              schema: { type: string, enum: [default, provided, fallback] }
+            X-Tranibor-Host-Org:
+              description: "The organisation that owns the host the console was reached on, when one does (ADR 0175)."
+              schema: { type: string }
+            X-Choregos-Host-Org:
+              description: "The same value under the former name (ADR 0226), sent until 0.32.0."
+              deprecated: true
+              schema: { type: string }
             ETag: { schema: { type: string } }
           content:
             application/json:
@@ -7105,12 +7143,12 @@ paths:
     get: { tags: [session], security: [], operationId: readyz, responses: { "200": { description: OK }, "503": { description: Not ready } } }
 components:
   securitySchemes:
-    session: { type: apiKey, in: cookie, name: choregos_session }
+    session: { type: apiKey, in: cookie, name: tranibor_session, description: "The console's session; the former cookie `choregos_session` is read, set again under this name and cleared, until 0.32.0 (ADR 0226)." }
     bearer: { type: http, scheme: bearer, bearerFormat: "choregos-api-token, or a developer-surface session (`POST /auth/device/token`, ADR 0154 §6)" }
     runToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Run JWT signed with ES256, aud=internal" }
     relayToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Relay JWT signed with ES256, aud=choregos-relay, sub=the organisation's slug, expiring (ADR 0091)" }
     egressToken: { type: http, scheme: bearer, bearerFormat: JWT, description: "Egress JWT signed with ES256, aud=choregos-egress, sub=the run, expiring with its run token (ADR 0115)" }
-    egressReportKey: { type: apiKey, in: header, name: X-Choregos-Egress-Key, description: "The egress proxy's own key, shared with the API and never given to a run's pod (ADR 0145)" }
+    egressReportKey: { type: apiKey, in: header, name: X-Tranibor-Egress-Key, description: "The egress proxy's own key, shared with the API and never given to a run's pod (ADR 0145). The former `X-Choregos-Egress-Key` is read too, until 0.32.0 (ADR 0226)." }
   parameters:
     Id: { name: id, in: path, required: true, schema: { type: string } }
     Org: { name: org, in: path, required: true, schema: { type: string } }
@@ -8555,7 +8593,7 @@ components:
           oneOf:
             - { type: string, enum: [none, read, write] }
             - { type: "null" }
-          description: "The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.choregos/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`."
+          description: "The workspace a run gets (S51-03, ADR 0119); the repository is the project's. `none`: nothing is cloned and the repository's host is not on the run's network. `read`: the repository is cloned and no file of it may be written (only the step's deliverables in `.tranibor/outputs/`). `write`: today's run. Absent (left out of the stored spec, so no digest moves): `write`, or the `hosted` runtime's `workspace`. Refused with an `a2a` runtime, and with a `hosted` one when it differs from `runtime.workspace`."
         tools:
           oneOf:
             - { $ref: "#/components/schemas/AgentTools" }
@@ -8983,7 +9021,7 @@ components:
     RunTool:
       type: object
       description: "A tool a run may call, in MCP's `tools/list` format, with what the platform knows of it (ADR 0122). A plugin extension's tool may carry other MCP keys of its own."
-      required: [name, description, inputSchema, annotations, x-choregos-access]
+      required: [name, description, inputSchema, annotations, x-tranibor-access, x-choregos-access]
       additionalProperties: true
       properties:
         name: { type: string }
@@ -8996,13 +9034,18 @@ components:
         annotations:
           type: object
           additionalProperties: true
-          description: "MCP tool annotations. `readOnlyHint` is true only for `x-choregos-access: read`."
+          description: "MCP tool annotations. `readOnlyHint` is true only for `x-tranibor-access: read`."
           properties:
             readOnlyHint: { type: boolean }
         x-choregos-access:
           type: string
           enum: [read, write, approval]
-          description: "`read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name`."
+          deprecated: true
+          description: "The same value as `x-tranibor-access`, under its former name (ADR 0226), listed until 0.32.0 for a runner of an earlier release. A plugin tool may still declare it."
+        x-tranibor-access:
+          type: string
+          enum: [read, write, approval]
+          description: "`read`: a call reads (a catalogue tool — writers are not listed —, a connector read, `web_fetch`, `web_search`, a plugin tool annotated `readOnlyHint`). `write`: a connector write the policy allows, played as a governed action; or a plugin tool that does not say it only reads. `approval`: a connector operation under approval — calling it proposes an action, a person decides. A plugin tool may declare its own, beside its `name` (under this key or the former `x-choregos-access`)."
     AgentSessionTools:
       type: object
       properties:
@@ -10988,7 +11031,7 @@ components:
       required: [id, token, expires_at, control_plane, door_keys]
       properties:
         id: { type: string }
-        token: { type: string, description: "The plaintext token, returned only once: what `choregos-outpost enrol` presents." }
+        token: { type: string, description: "The plaintext token, returned only once: what `tranibor-outpost enrol` presents." }
         expires_at: { type: string, format: date-time }
         control_plane: { type: [string, "null"], description: "the door's origin, as the outpost's policy file names it (`control_plane`); null when the deployment declares none" }
         door_keys: { type: array, minItems: 1, maxItems: 4, items: { type: string, pattern: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$" }, description: "the door's public signing keys to pin in the outpost's policy file (`door_keys`) before the daemon starts: the first is the one that signs now, the others are announced for a rotation. The console and the CLI print them beside the enrolment command; no answer of the door itself carries them (ADR 0148 §13)" }
@@ -11011,7 +11054,7 @@ components:
     OutpostInstance:
       type: object
       additionalProperties: false
-      description: "One copy of the daemon `choregos-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance."
+      description: "One copy of the daemon `tranibor-outpost`, with keys made on the spot (ADR 0147 §2). Only public data: the platform never holds a private key of an instance."
       required: [id, status, fingerprint, daemon_version, protocol, capabilities, endpoints, facts, enrolment_id, enrolled_by, enrolled_at, approval_step_up_minutes, approved_by, approved_at, revoked_by, revoked_at, last_seen_at, online, in_flight]
       properties:
         id: { type: string }
@@ -11113,7 +11156,7 @@ components:
     OrgGroup:
       type: object
       additionalProperties: false
-      description: "A group that belongs to the organisation (ADR 0160). A person in it carries it as `choregos:<org>:<slug>` wherever a group is checked."
+      description: "A group that belongs to the organisation (ADR 0160). A person in it carries it as `tranibor:<org>:<slug>` (formerly `choregos:<org>:<slug>`, read until 0.32.0, ADR 0226) wherever a group is checked."
       required: [slug, name, source, member_count, created_at]
       properties:
         slug: { type: string }
@@ -12336,8 +12379,8 @@ components:
       properties:
         id: { type: string }
         channel: { type: string, description: "How the session was opened: `oidc`, `saml`, `dev`..." }
-        kind: { type: string, enum: [browser, cli, editor], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie." }
-        client_name: { type: [string, "null"], description: "What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser." }
+        kind: { type: string, enum: [browser, cli, editor], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`tranibor login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie." }
+        client_name: { type: [string, "null"], description: "What the surface called itself when it asked for its code (`tranibor 0.30.0 on host`), for the person to recognise it; null for a browser." }
         auth_time: { type: [string, "null"], format: date-time, description: "When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known." }
         idle_expires_at: { type: [string, "null"], format: date-time, description: "A surface session ends after this much inactivity; null for a browser session (its `expires_at` is absolute)." }
         created_at: { type: string, format: date-time }
@@ -12575,7 +12618,7 @@ components:
         name: { type: string }
         url: { type: string }
         token: { type: string }
-        signing_secret: { type: string, description: "The HMAC-SHA256 key of `X-Choregos-Signature`; it changes with the token." }
+        signing_secret: { type: string, description: "The HMAC-SHA256 key of `X-Tranibor-Signature`; it changes with the token." }
     TriggerAck:
       type: object
       description: What a trigger call did; `outcome` is the received event's, absent on a replayed delivery.
@@ -13978,7 +14021,7 @@ components:
                   type: object
                   required: [path, title, markdown]
                   properties:
-                    path: { type: string, description: "relative to `.choregos/knowledge/<slug>/`" }
+                    path: { type: string, description: "relative to `.tranibor/knowledge/<slug>/`" }
                     title: { type: string }
                     filename: { type: string }
                     markdown: { type: string }
@@ -14032,7 +14075,7 @@ components:
     Artifact: { $ref: "./schemas/artifact.schema.json" }
     RunInputFile:
       type: object
-      description: A declared input of a run, as the runner mounts it in `.choregos/inputs/` (ADR 0049).
+      description: A declared input of a run, as the runner mounts it in `.tranibor/inputs/` (ADR 0049).
       required: [name, version, filename, type, media_type, digest, size]
       properties:
         name: { type: string }

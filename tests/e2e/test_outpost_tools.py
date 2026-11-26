@@ -599,7 +599,7 @@ async def _called_events() -> list[Any]:
     from tranibor_api.db.session import session_scope
 
     async with session_scope() as session:
-        rows = await session.execute(select(Event).where(Event.type == "choregos.tool.called"))
+        rows = await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))
         return [
             event for event in rows.scalars() if event.payload.get("tool") == f"{CONNECTOR}__search_issues"
         ]

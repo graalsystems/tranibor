@@ -156,7 +156,7 @@ function PendingInstance({
               onChange={(event) => setConfirmed(event.target.checked ? instance.fingerprint : null)}
             />
             <span>
-              I compared them: this is the fingerprint <Code>choregos-outpost enrol</Code> printed on the outpost&apos;s machine.
+              I compared them: this is the fingerprint <Code>tranibor-outpost enrol</Code> printed on the outpost&apos;s machine.
             </span>
           </label>
           <div className="flex flex-wrap items-start gap-2">

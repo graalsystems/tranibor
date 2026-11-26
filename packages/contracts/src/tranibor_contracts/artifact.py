@@ -27,7 +27,7 @@ from pydantic import Field
 from .workflow import ArtifactLevel, ArtifactScale, ArtifactShow, ArtifactSpec, Strict
 
 #: An artifact name: what a transition declares in `outputs:`. It becomes a file name in the
-#: downstream workspace (`.choregos/inputs/<name>.<ext>`), hence no slash and no leading dot.
+#: downstream workspace (`.tranibor/inputs/<name>.<ext>`), hence no slash and no leading dot.
 ARTIFACT_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
 
 
@@ -54,7 +54,7 @@ class ArtifactType:
     @property
     def inline(self) -> bool:
         """A declared output of an inline type is a value in the result's `outputs`, kept in the
-        database; any other type is a file the agent writes in `.choregos/outputs/`, kept in the
+        database; any other type is a file the agent writes in `.tranibor/outputs/`, kept in the
         object store."""
         return self.kind in _INLINE_KINDS
 
@@ -62,7 +62,7 @@ class ArtifactType:
 _INLINE_KINDS = {ArtifactKind.MARKDOWN, ArtifactKind.JSON, ArtifactKind.DIFF, ArtifactKind.VALUE}
 
 #: The types a transition may declare for an output (`output_types:`) and the runner recognises
-#: in `.choregos/outputs/`. `markdown` and `json` are inline; every other type is a file.
+#: in `.tranibor/outputs/`. `markdown` and `json` are inline; every other type is a file.
 ARTIFACT_TYPES: dict[str, ArtifactType] = {
     "markdown": ArtifactType(ArtifactKind.MARKDOWN, "text/markdown", "md"),
     "json": ArtifactType(ArtifactKind.JSON, "application/json", "json"),

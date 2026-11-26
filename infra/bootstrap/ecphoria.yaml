@@ -21,7 +21,7 @@ spec:
   source:
     repoURL: https://github.com/graalsystems/ecphoria.git
     # A tag, not `main`: every other application here points at a version (`0.23.0`, `3.3.4`,
-    # ...), and the ClusterPolicy `choregos-image-tags` refuses moving image references.
+    # ...), and the ClusterPolicy `tranibor-image-tags` refuses moving image references.
     # Following `main` did exactly what is forbidden elsewhere: a deployment that changes
     # without anyone deciding it. The chart takes its image from its `appVersion`, so this tag
     # pins both.
