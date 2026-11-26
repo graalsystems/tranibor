@@ -876,7 +876,8 @@ and the launcher's port. Tekton waits for a sidecar to be ready before the first
 `await-sidecar-readiness: "true"`; the sidecar's startup probe is the launcher listening) and stops it
 after the last step; with Tekton's `enable-kubernetes-sidecar` feature flag (Kubernetes 1.29+) the sidecar
 is a native one. The executor renders the same Task for either: Tekton's controller makes the difference.
-Neither has been run on a cluster yet (S87-06). A Tekton sidecar needs no Kubernetes version of its own,
+Both were run on kind (runc) and on AKS (Kata) with Tekton Pipelines v1.6.0 (S87-06), not under gVisor.
+A Tekton sidecar needs no Kubernetes version of its own,
 so `tekton` does not refuse an older cluster as `k8s_job` does.
 
 When an agent asks a question, its sandbox is **suspended** (pod gone, workspace volume kept)
