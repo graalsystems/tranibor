@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from sqlalchemy import func, select
@@ -72,6 +72,29 @@ async def work_item_workflow(session: AsyncSession, item: WorkItem) -> WorkflowD
         if pinned is not None and pinned.project_id == item.project_id:
             return pinned
     return await default_workflow(session, item.project_id)
+
+
+async def work_item_workflows(
+    session: AsyncSession, items: Sequence[WorkItem]
+) -> dict[str, WorkflowDef | None]:
+    """`work_item_workflow` of each work item, by id: one query for the pinned versions of a whole page,
+    one per project for the default (#2285)."""
+    wanted = sorted({item.workflow_def_id for item in items if item.workflow_def_id})
+    pinned: dict[str, WorkflowDef] = {}
+    if wanted:
+        rows = await session.execute(select(WorkflowDef).where(WorkflowDef.id.in_(wanted)))
+        pinned = {row.id: row for row in rows.scalars()}
+    defaults: dict[str, WorkflowDef | None] = {}
+    found: dict[str, WorkflowDef | None] = {}
+    for item in items:
+        row = pinned.get(item.workflow_def_id) if item.workflow_def_id else None
+        if row is not None and row.project_id == item.project_id:
+            found[item.id] = row
+            continue
+        if item.project_id not in defaults:
+            defaults[item.project_id] = await default_workflow(session, item.project_id)
+        found[item.id] = defaults[item.project_id]
+    return found
 
 
 async def active_workflow_named(session: AsyncSession, project_id: str, name: str) -> WorkflowDef | None:

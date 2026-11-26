@@ -188,7 +188,9 @@ def production_indicator_sources(config: Any, agent: Any = None) -> list[str]:
     }
     servers = getattr(getattr(agent, "spec", None), "mcp_servers", None) or []
     sources |= {
-        s.connector for s in servers if any(m in s.connector.lower() for m in _OBSERVABILITY_MCP_NAMES)
+        s.connector
+        for s in servers
+        if s.connector and any(m in s.connector.lower() for m in _OBSERVABILITY_MCP_NAMES)
     }
     return sorted(sources)
 
