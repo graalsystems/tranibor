@@ -18,6 +18,7 @@ The workflow is not changed, and its digest does not move.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -30,7 +31,7 @@ from tranibor_core.dsl.groups import group_for
 
 from ..db.models import HumanRequest, Membership, Project, User, WorkItem
 from ..rbac import Principal
-from .definitions import work_item_workflow, workflow_model
+from .definitions import work_item_workflows, workflow_model
 from .human_groups import groups_for_org
 from .human_requests import DEFAULT_SLA_HOURS
 
@@ -89,16 +90,37 @@ async def assignee_of_the_request(
 ) -> StepAssignee | None:
     """Who the request is addressed to now: the administrator's override, else the workflow's actor
     (read from the workflow the work item was born in, at the request's transition)."""
-    override = assignee_of_row(row)
-    if override is not None:
-        return override
-    actor = actor_of_the_step(workflow_model(await work_item_workflow(session, item)), row.transition_id)
-    if actor is None:
-        return None
-    slug = (
-        await session.execute(select(Project.slug).where(Project.id == item.project_id))
-    ).scalar_one_or_none()
-    return assignee_from_actor(actor, slug)
+    (assignee,) = await assignees_of_requests(session, [(item, row)])
+    return assignee
+
+
+async def assignees_of_requests(
+    session: AsyncSession, requests: Sequence[tuple[WorkItem, HumanRequest]]
+) -> list[StepAssignee | None]:
+    """`assignee_of_the_request` of each (work item, request), in order: the workflows of the whole list
+    read at once, each parsed once, and the projects' slugs in one query, never once per request (the
+    inbox, `/me/pending`)."""
+    needing = [item for item, row in requests if assignee_of_row(row) is None]
+    if not needing:
+        return [assignee_of_row(row) for _, row in requests]
+    workflows = await work_item_workflows(session, needing)
+    project_ids = sorted({item.project_id for item in needing})
+    read = await session.execute(select(Project.id, Project.slug).where(Project.id.in_(project_ids)))
+    slugs: dict[str, str] = {project_id: slug for project_id, slug in read.all()}
+    models: dict[str | None, Workflow] = {}
+    found: list[StepAssignee | None] = []
+    for item, row in requests:
+        override = assignee_of_row(row)
+        if override is not None:
+            found.append(override)
+            continue
+        workflow = workflows.get(item.id)
+        key = workflow.id if workflow is not None else None
+        if key not in models:
+            models[key] = workflow_model(workflow)
+        actor = actor_of_the_step(models[key], row.transition_id)
+        found.append(None if actor is None else assignee_from_actor(actor, slugs.get(item.project_id)))
+    return found
 
 
 def sla_passed(row: HumanRequest, now: datetime | None = None) -> bool:

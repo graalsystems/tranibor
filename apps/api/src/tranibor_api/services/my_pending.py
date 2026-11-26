@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import get_settings
 from ..db.models import Action, ConversationAction, Organization, Project, WorkItem
 from ..errors import ApiError
-from ..knowledge.marked import readable
+from ..knowledge.marked import readable_ids
 from ..rbac import Permission, Principal
 from ..schemas.pending import PendingDecision, PendingItem, PendingWhere
 from ..tenant_host import org_base_url
@@ -81,7 +81,7 @@ async def _governed_actions(session: AsyncSession, principal: Principal) -> list
     orgs = sorted(set(principal.org_roles) | {key.split("/", 1)[0] for key in principal.project_roles})
     if not orgs:
         return []
-    rows = (
+    read = (
         await session.execute(
             select(Action, Project, Organization.slug)
             .join(Project, Action.project_id == Project.id)
@@ -93,11 +93,22 @@ async def _governed_actions(session: AsyncSession, principal: Principal) -> list
     ).all()
     found: list[PendingItem] = []
     me = principal.email.lower()
+    rows = [(a, p, o) for a, p, o in read if principal.can(Permission.PROJECT_READ, o, p.slug)]
+    # Their work items in one query, and whether the caller reads each, once per organisation (#2285).
+    wanted = sorted({action.work_item_id for action, _, _ in rows if action.work_item_id})
+    items: dict[str, WorkItem] = {}
+    if wanted:
+        items = {
+            i.id: i
+            for i in (await session.execute(select(WorkItem).where(WorkItem.id.in_(wanted)))).scalars()
+        }
+    seen: set[str] = set()
+    for org_id in sorted({project.org_id for _, project, _ in rows}):
+        of_org = [items[a.work_item_id] for a, p, _ in rows if p.org_id == org_id and a.work_item_id in items]
+        seen |= await readable_ids(session, principal, of_org, org_id)
     for action, project, org in rows:
-        if not principal.can(Permission.PROJECT_READ, org, project.slug):
-            continue
-        item = await session.get(WorkItem, action.work_item_id) if action.work_item_id else None
-        if item is not None and not await readable(session, principal, item, project.org_id):
+        item = items.get(action.work_item_id) if action.work_item_id else None
+        if item is not None and item.id not in seen:
             continue  # the action is the run's content (ADR 0114)
         if any(str(d.get("by", "")).lower() == me for d in action.decisions or []):
             continue  # already decided: the decision route says so
