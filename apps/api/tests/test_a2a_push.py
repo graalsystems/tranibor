@@ -95,7 +95,9 @@ async def _config(task_id: str) -> Any:
 
 
 def _signed_by(request: httpx.Request, secret: str) -> bool:
-    stamp, signature = (part.split("=", 1)[1] for part in request.headers["x-choregos-signature"].split(","))
+    # ADR 0226: the signature under its new name, and the same value under the former one.
+    assert request.headers["x-tranibor-signature"] == request.headers["x-choregos-signature"]
+    stamp, signature = (part.split("=", 1)[1] for part in request.headers["x-tranibor-signature"].split(","))
     expected = hmac.new(secret.encode(), stamp.encode() + b"." + request.content, hashlib.sha256)
     return hmac.compare_digest(signature, expected.hexdigest())
 
@@ -179,6 +181,7 @@ async def test_a_notification_is_signed_carries_the_event_id_and_ends_with_the_t
     assert call.url == HOOK
     assert call.headers["x-a2a-notification-token"] == "partner-check"
     assert call.headers["x-choregos-event-id"] == call.headers["idempotency-key"] == first
+    assert call.headers["x-tranibor-event-id"] == first
     assert _signed_by(call, secret)
     assert not _signed_by(call, "another-secret")
     assert json.loads(call.content)["id"] == task["id"]

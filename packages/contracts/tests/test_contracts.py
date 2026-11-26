@@ -598,7 +598,7 @@ def test_a_missed_status_comment_is_an_event_of_the_work_item() -> None:
     published, so a person sees why the board may lag."""
     from tranibor_contracts.enums import EventType
 
-    missed = "choregos.workitem.status_comment_missed"
+    missed = "tranibor.workitem.status_comment_missed"
     assert EventType.WORKITEM_STATUS_COMMENT_MISSED.value == missed
     assert missed in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
 
@@ -606,9 +606,9 @@ def test_a_missed_status_comment_is_an_event_of_the_work_item() -> None:
 def test_the_network_denied_event_is_declared_and_the_openapi_names_the_four_operations() -> None:
     from tranibor_contracts.enums import EventType
 
-    assert EventType.NETWORK_DENIED.value == "choregos.network.denied"
+    assert EventType.NETWORK_DENIED.value == "tranibor.network.denied"
     assert (
-        "choregos.network.denied"
+        "tranibor.network.denied"
         in contracts.load_schema("event.schema.json")["properties"]["type"]["description"]
     )
     spec = contracts.load_openapi()
@@ -1232,3 +1232,11 @@ def test_manifest_declares_profile_files() -> None:
     assert manifest["contents"]["profiles"] == ["profiles/notes.yaml"]
     manifest["contents"]["profiles"] = ["/etc/passwd"]
     assert list(_validator("plugin.schema.json").iter_errors(manifest))
+
+
+def test_a_server_tool_may_declare_an_output_schema() -> None:
+    """S86-02: a server compares its `output_schema` with the profile's `output` (ADR 0224 §2)."""
+    server = _load("plugin-server.example.json")
+    assert any("output_schema" in op for op in server["operations"])
+    server["operations"][0]["output_schema"] = "string"
+    assert list(_validator("plugin-server.schema.json").iter_errors(server))

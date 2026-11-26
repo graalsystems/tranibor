@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-outpost enrol | run | doctor`, as an operator types them.
+"""`tranibor-outpost enrol | run | doctor`, as an operator types them.
 
 The door is the fake one, served over HTTP on the loopback by a thread, and the commands run as they
 would on a machine: they read a policy file, write a state directory, and print.
@@ -73,7 +73,7 @@ def test_the_command_has_three_verbs_and_says_its_version() -> None:
     for verb in ("enrol", "run", "doctor"):
         assert re.search(rf"^\W*{verb}\b", text, re.M), verb
     assert "only dials out" in " ".join(text.split())
-    assert runner.invoke(app, ["--version"]).output.strip() == f"choregos-outpost {__version__} (protocol 1)"
+    assert runner.invoke(app, ["--version"]).output.strip() == f"tranibor-outpost {__version__} (protocol 1)"
     # Nothing that would make the daemon fetch or run something: no such verb exists (ADR 0147 §9).
     assert not re.search(r"upgrade|update|install|exec", text, re.I)
 
@@ -176,7 +176,7 @@ def test_the_daemon_does_not_start_on_an_invalid_policy_door_keys_included(
 
 def test_run_does_not_start_without_an_enrolled_identity_it_can_call_its_own(machine: Machine) -> None:
     nothing = machine.run("run")
-    assert nothing.exit_code == 2 and "choregos-outpost enrol" in nothing.stderr
+    assert nothing.exit_code == 2 and "tranibor-outpost enrol" in nothing.stderr
     identities.create(machine.state / "identity")
     never_enrolled = machine.run("run")
     assert never_enrolled.exit_code == 2 and "never enrolled" in never_enrolled.stderr

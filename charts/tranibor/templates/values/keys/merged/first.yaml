@@ -1,0 +1,13 @@
+{{- /*
+Renders nothing: it reads `tranibor-<component>` and `choregos-<component>` into the components'
+internal keys (`_values.tpl`, ADR 0226 R6) before any other template reads them.
+
+Why this file sits four directories down: Helm renders the templates deepest path first, and the
+subcharts' templates are `<chart>/charts/<component>/templates/<file>` (four separators); this one is
+`<chart>/templates/values/keys/merged/first.yaml` (five), so it runs before every subchart's template
+and every one of this chart's, and what it writes into a component's values is what that component
+reads (the values of a subchart are the same map as its key in this chart's values). A template moved
+deeper than this one would render before the merge: `tests/charts/test_component_values_keys.py`
+renders with the former keys and fails if any setting is lost.
+*/ -}}
+{{- include "tranibor.componentValues" . -}}

@@ -95,7 +95,7 @@ no transcript: the person signs in to Tranibor, and the conversation is theirs (
 
 ```html
 <iframe id="assistant" title="Assistant" width="480" height="520"
-  src="https://choregos.example.com/embed/assistants/<org>/<installation>?context=<base64url JSON>"></iframe>
+  src="https://tranibor.example.com/embed/assistants/<org>/<installation>?context=<base64url JSON>"></iframe>
 ```
 
 - **`context`** (optional) is a JSON object, base64url-encoded (`btoa(JSON.stringify(obj))` with `+` `/` `=`
@@ -112,11 +112,11 @@ no transcript: the person signs in to Tranibor, and the conversation is theirs (
 - **Sign-in.** If the frame has no session it asks the identity provider once, silently (`prompt=none`); if the
   provider needs the person it shows a **Sign in** button that opens the provider in a popup. The console's session
   cookie is `SameSite=Lax`, and Tranibor does not weaken it for the embed. When the host is on the **same site** as
-  the console (for example `app.example.com` and `choregos.example.com`) the frame carries that cookie. When the host
+  the console (for example `app.example.com` and `tranibor.example.com`) the frame carries that cookie. When the host
   is on **another site** the browser does not send it, so the popup (a first-party page, signed in with the ordinary
   cookie) asks `POST /api/v1/me/assistants/{org}/{slug}/embed-token` and hands the answer to the frame that opened it
   (`postMessage`, to the console's own origin). The frame keeps that **frame token** in its memory and sends it as
-  `X-Choregos-Embed`. The token lives fifteen minutes, is bound to the person, their browser session (signing out ends
+  `X-Tranibor-Embed`. The token lives fifteen minutes, is bound to the person, their browser session (signing out ends
   it), the organisation and the installation, opens only the routes the component calls (open and read its
   conversation, send a turn, confirm or refuse an action, read a memory space) and carries a role in that organisation
   only; it never reaches the host application, and when it expires the frame shows the Sign in button again. A
@@ -124,8 +124,8 @@ no transcript: the person signs in to Tranibor, and the conversation is theirs (
   console's partition, not the host's, and Safari refuses third-party cookies whatever their attributes. The browser
   journey (`pnpm e2e:embed`, and `pnpm e2e:assistants` for the console's own screens) runs against fake APIs in CI.
 - **Events.** The frame posts messages to the host with `postMessage`, to the allowed origin that framed it (never
-  `*`; your listener should check `event.origin` is the console's and `event.data.source === "choregos.assistant"`).
-  Every message is `{ source: "choregos.assistant", type, org, installation, ...payload }`:
+  `*`; your listener should check `event.origin` is the console's and `event.data.source === "tranibor.assistant"`).
+  Every message is `{ source: "tranibor.assistant", type, org, installation, ...payload }`:
 
 | `type` | When | Payload |
 |---|---|---|
@@ -151,16 +151,16 @@ A token with an MCP scope is refused by the REST API, and the door refuses a ful
 token. Mint one per client, from **Integrations** in the console or from the CLI:
 
 ```bash
-choregos tokens create --name claude-code --scope mcp:write --project acme:billing-api --expires-in-days 30
+tranibor tokens create --name claude-code --scope mcp:write --project acme:billing-api --expires-in-days 30
 ```
 
 The token is shown once. It lives in your client's configuration, in clear: keep it narrow and
-short-lived, and revoke it (`choregos tokens revoke <id>`) when the client is gone.
+short-lived, and revoke it (`tranibor tokens revoke <id>`) when the client is gone.
 
 ## Claude Code
 
 ```bash
-claude mcp add --transport http choregos https://<console-host>/mcp \
+claude mcp add --transport http tranibor https://<console-host>/mcp \
   --header "Authorization: Bearer $TRANIBOR_TOKEN"
 ```
 
@@ -175,10 +175,10 @@ token to mint or paste — the Integrations page shows this command first:
 
 ```bash
 claude mcp add --transport http --client-id choregos-claude-code --callback-port 33418 \
-  choregos https://<console-host>/mcp
+  tranibor https://<console-host>/mcp
 ```
 
-Then `/mcp` in Claude Code, `choregos`, *Authenticate*: your browser opens the IdP's sign-in page,
+Then `/mcp` in Claude Code, `tranibor`, *Authenticate*: your browser opens the IdP's sign-in page,
 and Claude Code keeps the session. `--callback-port` is the port of the redirect URI the IdP
 registered (`http://localhost:33418/callback`); the client is public and uses PKCE, so there is no
 secret. Your role bounds what Claude sees, and signing out of the IdP ends its access.
@@ -205,7 +205,7 @@ network, run a local bridge in `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "choregos": {
+    "tranibor": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "https://<console-host>/mcp", "--header", "Authorization:${AUTH}"],
       "env": { "AUTH": "Bearer <token>" }
@@ -223,7 +223,7 @@ Add `--allow-http` to the arguments if the platform is served over plain HTTP.
 ```json
 {
   "mcpServers": {
-    "choregos": {
+    "tranibor": {
       "url": "https://<console-host>/mcp",
       "headers": { "Authorization": "Bearer ${env:TRANIBOR_TOKEN}" }
     }
@@ -237,12 +237,12 @@ Add `--allow-http` to the arguments if the platform is served over plain HTTP.
 
 ```json
 {
-  "inputs": [{ "type": "promptString", "id": "choregos-token", "description": "Tranibor MCP token", "password": true }],
+  "inputs": [{ "type": "promptString", "id": "tranibor-token", "description": "Tranibor MCP token", "password": true }],
   "servers": {
-    "choregos": {
+    "tranibor": {
       "type": "http",
       "url": "https://<console-host>/mcp",
-      "headers": { "Authorization": "Bearer ${input:choregos-token}" }
+      "headers": { "Authorization": "Bearer ${input:tranibor-token}" }
     }
   }
 }
@@ -294,11 +294,11 @@ allows.
 
 ## The CLI
 
-The `choregos` CLI is installed from the instance itself (S62-08): **Integrations › CLI** shows the
+The `tranibor` CLI is installed from the instance itself (S62-08): **Integrations › CLI** shows the
 one-line install for the browser's system (`curl -fsSL <instance>/cli/install.sh | sh`, or
 `irm <instance>/cli/install.ps1 | iex` on Windows), the version, every file with its sha256, and the
-first commands (`choregos login --api-url <instance> --token <full-access token> --org <org>`, or the
-`TRANIBOR_API_URL` / `TRANIBOR_TOKEN` / `TRANIBOR_ORG` variables). `choregos self update` replaces the
+first commands (`tranibor login --api-url <instance> --token <full-access token> --org <org>`, or the
+`TRANIBOR_API_URL` / `TRANIBOR_TOKEN` / `TRANIBOR_ORG` variables). `tranibor self update` replaces the
 binary with the instance's current one. A build that bundles no CLI says so there and links the GitHub
 release of the version it runs. The routes and why they are public: [deployment.md](deployment.md#the-cli-served-by-the-instance-s62-08).
 
@@ -340,12 +340,12 @@ The organisation's card is at `/a2a/orgs/<org>/.well-known/agent-card.json`, its
 refused, and an `a2a` token does not open the REST API):
 
 ```bash
-choregos tokens create --name partner-agent --scope a2a --project acme:billing-api --expires-in-days 30
+tranibor tokens create --name partner-agent --scope a2a --project acme:billing-api --expires-in-days 30
 ```
 
 The card lists the opted-in workflows of the projects the token's person may read. A skill that takes
 `application/json` publishes its fields, the JSON Schema of the workflow's `metadata.inputs`, in the card's
-`capabilities.extensions` (`https://choregos.dev/a2a/extensions/skill-fields/v1`, `params.skills.<id>`).
+`capabilities.extensions` (`https://tranibor.dev/a2a/extensions/skill-fields/v1`, `params.skills.<id>`).
 Fields the workflow refuses answer `-32602` with `error.data.errors`, each with its `loc` and `msg`. What
 the door does:
 
@@ -354,7 +354,7 @@ the door does:
   its body, one data part its fields; name the skill in `message.metadata.skill` when there are several.
   A file part (`file.bytes` in base64, `file.mimeType` among the skill's `input_modes`) becomes an
   **input artefact** of the work item, named after `file.name` (`attachment-<n>` when it has none):
-  a step that lists that name in its transition's `inputs` finds it in `.choregos/inputs/`. The
+  a step that lists that name in its transition's `inputs` finds it in `.tranibor/inputs/`. The
   project bounds them with `a2a.max_file_bytes` in its configuration, **10 MiB by default** (50 MiB
   at most), for each file and for all the files of one message together; it is set in the project's
   **Settings › A2A**, in MiB. A file sent by `uri` is
@@ -366,7 +366,7 @@ the door does:
   is in its part while it is small — markdown as text, a JSON object as data, anything else as a file
   in base64 — up to 256 KiB each and 1 MiB per task, and only when its bytes still match its digest;
   otherwise the part describes it (`content` says why) and the console serves it. Its description is
-  in the artefact's `metadata.choregos` either way.
+  in the artefact's `metadata.tranibor` either way.
 - `tasks/cancel` stops the work item, for a person who may control it.
 - `message/stream` (a `message/send` that stays open) and `tasks/resubscribe` answer server-sent
   events: the task, then a `status-update` each time its state, its workflow state or its pending
@@ -379,9 +379,9 @@ the door does:
   open in the organisation's egress list ([ADR 0066](adr/0066-the-organisation-egress-allowlist.md)) when it is
   registered. The answer to `set` carries `signing.secret`, **shown once**: `get` and `list` never
   return it, and a `set` on the same id draws a new one. Each notification POSTs the task as it is
-  now, after its event is persisted, with `X-Choregos-Event-Id` (also `Idempotency-Key`: a receiver
+  now, after its event is persisted, with `X-Tranibor-Event-Id` (also `Idempotency-Key`: a receiver
   may see one twice), your `token` in `X-A2A-Notification-Token`, and
-  `X-Choregos-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`. Events in between
+  `X-Tranibor-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`. Events in between
   are coalesced. A non-2xx answer is retried with a growing delay, eight times at most; a revoked or
   expired token ends the registration; so does the final state, once delivered. Registering inline
   in `message/send` is refused: its answer has no place for the secret.
@@ -645,7 +645,7 @@ the permissions, is the procedure `connector.tracker.azure-boards` (`docs/proced
   item relations.
 - **Inbound.** Create a **Web Hooks** service-hook subscription for *Work item created*, *updated* and
   *commented on* to `<api_url>/api/v1/webhooks/azure-boards`, with basic authentication whose password is
-  `TRANIBOR_GENERIC_WEBHOOK_SECRET` (any user name), or a custom `X-Choregos-Secret` header. A delivery
+  `TRANIBOR_GENERIC_WEBHOOK_SECRET` (any user name), or a custom `X-Tranibor-Secret` header. A delivery
   reaches the project whose connector holds the team project; several projects on one team project are told
   apart by the organisation, the `area_path`, then `match_labels`.
 - **Limits, said plainly.** Built against a scripted server and payloads taken from Microsoft's
@@ -839,7 +839,7 @@ button reads `/rest/api/2/serverInfo` and refuses a server older than 9.0.
 
 Webhooks on Data Center: a delivery that carries `X-Hub-Signature: sha256=<hmac>` is verified with the
 connector's `webhook_secret`, and a bad signature is never rescued by another header. A server that does
-not sign still works through the `X-Choregos-Secret` header, as on Cloud. Data Center sends no delivery
+not sign still works through the `X-Tranibor-Secret` header, as on Cloud. Data Center sends no delivery
 identifier: the digest of the body stands in for it, so a retry is recognised. Whether a given 9.x
 release signs its webhooks is **not verified here**; use the shared-secret header if yours does not.
 

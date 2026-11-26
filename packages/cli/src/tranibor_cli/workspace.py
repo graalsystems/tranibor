@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The workspace of `choregos chat` (ADR 0154 §2, §8, §9; ADR 0187 §1), drawn with Textual.
+"""The workspace of `tranibor chat` (ADR 0154 §2, §8, §9; ADR 0187 §1), drawn with Textual.
 
 One screen of tabs, from routes that exist on `main` (ADR 0154 §4), under a one-line header
 (`org · assistant`, then `N running · N waiting for you · amount today`):
@@ -7,7 +7,7 @@ One screen of tabs, from routes that exist on `main` (ADR 0154 §4), under a one
 - **1 Conversation**: a durable conversation of ADR 0134, streamed, and a one-line composer `›` with the
   conversation's cost at its right. Ending the turn closes the stream, which cancels it on the platform
   (S63-04b).
-- **2 Activity**: the same board and the same lines as `choregos activity` (`activity.Board`,
+- **2 Activity**: the same board and the same lines as `tranibor activity` (`activity.Board`,
   `activity.group`, `activity.line`), kept live by the activity stream. `x` stops the run or the work item
   under the cursor, always with a reason (ADR 0142 §2).
 - **3 Projects**: every project the person may read (S67-23).
@@ -461,7 +461,7 @@ class PaletteScreen(ModalScreen[Entry | None]):
 
 
 class Workspace(App[None]):
-    TITLE = "choregos"
+    TITLE = "tranibor"
     ENABLE_COMMAND_PALETTE = False
     CSS = """
     Screen { layout: vertical; background: ansi_default; }
@@ -723,7 +723,7 @@ class Workspace(App[None]):
         note.display = True
 
     async def open_live(self) -> None:
-        """Draw the live flow of the project's default workflow: `choregos live`'s pane, the same widget."""
+        """Draw the live flow of the project's default workflow: `tranibor live`'s pane, the same widget."""
         project = self._live_project()
         if project is None:
             pane = self._live_pane()
@@ -1865,7 +1865,7 @@ class Workspace(App[None]):
         return f"✓ {tokens}"
 
     async def after_turn(self) -> None:
-        """The turn's writes and the conversation's cost, as `choregos ask` reads them after it."""
+        """The turn's writes and the conversation's cost, as `tranibor ask` reads them after it."""
         await self.refresh_decisions()
         if self.conversation_id:
             summary = await self._read(f"/me/conversations/{self.conversation_id}")

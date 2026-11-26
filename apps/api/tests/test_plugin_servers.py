@@ -130,7 +130,8 @@ async def test_install_runs_the_server_under_the_pod_rules(
     names = {
         "key": "app.kubernetes.io/name",
         "operator": "In",
-        "values": ["choregos-api", "choregos-orchestrator"],
+        # Both values of each caller's name for the window of ADR 0226 (R9b: `global.labelValues`).
+        "values": ["tranibor-api", "choregos-api", "tranibor-orchestrator", "choregos-orchestrator"],
     }
     assert rule["from"] == [
         {

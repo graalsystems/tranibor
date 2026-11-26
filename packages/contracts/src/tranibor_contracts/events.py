@@ -44,7 +44,7 @@ class ChoregosEvent(Strict):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     source: str
     #: One of the core's `EventType` (returned as the member), or a type an extension declared
-    #: (`EVENT_TYPES.declare`: the release train's `choregos.release.*` are the `software-delivery`
+    #: (`EVENT_TYPES.declare`: the release train's `tranibor.release.*` are the `software-delivery`
     #: plugin's, ADR 0181 round D); any other is refused. An event read back from the bus or the
     #: `events` rows is read with the `stored` context and keeps parsing without the extension.
     type: Annotated[str, AfterValidator(EVENT_TYPES.validate)]
@@ -59,7 +59,7 @@ class ChoregosEvent(Strict):
         cls,
         type_: EventType | str,
         *,
-        source: str = "/choregos/orchestrator",
+        source: str = "/tranibor/orchestrator",
         subject: str | None = None,
         project_slug: str | None = None,
         **data: Any,

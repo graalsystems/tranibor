@@ -2,7 +2,7 @@
 
 Kubernetes gives every pod `<SERVICE>_SERVICE_HOST`, `<SERVICE>_PORT=tcp://...` and the like for each
 Service of its namespace, unless the pod says `enableServiceLinks: false`. The platform finds its
-services by DNS and reads none of them; with them, a Service named `choregos-web` became
+services by DNS and reads none of them; with them, a Service named `tranibor-web` became
 `CHOREGOS_WEB_*` in every pod, and the R4 fallback (ADR 0176) warned about each one as an old setting.
 `KUBERNETES_SERVICE_HOST`, which the clients read in a pod, is given whatever this field says.
 
@@ -20,7 +20,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 SITE = ("global.bootstrap.org=acme", "global.bootstrap.admins=root@acme.example")
 #: Every pod the defaults leave out: the fakes, the decisions service, the builder, web search and
 #: its relay, the trace-drift job, the outposts' door, the canary's Rollout.
@@ -30,10 +30,10 @@ EVERYTHING = (
     "demoFakes.tokenSecret.key=token",
     "global.decisions.embedded=true",
     "global.images.buildRegistry=registry.internal/choregos-builds",
-    "choregos-websearch.enabled=true",
-    "choregos-websearch.relay.enabled=true",
-    "choregos-websearch.relay.secretName=relay-secrets",
-    "choregos-websearch.relay.organisation=acme",
+    "tranibor-websearch.enabled=true",
+    "tranibor-websearch.relay.enabled=true",
+    "tranibor-websearch.relay.secretName=relay-secrets",
+    "tranibor-websearch.relay.organisation=acme",
     "global.tracing.otlpEndpoint=http://collector:4318",
     "global.tracing.tempoUrl=http://tempo:3200",
     "global.outposts.enabled=true",
@@ -94,18 +94,20 @@ def test_the_widest_render_reaches_the_optional_pods() -> None:
     pods = set(_pods(RENDERS["everything"])) | set(_pods(RENDERS["all-in-one"]))
     assert {
         "CronJob/choregos-backup",
-        "CronJob/choregos-trace-drift",
-        "Deployment/choregos-buildkitd",
-        "Deployment/choregos-demo-fakes",
-        "Deployment/choregos-egress",
+        "CronJob/tranibor-trace-drift",
+        "Deployment/tranibor-buildkitd",
+        "Deployment/tranibor-demo-fakes",
+        "Deployment/tranibor-egress",
         "Deployment/choregos-firecrawl",
         "Deployment/choregos-keycloak",
         "Deployment/choregos-laya",
         "Deployment/choregos-objectstore",
-        "Deployment/choregos-outposts-door",
+        "Deployment/tranibor-outposts-door",
         "Deployment/choregos-relay",
         "Deployment/choregos-searxng",
         "Job/choregos-objectstore-bucket",
-        "Rollout/choregos-api",
+        "Rollout/tranibor-api",
     } <= pods
-    assert "SandboxTemplate/choregos-runner" in _pods(RENDERS["prod"])
+    assert {"SandboxTemplate/tranibor-runner", "SandboxTemplate/choregos-runner"} <= set(
+        _pods(RENDERS["prod"])
+    )

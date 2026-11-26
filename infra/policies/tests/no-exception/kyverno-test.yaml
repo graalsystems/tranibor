@@ -8,9 +8,9 @@ policies:
 resources:
 - resources.yaml
 results:
-- policy: choregos-pod-security
+- policy: tranibor-pod-security
   rule: non-root
   resources:
-  - choregos-buildkitd-7d9f
+  - tranibor-buildkitd-7d9f
   kind: Pod
   result: fail

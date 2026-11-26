@@ -1118,7 +1118,7 @@ async def test_a_second_concurrent_poll_is_a_conflict_and_raises_an_alert(
     # What an alert rule reads: the series is computed from those events, the same at every replica.
     await refresh()
     metrics = (await client.get("/metrics")).text
-    assert f'choregos_outpost_poll_conflicts_total{{org="{kit.ORG}"}} 1.0' in metrics
+    assert f'tranibor_outpost_poll_conflicts_total{{org="{kit.ORG}"}} 1.0' in metrics
 
     # However many conflicts follow, one alert a minute for an instance.
     for _ in range(3):

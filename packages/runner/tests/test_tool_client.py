@@ -530,7 +530,7 @@ def test_arguments_go_as_the_body_whatever_their_names(tools: ModuleType, bridge
     assert first["path"] == "/bridge/v1/tools/my-crm__2fa.reset"
     assert first["body"] == {"tool": "t", "name": "n", "e-mail": "a@b.c"}
     assert second["body"] == {}
-    assert "X-Choregos-Script" not in first["headers"], "no script file, no digest"
+    assert "X-Tranibor-Script" not in first["headers"], "no script file, no digest"
 
 
 def test_search_reads_the_index(tools: ModuleType) -> None:
@@ -601,7 +601,7 @@ def test_a_script_sends_its_text_once_and_its_digest_with_every_call(
         "/bridge/v1/tools/pfsense__list_aliases",
         "/bridge/v1/tools/web_fetch",
     ]
-    assert all(c["headers"]["X-Choregos-Script"] == digest for c in calls)
+    assert all(c["headers"]["X-Tranibor-Script"] == digest for c in calls)
     assert calls[1]["body"] == {"url": "https://example.org/PARTNERS"}, "the second call used the first"
 
 
@@ -618,8 +618,8 @@ def test_inline_code_is_a_script_too_and_standard_input_is_not(
     digest = hashlib.sha256(code.encode()).hexdigest()
     first, second, third = bridge.requests
     assert first["path"] == "/bridge/v1/scripts" and first["body"]["sha256"] == digest
-    assert second["headers"]["X-Choregos-Script"] == digest
-    assert third["path"] == "/bridge/v1/tools/web_fetch" and "X-Choregos-Script" not in third["headers"]
+    assert second["headers"]["X-Tranibor-Script"] == digest
+    assert third["path"] == "/bridge/v1/tools/web_fetch" and "X-Tranibor-Script" not in third["headers"]
 
 
 def test_a_script_too_long_to_keep_still_sends_its_digest(
@@ -636,7 +636,7 @@ def test_a_script_too_long_to_keep_still_sends_its_digest(
 
     assert ran.returncode == 0, ran.stderr
     [only] = bridge.requests
-    assert only["headers"]["X-Choregos-Script"] == hashlib.sha256(text.encode()).hexdigest()
+    assert only["headers"]["X-Tranibor-Script"] == hashlib.sha256(text.encode()).hexdigest()
 
 
 def test_the_environment_keeps_an_existing_python_path(written: tool_scripts.ToolClient) -> None:

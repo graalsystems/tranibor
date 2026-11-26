@@ -40,7 +40,7 @@ temporal workflow signal --workflow-id reconcile-<slug> --name reconcile_now --i
 **2. The loop does not exist or stopped** (`stopped: true`, or workflow not found):
 
 ```bash
-kubectl -n choregos rollout restart deploy/choregos-orchestrator
+kubectl -n tranibor rollout restart deploy/tranibor-orchestrator
 ```
 
 The worker restarts the loops of active projects at start-up. The start is idempotent: it
@@ -49,7 +49,7 @@ does not create a second loop for a project that already has one.
 **3. The loop runs but `candidates` stays empty** — the connector does not see the ticket:
 
 ```bash
-choregos connectors test --project <slug> --kind tracker
+tranibor connectors test --project <slug> --kind tracker
 ```
 
 Check that the label is exactly `agent-ready`, that the issue is open, and that the GitHub

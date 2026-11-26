@@ -43,7 +43,7 @@ from .conftest import context
 
 PUSH = os.environ.get("TRANIBOR_ADMISSION_REGISTRY_PUSH", "")
 INCLUSTER = os.environ.get("TRANIBOR_ADMISSION_REGISTRY_CLUSTER", "")
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 RELEASE_NAMESPACE = "choregos-admission"
 POD_NAMESPACE = "proj-admission"
 SECRET = "acme-cosign"
@@ -165,7 +165,7 @@ def images(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFact
             uncovered=inside("elsewhere/agent", digests["uncovered"]),
         )
     finally:
-        _kubectl("delete", "clusterpolicy", "choregos-hosted-images", check=False)
+        _kubectl("delete", "clusterpolicy", "tranibor-hosted-images", check=False)
         for namespace in (RELEASE_NAMESPACE, POD_NAMESPACE):
             _kubectl("delete", "namespace", namespace, "--wait=false", check=False)
 
@@ -176,7 +176,7 @@ def _wait_for_policy() -> None:
         ready = _kubectl(
             "get",
             "clusterpolicy",
-            "choregos-hosted-images",
+            "tranibor-hosted-images",
             "-o",
             "jsonpath={.status.conditions[?(@.type=='Ready')].status}",
             check=False,

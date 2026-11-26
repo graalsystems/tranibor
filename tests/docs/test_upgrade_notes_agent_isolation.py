@@ -31,7 +31,7 @@ def test_the_0_27_17_notes_name_the_setting_its_new_default_and_the_way_back() -
 
 
 def test_the_charts_default_is_the_one_the_notes_announce() -> None:
-    values = (ROOT / "charts" / "choregos" / "values.yaml").read_text(encoding="utf-8")
+    values = (ROOT / "charts" / "tranibor" / "values.yaml").read_text(encoding="utf-8")
     assert "    agentIsolation: container\n" in values
-    helpers = (ROOT / "charts" / "choregos" / "templates" / "_helpers.tpl").read_text(encoding="utf-8")
+    helpers = (ROOT / "charts" / "tranibor" / "templates" / "_helpers.tpl").read_text(encoding="utf-8")
     assert '.agentIsolation | default "container"' in helpers

@@ -1,7 +1,7 @@
 # A UX and accessibility audit (S59-02): read-only. The UX reviewer audits the user-facing part a work
 # item names against the organisation's design system (a skill or a knowledge base) and WCAG; a product
 # owner accepts the review. Nothing in the repository changes.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: ux-audit

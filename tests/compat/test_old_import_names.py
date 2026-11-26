@@ -252,11 +252,16 @@ def test_every_package_has_its_shim_distribution() -> None:
         assert real["project"]["version"] == project["project"]["version"], "one version everywhere"
 
 
-def test_the_old_console_scripts_and_plugin_groups_are_unchanged() -> None:
-    """R2 renames no command and no entry-point group: `choregos` stays beside `tranibor`."""
+def test_the_old_console_scripts_and_plugin_groups_are_still_read() -> None:
+    """R2 kept the `choregos` command beside `tranibor`; R9c of ADR 0226 moved the entry-point groups to
+    `tranibor.*` and loads the former ones beside them until 0.32.0 (a plugin installed from outside the
+    repository may still register under them)."""
     cli = tomllib.loads((ROOT / "packages/cli/pyproject.toml").read_text())["project"]["scripts"]
     assert cli == {"tranibor": "tranibor_cli.main:main", "choregos": "tranibor_cli.main:main"}
     from tranibor_adapters import EXTENSION_GROUP
     from tranibor_api.migrate import MIGRATIONS_GROUP
+    from tranibor_contracts import wire
 
-    assert (EXTENSION_GROUP, MIGRATIONS_GROUP) == ("choregos.plugins", "choregos.migrations")
+    assert (EXTENSION_GROUP, MIGRATIONS_GROUP) == ("tranibor.plugins", "tranibor.migrations")
+    assert wire.entry_point_groups(EXTENSION_GROUP) == ("tranibor.plugins", "choregos.plugins")
+    assert wire.entry_point_groups(MIGRATIONS_GROUP) == ("tranibor.migrations", "choregos.migrations")

@@ -11,7 +11,7 @@ The provider reads the head of the work item's branch ONCE (ADR 0171) and every 
 read of that commit: the diff from the default branch, the run's own writes since the commit it began
 on, the default branch's files for `adr_number_free`, the pull request's checks and review when its
 head is that commit, and whether the branch exists. The hook marks the pull request's checks with the
-verdicts (`choregos/scope`, `choregos/evidence`), leaves the judged commit on the work item for the
+verdicts (`tranibor/scope`, `tranibor/evidence`), leaves the judged commit on the work item for the
 merge to name, and adds `head_sha` to each verdict's line of the run's journal.
 
 The worker's modules are imported when the provider is called, not when the extension loads: a process
@@ -24,6 +24,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from tranibor_contracts import wire
 from tranibor_contracts.delivery import branch_of
 from tranibor_core.gates import (
     ALREADY_FIXED_GATE,
@@ -36,8 +37,10 @@ from tranibor_core.gates import (
 
 from .gates import ADR_PATTERN, DIFF_GATES, PULL_REQUEST_GATES, DeliveryFacts
 
-#: The check-runs the verdicts are published as on the pull request (S3-05).
-CHECK_RUNS = {"scope_respected": "choregos/scope", "evidence_present": "choregos/evidence"}
+#: The check-runs the verdicts are published as on the pull request (S3-05): `tranibor/<check>`, and until
+#: 0.32.0 the former `choregos/<check>` beside it, with the same verdict, because a branch protection may
+#: require the former by name (ADR 0226, R9c).
+CHECK_RUNS = {"scope_respected": wire.check_names("scope"), "evidence_present": wire.check_names("evidence")}
 
 
 async def read_delivery_facts(request: ProviderRequest) -> Mapping[str, Any]:
@@ -341,23 +344,22 @@ def added_text_of(patch: str) -> str:
 
 
 async def _publish_check_runs(scm: Any, repo: str, item: Any, outcomes: Any, head: str) -> None:
-    """Check-runs `choregos/scope` and `choregos/evidence` (S3-05): the verdict is visible in the PR,
+    """Check-runs `tranibor/scope` and `tranibor/evidence` (S3-05), each also under its former name until
+    0.32.0 (ADR 0226, R9c): the verdict is visible in the PR,
     on the work item's target repository (ADR 0124), on the commit it was given on (`head`, ADR
     0171) — never on a commit a run declared."""
     if not item.pr_url or not hasattr(scm, "create_check_run"):
         return
     for outcome in outcomes:
-        name = CHECK_RUNS.get(outcome.name)
-        if name is None:
-            continue
-        await scm.create_check_run(
-            repo,
-            head,
-            name,
-            "success" if outcome.passed else "failure",
-            outcome.detail,
-            list(outcome.annotations),
-        )
+        for name in CHECK_RUNS.get(outcome.name, ()):
+            await scm.create_check_run(
+                repo,
+                head,
+                name,
+                "success" if outcome.passed else "failure",
+                outcome.detail,
+                list(outcome.annotations),
+            )
 
 
 def provenance(checks: list[Any]) -> bool | None:

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """`compare`: every number a comparison memo may quote, in decimal arithmetic (ADR 0202).
 
-Reads `.choregos/inputs/offers_structured.json` (the shape of `schemas/offers_structured.schema.json`),
+Reads `.tranibor/inputs/offers_structured.json` (the shape of `schemas/offers_structured.schema.json`),
 `offers_text.json` and the field `currency`. A runner mounts an inline JSON input as its artifact name
 plus the type's extension; `input_filename` is that rule.
 """
@@ -129,7 +129,7 @@ def _jsonable(value: Any) -> Any:
 
 
 def compare(root: Path) -> tuple[str, dict[str, Any], dict[str, Any]]:
-    """Returns (summary, facts, outputs) for the offers under `.choregos/inputs/`."""
+    """Returns (summary, facts, outputs) for the offers under `.tranibor/inputs/`."""
     inputs = job.inputs_dir(root)
     doc = _object(read_json(inputs, OFFERS_STRUCTURED), OFFERS_STRUCTURED)
     text = _object(read_json(inputs, OFFERS_TEXT), OFFERS_TEXT)

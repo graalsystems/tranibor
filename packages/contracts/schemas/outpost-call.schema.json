@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-call.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-call.schema.json",
   "title": "OutpostCall",
   "description": "A call as the daemon sees it once it has opened the envelope with its sealing key (ADR 0148 §5, ADR 0149). Only `id` and `kind` are common to every kind: a daemon refuses a kind it does not know with `unsupported_kind`, and ignores a field it does not know. The call says nothing of whether the tool writes: the outpost reads that from its own server (ADR 0147 §6).",
   "type": "object",

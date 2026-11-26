@@ -1,6 +1,6 @@
 # The demonstration: the local bench, plus what is specific to it.
-#   helm upgrade --install choregos charts/choregos -n choregos \
-#     -f charts/choregos/values/local.yaml -f demo/values-demo.yaml
+#   helm upgrade --install choregos charts/tranibor -n choregos \
+#     -f charts/tranibor/values/local.yaml -f demo/values-demo.yaml
 #
 # This file is ADDED to `values/local.yaml` (everything embedded): it only restates what changes.
 global:
@@ -25,7 +25,7 @@ global:
   memory:
     embedded: true
 
-choregos-litellm:
+tranibor-litellm:
   upstream:
     apiKeySecret: platform-llm-key
   # The aliases the projects ask for (`profile:standard` → `platform/standard`) and the real
@@ -41,13 +41,13 @@ choregos-litellm:
     - alias: platform/aux
       model: anthropic/claude-haiku-4-5-20251001
 
-choregos-ecphoria:
+tranibor-ecphoria:
   embedding:
     # Anthropic does not serve embeddings: memory keeps the facts, semantic search falls
     # back to lexical. A provider that has them → `provider: gateway`.
     provider: none
 
-choregos-orchestrator:
+tranibor-orchestrator:
   runner:
     # A single node: three agents starting together means three 2-CPU containers and an
     # image of several gigabytes pulled three times. Beyond two, the Job waits WITHOUT a

@@ -1,4 +1,4 @@
-"""A downstream run sees its declared inputs as files in `.choregos/inputs/` (S31-03, ADR 0049)."""
+"""A downstream run sees its declared inputs as files in `.tranibor/inputs/` (S31-03, ADR 0049)."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ async def _run(
         {
             "turns": [
                 {
-                    "reads": [".choregos/inputs/deck.pptx", ".choregos/inputs/profiles.json"],
+                    "reads": [".tranibor/inputs/deck.pptx", ".tranibor/inputs/profiles.json"],
                     "result": valid_result("read the deck"),
                 }
             ]
@@ -71,14 +71,14 @@ async def test_the_agent_finds_each_input_as_a_file(stage_input: StageInput, run
     assert outcome.exit_code is Exit.OK, outcome.detail
     seen = client.results[0].outputs.model_dump()["seen"]
     assert seen == {
-        ".choregos/inputs/deck.pptx": _digest(DECK),
-        ".choregos/inputs/profiles.json": _digest(PROFILES),
+        ".tranibor/inputs/deck.pptx": _digest(DECK),
+        ".tranibor/inputs/profiles.json": _digest(PROFILES),
     }, "the agent process read the exact bytes the platform recorded"
-    task = (runner_settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
-    assert "`.choregos/inputs/deck.pptx`" in task
+    task = (runner_settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
+    assert "`.tranibor/inputs/deck.pptx`" in task
     # Mounted, never committed.
     tracked = subprocess.run(
-        ["git", "ls-files", ".choregos"],
+        ["git", "ls-files", ".tranibor"],
         cwd=runner_settings.workspace,
         capture_output=True,
         text=True,
@@ -95,7 +95,7 @@ async def test_an_input_that_does_not_match_its_digest_stops_the_run(
     assert outcome.exit_code is Exit.INPUTS_INVALID
     assert "deck" in outcome.detail
     assert not client.results, "no agent ran on content that is not what was produced"
-    assert not (runner_settings.workspace / ".choregos" / "inputs" / "deck.pptx").exists()
+    assert not (runner_settings.workspace / ".tranibor" / "inputs" / "deck.pptx").exists()
 
 
 async def test_an_unsafe_file_name_is_refused(stage_input: StageInput, runner_settings: Any) -> None:
@@ -108,7 +108,7 @@ async def test_two_handed_files_listed_for_attachments_are_mounted_and_named_in_
     stage_input: StageInput, runner_settings: Any
 ) -> None:
     """The runner needs no knowledge of `attachments` (S85-05, ADR 0201 §8): the API lists the handed
-    files like any input, and they are mounted under `.choregos/inputs/` and listed in `task.md`."""
+    files like any input, and they are mounted under `.tranibor/inputs/` and listed in `task.md`."""
     quote_a = b"%PDF-1.4\n% Halden Industrial quote A\n%%EOF\n"
     quote_b = b"%PDF-1.4\n% Halden Industrial quote B\n%%EOF\n"
     served = {
@@ -120,7 +120,7 @@ async def test_two_handed_files_listed_for_attachments_are_mounted_and_named_in_
         {
             "turns": [
                 {
-                    "reads": [".choregos/inputs/quote-a.pdf", ".choregos/inputs/quote-b.pdf"],
+                    "reads": [".tranibor/inputs/quote-a.pdf", ".tranibor/inputs/quote-b.pdf"],
                     "result": valid_result("read the quotes"),
                 }
             ]
@@ -133,8 +133,8 @@ async def test_two_handed_files_listed_for_attachments_are_mounted_and_named_in_
     outcome = await Runner(runner_settings, client).execute(stage_input, client)  # type: ignore[arg-type]
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert client.results[0].outputs.model_dump()["seen"] == {
-        ".choregos/inputs/quote-a.pdf": _digest(quote_a),
-        ".choregos/inputs/quote-b.pdf": _digest(quote_b),
+        ".tranibor/inputs/quote-a.pdf": _digest(quote_a),
+        ".tranibor/inputs/quote-b.pdf": _digest(quote_b),
     }
-    task = (runner_settings.workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
-    assert "`.choregos/inputs/quote-a.pdf`" in task and "`.choregos/inputs/quote-b.pdf`" in task
+    task = (runner_settings.workspace / ".tranibor" / "task.md").read_text(encoding="utf-8")
+    assert "`.tranibor/inputs/quote-a.pdf`" in task and "`.tranibor/inputs/quote-b.pdf`" in task

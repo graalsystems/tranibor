@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 KEY = "nginx\\.org/mergeable-ingress-type"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absen
 
 def _ingress(*surcharges: str) -> dict[str, dict[str, str]]:
     command = ["helm", "template", "choregos", str(CHART)]
-    for sous in ("choregos-api", "choregos-web"):
+    for sous in ("tranibor-api", "tranibor-web"):
         command += ["--set", f"{sous}.ingress.kind=ingress"]
     for surcharge in surcharges:
         command += ["--set", surcharge]
@@ -39,9 +39,9 @@ def _ingress(*surcharges: str) -> dict[str, dict[str, str]]:
 
 def test_the_api_and_the_console_carry_their_annotations() -> None:
     ingress = _ingress(
-        f"choregos-api.ingress.annotations.{KEY}=minion", f"choregos-web.ingress.annotations.{KEY}=minion"
+        f"tranibor-api.ingress.annotations.{KEY}=minion", f"tranibor-web.ingress.annotations.{KEY}=minion"
     )
-    assert set(ingress) == {"choregos-api", "choregos-web"}
+    assert set(ingress) == {"tranibor-api", "tranibor-web"}
     assert all(a.get("nginx.org/mergeable-ingress-type") == "minion" for a in ingress.values()), ingress
 
 

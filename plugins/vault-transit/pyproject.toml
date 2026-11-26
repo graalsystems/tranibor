@@ -6,9 +6,9 @@ requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
 dependencies = ["tranibor-api", "httpx>=0.27"]
 
-# The extension's one seam (ADR 0093, `choregos.plugins`): the API and the worker load it at start-up.
+# The extension's one seam (ADR 0093, `tranibor.plugins`): the API and the worker load it at start-up.
 # Unconfigured (no `TRANIBOR_VAULT_ADDR`) it does nothing; the core's keyring stays the wrapper.
-[project.entry-points."choregos.plugins"]
+[project.entry-points."tranibor.plugins"]
 vault-transit = "tranibor_vault_transit.extension:register"
 
 [build-system]

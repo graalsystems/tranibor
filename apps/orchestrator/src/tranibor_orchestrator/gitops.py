@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import yaml
-from tranibor_contracts import Policy, ProjectConfig
+from tranibor_contracts import Policy, ProjectConfig, wire
 from tranibor_core.quotas import DEFAULT, Quota
 
 
@@ -23,7 +23,25 @@ def _dump(documents: list[dict[str, Any]]) -> str:
 #: (allowlist: 200 on `api.github.com`, 403 elsewhere).
 EGRESS_IMAGE = "docker.io/ubuntu/squid:6.6-24.04_beta"
 EGRESS_PORT = 3128
-EGRESS_NAME = "choregos-egress"
+#: The proxy's Deployment, ConfigMap and Service (ADR 0226, R9b). The former Service name is rendered too,
+#: on the same pods, for the window: a project namespace provisioned before 0.30.0 has only that one, so
+#: the chart's default `runner.egressProxy` keeps naming it, and it must answer in every namespace.
+EGRESS_NAME = "tranibor-egress"
+FORMER_EGRESS_NAME = "choregos-egress"
+#: Both values of the proxy pods' `app.kubernetes.io/name` the runners may reach: the pods carry the former
+#: one for the window, and the new one from 0.32.0 on.
+EGRESS_PODS = (EGRESS_NAME, FORMER_EGRESS_NAME)
+#: The runners' service account: the new one, and the former one the executors fall back to in a namespace
+#: provisioned before 0.30.0 (`executor.tekton.RunnerServiceAccount`). Both are rendered for the window.
+RUNNER_ACCOUNTS = ("tranibor-runner", "choregos-runner")
+#: The orchestrator's service account, in the platform's namespace, which the executor Role is bound to.
+#: The chart's workers still run as the former one: a namespace provisioned before 0.30.0 binds only that
+#: one (`docs/deployment.md`, R9b). The new one is bound beside it from now on, so that once every project
+#: has been provisioned again the workers can move to it without losing a namespace.
+ORCHESTRATOR_ACCOUNTS = ("tranibor-orchestrator", "choregos-orchestrator")
+#: The platform's namespace when the deployment does not say (`TRANIBOR_PLATFORM_NAMESPACE`, which the
+#: chart sets to its release namespace): the one `infra/platform` installs into.
+PLATFORM_NAMESPACE = "choregos-system"
 KUBE_NS = "kubernetes.io/metadata.name"
 #: What the proxy NEVER reaches: the cluster itself and the link-local range (cloud metadata).
 PRIVATE_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
@@ -78,7 +96,12 @@ def render_egress_proxy(
     applies to the proxy; this policy lifts it only for its pod, to the public web ports, never to
     the cluster's private ranges.
     """
-    labels = {"app.kubernetes.io/name": EGRESS_NAME, "choregos/project": slug}
+    # The pods keep the former value of `app.kubernetes.io/name` for the window, as the chart's own do by
+    # default (`global.labelValues`, ADR 0226 R9b): a label has one value, and an operator's policy in the
+    # runners' namespace may select it. The runners' policy below admits either value.
+    labels = wire.labels_with_former(
+        {"app.kubernetes.io/name": FORMER_EGRESS_NAME, wire.label("project", domain=False): slug}
+    )
     # The only directories Squid writes; emptyDirs, the rest of the filesystem read-only.
     volumes = (("log", "/var/log/squid"), ("spool", "/var/spool/squid"), ("run", "/run"), ("tmp", "/tmp"))  # noqa: S108
     return _dump(
@@ -113,7 +136,7 @@ def render_egress_proxy(
                                     "image": image,
                                     # Without the image's entrypoint: it wants to create a
                                     # certificate and cache directories, as root.
-                                    "command": ["squid", "-N", "-f", "/etc/squid/choregos.conf"],
+                                    "command": ["squid", "-N", "-f", "/etc/squid/tranibor.conf"],
                                     "ports": [{"name": "proxy", "containerPort": EGRESS_PORT}],
                                     "readinessProbe": {"tcpSocket": {"port": "proxy"}, "periodSeconds": 5},
                                     "resources": {
@@ -128,7 +151,7 @@ def render_egress_proxy(
                                     "volumeMounts": [
                                         {
                                             "name": "config",
-                                            "mountPath": "/etc/squid/choregos.conf",
+                                            "mountPath": "/etc/squid/tranibor.conf",
                                             "subPath": "squid.conf",
                                             "readOnly": True,
                                         },
@@ -144,15 +167,18 @@ def render_egress_proxy(
                     },
                 },
             },
-            {
-                "apiVersion": "v1",
-                "kind": "Service",
-                "metadata": {"name": EGRESS_NAME, "namespace": namespace, "labels": labels},
-                "spec": {
-                    "selector": labels,
-                    "ports": [{"name": "proxy", "port": EGRESS_PORT, "targetPort": "proxy"}],
-                },
-            },
+            *(
+                {
+                    "apiVersion": "v1",
+                    "kind": "Service",
+                    "metadata": {"name": name, "namespace": namespace, "labels": labels},
+                    "spec": {
+                        "selector": labels,
+                        "ports": [{"name": "proxy", "port": EGRESS_PORT, "targetPort": "proxy"}],
+                    },
+                }
+                for name in EGRESS_PODS
+            ),
             {
                 "apiVersion": "networking.k8s.io/v1",
                 "kind": "NetworkPolicy",
@@ -191,11 +217,16 @@ def render_project_manifests(
     egress_image: str = EGRESS_IMAGE,
     quota: Quota = DEFAULT,
     org_allow_domains: list[str] | None = None,
+    platform_namespace: str = PLATFORM_NAMESPACE,
 ) -> dict[str, str]:
     """Render a project's files: namespaces, quotas, netpol, RBAC, egress, Tekton, Argo.
 
     `org_allow_domains`: the hosts the organisation opened for its runners (S39-22d), joined to the
     policy's own allowlist in the proxy and in the network policy's annotation.
+
+    `platform_namespace`: where the API and the orchestrator run, which the runners reach and whose
+    orchestrator service account the executor Role is bound to. It was written `choregos-system` here
+    whatever the deployment's namespace; the chart now says it (`TRANIBOR_PLATFORM_NAMESPACE`).
 
     `quota` comes from `tranibor_core.quotas`: an extension sets it per organisation; it used to be fixed.
     """
@@ -212,11 +243,13 @@ def render_project_manifests(
                 "kind": "Namespace",
                 "metadata": {
                     "name": ns,
-                    "labels": {
-                        "choregos/project": slug,
-                        "pod-security.kubernetes.io/enforce": "restricted",
-                        "pod-security.kubernetes.io/audit": "restricted",
-                    },
+                    "labels": wire.labels_with_former(
+                        {
+                            wire.label("project", domain=False): slug,
+                            "pod-security.kubernetes.io/enforce": "restricted",
+                            "pod-security.kubernetes.io/audit": "restricted",
+                        }
+                    ),
                 },
             }
             for ns in (runners, ci)
@@ -228,7 +261,11 @@ def render_project_manifests(
             {
                 "apiVersion": "v1",
                 "kind": "ResourceQuota",
-                "metadata": {"name": "choregos-quota", "namespace": ns, "labels": {"choregos/project": slug}},
+                "metadata": {
+                    "name": "choregos-quota",
+                    "namespace": ns,
+                    "labels": wire.labels_with_former({wire.label("project", domain=False): slug}),
+                },
                 "spec": {
                     "hard": {
                         "requests.cpu": quota_cpu,
@@ -267,7 +304,19 @@ def render_project_manifests(
     proxy_egress = (
         [
             {
-                "to": [{"podSelector": {"matchLabels": {"app.kubernetes.io/name": EGRESS_NAME}}}],
+                "to": [
+                    {
+                        "podSelector": {
+                            "matchExpressions": [
+                                {
+                                    "key": "app.kubernetes.io/name",
+                                    "operator": "In",
+                                    "values": list(EGRESS_PODS),
+                                }
+                            ]
+                        }
+                    }
+                ],
                 "ports": [{"protocol": "TCP", "port": EGRESS_PORT}],
             }
         ]
@@ -288,7 +337,9 @@ def render_project_manifests(
                 "metadata": {
                     "name": "allow-platform-egress",
                     "namespace": runners,
-                    "annotations": {"choregos/allow-domains": ",".join(allowed_domains)},
+                    "annotations": wire.labels_with_former(
+                        {wire.label("allow-domains", domain=False): ",".join(allowed_domains)}
+                    ),
                 },
                 "spec": {
                     "podSelector": {},
@@ -301,7 +352,7 @@ def render_project_manifests(
                             "ports": [{"protocol": "TCP", "port": port}],
                         }
                         for ns, port in (
-                            ("choregos-system", 8000),
+                            (platform_namespace, 8000),
                             ("choregos-gateway", 4000),
                             ("choregos-memory", 8432),
                             ("monitoring", 4318),
@@ -327,12 +378,15 @@ def render_project_manifests(
 
     rbac = _dump(
         [
-            {
-                "apiVersion": "v1",
-                "kind": "ServiceAccount",
-                "metadata": {"name": "choregos-runner", "namespace": runners},
-                "automountServiceAccountToken": False,
-            },
+            *(
+                {
+                    "apiVersion": "v1",
+                    "kind": "ServiceAccount",
+                    "metadata": {"name": account, "namespace": runners},
+                    "automountServiceAccountToken": False,
+                }
+                for account in RUNNER_ACCOUNTS
+            ),
             {
                 "apiVersion": "rbac.authorization.k8s.io/v1",
                 "kind": "Role",
@@ -360,6 +414,9 @@ def render_project_manifests(
                         "verbs": ["create", "get", "list", "watch", "patch", "delete"],
                     },
                     {"apiGroups": [""], "resources": ["pods", "pods/log"], "verbs": ["get", "list", "watch"]},
+                    # Which runner account the namespace has (ADR 0226, R9b): the executor names the new
+                    # one when it is there, the former otherwise. Read only, and only service accounts.
+                    {"apiGroups": [""], "resources": ["serviceaccounts"], "verbs": ["get"]},
                 ],
             },
             {
@@ -372,11 +429,8 @@ def render_project_manifests(
                     "name": "choregos-executor",
                 },
                 "subjects": [
-                    {
-                        "kind": "ServiceAccount",
-                        "name": "choregos-orchestrator",
-                        "namespace": "choregos-system",
-                    }
+                    {"kind": "ServiceAccount", "name": account, "namespace": platform_namespace}
+                    for account in ORCHESTRATOR_ACCOUNTS
                 ],
             },
         ]
@@ -394,7 +448,9 @@ def render_project_manifests(
                 "metadata": {
                     "name": f"{app}-{env}",
                     "namespace": "argocd",
-                    "labels": {"choregos/project": slug, "choregos/env": env},
+                    "labels": wire.labels_with_former(
+                        {wire.label("project", domain=False): slug, wire.label("env", domain=False): env}
+                    ),
                     "finalizers": ["resources-finalizer.argocd.argoproj.io"],
                 },
                 "spec": {
@@ -453,7 +509,7 @@ def render_project_manifests(
             {
                 "apiVersion": "kustomize.config.k8s.io/v1beta1",
                 "kind": "Kustomization",
-                "commonLabels": {"choregos/project": slug},
+                "commonLabels": wire.labels_with_former({wire.label("project", domain=False): slug}),
                 "resources": [
                     "namespaces.yaml",
                     "quotas.yaml",

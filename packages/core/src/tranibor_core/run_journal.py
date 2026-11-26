@@ -26,12 +26,18 @@ GATE_OUTCOME = "gate.outcome"
 #: A memory the platform left out of the run's context, and why.
 MEMORY_SKIPPED = "memory.skipped"
 
+#: An agent's `mcp_servers` entry names a profile that opened no tool for this run, and why (ADR 0224 §4).
+PROFILE_UNBOUND = "profile.unbound"
+
+#: The tools of a profile entry the cap left out of this run (`<instance>__<tool>`).
+PROFILE_CAPPED = "profile.capped"
+
 #: The types the platform writes in a run's journal.
-PLATFORM_EVENTS: frozenset[str] = frozenset({GATE_OUTCOME, MEMORY_SKIPPED})
+PLATFORM_EVENTS: frozenset[str] = frozenset({GATE_OUTCOME, MEMORY_SKIPPED, PROFILE_UNBOUND, PROFILE_CAPPED})
 
 #: The namespaces those types live in. Reserved whole, not type by type: a line the platform adds
 #: later under one of them is refused from a run before anyone thinks of it.
-PLATFORM_PREFIXES: tuple[str, ...] = ("gate.", "memory.")
+PLATFORM_PREFIXES: tuple[str, ...] = ("gate.", "memory.", "profile.")
 
 
 def platform_written(event_type: str) -> bool:
@@ -43,4 +49,12 @@ def platform_written(event_type: str) -> bool:
     return event_type.strip().lower().startswith(PLATFORM_PREFIXES)
 
 
-__all__ = ["GATE_OUTCOME", "MEMORY_SKIPPED", "PLATFORM_EVENTS", "PLATFORM_PREFIXES", "platform_written"]
+__all__ = [
+    "GATE_OUTCOME",
+    "MEMORY_SKIPPED",
+    "PLATFORM_EVENTS",
+    "PLATFORM_PREFIXES",
+    "PROFILE_CAPPED",
+    "PROFILE_UNBOUND",
+    "platform_written",
+]

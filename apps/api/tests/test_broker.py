@@ -170,7 +170,7 @@ async def test_the_call_event_carries_the_digest_of_the_broker_response(
 
     async with session_scope() as session:
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     (event,) = [e for e in events if e.subject == "run-courtier-1"]
     assert event.payload["request_sha256"] == digest({"numero": "42"})

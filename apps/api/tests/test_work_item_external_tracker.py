@@ -93,7 +93,7 @@ async def test_a_github_project_files_the_issue_then_the_work_item(
     key = created.json()["tracker_key"]
     assert key == "billing-api#1" and tracker.calls[0] == ("create_item", key)
     issue = tracker.items[key]
-    assert "source:choregos" in issue.labels and "team:identity" in issue.labels
+    assert {"source:tranibor", "source:choregos", "team:identity"} <= set(issue.labels)
     assert "agent-ready" not in issue.labels
     assert "Filed from Tranibor by admin@northwind.dev" in issue.body and issue.body.startswith("Please.")
     body = created.json()

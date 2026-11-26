@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Read, validate and repair `.choregos/result.json`.
+"""Read, validate and repair `.tranibor/result.json` (or the former `.choregos/result.json`, ADR 0226 R9a).
 
 The agent writes this file; the runner validates it against the contract, asks for a repair
 if needed, then completes it with what it **measured** (evidence, artifacts, diagnostics).
@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import ValidationError
 from tranibor_contracts import (
     CHECKED_TYPES,
+    STAGE_RESULT_SCHEMA,
     ArtifactDisplay,
     Artifacts,
     Diagnostics,
@@ -25,7 +26,7 @@ from tranibor_contracts import (
 )
 from tranibor_contracts.open_lists import STORED
 
-from . import safe_files
+from . import run_dir, safe_files
 from .dod import merge_evidence
 
 #: The runner loads none of the deployment's extensions, so it cannot know the values they declare in the
@@ -59,7 +60,8 @@ def load_result(
     goes back to repair (S22-12): on the dev tenant, on 09/10, a triage returned
     a `triage` output (JSON as text) instead of `size` and `risk`, and the `outputs_in` guard
     escalated a ticket that was, in fact, triageable."""
-    # `path` is `<workspace>/.choregos/result.json`: opened from the workspace, no link followed (S65-04b).
+    # `path` is `<workspace>/.tranibor/result.json` (or the former `.choregos/result.json`, ADR 0226 R9a):
+    # opened from the workspace, no link followed (S65-04b).
     try:
         raw = safe_files.read_text(path.parent.parent, path.relative_to(path.parent.parent))
     except FileNotFoundError:
@@ -80,7 +82,7 @@ def load_result(
         )
     if not isinstance(payload, dict):
         return ResultLoad(None, error="the document must be a JSON object.", raw=raw)
-    payload.setdefault("schema", "choregos/StageResult/v1")
+    payload.setdefault("schema", STAGE_RESULT_SCHEMA)
     _drop_empty_facts(payload)
     try:
         parsed = StageResult.model_validate(payload, context=UNJUDGED)
@@ -104,17 +106,19 @@ def load_result(
             None, error="\n".join(["`outputs` holds a value of the wrong kind:", *off_type]), raw=raw
         )
     # `files`: the deliverables a `done` step declares (ADR 0049), expected beside this file in
-    # `.choregos/outputs/`. A missing one goes back to the agent like a missing output.
+    # `.tranibor/outputs/` (or the former `.choregos/outputs/`). A missing one goes back to the agent like a
+    # missing output.
+    workspace = path.parent.parent
     absent = [
         name
         for name in files or []
-        if not safe_files.is_regular(path.parent.parent, Path(".choregos") / "outputs" / name)
+        if not any(safe_files.is_regular(workspace, Path(d) / "outputs" / name) for d in run_dir.DIRECTORIES)
     ]
     if absent and parsed.status is StageStatus.DONE:
         return ResultLoad(
             None,
             error=(
-                f"missing file(s) in `.choregos/outputs/`: {', '.join(f'`{name}`' for name in absent)}. "
+                f"missing file(s) in `.tranibor/outputs/`: {', '.join(f'`{name}`' for name in absent)}. "
                 "This step declares them as deliverables: write each file there, then rewrite the result."
             ),
             raw=raw,
@@ -165,7 +169,7 @@ def _off_type(parsed: StageResult, displays: dict[str, ArtifactDisplay]) -> list
 
 
 def _explain(exc: ValidationError) -> str:
-    lines = ["the result does not follow the `choregos/StageResult/v1` contract:"]
+    lines = [f"the result does not follow the `{STAGE_RESULT_SCHEMA}` contract:"]
     for error in exc.errors()[:8]:
         location = ".".join(str(part) for part in error["loc"]) or "(root)"
         lines.append(f"- `{location}`: {error['msg']}")
@@ -184,7 +188,7 @@ def repair_prompt(load: ResultLoad, path: Path) -> str:
             "```json",
             json.dumps(
                 {
-                    "schema": "choregos/StageResult/v1",
+                    "schema": STAGE_RESULT_SCHEMA,
                     "status": "done",
                     "summary": "what you did, in one sentence",
                     "evidence": {"facts": {"tests_passed": True, "tests_run": 0}},
