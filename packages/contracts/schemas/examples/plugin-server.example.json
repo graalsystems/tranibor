@@ -35,7 +35,29 @@
   "operations": [
     {
       "name": "search_records",
-      "access": "read"
+      "access": "read",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "records"
+        ],
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
     },
     {
       "name": "add_work_note",
@@ -68,7 +90,8 @@
     }
   ],
   "implements": [
-    "tracker"
+    "tracker",
+    "notes/notes@1"
   ],
   "webhook": {
     "path": "/events"

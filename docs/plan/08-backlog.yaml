@@ -6425,6 +6425,17 @@ stories:
       - "an after_commit callback registered in a released savepoint does not run when the root transaction rolls back, even when the session goes on to commit"
       - "a savepoint that rolls back drops only the callbacks registered since it began; the outer transaction's run once when it commits"
     notes: "Before: SQLAlchemy fires after_commit on a savepoint's release and after_rollback on its rollback; the listeners moved or cleared the whole pending list on either."
+  - id: S84-08
+    title: "fix(docs): the documentation site is published from main only, not on a release (ADR 0185 amended)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: S
+    depends_on: [S84-06]
+    acceptance:
+      - "docs-site.yml has no release trigger; it publishes on a push to main that touches the pages and on its daily run, with links at the built commit"
+      - "tests/docs/test_docs_site_pipeline.py refuses a release trigger"
+    notes: "v0.29.4, published by hand, built the site and failed to deploy it: the github-pages environment deploys from main only. A release published by the release workflow (GITHUB_TOKEN) starts no workflow."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

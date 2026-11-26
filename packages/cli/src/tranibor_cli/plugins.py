@@ -30,13 +30,43 @@ def _refuse(exc: PluginError) -> None:
 @plugin_app.command("validate")
 def validate(
     path: Annotated[Path, typer.Argument(exists=True, help="A plugin directory or a packed .tar.gz.")],
+    profiles_from: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--profiles-from",
+            exists=True,
+            file_okay=False,
+            help="A plugin directory, or a directory of them, whose profiles a server of this plugin "
+            "implements (ADR 0224); repeat it. Without it, those profiles are not checked, and it says so.",
+        ),
+    ] = None,
 ) -> None:
     """Check a plugin and everything it ships; print its name, version and content digest. Only what
-    plugin.yaml declares is read: a server's source or a .venv beside it is ignored."""
-    from tranibor_core.plugins import PluginError, opened
+    plugin.yaml declares is read: a server's source or a .venv beside it is ignored. A profile it declares
+    is checked against its schema, and a server that implements a profile is checked against it."""
+    from tranibor_core.plugins import (
+        PluginError,
+        conformance_problems,
+        foreign_profile_names,
+        opened,
+    )
+    from tranibor_core.plugins import (
+        profiles_from as read_profiles,
+    )
 
     try:
         with opened(path) as plugin:
+            others = foreign_profile_names(plugin)
+            if profiles_from:
+                found = conformance_problems(plugin, read_profiles(profiles_from))
+                if found:
+                    raise PluginError(found)
+            elif others:
+                console.print(
+                    f"[yellow]![/yellow] not checked, no --profiles-from: {', '.join(others)}",
+                    highlight=False,
+                    soft_wrap=True,
+                )
             console.print(
                 f"[green]✓[/green] {plugin.name} {plugin.version} {plugin.digest}",
                 highlight=False,

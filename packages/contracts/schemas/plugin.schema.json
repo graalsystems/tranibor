@@ -195,6 +195,14 @@
             "$ref": "#/$defs/path"
           }
         },
+        "profiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "description": "profile files (plugin-profile.schema.json, ADR 0224): contracts of tools this plugin declares, which servers of this or another plugin may implement (`implements: [<plugin>/<name>@<version>]`) and which an agent may call by profile",
+          "items": {
+            "$ref": "#/$defs/path"
+          }
+        },
         "assistants": {
           "type": "array",
           "uniqueItems": true,

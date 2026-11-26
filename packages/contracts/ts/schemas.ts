@@ -772,6 +772,62 @@ export type PluginIndex = {
   };
 };
 
+export type PluginProfileScalar = string | number | boolean | null;
+
+/** a schema in the profile subset: any other keyword is refused */
+export type PluginProfileSchema = {
+  type?: PluginProfileTypeName | Array<PluginProfileTypeName>;
+  properties?: {
+    [key: string]: PluginProfileSchema;
+  };
+  required?: Array<string>;
+  additionalProperties?: boolean | PluginProfileSchema;
+  items?: PluginProfileSchema;
+  enum?: Array<PluginProfileScalar>;
+  const?: PluginProfileScalar;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: "date-time" | "date" | "time" | "uri" | "email" | "uuid";
+  $ref?: string;
+  description?: string;
+  title?: string;
+};
+
+export type PluginProfileTypeName = "object" | "array" | "string" | "integer" | "number" | "boolean" | "null";
+
+export type PluginProfileTool = {
+  /** unique within the profile; the operation name a server declares */
+  name: string;
+  /** required: nothing is assumed read; a server declares the same access */
+  access: "read" | "write";
+  description?: string;
+  /** a floor: a server may raise it, never lower it */
+  human_approval?: boolean;
+  /** arguments the PLATFORM fills, never the agent (as in plugin-server.schema.json): a floor, a server may add some, never drop one */
+  platform_arguments?: Array<"action_key" | "work_item_key">;
+  /** the tool's arguments, an object schema in the subset */
+  input: PluginProfileSchema;
+  /** the tool's structured answer, in the subset */
+  output: PluginProfileSchema;
+};
+
+/** A profile a plugin declares (`contents.profiles`, ADR 0224): a named contract of tools that several plugin servers may implement (`implements: [<plugin>/<name>@<version>]` in plugin-server.schema.json) and that an agent may call by profile (`mcp_servers: [{profile: ...}]`) instead of by connector. The profile's identity is `<plugin>/<name>@<version>`; the core treats it as opaque and never reads what it means (ADR 0181). Every `input` and `output` is written in the SUBSET below, and a profile that uses anything outside it is refused at validation, so that the comparison of a server's schemas with the profile's never has to guess. THE SUBSET: `type` (one of object, array, string, integer, number, boolean, null, or a list of them), `properties`, `required`, `additionalProperties` (a boolean or a schema), `items` (one schema), `enum` and `const` (scalars only), `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `format` (date-time, date, time, uri, email, uuid), `$ref` (to `#/$defs/<name>` of the same profile, no cycle, no sibling but `description` and `title`), `description` and `title`; nothing else (no oneOf, anyOf, allOf, not, if, patternProperties, prefixItems, tuple items, `$ref` elsewhere). Comparison (`tranibor plugin validate`, ADR 0224 §2): a schema A is ACCEPTED BY a schema B when every instance valid under A is valid under B. A server's input schema must accept what the profile's input accepts (profile input accepted by the server's); the profile's output schema must accept what the server returns (server output accepted by the profile's). An absent `type` is any type; an absent `additionalProperties` is true; an absent `required` is empty; an absent bound is unbounded; a keyword of the server's schema outside the subset makes the comparison fail rather than pass. */
+export type PluginProfile = {
+  /** unique within the plugin; the profile is named `<plugin>/<name>@<version>` */
+  name: string;
+  /** a breaking change is a new version, and both may be served */
+  version: number;
+  description: string;
+  tools: Array<PluginProfileTool>;
+  /** named schemas of the subset that `$ref` points to */
+  $defs?: {
+    [key: string]: PluginProfileSchema;
+  };
+};
+
 /** a tool the server may serve; a tool not listed is refused */
 export type PluginServerOperation = {
   name: string;
@@ -789,6 +845,10 @@ export type PluginServerOperation = {
   };
   /** a JSON Schema of the tool's arguments */
   input_schema?: {
+    [key: string]: unknown;
+  };
+  /** a JSON Schema of what the tool returns (ADR 0224): required of a tool that a profile the server `implements` lists, which compares it with the profile's `output` (the subset of plugin-profile.schema.json) */
+  output_schema?: {
     [key: string]: unknown;
   };
   /** arguments the PLATFORM fills, never the agent: `action_key` (an idempotency key stable for one governed action and call), `work_item_key` (the work item the action belongs to) */
@@ -819,7 +879,8 @@ export type PluginServer = {
     hosts?: Array<string>;
   };
   operations: Array<PluginServerOperation>;
-  implements?: Array<"tracker">;
+  /** the profiles this server implements: `tracker` (the core's, plugin-tracker-profile.schema.json) or a profile a plugin declares, `<plugin>/<name>@<version>` (plugin-profile.schema.json, ADR 0224); the plugin that declares it is among the implementing plugin's `requires.plugins`, and the server declares every tool of the profile with the same access and a governance never weaker */
+  implements?: Array<"tracker" | string>;
   webhook?: {
     path: string;
     /** forward the delivery's `Authorization` header to this server's `tracker_parse_event`, for a sender that signs its deliveries with a bearer token the server verifies (ADR 0198); never logged nor stored by the platform, and never forwarded to a server that does not declare it */
@@ -1045,6 +1106,8 @@ export type Plugin = {
     procedures?: Array<PluginGlob>;
     /** plugin server files (plugin-server.schema.json) */
     servers?: Array<PluginPath>;
+    /** profile files (plugin-profile.schema.json, ADR 0224): contracts of tools this plugin declares, which servers of this or another plugin may implement (`implements: [<plugin>/<name>@<version>]`) and which an agent may call by profile */
+    profiles?: Array<PluginPath>;
     /** assistant files (assistant.schema.json, ADR 0133): each wraps an agent of this plugin; the knowledge seeds, task workflows and eval suites an assistant names ship with the plugin */
     assistants?: Array<PluginPath>;
     /** agent cases of the core's eval matrix (#1372): YAML files in the core's agent-case format (`tranibor_playbooks.evals.agents`, the runbook `live-eval-matrix.md`), named `plugin:<plugin>/<file stem>` by the matrix and played by it, never at install. A case names an agent of this plugin (or carries its own `agent_spec`), and a connector `plugin:<plugin>/<server>` names this plugin and a server it ships */
@@ -2191,6 +2254,7 @@ export type ChoregosContract =
   | OutpostRefusal
   | PluginEvals
   | PluginIndex
+  | PluginProfile
   | PluginServer
   | PluginTrackerProfile
   | Plugin

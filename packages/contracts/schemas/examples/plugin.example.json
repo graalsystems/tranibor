@@ -21,6 +21,7 @@
     "templates": ["templates/itsm-incident-triage"],
     "evals": ["evals/itsm-triager.yaml"],
     "procedures": ["procedures/*.md"],
-    "servers": ["servers/servicenow.yaml"]
+    "servers": ["servers/servicenow.yaml"],
+    "profiles": ["profiles/notes.yaml"]
   }
 }

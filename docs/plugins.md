@@ -57,6 +57,7 @@ contents:
   evals: [evals/greeter.yaml]
   procedures: ["procedures/*.md"]   # the only list that may use *
   servers: [servers/hello.yaml]
+  # profiles: [profiles/notes.yaml]             # profiles a plugin declares, servers implement (ADR 0224)
   # matrix_cases: [evals/matrix/greeting.yaml]   # agent cases of the core's eval matrix (#1372)
   # assistants: [assistants/helper.yaml]        # assistants wrapping an agent of the plugin (ADR 0133)
 ```
@@ -1074,6 +1075,65 @@ approval).
 - **Fakes.** Under `TRANIBOR_FAKES=1` a plugin tracker is built as itself and talks to
   `FakePluginTrackerServer` (`tranibor_adapters.fakes.plugin_tracker`), an in-memory server of the
   profile with the same replay rules.
+
+## Profiles a plugin declares
+
+> **Status (S86-02): declared and proven, not yet served.** The loader packs `contents.profiles`,
+> `tranibor plugin validate` checks a profile and a server that implements one, and the installer checks it
+> again. A profile entry in an agent's `mcp_servers` still opens no tool (S86-04).
+
+A plugin may declare **profiles** ([ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md)):
+named contracts of tools that several plugin servers, of that plugin or of others, may implement, and that an
+agent may call by profile instead of by connector. The core keeps its own [tracker profile](#the-tracker-profile);
+a profile a plugin declares is a family beside it, and the core never reads what one means (ADR 0181).
+
+- **Declare** it in `contents.profiles: [profiles/<name>.yaml]`, a file that matches
+  `plugin-profile.schema.json`: `name` (`^[a-z][a-z0-9-]{0,31}$`), an integer `version`, a `description`,
+  `tools` (each with `name`, `access`, `input` and `output`, and optionally `human_approval` and
+  `platform_arguments` as a floor) and the `$defs` its schemas point to. Its identity is
+  `<plugin>/<name>@<version>`; a breaking change is a new version, and both may be served.
+- **The schema subset.** `input` and `output` use only `type`, `properties`, `required`,
+  `additionalProperties`, `items`, `enum` and `const` (scalars), `minimum`, `maximum`, `minLength`,
+  `maxLength`, `pattern`, `format` (`date-time`, `date`, `time`, `uri`, `email`, `uuid`), `$ref` to a
+  local `#/$defs/<name>` (no cycle), `description` and `title`. Anything else (`oneOf`, `anyOf`,
+  `allOf`, `not`, `if`, `patternProperties`, `prefixItems`) is refused by the schema, so that comparing a
+  server with the profile never has to guess. The comparison itself (a schema A is accepted by B when
+  every instance valid under A is valid under B) is written in the schema's `description`.
+- **Implement** it with `implements: [<plugin>/<name>@<version>]` in a server file, beside or instead of
+  `tracker`. The plugin that declares the profile must be among the implementing plugin's
+  `requires.plugins`, or be the same plugin; the server declares every tool with the same access, a
+  governance never weaker and compatible schemas (see [Checking a server against a
+  profile](#checking-a-server-against-a-profile)).
+- **Call** it with `mcp_servers: [{profile: <plugin>/<name>@<version>, tools: [...]}]` in an agent: the
+  entry names a `connector` or a `profile`, never both, and a profile entry takes no `identity`. The
+  tools it lists are tools of the profile (resolved at run start from S86-04).
+
+### Checking a server against a profile
+
+`tranibor plugin validate <plugin> [--profiles-from <plugin or plugins folder>]...` loads a profile file
+against `plugin-profile.schema.json` (the subset, a `$ref` that resolves, no cycle, a tool and a profile
+declared once), then, for each server that `implements` a profile, proves:
+
+| Rule | Refused when |
+| --- | --- |
+| Tools | the server does not declare a tool of the profile, or declares it with another `access`. |
+| Governance | the profile says `human_approval: true` and the server does not; the server drops a `platform_arguments` entry of the profile. It may add either. |
+| Input | the profile's `input` is not accepted by the server's `input_schema`: a bound tighter on the server, a property the server refuses, a field it requires that the profile leaves optional. The arguments the platform fills (`platform_arguments`) are not counted on the server's side. |
+| Output | the server's `output_schema` is not accepted by the profile's `output`: a wider type, a missing required field, a looser bound or `format`. |
+| Requires | the plugin that declares the profile is neither this plugin nor in its `requires.plugins`. |
+
+The server's `input_schema` and `output_schema` are written in the same subset as the profile's, with
+their own `$defs` at the root; a keyword outside the subset, or a tool without a schema, fails the check
+rather than passes it (`output_schema` is new in `plugin-server.schema.json`, additive). The comparison
+is sound and not complete: it refuses what it cannot show to be inside, and the message names the tool,
+the direction and the path (`list_notes of notes/notes@1, input does not accept what the profile
+accepts: /limit: maximum is 100 for the server but 200 for the profile`).
+
+The profile of another plugin is a file: pass its plugin directory (or a folder of them) with
+`--profiles-from`. Without it the profile is not checked and validate says so. At install, the check runs
+again against the profiles stored with the **installed** version of the plugin that declares them, so a
+server proven against one version is refused if the organisation holds another that it does not keep. An
+upgrade of the declaring plugin does not re-check the servers installed earlier (not yet).
 
 ## Default plugins
 

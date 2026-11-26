@@ -85,6 +85,7 @@ def test_all_declared_schemas_exist() -> None:
         ("plugin-index.example.json", "plugin-index.schema.json"),
         ("plugin-evals.example.json", "plugin-evals.schema.json"),
         ("plugin-tracker-profile.example.json", "plugin-tracker-profile.schema.json"),
+        ("plugin-profile.example.json", "plugin-profile.schema.json"),
         ("assistant.example.json", "assistant.schema.json"),
         ("conversation-evals.example.json", "conversation-evals.schema.json"),
     ],
@@ -1117,3 +1118,125 @@ def test_refusing_a_proposed_action_carries_an_optional_reason() -> None:
     assert reason["minLength"] == 1 and reason["maxLength"] == 500
     action = schemas["ConversationAction"]
     assert "refusal_reason" in action["properties"] and "refusal_reason" not in action["required"]
+
+
+# -- plugin profiles (ADR 0224, S86-01) --------------------------------------------------------------------
+
+
+def _profile(**changes: Any) -> dict[str, Any]:
+    profile = _load("plugin-profile.example.json")
+    profile.update(changes)
+    return profile
+
+
+def _profile_errors(document: dict[str, Any]) -> list[str]:
+    return [e.message for e in _validator("plugin-profile.schema.json").iter_errors(document)]
+
+
+def _with_output(schema: dict[str, Any]) -> dict[str, Any]:
+    profile = _profile()
+    profile["tools"][0]["output"] = schema
+    return profile
+
+
+@pytest.mark.parametrize(
+    "keyword",
+    [
+        {"oneOf": [{"type": "string"}, {"type": "integer"}]},
+        {"anyOf": [{"type": "string"}]},
+        {"allOf": [{"type": "string"}]},
+        {"not": {"type": "string"}},
+        {"if": {"type": "string"}, "then": {"minLength": 1}},
+        {"patternProperties": {"^a": {"type": "string"}}},
+        {"prefixItems": [{"type": "string"}]},
+        {"type": "array", "items": [{"type": "string"}]},
+        {"type": "object", "properties": {"a": {"$ref": "https://example.com/a.json"}}},
+        {"enum": [{"a": 1}]},
+        {"type": "string", "format": "hostname"},
+        {"type": "text"},
+        {"$ref": "#/$defs/note", "type": "object"},
+    ],
+)
+def test_profile_refuses_what_is_outside_the_subset(keyword: dict[str, Any]) -> None:
+    """The comparison of a server's schemas never has to guess: a keyword outside the subset is refused."""
+    assert _profile_errors(_with_output(keyword))
+    assert _profile_errors(_with_output({"type": "object", "properties": {"deep": keyword}}))
+
+
+def test_profile_accepts_the_whole_subset() -> None:
+    subset = {
+        "type": ["string", "null"],
+        "enum": ["a", "b", None],
+        "const": "a",
+        "minimum": 0,
+        "maximum": 9,
+        "minLength": 1,
+        "maxLength": 3,
+        "pattern": "^a",
+        "format": "date",
+        "description": "d",
+        "title": "t",
+    }
+    assert not _profile_errors(_with_output(subset))
+    assert not _profile_errors(_with_output({"$ref": "#/$defs/note", "description": "a note"}))
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"name": "Notes"},
+        {"name": "n" * 33},
+        {"name": "1notes"},
+        {"version": "1"},
+        {"version": 0},
+        {"version": 1.5},
+        {"tools": []},
+        {"description": ""},
+        {"unknown": True},
+    ],
+)
+def test_profile_shape_is_closed(changes: dict[str, Any]) -> None:
+    assert _profile_errors(_profile(**changes))
+
+
+def test_profile_tool_states_its_access_and_its_schemas() -> None:
+    for missing in ("access", "input", "output", "name"):
+        profile = _profile()
+        del profile["tools"][1][missing]
+        assert _profile_errors(profile), missing
+
+
+@pytest.mark.parametrize(
+    ("name", "valid"),
+    [
+        ("notes/notes@1", True),
+        ("dns/dns@12", True),
+        ("a-b/c-d@3", True),
+        ("tracker", True),
+        ("notes@1", False),
+        ("notes/notes", False),
+        ("notes/notes@0", False),
+        ("notes/Notes@1", False),
+        ("notes/notes@1.2", False),
+    ],
+)
+def test_server_implements_names_a_profile_or_tracker(name: str, valid: bool) -> None:
+    server = _load("plugin-server.example.json")
+    server["implements"] = [name]
+    errors = list(_validator("plugin-server.schema.json").iter_errors(server))
+    assert (not errors) is valid
+
+
+def test_manifest_declares_profile_files() -> None:
+    manifest = _load("plugin.example.json")
+    assert manifest["contents"]["profiles"] == ["profiles/notes.yaml"]
+    manifest["contents"]["profiles"] = ["/etc/passwd"]
+    assert list(_validator("plugin.schema.json").iter_errors(manifest))
+
+
+def test_a_server_tool_may_declare_an_output_schema() -> None:
+    """S86-02: a server compares its `output_schema` with the profile's `output` (ADR 0224 §2)."""
+    server = _load("plugin-server.example.json")
+    assert any("output_schema" in op for op in server["operations"])
+    server["operations"][0]["output_schema"] = "string"
+    assert list(_validator("plugin-server.schema.json").iter_errors(server))
