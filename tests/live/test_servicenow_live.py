@@ -19,8 +19,8 @@ live suite (`server/tests/live`) deletes its records when given a cleanup user, 
 one. It files in `TRANIBOR_LIVE_SERVICENOW_GROUP` (`Service Desk` by default), the group the server's
 `SERVICENOW_ASSIGNMENT_GROUPS` must name: on an instance a deployment also watches, a group it does not,
 or its triage project opens the suite's incidents as work items and moves them while the suite does
-(issue tranibor-agents#66). First run: a Personal Developer Instance of the Australia release, patch
-7, 2026-11-21.
+(the agents repository's #66). First run: a Personal Developer Instance of the Australia release,
+patch 7, 2026-11-21.
 """
 
 from __future__ import annotations

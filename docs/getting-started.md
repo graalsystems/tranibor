@@ -92,6 +92,22 @@ Ports taken on your machine? `TRANIBOR_PORT_WEB`, `TRANIBOR_PORT_API` and
 `TRANIBOR_PORT_TEMPORAL_UI` in `.env`. PostgreSQL runs without `fsync` here, for start-up time:
 keep nothing in this install that you cannot recreate.
 
+Behind a proxy that inspects TLS (a corporate proxy that re-signs certificates), the first `up` fails
+while it builds the images: `uv`, `curl`, `git` or `pnpm` refuse the proxy's certificate
+(`UnknownIssuer`, `self-signed certificate in certificate chain`). Give the build your proxy's
+authority, then build again:
+
+```bash
+TRANIBOR_BUILD_CA_DIR=/path/to/a/directory/holding/your-proxy-ca.crt docker compose up --build
+```
+
+`TRANIBOR_BUILD_CA_DIR` is a directory of `*.pem` or `*.crt` files (the whole bundle your machine trusts
+is fine too); only the build steps that download
+read it (`docker/build-ca.sh`), and no image carries it. `HTTPS_PROXY` and `NO_PROXY`, when set in
+your shell, reach the build too. If the proxy listens on your machine's loopback (`127.0.0.1`), add
+`TRANIBOR_BUILD_NETWORK=host`: a build container cannot reach the host's loopback otherwise.
+`docker build` by hand takes the same directory as `--build-context build-ca=<directory>`.
+
 The organisation the first start creates is `demo` (named `Demo`). To start under another slug and
 name, set `TRANIBOR_BOOTSTRAP_ORG` and `TRANIBOR_BOOTSTRAP_ORG_NAME` in `.env` before the first
 `docker compose up`; a second `up` does not rename an organisation that exists, so

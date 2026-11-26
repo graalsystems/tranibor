@@ -67,7 +67,7 @@ For a single-node bench with every dependency embedded, start from the chart's
 
 ```shell
 helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.4 --namespace tranibor --create-namespace -f my-values.yaml
+  --version 0.29.5 --namespace tranibor --create-namespace -f my-values.yaml
 ```
 
 The chart's version is the product's version; the images

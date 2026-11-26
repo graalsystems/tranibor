@@ -154,11 +154,11 @@ DERIVED: tuple[str, ...] = (
     "docs/development.md",
     "docs/getting-started.md",
     "docs/integrations.md",
+    # A measured result names the repository and the images it was measured on.
+    "docs/load-testing.md",
     "docs/outpost-operator.md",
     "docs/plugins.md",
-    "docs/load-testing.md",
     "docs/runbooks/purchasing-live.md",
-    "docs/runbooks/servicenow-nightly.md",
     "docs/site/README.md",
     ".github/workflows/docs-site.yml",
     "docs/site/build/agents.md",

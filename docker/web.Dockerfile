@@ -1,4 +1,10 @@
 # Front Next.js : build autonome (`output: standalone` non requis, on garde .next/).
+# Extra certificate authorities for the downloads below, EMPTY here (`docker/build-ca.sh`): a build
+# behind a TLS-inspecting proxy passes its authority with `--build-context build-ca=<directory>`
+# (`docs/deployment.md`, "Building behind a TLS-inspecting proxy"). Only the stages that download
+# mount it, and none of them is shipped: no published image carries the authority.
+FROM scratch AS build-ca
+
 FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
@@ -6,7 +12,8 @@ WORKDIR /app
 COPY apps/web/package.json apps/web/pnpm-lock.yaml* apps/web/pnpm-workspace.yaml ./apps/web/
 COPY packages/contracts/ts ./packages/contracts/ts
 WORKDIR /app/apps/web
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && pnpm install --frozen-lockfile || pnpm install
 COPY apps/web ./
 # Read by `next build`, not by `next start`: the `/api/v1` rewrite and `NEXT_PUBLIC_*` are baked into
 # the build. The defaults are what the code assumes when they are unset; the local install
@@ -17,7 +24,8 @@ ARG CHOREGOS_API_URL=http://localhost:8000
 ARG NEXT_PUBLIC_DEV_LOGIN=false
 ARG NEXT_PUBLIC_DEV_LOGIN_EMAIL=
 ARG NEXT_PUBLIC_DEV_LOGIN_NEXT=
-RUN pnpm build
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && pnpm build
 
 # A production `node_modules`, rebuilt on its own.
 #
@@ -36,7 +44,8 @@ RUN corepack enable
 WORKDIR /app/apps/web
 COPY apps/web/package.json apps/web/pnpm-lock.yaml* apps/web/pnpm-workspace.yaml ./
 COPY packages/contracts/ts /app/packages/contracts/ts
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
+    . /mnt/build-ca.sh && pnpm install --prod --frozen-lockfile --ignore-scripts
 
 FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1

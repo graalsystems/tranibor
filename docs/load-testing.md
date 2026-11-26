@@ -123,7 +123,8 @@ follow the creation rate (3 % of the iterations), they are not a ceiling.
 
 The platform's own throughput was measured separately, on a fresh install with nothing else running
 (`--burst`). **These two bursts ran with a candidate patch for bottleneck 4 below hot-copied into the
-API container; the patch is not in the repository.** Without it, the same 100-item burst created 16:
+API container; the patch is not in the repository (the fix that replaced it, #2284, is a per-project
+advisory lock).** Without it, the same 100-item burst created 16:
 
 | Burst | Created | Decided | Terminal (`approved`) | Rate |
 |:--|:--|:--|:--|:--|
@@ -154,7 +155,7 @@ Defined as the concurrency where the p95 of a hot read passes one second, or err
   nothing fails. The cheap reads (`work item`, `runs`, `findings`) hold under one second at p95 up to
   20 users (0.75 to 0.93 s) and cross it at 50 (3.6 to 4.7 s).
 * **Errors start at 100 users** on reads (4.5 %), and earlier on creation (4.7 % at 10 users, 12 % at
-  20): that one is a race, not saturation (bottleneck 4).
+  20): that one is a race, not saturation (bottleneck 4, fixed since by #2284).
 * **A sensible reading for this machine:** a single API process answers about 13 requests per second
   of this mix, which is about 10 users who each act every few seconds. It is a floor for this
   machine under a generator that steals CPU from it, not a ceiling for a production node.
@@ -184,22 +185,33 @@ logged the same error on its own pool (20 concurrent activities against a pool o
 concurrency is a setting since S80-07a). The pool was not changed here: raising it moves the queue to
 PostgreSQL, which was already saturated.
 
-**4. Concurrent creations on one project fail with HTTP 500 (found, not fixed here).**
-`internal_work_item_key` reads `max(n) + 1` over the project's keys and the unique constraint
-`project_tracker_key` is the only guard: two requests in flight take the same number and the second
-gets an `IntegrityError` as a 500. On the real PostgreSQL, **10 creations in flight at once on one
-project: 84 of 100 answered 500** (16 created); in the main run, 25 creations failed that way, and the
-worker logged 118 "unknown work item" tracebacks (the cause of those was not traced: they stop with the
-patch below, which suggests the same collisions). A candidate patch, tried on the running containers
-only: insert in `create_work_item` inside `session.begin_nested()` and read the next number again on
-`IntegrityError`, five times at most. With it, 100 of 100 were created, with no 500 and no "unknown
-work item". It is **not included**, because it is not safe as it stands: on SQLite (development and
-the unit tests) releasing the outermost savepoint commits the transaction, and
+**4. Concurrent creations on one project failed with HTTP 500 (found here, fixed since, #2284).**
+`internal_work_item_key` read `max(n) + 1` over the project's keys and the unique constraint
+`project_tracker_key` was the only guard: two requests in flight took the same number and the second
+got an `IntegrityError` as a 500. On the real PostgreSQL, **10 creations in flight at once on one
+project: 84 of 100 answered 500** (16 created); in the main run, 25 creations failed that way. A
+candidate patch, tried on the running containers only (insert inside `session.begin_nested()` and read
+the next number again on `IntegrityError`), created 100 of 100, but was not kept: on SQLite releasing
+the outermost savepoint commits the transaction, and
 `apps/api/tests/test_work_item_files.py::test_start_true_on_a_workflow_that_requires_files_is_refused`
-(a refused creation must leave nothing) went red. A fix wants its own story: a PostgreSQL-only guard
-(an advisory lock per project, as `budgets.lock_budget_scopes` does for budgets, made re-entrant) and a
-test on a real PostgreSQL with concurrent sessions. Until then, **create work items on one project one
-at a time, or retry a 500**.
+went red. **The fix (#2284)** serialises the minting per project on PostgreSQL: `lock_key_minting`
+(`apps/api/src/tranibor_api/services/tickets.py`) takes a `pg_advisory_xact_lock` on the project
+before the keys are read, held until the transaction commits or rolls back, so the next creation reads
+the number this one inserted; nothing changes on SQLite. It covers every path that mints a number (the
+route, the MCP and A2A doors, triggers without a key, actions, and the orchestrator's findings through
+`internal_ticket_key`). `apps/api/tests/test_work_item_key_concurrency.py` proves it on PostgreSQL: 20
+creations at once through the route, then 20 findings minted at once in their own sessions, each get
+a distinct key with no error; without the lock 18 of 20 answered 500. **The workaround (one creation
+at a time, or retry a 500) is no longer needed.** The lock is held from the minting to the commit: two
+creations on one project now take turns for that span, which includes the routing model's answer when
+the project's strategy is `llm`; creations on different projects do not wait on each other.
+
+The 118 "unknown work item" tracebacks the worker logged in the main run were traced to another cause:
+the interpreter is started inside the creating transaction, before its commit, and the worker's first
+activity (`load_context`) can read before the row is visible, then retries (2 s, at most 5 attempts).
+The key race does not start interpreters: a creation that loses it fails at its `INSERT`, before the
+start (checked on PostgreSQL without the lock: 2 created, 2 interpreters started, none on a row that
+was not committed). It is a finding of its own, #2291; it is not fixed here.
 
 **5. Not a performance failure: `needs_human` on a budget refusal.** Under a burst of 100, 41
 work items ended in `needs_human` with this event: "the stage `plan` did not start: 0.00 $ left

@@ -20,6 +20,12 @@ docker build -f docker/outpost.Dockerfile             -t tranibor-outpost:dev .
 docker build -f docker/laya.Dockerfile                -t tranibor-laya:dev .
 ```
 
+Behind a TLS-inspecting proxy, add `--build-context build-ca=<directory of *.pem/*.crt>` and the proxy
+(`--build-arg HTTPS_PROXY=... --build-arg NO_PROXY=...`, and `--network host` if it listens on the
+host's loopback). `docker/build-ca.sh` adds that authority to each downloading step, in build stages
+only; `tests/packaging/test_build_ca.py` refuses a download that does not mount it and a shipped stage
+that does.
+
 `--target` is not optional on `api.Dockerfile`: without it, Docker builds the last stage of the
 file (`worker`).
 
