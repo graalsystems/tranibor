@@ -118,5 +118,6 @@
  "OrgSamlIdp",
  "SamlConsumedAssertion",
  "AuditChainHead",
- "AuditCheckpoint"
+ "AuditCheckpoint",
+ "Installation"
 ]

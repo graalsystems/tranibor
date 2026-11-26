@@ -81,6 +81,7 @@ from .identity import (
     UserAvatar,
     UserSession,
 )
+from .installation import Installation
 from .knowledge import (
     KnowledgeBase,
     KnowledgeChunk,
@@ -119,6 +120,7 @@ ALL_TABLES = [
     Organization,
     User,
     Membership,
+    Installation,
     Project,
     MachineAccount,
     OrgGroup,
@@ -250,6 +252,7 @@ __all__ = [
     "HostedBuildRecord",
     "HumanRequest",
     "Index",
+    "Installation",
     "Integer",
     "Json",
     "KnowledgeBase",

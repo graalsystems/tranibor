@@ -9,11 +9,16 @@ an organisation: an installation through the chart was unusable without touching
 This module reads `TRANIBOR_BOOTSTRAP_ORG` and `TRANIBOR_BOOTSTRAP_ADMINS` when the API starts. It
 creates what is missing and does not modify what exists: an administrator removed by hand does not
 come back at the next restart.
+
+A personal installation holds one person (ADR 0228): there the variable names one address at most, and
+an address that would be a second person is refused by the database, which this module says in its own
+words (`personal_installation.py`).
 """
 
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from tranibor_contracts import Role
 
 from .config import Settings
@@ -21,6 +26,7 @@ from .db.models import Membership, Organization, User
 from .db.org_aliases import organisation_by_slug_or_alias
 from .db.session import session_scope
 from .logging import get_logger
+from .personal_installation import bootstrap_refusal, is_sole_member_refusal, refuse_what_the_settings_forbid
 
 logger = get_logger("choregos.bootstrap")
 
@@ -32,8 +38,19 @@ ADMINISTRATORS = "administrateurs"  # lang: fr-ok returned key that admin_cli.py
 
 async def bootstrap_installation(settings: Settings) -> dict[str, list[str]]:
     """Creates the bootstrap organisation and its administrators if missing. Returns what was created."""
+    # One address at most in the personal posture, whether the API's start-up or the CLI calls.
+    refuse_what_the_settings_forbid(settings)
     if not settings.bootstrap_org:
         return {ORGANISATIONS: [], ADMINISTRATORS: []}
+    try:
+        return await _bootstrap(settings)
+    except IntegrityError as error:
+        if is_sole_member_refusal(error):
+            raise bootstrap_refusal() from error
+        raise
+
+
+async def _bootstrap(settings: Settings) -> dict[str, list[str]]:
     created: dict[str, list[str]] = {ORGANISATIONS: [], ADMINISTRATORS: []}
     async with session_scope(orgs="*") as session:
         # By slug OR by former slug: once the organisation has been renamed, the deployment's value

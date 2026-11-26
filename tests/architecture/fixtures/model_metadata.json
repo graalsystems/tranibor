@@ -15518,5 +15518,53 @@
     false
    ]
   ]
+ },
+ "installation": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "Integer()",
+    "nullable": false,
+    "default": "1",
+    "server_default": null
+   },
+   {
+    "name": "posture",
+    "type": "String(length=16)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "environment",
+    "type": "String(length=32)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "recorded_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   }
+  ],
+  "primary_key": [
+   "id"
+  ],
+  "foreign_keys": [],
+  "uniques": [],
+  "checks": [
+   [
+    "ck_installation_posture",
+    "posture IN ('organisation', 'personal')"
+   ],
+   [
+    "ck_installation_singleton",
+    "id = 1"
+   ]
+  ],
+  "indexes": []
  }
 }

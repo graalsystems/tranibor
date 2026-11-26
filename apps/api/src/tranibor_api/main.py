@@ -47,6 +47,7 @@ from .logging import bind, clear, configure_logging, get_logger
 from .metrics import expose, http_requests, refresh_loop
 from .origin_guard import check_cors_origins, install_origin_guard
 from .outposts import rendezvous as outpost_rendezvous
+from .personal_installation import check_the_installation, refuse_what_the_settings_forbid
 from .routers import (
     actions,
     activity,
@@ -163,6 +164,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API starting", env=settings.env, fakes=settings.fakes)
     # The fakes are a bench's switch: in staging and prod, the API does not start on them (S80-03).
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="API")
+    # One person's own installation (ADR 0228): SQLite and two bootstrap addresses are refused there.
+    refuse_what_the_settings_forbid(settings)
     # A person's model subscription is never a platform process's (ADR 0227).
     refuse_subscription_in_environment("API")
     # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
@@ -187,6 +190,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         in_process_servers(settings)
     if not settings.is_sqlite:
         await _refuse_the_superuser()
+    else:
+        # SQLite only: a file or memory database, thrown away with the process, that no migration
+        # follows. Everywhere else the schema comes from Alembic, `dev` included. The opposite
+        # created the tables when the API started, and the next migration ran into
+        # `relation "agent_backends" already exists`: the deployment failed blaming the
+        # migrations, when it was the API that had taken their place.
+        await create_all()
+    # The posture recorded at the first start, and what it refuses (ADR 0228): before anything starts or
+    # writes, the bootstrap's memberships included, which the recorded posture governs.
+    await check_the_installation(settings)
     _warn_without_secrets_key(settings.fakes)
     # What the run's API guard does here, and what to configure when it cannot refuse (ADR 0144).
     announce_the_internal_api_guard(settings)
@@ -199,16 +212,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # they are not platform events, and carry an id and nothing else.
             relay.listen_also(outpost_rendezvous.CHANNEL, outpost_rendezvous.woken)
         relay.start()
-    if not settings.is_sqlite:
-        await bootstrap_installation(settings)
-    if settings.is_sqlite:
-        # SQLite only: a file or memory database, thrown away with the process, that no migration
-        # follows. Everywhere else the schema comes from Alembic, `dev` included. The opposite
-        # created the tables when the API started, and the next migration ran into
-        # `relation "agent_backends" already exists`: the deployment failed blaming the
-        # migrations, when it was the API that had taken their place.
-        await create_all()
-        await bootstrap_installation(settings)
+    await bootstrap_installation(settings)
     # Conversions a stopped replica left behind (ADR 0051): pending ones, and stale `converting`.
     await conversions.recover()
     # The orchestrator's workers in this process, once the schema exists (ADR 0212): opt-in, fakes, dev.

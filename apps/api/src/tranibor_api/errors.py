@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from tranibor_core import ChoregosError, ValidationError
 from tranibor_core.subscription_credentials import REFUSAL_CODE as SUBSCRIPTION_REFUSAL_CODE
 from tranibor_core.subscription_credentials import SubscriptionCredentialRefusedError
@@ -162,6 +163,21 @@ def install_error_handlers(app: FastAPI) -> None:
         ).to_problem(str(request.url.path))
         problem["code"] = SUBSCRIPTION_REFUSAL_CODE
         return JSONResponse(problem, status_code=422, media_type=PROBLEM_JSON)
+
+    @app.exception_handler(IntegrityError)
+    async def _integrity(request: Request, exc: IntegrityError) -> JSONResponse:
+        # The database refused a second person in a personal installation (ADR 0228), on whatever route
+        # wrote the membership: answered as such. Any other integrity error goes on as before (a 500).
+        from .personal_installation import is_sole_member_refusal, one_person_refusal
+
+        if not is_sole_member_refusal(exc):
+            raise exc
+        problem = one_person_refusal()
+        return JSONResponse(
+            problem.to_problem(str(request.url.path)),
+            status_code=problem.status_code,
+            media_type=PROBLEM_JSON,
+        )
 
     @app.exception_handler(ValidationError)
     async def _core_validation(request: Request, exc: ValidationError) -> JSONResponse:

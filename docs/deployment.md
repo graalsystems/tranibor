@@ -2138,6 +2138,16 @@ keep resolving to it, so a restart does not create a second organisation. Update
 not before the rename. The memory tenant (`org:<key>`) never changes. A platform administrator frees an
 alias with `DELETE /api/v1/orgs/<slug>/aliases/<alias>`.
 
+**The posture is recorded at the first start** ([ADR 0228](adr/0228-a-personal-installation-is-one-person-s-production.md)).
+Before the bootstrap, the API writes the database's one `installation` row: `personal` when
+`TRANIBOR_ENV=personal`, `organisation` for every other environment, and nothing changes it afterwards. A
+database recorded `personal` is never served under another `TRANIBOR_ENV`, nor the reverse: the API refuses
+to start, and says which. In the personal posture the installation holds one person: the database refuses a
+membership for a second one, whatever writes it (a route answers 409 with the code `one_person`), a machine
+account excepted; the API also refuses to start when more than one person holds a membership, when
+`TRANIBOR_BOOTSTRAP_ADMINS` names more than one address, and on SQLite
+(`apps/api/src/tranibor_api/personal_installation.py`). Outside the personal posture the row is only recorded.
+
 The CLI and CI authenticate with API tokens, which a person issues for themselves once
 logged in (`POST /me/tokens`, `choregos tokens create`). Before anyone has logged in, the
 first token comes from the server side:
