@@ -1,6 +1,6 @@
 [project]
 name = "tranibor-tools-mcp"
-version = "0.29.4"
+version = "0.29.5"
 description = "The choregos-tools MCP sidecar"
 requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }

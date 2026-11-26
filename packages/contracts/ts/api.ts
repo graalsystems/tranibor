@@ -1479,7 +1479,9 @@ export type AgentSpec = {
     version?: number | null;
   }>;
   mcp_servers?: Array<{
-    connector: string;
+    connector?: string;
+    /** a profile a plugin declares, `<plugin>/<name>@<version>` (ADR 0224): every organisation connector whose plugin server implements it and that the project may use, instead of one connector by name; the tools are tools of the profile */
+    profile?: string;
     /** operation names or `prefix_*` patterns; an object binds the call's arguments (ADR 0128) */
     tools?: Array<string | AgentToolGrant>;
   }>;
