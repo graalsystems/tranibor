@@ -78,7 +78,7 @@ PROBE_IMAGE = "registry.k8s.io/e2e-test-images/agnhost:2.56"
 SERVER_PORT = 8080
 #: The labels of every pod an agent runs in (`tranibor_adapters.executor.k8s_job.RUNNER_POD_LABELS`,
 #: the warm pool's template too): the chart's `tranibor-runner-egress` selects them.
-#: The name label keeps its former value, as the executor's does (ADR 0226, R9b).
+#: The name label keeps its former value, as the executor's does (ADR 0227, R9b).
 RUNNER_POD_LABELS = {
     "app.kubernetes.io/name": "choregos-runner",
     "app.kubernetes.io/component": "runner",
