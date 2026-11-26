@@ -34,6 +34,7 @@ from ..db.models import (
     WorkflowDef,
     WorkItem,
 )
+from ..db.session import after_commit
 from ..errors import unprocessable, upstream
 from ..keyset import keyset_page
 from ..rbac import Principal
@@ -625,7 +626,7 @@ async def create_work_item(  # noqa: PLR0913 - one creation path, the birth fact
         title=request.title,
     )
     if request.start:
-        await start_work_item(project, item)
+        await start_work_item(project, item, session)
     await record(
         session,
         principal,
@@ -640,8 +641,15 @@ async def create_work_item(  # noqa: PLR0913 - one creation path, the birth fact
     return item
 
 
-async def start_work_item(project: Project, item: WorkItem) -> None:
+async def start_work_item(project: Project, item: WorkItem, session: AsyncSession | None = None) -> None:
     """Starts the work item's interpreter: what `create_work_item` does unless `start=False`.
+
+    Given the session that writes the work item, the start waits for its COMMIT (ADR 0085, #2291): an
+    interpreter started inside the transaction could read before its row was visible (the worker's
+    "unknown work item", retried) or run on a row a failed commit rolled back. `temporal_wf_id` is
+    written in the transaction (the id is deterministic); a start the commit's callback lost is made
+    again by the relay (`services/work_item_relay.py`). Without a session the start is immediate: the
+    caller has committed the row.
 
     The A2A door starts it itself, once the files a message carried are stored: the first step
     must find the inputs it declares (ADR 0078 §6).
@@ -652,17 +660,28 @@ async def start_work_item(project: Project, item: WorkItem) -> None:
     if item.state == TRIAL_STATE:
         return
     workflow_id = interpreter_id(project.slug, item.tracker_key)
-    with organisation_scope(project.org_id):
-        await get_temporal().start_interpreter(
-            workflow_id,
-            {
-                "project_id": project.id,
-                "project_slug": project.slug,
-                "work_item_id": item.id,
-                "tracker_key": item.tracker_key,
-            },
-        )
+    payload = interpreter_payload(project, item)
+    org_id = project.org_id
+
+    async def start() -> None:
+        with organisation_scope(org_id):
+            await get_temporal().start_interpreter(workflow_id, payload)
+
     item.temporal_wf_id = workflow_id
+    if session is None:
+        await start()
+    else:
+        after_commit(session, start)
+
+
+def interpreter_payload(project: Project, item: WorkItem) -> dict[str, Any]:
+    """What a work item's interpreter is started with."""
+    return {
+        "project_id": project.id,
+        "project_slug": project.slug,
+        "work_item_id": item.id,
+        "tracker_key": item.tracker_key,
+    }
 
 
 async def _file_in_tracker(
