@@ -72,7 +72,7 @@ async def _the_miss_is_on_the_timeline(setup: Fixture) -> None:
                 await session.execute(
                     select(Event).where(
                         Event.work_item_id == setup.work_item_id,
-                        Event.type == "choregos.workitem.status_comment_missed",
+                        Event.type == "tranibor.workitem.status_comment_missed",
                     )
                 )
             ).scalars()

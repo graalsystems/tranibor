@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import AfterValidator, Field, field_validator, model_validator
 
@@ -14,9 +14,15 @@ from .enums import ApiFormat, FindingType, Severity, StageStatus
 from .open_lists import FINDING_TYPE_PATTERN
 from .workflow import Strict
 
-STAGE_INPUT_SCHEMA = "choregos/StageInput/v1"
-STAGE_RESULT_SCHEMA = "choregos/StageResult/v1"
-CONTEXT_PACK_SCHEMA = "choregos/ContextPack/v1"
+#: The `schema` each stage document is written with (ADR 0226, R9a). The former `choregos/<Name>/v1` is
+#: accepted on input until 0.32.0, and a stored document keeps the one it was written with: a Temporal
+#: history, a run's stored input or result, re-read and re-serialised, is the same document (ADR 0008).
+STAGE_INPUT_SCHEMA: Final = "tranibor/StageInput/v1"
+STAGE_RESULT_SCHEMA: Final = "tranibor/StageResult/v1"
+CONTEXT_PACK_SCHEMA: Final = "tranibor/ContextPack/v1"
+StageInputSchema = Literal["tranibor/StageInput/v1", "choregos/StageInput/v1"]
+StageResultSchema = Literal["tranibor/StageResult/v1", "choregos/StageResult/v1"]
+ContextPackSchema = Literal["tranibor/ContextPack/v1", "choregos/ContextPack/v1"]
 
 
 def file_outputs(outputs: list[str], output_types: dict[str, str]) -> list[str]:
@@ -87,7 +93,7 @@ class TransitionRef(Strict):
     to: str
     outputs: list[str] = Field(default_factory=list)
     inputs: list[str] = Field(default_factory=list)
-    #: The declared type of each output (ADR 0049); a file type is written in `.choregos/outputs/`.
+    #: The declared type of each output (ADR 0049); a file type is written in `.tranibor/outputs/`.
     output_types: dict[str, str] = Field(default_factory=dict)
     #: What the workflow's `artifacts:` block declares of the step's outputs (ADR 0129): the runner
     #: checks the values, the platform records how they are shown.
@@ -267,7 +273,7 @@ class KnowledgeRef(Strict):
 
     `files`: the runner fetches exactly the `documents` named here from
     `GET /internal/runs/{id}/knowledge`, checks their `digest`, and lays them read-only under
-    `.choregos/knowledge/<slug>/`. `index`: nothing is laid down; the agent searches the base with
+    `.tranibor/knowledge/<slug>/`. `index`: nothing is laid down; the agent searches the base with
     the sidecar's `knowledge_search` tool.
     """
 
@@ -387,7 +393,7 @@ class PromptCall(Strict):
 class StageInput(Strict):
     """What the orchestrator hands to the runner (docs/plan/01 §1.5)."""
 
-    schema_: Literal["choregos/StageInput/v1"] = Field(default="choregos/StageInput/v1", alias="schema")
+    schema_: StageInputSchema = Field(default=STAGE_INPUT_SCHEMA, alias="schema")
     run_id: str
     attempt: int = Field(ge=1)
     trace_parent: str | None = None
@@ -473,7 +479,7 @@ class ScopeChangeRequest(Strict):
 
 
 class ArtifactFile(Strict):
-    """A file a step left in `.choregos/outputs/`, as the runner stored it (ADR 0049)."""
+    """A file a step left in `.tranibor/outputs/`, as the runner stored it (ADR 0049)."""
 
     filename: str
     type: str
@@ -502,7 +508,7 @@ class Artifacts(Strict):
     transcript_url: str | None = None
     context_pack_url: str | None = None
     reports: dict[str, str] = Field(default_factory=dict)
-    #: The files of `.choregos/outputs/`, by artifact name; written by the runner, never by the agent.
+    #: The files of `.tranibor/outputs/`, by artifact name; written by the runner, never by the agent.
     files: dict[str, ArtifactFile] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -578,7 +584,7 @@ class StageOutputs(Strict):
 class StageResult(Strict):
     """What the runner returns to the orchestrator (docs/plan/01 §1.6)."""
 
-    schema_: Literal["choregos/StageResult/v1"] = Field(default="choregos/StageResult/v1", alias="schema")
+    schema_: StageResultSchema = Field(default=STAGE_RESULT_SCHEMA, alias="schema")
     status: StageStatus
     reason: str | None = None
     summary: str = Field(min_length=1, max_length=4000)
@@ -626,7 +632,7 @@ class RelatedItem(Strict):
 class ContextPack(Strict):
     """Memory injected into a stage. **Untrusted** content: data, never instructions."""
 
-    schema_: Literal["choregos/ContextPack/v1"] = Field(default="choregos/ContextPack/v1", alias="schema")
+    schema_: ContextPackSchema = Field(default=CONTEXT_PACK_SCHEMA, alias="schema")
     query: str
     paths: list[str] = Field(default_factory=list)
     kinds: list[str] = Field(default_factory=list)

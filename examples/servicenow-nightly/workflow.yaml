@@ -30,7 +30,7 @@ actors:
       A,R,T=(os.environ[k] for k in("TRANIBOR_API_URL","TRANIBOR_RUN_ID","TRANIBOR_RUN_TOKEN"))
       F={"run":R};t0=time.time()
       def out(ok,s):
-       os.makedirs(".choregos",exist_ok=True);json.dump({"summary":s,"facts":F},open(".choregos/job.json","w"));print(s);raise SystemExit(0 if ok else 1)
+       os.makedirs(".tranibor",exist_ok=True);json.dump({"summary":s,"facts":F},open(".tranibor/job.json","w"));print(s);raise SystemExit(0 if ok else 1)
       def call(n,a):
        q=U.Request(f"{A}/runs/{R}/tools/servicenow__{n}",json.dumps(a).encode(),{"Authorization":"Bearer "+T,"Content-Type":"application/json"})
        try:b=json.load(U.urlopen(q,timeout=180))
@@ -41,7 +41,7 @@ actors:
        return r.get("structuredContent",r)
       g=call("search_records",{"table":"sys_user_group","filters":[{"field":"name","value":"Service Desk"}],"fields":["sys_id","name"],"limit":1})["records"]
       if not g:out(0,"RED: no Service Desk group on the instance")
-      w=json.load(open(".choregos/fields.json")).get("window","manual") if os.path.exists(".choregos/fields.json") else "manual"
+      w=json.load(open(".tranibor/fields.json")).get("window","manual") if os.path.exists(".tranibor/fields.json") else "manual"
       c=call("tracker_create_item",{"title":f"Nightly probe {w}: Outlook cannot reach the mail server ({R[-12:]})","body":"Filed by the Tranibor nightly to prove the queue poll, the triage and the platform's write-back. Outlook shows Disconnected since this morning; webmail works.","fields":{"assignment_group":g[0]["sys_id"],"impact":"3","urgency":"3","category":"inquiry"}})
       k=c.get("key");F.update(incident=k,created=bool(c.get("created")))
       if not k:out(0,f"RED: no key in {str(c)[:200]}")

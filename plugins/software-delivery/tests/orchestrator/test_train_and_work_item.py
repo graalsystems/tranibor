@@ -269,7 +269,7 @@ async def _requested_groups() -> list[str | None]:
 
     async with session_scope() as session:
         rows = await session.execute(
-            select(Event).where(Event.type == "choregos.release.approval_requested").order_by(Event.ts)
+            select(Event).where(Event.type == "tranibor.release.approval_requested").order_by(Event.ts)
         )
         return [(e.payload or {}).get("group") for e in rows.scalars()]
 

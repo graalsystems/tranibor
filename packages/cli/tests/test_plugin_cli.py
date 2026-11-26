@@ -103,3 +103,45 @@ def test_validate_refuses_an_assistant_with_the_path_of_the_field(tmp_path: Path
     result = runner.invoke(app, ["plugin", "validate", str(copy)])
     assert result.exit_code == 1
     assert "assistants/investment-assistant.yaml:tools/4/approval" in result.output
+
+
+# -- profiles (ADR 0224, S86-02) ---------------------------------------------------------------------------
+
+PROFILES = HELLO.parent.parent / "profiles"
+
+
+def test_validate_checks_a_server_against_the_profile_it_implements(tmp_path: Path) -> None:
+    ok = runner.invoke(app, ["plugin", "validate", str(PROFILES / "shelf"), "--profiles-from", str(PROFILES)])
+    assert ok.exit_code == 0, ok.output
+    assert "shelf 1.0.0 sha256:" in ok.output
+    copy = tmp_path / "shelf"
+    shutil.copytree(PROFILES / "shelf", copy)
+    server = copy / "servers" / "shelf.yaml"
+    server.write_text(
+        server.read_text().replace("name: list_notes\n  access: read", "name: list_notes\n  access: write")
+    )
+    refused = runner.invoke(
+        app, ["plugin", "validate", str(copy), "--profiles-from", str(PROFILES / "notes")]
+    )
+    assert refused.exit_code == 1
+    assert "`list_notes` of `notes/notes@1` is a read of the profile, declared `write`" in " ".join(
+        refused.output.split()
+    )
+
+
+def test_validate_says_what_it_could_not_check_without_the_other_plugins_profiles() -> None:
+    result = runner.invoke(app, ["plugin", "validate", str(PROFILES / "shelf")])
+    assert result.exit_code == 0, result.output
+    assert "not checked, no --profiles-from: notes/notes@1" in " ".join(result.output.split())
+
+
+def test_validate_refuses_a_profile_outside_the_subset(tmp_path: Path) -> None:
+    copy = tmp_path / "notes"
+    shutil.copytree(PROFILES / "notes", copy)
+    profile = copy / "profiles" / "notes.yaml"
+    doc = yaml.safe_load(profile.read_text())
+    doc["tools"][0]["output"]["oneOf"] = [{"type": "string"}]
+    profile.write_text(yaml.safe_dump(doc))
+    result = runner.invoke(app, ["plugin", "validate", str(copy)])
+    assert result.exit_code == 1
+    assert "profiles/notes.yaml" in result.output and "oneOf" in result.output

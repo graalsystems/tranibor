@@ -716,7 +716,7 @@ async def approve_instance(
             raise refusal(
                 "fingerprint_mismatch",
                 "the fingerprint sent is not the one this instance enrolled with: compare it with what "
-                "`choregos-outpost enrol` printed, and approve nothing that differs",
+                "`tranibor-outpost enrol` printed, and approve nothing that differs",
                 outpost.slug,
             )
         # Compare-and-set: the row only moves while it is still pending.

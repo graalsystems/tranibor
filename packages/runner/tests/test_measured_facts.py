@@ -111,7 +111,7 @@ async def test_the_evidence_facts_guarantee_judges_the_measurement(
     # The agent claims the opposite of the measurement: that is the whole point.
     declared = Evidence(facts={"finding_resolved": not value})
     result = StageResult(
-        schema="choregos/StageResult/v1",
+        schema="tranibor/StageResult/v1",
         status="done",
         summary="verification",
         evidence=merge_evidence(declared, report.evidence()),

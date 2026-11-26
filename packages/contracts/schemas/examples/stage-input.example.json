@@ -1,5 +1,5 @@
 {
-  "schema": "choregos/StageInput/v1",
+  "schema": "tranibor/StageInput/v1",
   "run_id": "01J8ZQK4C9R7M3N2P5T6V7W8X9",
   "attempt": 1,
   "trace_parent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",

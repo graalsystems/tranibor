@@ -61,7 +61,7 @@ test("enrolling shows the token once with the policy file's lines, and the insta
   const lines = (await shown.getByTestId("outpost-policy-lines").innerText()).trim().split("\n");
   expect(lines[0]).toBe("control_plane: https://outposts.example.com");
   expect(lines[1]).toMatch(/^door_keys: \["[A-Za-z0-9_-]{43}", "[A-Za-z0-9_-]{43}"\]$/);
-  await expect(shown.getByTestId("outpost-enrol-command")).toHaveText(`choregos-outpost enrol --token ${token}`);
+  await expect(shown.getByTestId("outpost-enrol-command")).toHaveText(`tranibor-outpost enrol --token ${token}`);
   // The page looks for the instance while the token is on screen.
   const waiting = page.getByRole("list", { name: "Instances waiting for approval" });
   await expect(waiting.getByRole("listitem")).toHaveCount(1, { timeout: 15_000 });

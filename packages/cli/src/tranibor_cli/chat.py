@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos chat`: the workspace of ADR 0154 §2 in the terminal, and a bare `choregos` in one (§3).
+"""`tranibor chat`: the workspace of ADR 0154 §2 in the terminal, and a bare `tranibor` in one (§3).
 
-This module is what `main` imports: it holds no Textual, so `choregos --version` and every other command
+This module is what `main` imports: it holds no Textual, so `tranibor --version` and every other command
 start as fast as before. The workspace itself is `workspace.py`, imported here when, and only when, the person
 opens it (ADR 0154 §8).
 """
@@ -18,8 +18,8 @@ from .client import NoOrganisationError
 
 
 def interactive() -> bool:
-    """Both standard input and output are terminals: what a bare `choregos` needs to open the workspace, so
-    no script that pipes `choregos` changes behaviour."""
+    """Both standard input and output are terminals: what a bare `tranibor` needs to open the workspace, so
+    no script that pipes `tranibor` changes behaviour."""
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
@@ -42,7 +42,7 @@ def chat(
 
     One screen of tabs (conversation, activity, projects, decisions, artefacts, live), a header of
     what runs and what waits, and a context pane that follows the selection. The keys are in the footer.
-    It needs a terminal; `choregos ask` and `choregos activity` are the scriptable forms.
+    It needs a terminal; `tranibor ask` and `tranibor activity` are the scriptable forms.
     """
     open_workspace(org=org, assistant=assistant, conversation=conversation, smoke=smoke)
 
@@ -57,7 +57,7 @@ def open_workspace(
     from . import main
 
     if not smoke and not interactive():
-        main.fail("`choregos chat` needs a terminal; use `choregos ask` or `choregos activity` in a script")
+        main.fail("`tranibor chat` needs a terminal; use `tranibor ask` or `tranibor activity` in a script")
     profile = main.client().profile
     try:
         organisation = profile.organisation(org)

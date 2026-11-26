@@ -26,17 +26,17 @@ without one.
 
 Three ways, same result: the web wizard (`/projects/new`), the CLI, or the API.
 
-Sign in as yourself with `choregos login --api-url https://api.example --org acme`: it opens your browser on the
+Sign in as yourself with `tranibor login --api-url https://api.example --org acme`: it opens your browser on the
 console (over SSH or without a display it prints the link instead) and shows a code; you approve the code in the
 console (signed in as you, through your organisation's identity provider), and the
 CLI holds a session of yours. It is listed under **My account**, *Sessions* (ending it there signs the CLI out at
-its next call), `choregos logout` ends it from the terminal, and `--fresh` makes the console ask your identity
+its next call), `tranibor logout` ends it from the terminal, and `--fresh` makes the console ask your identity
 provider for a new sign-in first. A script or CI keeps using an API token:
 
 ```bash
-choregos login --api-url https://api.example --token "$TRANIBOR_TOKEN" --org acme
-choregos projects create billing-api --name "Billing API" --org acme
-choregos projects list
+tranibor login --api-url https://api.example --token "$TRANIBOR_TOKEN" --org acme
+tranibor projects create billing-api --name "Billing API" --org acme
+tranibor projects list
 ```
 
 `--default-workflow <name>` on `create` makes that workflow the project's default in the same call (API:
@@ -126,7 +126,7 @@ calls to an in-cluster Firecrawl. A deployment that wants their traffic through 
 `python -m tranibor_api.relay` (the API image, its own Deployment, one per organisation), and points them at it:
 
 - environment: `TRANIBOR_RELAY_ORG` (the organisation's slug), `TRANIBOR_RELAY_API_URL` (e.g.
-  `http://choregos-api:8000/api/v1`: the Service, not a public hostname of the API, where the route the
+  `http://tranibor-api:8000/api/v1`: the Service, not a public hostname of the API, where the route the
   relay reads may be refused, see [the run's API and the run door](deployment.md#the-runs-api-and-the-run-door)),
   `TRANIBOR_RELAY_API_TOKEN` (printed by
   `python -m tranibor_api.relay mint --org <slug> --days N`, run where `TRANIBOR_RUN_TOKEN_PRIVATE_KEY` is set;
@@ -266,7 +266,7 @@ and the tools it takes from each — `mcp_servers: [{"connector": "supplier", "t
 "no tool — name tools, or * for all" — on the agent, in its diff and in the builder). A run of that agent sees, as
 `supplier__track_order`, the tools that are **in its selection, `allowed`** for its project
 (after the project's tightening) and open to its groups — an `approval` operation is a governed
-action, not a tool. The agent calls it through `choregos-tools`; the platform checks the
+action, not a tool. The agent calls it through `tranibor-tools`; the platform checks the
 arguments against the tool's schema (`400`, nothing billed), counts the call against the run's
 `tool_calls_per_run` (`429`), calls the server **with the connector's key, resolved in the API**
 — the run's pod holds only its run token — records the cost (`provider: mcp:<connector>`,
@@ -410,8 +410,8 @@ the canonical JSON) in its `tool.called` event, so a result can later be matched
 served, and `response_bytes`, the size in UTF-8 bytes of that same canonical JSON of the result: what
 the call put back into the model's context (S57-01). It also records `origin`, the door the call came through —
 `model` (the agent's MCP client), `script` (a script, through the runner's tool bridge) or `job` (a job
-step) — from the call's `X-Choregos-Tool-Origin` header (absent: `model`; any other value is a `400`
-problem), and `script_sha256` when an `X-Choregos-Script` header names the script (64 lowercase
+step) — from the call's `X-Tranibor-Tool-Origin` header (absent: `model`; any other value is a `400`
+problem), and `script_sha256` when an `X-Tranibor-Script` header names the script (64 lowercase
 hexadecimal characters, else `400`). A job step's calls are `job` whatever they send: the API reads it
 from the run (`backend: job` and the job's spec, both written by the orchestrator), not from the
 header, and keeps no script digest for them (a job has no tool bridge to journal a script); a run that
@@ -435,7 +435,7 @@ the turn and minute budgets still hold.
 
 ### Project settings and readiness
 
-`GET /projects/{id}/readiness` (`choregos projects readiness <slug>`, exit code 1 while something is
+`GET /projects/{id}/readiness` (`tranibor projects readiness <slug>`, exit code 1 while something is
 to do) says what a project still lacks to run. It is computed from stored state only: the last connector
 tests, the policy, the members, the workflows. It makes no network call (but one: the object store, when a workflow writes files, see `object-store`), so a read is fast, and it does not
 prove live connectivity: *Test now* (the connector test endpoint) refreshes what it reads.
@@ -450,7 +450,7 @@ vendor). `ready` is true when no item is `todo`.
 | :-- | :-- | :-- |
 | `provisioned` | the project is not active (the failing provisioning step is named) | |
 | `workflow` | no active workflow | none is the default |
-| `workflow-template` | never: a project keeps running its version | an active workflow still marked `source: template` differs from the one the project's template ships on this image (compared on the parsed definition: a comment or a reformatting is not a difference). The detail names the workflow, its version, both checksums and the template file; the fix is to publish that file as the next version (`choregos workflow push`, or `PUT /projects/{id}/workflows/{name}` with `source: template`). A work item in progress stays on its version. Not listed without a template, for a workflow published by hand (`platform`, `repo`), or when the template no longer ships it or comes from the database |
+| `workflow-template` | never: a project keeps running its version | an active workflow still marked `source: template` differs from the one the project's template ships on this image (compared on the parsed definition: a comment or a reformatting is not a difference). The detail names the workflow, its version, both checksums and the template file; the fix is to publish that file as the next version (`tranibor workflow push`, or `PUT /projects/{id}/workflows/{name}` with `source: template`). A work item in progress stays on its version. Not listed without a template, for a workflow published by hand (`platform`, `repo`), or when the template no longer ships it or comes from the database |
 | `connector-<capability>` | a workflow needs it, none is configured and the deployment does not provide it, or its last test failed | a `demo`/`fake` stand-in, or never tested |
 | `connector-<kind>-secrets` | a secret field of the type is not set (webhook secrets excepted) | |
 | `connector-<kind>-stale` | | the last passing test is older than 7 days |
@@ -475,7 +475,7 @@ memory service, the internal tracker) is `done` ("provided by the platform").
 ## 3. Write the workflow
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata: { name: default-simple, version: 1 }
 actors:
@@ -522,7 +522,7 @@ placeholder; a train's approval group (`train.approval`) cannot take it.
 Validate before you commit it:
 
 ```bash
-choregos workflow validate my-workflow.yaml   # add --remote to validate server-side
+tranibor workflow validate my-workflow.yaml   # add --remote to validate server-side
 ```
 
 The validator refuses more than syntax: an unreachable state, a retry that can loop forever,
@@ -968,7 +968,7 @@ earlier image keeps the version it stores, whose merge transition does not carry
 newer one is published in it:
 
 - a project born from a template: its readiness item `workflow-template` turns to *check* and names
-  the file; publish it as above (`choregos workflow push <project> <file>`);
+  the file; publish it as above (`tranibor workflow push <project> <file>`);
 - a workflow adopted from the catalogue: **Adopted workflows up to date** turns to *check*; adopt the
   entry again, which publishes the project's next version;
 - a project created without a template, which received `default-simple`: nothing says so. Take the
@@ -1144,7 +1144,7 @@ complete example that runs on the same deployment as the software one, with no c
     output_types: { budget: xlsx, deck: pptx }
 ```
 
-A typed output is a file the agent writes in `.choregos/outputs/` (`budget.xlsx`, `deck.pptx`); a
+A typed output is a file the agent writes in `.tranibor/outputs/` (`budget.xlsx`, `deck.pptx`); a
 value written in `outputs` under the same name does not stand for it. The types are `markdown`,
 `json`, `mermaid`, `sarif`, `text`, `csv`, `html`, `pdf`, `docx`, `xlsx`, `pptx`, `png`, `jpeg`,
 `gif`, `webp`, `svg`, `mp4`, `webm`, `file`, `diff`, `keyvalue`, `level` and `metric`; the validator
@@ -1206,12 +1206,12 @@ the console from the file's content, without running any of it. Fonts, charts an
 from the application's rendering, and the page says so; the download is the exact file. A revision the API
 refuses to serve is said, not shown.
 A step's declared `inputs:` reach its agent as files too: the runner writes each one in
-`.choregos/inputs/<name>.<ext>` (`deck.pptx`, `profiles.json`, `spec_markdown.md`) after checking
-its digest, and lists them in `.choregos/task.md`. A large report no longer has to fit in the
+`.tranibor/inputs/<name>.<ext>` (`deck.pptx`, `profiles.json`, `spec_markdown.md`) after checking
+its digest, and lists them in `.tranibor/task.md`. A large report no longer has to fit in the
 prompt; an input whose bytes do not match stops the run.
 
 **Binary deliverables.** An agent that produces a slide deck, a spreadsheet, a document, an image
-or a video writes it in `.choregos/outputs/`. The runner hands each file to the platform, which
+or a video writes it in `.tranibor/outputs/`. The runner hands each file to the platform, which
 checks its sha256, stores it in the object store and records it as a typed artifact; the runner
 lists what was stored in the result's `artifacts.files` — an agent cannot vouch for its own files.
 A declared file that is missing goes back to the agent, then fails the step. Undeclared files are
@@ -1225,7 +1225,7 @@ code, not judgement: give it to a `job`, not to an agent.
 
 ```yaml
 actors:
-  engine: { type: job, role: backtest, command: [choregos-quant, backtest, --out, out], image: investment-research, max_minutes: 20 }
+  engine: { type: job, role: backtest, command: [tranibor-quant, backtest, --out, out], image: investment-research, max_minutes: 20 }
 ```
 
 `command` is an argv, never a shell line. `image` names an image the operator mapped in
@@ -1235,11 +1235,11 @@ which carries no trade's command, and an unknown name stops the step. A plugin w
 steps ships its job image: the `investment-research` plugin's is `tranibor-investment-research`, built
 and signed by each release FROM that release's runner (`plugins/investment-research/Dockerfile`,
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) O4-3). A job gets no model and no
-gateway key. The runner writes the work item's fields in `.choregos/fields.json`, runs the command
+gateway key. The runner writes the work item's fields in `.tranibor/fields.json`, runs the command
 with `TRANIBOR_WORKSPACE`, `TRANIBOR_RUN_ID`, `TRANIBOR_API_URL` and the run's own token
 `TRANIBOR_RUN_TOKEN` (to call a connector through the internal API), and reads back
-`.choregos/job.json` = `{"summary": …, "facts": {…}, "outputs": {…}}` and the files in
-`.choregos/outputs/`. None of these files is committed: the branch, and the pull request, carry only
+`.tranibor/job.json` = `{"summary": …, "facts": {…}, "outputs": {…}}` and the files in
+`.tranibor/outputs/`. None of these files is committed: the branch, and the pull request, carry only
 what the command changed in the repository (S51-08). A non-zero exit fails the step; the facts are **measured**, so
 `evidence_facts` gates on what the code computed, not on what an agent said. Retries, `on_fail` and
 the `*agent` wildcard treat a job like an agent step. A job reaches the outside only through the
@@ -1273,7 +1273,7 @@ The step runs in the orchestrator, in one activity (`decide`), with no pod and n
   that is empty or missing is left out rather than failing the step. Secrets are masked first
   (`[REDACTED]`, the shapes of the LLM guard, ADR 0084), and the policy's
   `sandbox.prompt_injection` reads the state before it leaves (`warn` records an event, `block`
-  stops the step). The `choregos.run.started` event names the sources sent and how many secrets were
+  stops the step). The `tranibor.run.started` event names the sources sent and how many secrets were
   masked, never their values.
 - **Where it goes**: `POST {gateway}/v1/systemone` on the project's gateway (its own connector, else
   the organisation's, else the deployment's: the URL a run of the project is given), never to a model
@@ -1446,7 +1446,7 @@ A session (prompt, hosted or realtime) gives its model text: the answer's text b
 over the cap, the structured part is dropped and the model reads the cut text with its marker.
 
 A run's agent reads the answer's meaning, not only its result (S57-04, [ADR 0122](adr/0122-an-agent-may-call-its-run-s-tools-from-a-script.md) §8).
-The run's tool server (`choregos-tools`) turns the API's answer — `{status_code, result, remaining,
+The run's tool server (`tranibor-tools`) turns the API's answer — `{status_code, result, remaining,
 suspicions}` — into one text: a `202` whose result names an action starts with `PROPOSED, NOT
 EXECUTED: …` (`pending_approval`, with the console path where a person decides) or `NOT FINISHED
 YET: …` (a governed write still running); `suspicions` put first a line that names their reasons —
@@ -1472,22 +1472,22 @@ composes these lines in one place, `tranibor_core.tool_answer`.
 
 The run's tool list (`GET /internal/runs/{id}/tools`) says what a call of each tool does (S57-05,
 [ADR 0122](adr/0122-an-agent-may-call-its-run-s-tools-from-a-script.md)): MCP's own
-`annotations.readOnlyHint`, true only for a read, and `x-choregos-access`:
+`annotations.readOnlyHint`, true only for a read, and `x-tranibor-access`:
 
-| Tool | `x-choregos-access` |
+| Tool | `x-tranibor-access` |
 | :-- | :-- |
 | a connector operation the policy allows, that reads | `read` |
 | a connector operation the policy allows, that writes (a governed action) | `write` |
 | a connector operation under approval, a read included (a call proposes an action) | `approval` |
 | a catalogue tool (one that may write is not listed) | `read` |
 | `web_fetch`, `web_search` | `read` |
-| a plugin extension's tool that declares `x-choregos-access` beside its `name` | what it declares (`read`, `write`, `approval`; any other value is refused when the tools are listed) |
+| a plugin extension's tool that declares `x-tranibor-access` beside its `name` | what it declares (`read`, `write`, `approval`; any other value is refused when the tools are listed) |
 | a plugin extension's tool annotated `readOnlyHint: true`, declaring nothing | `read` |
 | any other plugin extension tool (MCP's default is not read-only) | `write` |
 
 A connector operation whose server declares an `outputSchema` is listed with it: it describes the
 `structuredContent` of the tool's `result`. The run's tool server lists the tools to the model
-without `outputSchema` and without the `x-choregos-*` keys: it hands back the API's whole answer as
+without `outputSchema` and without the `x-tranibor-*` and `x-choregos-*` keys: it hands back the API's whole answer as
 `structuredContent`, which an MCP client would check against the operation's schema and refuse, and
 MCP has no such keys. MCP's `annotations` reach the model.
 
@@ -1518,7 +1518,7 @@ gates:
   - { name: tool_called, params: { tools: [verifier_adresse] } }
 ```
 
-Agents also get `validate_result`, which checks their `.choregos/result.json` against the
+Agents also get `validate_result`, which checks their `.tranibor/result.json` against the
 contract *before* they finish — the same validator the runner applies afterwards.
 
 ### What a run is offered
@@ -1845,7 +1845,7 @@ It is the requester's text: print it as data, never into a command, a path or a 
 The catalogue's agents show it as one line of JSON in a section that says so. A person cannot write
 `fields.tracker` (`422` on creation and on `PATCH /work-items/{id}`), and no workflow may declare an
 input named `tracker` (`inputs.reserved`); a workflow whose `metadata.inputs` forbids other
-properties still accepts it. A job reads the same object in `.choregos/fields.json`. An eval case or
+properties still accepts it. A job reads the same object in `.tranibor/fields.json`. An eval case or
 a trial gives its sample `fields` (`"input": {"title": …, "fields": {"tracker": {…}}}`); without
 them it renders with `ticket.fields` `{}`.
 
@@ -1865,7 +1865,7 @@ and a project without one gives no repository whatever the agent says.
 | `workspace` | what a run gets |
 | :-- | :-- |
 | `none` | nothing cloned: an empty directory with a local git, nothing pushed; the repository's host is **not** on the run's network (an agent naming it in `network.domains` must find it in the project's allowlist, or the run is refused before it starts) |
-| `read` | the repository cloned, and a write scope of `.choregos/outputs/**` only: a write to any repository file is refused and reverted, nothing is committed or pushed, and `request_scope_change` is always denied |
+| `read` | the repository cloned, and a write scope of `.tranibor/outputs/**` only: a write to any repository file is refused and reverted, nothing is committed or pushed, and `request_scope_change` is always denied |
 | `write` | today's run: the repository cloned, the work item's scope (`**` when it has none) |
 | absent | `write`; the field is left out of the stored spec, so a version published before it keeps its digest |
 
@@ -1881,7 +1881,7 @@ A version may also say **which language** a person reads its output in
 language tag such as `fr`, `de` or `pt-BR` (a primary subtag, optionally a region; anything else is a
 `422`). The platform's frame then asks the agent to write its summary, documents, questions and
 findings in that language, while the keys, identifiers and enum values of the result contract
-(`status`, `type`, `severity`) and the shape of `.choregos/result.json` stay as specified. Absent or
+(`status`, `type`, `severity`) and the shape of `.tranibor/result.json` stay as specified. Absent or
 `en`, the agent writes in English, as before, and an absent field is left out of the stored spec so no
 digest moves. The language is the agent's, not the organisation's: a code agent can keep writing pull
 requests in English while an assistant writes for people in theirs. A built-in role run without a
@@ -2457,7 +2457,7 @@ When a run is prepared, each named base must exist and be served to the run's pr
 the run does not start (`KnowledgeRefused`). A base served as **files** has its ready documents
 pinned by id and digest; the runner fetches exactly those (`GET /internal/runs/{id}/knowledge`),
 checks the digest (a base changed in between stops the run, exit 51), and lays them read-only under
-`.choregos/knowledge/<slug>/` with an `index.md`, out of the diff. `index.md` lists each document
+`.tranibor/knowledge/<slug>/` with an `index.md`, out of the diff. `index.md` lists each document
 with its outline: its sections, numbered (`2.3`), with their size and the line each starts on, so the
 agent reads the table of contents, then the section that answers. The prompt says where they are
 and asks the agent to cite the document and section it applies.
@@ -2670,7 +2670,7 @@ and findings are born with the same mark.
 
 #### A knowledge base as code
 
-`choregos knowledge apply -f kb.yaml [--org <slug>] [--dry-run] [--prune]` makes a base match a
+`tranibor knowledge apply -f kb.yaml [--org <slug>] [--dry-run] [--prune]` makes a base match a
 manifest: it creates or patches the base (name, description, scope, serving mode), its sources
 (matched by `name`), its uploaded files and its eval set, and prints the plan (`+` create, `~`
 change, `-` remove, `= n unchanged`). It is **idempotent**: a second run calls nothing that
@@ -2678,8 +2678,8 @@ changes anything. Uploads are local globs relative to the manifest, or `url:` en
 over https (at most 20 MiB); a file whose bytes changed replaces the previous document of the same
 name. Without `--prune`, sources and uploads the manifest does not declare are left alone (the plan
 says so). `--dry-run` reads and prints, changes nothing. An example about a fictitious company is in
-`trials/knowledge/`. `choregos knowledge sync <slug>` syncs every source now, and
-`choregos knowledge eval <slug>` runs the eval set and prints recall@5. The command needs an
+`trials/knowledge/`. `tranibor knowledge sync <slug>` syncs every source now, and
+`tranibor knowledge eval <slug>` runs the eval set and prints recall@5. The command needs an
 organisation administrator's token (`agent:manage`). Refresh schedules in the manifest are the
 source's `interval_minutes` today.
 
@@ -2775,7 +2775,7 @@ inputs:
 ## 4. Write the policy
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Policy
 metadata: { name: team, version: 1, preset: team }
 budgets:
@@ -2785,7 +2785,7 @@ budgets:
   tool_calls_per_run: 20        # catalogue tools; omit for no cap
   daily_project_usd: 50
 scope:
-  deny_paths: [".choregos/**", ".github/workflows/**", "charts/**"]   # never written, whatever the scope
+  deny_paths: [".tranibor/**", ".choregos/**", ".github/workflows/**", "charts/**"]   # never written, whatever the scope
 sandbox:
   unknown_requests: reject      # refuse what the runner cannot classify (default: allow + journal)
   prompt_injection: block       # warn (default) journals; block stops the stage before any run
@@ -2806,10 +2806,10 @@ Three presets ship (`solo`, `team`, `regulated`) and are a reasonable starting p
 `scope.deny_paths` bounds every run's writes, whatever the work item's allowed paths say: the runner refuses
 a write there (the permission request, Claude Code's scope hook and the ACP file system answer alike),
 reverts one a shell made anyway, and `scope_respected` fails on a change under a denied path, even when no
-allowed path is declared. No scope change grants one. The step's own files, `.choregos/result.json` and
-`.choregos/outputs/`, stay writable under a denied `.choregos/**`. The default list is
-`.choregos/**`, `.github/workflows/**` and `charts/**`: a project whose agents change its charts lists
-its own. On a transition the platform takes, `scope_respected` with `over: work_item` holds the same
+allowed path is declared. No scope change grants one. The step's own files, `.tranibor/result.json` and
+`.tranibor/outputs/`, stay writable under a denied `.tranibor/**`. The default list is `.tranibor/**`,
+`.choregos/**` (the former name, read until 0.32.0), `.github/workflows/**` and `charts/**`: a project
+whose agents change its charts lists its own. On a transition the platform takes, `scope_respected` with `over: work_item` holds the same
 paths on the work item's whole diff ([ADR 0171](adr/0171-what-is-merged-is-what-was-judged.md)): the
 shipped workflows declare it on their merge transition, so a file under a denied path is not merged
 whoever committed it, a person on the pull request included.
@@ -2979,7 +2979,7 @@ result is a connector of type `mcp-gateway` with the config `{server}`. **Admini
 
 **Outposts.** [ADR 0147](adr/0147-an-outpost-only-dials-out.md): an outpost is a place of the organisation that
 the platform cannot reach, a network behind a firewall for example. A program installed there
-(`choregos-outpost`) opens every connection itself and takes the tool calls routed to it; the platform never
+(`tranibor-outpost`) opens every connection itself and takes the tool calls routed to it; the platform never
 connects to it and stores no address of it. An organisation whose MCP gateway the platform can reach needs
 none: use the gateway above. Outposts are off unless the deployment turns them on
 ([deployment](deployment.md#outposts-adrs-0147-0149)).
@@ -2990,7 +2990,7 @@ status, their instances (approved, pending, revoked) and their presence (*Online
 and creates one from a slug and a name. An outpost's page shows:
 
 - **Instances**, the pending ones first. A pending instance shows the fingerprint of its signing key, and
-  **Approve the instance** stays disabled until you tick that it is the fingerprint `choregos-outpost enrol`
+  **Approve the instance** stays disabled until you tick that it is the fingerprint `tranibor-outpost enrol`
   printed on the outpost's machine; the request carries the fingerprint you confirmed. It also names the
   enrolment token it enrolled with and who issued it. Approving needs a sign-in less than ten minutes old,
   which the instance says before the click: with an older one you are sent to sign in again and come back to
@@ -3013,19 +3013,19 @@ offers no token. A refusal that comes anyway is shown in the API's own words.
 The same from the CLI ([reference](cli.md)):
 
 ```bash
-choregos outposts create factory-floor --display-name "Factory floor"
-choregos outposts list
-choregos outposts show factory-floor              # the control_plane and door_keys lines to pin, again
-choregos outposts token factory-floor             # the token, once, with the policy lines and the enrol command
-choregos outposts tokens factory-floor            # the tokens that can still enrol, never their value
-choregos outposts cancel-token factory-floor <id> # that token enrols nothing from now on
-choregos outposts instances factory-floor         # ids and fingerprints, pending ones first
-choregos outposts revoke-instance factory-floor <instance>
-choregos outposts pause factory-floor             # then resume, revoke (final) and delete
-choregos outposts calls factory-floor --state refused
+tranibor outposts create factory-floor --display-name "Factory floor"
+tranibor outposts list
+tranibor outposts show factory-floor              # the control_plane and door_keys lines to pin, again
+tranibor outposts token factory-floor             # the token, once, with the policy lines and the enrol command
+tranibor outposts tokens factory-floor            # the tokens that can still enrol, never their value
+tranibor outposts cancel-token factory-floor <id> # that token enrols nothing from now on
+tranibor outposts instances factory-floor         # ids and fingerprints, pending ones first
+tranibor outposts revoke-instance factory-floor <instance>
+tranibor outposts pause factory-floor             # then resume, revoke (final) and delete
+tranibor outposts calls factory-floor --state refused
 ```
 
-`choregos outposts approve <slug> <instance> --fingerprint SHA256:…` exists and is refused: the API takes an
+`tranibor outposts approve <slug> <instance> --fingerprint SHA256:…` exists and is refused: the API takes an
 approval from a person's session that carries a recent sign-in, never from an API token, and the CLI holds a
 token. It prints the API's refusal with its code, `approval_requires_session`, and where to approve instead.
 
@@ -3070,7 +3070,7 @@ routes to no outpost of the organisation names none. A tool of a direct connecto
 `GET /orgs/{org}/network-activity` (`audit:read`: the organisation's administrators and owners) groups
 it by host, layer, decision and reason (`allowed`, `denied`, `rate_limited`, `unreachable`) for the last
 24 hours, or since `since`, optionally for one `decision` or `project`. The first refusal of a host for a
-run is also an event on the work item (`choregos.network.denied`).
+run is also an event on the work item (`tranibor.network.denied`).
 
 The `opencode` backend would otherwise call home from every run: it fetches its model catalogue
 (`models.opencode.ai`), checks for updates and may download language servers, and on the dev tenant each run
@@ -3112,10 +3112,12 @@ last 60 seconds to that host over every project and every replica (from the cost
 retrying recovers one minute after it stops. Governed writes are checked against the allowed set only
 (they are played by a workflow, which retries).
 
-Every request carries `User-Agent: Choregos/<version> (+<contact>)`: the ceiling's `user_agent_contact`,
+Every request carries `User-Agent: Tranibor/<version> Choregos/<version> (+<contact>)` (the former
+token beside the new one until 0.32.0, for a site that keys on it): the ceiling's `user_agent_contact`,
 else the deployment's `TRANIBOR_USER_AGENT_CONTACT`, else the project's page. It is sent on MCP calls,
 web crawls, git knowledge fetches and skill downloads. A web crawl also waits between two pages for the
-longer of the site's `Crawl-delay` (read under the names `ChoregosKnowledge` and `Tranibor`) and
+longer of the site's `Crawl-delay` (its
+`robots.txt` read under the names `TraniborKnowledge`, `Tranibor`, `ChoregosKnowledge` and `Choregos`) and
 `60 / per_host_per_minute` seconds, and stops, keeping every page it did not reach, when the site
 answers 429 (or 503 with `Retry-After`).
 
@@ -3127,12 +3129,12 @@ answers 429 (or 503 with `Retry-After`).
 - the host must be in the run's network and not denied; `https`, or `http` on the default port, never
   another port, never credentials; an IP address, or a name that resolves to a private address, is
   refused, and the connection is pinned to the address that was checked;
-- the site's `robots.txt` is read (cached for an hour) for the `Choregos` token: a disallowed path, or a
+- the site's `robots.txt` is read (cached for an hour) for the `Tranibor` token and, until 0.32.0, the former `Choregos` one: a disallowed path, or a
   `robots.txt` that cannot be read, is a refusal (`robots_disallowed`) and the page is not requested;
 - a host is never called faster than allowed: the effective requests per minute per host (counted
   across the organisation), the run's own rate, and the site's `Crawl-delay` give a `429` with
   `retry_after_s` — the agent is told to wait, and a refused call is not counted;
-- the request carries `User-Agent: Choregos/<version> (+<contact>)`;
+- the request carries `User-Agent: Tranibor/<version> Choregos/<version> (+<contact>)`;
 - at most three redirects, each target going through every check above (a redirect to a host the run may
   not reach stops there);
 - the answer is text, HTML (returned as text, scripts and styles dropped), JSON or markdown, cut at
@@ -3148,7 +3150,7 @@ pattern, the call is refused with 422 `url_redacted` before any DNS lookup or re
 (`denied`, `redacted`) and not counted. Nothing is rewritten; the agent writes the address without it.
 
 Every fetch is a tool call: it counts in `tool_calls_per_run`, writes a ledger row (`provider:
-web:<host>`) and a `choregos.tool.called` event, and is journaled under Network activity with layer
+web:<host>`) and a `tranibor.tool.called` event, and is journaled under Network activity with layer
 `broker`. `web_fetch` is the only place where method and robots.txt can hold for what an agent reads:
 the egress proxy cannot see inside TLS. An agent that is still allowed its built-in `WebFetch`
 (`builtin_web_tools`) can bypass it, so organisations that want every read governed set the ceiling's
@@ -3187,7 +3189,7 @@ secret is refused (`query_redacted`) and nothing is sent. The backend's host sta
 organisation's network ceiling; `requests_per_minute` on the connector (30 by default) bounds the
 organisation's queries per backend (`429`, `retry_after_s`). Each search counts in
 `tool_calls_per_run`, writes a ledger row `search:<type>` at the connector's `price_usd_per_query`, and
-emits `choregos.tool.called` with the query's SHA-256 and length, never its text. Snippets are
+emits `tranibor.tool.called` with the query's SHA-256 and length, never its text. Snippets are
 third-party text and go through the prompt-injection guard.
 
 **Turn and loop limits are enforced by the runner**, not only written in the prompt. Each tool call
@@ -3380,7 +3382,7 @@ curl -X POST $API/projects/acme:hr/actions/<id>/decision -d '{"decision": "appro
   and the actions an agent proposes through it carry that rule (ADR 0052).
   A human group (a workflow actor's `group`, an approver rule's `group`, a knowledge base's group
   scope or grant) may arrive from the identity provider bare (`architects`) or as
-  `choregos:<org>:<group>`; the second counts only in `<org>` (S40-27).
+  `tranibor:<org>:<group>`; the second counts only in `<org>` (S40-27).
 - **Approvers from the work item** ([ADR 0196](adr/0196-an-actions-approvers-come-from-its-work-item.md)):
   in a workflow's action, an approver rule's `group` may read ONE declared field,
   `{"role": "approver", "group": "owners-{{ fields.tool }}"}`, and `excluded` lists who may not
@@ -3424,21 +3426,21 @@ curl -X POST $API/projects/acme:hr/actions/<id>/decision -d '{"decision": "appro
   as approving is (a recent sign-in in a human session, an approver's rank and group, and whoever
   proposed the action, or owns the agent that did, does not settle it); the effect keeps what was
   sent with the settlement; settling again with the same outcome changes nothing, the other is a
-  `409 action_already_settled`. The event is `choregos.action.settled`, the audit line
+  `409 action_already_settled`. The event is `tranibor.action.settled`, the audit line
   `action.settle`. Until it is settled, a work item whose transition proposed it waits where it
   is, as it waits for an approval nobody gave: reading the doubt as a failure would follow
   `on_fail` and propose the action again, a second delivery of the write. Once settled, the
   action's end (`succeeded` or `failed`) moves the work item on. The one exception is a write whose rule says its tool takes the platform's
   idempotency key (`platform_arguments: ["action_key"]`): after a doubt the effect's own retries
   deliver it again with the same key, and the action is in doubt only if every delivery was.
-  The event is `choregos.action.failed` with `status: in_doubt` in its data; `GET
+  The event is `tranibor.action.failed` with `status: in_doubt` in its data; `GET
   /projects/{id}/actions?status=in_doubt` lists them.
 - **Proving**: an effect can make the action wait for the proof that it served — the next report
   of a collector, say — until a deadline: the action shows `awaiting_evidence`; a contrary proof, or
   none in time, fails it and compensates what was done.
 - **Reading**: `GET /projects/{id}/actions/{id}` gives the decisions (who, when, how fresh their
   authentication was) and the **journal** — every effect's key, attempts, answer or error. Events
-  `choregos.action.*` tell the same story on the ticket. In the console, every action has its page,
+  `tranibor.action.*` tell the same story on the ticket. In the console, every action has its page,
   `/p/<project>/actions/<id>`, where it is decided. An action the ontology persisted before it was
   removed (origin `ontology`, ADR 0181 O4-1) is read there like any other, and the former
   `/p/<project>/proposals[/<id>]` links redirect there.
@@ -3580,16 +3582,16 @@ pass every 60 seconds catches up.
 
 You can also file a work item yourself. On a project's board, **New work item** opens a drawer: the workflow, the inputs that workflow declares, a title, a description, a size and an optional budget (which only tightens the workflow's). MCP does the same with `create_work_item`. With
 an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards or GitLab it creates
-the issue there first (Azure Boards: a work item, tagged), labelled `source:choregos` and never `agent-ready`, and records the work
+the issue there first (Azure Boards: a work item, tagged), labelled `source:tranibor` and never `agent-ready`, and records the work
 item under the issue's key, with its creation inputs, workflow and budget (ADR 0059). The tracker's
 credentials need the right to create issues (GitHub App: *Issues: read and write*; Jira: create
 issue on the project; Azure Boards: *Create work items* on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
 
-A `/choregos approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
+A `/tranibor approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
 workflow: a decision stays in the console, after a fresh sign-in. Tranibor replies on the ticket with a
 link to the inbox and records a `tracker.command.redirected` audit entry (ADR 0102).
 
-`/choregos pause`, `resume` and `stop` are honoured in one case only: a GitHub comment, in a delivery
+`/tranibor pause`, `resume` and `stop` are honoured in one case only: a GitHub comment, in a delivery
 verified by its HMAC (`TRANIBOR_GITHUB_WEBHOOK_SECRET` is set), by a github.com account linked to a member
 of the project's organisation. The command runs with that member's own rights (a developer or
 above), is audited as `workitem.pause`, `workitem.resume` or `workitem.stop` on the channel `tracker`,
@@ -3602,8 +3604,8 @@ Moving a card on the tracker board (GitHub Projects, Jira) does not move the wor
 follows Tranibor, not the reverse (ADR 0102). Move a work item from the console.
 
 ```bash
-choregos items list billing-api
-choregos runs tail <run-id>        # live ACP log over SSE
+tranibor items list billing-api
+tranibor runs tail <run-id>        # live ACP log over SSE
 ```
 
 ### Linked accounts
@@ -3711,7 +3713,7 @@ curl -X POST "$API/api/v1/webhooks/triggers/acme/desk/incident" \
 
 The work item starts in `workflow`, or in the workflow the project's routing picks from its labels
 (`trigger:<name>` and the rendered ones), or in the default. A sender that can only set a URL passes
-`?token=`; `X-Choregos-Token` works too. A replayed delivery (same `Idempotency-Key`, else the same
+`?token=`; `X-Tranibor-Token` works too. A replayed delivery (same `Idempotency-Key`, else the same
 body) answers `duplicate`; with `key`, a second call for the same value answers `already_open` and
 starts nothing while that work item runs. Once it has ended, the same value answers `reopened`: the
 work item starts a new pass (see *A ticket that comes back*, below). A payload without the key, or fields the workflow refuses, answers 422 with the
@@ -3723,7 +3725,7 @@ A trigger can filter and sign (S56-04, S56-05):
 
 ```yaml
     when: { /priority: ["1", "2"], /active: "true" }   # other payloads: 202, recorded `ignored`
-    auth: signature     # X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>, hex or base64
+    auth: signature     # X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>, hex or base64
 ```
 
 With `auth: signature` the bearer token is refused; the HMAC key is the signing secret shown with the
@@ -4052,7 +4054,7 @@ with the run's read right.
 
 **Sub-agents.** `GET /runs/{id}/agents` serves the run's agent and the sub-agents it delegated to (Claude Code's
 `Agent`/`Task` tool), each with its parent, status, start and end and its own tool-call count, and
-`choregos activity` shows them under their run. ACP has no notion of a sub-agent: the platform derives them
+`tranibor activity` shows them under their run. ACP has no notion of a sub-agent: the platform derives them
 from the run's journal with one rule per backend (`tranibor_core.agent_tree`), and only for a backend that
 sends the parent of the calls made inside a sub-agent (Claude Code does). opencode and the others give a flat
 list: no sub-agent is guessed. Tokens and cost stay per run.
@@ -4061,7 +4063,7 @@ list: no sub-agent is guessed. Tokens and cost stay per run.
 
 | Symptom | Knob |
 | :-- | :-- |
-| Bursts of agent pods | `choregos-orchestrator.runner.maxActive` |
+| Bursts of agent pods | `tranibor-orchestrator.runner.maxActive` |
 | An agent pod refused with no message | `runner.limits` above the namespace `LimitRange` |
 | Spend drifting | `budgets.daily_project_usd`, `ticket_usd`, alert at `alert_at_ratio` |
 | Third-party API spend | `budgets.tool_calls_per_run`, cost report grouped by `kind` |
@@ -4075,7 +4077,7 @@ assistant.
 **Your roles.** The administration overview (Session card) lists your roles by scope instead of
 repeating the organisation: `platform : org_admin` on the community edition (one organisation, whose
 administrator administers the instance), `organisation : org_admin` under each organisation's name on
-the enterprise edition, and `project/<slug> : <role>` for each project. `choregos whoami` gives the
+the enterprise edition, and `project/<slug> : <role>` for each project. `tranibor whoami` gives the
 same as a table with an organisation column.
 
 **The Organisation card.** *Administration* opens on the **Organisation** card (S40-24): the display
@@ -4098,13 +4100,13 @@ disabled: none of the project's runs is offered them, whatever its policy says.
 `slug` (the platform administrator only: the slug is in every console URL, every qualified id
 `<org>:<project>`, every MCP address `/mcp/projects/<org>:<project>`, every A2A address
 `/a2a/orgs/<org>`, the CLI profiles that name `--org <slug>`, and the IdP group names
-`choregos:<org>:<group>`). Projects, members, tokens and everything below follow — they hold the
+`tranibor:<org>:<group>`). Projects, members, tokens and everything below follow — they hold the
 organisation by its id. A platform administrator granted by an edition extension can rename an
 organisation they do not belong to (the response then carries no `role`). The old slug is kept as an
 **alias** of the organisation (`aliases` in the `items` of `GET /orgs` and in the `PATCH` response, ADR 0090), so what
 was copied elsewhere keeps working: `/api/v1/orgs/<old>/…` and `/a2a/orgs/<old>` (the response carries
 `Link: <current URL>; rel="canonical"`), MCP addresses and qualified ids `<old>:<project>`, the IdP groups
-`choregos:<old>:<group>`, `oidc.defaultOrg` and `bootstrap.org` when they still name it, and the
+`tranibor:<old>:<group>`, `oidc.defaultOrg` and `bootstrap.org` when they still name it, and the
 sessions and API tokens issued before the rename. No other organisation can take an alias (`409`); the
 organisation can take its own old slug back. A platform administrator frees an alias for good with
 `DELETE /orgs/<current>/aliases/<alias>`, after which the old address answers `404`. What does not

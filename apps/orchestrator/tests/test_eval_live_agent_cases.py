@@ -699,7 +699,7 @@ async def test_e5_is_played_live_against_the_case_s_own_pages_and_judged(
     assert [c["tool"] for c in calls] == ["web_search"] + ["web_fetch"] * 6
     assert {c["origin"] for c in calls} == {origin}
     assert [c["status_code"] for c in calls if c["status_code"] != 200] == ([451] if code == 451 else [])
-    assert [e["type"] for e in observation["security_events"]] == ["choregos.security.injection_suspected"]
+    assert [e["type"] for e in observation["security_events"]] == ["tranibor.security.injection_suspected"]
 
 
 # ───────────────────────── governance parity ─────────────────────────

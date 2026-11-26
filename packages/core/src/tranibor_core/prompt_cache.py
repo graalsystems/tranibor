@@ -14,7 +14,7 @@ each time. This module makes the request body cache-friendly in two steps:
    per-model minimum (1024 to 4096 tokens: below it the marker is harmless and does nothing). The
    cache lives 5 minutes, refreshed on each read.
 
-LiteLLM v1.105.5 (the gateway image, `charts/choregos/charts/litellm/values.yaml`) accepts
+LiteLLM v1.105.5 (the gateway image, `charts/tranibor/charts/litellm/values.yaml`) accepts
 `cache_control` on a message content block and on a tool, and strips it for providers that do not
 know it; the body still carries it for an Anthropic model only, so a gateway that is not LiteLLM, or
 another version, never sees a field it may refuse.

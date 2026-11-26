@@ -16,7 +16,7 @@ sources:
     trust:                       # a keyless identity and issuer (regular expressions, matched whole)…
       identity: https://github.com/example/choregos-agents/.*
       issuer: https://token.actions.githubusercontent.com
-      # key: /etc/choregos/plugins/tranibor.pub   # …or a public key cosign reads
+      # key: /etc/tranibor/plugins/tranibor.pub   # …or a public key cosign reads
     egress: [pkg-containers.githubusercontent.com]   # hosts beyond the index's own
 defaultPlugins:
   - {source: tranibor, name: servicenow, version: "^0.1"}

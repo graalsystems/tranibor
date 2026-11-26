@@ -31,6 +31,7 @@ from tranibor_contracts import (
     StageInput,
     TransitionRef,
     WorkItemRef,
+    wire,
 )
 from tranibor_core import ExecRef, StageJobSpec, telemetry, utcnow
 from tranibor_core.hosted import agent_container
@@ -146,11 +147,13 @@ async def start_session_pod(payload: dict[str, Any]) -> dict[str, Any]:
             timeout_minutes=minutes + 10,
             runtime_class=runtime_class(settings, bundle.policy),
             env=runner_environment(settings, namespace),
-            labels={
-                "choregos/project": bundle.slug,
-                "choregos/run-id": run_id,
-                "choregos/agent-session": session_id,
-            },
+            labels=wire.labels_with_former(
+                {
+                    wire.label("project", domain=False): bundle.slug,
+                    wire.label("run-id", domain=False): run_id,
+                    wire.label("agent-session", domain=False): session_id,
+                }
+            ),
             # The runner serves the session's tools on its loopback MCP listener itself.
             agent_container=agent_container(stage_input, mcp_servers=[SESSION_MCP]),
             runner_command=["serve-session"],

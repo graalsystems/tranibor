@@ -19,7 +19,7 @@ Not a pin, so not checked here, each for a written reason:
 - `trials/`: each trial is the record of what was run on the day it was run (`trials/README.md`:
   "a trial is not re-run when a page is edited"); pinning it now would record a run that never
   happened. One of its images (`quay.io/minio/mc`) is no longer served at all.
-- The chart's own images (`charts/choregos/values.yaml`) are this repository's releases, driven by
+- The chart's own images (`charts/tranibor/values.yaml`) are this repository's releases, driven by
   their tag, and checked at admission by the chart's Kyverno policies (signature, no `latest`).
 - An image this repository builds locally and never pulls: a compose service with a `build:`, a demo
   manifest with `imagePullPolicy: Never`, a Dockerfile `FROM` an argument listed in `ARGUMENT_BASES`.

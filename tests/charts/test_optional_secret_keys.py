@@ -28,7 +28,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 #: Without them, the API must NOT start.
 STRUCTURAL = {"session-secret", "run-token-private-key"}
@@ -69,7 +69,7 @@ def _secret_refs(env: str) -> dict[str, bool]:
     )
     found: dict[str, bool] = {}
     for doc in yaml.safe_load_all(rendered.stdout):
-        if not doc or doc.get("kind") != "Deployment" or doc["metadata"]["name"] != "choregos-api":
+        if not doc or doc.get("kind") != "Deployment" or doc["metadata"]["name"] != "tranibor-api":
             continue
         spec: dict[str, Any] = doc["spec"]["template"]["spec"]
         for container in spec.get("containers", []) + spec.get("initContainers", []):

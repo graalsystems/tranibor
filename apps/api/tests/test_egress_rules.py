@@ -147,5 +147,19 @@ async def test_check_derives_the_hosts_and_reports_both_layers(
     assert verdict["can_allow"] and body["ok"] is False
     change = verdict["platform_change"]
     assert change["needed"] and "mcp.example.test" in change["snippet"], "the snippet names the host"
+    # The API's pods under either value of their name (ADR 0226, R9b: `global.labelValues`).
+    assert "app.kubernetes.io/name in (tranibor-api,choregos-api)" in change["snippet"]
     assert any(a["email"] == "root@northwind.dev" for a in verdict["approvers"])
     assert (await client.post(f"{ORG}/egress/check", json={})).status_code == 422
+
+
+def test_the_default_selectors_admit_either_value_of_each_family_s_name() -> None:
+    """ADR 0226 (R9b): the chart's pods carry the former `app.kubernetes.io/name` by default and the new one
+    under `global.labelValues: tranibor`; a change written today must hold after the move."""
+    from tranibor_api.services.egress import DEFAULT_SELECTORS
+
+    assert DEFAULT_SELECTORS == {
+        "api": "app.kubernetes.io/name in (tranibor-api,choregos-api)",
+        "workers": "app.kubernetes.io/name in (tranibor-orchestrator,choregos-orchestrator)",
+        "runners": "app.kubernetes.io/name in (tranibor-runner,choregos-runner)",
+    }

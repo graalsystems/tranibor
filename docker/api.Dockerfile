@@ -47,7 +47,7 @@ COPY tests/testkit/pyproject.toml tests/testkit/
 COPY apps/api apps/api
 COPY apps/orchestrator apps/orchestrator
 # The first-party plugins' extensions (ADR 0181): the published API and worker load them from the
-# `choregos.plugins` entry point, so no deployment loses a connector type when it leaves the core.
+# `tranibor.plugins` entry point, so no deployment loses a connector type when it leaves the core.
 COPY plugins/investment-research plugins/investment-research
 COPY plugins/software-delivery plugins/software-delivery
 COPY plugins/vault-transit plugins/vault-transit
@@ -116,10 +116,10 @@ RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,sourc
       -X 'github.com/cilium/cilium/hubble/pkg.Version=${HUBBLE_VERSION#v}'" \
     -o /out/hubble .
 
-# The native `choregos` CLI binaries (S62-07), served by the instance (S62-08): EMPTY here. The release
-# replaces this stage with the signed binaries, their SHA256SUMS and manifest.json
+# The native `tranibor` CLI binaries (S62-07; `tranibor-<platform>` since ADR 0226 R5), served by the
+# instance (S62-08): EMPTY here. The release replaces this stage with the signed binaries, their SHA256SUMS and manifest.json
 # (`--build-context cli=dist/cli`, `release.yml`); any other build (compose, CI) leaves it empty, and
-# the image then has no /opt/choregos/cli/ — the instance says no CLI is bundled in this build.
+# the image then has no /opt/tranibor/cli/ — the instance says no CLI is bundled in this build.
 FROM scratch AS cli
 
 # `cosign`, the release binary checked against the release's checksums: the release's binaries are
@@ -186,7 +186,7 @@ COPY plugins/procurement/tests/fixtures/alderbrook-offer.pdf plugins/procurement
 # The source revision, read by `GET /edition` for the console's About panel (S42-12). Last, so a
 # new commit invalidates no layer above. Empty when the image is built by hand; the API then says so.
 ARG REVISION=""
-ENV CHOREGOS_BUILD_REVISION=$REVISION
+ENV TRANIBOR_BUILD_REVISION=$REVISION
 USER 1000
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
@@ -197,19 +197,22 @@ FROM commun AS api
 COPY --from=cosign /out/cosign /usr/local/bin/cosign
 # The CLI binaries, when the build was given them (the `cli` stage above): read only, executable.
 # A mount rather than a `COPY --from=cli`: the directory exists only when there is something in it.
+# `/opt/tranibor/cli/` since 0.30.0 (ADR 0226, R9b); the former `/opt/choregos/cli/` is a link to it until
+# 0.32.0, for a `TRANIBOR_CLI_DIR` or a volume that names it.
 USER root
 RUN --mount=type=bind,from=cli,target=/mnt/cli \
     if [ -f /mnt/cli/manifest.json ]; then \
-      mkdir -p /opt/choregos/cli \
-      && cp /mnt/cli/* /opt/choregos/cli/ \
-      && chmod 0644 /opt/choregos/cli/* \
-      && find /opt/choregos/cli -name 'choregos-*' ! -name '*.json' -exec chmod 0755 {} +; \
+      mkdir -p /opt/tranibor/cli /opt/choregos \
+      && cp /mnt/cli/* /opt/tranibor/cli/ \
+      && chmod 0644 /opt/tranibor/cli/* \
+      && find /opt/tranibor/cli \( -name 'tranibor-*' -o -name 'choregos-*' \) ! -name '*.json' -exec chmod 0755 {} + \
+      && ln -s /opt/tranibor/cli /opt/choregos/cli; \
     fi
 USER 1000
 # SkillSpector (ADR 0095): the gate runs it on every version a person publishes.
 COPY --from=skillspector /opt/skillspector /opt/skillspector
-ENV CHOREGOS_SKILL_SCANNER=skillspector
-# The documentation, at the path `CHOREGOS_DOCS_DIR` defaults to (`config.py`): read only.
+ENV TRANIBOR_SKILL_SCANNER=skillspector
+# The documentation, at the path `TRANIBOR_DOCS_DIR` defaults to (`config.py`): read only.
 COPY --from=docs /out /opt/choregos/docs
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \

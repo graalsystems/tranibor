@@ -12,6 +12,7 @@ import yaml
 from pydantic import ValidationError as PydanticValidationError
 from tranibor_contracts import Workflow
 from tranibor_contracts.open_lists import STORED
+from tranibor_contracts.wire import API_VERSIONS, FORMER_API_VERSION
 
 from ..errors import Issue, ValidationError
 from .validator import ValidationReport, validate_workflow
@@ -19,13 +20,19 @@ from .yamlsource import json_pointer, load_yaml, locate
 
 
 def checksum(document: Any) -> str:
-    """Stable fingerprint of a workflow (the pinning key on a work item)."""
+    """Stable fingerprint of a workflow (the pinning key on a work item).
+
+    The `apiVersion` is hashed under its former name whichever name the document carries (ADR 0226):
+    the fingerprint is an input to a pin, not a name, so a workflow does not get a new digest when its
+    `choregos/v1` becomes `tranibor/v1`, and the work items pinned to it still find it."""
     if isinstance(document, Workflow):
         payload = document.model_dump(mode="json", by_alias=True, exclude_none=True)
     elif isinstance(document, str):
         payload = yaml.safe_load(document)
     else:
         payload = document
+    if isinstance(payload, dict) and payload.get("apiVersion") in API_VERSIONS:
+        payload = {**payload, "apiVersion": FORMER_API_VERSION}
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 

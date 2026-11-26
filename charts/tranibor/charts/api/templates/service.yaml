@@ -1,0 +1,68 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: tranibor-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+  selector:
+    app.kubernetes.io/component: api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+# The API's former address, for the window of ADR 0226 (R6): a run that started before the upgrade was
+# given `http://choregos-api:8000` and calls back there until it ends (a suspended sandbox can wait
+# days for a human answer), and so does whatever of the operator's still names the former Service.
+# The same pods; no `component` label, so the ServiceMonitor does not scrape them twice.
+apiVersion: v1
+kind: Service
+metadata:
+  name: choregos-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+  selector:
+    app.kubernetes.io/component: api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tranibor-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+  annotations: {{- toYaml .Values.global.serviceAccount.annotations | nindent 4 }}
+automountServiceAccountToken: true
+{{- if and .Values.global.rbac.clusterScoped (eq (include "tranibor.executorKind" .) "tekton") }}
+---
+# Tekton only (ADR 0072): the API only reads the state of projects' PipelineRuns: it creates nothing in the cluster.
+# A tenant without cluster-scoped rights (`global.rbac.clusterScoped: false`) does without it:
+# run state then reaches it through the executor's events, not through the Tekton API.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tranibor-api-read-runs
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns", "taskruns"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tranibor-api-read-runs
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: tranibor-api-read-runs }
+subjects:
+  - kind: ServiceAccount
+    name: tranibor-api
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

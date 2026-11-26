@@ -35,6 +35,7 @@ from typing import Any
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import (
+    STAGE_RESULT_SCHEMA,
     DemoHistory,
     DemoPrice,
     DemoRun,
@@ -307,7 +308,7 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
 def _result_of(run: DemoRun) -> dict[str, Any]:
     outcome = "done" if run.status == "succeeded" else "failed"
     summary = run.summary or f"{run.stage} {run.status.replace('_', ' ')}"
-    result: dict[str, Any] = {"schema": "choregos/StageResult/v1", "status": outcome, "summary": summary}
+    result: dict[str, Any] = {"schema": STAGE_RESULT_SCHEMA, "status": outcome, "summary": summary}
     if outcome == "failed":
         result["reason"] = run.status
     return result

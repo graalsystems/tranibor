@@ -9,8 +9,8 @@ minutes.
 
 1. **Stop the writes**: scale the API to zero replicas and pause the workers.
    ```bash
-   kubectl -n choregos-system scale deploy/choregos-api --replicas=0
-   kubectl -n choregos-system scale deploy/choregos-orchestrator-orchestrator --replicas=0
+   kubectl -n choregos-system scale deploy/tranibor-api --replicas=0
+   kubectl -n choregos-system scale deploy/tranibor-orchestrator-orchestrator --replicas=0
    ```
 2. **Note the restore instant** (just before the incident), in UTC.
 3. **Check that a backup covers that instant**:

@@ -27,7 +27,7 @@ describe("the session's organisations are paged by the server (ADR 0206)", () =>
   });
 
   it("finds the remembered organisation by the server's slug filter when the first page leaves it out", async () => {
-    window.localStorage.setItem("choregos.org", "zulu");
+    window.localStorage.setItem("tranibor.org", "zulu");
     vi.mocked(api.me).mockResolvedValue({ email: "a@b.c", memberships: [] } as never);
     vi.mocked(api.orgs).mockImplementation(async (params = {}) =>
       params.slug === "zulu"

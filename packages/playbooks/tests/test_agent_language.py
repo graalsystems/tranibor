@@ -36,7 +36,7 @@ def test_a_language_replaces_the_english_line_and_only_it(tag: str, name: str) -
     assert ENGLISH not in framed, "one language, not two"
     # What a machine reads keeps its language and its shape.
     assert "the enum values of the result contract (`status`, `type`, `severity`)" in framed
-    assert "the shape of\n  `.choregos/result.json`" in framed
+    assert "the shape of\n  `.tranibor/result.json`" in framed
     assert OUTPUT_CONTRACT in framed
     # Every other invariant is the same.
     others = INVARIANTS.splitlines()[3:]

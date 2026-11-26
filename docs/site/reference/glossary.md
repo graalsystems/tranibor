@@ -21,7 +21,7 @@ sidebar_position: 5
 | **Decision** | a person's choice at a human step (approve, reject, answer), taken in the console, never by a token |
 | **Edition** | community or enterprise: what the platform allows (several organisations, sign-in), never what work it does |
 | **Egress** | the network a run or the platform may reach; opened host by host ([Tools](../build/tools.md#network)) |
-| **Extension** | Python code the platform loads at start-up from the `choregos.plugins` entry point: a plugin's code half, or an edition |
+| **Extension** | Python code the platform loads at start-up from the `tranibor.plugins` entry point: a plugin's code half, or an edition |
 | **Extension seam** | a named interface of the core an extension calls when it loads (`edition.declare`, `extensions.declare_router`, `worker_parts.declare_worker_parts` …) |
 | **First-party plugin** | a plugin GRAAL.SYSTEMS publishes, with the same formats and seams as anyone's (`software-delivery`) |
 | **Gate** | a check a transition requires, read from evidence rather than from what an agent says ([list](workflow-yaml.md#gates)) |

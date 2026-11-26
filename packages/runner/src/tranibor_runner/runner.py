@@ -34,6 +34,7 @@ from tranibor_contracts import (
 )
 from tranibor_contracts.delivery import ResultDelivery, branch_of, commits_of, repository_of, without_commands
 from tranibor_contracts.env import with_legacy
+from tranibor_contracts.wire import run_relative
 from tranibor_core import telemetry
 from tranibor_core.agent_isolation import (
     AGENT_ISOLATION_ACCEPT_ENV,
@@ -48,7 +49,7 @@ from tranibor_core.production import ENVIRONMENT_VARIABLE, is_production
 from tranibor_core.recap import build_recap, parse_journal
 from tranibor_core.redaction import REDACTED, redact
 
-from . import compression, confine, safe_files, tool_scripts
+from . import compression, confine, run_dir, safe_files, tool_scripts
 from .acp import AcpClient, AgentDidNotStartError, AgentExitedError, AgentProtocolError, AgentUnreachableError
 from .acp.client import PromptOutcome, WriteGuard, started_session
 from .acp.guard import TurnGuard
@@ -64,7 +65,7 @@ from .gateway_probe import GatewayProbe
 from .guardrails import GuardRails
 from .hosted import REPORT_HOSTED_IMAGE, REPORT_HOSTED_PROVENANCE, REPORT_RESPONSE, result_of, run_hosted
 from .hosted_workspace import HostedWorkspaceError, export_tree, import_tree
-from .inputs import INPUTS_DIR, InputInvalidError, inputs_markdown, mount_inputs
+from .inputs import InputInvalidError, inputs_markdown, mount_inputs
 from .job import REPORT_COMMAND, REPORT_IMAGE, command_digest, job_result, run_job, write_fields
 from .knowledge import KnowledgeInvalidError, lay_out
 from .launcher import SHARED_UMASK, Launcher, share_with_group
@@ -75,7 +76,7 @@ from .loopback.agent import agent_view, proxy_environment, without_unenforceable
 from .loopback.connect import ConnectProxy, upstream_proxy
 from .loopback.mcp import McpProxy
 from .loopback.model import ModelProxy
-from .outputs import OUTPUTS_DIR, expected_files, outputs_markdown, store_outputs
+from .outputs import expected_files, outputs_markdown, store_outputs
 from .prompt import run_prompt
 from .refusal_shims import EVENT as SHIM_REFUSED
 from .refusal_shims import ShimRefusals
@@ -224,7 +225,7 @@ async def _repairable(
     if report.ok:
         return True
     changed = (
-        [f for f in await workspace.changed_files(start_ref) if not f.startswith(".choregos/")]
+        [f for f in await workspace.changed_files(start_ref) if run_relative(f) is None]
         if repository_of(stage_input)
         else []
     )
@@ -322,11 +323,15 @@ class Runner:
             self.settings.git_user_email,
             git_dir=git_dir_for(self.settings.workspace, self.settings.git_dir_root),
         )
+        # The journal is written under `.tranibor/`; one a runner of the previous release left under
+        # `.choregos/` in a workspace kept across a person's answer is taken over first (ADR 0226, R9a).
+        with contextlib.suppress(OSError):
+            run_dir.adopt(workspace.path, "transcript.jsonl")
         journal = EventJournal(
             client,
-            workspace.path / ".choregos" / "transcript.jsonl",
+            workspace.path / run_dir.path("transcript.jsonl"),
             self.settings.event_batch_size,
-            seq=_events_already_journaled(workspace.path / ".choregos" / "transcript.jsonl"),
+            seq=_events_already_journaled(workspace.path / run_dir.path("transcript.jsonl")),
         )
         # The run's compression proxy (ADR 0055) and its tool server die with the run, whatever way
         # the run ends: a server left behind by an early exit holds its port (#474).
@@ -761,7 +766,7 @@ class Runner:
         """A job step (ADR 0056): the command instead of an agent, then the same publication.
 
         No agent, no gateway key, no repair loop: the command's exit code is its status, and what it
-        writes in `.choregos/job.json` is checked, not negotiated."""
+        writes in `.tranibor/job.json` is checked, not negotiated."""
         assert stage_input.job is not None
         try:
             ticket = await client.fetch_ticket()
@@ -771,6 +776,7 @@ class Runner:
             return RunOutcome(Exit.INPUT_NOT_FOUND, detail=f"work item fields: {exc}")
         try:
             write_fields(workspace.path, dict(ticket.get("fields") or {}))
+            workspace.exclude(run_dir.mirror(workspace.path, ("fields.json",)))
         except safe_files.LinkRefusedError as exc:
             return await self._refuse_tree_write(journal, "fields", exc)
         command = list(stage_input.job.command)
@@ -1247,7 +1253,7 @@ class Runner:
             return RunOutcome(Exit.AGENT_UNREACHABLE, detail=str(exc))
         scope_blocked: list[str] | None = None
         if hosted.workspace == "write":
-            # Before `result_of`, which writes `.choregos/result.json`: the container's never comes back.
+            # Before `result_of`, which writes `.tranibor/result.json`: the container's never comes back.
             imported = await import_tree(shared, workspace, guards)
             for refused in imported.refused:
                 await journal.record("hosted.write_refused", {"path": refused.path, "reason": refused.reason})
@@ -1358,20 +1364,34 @@ class Runner:
     async def _write_context(
         self, client: Any, journal: Any, stage_input: StageInput, workspace: Workspace, context: Any
     ) -> RunOutcome | None:
-        """`task.md` and `context.md`, then the declared inputs as files in `.choregos/inputs/`
+        """`task.md` and `context.md`, then the declared inputs as files in `.tranibor/inputs/`
         (S31-03, ADR 0049), listed in `task.md`. An input that does not match its digest stops the
-        run; an API that cannot list them (older than this runner) leaves the agent its prompt."""
-        task = Path(".choregos") / "task.md"
+        run; an API that cannot list them (older than this runner) leaves the agent its prompt. All of
+        it is then copied under `.choregos/` for an agent or a job that reads only the former name
+        (ADR 0226, R9a)."""
+        refusal = await self._write_task(client, journal, stage_input, workspace, context)
+        if refusal is not None:
+            return refusal
+        try:
+            workspace.exclude(run_dir.mirror(workspace.path))
+        except safe_files.LinkRefusedError as exc:
+            return await self._refuse_tree_write(journal, "context", exc)
+        return None
+
+    async def _write_task(
+        self, client: Any, journal: Any, stage_input: StageInput, workspace: Workspace, context: Any
+    ) -> RunOutcome | None:
+        task = run_dir.path("task.md")
         try:
             workspace.write_context_files(stage_input, context)
             # Deliverables (S31-05) are artifacts, never commits; the task says which files to write.
-            workspace.exclude([f"{OUTPUTS_DIR}/"])
+            workspace.exclude([f"{folder}/" for folder in run_dir.excluded("outputs")])
             safe_files.write_text(workspace.path, task, outputs_markdown(stage_input), append=True)
         except safe_files.LinkRefusedError as exc:
             return await self._refuse_tree_write(journal, "context", exc)
         if not stage_input.transition.inputs:
             return None
-        workspace.exclude([f"{INPUTS_DIR}/"])
+        workspace.exclude([f"{folder}/" for folder in run_dir.excluded("inputs")])
         try:
             mounted = await mount_inputs(client, workspace.path)
         except safe_files.LinkRefusedError as exc:
@@ -1407,7 +1427,7 @@ class Runner:
     async def _deliver(
         self, client: Any, journal: Any, workspace: Workspace, stage_input: StageInput, result: StageResult
     ) -> None:
-        """Stores the deliverables of `.choregos/outputs/` (S31-05, ADR 0049) and lists them in
+        """Stores the deliverables of `.tranibor/outputs/` (S31-05, ADR 0049) and lists them in
         `artifacts.files` — what the runner stored, never what the agent claims. A declared file that
         was not stored fails a `done` step: the platform does not take the deck on the agent's word."""
         stored, problems = await store_outputs(client, workspace.path, stage_input)
@@ -1424,7 +1444,7 @@ class Runner:
         self, client: Any, journal: Any, stage_input: StageInput, workspace: Any
     ) -> RunOutcome | None:
         """The `files` knowledge bases (ADR 0051): checked against their digest, laid read-only
-        under `.choregos/knowledge/`, out of the diff. A base missing or changed stops the run."""
+        under `.tranibor/knowledge/`, out of the diff. A base missing or changed stops the run."""
         if not stage_input.knowledge:
             return None
         try:
@@ -1488,7 +1508,7 @@ class Runner:
         playbook = stage_input.playbook.prompt or ""
         if not playbook and stage_input.playbook.prompt_url:
             playbook = f"(playbook: {stage_input.playbook.ref})"
-        task = (workspace / ".choregos" / "task.md").read_text(encoding="utf-8")
+        task = (workspace / run_dir.path("task.md")).read_text(encoding="utf-8")
         if self.skills_index:
             playbook = f"{playbook}\n\n{self.skills_index}"
         if self.knowledge_index:
@@ -1508,7 +1528,7 @@ class Runner:
             "knowledge": [self.knowledge_index],
         }
         if foreign:
-            task = workspace / ".choregos" / "task.md"
+            task = workspace / run_dir.path("task.md")
             parts["messages"] = [task.read_text(encoding="utf-8") if task.is_file() else ""]
         return Hints(parts=parts, foreign=foreign, mcp_servers=frozenset(stage_input.tools.mcp))
 
@@ -1522,7 +1542,7 @@ class Runner:
         agent's instructions (`system`), `task.md` its task (`messages`), the skills' files and index
         `skills`, the knowledge index `knowledge`; the MCP servers name the tools that are `tools.mcp`.
         Sent at once: the agent's first call must find it."""
-        task = workspace / ".choregos" / "task.md"
+        task = workspace / run_dir.path("task.md")
         instructions = [plan.files[path] for path in written if path.endswith(".md") and path in plan.files]
         parts = {
             "system": [stage_input.playbook.prompt or "", self.tool_instructions, *instructions],
@@ -1675,7 +1695,7 @@ def _texts_of(workspace: Path, paths: list[str]) -> list[str]:
 
 
 def _files(stage_input: StageInput) -> list[str]:
-    """The files a `done` result must leave in `.choregos/outputs/` (ADR 0049)."""
+    """The files a `done` result must leave in `.tranibor/outputs/` (ADR 0049)."""
     return list(expected_files(stage_input).values())
 
 
@@ -1784,8 +1804,9 @@ def _agent_exit(stop_reason: str, cancelled: bool) -> str:
     }.get(stop_reason, "normal")
 
 
-#: Where a run keeps its agent's conversation id, on the workspace (S35-03).
-SAVED_SESSION = Path(".choregos") / "acp-session.json"
+#: Where a run keeps its agent's conversation id, on the workspace (S35-03). One a runner of the previous
+#: release saved under `.choregos/` is read there when `.tranibor/` holds none (ADR 0226, R9a).
+SAVED_SESSION = run_dir.path("acp-session.json")
 
 
 async def _open_session(
@@ -1851,7 +1872,7 @@ async def _recap_of_the_kept_journal(
     """What the agent did before the question, from the transcript the workspace kept (ADR 0223). It
     is read before this session's own events are written; nothing it holds is an error."""
     try:
-        raw = safe_files.read_bytes(workspace, Path(".choregos") / "transcript.jsonl")
+        raw = safe_files.read_bytes(workspace, run_dir.path("transcript.jsonl"))
     except OSError:
         return
     recap = build_recap(parse_journal(raw), stage=where[0] or None, task=where[1] or None)
@@ -1872,7 +1893,8 @@ async def _recap_of_the_kept_journal(
 
 def _saved_session(workspace: Path) -> dict[str, Any] | None:
     try:
-        data = json.loads(safe_files.read_text(workspace, SAVED_SESSION))
+        found = run_dir.found(workspace, SAVED_SESSION.name)
+        data = json.loads(safe_files.read_text(workspace, found.relative_to(workspace)))
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) and data.get("session_id") else None

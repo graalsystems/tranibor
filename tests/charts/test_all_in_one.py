@@ -1,6 +1,6 @@
 """S80-18, ADR 0208: the all-in-one profile renders every solution the platform requires.
 
-`charts/choregos/values/all-in-one.yaml` embeds the object store (RustFS) and the OIDC provider (Keycloak)
+`charts/tranibor/values/all-in-one.yaml` embeds the object store (RustFS) and the OIDC provider (Keycloak)
 beside the data stores the chart already embedded, draws every Secret, turns External Secrets off, the egress
 proxy and the NetworkPolicies on, and wires the URLs between them. These tests read the RENDER, as a
 `helm template` produces it: what they prove is the wiring and the guards, not that the images start (no
@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROFILE = CHART / "values" / "all-in-one.yaml"
 SITE = ["--set", "global.bootstrap.org=acme", "--set", "global.bootstrap.admins=root@acme.example"]
 
@@ -62,8 +62,8 @@ def test_every_piece_the_platform_requires_is_rendered() -> None:
     documents = _aio()
     deployments = _names(documents, "Deployment") | _names(documents, "StatefulSet")
     assert {
-        "choregos-api",
-        "choregos-web",
+        "tranibor-api",
+        "tranibor-web",
         "choregos-postgresql",
         "choregos-temporal",
         "choregos-litellm",
@@ -99,12 +99,12 @@ def test_every_secret_is_drawn_by_the_chart_and_nothing_asks_a_vault() -> None:
 
 def test_the_api_reaches_the_embedded_store_and_the_embedded_issuer() -> None:
     documents = _aio()
-    env = _env(_one(documents, "Deployment", "choregos-api"))
-    assert env["CHOREGOS_OBJECT_STORE_ENDPOINT"] == "http://choregos-objectstore.choregos.svc:9000"
-    assert env["CHOREGOS_OBJECT_STORE_URL"] == "s3://choregos"
-    assert _secret_ref(env["CHOREGOS_OBJECT_STORE_ACCESS_KEY"]) == ("choregos-object-store", "access-key")
-    assert env["CHOREGOS_OIDC_ISSUER"] == "https://auth.choregos.example.com/realms/choregos"
-    assert _secret_ref(env["CHOREGOS_OIDC_CLIENT_SECRET"]) == ("choregos-oidc", "client-secret")
+    env = _env(_one(documents, "Deployment", "tranibor-api"))
+    assert env["TRANIBOR_OBJECT_STORE_ENDPOINT"] == "http://choregos-objectstore.choregos.svc:9000"
+    assert env["TRANIBOR_OBJECT_STORE_URL"] == "s3://choregos"
+    assert _secret_ref(env["TRANIBOR_OBJECT_STORE_ACCESS_KEY"]) == ("choregos-object-store", "access-key")
+    assert env["TRANIBOR_OIDC_ISSUER"] == "https://auth.choregos.example.com/realms/choregos"
+    assert _secret_ref(env["TRANIBOR_OIDC_CLIENT_SECRET"]) == ("choregos-oidc", "client-secret")
     service = _one(documents, "Service", "choregos-objectstore")
     assert service["spec"]["ports"][0]["port"] == 9000
 
@@ -139,7 +139,7 @@ def test_the_realm_agrees_with_the_api() -> None:
     assert console["publicClient"] is False
     assert "https://choregos.example.com/api/v1/auth/callback" in console["redirectUris"]
     # The secret is a substitution, never written into the ConfigMap.
-    assert console["secret"] == "${CHOREGOS_OIDC_CLIENT_SECRET}"
+    assert console["secret"] == "${TRANIBOR_OIDC_CLIENT_SECRET}"
     # The CLI's public client is the console's client id with `-cli` appended.
     cli = clients[console["clientId"] + "-cli"]
     assert cli["publicClient"] is True
@@ -153,8 +153,8 @@ def test_the_realm_agrees_with_the_api() -> None:
     # Keycloak receives the secret the API reads, and its hostname is the issuer's host.
     keycloak = _one(documents, "Deployment", "choregos-keycloak")
     env = _env(keycloak)
-    assert _secret_ref(env["CHOREGOS_OIDC_CLIENT_SECRET"]) == ("choregos-oidc", "client-secret")
-    assert _secret_ref(env["CHOREGOS_REALM_ADMIN_PASSWORD"]) == ("choregos-keycloak", "realm-admin-password")
+    assert _secret_ref(env["TRANIBOR_OIDC_CLIENT_SECRET"]) == ("choregos-oidc", "client-secret")
+    assert _secret_ref(env["TRANIBOR_REALM_ADMIN_PASSWORD"]) == ("choregos-keycloak", "realm-admin-password")
     args = keycloak["spec"]["template"]["spec"]["containers"][0]["args"]
     assert "--hostname=https://auth.choregos.example.com" in args and "--import-realm" in args
     ingress = _one(documents, "Ingress", "choregos-keycloak")
@@ -189,21 +189,23 @@ def test_every_new_image_is_pinned_by_tag_and_digest() -> None:
 
 def test_the_egress_proxy_and_the_network_policies_are_on_and_the_executor_is_k8s_job() -> None:
     documents = _aio()
-    assert {"choregos-egress"} <= _names(documents, "Deployment")
+    assert {"tranibor-egress"} <= _names(documents, "Deployment")
+    assert {"tranibor-egress", "choregos-egress"} <= _names(documents, "Service")
     policies = _names(documents, "NetworkPolicy")
     assert {
-        "choregos-default-deny-egress",
-        "choregos-runner-egress",
-        "choregos-objectstore-ingress",
+        "tranibor-default-deny-egress",
+        "tranibor-runner-egress",
+        "tranibor-objectstore-ingress",
     } <= policies
-    runner = json.dumps(_one(documents, "NetworkPolicy", "choregos-runner-egress"))
+    runner = json.dumps(_one(documents, "NetworkPolicy", "tranibor-runner-egress"))
     # A runner never reaches the object store or the identity provider.
     assert "choregos-objectstore" not in runner and "choregos-keycloak" not in runner
-    store_policy = _one(documents, "NetworkPolicy", "choregos-objectstore-ingress")
+    store_policy = _one(documents, "NetworkPolicy", "tranibor-objectstore-ingress")
     allowed = json.dumps(store_policy["spec"]["ingress"][0])
-    assert "choregos-api" in allowed and "choregos-runner" not in allowed
-    env = _env(_one(documents, "Deployment", "choregos-api"))
-    assert env["CHOREGOS_EXECUTOR_KIND"] == "k8s_job"
+    assert "choregos-api" in allowed and "tranibor-api" in allowed
+    assert "choregos-runner" not in allowed and "tranibor-runner" not in allowed
+    env = _env(_one(documents, "Deployment", "tranibor-api"))
+    assert env["TRANIBOR_EXECUTOR_KIND"] == "k8s_job"
 
 
 @pytest.mark.no_operator
@@ -213,7 +215,7 @@ def test_it_renders_on_a_cluster_without_the_agent_sandbox_operator() -> None:
 
 def test_the_api_policy_reaches_the_embedded_pieces() -> None:
     documents = _aio()
-    egress = json.dumps(_one(documents, "NetworkPolicy", "choregos-allow-platform"))
+    egress = json.dumps(_one(documents, "NetworkPolicy", "tranibor-allow-platform"))
     assert "choregos-objectstore" in egress and "choregos-keycloak" in egress
 
 
@@ -238,21 +240,21 @@ def test_a_site_brings_its_own_keycloak_and_its_own_s3() -> None:
     assert not {
         n for n in names if "keycloak" in n or "objectstore" in n or n in ("choregos-oidc", "their-s3")
     }
-    env = _env(_one(documents, "Deployment", "choregos-api"))
-    assert env["CHOREGOS_OIDC_ISSUER"] == "https://sso.example.org/realms/x"
-    assert env["CHOREGOS_OBJECT_STORE_ENDPOINT"] == "https://s3.example.org"
-    assert _secret_ref(env["CHOREGOS_OBJECT_STORE_ACCESS_KEY"]) == ("their-s3", "access-key")
+    env = _env(_one(documents, "Deployment", "tranibor-api"))
+    assert env["TRANIBOR_OIDC_ISSUER"] == "https://sso.example.org/realms/x"
+    assert env["TRANIBOR_OBJECT_STORE_ENDPOINT"] == "https://s3.example.org"
+    assert _secret_ref(env["TRANIBOR_OBJECT_STORE_ACCESS_KEY"]) == ("their-s3", "access-key")
     # Still all in one for the rest: the platform's own Secrets are drawn.
     assert "choregos-api-secrets" in names
     # Their own PostgreSQL: the embedded Keycloak needs a database of its own then, and says so.
-    assert "choregos-keycloak.database.host" in _refused(*SITE, "--set", "global.database.embedded=false")
+    assert "tranibor-keycloak.database.host" in _refused(*SITE, "--set", "global.database.embedded=false")
     own_db = _aio(
         "--set",
         "global.database.embedded=false",
         "--set",
-        "choregos-keycloak.database.host=pg.example.org",
+        "tranibor-keycloak.database.host=pg.example.org",
         "--set",
-        "choregos-keycloak.database.secretRef=their-pg",
+        "tranibor-keycloak.database.secretRef=their-pg",
     )
     assert "choregos-postgresql" not in _names(own_db, "StatefulSet")
     kc = _env(_one(own_db, "Deployment", "choregos-keycloak"))
@@ -277,14 +279,14 @@ def test_without_the_mode_nothing_of_it_is_rendered() -> None:
         assert "choregos-oidc" not in names
         text = json.dumps(documents)
         assert "03-keycloak.sql" not in text
-        env = _env(_one(documents, "Deployment", "choregos-api"))
-        assert env["CHOREGOS_OIDC_ISSUER"] == "https://keycloak.choregos.local/realms/choregos"
-        assert env["CHOREGOS_OBJECT_STORE_ENDPOINT"] == ""
+        env = _env(_one(documents, "Deployment", "tranibor-api"))
+        assert env["TRANIBOR_OIDC_ISSUER"] == "https://keycloak.choregos.local/realms/choregos"
+        assert env["TRANIBOR_OBJECT_STORE_ENDPOINT"] == ""
         assert "choregos-api-secrets" not in _names(documents, "Secret")
 
 
 def _api_checksum(*arguments: str) -> str:
-    api = _one(_docs(*arguments), "Deployment", "choregos-api")
+    api = _one(_docs(*arguments), "Deployment", "tranibor-api")
     return str(api["spec"]["template"]["metadata"]["annotations"]["checksum/config"])
 
 

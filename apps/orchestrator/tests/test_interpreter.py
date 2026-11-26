@@ -246,7 +246,7 @@ async def test_an_interpreter_that_dies_says_so(setup: Fixture, temporal_env: An
             .scalars()
             .all()
         )
-    assert "choregos.workitem.workflow_failed" in types
+    assert "tranibor.workitem.workflow_failed" in types
 
 
 async def test_an_error_without_a_message_still_leaves_its_type(setup: Fixture, temporal_env: Any) -> None:
@@ -468,7 +468,7 @@ async def test_a_failing_notifier_does_not_kill_the_human_gate(
                 await session.execute(
                     select(Event).where(
                         Event.work_item_id == setup.work_item_id,
-                        Event.type == "choregos.workitem.human_requested",
+                        Event.type == "tranibor.workitem.human_requested",
                     )
                 )
             )

@@ -187,11 +187,13 @@ def backends() -> None:
 
 
 @app.command()
-def validate(path: Annotated[Path, typer.Argument()] = Path(".choregos/result.json")) -> None:
-    """Validate a `result.json` against the contract, with readable errors."""
+def validate(path: Annotated[Path | None, typer.Argument()] = None) -> None:
+    """Validate a `result.json` against the contract, with readable errors. Without a path: the
+    workspace's `.tranibor/result.json`, else the former `.choregos/result.json` (ADR 0226, R9a)."""
     from .result import load_result
+    from .run_dir import found
 
-    load = load_result(path)
+    load = load_result(path if path is not None else found(Path.cwd(), "result.json"))
     if load.ok and load.result is not None:
         typer.echo(f"valid — status={load.result.status}: {load.result.summary}")
         raise typer.Exit(0)

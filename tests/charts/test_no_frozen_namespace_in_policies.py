@@ -1,6 +1,6 @@
 """No admission policy references the deleted `ghcr.io/vargafoundation` namespace.
 
-On 2026-11-21 every `choregos-*`, `choregos-agents/*`, `charts/choregos*`, `ecphoria` and
+On 2026-11-21 every `choregos-*`, `choregos-agents/*`, `charts/tranibor*`, `ecphoria` and
 `ecphoria-operator` package of the frozen namespace was deleted, after checking that no workload used
 them. The Kyverno entries that verified them (signers `VargaFoundation/choregos` and
 `VargaFoundation/ecphoria`) and the plugin-server alternative were dead, and are gone.

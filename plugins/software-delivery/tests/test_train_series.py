@@ -1,7 +1,7 @@
 """The release train's Prometheus series are the plugin's, declared to `/metrics` through
 `metrics.declare_series` (ADR 0181, round D).
 
-`choregos_releases_total`, `choregos_train_frozen` and `choregos_train_status` left the core's inventory:
+`tranibor_releases_total`, `tranibor_train_frozen` and `tranibor_train_status` left the core's inventory:
 the extension declares them and refreshes them with the snapshot; without it `/metrics` does not emit them,
 and the core knows them by name only (`PLUGIN_SERIES`), so the chart's dashboards still cite them.
 """
@@ -61,14 +61,19 @@ async def test_a_refresh_renders_the_three_families(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(train_metrics, "session_scope", lambda **_: _Scope())
     families = {f.name: f for f in await train_metrics.refresh(["billing"])}
-    assert set(families) == {"choregos_releases_total", "choregos_train_frozen", "choregos_train_status"}
-    assert [s.value for s in families["choregos_train_status"].samples] == [2.0]
+    assert set(families) == {"tranibor_releases_total", "tranibor_train_frozen", "tranibor_train_status"}
+    assert [s.value for s in families["tranibor_train_status"].samples] == [2.0]
 
 
 def test_a_series_the_core_emits_or_another_plugin_declared_is_refused() -> None:
     async def none(slugs: list[str]) -> list[object]:
         return []
 
+    with pytest.raises(ValueError, match="core already emits"):
+        metrics.declare_series("itsm", ["tranibor_runs_active"], none)
+    with pytest.raises(ValueError, match="already emitted by the plugin"):
+        metrics.declare_series("itsm", ["tranibor_train_status"], none)
+    # A series is served under its former name too (ADR 0226, R9b): the twin is claimed with it.
     with pytest.raises(ValueError, match="core already emits"):
         metrics.declare_series("itsm", ["choregos_runs_active"], none)
     with pytest.raises(ValueError, match="already emitted by the plugin"):
