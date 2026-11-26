@@ -268,9 +268,9 @@ async def test_a_file_part_is_an_input_artefact_a_step_reads(
     order: list[str] = []
     real_start, real_record = door.start_work_item, door.record_input_file
 
-    async def start(owner: Any, item: Any) -> None:
+    async def start(owner: Any, item: Any, session: Any = None) -> None:
         order.append("start")
-        await real_start(owner, item)
+        await real_start(owner, item, session)
 
     async def record_file(session: Any, **kw: Any) -> Any:
         order.append(f"record {kw['stored'].name}")
