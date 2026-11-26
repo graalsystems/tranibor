@@ -26,7 +26,7 @@ from tranibor_adapters import (
 )
 from tranibor_api.adapter_wiring import attach_lexical_memory, attach_outposts
 from tranibor_api.db.models import Connector, Organization, OrgConnector, PolicyDef, Project, WorkItem
-from tranibor_api.db.session import ALL_ORGS, session_scope
+from tranibor_api.db.session import ALL_ORGS, session_scope, wait_for_a_connection_up_to
 from tranibor_api.services import default_workflow, org_base_url, policy_model, workflow_model
 from tranibor_api.services import work_item_workflow as _workflow_du_ticket
 from tranibor_api.services.definitions import ceiling_of
@@ -111,6 +111,12 @@ async def db() -> AsyncIterator[AsyncSession]:
     """
     async with session_scope(orgs="*") as session:
         yield session
+
+
+async def queue_activities_for_connections(seconds: int) -> int:
+    """This process's activities wait up to `seconds` for a pooled connection (#2331); returns the pool's
+    capacity (0 on SQLite)."""
+    return await wait_for_a_connection_up_to(seconds)
 
 
 async def load_project(session: AsyncSession, project_id: str) -> ProjectBundle:
