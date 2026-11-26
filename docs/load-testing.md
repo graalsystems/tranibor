@@ -402,7 +402,14 @@ the interpreter is started inside the creating transaction, before its commit, a
 activity (`load_context`) can read before the row is visible, then retries (2 s, at most 5 attempts).
 The key race does not start interpreters: a creation that loses it fails at its `INSERT`, before the
 start (checked on PostgreSQL without the lock: 2 created, 2 interpreters started, none on a row that
-was not committed). It is a finding of its own, #2291; it is not fixed here.
+was not committed). It was a finding of its own, #2291, **fixed since**: `start_work_item`, given the
+creating session, asks Temporal for the interpreter once the transaction has committed (`after_commit`,
+ADR 0085), and a relay in every API replica (`services/work_item_relay.py`, on the actions' relay
+interval) starts again, idempotently, the interpreter of a new work item on which nothing has run when
+the start that followed its commit was lost. `apps/api/tests/test_interpreter_after_commit.py` proves
+that at the moment of the start another session finds the row, that a rolled-back creation starts
+nothing, and that a start refused by a Temporal that is down is made by the relay (red on the code
+before, on SQLite and on PostgreSQL). The load test was not run again for it.
 
 **5. Not a performance failure: `needs_human` on a budget refusal.** Under a burst of 100, 41
 work items ended in `needs_human` with this event: "the stage `plan` did not start: 0.00 $ left
