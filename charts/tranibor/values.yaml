@@ -107,14 +107,15 @@ global:
     # start that container (it does not declare `separate_agent`) refuses the run, and `/readiness`
     # says so first (`agent-isolation`); the runner refuses too (exit 100) rather than fall back to
     # `process`. Needs Kubernetes >= 1.29 (native sidecar). `container` is the default from 0.27.17
-    # (S65-04m); `tekton` and `aca` cannot start the agent's container, so a deployment on them sets
-    # `process`, which stays a choice, journaled on every run (`agent.isolation`). Roll back the same way.
+    # (S65-04m); `tekton` starts it as a sidecar of the agent stage's Task (S87-05). `aca` cannot start the
+    # agent's container, so a deployment on it sets `process`, which stays a choice, journaled on every run
+    # (`agent.isolation`). Roll back the same way.
     agentIsolation: container
     # The named opt-out (ADR 0222). With `global.environment: staging` or `prod`, `agentIsolation: process`
     # (the agent in the runner's container, able to read the run token, git token and egress report key) is
     # REFUSED at render unless this is true: say so by name, and every run then logs it
     # (`TRANIBOR_AGENT_ISOLATION=none-accepted`; `/readiness`: `agent-isolation` is `check`). Needed on
-    # `tekton` and `aca`, which cannot start the agent's container (ADR 0146 §9). Ignored under `container`
+    # `aca`, which cannot start the agent's container (ADR 0146 §9). Ignored under `container`
     # and outside staging and prod.
     acceptUnisolatedAgent: false
   # Additional environment variables, given to the API, to each worker and to the migration Job
@@ -964,8 +965,6 @@ tools:
   enabled: true
   image:
     repository: tranibor-tools
-  # The sidecar image is published here; the Tekton Task references it in each project.
-  publishTask: true
 
 # Single-node installation (ADR 0184, `values/single-node.yaml`): the embedded dependencies are
 # accepted in `staging` and `prod` only when this is on AND `backup.enabled` is on. One node, no

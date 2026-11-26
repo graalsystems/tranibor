@@ -9,8 +9,9 @@ its run token, by name (ADR 0056).
 
 The environments are the executors' own, read from what each one builds: the Job's runner container
 (`k8s_job`), the Container Apps job's definition (ACA), `docker run`'s variables (local Docker) and the
-reference Tekton Task. The hosted container's environment is built from nothing (`sidecar_env`):
-`packages/adapters/tests/test_hosted_executors.py` and `test_local_docker.py` hold that one.
+runner's step of the agent stage's Task, inline in Tekton's PipelineRun (S87-05). The hosted container's
+environment is built from nothing (`sidecar_env`): `packages/adapters/tests/test_hosted_executors.py` and
+`test_local_docker.py` hold that one.
 """
 
 from __future__ import annotations
@@ -26,11 +27,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from tranibor_adapters.executor.aca import AcaExecutor, AzureArmClient
 from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.local_docker import LocalDockerExecutor
-from tranibor_adapters.executor.tekton import run_secret_data
+from tranibor_adapters.executor.tekton import TektonExecutor, run_secret_data
 from tranibor_contracts import AgentRef, JobSpec, ModelRef, StageInput
 from tranibor_contracts.delivery import Commands, StageDelivery, repository_of
 from tranibor_core.domain import StageJobSpec
@@ -43,9 +43,6 @@ from tranibor_runner.exits import Exit
 from tranibor_runner.runner import Runner
 
 from .conftest import FakeInternalClient, agent_script, free_port, valid_result
-
-ROOT = Path(__file__).resolve().parents[3]
-TEKTON_TASK = ROOT / "templates" / "github-tekton-argo-k8s" / "tekton" / "agent-stage.yaml"
 
 RUN_TOKEN = "s57-02-the-run-token"
 REMOTE_TOKEN = "s57-02-the-remote-agent-token"
@@ -119,11 +116,10 @@ async def _local_docker(spec: StageJobSpec) -> dict[str, str]:
 
 
 async def _tekton(spec: StageJobSpec) -> dict[str, str]:
-    task = yaml.safe_load(TEKTON_TASK.read_text(encoding="utf-8"))
-    [step] = [s for s in task["spec"]["steps"] if s["name"] == "run"]
-    env = _kubernetes_env([*task["spec"]["stepTemplate"]["env"], *step.get("env", [])], spec)
-    params = {"$(params.run-id)": spec.run_id, "$(params.api-url)": spec.api_url}
-    return {name: params.get(value, value) for name, value in env.items()}
+    run = TektonExecutor(client=object())._pipeline_run(spec, "run-test-1")  # type: ignore[arg-type]
+    [stage] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if "taskSpec" in t]
+    [step] = [s for s in stage["taskSpec"]["steps"] if s["name"] == "run"]
+    return _kubernetes_env(step["env"], spec)
 
 
 EXECUTORS: dict[str, Callable[[StageJobSpec], Awaitable[dict[str, str]]]] = {

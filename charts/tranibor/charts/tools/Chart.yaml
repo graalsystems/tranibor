@@ -1,6 +1,6 @@
 apiVersion: v2
 name: tranibor-tools
-description: The tranibor-tools MCP sidecar and the agent-stage Tekton Task
+description: The tranibor-tools image's settings; renders nothing since the Tekton executor's Task is inline (S87-05)
 type: application
 version: 0.30.0
 appVersion: "0.30.0"

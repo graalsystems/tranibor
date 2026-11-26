@@ -570,12 +570,7 @@
       "runtime"
     ],
     "config_schema": {
-      "properties": {
-        "pipeline": {
-          "default": "choregos-agent",
-          "type": "string"
-        }
-      },
+      "properties": {},
       "type": "object"
     },
     "deprecated": false,

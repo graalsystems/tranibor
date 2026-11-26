@@ -2903,23 +2903,23 @@
   {
     "id": "connector.runtime.tekton",
     "title": "Run agent stages as Tekton PipelineRuns",
-    "version": 1,
+    "version": 2,
     "audience": "operator",
     "applies_to": {
       "connector": "runtime/tekton"
     },
     "link": null,
-    "reviewed": "2026-10-16",
+    "reviewed": "2026-11-25",
     "sections": [
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "- A cluster with Tekton Pipelines, and a `Pipeline` named `choregos-agent` (or your own name) in the\n  runner namespace, installed from the chart.\n- The default executor when Tekton is present: `runner.executor: tekton`."
+        "markdown": "- A cluster with Tekton Pipelines, and the catalogue's `git-clone` Task in the runner namespace when\n  projects have a repository. Nothing else of Tekton's is installed for the platform: each\n  `PipelineRun` carries its Pipeline and its agent stage's Task inline.\n- The default executor when Tekton is present: `runner.executor: tekton`."
       },
       {
         "key": "at",
         "title": "At the cluster",
-        "markdown": "Install Tekton, then the chart's Pipeline. Set `runner.executor: tekton` and `runner.namespacePattern`\nin the orchestrator's values. Each agent stage becomes one `PipelineRun`; its Secret belongs to the run\nand goes with it however it ends."
+        "markdown": "Install Tekton. Set `runner.executor: tekton` and `runner.namespacePattern` in the orchestrator's\nvalues. Each agent stage becomes one `PipelineRun`; its Secret belongs to the run and goes with it\nhowever it ends. Under `global.runner.agentIsolation: container` the agent stage's Task has the agent's\nown container as a sidecar: Tekton waits for it to be ready before the runner's step (its default,\n`await-sidecar-readiness`) and stops it after the last step; with Tekton's `enable-kubernetes-sidecar`\nflag (Kubernetes 1.29+) it is a native sidecar."
       },
       {
         "key": "permissions",
@@ -2929,7 +2929,7 @@
       {
         "key": "in_choregos",
         "title": "In Tranibor",
-        "markdown": "Mostly chart values. If a connector is declared, `pipeline` names the Pipeline to start."
+        "markdown": "Chart values only: the connector has no field of its own. A `pipeline` field stored by an earlier\nversion is ignored."
       },
       {
         "key": "test",
@@ -2939,14 +2939,12 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- A `PipelineRun` that never schedules: the Pipeline name does not exist in that namespace.\n- `Forbidden`: the orchestrator's service account lacks `pipelineruns` rights.\n- The run's pod is rejected at admission: see the namespace policies (security context, `LimitRange`)."
+        "markdown": "- A clone that never starts: `git-clone` is not in that namespace.\n- `Forbidden`: the orchestrator's service account lacks `pipelineruns` rights.\n- The run's pod is rejected at admission: see the namespace policies (security context, `LimitRange`)."
       }
     ],
     "values": {},
     "egress": [],
-    "fields": {
-      "pipeline": "the Pipeline each run starts, choregos-agent by default"
-    },
+    "fields": {},
     "vendor_docs": [
       {
         "title": "Tekton Pipelines",

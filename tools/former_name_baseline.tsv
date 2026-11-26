@@ -469,7 +469,7 @@
 2	apps/web/src/mocks/joiners-leavers.json
 1	apps/web/src/mocks/paging.ts
 1	apps/web/src/mocks/plugins.ts
-147	apps/web/src/mocks/procedures.json
+145	apps/web/src/mocks/procedures.json
 4	apps/web/src/mocks/procedures.ts
 1	apps/web/src/mocks/theme-sample.ts
 148	apps/web/src/styles/theme.css
@@ -643,7 +643,7 @@
 2	docs/TRADEMARK.md
 7	docs/cli.md
 3	docs/code-agents.md
-484	docs/deployment.md
+486	docs/deployment.md
 34	docs/development.md
 1	docs/getting-started.md
 7	docs/hosted-agents.md
@@ -659,7 +659,7 @@
 2	docs/procedures/connector.notify.slack.md
 1	docs/procedures/connector.runtime.agent_sandbox.md
 3	docs/procedures/connector.runtime.local_docker.md
-3	docs/procedures/connector.runtime.tekton.md
+1	docs/procedures/connector.runtime.tekton.md
 3	docs/procedures/connector.scm.gitlab.md
 1	docs/procedures/connector.tracker.jira.md
 4	docs/runbooks/aca-live.md
@@ -746,7 +746,7 @@
 1	packages/adapters/src/tranibor_adapters/__init__.py
 1	packages/adapters/src/tranibor_adapters/azure_devops.py
 2	packages/adapters/src/tranibor_adapters/azure_devops_events.py
-7	packages/adapters/src/tranibor_adapters/builtins.py
+6	packages/adapters/src/tranibor_adapters/builtins.py
 1	packages/adapters/src/tranibor_adapters/documents/git.py
 2	packages/adapters/src/tranibor_adapters/documents/web.py
 2	packages/adapters/src/tranibor_adapters/errors.py
@@ -755,7 +755,7 @@
 6	packages/adapters/src/tranibor_adapters/executor/k8s_job.py
 10	packages/adapters/src/tranibor_adapters/executor/local_docker.py
 1	packages/adapters/src/tranibor_adapters/executor/separate_agent.py
-3	packages/adapters/src/tranibor_adapters/executor/tekton.py
+2	packages/adapters/src/tranibor_adapters/executor/tekton.py
 3	packages/adapters/src/tranibor_adapters/fakes/agent_sandbox.py
 1	packages/adapters/src/tranibor_adapters/fakes/batch.py
 1	packages/adapters/src/tranibor_adapters/fakes/forge_accounts.py
@@ -778,7 +778,7 @@
 1	packages/adapters/src/tranibor_adapters/oci/builder.py
 5	packages/adapters/src/tranibor_adapters/plugin_servers.py
 2	packages/adapters/src/tranibor_adapters/sealing.py
-2	packages/adapters/src/tranibor_adapters/specs.py
+1	packages/adapters/src/tranibor_adapters/specs.py
 2	packages/adapters/src/tranibor_adapters/tracker/azure_boards.py
 2	packages/adapters/src/tranibor_adapters/tracker/github.py
 5	packages/adapters/src/tranibor_adapters/tracker/github_events.py
@@ -962,7 +962,7 @@
 2	packages/core/src/tranibor_core/procedures/connector.notify.slack.md
 1	packages/core/src/tranibor_core/procedures/connector.runtime.agent_sandbox.md
 3	packages/core/src/tranibor_core/procedures/connector.runtime.local_docker.md
-3	packages/core/src/tranibor_core/procedures/connector.runtime.tekton.md
+1	packages/core/src/tranibor_core/procedures/connector.runtime.tekton.md
 3	packages/core/src/tranibor_core/procedures/connector.scm.gitlab.md
 1	packages/core/src/tranibor_core/procedures/connector.tracker.jira.md
 2	packages/core/src/tranibor_core/publishing.json
@@ -1211,7 +1211,7 @@
 1	plugins/software-delivery/tests/test_pipelines_and_deployments.py
 9	plugins/software-delivery/tests/test_release_names.py
 1	plugins/software-delivery/tests/test_stage_roles.py
-16	plugins/software-delivery/tests/test_tekton.py
+15	plugins/software-delivery/tests/test_tekton.py
 2	plugins/software-delivery/tests/test_train_dsl.py
 2	plugins/software-delivery/tests/test_train_series.py
 1	plugins/software-delivery/tests/test_validate_offline.py
@@ -1238,8 +1238,6 @@
 1	templates/github-tekton-argo-k8s/scaffold/CODEOWNERS.j2
 1	templates/github-tekton-argo-k8s/scaffold/deploy/kustomization.yaml.j2
 1	templates/github-tekton-argo-k8s/scaffold/tekton/pipeline.yaml.j2
-5	templates/github-tekton-argo-k8s/tekton/agent-stage.yaml
-2	templates/github-tekton-argo-k8s/tekton/pipeline-agent.yaml
 4	templates/github-tekton-argo-k8s/tekton/pipeline-ci.yaml
 6	templates/github-tekton-argo-k8s/tekton/triggers.yaml
 2	templates/joiners-leavers/manifest.yaml
@@ -1248,7 +1246,7 @@
 1	templates/software-delivery-governed/manifest.yaml
 2	templates/software-delivery-governed/policy.yaml
 1	templates/software-delivery-governed/workflows/governed-delivery.yaml
-2	tests/architecture/fixtures/connector_registry.json
+1	tests/architecture/fixtures/connector_registry.json
 3	tests/architecture/test_supply_chain_pinned.py
 1	tests/build/test_buildkit.py
 7	tests/charts/conftest.py

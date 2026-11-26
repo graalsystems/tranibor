@@ -24,16 +24,8 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from tranibor_contracts import ExecutorKind, wire
-from tranibor_contracts.env import with_legacy_entries
 from tranibor_core.agent_isolation import SEPARATE_AGENT
-from tranibor_core.domain import (
-    RUN_GATEWAY_KEY_ENV,
-    RUN_REMOTE_TOKEN_ENV,
-    AgentContainer,
-    ExecRef,
-    ExecStatus,
-    StageJobSpec,
-)
+from tranibor_core.domain import AgentContainer, ExecRef, ExecStatus, StageJobSpec
 from tranibor_core.egress_gate import EgressGate
 from tranibor_core.exit_codes import explanation
 from tranibor_core.hosted import SHARED_WORKSPACE_AGENT, SHARED_WORKSPACE_RUNNER, native_sidecars_refusal
@@ -43,13 +35,12 @@ from . import egress_gate, separate_agent
 from .isolation import refuse_unless_separate
 from .tekton import (
     CORE_API,
-    GATEWAY_KEY_FIELD,
-    REMOTE_TOKEN_FIELD,
     RUNNER_SERVICE_ACCOUNT,
     KubernetesClient,
     RunnerServiceAccount,
     _parse_time,
     run_secret_data,
+    runner_env_entries,
 )
 
 BATCH_API = "/apis/batch/v1"
@@ -325,36 +316,9 @@ class KubernetesJobExecutor:
                     "name": "runner",
                     "image": spec.runner_image,
                     "args": list(spec.runner_command),
-                    "env": with_legacy_entries(
-                        [
-                            {"name": "TRANIBOR_RUN_ID", "value": spec.run_id},
-                            {"name": "TRANIBOR_API_URL", "value": spec.api_url},
-                            {
-                                "name": "TRANIBOR_RUN_TOKEN",
-                                "valueFrom": {"secretKeyRef": {"name": name, "key": "token"}},
-                            },
-                            # The run's gateway key, from the same Secret (#523). Optional: a run
-                            # without a key (none minted) still starts.
-                            {
-                                "name": RUN_GATEWAY_KEY_ENV,
-                                "valueFrom": {
-                                    "secretKeyRef": {"name": name, "key": GATEWAY_KEY_FIELD, "optional": True}
-                                },
-                            },
-                            # The access token of a remote agent (ADR 0062), same Secret, same rule.
-                            {
-                                "name": RUN_REMOTE_TOKEN_ENV,
-                                "valueFrom": {
-                                    "secretKeyRef": {
-                                        "name": name,
-                                        "key": REMOTE_TOKEN_FIELD,
-                                        "optional": True,
-                                    }
-                                },
-                            },
-                            *[{"name": key, "value": value} for key, value in spec.env.items()],
-                        ]
-                    ),
+                    # The run's token, gateway key (#523) and remote agent's token (ADR 0062) by reference
+                    # to the run's Secret: the same entries as a Tekton step's (S87-05).
+                    "env": runner_env_entries(spec, name),
                     "resources": {
                         "requests": {"cpu": spec.cpu, "memory": spec.memory},
                         "limits": {"cpu": self.cpu_limit, "memory": self.memory_limit},

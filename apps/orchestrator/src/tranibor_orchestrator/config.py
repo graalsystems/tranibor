@@ -46,9 +46,9 @@ class OrchestratorSettings(BaseSettings):
     #: `http://ecphoria:8432/mcp` answers 401 in nine milliseconds.
     memory_url: str = "http://localhost:8432"
     #: The address of the tool catalogue's MCP server, as the agent sees it. It is LOCAL to the
-    #: agent pod, and someone always serves it: a `sidecar:` under Tekton
-    #: (`templates/github-tekton-argo-k8s/tekton/agent-stage.yaml`), the runner itself everywhere
-    #: else (`runner/local_tools.py`, which starts the server if nothing answers).
+    #: agent pod, and the runner itself serves it on every executor (`runner/local_tools.py`, which
+    #: starts the server if nothing answers); Tekton's former `tranibor-tools` sidecar is gone with
+    #: the Task it was in (S87-05).
     tools_mcp_url: str = "http://localhost:7777/mcp"
     runner_image: str = PUBLISHING.image_name("runner") + ":1.0.0"
     #: The images a job step may name (ADR 0056), as JSON in `TRANIBOR_JOB_IMAGES`: name → reference,

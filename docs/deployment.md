@@ -646,7 +646,7 @@ workers read the same setting, and `agent_sandbox` is the default.
 
 | Executor | Where it runs | Notes |
 | :-- | :-- | :-- |
-| `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton` |
+| `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton`; under `container` the agent stage's Task carries the agent's own container as a sidecar |
 | `k8s_job` | A `Job` per stage | Fewest moving parts; supports queueing |
 | `aca` | Azure Container Apps job | Verified against a real subscription; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
 | `local_docker` | A container on the host | Development only |
@@ -862,6 +862,23 @@ cannot isolate, which goes to `runner.customImageExecutor` (`k8s_job` unless the
 keeps the refusal). Since S87-05 Tekton isolates every agent itself (below), so the second executor takes
 no run there; it stays rendered as the fallback, and `/readiness` names whichever executor isolates the run.
 
+**Tekton's PipelineRun is self-contained** (S87-05). It carries its Pipeline inline (`pipelineSpec`): the
+catalogue's `git-clone` Task by reference when the project has a repository, then the agent stage, whose
+Task is inline too (`taskSpec`). Nothing of the agent stage is read from the runner namespace: no Task or
+Pipeline is installed or copied there for the platform, so no older copy can run. Under `container` that
+Task has the agent's own container as a sidecar, `agent`: the container `k8s_job` starts (uid 1001,
+read-only root, every capability dropped, no Secret, no `envFrom`, `TMPDIR` and `HOME` at `/exchange`,
+`tranibor-runner launcher` as its process), with the Task's workspace, which Tekton mounts in every step and
+sidecar at `$(workspaces.source.path)` (the runner is told the same path, `TRANIBOR_WORKSPACE`), an
+`emptyDir` `/exchange` shared with the runner's step and an `emptyDir` `/tmp` of its own. The runner's step
+gets the environment `k8s_job`'s runner container gets, plus `TRANIBOR_RUNNER_AGENT_ISOLATION=container`
+and the launcher's port. Tekton waits for a sidecar to be ready before the first step (its default,
+`await-sidecar-readiness: "true"`; the sidecar's startup probe is the launcher listening) and stops it
+after the last step; with Tekton's `enable-kubernetes-sidecar` feature flag (Kubernetes 1.29+) the sidecar
+is a native one. The executor renders the same Task for either: Tekton's controller makes the difference.
+Neither has been run on a cluster yet (S87-06). A Tekton sidecar needs no Kubernetes version of its own,
+so `tekton` does not refuse an older cluster as `k8s_job` does.
+
 When an agent asks a question, its sandbox is **suspended** (pod gone, workspace volume kept)
 and the answer resumes the same run in it: one run, not two. The policy bounds the wait:
 `sandbox.suspend_max_hours` (default 24, `0` = never suspend); past it the sandbox is deleted
@@ -1025,8 +1042,7 @@ That local address is always announced, and somebody always serves it:
 
 | Executor | Who serves `localhost:7777` |
 |---|---|
-| `tekton` | a `sidecar:` in the Task |
-| everything else | **the runner itself** (`runner/local_tools.py`), which starts the server when the announced address is local and nothing answers |
+| every executor | **the runner itself** (`runner/local_tools.py`), which starts the server when the announced address is local and nothing answers |
 
 A sidecar, where one exists, keeps the port: the runner probes first and stands aside. A **non**-local
 address is served by nobody automatically — that is a deployment providing its own server, and the
@@ -1063,16 +1079,17 @@ It journals `tools.script` (`sha256`, `bytes`, `text`) and, for each relayed cal
 `status_code`, the answer's own on a `200`, `202` for a proposal, the HTTP status otherwise; `duration_ms`;
 `response_bytes`, what it handed back; `script_sha256`, or null; `action`, the id of the governed action a `202` proposal
 created, when the API named one). The runner's own server writes them into the
-run's journal and says `bridge: true` on its `tools.local` event. The Tekton sidecar is not told its run's input:
-it reads it from the API (`GET /internal/runs/{id}/input`, with the run token) on the bridge's first request, and
-posts its events through `POST /internal/runs/{id}/events`, numbered from 1,000,000,000 so that they never take
-a number of the runner's. The run's journal is ordered by number, so the sidecar's events come after the
-runner's; each carries its own time.
+run's journal and says `bridge: true` on its `tools.local` event. A `tranibor-tools` server started apart from the
+runner (a deployment's own sidecar; Tekton's Task had one until S87-05) is not told its run's input: it reads it
+from the API (`GET /internal/runs/{id}/input`, with the run token) on the bridge's first request, and posts its
+events through `POST /internal/runs/{id}/events`, numbered from 1,000,000,000 so that they never take a number of
+the runner's. The run's journal is ordered by number, so that server's events come after the runner's; each
+carries its own time.
 
 The runner also writes the client a script imports (S57-08, [ADR 0122](adr/0122-an-agent-may-call-its-run-s-tools-from-a-script.md)
 §3): `choregos_tools` under `$TMPDIR/choregos/tools`, outside the workspace and anew for each run, from the list
-`GET /bridge/v1/tools` hands back (the runner reads it with its own client, so the same list whether it or the
-Tekton sidecar serves the bridge); the package's code is `packages/runner/src/tranibor_runner/tool_client.py`,
+`GET /bridge/v1/tools` hands back (the runner reads it with its own client, so the same list whether it or a
+server of its own serves the bridge); the package's code is `packages/runner/src/tranibor_runner/tool_client.py`,
 copied, and only the per-server modules and the index are generated. The agent's environment gains
 `TRANIBOR_TOOLS_DIR` (that directory), `TRANIBOR_TOOLS_BRIDGE` (`http://<the tool server's host:port>/bridge/v1`),
 `PYTHONPATH` (the directory first, an existing value kept after it) and `TMPDIR` (the runner's temporary
@@ -2791,6 +2808,22 @@ byte. What changes:
   `global.outposts.door.ingressController: ingress-nginx`. An installation that added keys to the map
   renders the same annotations; one that removed the two (`key: null`) for another controller now sets
   `ingressController: ""`, or carries them again, unread by its controller.
+
+## Upgrading past 0.30.0: a deployment on Tekton runs its agent steps isolated
+
+A deployment on `tekton` with `global.runner.agentIsolation: container` (the default) had every run refused
+(`agent_isolation_unavailable`): Tekton could not start the agent's container. The agent stage's Task now carries
+it as a sidecar, inline in each PipelineRun (S87-05), and the chart also renders a second executor for `tekton`
+under `container`, `tranibor-orchestrator.runner.customImageExecutor`, for a run Tekton could not isolate
+(S87-02; with this version, none).
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A deployment on `tekton` under `container` | Its runs start as PipelineRuns whose agent stage has two containers: the runner's step requests `tranibor-orchestrator.runner.ownResources` (250m and 512Mi by default) and the agent's sidecar the run's requests, so a namespace quota sees more requested per run, and a LimitRange judges each container. `/readiness` says `agent-isolation` is done. Tekton Chains signs the PipelineRun as before. Not yet run on a cluster (S87-06). | Check the runner namespace's quota and LimitRange. Keep `await-sidecar-readiness` at its default (`"true"`). |
+| A deployment on `tekton` under `process` | Unchanged: no sidecar, every run on Tekton (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container` to isolate the agent. |
+| The `Pipeline` `choregos-agent` (a name the rename to tranibor kept) or a Task copied from the `tranibor-agent-stage-task` ConfigMap (`choregos-agent-stage` before 0.30.0) in a runner namespace | No longer run: the PipelineRun carries its own. The chart no longer publishes the `tranibor-agent-stage-task` ConfigMap (`tranibor-tools.publishTask` is gone), and the template no longer ships `tekton/pipeline-agent.yaml` nor `tekton/agent-stage.yaml`. | Delete them from the namespaces. Keep the catalogue's `git-clone` Task there. |
+| A `runtime` connector of type `tekton` whose configuration names `pipeline` | Ignored: there is no Pipeline to name. | Remove the field when next editing the connector. |
+| The `tranibor-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
 
 ## Upgrading to 0.30.0: the commands and files take the name tranibor (ADR 0226, R5)
 

@@ -115,7 +115,7 @@ async def test_local_docker_takes_the_opt_out_past_the_guard() -> None:
     assert docker.calls, "past the guard, docker was asked"
 
 
-@pytest.mark.parametrize("kind", ["k8s_job", "agent_sandbox", "local_docker"])
+@pytest.mark.parametrize("kind", ["k8s_job", "agent_sandbox", "local_docker", "tekton"])
 async def test_an_isolated_run_needs_no_opt_out_in_production(kind: str) -> None:
     """The isolating executors are not touched: `container` runs in prod with nothing to accept."""
     executor, _ = _executor(kind)

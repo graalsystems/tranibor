@@ -3,4 +3,3 @@ image:
   repository: tranibor-tools
   tag: ""
   digest: ""
-publishTask: true
