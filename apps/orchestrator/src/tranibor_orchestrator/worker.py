@@ -143,6 +143,30 @@ def concurrency_options(settings: OrchestratorSettings) -> ConcurrencyOptions:
     }
 
 
+async def fit_the_pool(queues: list[str], settings: OrchestratorSettings) -> dict[str, int]:
+    """Make this process's activities queue for a database connection rather than fail (#2331).
+
+    One process runs `worker_max_concurrent_activities` activities on EACH of its queues (the local
+    install's `worker-local` serves four: 80), against one pool of `size + overflow` connections (15 by
+    default), sized for PostgreSQL's `max_connections`, not for the activities. When the database slows
+    down, the activities queue for a connection: they now wait `worker_db_pool_timeout_s` for one,
+    instead of the API's 10 s, after which each failed and was retried from its start. When the
+    activities can outnumber the connections, the start says so, with the settings that move it."""
+    from .activities.base import queue_activities_for_connections
+
+    capacity = await queue_activities_for_connections(settings.worker_db_pool_timeout_s)
+    activities = len(queues) * settings.worker_max_concurrent_activities
+    fit = {"activities": activities, "connections": capacity, "wait_s": settings.worker_db_pool_timeout_s}
+    if capacity and activities > capacity:
+        logger.warning(
+            "worker.activities_outnumber_connections",
+            **fit,
+            settings="TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES, TRANIBOR_DB_POOL_SIZE, "
+            "TRANIBOR_DB_MAX_OVERFLOW, TRANIBOR_WORKER_DB_POOL_TIMEOUT_S",
+        )
+    return fit
+
+
 def build_workers(client: Any, queues: list[str], settings: OrchestratorSettings) -> list[Any]:
     """One `Worker` per queue, registered as the chart's deployments are (shared with the inline demo
     worker of ADR 0212, so that a demo never registers anything the product does not)."""
@@ -173,6 +197,8 @@ async def run_worker(queues: list[str]) -> None:
     settings = get_settings()
     # Before anything connects: no fakes in staging and prod (S80-03).
     settings.refuse_fakes_in_production()
+    # Before the first session: the pool's wait is set when the engine is built (#2331).
+    pool = await fit_the_pool(queues, settings)
     # An organisation's payloads under its own data key, read through the deployment's key wrapper
     # (ADR 0225): installed before the converter is built, so every client of this process carries it.
     from tranibor_api.services.temporal_keys import install_organisation_data_keys
@@ -189,6 +215,8 @@ async def run_worker(queues: list[str]) -> None:
         queues=queues,
         address=settings.temporal_address,
         **concurrency_options(settings),
+        pool_connections=pool["connections"],
+        pool_wait_s=pool["wait_s"],
         tls=security.tls,
         payload_codec=security.encrypts,
         organisation_data_keys=data_keys is not None,
