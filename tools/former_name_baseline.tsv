@@ -183,7 +183,6 @@
 2	apps/api/tests/test_azure_boards_webhook.py
 4	apps/api/tests/test_azure_devops_webhook.py
 6	apps/api/tests/test_bare_routers.py
-1	apps/api/tests/test_broker_profile.py
 1	apps/api/tests/test_budget_at_launch.py
 1	apps/api/tests/test_builtin_agent.py
 1	apps/api/tests/test_catalogue_plugin_injection_guard.py
