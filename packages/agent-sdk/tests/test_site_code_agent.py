@@ -60,8 +60,8 @@ async def test_the_page_s_agent_runs_through_the_runner_s_client(
     assert client.outcome.stop_reason == "end_turn", client.stderr_tail
     assert any(event.startswith("mcp:knowledge_search:") for event in mcp_server.events), mcp_server.events
     assert asked, "the runner's guard was never asked"
-    assert (workspace / ".choregos" / "outputs" / "triage.md").read_text(encoding="utf-8")
-    loaded = load_result(workspace / ".choregos" / "result.json")
+    assert (workspace / ".tranibor" / "outputs" / "triage.md").read_text(encoding="utf-8")
+    loaded = load_result(workspace / ".tranibor" / "result.json")
     assert loaded.ok, loaded.error
     assert loaded.result is not None and loaded.result.summary == "triaged"
     assert loaded.result.evidence.facts == {"has_context": True}

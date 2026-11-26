@@ -76,7 +76,7 @@ async def _sign_in(client: AsyncClient, *, reauth: bool) -> Response:
 def _session(client: AsyncClient) -> dict[str, Any]:
     from tranibor_api.security import read_session
 
-    payload = read_session(client.cookies.get("choregos_session", ""))
+    payload = read_session(client.cookies.get("tranibor_session", ""))
     assert payload is not None, "no session opened"
     return payload
 
@@ -88,7 +88,7 @@ async def _authenticated_at(client: AsyncClient) -> int | None:
     from tranibor_api.db.session import session_scope
     from tranibor_api.deps import current_principal
 
-    cookie = f"choregos_session={client.cookies.get('choregos_session')}"
+    cookie = f"tranibor_session={client.cookies.get('tranibor_session')}"
     request = Request({"type": "http", "headers": [(b"cookie", cookie.encode())], "query_string": b""})
     async with session_scope() as session:
         principal = await current_principal(request, session, get_settings(), None)
@@ -115,7 +115,7 @@ async def test_reauth_refusedes_an_idp_that_did_not_ask_again(
     refused = await _sign_in(client, reauth=True)
     assert refused.status_code == 401, refused.text
     assert "prompt=login" in refused.text
-    assert not client.cookies.get("choregos_session")
+    assert not client.cookies.get("tranibor_session")
 
 
 async def test_reauth_without_auth_time_is_refusedde(client: AsyncClient, idp: dict[str, Any]) -> None:

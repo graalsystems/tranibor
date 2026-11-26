@@ -185,7 +185,9 @@ class Settings(BaseSettings):
     #: A verification-only key during a rotation (`TRANIBOR_SESSION_SECRET_PREVIOUS`): a value signed
     #: with it still reads, and nothing is signed with it.
     session_secret_previous: str = ""
-    session_cookie: str = "choregos_session"
+    #: `tranibor_session`; a browser holding the former `choregos_session` is moved to it (ADR 0226,
+    #: `former_cookies`). A name set here is the operator's and is never renamed.
+    session_cookie: str = "tranibor_session"
     session_max_age_s: int = 8 * 3600
     #: A developer surface's session (ADR 0154 §6): it ends after this long without a request, and in any case
     #: after `surface_session_max_age_s`. A device code lives `device_code_ttl_s` and is polled no faster than
@@ -215,7 +217,7 @@ class Settings(BaseSettings):
     bootstrap_org_name: str = ""
     bootstrap_admins: str = ""
     #: Organisation to which the NON-prefixed OIDC groups (`developers`, `org-admins`...) attach.
-    #: Empty: those groups are ignored, only the `choregos:<org>:<group>` groups give a role.
+    #: Empty: those groups are ignored, only the `tranibor:<org>:<group>` groups give a role.
     #: Before: any group gave the role on ALL the organisations of the instance.
     oidc_default_org: str = ""
 
@@ -356,7 +358,9 @@ class Settings(BaseSettings):
     cluster_version: str = ""
     #: The `buildkitd` builds go through, as `buildctl --addr` takes it: the one the chart deploys
     #: (`global.buildkitd`, S41-13) unless `global.images.buildkitAddress` names another.
-    buildkit_address: str = "tcp://choregos-buildkitd:1234"
+    #: The chart renders the daemon as `tranibor-buildkitd` since 0.30.0 (ADR 0226, R6) and always sets this;
+    #: the default follows the chart (it named `choregos-buildkitd`, which no chart renders any more).
+    buildkit_address: str = "tcp://tranibor-buildkitd:1234"
     #: A directory holding `ca.crt`, `tls.crt` and `tls.key` for mutual TLS with `buildkitd`;
     #: empty speaks plain gRPC, which the chart's NetworkPolicy limits to the orchestrator's pods.
     buildkit_tls_dir: str = ""
@@ -455,8 +459,9 @@ class Settings(BaseSettings):
     api_url: str = "http://localhost:8000"
     #: Where the native `choregos` binaries, their `SHA256SUMS` and `manifest.json` lie (S62-07 puts
     #: them there in the API image). An absent directory is a build that bundles no CLI: the download
-    #: routes answer 404 and say where the GitHub release is (S62-08, `routers/cli_downloads.py`).
-    cli_dir: str = "/opt/choregos/cli"
+    #: routes answer 404 and say where the GitHub release is (S62-08, `routers/cli_downloads.py`). At this
+    #: default, the former `/opt/choregos/cli` is read when only it exists (ADR 0226, R9b).
+    cli_dir: str = "/opt/tranibor/cli"
 
     # Outposts (ADRs 0147-0149)
     #: `TRANIBOR_OUTPOSTS`, `off` by default (ADR 0147 §12). Off, the outposts' door is not mounted and

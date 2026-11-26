@@ -42,12 +42,13 @@ ROOT_NAMES = (
 
 
 def _extension_packages() -> set[str]:
-    """The top-level packages of the installed extensions (`choregos.plugins`): what they register is
-    theirs, and their own tests hold it (a first-party plugin's included, ADR 0181)."""
-    from importlib import metadata
+    """The top-level packages of the installed extensions (`tranibor.plugins`, and the former group): what
+    they register is theirs, and their own tests hold it (a first-party plugin's included, ADR 0181)."""
+    from tranibor_contracts import wire
 
     return {
-        p.value.partition(":")[0].partition(".")[0] for p in metadata.entry_points(group="choregos.plugins")
+        p.value.partition(":")[0].partition(".")[0]
+        for p in wire.entry_points(tranibor_adapters.EXTENSION_GROUP)
     }
 
 

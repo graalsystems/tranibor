@@ -279,10 +279,12 @@ async def calls_to_host(session: AsyncSession, org_id: str, host: str, *, now: d
 
 
 async def user_agent(session: AsyncSession, org_id: str) -> str:
-    """`Choregos/<version> (+<contact>)`: the organisation's contact, else the deployment's."""
+    """`Tranibor/<version> Choregos/<version> (+<contact>)`: the organisation's contact, else the
+    deployment's. A site that allowed or blocked the former token keys on it: it is sent beside the new
+    one for the window of ADR 0226."""
     net = await ceiling_network(session, org_id)
     contact = (net.user_agent_contact if net else None) or get_settings().user_agent_contact
-    return f"Choregos/{__version__} (+{contact or DEFAULT_CONTACT})"
+    return f"Tranibor/{__version__} Choregos/{__version__} (+{contact or DEFAULT_CONTACT})"
 
 
 async def with_identity(session: AsyncSession, org_id: str, config: dict[str, Any]) -> dict[str, Any]:

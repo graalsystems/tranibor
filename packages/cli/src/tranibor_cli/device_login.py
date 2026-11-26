@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos login` as the person: the device flow of RFC 8628, brokered by the console (ADR 0154 §6).
+"""`tranibor login` as the person: the device flow of RFC 8628, brokered by the console (ADR 0154 §6).
 
 The CLI asks the API for two codes, shows the short one and a link, and polls while the person approves it in
 the console, signed in as themselves. What comes back is a session of the person's own (not an API token):
@@ -77,8 +77,8 @@ def wait_for_session(http: httpx.Client, codes: dict[str, Any]) -> dict[str, Any
         if error == "access_denied":
             raise DeviceSignInError("the sign-in was refused in the console")
         if error == "expired_token":
-            raise DeviceSignInError("the code expired before it was approved: run `choregos login` again")
+            raise DeviceSignInError("the code expired before it was approved: run `tranibor login` again")
         raise DeviceSignInError(
             f"unexpected answer while waiting ({response.status_code}): {response.text[:200]}"
         )
-    raise DeviceSignInError("the code expired before it was approved: run `choregos login` again")
+    raise DeviceSignInError("the code expired before it was approved: run `tranibor login` again")

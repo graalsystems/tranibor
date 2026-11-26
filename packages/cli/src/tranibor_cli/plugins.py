@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos plugin`: validate, pack and index plugins (ADR 0093), offline — no API is called."""
+"""`tranibor plugin`: validate, pack and index plugins (ADR 0093), offline — no API is called."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from tranibor_core.plugins import PluginError
 
 # `tranibor_core.plugins` is imported by each command, not here: it loads the whole core (a quarter
-# of a second), and every call of the CLI — `choregos --version` included — paid it (S62-07).
+# of a second), and every call of the CLI — `tranibor --version` included — paid it (S62-07).
 
 plugin_app = typer.Typer(help="Plugins: validate, pack and index them (ADR 0093)")
 console = Console()

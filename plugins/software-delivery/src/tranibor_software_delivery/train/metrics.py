@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The release train's Prometheus series (ADR 0181, round D), declared to the API's `/metrics` through
-`metrics.declare_series`: `choregos_releases_total` (releases by state), `choregos_train_frozen` and
-`choregos_train_status` (one sample per project and environment whose train answers its query). The
+`metrics.declare_series`: `tranibor_releases_total` (releases by state), `tranibor_train_frozen` and
+`tranibor_train_status` (one sample per project and environment whose train answers its query). The
 names are the dashboards' and the alerts', unchanged."""
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from tranibor_api.temporal import get_temporal, train_id
 
 logger = get_logger("choregos.metrics")
 
-NAMES = ("choregos_releases_total", "choregos_train_frozen", "choregos_train_status")
+NAMES = ("tranibor_releases_total", "tranibor_train_frozen", "tranibor_train_status")
 ENVIRONMENTS = ("dev", "staging", "prod")
 #: The query the `ReleaseTrain` workflow answers (`workflow.py`, `status_query`), as the trains route asks it.
 TRAIN_STATUS_QUERY = "status_query"
@@ -40,17 +40,17 @@ async def refresh(project_slugs: list[str]) -> list[Any]:
         rows = await session.execute(select(Release.status, func.count()).group_by(Release.status))
         releases = {str(status): float(n) for status, n in rows.all()}
     families: list[Any] = []
-    g = GaugeMetricFamily("choregos_releases_total", "Releases by state", labels=["status"])
+    g = GaugeMetricFamily("tranibor_releases_total", "Releases by state", labels=["status"])
     for status, n in releases.items():
         g.add_metric([status], n)
     families.append(g)
     frozen, states = await _trains(project_slugs)
-    g = GaugeMetricFamily("choregos_train_frozen", "1 if the train is frozen", labels=["project", "env"])
+    g = GaugeMetricFamily("tranibor_train_frozen", "1 if the train is frozen", labels=["project", "env"])
     for (project, env), v in frozen.items():
         g.add_metric([project, env], v)
     families.append(g)
     g = GaugeMetricFamily(
-        "choregos_train_status",
+        "tranibor_train_status",
         "State of the train (0 collecting ... 5 verifying)",
         labels=["project", "env"],
     )

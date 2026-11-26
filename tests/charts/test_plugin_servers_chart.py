@@ -18,7 +18,7 @@ from tranibor_adapters.plugin_servers import ServerDeployment, server_manifests
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm is missing")
 
@@ -47,10 +47,10 @@ def _docs(values: dict[str, Any], tmp_path: pathlib.Path) -> list[dict[str, Any]
 
 def _api_env(docs: list[dict[str, Any]]) -> dict[str, str]:
     for doc in docs:
-        if doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "choregos-api":
+        if doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "tranibor-api":
             env = doc["spec"]["template"]["spec"]["containers"][0]["env"]
             return {e["name"]: e.get("value", "") for e in env}
-    raise AssertionError("no choregos-api Deployment")
+    raise AssertionError("no tranibor-api Deployment")
 
 
 def _named(docs: list[dict[str, Any]], kind: str, name: str) -> dict[str, Any] | None:
@@ -59,19 +59,19 @@ def _named(docs: list[dict[str, Any]], kind: str, name: str) -> dict[str, Any] |
 
 def test_off_by_default(tmp_path: pathlib.Path) -> None:
     docs = _docs({}, tmp_path)
-    assert _named(docs, "Role", "choregos-api-plugin-servers") is None
-    assert not [n for n in _api_env(docs) if n.startswith("CHOREGOS_PLUGIN_SERVERS")]
+    assert _named(docs, "Role", "tranibor-api-plugin-servers") is None
+    assert not [n for n in _api_env(docs) if n.startswith("TRANIBOR_PLUGIN_SERVERS")]
 
 
 def test_on_the_api_runs_servers_in_their_namespace_only(tmp_path: pathlib.Path) -> None:
     docs = _docs(ON, tmp_path)
     env = _api_env(docs)
-    assert env["CHOREGOS_PLUGIN_SERVERS"] == "kubernetes"
-    assert env["CHOREGOS_PLUGIN_SERVERS_NAMESPACE"] == "choregos-plugins"
-    assert yaml.safe_load(env["CHOREGOS_PLUGIN_SERVERS_REGISTRIES"]) == [PUBLISHING.image("tranibor-agents")]
-    assert env["CHOREGOS_PLUGIN_SERVERS_RUNTIME_CLASS"] == "gvisor", "the runner's RuntimeClass by default"
-    assert env["CHOREGOS_PLUGIN_SERVERS_API_NAMESPACE"] == "choregos"
-    role = _named(docs, "Role", "choregos-api-plugin-servers")
+    assert env["TRANIBOR_PLUGIN_SERVERS"] == "kubernetes"
+    assert env["TRANIBOR_PLUGIN_SERVERS_NAMESPACE"] == "choregos-plugins"
+    assert yaml.safe_load(env["TRANIBOR_PLUGIN_SERVERS_REGISTRIES"]) == [PUBLISHING.image("tranibor-agents")]
+    assert env["TRANIBOR_PLUGIN_SERVERS_RUNTIME_CLASS"] == "gvisor", "the runner's RuntimeClass by default"
+    assert env["TRANIBOR_PLUGIN_SERVERS_API_NAMESPACE"] == "choregos"
+    role = _named(docs, "Role", "tranibor-api-plugin-servers")
     assert role is not None and role["metadata"]["namespace"] == "choregos-plugins"
     resources = {r for rule in role["rules"] for r in rule["resources"]}
     assert resources == {"secrets", "services", "deployments", "networkpolicies"}
@@ -80,13 +80,13 @@ def test_on_the_api_runs_servers_in_their_namespace_only(tmp_path: pathlib.Path)
         for d in docs
         if d.get("kind") in {"ClusterRole", "ClusterRoleBinding"} and "plugin" in d["metadata"]["name"]
     ]
-    binding = _named(docs, "RoleBinding", "choregos-api-plugin-servers")
+    binding = _named(docs, "RoleBinding", "tranibor-api-plugin-servers")
     assert binding is not None
     assert binding["subjects"] == [
-        {"kind": "ServiceAccount", "name": "choregos-api", "namespace": "choregos"}
+        {"kind": "ServiceAccount", "name": "tranibor-api", "namespace": "choregos"}
     ]
     assert _named(docs, "Namespace", "choregos-plugins") is None, "the namespace only when asked"
-    platform = _named(docs, "NetworkPolicy", "choregos-allow-platform")
+    platform = _named(docs, "NetworkPolicy", "tranibor-allow-platform")
     assert platform is not None
     targets = [t for rule in platform["spec"]["egress"] for t in rule["to"]]
     assert {
@@ -103,7 +103,7 @@ def test_the_namespace_and_cilium_when_asked(tmp_path: pathlib.Path) -> None:
     namespace = _named(docs, "Namespace", "plugins")
     assert namespace is not None
     assert namespace["metadata"]["labels"]["pod-security.kubernetes.io/enforce"] == "restricted"
-    role = _named(docs, "Role", "choregos-api-plugin-servers")
+    role = _named(docs, "Role", "tranibor-api-plugin-servers")
     assert role is not None and "ciliumnetworkpolicies" in {
         r for rule in role["rules"] for r in rule["resources"]
     }
@@ -126,9 +126,9 @@ def test_rbac_false_leaves_the_role_to_the_platform(tmp_path: pathlib.Path) -> N
     values = yaml.safe_load(yaml.safe_dump(ON))
     values["global"]["plugins"]["servers"].update(rbac=False, egress="cilium")
     docs = _docs(values, tmp_path)
-    assert _named(docs, "Role", "choregos-api-plugin-servers") is None
-    assert _named(docs, "RoleBinding", "choregos-api-plugin-servers") is None
-    assert _api_env(docs)["CHOREGOS_PLUGIN_SERVERS"] == "kubernetes"
+    assert _named(docs, "Role", "tranibor-api-plugin-servers") is None
+    assert _named(docs, "RoleBinding", "tranibor-api-plugin-servers") is None
+    assert _api_env(docs)["TRANIBOR_PLUGIN_SERVERS"] == "kubernetes"
 
 
 def test_the_pull_goes_through_the_mirror_with_its_secrets(tmp_path: pathlib.Path) -> None:
@@ -138,21 +138,21 @@ def test_the_pull_goes_through_the_mirror_with_its_secrets(tmp_path: pathlib.Pat
     values["global"]["imagePullSecrets"] = ["harbor-pull"]
     values["global"]["plugins"]["servers"]["imageMirrors"] = mirror
     env = _api_env(_docs(values, tmp_path))
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS"]) == mirror
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["harbor-pull"]
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS"]) == mirror
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["harbor-pull"]
     values["global"]["plugins"]["servers"]["imagePullSecrets"] = []
-    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS" not in _api_env(_docs(values, tmp_path))
+    assert "TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS" not in _api_env(_docs(values, tmp_path))
     values["global"]["plugins"]["servers"]["imagePullSecrets"] = ["mirror-pull"]
     env = _api_env(_docs(values, tmp_path))
-    assert json.loads(env["CHOREGOS_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["mirror-pull"]
-    assert "CHOREGOS_PLUGIN_SERVERS_IMAGE_MIRRORS" not in _api_env(_docs(ON, tmp_path))
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS"]) == ["mirror-pull"]
+    assert "TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS" not in _api_env(_docs(ON, tmp_path))
 
 
 def test_the_rules_the_docs_list_are_the_roles(tmp_path: pathlib.Path) -> None:
     """With `rbac: false` the platform grants what docs/deployment.md lists: the template's rules."""
     values = yaml.safe_load(yaml.safe_dump(ON))
     values["global"]["plugins"]["servers"]["egress"] = "cilium"
-    role = _named(_docs(values, tmp_path), "Role", "choregos-api-plugin-servers")
+    role = _named(_docs(values, tmp_path), "Role", "tranibor-api-plugin-servers")
     assert role is not None
     rendered = {
         (group, resource, tuple(rule["verbs"]))
@@ -210,7 +210,7 @@ def test_every_caller_of_a_plugin_server_is_admitted_by_its_policy(tmp_path: pat
         in {"choregos-api", "choregos-orchestrator"}
     }
     queues = {n for n, labels in pods.items() if labels["app.kubernetes.io/name"] == "choregos-orchestrator"}
-    assert len(queues) >= 4 and "choregos-api" in pods, sorted(pods)
+    assert len(queues) >= 4 and "tranibor-api" in pods, sorted(pods)
     server = ServerDeployment(
         name="servicenow-0123abcd",
         namespace="choregos-plugins",
@@ -228,7 +228,7 @@ def test_every_caller_of_a_plugin_server_is_admitted_by_its_policy(tmp_path: pat
     refused = sorted(name for name, labels in pods.items() if not _admits(source["podSelector"], labels))
     assert refused == [], f"callers of a plugin server its policy does not admit: {refused}"
     assert not _admits(source["podSelector"], {"app.kubernetes.io/name": "choregos-runner"})
-    platform = _named(docs, "NetworkPolicy", "choregos-allow-platform")
+    platform = _named(docs, "NetworkPolicy", "tranibor-allow-platform")
     assert platform is not None
     out = sorted(
         name for name, labels in pods.items() if not _admits(platform["spec"]["podSelector"], labels)

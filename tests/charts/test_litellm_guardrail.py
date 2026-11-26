@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 CHART_COPY = CHART / "charts" / "litellm" / "files" / "choregos_guardrail.py"
 SOURCE = ROOT / "packages" / "core" / "src" / "tranibor_core" / "llm_guardrail.py"
 
@@ -61,4 +61,4 @@ def test_a_new_config_rolls_the_gateway() -> None:
         annotations = _litellm(*overrides)["Deployment"]["spec"]["template"]["metadata"]["annotations"]
         return str(annotations["checksum/config"])
 
-    assert checksum() != checksum("choregos-litellm.upstream.apiBase=https://gw.example")
+    assert checksum() != checksum("tranibor-litellm.upstream.apiBase=https://gw.example")

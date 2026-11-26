@@ -1,5 +1,5 @@
 # No human in the loop before prod: for low-risk internal repositories.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: full-auto

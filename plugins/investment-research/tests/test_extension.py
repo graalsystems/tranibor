@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The `marketdata` family reaches the platform only through the extension (S83-08, ADR 0181 O4-4).
 
-The core's adapters ship no `marketdata` type; the distribution declares its `choregos.plugins` entry
+The core's adapters ship no `marketdata` type; the distribution declares its `tranibor.plugins` entry
 point under the plugin's name, and loading it is what registers the five types, their fake (so
 `TRANIBOR_FAKES=1` switches every `marketdata` connector, ADR 0005) and the eval scene. Drop the entry
 point, or a registration from `extension.register`, and a test here turns red.
@@ -50,7 +50,7 @@ def test_the_core_ships_no_marketdata_type() -> None:
 
 
 def test_the_distribution_declares_its_entry_point_under_the_plugins_name() -> None:
-    (point,) = [p for p in metadata.entry_points(group="choregos.plugins") if p.name == NAME]
+    (point,) = [p for p in metadata.entry_points(group="tranibor.plugins") if p.name == NAME]
     assert point.value == "tranibor_investment_research.extension:register"
     assert point.dist is not None and point.dist.name == "tranibor-investment-research"
 

@@ -1,4 +1,4 @@
-# The embedded gateway's settings that matter here (`charts/choregos/charts/litellm`), with mocked
+# The embedded gateway's settings that matter here (`charts/tranibor/charts/litellm`), with mocked
 # models: `platform/standard` answers, `platform/broken` fails as a provider at its rate limit.
 model_list:
   - model_name: platform/standard

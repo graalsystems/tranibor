@@ -102,7 +102,7 @@ async def triage_finding(payload: dict[str, Any]) -> dict[str, Any]:
                     # A fan-out's child is not in an external tracker: its comment goes nowhere (ADR 0199).
                     await tracker_for(bundle, origin).comment(
                         origin.tracker_key,
-                        f"<!-- choregos:finding-duplicate -->\nOne more occurrence "
+                        f"<!-- tranibor:finding-duplicate -->\nOne more occurrence "
                         f"({candidate.occurrences}) reported by an agent: {evidence}",
                     )
                 await persist_event(
@@ -176,7 +176,7 @@ async def triage_finding(payload: dict[str, Any]) -> dict[str, Any]:
                 await bundle.adapters.tracker.link(key, origin.tracker_key, "origin")
                 await bundle.adapters.tracker.comment(
                     origin.tracker_key,
-                    f"<!-- choregos:finding -->\nFinding filed during this work item: {key} "
+                    f"<!-- tranibor:finding -->\nFinding filed during this work item: {key} "
                     f"({row.type}, {row.severity}).",
                 )
                 linked = True

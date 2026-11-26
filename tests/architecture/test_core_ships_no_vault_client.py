@@ -74,6 +74,6 @@ def test_the_extension_is_the_only_place_that_names_vault_transit() -> None:
     extension = ROOT / "plugins" / "vault-transit"
     assert (extension / "pyproject.toml").is_file()
     data = tomllib.loads((extension / "pyproject.toml").read_text(encoding="utf-8"))
-    assert data["project"]["entry-points"]["choregos.plugins"]["vault-transit"].startswith(
+    assert data["project"]["entry-points"]["tranibor.plugins"]["vault-transit"].startswith(
         "tranibor_vault_transit."
     )

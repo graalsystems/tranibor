@@ -57,8 +57,10 @@ APP_NAME = "choregos-plugin-server"
 #: The `app.kubernetes.io/name` of every pod that calls a plugin server (`PluginServerClient`): the API
 #: (the broker, discovery, the connector test, the webhook) and the orchestrator's workers of every queue
 #: (each activity builds the project's adapters, a `tracker/plugin` among them, and the `orchestrator`
-#: queue plays a governed action's `connector.call`). A runner (`choregos-runner`) is never one (#2192).
-CALLERS = ("choregos-api", "choregos-orchestrator")
+#: queue plays a governed action's `connector.call`). A runner (`*-runner`) is never one (#2192). Both values
+#: of each for the window of ADR 0226 (R9b): the chart's pods carry the former by default and the new under
+#: `global.labelValues: tranibor`, and a server's policy must admit its callers either way.
+CALLERS = ("tranibor-api", "choregos-api", "tranibor-orchestrator", "choregos-orchestrator")
 #: Addresses a server never reaches by the default NetworkPolicy: the cluster's, the node's, the
 #: cloud's metadata endpoint. Its egress is the internet, on the ports its configuration names.
 PRIVATE_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10")

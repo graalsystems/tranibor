@@ -28,14 +28,14 @@ API token (90 days)**. Copy it now: it is not shown again.
 **With the CLI**, once signed in:
 
 ```bash
-choregos tokens create --name weekly-report --expires-in-days 30
+tranibor tokens create --name weekly-report --expires-in-days 30
 ```
 
 A token with an MCP or A2A scope is refused by the REST API, and the MCP and A2A doors refuse a
 full-access token: one token per use.
 
 ```shell
-export TRANIBOR_API_URL=https://choregos.example.com TRANIBOR_TOKEN=chg_...
+export TRANIBOR_API_URL=https://tranibor.example.com TRANIBOR_TOKEN=chg_...
 ```
 
 ## 2. Open a work item
@@ -69,7 +69,7 @@ key prefix and a number, such as `BIL-12`) and its `state`.
 The same with the CLI:
 
 ```bash
-choregos items create acme:billing-api --workflow ship-a-change --title "Add credit notes" \
+tranibor items create acme:billing-api --workflow ship-a-change --title "Add credit notes" \
   --body "Customers need a credit note when an invoice is refunded." \
   --field ticket=FIN-42 --field priority=high --label billing
 ```
@@ -106,8 +106,8 @@ Lists are paged with a cursor. The answer is `{"items": [...], "meta": {...}}`, 
 50 by default).
 
 ```bash
-choregos items show BIL-12
-choregos items list acme:billing-api
+tranibor items show BIL-12
+tranibor items list acme:billing-api
 ```
 
 ## What a project is called in a URL

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * The host a visitor reached the console on (ADR 0175). An organisation may own a custom host
- * (`agentic.client.com`): the API says which one (`GET /api/v1/theme`, header `X-Choregos-Host-Org`)
+ * (`agentic.client.com`): the API says which one (`GET /api/v1/theme`, header `X-Tranibor-Host-Org`)
  * and serves that organisation's theme, so the first paint is already its own.
  *
  * `Host` and `X-Forwarded-Host` are client-controlled. The console only FORWARDS the host to the API,

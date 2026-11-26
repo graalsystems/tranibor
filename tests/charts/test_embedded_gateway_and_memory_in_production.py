@@ -18,14 +18,14 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROD = CHART / "values" / "prod.yaml"
 E = "choregos-ecphoria"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
 # Offline rendering: the default executor checks for its operator's CRD, which `helm template` lacks.
-OFFLINE = ("choregos-orchestrator.runner.skipOperatorCheck=true",)
+OFFLINE = ("tranibor-orchestrator.runner.skipOperatorCheck=true",)
 
 
 def _render(*sets: str) -> subprocess.CompletedProcess[str]:
@@ -80,7 +80,7 @@ def test_the_embedded_memory_on_a_volume_renders_in_prod(sets: tuple[str, ...], 
 
 def test_the_embedded_memory_without_persistence_is_refused_and_says_why() -> None:
     stderr = _refused("global.memory.embedded=true", f"{E}.persistence.enabled=false")
-    assert "global.memory.embedded (choregos-ecphoria.persistence.enabled=false" in stderr
+    assert "global.memory.embedded (tranibor-ecphoria.persistence.enabled=false" in stderr
 
 
 @pytest.mark.parametrize(
@@ -90,7 +90,7 @@ def test_the_embedded_memory_without_persistence_is_refused_and_says_why() -> No
         ("global.devLogin.enabled=true", "global.devLogin.enabled"),
         ("demoFakes.enabled=true", "demoFakes.enabled"),
         ("global.fakes=true", "global.fakes"),
-        ("global.temporal.embedded=true", "global.temporal.embedded (choregos-temporal.mode=dev"),
+        ("global.temporal.embedded=true", "global.temporal.embedded (tranibor-temporal.mode=dev"),
         ("global.database.embedded=true", "global.database.embedded"),
     ],
 )

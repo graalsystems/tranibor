@@ -103,7 +103,7 @@ class DodReport:
                 "```",
                 "",
             ]
-        blocks.append("Then run the commands again yourself to check, and update `.choregos/result.json`.")
+        blocks.append("Then run the commands again yourself to check, and update `.tranibor/result.json`.")
         return "\n".join(blocks)
 
 

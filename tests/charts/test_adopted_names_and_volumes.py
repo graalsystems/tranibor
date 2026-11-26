@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -45,17 +45,17 @@ def test_the_services_keep_the_names_clients_already_dial_and_the_urls_follow() 
     docs = _docs("global.gateway.serviceName=litellm", "global.memory.serviceName=ecphoria")
     assert {"litellm", "ecphoria"} <= _named(docs, "Service")
     assert not {"c-litellm", "c-ecphoria"} & _named(docs, "Service")
-    api = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "choregos-api")
+    api = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "tranibor-api")
     env = {e["name"]: e.get("value") for e in api["spec"]["template"]["spec"]["containers"][0]["env"]}
-    assert env["CHOREGOS_MEMORY_URL"] == "http://ecphoria:8432"
-    assert env["CHOREGOS_GATEWAY_URL"] == "http://litellm:4000"
+    assert env["TRANIBOR_MEMORY_URL"] == "http://ecphoria:8432"
+    assert env["TRANIBOR_GATEWAY_URL"] == "http://litellm:4000"
     ecphoria = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "c-ecphoria")
     envs = {e["name"]: e.get("value") for e in ecphoria["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert envs["ECPHORIA_EMBEDDING__OPENAI_BASE_URL"] == "http://litellm:4000/v1"
 
 
 def test_an_existing_claim_is_mounted_and_no_claim_is_rendered_over_it() -> None:
-    docs = _docs("choregos-ecphoria.persistence.existingClaim=ecphoria-data")
+    docs = _docs("tranibor-ecphoria.persistence.existingClaim=ecphoria-data")
     assert "c-ecphoria" not in _named(docs, "PersistentVolumeClaim")
     ecphoria = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "c-ecphoria")
     (data,) = [v for v in ecphoria["spec"]["template"]["spec"]["volumes"] if v["name"] == "data"]

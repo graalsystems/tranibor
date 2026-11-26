@@ -205,7 +205,8 @@ async def test_mcp_calls_carry_the_organisations_contact(
         "status_code"
     ] == 200
     agents = {received["user-agent"] for _, received, _ in supplier.received[-3:]}
-    assert agents == {f"Choregos/{__version__} (+security@ops.example)"}
+    # ADR 0226: the new product token, and the former one a site may key on beside it.
+    assert agents == {f"Tranibor/{__version__} Choregos/{__version__} (+security@ops.example)"}
 
 
 async def test_the_user_agent_falls_back_to_the_deployments_contact_then_the_project_page(
@@ -330,5 +331,5 @@ async def test_a_skill_source_outside_the_ceiling_is_refused_and_an_allowed_one_
     done = await client.post(preview, json=request)
     assert done.status_code == 200, done.text
     assert recorded_skills.user_agents and all(
-        ua.endswith("(+ops@ops.example)") and ua.startswith("Choregos/") for ua in recorded_skills.user_agents
+        ua.endswith("(+ops@ops.example)") and ua.startswith("Tranibor/") for ua in recorded_skills.user_agents
     )

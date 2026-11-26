@@ -33,7 +33,7 @@ from tranibor_adapters.azure_devops import SHA, ZERO_SHA, segment
 from tranibor_adapters.azure_devops_events import parse_azure_devops_event
 from tranibor_adapters.errors import ConfigurationError, HeadMovedError, UpstreamError
 from tranibor_adapters.http import RestClient
-from tranibor_contracts import InboundEvent
+from tranibor_contracts import InboundEvent, wire
 from tranibor_core.domain import CheckRun, DiffFile, DiffSummary, PrRef, PrState, ReviewState
 
 from ..builds import (
@@ -555,7 +555,8 @@ class AzureReposScm:
         summary: str,
         annotations: list[str] | None = None,
     ) -> None:
-        """A commit status `choregos/<name>`: the verdict of a guarantee, visible on the pull request.
+        """A commit status `tranibor/<check>` of genre `tranibor` (or, for the former name a branch policy
+        may still require, `choregos/<check>` of genre `choregos`, ADR 0226): the verdict of a guarantee.
         Azure statuses carry no annotations, so the files are named in the description."""
         description = summary
         if annotations:
@@ -566,7 +567,7 @@ class AzureReposScm:
             json={
                 "state": _COMMIT_STATE.get(conclusion, "error"),
                 "description": description[:400],
-                "context": {"name": name, "genre": "choregos"},
+                "context": {"name": name, "genre": _genre(name)},
             },
         )
 
@@ -646,6 +647,12 @@ class AzureReposScm:
             "default_branch": str((repo or {}).get("defaultBranch") or "").removeprefix("refs/heads/")
             or None,
         }
+
+
+def _genre(name: str) -> str:
+    """The genre of a status the platform posts: `choregos` for a status under the former name (so a branch
+    policy that requires `choregos/choregos/scope` keeps finding it), `tranibor` for any other."""
+    return wire.FORMER_NAME if name.startswith(f"{wire.FORMER_NAME}/") else wire.NAME
 
 
 def _version_type(version: str) -> str:

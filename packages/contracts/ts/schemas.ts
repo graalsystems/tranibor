@@ -160,7 +160,8 @@ export type ContextPackMemory = {
 
 /** The memory selected for a stage, within a token budget. **Untrusted** content: data, never instructions. */
 export type ContextPack = {
-  schema: "choregos/ContextPack/v1";
+  /** `tranibor/ContextPack/v1`; the former `choregos/ContextPack/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/ContextPack/v1" | "choregos/ContextPack/v1";
   query: string;
   paths?: Array<string>;
   kinds?: Array<string>;
@@ -415,7 +416,8 @@ export type DemoHistoryWorkItem = {
 
 /** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */
 export type DemoHistory = {
-  schema: "choregos/DemoHistory/v1";
+  /** `tranibor/DemoHistory/v1`; the former `choregos/DemoHistory/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/DemoHistory/v1" | "choregos/DemoHistory/v1";
   /** The project's workflow the work items belong to, by name; absent: the project's default. Every state the document names must exist in it. */
   workflow?: string;
   /** The price the document declares for each model, in USD per million tokens. A run that gives no `cost_usd` is costed with the price of its `model`; a model with no price there is refused. */
@@ -429,9 +431,9 @@ export type DemoHistory = {
 export type Event = {
   specversion: "1.0";
   id: string;
-  /** /choregos/orchestrator, /choregos/api, /choregos/runner/<run_id>… */
+  /** /tranibor/orchestrator, /tranibor/api, /tranibor/runner/<run_id>… */
   source: string;
-  /** An open list (ADR 0181): the core's types, choregos.workitem.created, choregos.workitem.state_changed, choregos.workitem.closed, choregos.workitem.human_requested, choregos.workitem.human_decided, choregos.workitem.workflow_failed, choregos.workitem.migrated, choregos.workitem.migration_refused, choregos.workitem.status_comment_missed, choregos.run.queued, choregos.run.started, choregos.run.progress, choregos.run.finished, choregos.finding.reported, choregos.finding.created, choregos.finding.duplicate, choregos.finding.dismissed, choregos.cost.recorded, choregos.cost.alert, choregos.project.provisioning.step, choregos.project.provisioning.completed, choregos.project.provisioning.failed, choregos.security.injection_suspected, choregos.tool.called, choregos.network.denied, choregos.action.proposed, choregos.action.decided, choregos.action.effect_done, choregos.action.effect_compensated, choregos.action.succeeded, choregos.action.failed, choregos.action.settled, and the types an installed extension declares (the release train's `choregos.release.*` are the software-delivery plugin's since round D). The platform refuses any other. */
+  /** An open list (ADR 0181): the core's types, tranibor.workitem.created, tranibor.workitem.state_changed, tranibor.workitem.closed, tranibor.workitem.human_requested, tranibor.workitem.human_decided, tranibor.workitem.workflow_failed, tranibor.workitem.migrated, tranibor.workitem.migration_refused, tranibor.workitem.status_comment_missed, tranibor.run.queued, tranibor.run.started, tranibor.run.progress, tranibor.run.finished, tranibor.finding.reported, tranibor.finding.created, tranibor.finding.duplicate, tranibor.finding.dismissed, tranibor.cost.recorded, tranibor.cost.alert, tranibor.project.provisioning.step, tranibor.project.provisioning.completed, tranibor.project.provisioning.failed, tranibor.security.injection_suspected, tranibor.tool.called, tranibor.network.denied, tranibor.action.proposed, tranibor.action.decided, tranibor.action.effect_done, tranibor.action.effect_compensated, tranibor.action.succeeded, tranibor.action.failed, tranibor.action.settled, and the types an installed extension declares (the release train's `tranibor.release.*` are the software-delivery plugin's since round D). A type under the former `choregos.` prefix is accepted and read as its `tranibor.` twin until 0.32.0 (ADR 0226). The platform refuses any other. */
   type: string;
   subject?: string | null;
   time: string;
@@ -758,7 +760,8 @@ export type PluginIndexRelease = {
 
 /** A plugin source's index, index.yaml: name → versions → where and what (ADR 0093). */
 export type PluginIndex = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "PluginIndex";
   plugins: {
     [key: string]: {
@@ -1057,7 +1060,8 @@ export type PluginGlob = string;
 
 /** A plugin's manifest, plugin.yaml at the root of its directory (ADR 0093). */
 export type Plugin = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Plugin";
   metadata: {
     /** unique within a source */
@@ -1160,7 +1164,8 @@ export type PolicyTrainEnv = {
 
 /** A project's policy: budgets, approvals, attempts, scope, sandbox, findings, release train. */
 export type Policy = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Policy";
   metadata: {
     name: string;
@@ -1385,7 +1390,7 @@ export type Project = {
     when?: {
       [key: string]: string | Array<string>;
     };
-    /** `token`: the bearer token; `signature`: `X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>` keyed by the signing secret (S56-04). */
+    /** `token`: the bearer token; `signature`: `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>` (or the former `X-Choregos-Signature`) keyed by the signing secret (S56-04). */
     auth?: "token" | "signature";
   }>;
   /** Tracker items that start their work item without the `agent-ready` label (S56-03, ADR 0113): the first rule whose every condition holds starts an item the project does not hold yet. */
@@ -1447,7 +1452,8 @@ export type Project = {
 
 /** Orchestrator → runner contract (docs/plan/01 §1.5). */
 export type StageInput = {
-  schema: "choregos/StageInput/v1";
+  /** `tranibor/StageInput/v1`; the former `choregos/StageInput/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/StageInput/v1" | "choregos/StageInput/v1";
   run_id: string;
   attempt: number;
   /** W3C traceparent header, passed on to the runner. */
@@ -1481,7 +1487,7 @@ export type StageInput = {
     to: string;
     outputs?: Array<string>;
     inputs?: Array<string>;
-    /** The declared type of each output (ADR 0049); a file type is written in .choregos/outputs/. */
+    /** The declared type of each output (ADR 0049); a file type is written in .tranibor/outputs/. */
     output_types?: {
       [key: string]: string;
     };
@@ -1590,7 +1596,7 @@ export type StageInput = {
     version: number;
     digest: string;
   }>;
-  /** The registry agent's knowledge bases (ADR 0051). `files`: the runner fetches the pinned documents through the internal API, checks the digest and lays them read-only under `.choregos/knowledge/<slug>/`; `index`: the agent searches the base with `knowledge_search`. */
+  /** The registry agent's knowledge bases (ADR 0051). `files`: the runner fetches the pinned documents through the internal API, checks the digest and lays them read-only under `.tranibor/knowledge/<slug>/`; `index`: the agent searches the base with `knowledge_search`. */
   knowledge?: Array<{
     slug: string;
     name?: string;
@@ -1669,9 +1675,10 @@ export type StageInput = {
   } | null;
 };
 
-/** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .choregos/result.json; the runner completes artifacts/evidence/diagnostics. */
+/** Runner → orchestrator contract (docs/plan/01 §1.6). The agent writes .tranibor/result.json; the runner completes artifacts/evidence/diagnostics. */
 export type StageResult = {
-  schema: "choregos/StageResult/v1";
+  /** `tranibor/StageResult/v1`; the former `choregos/StageResult/v1` is read until 0.32.0 (ADR 0226) */
+  schema: "tranibor/StageResult/v1" | "choregos/StageResult/v1";
   status: "done" | "blocked" | "needs_human" | "failed";
   /** Cause when status != done: limit, budget, scope, invalid_result, agent_error, ci… */
   reason?: string | null;
@@ -1699,7 +1706,7 @@ export type StageResult = {
     reports?: {
       [key: string]: string;
     };
-    /** The files the step left in .choregos/outputs/, by artifact name, as the runner stored them (ADR 0049). */
+    /** The files the step left in .tranibor/outputs/, by artifact name, as the runner stored them (ADR 0049). */
     files?: {
       [key: string]: {
         filename: string;
@@ -1745,7 +1752,8 @@ export type StageResult = {
 
 /** A stack template's manifest (docs/plan/03 §3.2). */
 export type Template = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Template";
   metadata: {
     name: string;
@@ -1990,7 +1998,7 @@ export type WorkflowSystemActor = {
   type: "system";
 };
 
-/** A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.choregos/facts.json` are measured. */
+/** A deterministic step (ADR 0056): a command run by the runner in the step's sandbox — no model, no gateway key. The facts it writes in `.tranibor/job.json` are measured. */
 export type WorkflowJobActor = {
   type: "job";
   role: string;
@@ -2172,7 +2180,8 @@ export type WorkflowDecisionQuestion = {
 
 /** Choregos workflow DSL: a declarative state machine per project (docs/plan/01 §1.4). */
 export type Workflow = {
-  apiVersion: "choregos/v1";
+  /** `tranibor/v1`; the former `choregos/v1` is read until 0.32.0 (ADR 0226) */
+  apiVersion: "tranibor/v1" | "choregos/v1";
   kind: "Workflow";
   metadata: {
     name: WorkflowSlug;

@@ -5,11 +5,12 @@
  * this deployment's URLs filled in; nothing here is a vendor fact.
  */
 
+import { storedName } from "@/lib/stored-names";
 import type { Procedure } from "@/lib/types";
 
 export type { Procedure };
 
-const SEEN_PREFIX = "choregos.procedure.seen.";
+const SEEN_PREFIX = storedName("procedure.seen.");
 
 /** `connector:documents/sharepoint`: what `GET /procedures?for=` looks a connector type up by. */
 export function connectorTarget(kind: string, type: string): string {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the `choregos` CLI as ONE native, self-contained file with Nuitka (S62-07).
+"""Builds the `tranibor` CLI as ONE native, self-contained file with Nuitka (S62-07).
 
     python tools/cli_binary/build.py                 # this machine's target, into dist/cli/
     python tools/cli_binary/build.py --out some/dir  # elsewhere
@@ -19,7 +19,7 @@ the build fails if Nuitka's report names one of its modules anyway.
 
 The data the CLI reads at run time ships inside: the workflow templates, the policy presets and the
 catalogues of `tranibor_core`, the JSON Schemas and the OpenAPI of `tranibor_contracts`
-(`importlib.resources`), and the distribution metadata `choregos --version` reads.
+(`importlib.resources`), and the distribution metadata `tranibor --version` reads.
 
 On Linux the release builds with `--manylinux`: inside the PyPA `manylinux_2_28` image, whose
 glibc is 2.28, so the binary runs on any distribution from RHEL 8, Debian 10 or Ubuntu 18.10 on; a
@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import pathlib
 import platform
@@ -49,14 +50,34 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 HERE = pathlib.Path(__file__).resolve().parent
 REQUIREMENTS = HERE / "requirements.txt"
 ENTRY = HERE / "entry.py"
-#: The stable, version-less file names (shared contract of S62-07 and S62-08): URLs never change.
-TARGETS: dict[tuple[str, str], str] = {
-    ("linux", "x86_64"): "choregos-linux-x86_64",
-    ("linux", "arm64"): "choregos-linux-arm64",
-    ("macos", "arm64"): "choregos-macos-arm64",
-    ("macos", "x86_64"): "choregos-macos-x86_64",
-    ("windows", "x86_64"): "choregos-windows-x86_64.exe",
+#: The publishing identity (ADR 0156), read as a file: this script runs before the workspace is installed.
+PUBLISHING_JSON = ROOT / "packages" / "core" / "src" / "tranibor_core" / "publishing.json"
+#: The platforms and the end of each file's name (`tranibor_core.publishing.CLI_PLATFORMS`; a test holds
+#: the two in step).
+PLATFORMS: dict[tuple[str, str], str] = {
+    ("linux", "x86_64"): "linux-x86_64",
+    ("linux", "arm64"): "linux-arm64",
+    ("macos", "arm64"): "macos-arm64",
+    ("macos", "x86_64"): "macos-x86_64",
+    ("windows", "x86_64"): "windows-x86_64.exe",
 }
+
+
+#: The former name the files are also released under for the window of ADR 0226 R5 (through 0.31.x):
+#: `tranibor_core.publishing.FORMER_CLI_PREFIX`, repeated here as this script runs without the workspace.
+FORMER_CLI_PREFIX = "choregos"
+
+
+def prefixes() -> tuple[str, str]:
+    """The identity's `image_prefix`, the files' name, and their former name."""
+    data = json.loads(PUBLISHING_JSON.read_text(encoding="utf-8"))
+    return str(data["image_prefix"]), FORMER_CLI_PREFIX
+
+
+PREFIX, FORMER_PREFIX = prefixes()
+#: The stable, version-less file names (shared contract of S62-07 and S62-08): `<prefix>-<platform>`,
+#: `tranibor-linux-x86_64` (ADR 0226 R5). The release also attaches each under the former prefix.
+TARGETS: dict[tuple[str, str], str] = {target: f"{PREFIX}-{end}" for target, end in PLATFORMS.items()}
 #: The workspace packages the binary is built from, in install order.
 PACKAGES = ("packages/contracts", "packages/core", "packages/cli")
 #: Modules that must never be in the binary: the CLI does not trace, and the server is not its own.
@@ -180,9 +201,9 @@ def nuitka_command(python: pathlib.Path, work: pathlib.Path, name: str, version:
         "--include-package-data=tranibor_core",
         "--include-package-data=tranibor_contracts",
         "--include-package-data=jsonschema_specifications",
-        # The workspace (`choregos chat`, S67-09): Textual's stylesheets, its themes and its Unicode tables.
+        # The workspace (`tranibor chat`, S67-09): Textual's stylesheets, its themes and its Unicode tables.
         "--include-package-data=textual",
-        # `choregos --version` reads it (`importlib.metadata`).
+        # `tranibor --version` reads it (`importlib.metadata`).
         "--include-distribution-metadata=tranibor-cli",
         # Typer finds the shell for `--install-completion` by importing a module by name.
         "--include-package=shellingham",
@@ -199,10 +220,10 @@ def nuitka_command(python: pathlib.Path, work: pathlib.Path, name: str, version:
         *(f"--nofollow-import-to=pygments.lexers.{pattern}" for pattern in PYGMENTS_LEFT_OUT),
         # Unpacked once per build into the user's cache, then reused: a cold start pays the
         # extraction once, every later call starts from the unpacked files.
-        f"--onefile-tempdir-spec={{CACHE_DIR}}/choregos/cli-{version}-{source_digest()}",
+        f"--onefile-tempdir-spec={{CACHE_DIR}}/{PREFIX}/cli-{version}-{source_digest()}",
         "--company-name=GRAAL.SYSTEMS SAS",
-        "--product-name=choregos",
-        "--file-description=Choregos command line",
+        f"--product-name={PREFIX}",
+        "--file-description=Tranibor command line",
         f"--product-version={numeric}",
         f"--file-version={numeric}",
         "--copyright=Apache-2.0",
@@ -223,8 +244,8 @@ def bundled_modules(report: pathlib.Path) -> list[str]:
     return sorted({node.attrib["name"] for node in tree.iter("module") if "name" in node.attrib})
 
 
-#: Distributions whose metadata the binary must carry: `choregos --version`, the version check
-#: against the instance and `choregos self update` (S62-08) read `tranibor-cli`'s.
+#: Distributions whose metadata the binary must carry: `tranibor --version`, the version check
+#: against the instance and `tranibor self update` (S62-08) read `tranibor-cli`'s.
 REQUIRED_METADATA = ("tranibor-cli",)
 
 

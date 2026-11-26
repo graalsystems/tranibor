@@ -984,7 +984,7 @@ def runtime_fact(connectors: dict[str, ConnectorFact], policy: Any) -> RuntimeFa
     import os
 
     from tranibor_adapters import fakes_enabled
-    from tranibor_adapters.executor.agent_sandbox import runtime_class_refusal
+    from tranibor_adapters.executor.agent_sandbox import runtime_class_refusal, warm_pool_of
     from tranibor_adapters.registry import default_executor_kind
 
     # `runtime_class` (orchestrator): a `gvisor` policy is never bypassed, nothing else is asked.
@@ -997,7 +997,7 @@ def runtime_fact(connectors: dict[str, ConnectorFact], policy: Any) -> RuntimeFa
     pool = config.get("runtime_class", os.environ.get("TRANIBOR_RUNNER_RUNTIME_CLASS"))
     if pool is None:
         return None
-    warm_pool = config.get("warm_pool") or os.environ.get("TRANIBOR_SANDBOX_WARM_POOL") or "choregos-runner"
+    warm_pool = warm_pool_of(config.get("warm_pool"), os.environ.get("TRANIBOR_SANDBOX_WARM_POOL"))
     return RuntimeFact("gvisor", runtime_class_refusal("gvisor", str(pool), str(warm_pool)))
 
 

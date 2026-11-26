@@ -5,32 +5,34 @@ Generated from the CLI itself by `tools/gen_cli_reference.py` — do not edit by
 
 ## Installing the CLI
 
-The command is `tranibor`; `choregos` stays as an alias entry point of the Python package
-(ADR 0176). The native files below are still named `choregos-*` and the binary is still called
-`choregos`: renaming the release assets is a later step of the plan (ADR 0176, R3).
+The command is `tranibor` (ADR 0226 R5). For a window of two minor versions the former names still
+work: the release also attaches each file under its former name (`choregos-linux-x86_64`, the same
+bytes), an instance serves both, the install scripts put a `choregos` link to `tranibor` on the
+PATH, `tranibor self update` accepts an instance whose files carry the former names, and
+`choregos` stays an entry point of the Python package. `docs/deployment.md` says when they go.
 
-`choregos` ships as one native, self-contained file per platform: nothing to install first, no
+`tranibor` ships as one native, self-contained file per platform: nothing to install first, no
 Python, no SDK, no runtime. Each release attaches them to its GitHub release, under names that
-never change, and the API image carries the same files in `/opt/choregos/cli/`:
+do not change between versions, and the API image carries the same files in `/opt/tranibor/cli/`:
 
 | Platform | File |
 |:--|:--|
-| Linux x86_64 (glibc 2.28 or later: RHEL 8, Debian 10, Ubuntu 18.10 on) | `choregos-linux-x86_64` |
-| Linux arm64 (same) | `choregos-linux-arm64` |
-| macOS, Apple silicon | `choregos-macos-arm64` |
-| macOS, Intel | `choregos-macos-x86_64` |
-| Windows x86_64 | `choregos-windows-x86_64.exe` |
+| Linux x86_64 (glibc 2.28 or later: RHEL 8, Debian 10, Ubuntu 18.10 on) | `tranibor-linux-x86_64` |
+| Linux arm64 (same) | `tranibor-linux-arm64` |
+| macOS, Apple silicon | `tranibor-macos-arm64` |
+| macOS, Intel | `tranibor-macos-x86_64` |
+| Windows x86_64 | `tranibor-windows-x86_64.exe` |
 
-Beside them, `SHA256SUMS`, `manifest.json` (the version, and each file's platform, digest and
-size) and a cosign bundle per file (`<file>.sigstore.json`). Download one, check it, put it on the
-PATH:
+Beside them, `SHA256SUMS` (each digest under both names), `manifest.json` (the version, and each
+file's platform, digest and size) and a cosign bundle per file (`<file>.sigstore.json`). Download
+one, check it, put it on the PATH:
 
 ```sh
-curl -fsSLO https://github.com/graalsystems/tranibor/releases/download/v<version>/choregos-linux-x86_64
+curl -fsSLO https://github.com/graalsystems/tranibor/releases/download/v<version>/tranibor-linux-x86_64
 curl -fsSLO https://github.com/graalsystems/tranibor/releases/download/v<version>/SHA256SUMS
 sha256sum --ignore-missing -c SHA256SUMS          # macOS: shasum -a 256 --ignore-missing -c SHA256SUMS
-install -m 0755 choregos-linux-x86_64 ~/.local/bin/choregos
-choregos --version
+install -m 0755 tranibor-linux-x86_64 ~/.local/bin/tranibor
+tranibor --version
 ```
 
 `cosign verify-blob --bundle SHA256SUMS.sigstore.json --certificate-identity
@@ -38,20 +40,25 @@ https://github.com/graalsystems/tranibor/.github/workflows/release.yml@refs/tags
 --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS` proves the sums
 come from the release workflow. The Windows and macOS files are not yet signed by a platform
 vendor (`docs/plan/BLOCKERS.md`): Windows SmartScreen warns, and a macOS browser download needs
-`xattr -d com.apple.quarantine choregos-macos-arm64` once. The first call unpacks the binary into
-the user's cache directory (`~/.cache/choregos`, `~/Library/Caches/choregos`,
-`%LOCALAPPDATA%\choregos`); later calls start from there.
+`xattr -d com.apple.quarantine tranibor-macos-arm64` once. The first call unpacks the binary into
+the user's cache directory (`~/.cache/tranibor`, `~/Library/Caches/tranibor`,
+`%LOCALAPPDATA%\tranibor`); later calls start from there.
 
 From a checkout, `make cli-binary` builds the binary of the machine it runs on into `dist/cli/`
 (Nuitka; on Linux in the `manylinux_2_28` image, so docker is needed) and `make cli-binary-smoke`
-runs the release's smoke test on it. The Python package (`packages/cli`, `uv run choregos`)
+runs the release's smoke test on it. The Python package (`packages/cli`, `uv run tranibor`)
 remains the way to work on the CLI itself.
 
 ## Profile
 
-The profile lives in `~/.config/choregos/config.json` (`TRANIBOR_CONFIG` overrides the
-path): `api_url`, `token`, `org`. `choregos login` writes it; `TRANIBOR_API_URL`,
-`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists.
+The profile lives in `~/.config/tranibor/config.json` (`TRANIBOR_CONFIG` overrides the
+path): `api_url`, `token`, `org`. `tranibor login` writes it; `TRANIBOR_API_URL`,
+`TRANIBOR_TOKEN` and `TRANIBOR_ORG` are read when no profile exists. For the window of ADR 0226 R5,
+the former file, `~/.config/choregos/config.json`, is read when the new one is absent (and
+`TRANIBOR_CONFIG` names no other file); it is never written again.
+
+`tranibor workflow validate`, `show` and `push` read `.tranibor/workflow.yaml` when no path is
+given, and the former `.choregos/workflow.yaml` when the repository has no `.tranibor/` file yet.
 
 ## Install from your instance
 
@@ -60,25 +67,27 @@ no Python, no access to GitHub needed. The console shows the command for your sy
 Integrations › CLI.
 
 ```sh
-curl -fsSL https://<your-instance>/cli/install.sh | sh        # Linux, macOS: ~/.local/bin/choregos
-irm https://<your-instance>/cli/install.ps1 | iex             # Windows: %LOCALAPPDATA%\Programs\choregos
+curl -fsSL https://<your-instance>/cli/install.sh | sh        # Linux, macOS: ~/.local/bin/tranibor
+irm https://<your-instance>/cli/install.ps1 | iex             # Windows: %LOCALAPPDATA%\Programs\tranibor
 ```
 
 The scripts check the binary's sha256 against the instance's manifest
 (`/downloads/cli/manifest.json`) and never use sudo; `sh -s -- --prefix DIR` installs into `DIR/bin`.
-`choregos self update` later replaces the binary with the instance's current one. When the CLI
+Beside `tranibor` they leave the former command, `choregos` (a link on Linux and macOS, a
+`choregos.cmd` on Windows), in place of the binary an earlier install left.
+`tranibor self update` later replaces the binary with the instance's current one. When the CLI
 talks to an instance that runs another version, it says so in one line on stderr, at most once a
 day (`TRANIBOR_NO_VERSION_CHECK=1` silences it).
 
 
-## `choregos a2a`
+## `tranibor a2a`
 
 Start and follow a workflow over the A2A door (an `a2a` token)
 
-### `choregos a2a cancel`
+### `tranibor a2a cancel`
 
 ```text
-Usage: choregos a2a cancel [OPTIONS] {task}
+Usage: tranibor a2a cancel [OPTIONS] {task}
 
   Stop a task: its work item is stopped, as from the console.
 
@@ -93,10 +102,10 @@ Options:
   --help         Show this message and exit.
 ```
 
-### `choregos a2a follow`
+### `tranibor a2a follow`
 
 ```text
-Usage: choregos a2a follow [OPTIONS] {task}
+Usage: tranibor a2a follow [OPTIONS] {task}
 
   Follow a task to its end, over the stream, opened again when the door cuts
   it (an hour at most).
@@ -116,10 +125,10 @@ Options:
   --help         Show this message and exit.
 ```
 
-### `choregos a2a get`
+### `tranibor a2a get`
 
 ```text
-Usage: choregos a2a get [OPTIONS] {task}
+Usage: tranibor a2a get [OPTIONS] {task}
 
   Read a task once: its state, the decision it waits for, its artefacts.
 
@@ -135,16 +144,16 @@ Options:
   --help         Show this message and exit.
 ```
 
-### `choregos a2a send`
+### `tranibor a2a send`
 
 ```text
-Usage: choregos a2a send [OPTIONS] {skill}
+Usage: tranibor a2a send [OPTIONS] {skill}
 
   Start a workflow: a text, fields and files in one message. The message id is
   printed first.
 
 Arguments:
-  skill  the skill, `project/skill` as `choregos a2a skills` lists it
+  skill  the skill, `project/skill` as `tranibor a2a skills` lists it
          [required]
 
 Options:
@@ -171,10 +180,10 @@ Options:
   --help                Show this message and exit.
 ```
 
-### `choregos a2a skills`
+### `tranibor a2a skills`
 
 ```text
-Usage: choregos a2a skills [OPTIONS]
+Usage: tranibor a2a skills [OPTIONS]
 
   The workflows this token may start, and the fields each takes (`*` =
   required).
@@ -187,10 +196,10 @@ Options:
   --help         Show this message and exit.
 ```
 
-### `choregos activity`
+### `tranibor activity`
 
 ```text
-Usage: choregos activity [OPTIONS]
+Usage: tranibor activity [OPTIONS]
 
   What runs in the organisation, as a tree: project, work item, run, with
   status, time, tokens and cost.
@@ -212,18 +221,18 @@ Options:
   --help            Show this message and exit.
 ```
 
-## `choregos admin`
+## `tranibor admin`
 
 Platform administration
 
-## `choregos admin identity`
+## `tranibor admin identity`
 
 How people sign in to the instance
 
-### `choregos admin identity relink`
+### `tranibor admin identity relink`
 
 ```text
-Usage: choregos admin identity relink [OPTIONS]
+Usage: tranibor admin identity relink [OPTIONS]
 
   Plan a change of identity provider (a dry run, ADR 0164): which accounts a
   re-link window moves to the new provider's subject at their first sign-in,
@@ -237,14 +246,14 @@ Options:
   --help          Show this message and exit.
 ```
 
-## `choregos admin secrets`
+## `tranibor admin secrets`
 
 Sealed connector secrets
 
-### `choregos admin secrets rewrap`
+### `tranibor admin secrets rewrap`
 
 ```text
-Usage: choregos admin secrets rewrap [OPTIONS]
+Usage: tranibor admin secrets rewrap [OPTIONS]
 
   Re-wrap every sealed secret under the active key, after a key rotation (the
   new key first in TRANIBOR_SECRETS_KEKS, the API restarted). The values are
@@ -254,14 +263,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos admin temporal-keys`
+## `tranibor admin temporal-keys`
 
 An organisation's Temporal data keys: list, rotate, shred (ADR 0225)
 
-### `choregos admin temporal-keys list`
+### `tranibor admin temporal-keys list`
 
 ```text
-Usage: choregos admin temporal-keys list [OPTIONS]
+Usage: tranibor admin temporal-keys list [OPTIONS]
 
   The organisation's Temporal data keys: id, state, wrapping key, dates.
 
@@ -270,10 +279,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos admin temporal-keys rotate`
+### `tranibor admin temporal-keys rotate`
 
 ```text
-Usage: choregos admin temporal-keys rotate [OPTIONS]
+Usage: tranibor admin temporal-keys rotate [OPTIONS]
 
   A new data key for the organisation's new Temporal payloads; the retired
   ones still open theirs.
@@ -283,10 +292,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos admin temporal-keys shred`
+### `tranibor admin temporal-keys shred`
 
 ```text
-Usage: choregos admin temporal-keys shred [OPTIONS]
+Usage: tranibor admin temporal-keys shred [OPTIONS]
 
   Destroy every Temporal data key of the organisation: its Temporal payloads
   can never be read again.
@@ -301,14 +310,14 @@ Options:
   --help           Show this message and exit.
 ```
 
-## `choregos artifacts`
+## `tranibor artifacts`
 
 A work item's artefacts, your inbox and a run's diff: list, download, open, compare.
 
-### `choregos artifacts compare`
+### `tranibor artifacts compare`
 
 ```text
-Usage: choregos artifacts compare [OPTIONS] {work_item} {before} {after}
+Usage: tranibor artifacts compare [OPTIONS] {work_item} {before} {after}
 
   A unified diff of two revisions of a text artefact (two refs: the API has no
   diff route).
@@ -322,10 +331,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos artifacts diff`
+### `tranibor artifacts diff`
 
 ```text
-Usage: choregos artifacts diff [OPTIONS] {run_id}
+Usage: tranibor artifacts diff [OPTIONS] {run_id}
 
   What a run changed: its files and their patches.
 
@@ -337,10 +346,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos artifacts download`
+### `tranibor artifacts download`
 
 ```text
-Usage: choregos artifacts download [OPTIONS] {work_item} {ref} [path]
+Usage: tranibor artifacts download [OPTIONS] {work_item} {ref} [path]
 
   Save an artefact's bytes, exactly as the API served them. An existing file
   is kept without --force.
@@ -356,10 +365,10 @@ Options:
   --help   Show this message and exit.
 ```
 
-### `choregos artifacts inbox`
+### `tranibor artifacts inbox`
 
 ```text
-Usage: choregos artifacts inbox [OPTIONS]
+Usage: tranibor artifacts inbox [OPTIONS]
 
   The artefacts your tasks delivered, newest first.
 
@@ -369,10 +378,10 @@ Options:
   --help               Show this message and exit.
 ```
 
-### `choregos artifacts list`
+### `tranibor artifacts list`
 
 ```text
-Usage: choregos artifacts list [OPTIONS] {work_item}
+Usage: tranibor artifacts list [OPTIONS] {work_item}
 
   Every revision of every artefact of a work item.
 
@@ -384,10 +393,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos artifacts open`
+### `tranibor artifacts open`
 
 ```text
-Usage: choregos artifacts open [OPTIONS] {work_item} {ref}
+Usage: tranibor artifacts open [OPTIONS] {work_item} {ref}
 
   Open an artefact with the system's viewer, from a temporary copy.
 
@@ -400,10 +409,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos ask`
+### `tranibor ask`
 
 ```text
-Usage: choregos ask [OPTIONS] [message]
+Usage: tranibor ask [OPTIONS] [message]
 
   Ask an assistant, as one turn of a conversation the platform keeps.
 
@@ -425,18 +434,18 @@ Options:
   --help                    Show this message and exit.
 ```
 
-### `choregos chat`
+### `tranibor chat`
 
 ```text
-Usage: choregos chat [OPTIONS]
+Usage: tranibor chat [OPTIONS]
 
   The workspace: converse with an assistant, watch what runs, see what waits
   for you.
 
   One screen of tabs (conversation, activity, projects, decisions, artefacts,
   live), a header of what runs and what waits, and a context pane that follows
-  the selection. The keys are in the footer. It needs a terminal; `choregos
-  ask` and `choregos activity` are the scriptable forms.
+  the selection. The keys are in the footer. It needs a terminal; `tranibor
+  ask` and `tranibor activity` are the scriptable forms.
 
 Options:
   -a, --assistant <str>     the assistant's slug; the only one ready for you
@@ -446,14 +455,14 @@ Options:
   --help                    Show this message and exit.
 ```
 
-## `choregos decide`
+## `tranibor decide`
 
 Decide what waits for you: confirm a write, approve an action, answer a step. One at a time.
 
-### `choregos decide answer`
+### `tranibor decide answer`
 
 ```text
-Usage: choregos decide answer [OPTIONS] {ID}
+Usage: tranibor decide answer [OPTIONS] {ID}
 
   Answer a workflow's question.
 
@@ -465,10 +474,10 @@ Options:
   --help              Show this message and exit.
 ```
 
-### `choregos decide approve`
+### `tranibor decide approve`
 
 ```text
-Usage: choregos decide approve [OPTIONS] {ID}
+Usage: tranibor decide approve [OPTIONS] {ID}
 
   Confirm a write or a launch, approve a governed action or an approval step:
   one, after seeing it.
@@ -480,10 +489,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos decide list`
+### `tranibor decide list`
 
 ```text
-Usage: choregos decide list [OPTIONS]
+Usage: tranibor decide list [OPTIONS]
 
   What waits for you across your organisations, newest first (`GET
   /me/pending`).
@@ -492,10 +501,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos decide reject`
+### `tranibor decide reject`
 
 ```text
-Usage: choregos decide reject [OPTIONS] {ID}
+Usage: tranibor decide reject [OPTIONS] {ID}
 
   Refuse a write or a launch, reject a governed action or an approval step:
   one, with a reason.
@@ -508,10 +517,10 @@ Options:
   --help              Show this message and exit.
 ```
 
-### `choregos decide show`
+### `tranibor decide show`
 
 ```text
-Usage: choregos decide show [OPTIONS] {ID}
+Usage: tranibor decide show [OPTIONS] {ID}
 
   Show what one thing asks, with its arguments and diff, and decide nothing.
 
@@ -522,14 +531,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos demo`
+## `tranibor demo`
 
 Demonstration data
 
-### `choregos demo import`
+### `tranibor demo import`
 
 ```text
-Usage: choregos demo import [OPTIONS] {project} {file}
+Usage: tranibor demo import [OPTIONS] {project} {file}
 
   Take a demonstration history (work items, runs, costs, decisions) into a
   project.
@@ -546,10 +555,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos demo remove`
+### `tranibor demo remove`
 
 ```text
-Usage: choregos demo remove [OPTIONS] {project}
+Usage: tranibor demo remove [OPTIONS] {project}
 
   Remove what demonstration history imports wrote into a project, and nothing
   else.
@@ -566,14 +575,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos dev`
+## `tranibor dev`
 
 Development environment
 
-### `choregos dev demo`
+### `tranibor dev demo`
 
 ```text
-Usage: choregos dev demo [OPTIONS]
+Usage: tranibor dev demo [OPTIONS]
 
   Play the offline demonstration (no service needed).
 
@@ -581,19 +590,19 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos dev down`
+### `tranibor dev down`
 
 ```text
-Usage: choregos dev down [OPTIONS]
+Usage: tranibor dev down [OPTIONS]
 
 Options:
   --help  Show this message and exit.
 ```
 
-### `choregos dev seed`
+### `tranibor dev seed`
 
 ```text
-Usage: choregos dev seed [OPTIONS]
+Usage: tranibor dev seed [OPTIONS]
 
   Seed the local environment: organisation, demo project, work items.
 
@@ -601,10 +610,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos dev up`
+### `tranibor dev up`
 
 ```text
-Usage: choregos dev up [OPTIONS]
+Usage: tranibor dev up [OPTIONS]
 
   Bring the development environment up (kind + Tilt).
 
@@ -612,14 +621,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos findings`
+## `tranibor findings`
 
 Findings
 
-### `choregos findings action`
+### `tranibor findings action`
 
 ```text
-Usage: choregos findings action [OPTIONS] {finding_id} {action}
+Usage: tranibor findings action [OPTIONS] {finding_id} {action}
 
 Arguments:
   finding_id  [required]
@@ -629,10 +638,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos findings list`
+### `tranibor findings list`
 
 ```text
-Usage: choregos findings list [OPTIONS] {project}
+Usage: tranibor findings list [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -642,14 +651,14 @@ Options:
   --help          Show this message and exit.
 ```
 
-## `choregos items`
+## `tranibor items`
 
 Work items
 
-### `choregos items action`
+### `tranibor items action`
 
 ```text
-Usage: choregos items action [OPTIONS] {item_id} {action}
+Usage: tranibor items action [OPTIONS] {item_id} {action}
 
 Arguments:
   item_id  [required]
@@ -661,10 +670,10 @@ Options:
   --help            Show this message and exit.
 ```
 
-### `choregos items answer`
+### `tranibor items answer`
 
 ```text
-Usage: choregos items answer [OPTIONS] {item_id} {answer}
+Usage: tranibor items answer [OPTIONS] {item_id} {answer}
 
 Arguments:
   item_id  [required]
@@ -674,10 +683,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos items approve`
+### `tranibor items approve`
 
 ```text
-Usage: choregos items approve [OPTIONS] {item_id}
+Usage: tranibor items approve [OPTIONS] {item_id}
 
 Arguments:
   item_id  [required]
@@ -687,10 +696,10 @@ Options:
   --help          Show this message and exit.
 ```
 
-### `choregos items create`
+### `tranibor items create`
 
 ```text
-Usage: choregos items create [OPTIONS] {project}
+Usage: tranibor items create [OPTIONS] {project}
 
   File a request in Tranibor (a project with the internal tracker) and start
   its interpreter.
@@ -711,10 +720,10 @@ Options:
   --help            Show this message and exit.
 ```
 
-### `choregos items list`
+### `tranibor items list`
 
 ```text
-Usage: choregos items list [OPTIONS] {project}
+Usage: tranibor items list [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -724,10 +733,10 @@ Options:
   --help         Show this message and exit.
 ```
 
-### `choregos items reject`
+### `tranibor items reject`
 
 ```text
-Usage: choregos items reject [OPTIONS] {item_id}
+Usage: tranibor items reject [OPTIONS] {item_id}
 
 Arguments:
   item_id  [required]
@@ -737,10 +746,10 @@ Options:
   --help          Show this message and exit.
 ```
 
-### `choregos items show`
+### `tranibor items show`
 
 ```text
-Usage: choregos items show [OPTIONS] {item_id}
+Usage: tranibor items show [OPTIONS] {item_id}
 
   A work item in detail: state, costs, timeline.
 
@@ -751,14 +760,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos knowledge`
+## `tranibor knowledge`
 
 Knowledge bases as code
 
-### `choregos knowledge apply`
+### `tranibor knowledge apply`
 
 ```text
-Usage: choregos knowledge apply [OPTIONS]
+Usage: tranibor knowledge apply [OPTIONS]
 
   Make a knowledge base match its manifest: create or patch the base, its
   sources, its uploads and its eval set. Idempotent: a second run changes
@@ -773,10 +782,10 @@ Options:
   --help             Show this message and exit.
 ```
 
-### `choregos knowledge eval`
+### `tranibor knowledge eval`
 
 ```text
-Usage: choregos knowledge eval [OPTIONS] {slug}
+Usage: tranibor knowledge eval [OPTIONS] {slug}
 
   Run the base's eval set against its index and print recall@5, hit@1 and the
   sections found.
@@ -789,10 +798,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos knowledge sync`
+### `tranibor knowledge sync`
 
 ```text
-Usage: choregos knowledge sync [OPTIONS] {slug}
+Usage: tranibor knowledge sync [OPTIONS] {slug}
 
   Sync every source of a base now.
 
@@ -804,10 +813,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos live`
+### `tranibor live`
 
 ```text
-Usage: choregos live [OPTIONS]
+Usage: tranibor live [OPTIONS]
 
   Watch a workflow's flow: its stations, the items parked in them, and the
   ones that move.
@@ -816,7 +825,7 @@ Usage: choregos live [OPTIONS]
   each item a token coloured by what it is doing: blue runs, amber waits for a
   person, red failed (with why). A token that changes station travels along
   its arrow. Enter opens an item, q quits. It needs a terminal, and writes
-  nothing; `choregos activity` is the scriptable form.
+  nothing; `tranibor activity` is the scriptable form.
 
 Options:
   -p, --project <str>   the project's slug; the only one of the organisation
@@ -828,16 +837,16 @@ Options:
   --help                Show this message and exit.
 ```
 
-### `choregos login`
+### `tranibor login`
 
 ```text
-Usage: choregos login [OPTIONS]
+Usage: tranibor login [OPTIONS]
 
   Sign in as yourself with your browser: you approve in the console, the CLI
   holds a session of yours.
 
   That session is listed under My account (`/account`) and ending it there
-  signs the CLI out; `choregos logout` ends it too. Nothing is printed that
+  signs the CLI out; `tranibor logout` ends it too. Nothing is printed that
   could be reused. With `--token`, an API token is saved instead (it is not a
   session of yours; the CLI cannot issue the first token, `tokens create`
   itself needs one: get it from the console, under My account, then pass it
@@ -857,10 +866,10 @@ Options:
   --help                    Show this message and exit.
 ```
 
-### `choregos logout`
+### `tranibor logout`
 
 ```text
-Usage: choregos logout [OPTIONS]
+Usage: tranibor logout [OPTIONS]
 
   End this CLI's session on the server (it also disappears from My account)
   and forget it here.
@@ -869,14 +878,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos machines`
+## `tranibor machines`
 
 Applications that call the A2A door under their own name
 
-### `choregos machines create`
+### `tranibor machines create`
 
 ```text
-Usage: choregos machines create [OPTIONS] {project} {slug}
+Usage: tranibor machines create [OPTIONS] {project} {slug}
 
   Create an account an application calls the A2A door under. It never takes a
   decision.
@@ -891,10 +900,10 @@ Options:
   --help                  Show this message and exit.
 ```
 
-### `choregos machines list`
+### `tranibor machines list`
 
 ```text
-Usage: choregos machines list [OPTIONS] {project}
+Usage: tranibor machines list [OPTIONS] {project}
 
   A project's applications and their tokens, never a token's value.
 
@@ -905,10 +914,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos machines remove`
+### `tranibor machines remove`
 
 ```text
-Usage: choregos machines remove [OPTIONS] {project} {slug}
+Usage: tranibor machines remove [OPTIONS] {project} {slug}
 
   End the application: its tokens stop working at once, and its name is not
   reused.
@@ -921,10 +930,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos machines revoke`
+### `tranibor machines revoke`
 
 ```text
-Usage: choregos machines revoke [OPTIONS] {project} {slug} {token_id}
+Usage: tranibor machines revoke [OPTIONS] {project} {slug} {token_id}
 
   Revoke one of the application's tokens.
 
@@ -937,10 +946,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos machines token`
+### `tranibor machines token`
 
 ```text
-Usage: choregos machines token [OPTIONS] {project} {slug}
+Usage: tranibor machines token [OPTIONS] {project} {slug}
 
   Issue an `a2a` token for the application. The secret is shown HERE, once.
 
@@ -954,14 +963,14 @@ Options:
   --help                   Show this message and exit.
 ```
 
-## `choregos orgs`
+## `tranibor orgs`
 
 Organisations
 
-### `choregos orgs create`
+### `tranibor orgs create`
 
 ```text
-Usage: choregos orgs create [OPTIONS] {slug}
+Usage: tranibor orgs create [OPTIONS] {slug}
 
   Create an organisation (requires being an admin of an organisation already).
 
@@ -973,23 +982,23 @@ Options:
   --help        Show this message and exit.
 ```
 
-### `choregos orgs list`
+### `tranibor orgs list`
 
 ```text
-Usage: choregos orgs list [OPTIONS]
+Usage: tranibor orgs list [OPTIONS]
 
 Options:
   --help  Show this message and exit.
 ```
 
-## `choregos outposts`
+## `tranibor outposts`
 
 Outposts: places that only dial out to the platform, and their instances
 
-### `choregos outposts approve`
+### `tranibor outposts approve`
 
 ```text
-Usage: choregos outposts approve [OPTIONS] {slug} {instance}
+Usage: tranibor outposts approve [OPTIONS] {slug} {instance}
 
   Approve a pending instance against the fingerprint its daemon printed.
 
@@ -1000,20 +1009,20 @@ Usage: choregos outposts approve [OPTIONS] {slug} {instance}
 
 Arguments:
   slug      [required]
-  instance  the instance's id, as `choregos outposts instances` shows it
+  instance  the instance's id, as `tranibor outposts instances` shows it
             [required]
 
 Options:
-  --fingerprint <str>  the fingerprint `choregos-outpost enrol` printed on the
+  --fingerprint <str>  the fingerprint `tranibor-outpost enrol` printed on the
                        outpost's machine, as read there  [required]
   --org <str>          the organisation; the profile's otherwise
   --help               Show this message and exit.
 ```
 
-### `choregos outposts calls`
+### `tranibor outposts calls`
 
 ```text
-Usage: choregos outposts calls [OPTIONS] {slug}
+Usage: tranibor outposts calls [OPTIONS] {slug}
 
   The recent calls routed to the outpost, newest first: their state and the
   code of a refusal.
@@ -1033,21 +1042,21 @@ Options:
   --help          Show this message and exit.
 ```
 
-### `choregos outposts cancel-token`
+### `tranibor outposts cancel-token`
 
 ```text
-Usage: choregos outposts cancel-token [OPTIONS] {slug} {enrolment}
+Usage: tranibor outposts cancel-token [OPTIONS] {slug} {enrolment}
 
   Cancel an enrolment token that enrolled nothing: from now on it enrols no
   instance.
 
   A token that already enrolled an instance is not cancelled (409
-  `enrolment_used`): revoke that instance instead (`choregos outposts revoke-
+  `enrolment_used`): revoke that instance instead (`tranibor outposts revoke-
   instance`).
 
 Arguments:
   slug       [required]
-  enrolment  the token's id, as `choregos outposts tokens` shows it
+  enrolment  the token's id, as `tranibor outposts tokens` shows it
              [required]
 
 Options:
@@ -1055,14 +1064,14 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts create`
+### `tranibor outposts create`
 
 ```text
-Usage: choregos outposts create [OPTIONS] {slug}
+Usage: tranibor outposts create [OPTIONS] {slug}
 
   Create an outpost of the organisation, with no instance yet.
 
-  An instance comes from an enrolment token (`choregos outposts token`) and a
+  An instance comes from an enrolment token (`tranibor outposts token`) and a
   person's approval. Refused while the deployment keeps outposts switched off.
 
 Arguments:
@@ -1074,14 +1083,14 @@ Options:
   --help                Show this message and exit.
 ```
 
-### `choregos outposts delete`
+### `tranibor outposts delete`
 
 ```text
-Usage: choregos outposts delete [OPTIONS] {slug}
+Usage: tranibor outposts delete [OPTIONS] {slug}
 
   Delete a revoked outpost, with its instances and what is left of its calls.
 
-  Refused while connectors still route to it (`choregos outposts show` names
+  Refused while connectors still route to it (`tranibor outposts show` names
   them), and while it is not revoked.
 
 Arguments:
@@ -1092,10 +1101,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts instances`
+### `tranibor outposts instances`
 
 ```text
-Usage: choregos outposts instances [OPTIONS] {slug}
+Usage: tranibor outposts instances [OPTIONS] {slug}
 
   The outpost's instances, pending ones first, each with the fingerprint of
   its signing key.
@@ -1108,10 +1117,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts list`
+### `tranibor outposts list`
 
 ```text
-Usage: choregos outposts list [OPTIONS]
+Usage: tranibor outposts list [OPTIONS]
 
   The organisation's outposts: status, instances and presence.
 
@@ -1120,10 +1129,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts pause`
+### `tranibor outposts pause`
 
 ```text
-Usage: choregos outposts pause [OPTIONS] {slug}
+Usage: tranibor outposts pause [OPTIONS] {slug}
 
   Pause the outpost: nothing more is handed to it, and what its instances hold
   may finish.
@@ -1139,10 +1148,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts resume`
+### `tranibor outposts resume`
 
 ```text
-Usage: choregos outposts resume [OPTIONS] {slug}
+Usage: tranibor outposts resume [OPTIONS] {slug}
 
   Resume a paused outpost.
 
@@ -1154,10 +1163,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts revoke`
+### `tranibor outposts revoke`
 
 ```text
-Usage: choregos outposts revoke [OPTIONS] {slug}
+Usage: tranibor outposts revoke [OPTIONS] {slug}
 
   Revoke the outpost and every instance of it. This is final.
 
@@ -1173,10 +1182,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts revoke-instance`
+### `tranibor outposts revoke-instance`
 
 ```text
-Usage: choregos outposts revoke-instance [OPTIONS] {slug} {instance}
+Usage: tranibor outposts revoke-instance [OPTIONS] {slug} {instance}
 
   Revoke one instance of the outpost, pending or approved. This is final.
 
@@ -1186,7 +1195,7 @@ Usage: choregos outposts revoke-instance [OPTIONS] {slug} {instance}
 
 Arguments:
   slug      [required]
-  instance  the instance's id, as `choregos outposts instances` shows it
+  instance  the instance's id, as `tranibor outposts instances` shows it
             [required]
 
 Options:
@@ -1194,10 +1203,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts show`
+### `tranibor outposts show`
 
 ```text
-Usage: choregos outposts show [OPTIONS] {slug}
+Usage: tranibor outposts show [OPTIONS] {slug}
 
   One outpost, and the door's keys to pin in its policy file.
 
@@ -1209,17 +1218,17 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos outposts token`
+### `tranibor outposts token`
 
 ```text
-Usage: choregos outposts token [OPTIONS] {slug}
+Usage: tranibor outposts token [OPTIONS] {slug}
 
   Issue an enrolment token for one instance of the outpost. The token is shown
   HERE, once.
 
   Single use, valid 15 minutes at most. It is printed with what the outpost's
   operator needs: the lines of the policy file (the door's origin and the
-  door's keys to pin) and the `choregos-outpost enrol` command to run there.
+  door's keys to pin) and the `tranibor-outpost enrol` command to run there.
   The instance it enrols is born pending, and is handed nothing until a person
   approves it in the console.
 
@@ -1233,16 +1242,16 @@ Options:
   --help                      Show this message and exit.
 ```
 
-### `choregos outposts tokens`
+### `tranibor outposts tokens`
 
 ```text
-Usage: choregos outposts tokens [OPTIONS] {slug}
+Usage: tranibor outposts tokens [OPTIONS] {slug}
 
   The enrolment tokens of the outpost that can still enrol an instance, newest
   first.
 
   Never a token itself: the platform keeps its digest only. An instance names
-  the token it enrolled with (`choregos outposts instances`).
+  the token it enrolled with (`tranibor outposts instances`).
 
 Arguments:
   slug  [required]
@@ -1252,14 +1261,14 @@ Options:
   --help       Show this message and exit.
 ```
 
-## `choregos plugin`
+## `tranibor plugin`
 
 Plugins: validate, pack and index them (ADR 0093)
 
-### `choregos plugin index`
+### `tranibor plugin index`
 
 ```text
-Usage: choregos plugin index [OPTIONS] {directory}
+Usage: tranibor plugin index [OPTIONS] {directory}
 
   Write a source index (plugin-index.schema.json) for every plugin under
   DIRECTORY, located either in an OCI repository or in a git commit.
@@ -1278,10 +1287,10 @@ Options:
   --help                  Show this message and exit.
 ```
 
-### `choregos plugin pack`
+### `tranibor plugin pack`
 
 ```text
-Usage: choregos plugin pack [OPTIONS] {directory}
+Usage: tranibor plugin pack [OPTIONS] {directory}
 
   Validate, then write a reproducible archive of the declared files only
   (plugin.yaml, README.md and LICENSE when present, and what `contents`
@@ -1296,10 +1305,10 @@ Options:
   --help               Show this message and exit.
 ```
 
-### `choregos plugin validate`
+### `tranibor plugin validate`
 
 ```text
-Usage: choregos plugin validate [OPTIONS] {path}
+Usage: tranibor plugin validate [OPTIONS] {path}
 
   Check a plugin and everything it ships; print its name, version and content
   digest. Only what plugin.yaml declares is read: a server's source or a .venv
@@ -1317,19 +1326,19 @@ Options:
   --help                       Show this message and exit.
 ```
 
-## `choregos projects`
+## `tranibor projects`
 
 Projects
 
-### `choregos projects create`
+### `tranibor projects create`
 
 ```text
-Usage: choregos projects create [OPTIONS] {slug}
+Usage: tranibor projects create [OPTIONS] {slug}
 
   Create a project; `--template` then starts the provisioning.
 
   Without `--repo`, the project has no repository (ADR 0012): the agent works
-  in an empty directory, and requests are filed with `choregos items create`.
+  in an empty directory, and requests are filed with `tranibor items create`.
 
 Arguments:
   slug  [required]
@@ -1351,20 +1360,20 @@ Options:
   --help                    Show this message and exit.
 ```
 
-### `choregos projects list`
+### `tranibor projects list`
 
 ```text
-Usage: choregos projects list [OPTIONS]
+Usage: tranibor projects list [OPTIONS]
 
 Options:
   --org <str>
   --help       Show this message and exit.
 ```
 
-### `choregos projects provision`
+### `tranibor projects provision`
 
 ```text
-Usage: choregos projects provision [OPTIONS] {project}
+Usage: tranibor projects provision [OPTIONS] {project}
 
   Start (or restart) the provisioning, and follow it live with `--follow`.
 
@@ -1376,10 +1385,10 @@ Options:
   --help    Show this message and exit.
 ```
 
-### `choregos projects readiness`
+### `tranibor projects readiness`
 
 ```text
-Usage: choregos projects readiness [OPTIONS] {project}
+Usage: tranibor projects readiness [OPTIONS] {project}
 
   What the project still lacks to run, and who can fix each item. Exits 1
   while something is to do.
@@ -1391,14 +1400,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos runs`
+## `tranibor runs`
 
 Runs
 
-### `choregos runs diff`
+### `tranibor runs diff`
 
 ```text
-Usage: choregos runs diff [OPTIONS] {run_id}
+Usage: tranibor runs diff [OPTIONS] {run_id}
 
 Arguments:
   run_id  [required]
@@ -1407,10 +1416,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos runs list`
+### `tranibor runs list`
 
 ```text
-Usage: choregos runs list [OPTIONS] {item_id}
+Usage: tranibor runs list [OPTIONS] {item_id}
 
 Arguments:
   item_id  [required]
@@ -1419,10 +1428,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos runs tail`
+### `tranibor runs tail`
 
 ```text
-Usage: choregos runs tail [OPTIONS] {run_id}
+Usage: tranibor runs tail [OPTIONS] {run_id}
 
   Follow a run's ACP journal live (SSE).
 
@@ -1433,14 +1442,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos self`
+## `tranibor self`
 
 The CLI itself: keep it in step with the instance
 
-### `choregos self update`
+### `tranibor self update`
 
 ```text
-Usage: choregos self update [OPTIONS]
+Usage: tranibor self update [OPTIONS]
 
   Replace this CLI with the instance's own build, for this OS and processor.
 
@@ -1457,14 +1466,14 @@ Options:
   --help           Show this message and exit.
 ```
 
-## `choregos tokens`
+## `tranibor tokens`
 
 API tokens
 
-### `choregos tokens create`
+### `tranibor tokens create`
 
 ```text
-Usage: choregos tokens create [OPTIONS]
+Usage: tranibor tokens create [OPTIONS]
 
   Issue an API token for the caller. The secret is shown HERE, once.
 
@@ -1478,19 +1487,19 @@ Options:
   --help                   Show this message and exit.
 ```
 
-### `choregos tokens list`
+### `tranibor tokens list`
 
 ```text
-Usage: choregos tokens list [OPTIONS]
+Usage: tranibor tokens list [OPTIONS]
 
 Options:
   --help  Show this message and exit.
 ```
 
-### `choregos tokens revoke`
+### `tranibor tokens revoke`
 
 ```text
-Usage: choregos tokens revoke [OPTIONS] {token_id}
+Usage: tranibor tokens revoke [OPTIONS] {token_id}
 
 Arguments:
   token_id  [required]
@@ -1499,14 +1508,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos trains`
+## `tranibor trains`
 
 Release trains
 
-### `choregos trains approve`
+### `tranibor trains approve`
 
 ```text
-Usage: choregos trains approve [OPTIONS] {release_id}
+Usage: tranibor trains approve [OPTIONS] {release_id}
 
 Arguments:
   release_id  [required]
@@ -1516,10 +1525,10 @@ Options:
   --help        Show this message and exit.
 ```
 
-### `choregos trains depart`
+### `tranibor trains depart`
 
 ```text
-Usage: choregos trains depart [OPTIONS] {project}
+Usage: tranibor trains depart [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -1529,10 +1538,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos trains freeze`
+### `tranibor trains freeze`
 
 ```text
-Usage: choregos trains freeze [OPTIONS] {project}
+Usage: tranibor trains freeze [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -1543,10 +1552,10 @@ Options:
   --help          Show this message and exit.
 ```
 
-### `choregos trains status`
+### `tranibor trains status`
 
 ```text
-Usage: choregos trains status [OPTIONS] {project}
+Usage: tranibor trains status [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -1556,10 +1565,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos trains unfreeze`
+### `tranibor trains unfreeze`
 
 ```text
-Usage: choregos trains unfreeze [OPTIONS] {project}
+Usage: tranibor trains unfreeze [OPTIONS] {project}
 
 Arguments:
   project  [required]
@@ -1569,10 +1578,10 @@ Options:
   --help       Show this message and exit.
 ```
 
-### `choregos whoami`
+### `tranibor whoami`
 
 ```text
-Usage: choregos whoami [OPTIONS]
+Usage: tranibor whoami [OPTIONS]
 
   Show the current user and their roles.
 
@@ -1580,14 +1589,14 @@ Options:
   --help  Show this message and exit.
 ```
 
-## `choregos workflow`
+## `tranibor workflow`
 
 Workflows
 
-### `choregos workflow list`
+### `tranibor workflow list`
 
 ```text
-Usage: choregos workflow list [OPTIONS] {project}
+Usage: tranibor workflow list [OPTIONS] {project}
 
   A project's workflows: the active version of each, the default, the open
   work items.
@@ -1599,10 +1608,10 @@ Options:
   --help  Show this message and exit.
 ```
 
-### `choregos workflow push`
+### `tranibor workflow push`
 
 ```text
-Usage: choregos workflow push [OPTIONS] {project} [path]
+Usage: tranibor workflow push [OPTIONS] {project} [path]
 
   Publish the next version of a workflow, under the name its `metadata.name`
   gives.
@@ -1612,7 +1621,7 @@ Usage: choregos workflow push [OPTIONS] {project} [path]
 
 Arguments:
   project  [required]
-  path     [default: .choregos/workflow.yaml]
+  path     [default: .tranibor/workflow.yaml]
 
 Options:
   --base-version <int>  the active version you read: 409 if another one
@@ -1620,16 +1629,16 @@ Options:
   --help                Show this message and exit.
 ```
 
-### `choregos workflow show`
+### `tranibor workflow show`
 
 ```text
-Usage: choregos workflow show [OPTIONS] [path]
+Usage: tranibor workflow show [OPTIONS] [path]
 
   Show the workflow: states, transitions, a Mermaid diagram, or the process in
   plain words.
 
 Arguments:
-  path  [default: .choregos/workflow.yaml]
+  path  [default: .tranibor/workflow.yaml]
 
 Options:
   --mermaid
@@ -1637,25 +1646,25 @@ Options:
   --help     Show this message and exit.
 ```
 
-### `choregos workflow templates`
+### `tranibor workflow templates`
 
 ```text
-Usage: choregos workflow templates [OPTIONS]
+Usage: tranibor workflow templates [OPTIONS]
 
 Options:
   --help  Show this message and exit.
 ```
 
-### `choregos workflow validate`
+### `tranibor workflow validate`
 
 ```text
-Usage: choregos workflow validate [OPTIONS] [path]
+Usage: tranibor workflow validate [OPTIONS] [path]
 
   Validate a workflow. Without `--remote`, the validation is local and
   offline.
 
 Arguments:
-  path  [default: .choregos/workflow.yaml]
+  path  [default: .tranibor/workflow.yaml]
 
 Options:
   --remote  validate through the API rather than locally

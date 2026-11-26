@@ -42,8 +42,10 @@ platform's `TRANIBOR_AGENT_IMAGES`, and register the agent with
   `PermissionDenied`.
 - `ctx.llm` reads the model from the run's environment (the gateway, the run's own key).
   `ctx.llm.chat` counts as a turn; at the step's `max_turns` the agent stops with `reason=max_turns`.
-- What you `return` is validated against `choregos/StageResult/v1` and written to
-  `.choregos/result.json`; an exception becomes a `failed` result that says why.
+- What you `return` is validated against `tranibor/StageResult/v1` and written to
+  `.tranibor/result.json`; an exception becomes a `failed` result that says why. Under a runner
+  before 0.30.0, which lays the step's files under the former `.choregos/`, the SDK reads and writes
+  there, with the id that runner reads (ADR 0226; until 0.32.0).
 - Standard output belongs to the protocol: `print` goes to standard error.
 
 ## Bring your framework

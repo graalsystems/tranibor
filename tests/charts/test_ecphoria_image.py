@@ -14,7 +14,7 @@ import pathlib
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART_VALUES = ROOT / "charts" / "choregos" / "charts" / "ecphoria" / "values.yaml"
+CHART_VALUES = ROOT / "charts" / "tranibor" / "charts" / "ecphoria" / "values.yaml"
 COMPOSES = (ROOT / "compose.yaml", ROOT / "dev" / "compose.yaml")
 
 

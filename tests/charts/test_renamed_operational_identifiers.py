@@ -21,7 +21,7 @@ import yaml
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 RUNBOOKS = ROOT / "docs" / "runbooks"
 RUNBOOK_URL = re.compile(rf"^{re.escape(PUBLISHING.source_file(''))}(docs/runbooks/[\w.-]+\.md)$")
 
@@ -70,9 +70,9 @@ HELM = shutil.which("helm") is not None
 
 
 def _rules_from_the_template() -> list[dict[str, Any]]:
-    """The `choregos.alertRules` block of `_helpers.tpl`, which is plain YAML between its markers."""
+    """The `tranibor.alertRules` block of `_helpers.tpl`, which is plain YAML between its markers."""
     text = (CHART / "templates" / "_helpers.tpl").read_text("utf-8")
-    block = text.split('{{- define "choregos.alertRules" -}}\n', 1)[1].split("{{- end }}", 1)[0]
+    block = text.split('{{- define "tranibor.alertRules" -}}\n', 1)[1].split("{{- end }}", 1)[0]
     rules: list[dict[str, Any]] = yaml.safe_load(block)
     return rules
 
@@ -103,6 +103,8 @@ def test_alerts_have_english_names_and_no_legacy_label() -> None:
 def test_the_rendered_rule_is_in_the_english_group(flavour: str) -> None:
     rule = _rendered_rule(flavour)
     (group,) = rule["spec"]["groups"]
+    # Kept in 0.30.0 (ADR 0226, R9b): `rule_group` filters and alert routes key on these names, and a
+    # twin group would fire every alert twice.
     assert group["name"] == "choregos.platform"
     alerts = {r["alert"] for r in group["rules"]}
     assert set(RENAMED_ALERTS.values()) <= alerts

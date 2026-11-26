@@ -13,11 +13,11 @@ from tranibor_procurement.compare import input_filename
 
 def _basis(root: Path, highest: object) -> None:
     doc = {"totals": {}, "lowest_total": 1, "highest_total": highest, "spread": 0, "mismatches": []}
-    (root / ".choregos" / "inputs" / input_filename("award_basis")).write_text(json.dumps(doc))
+    (root / ".tranibor" / "inputs" / input_filename("award_basis")).write_text(json.dumps(doc))
 
 
 def _job(root: Path) -> dict[str, object]:
-    done: dict[str, object] = json.loads((root / ".choregos" / "job.json").read_text(encoding="utf-8"))
+    done: dict[str, object] = json.loads((root / ".tranibor" / "job.json").read_text(encoding="utf-8"))
     return done
 
 
@@ -37,7 +37,7 @@ def test_no_threshold_is_a_failure_not_the_lighter_tier(workspace: Path) -> None
     with pytest.raises(SystemExit) as exc:
         main(["tier"])
     assert exc.value.code != 0
-    assert not (workspace / ".choregos" / "job.json").exists()
+    assert not (workspace / ".tranibor" / "job.json").exists()
 
 
 @pytest.mark.parametrize("bad", ["", "abc", "nan", "inf"])
@@ -46,7 +46,7 @@ def test_a_non_numeric_threshold_is_a_failure(workspace: Path, bad: str) -> None
     with pytest.raises(SystemExit) as exc:
         main(["tier", "--committee-from", bad])
     assert exc.value.code != 0
-    assert not (workspace / ".choregos" / "job.json").exists()
+    assert not (workspace / ".tranibor" / "job.json").exists()
 
 
 def test_an_award_basis_without_a_total_is_a_broken_contract(workspace: Path) -> None:

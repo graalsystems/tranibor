@@ -267,7 +267,8 @@ async def test_over_the_work_item_the_work_items_allowed_paths_are_not_read(setu
 
 
 async def test_the_scope_check_run_of_a_merge_transition_marks_the_commit_it_read(setup: Fixture) -> None:
-    """`choregos/scope` on the pull request says what the merge transition read, on the judged commit."""
+    """`tranibor/scope` (and its former name) on the pull request says what the merge transition read, on
+    the judged commit."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
 
     scm = setup.adapters.scm
@@ -275,7 +276,8 @@ async def test_the_scope_check_run_of_a_merge_transition_marks_the_commit_it_rea
     landed = scm.push(REPOSITORY, BRANCH, [*CODE, DENIED])
     await evaluate_gates(_ids(setup, gates=[{"name": "scope_respected", "params": OVER_THE_WORK_ITEM}]))
     assert [(c["name"], c["sha"], c["conclusion"], c["annotations"]) for c in scm.check_runs] == [
-        ("choregos/scope", landed, "failure", [DENIED[0]])
+        ("tranibor/scope", landed, "failure", [DENIED[0]]),
+        ("choregos/scope", landed, "failure", [DENIED[0]]),
     ]
 
 

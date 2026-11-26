@@ -116,7 +116,7 @@ async def test_the_block_passes_strict_inputs_survives_a_field_change_and_reache
 
 
 def test_a_job_reads_the_block_in_its_fields_json(tmp_path: Any) -> None:
-    """What the runner writes from the ticket it read: `.choregos/fields.json` holds `tracker`."""
+    """What the runner writes from the ticket it read: `.tranibor/fields.json` holds `tracker`."""
     import json
 
     from tranibor_runner.job import FIELDS, write_fields

@@ -66,6 +66,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 from tranibor_contracts import load_schema
+from tranibor_contracts.wire import API_VERSION
 
 from ..errors import ChoregosError
 from ..paths import PathOutsideError, files_under, inside, symlinks_under
@@ -970,7 +971,7 @@ def build_index(
         plugins[plugin.name] = {"versions": {plugin.version: release}}
     if not plugins and not problems:
         problems.append(f"{plugins_dir}: holds no plugin directory")
-    index = {"apiVersion": "choregos/v1", "kind": "PluginIndex", "plugins": plugins}
+    index = {"apiVersion": API_VERSION, "kind": "PluginIndex", "plugins": plugins}
     problems.extend(_schema_problems("index.yaml", "plugin-index.schema.json", index))
     if problems:
         raise PluginError(problems)

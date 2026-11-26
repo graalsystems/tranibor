@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The CLI keeps in step with its instance (S62-08).
 
-- `choregos self update`: downloads, from the instance the profile points at, the native binary
+- `tranibor self update`: downloads, from the instance the profile points at, the native binary
   (S62-07) of the version that instance runs for this OS and processor, checks its sha256 against
   the instance's manifest, and puts it in place of the running one, atomically. On Windows a
   running `.exe` cannot be overwritten but can be renamed: the old one steps aside (`.old`), the
@@ -65,7 +65,7 @@ def this_platform() -> tuple[str, str]:
     system = _OS.get(platform.system().lower())
     arch = _ARCH.get(platform.machine().lower())
     if system is None or arch is None:
-        raise UpdateError(f"no choregos binary is built for {platform.system()}/{platform.machine()}")
+        raise UpdateError(f"no tranibor binary is built for {platform.system()}/{platform.machine()}")
     return system, arch
 
 
@@ -97,10 +97,26 @@ class Manifest:
     files: list[dict[str, Any]]
 
     def entry(self, system: str, arch: str) -> dict[str, Any]:
+        """The platform's file, under its name (`tranibor-<platform>`) or, from an instance released before
+        ADR 0226 R5, its former name (`choregos-<platform>`); any other name is refused."""
         for candidate in self.files:
             if candidate.get("os") == system and candidate.get("arch") == arch:
+                names, given = binary_names(system, arch), candidate.get("name")
+                if given not in names:
+                    raise UpdateError(
+                        f"the instance's manifest names its {system}/{arch} binary {given!r}, "
+                        f"not {' or '.join(names)}; nothing was replaced"
+                    )
                 return candidate
         raise UpdateError(f"the instance's CLI {self.version} has no binary for {system}/{arch}")
+
+
+def binary_names(system: str, arch: str) -> tuple[str, ...]:
+    """The names a platform's binary may have in an instance's manifest: the current one, then the former."""
+    try:
+        return PUBLISHING.cli_file_names(system, arch)
+    except ValueError:
+        return ()
 
 
 def fetch_manifest(http: httpx.Client, api_url: str) -> Manifest:
@@ -216,7 +232,7 @@ _checked_this_process: set[str] = set()
 
 def _state_path() -> Path:
     cache = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(cache) / "choregos" / "version-check.json"
+    return Path(cache) / "tranibor" / "version-check.json"
 
 
 def _load_state(path: Path) -> dict[str, float]:
@@ -233,11 +249,11 @@ def _load_state(path: Path) -> dict[str, float]:
 
 def warning_line(current: str, served: str, api_url: str) -> str:
     if running_binary() is not None:
-        how = "run `choregos self update`"
+        how = "run `tranibor self update`"
     else:
         how = f"upgrade the tranibor-cli package, or install the instance's binary: {install_hint(api_url)}"
     return (
-        f"choregos: this CLI is {current}, the instance at {api_url} runs {served}; {how} "
+        f"tranibor: this CLI is {current}, the instance at {api_url} runs {served}; {how} "
         f"({NO_CHECK_ENV}=1 silences this)"
     )
 
@@ -287,7 +303,7 @@ def check_version(
     return line
 
 
-# ─── `choregos self` ───
+# ─── `tranibor self` ───
 
 self_app = typer.Typer(help="The CLI itself: keep it in step with the instance")
 console = Console()
@@ -319,7 +335,7 @@ def self_update(
     target = path or running_binary()
     if target is None:
         console.print(
-            "[red]✗[/red] this choregos runs from Python packages, not from a native binary: upgrade the "
+            "[red]✗[/red] this tranibor runs from Python packages, not from a native binary: upgrade the "
             f"tranibor-cli package, or install the instance's binary with: {install_hint(url)}",
             soft_wrap=True,
         )
@@ -332,9 +348,9 @@ def self_update(
         console.print(f"[red]✗[/red] {exc}", soft_wrap=True)
         raise typer.Exit(1) from None
     if not result.replaced:
-        console.print(f"[green]✓[/green] choregos {result.version} is already the version of {url}")
+        console.print(f"[green]✓[/green] tranibor {result.version} is already the version of {url}")
         return
     console.print(
-        f"[green]✓[/green] choregos {result.previous} → {result.version} from {url}, at {result.target}",
+        f"[green]✓[/green] tranibor {result.previous} → {result.version} from {url}, at {result.target}",
         soft_wrap=True,
     )

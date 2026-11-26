@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import Role
+from tranibor_contracts import Role, wire
 from tranibor_core import parse_policy, parse_workflow, to_graph, to_process, utcnow
 from tranibor_core.calibration import DEFAULT_TARGET
 from tranibor_core.dsl import TEMPLATE_NAMES, load_template, template_yaml
@@ -410,7 +410,7 @@ async def workflow_activity(
             await session.execute(
                 select(Event.work_item_id, Event.payload, Event.ts)
                 .where(
-                    Event.type == str(EventType.WORKITEM_STATE_CHANGED),
+                    Event.type.in_(wire.event_type_twins(EventType.WORKITEM_STATE_CHANGED)),
                     Event.work_item_id.in_(list(state_of)),
                 )
                 .order_by(Event.ts)

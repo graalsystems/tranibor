@@ -31,6 +31,7 @@ from tranibor_contracts import (
     StageResult,
     artifact_digest,
 )
+from tranibor_contracts.wire import ACCESS_KEYS, both_headers, former_header, header, read_header
 from tranibor_core import PolicyEngine, matches_any, telemetry, utcnow
 from tranibor_core.run_closure import run_is_closed
 from tranibor_core.run_journal import platform_written
@@ -108,7 +109,6 @@ from ..services.context_breakdown import (
 )
 from ..services.costs import dimensions_of
 from ..services.extension_tools import (
-    ACCESS_KEY,
     extension_access,
     extension_result_cap,
     extension_tools,
@@ -584,7 +584,7 @@ async def get_inputs(id: str, session: Db, claims: OpenRunAuth, page: Pagination
     one page at a time (ADR 0206). The cursor is a position in the list, which the runner follows to the
     end.
 
-    The runner mounts them as files in `.choregos/inputs/`, so a large report no longer has to fit
+    The runner mounts them as files in `.tranibor/inputs/`, so a large report no longer has to fit
     in the prompt. An input nothing has produced yet is simply absent. When the transition declares
     `attachments`, every file handed to the work item is listed too (ADR 0201 §8); a handed name that
     is also a declared input is listed once, the declared input's revision winning."""
@@ -661,7 +661,7 @@ async def get_input_content(id: str, name: str, session: Db, claims: OpenRunAuth
             digests={name: row.digest},
             genre=READ,
         )
-    return Response(content=data, media_type=row.media_type, headers={"X-Choregos-Digest": row.digest})
+    return Response(content=data, media_type=row.media_type, headers=both_headers("Digest", row.digest))
 
 
 @router.put("/runs/{id}/outputs/{name}", response_model=Artifact, operation_id="putRunOutput")
@@ -673,7 +673,7 @@ async def put_output(
     claims: OpenRunAuth,
     type: Annotated[str, Query(description="a type of the artifact vocabulary (ADR 0049)")],
 ) -> Artifact:
-    """A deliverable the agent wrote in `.choregos/outputs/` (S31-05, ADR 0049).
+    """A deliverable the agent wrote in `.tranibor/outputs/` (S31-05, ADR 0049).
 
     The API hashes the bytes it received and refuses them unless they match the digest the runner
     computed; it stores them in the object store and records a typed artifact revision with its
@@ -690,7 +690,7 @@ async def put_output(
     if len(data) > limit:
         raise ApiError(status.HTTP_413_CONTENT_TOO_LARGE, "Artifact too large", f"limit {limit} bytes")
     received = artifact_digest(data)
-    if request.headers.get("x-choregos-digest") != received:
+    if read_header(request.headers, "Digest") != received:
         raise unprocessable(f"the bytes received hash to {received}, not to the digest announced")
     try:
         row = await store_file(
@@ -1014,7 +1014,7 @@ async def _extension_tools(
 
 def _announced(plugin: str, tool: dict[str, Any]) -> dict[str, Any]:
     """An extension's tool as the agent sees it: the platform's own keys are not the agent's business."""
-    own = {k: v for k, v in tool.items() if k not in {"result_max_bytes", ACCESS_KEY}}
+    own = {k: v for k, v in tool.items() if k not in {"result_max_bytes", *ACCESS_KEYS}}
     return _run_tool(own, extension_access(plugin, tool))
 
 
@@ -1025,7 +1025,8 @@ def _run_tool(
     access the platform knows, and the output schema the operation declares, when it declares one."""
     own = entry.get("annotations")
     annotations = {**(own if isinstance(own, dict) else {}), "readOnlyHint": access == "read"}
-    listed = {**entry, "annotations": annotations, ACCESS_KEY: access}
+    # Both keys for the window of ADR 0226: a runner of the previous release reads `x-choregos-access`.
+    listed = {**entry, "annotations": annotations, **dict.fromkeys(ACCESS_KEYS, access)}
     if output_schema:
         listed["outputSchema"] = output_schema
     return listed
@@ -1045,9 +1046,10 @@ def json_sha256(value: Any) -> str:
 @router.get("/runs/{id}/tools", operation_id="getRunTools")
 async def get_tools(id: str, session: Db, claims: OpenRunAuth) -> dict[str, Any]:
     """The tools THIS run can call, in MCP format (`name`, `description`, `inputSchema`), each with
-    `annotations.readOnlyHint`, its access (`x-choregos-access`: `read`, `write`, `approval`) and the
-    `outputSchema` its operation declares (ADR 0122). A catalogue tool and the web tools read: a
-    catalogue tool that may write is not listed, and its call is refused."""
+    `annotations.readOnlyHint`, its access (`x-tranibor-access`, and the former `x-choregos-access` for the
+    window of ADR 0226: `read`, `write`, `approval`) and the `outputSchema` its operation declares (ADR 0122).
+    A catalogue tool and the web tools read: a catalogue tool that may write is not listed, and its call is
+    refused."""
     run, _item, project = await _run_and_item(session, id)
     # What the run's agent version closes (ADR 0127) is decided in `tool_reach`, which the access
     # endpoint reads too; a run with no registry agent keeps the project's tools.
@@ -1086,12 +1088,15 @@ async def get_tools(id: str, session: Db, claims: OpenRunAuth) -> dict[str, Any]
 
 #: Who made a tool call (ADR 0122 §4): the agent's MCP client, a script through the runner's tool
 #: bridge, a job step. Attribution only: no authorisation reads it.
-TOOL_ORIGIN_HEADER = "X-Choregos-Tool-Origin"
+TOOL_ORIGIN_HEADER = header("Tool-Origin")
+#: The same header under its former name, still read for the window of ADR 0226.
+FORMER_TOOL_ORIGIN_HEADER = former_header("Tool-Origin")
 TOOL_ORIGINS = ("model", "script", "job")
 #: The origin of a job step's calls, which the API reads from the run, never from the call (S57-06).
 JOB_ORIGIN = "job"
 #: The SHA-256 of the script that made the call, as the runner's tool bridge knows it.
-SCRIPT_HEADER = "X-Choregos-Script"
+SCRIPT_HEADER = header("Script")
+FORMER_SCRIPT_HEADER = former_header("Script")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -1165,7 +1170,7 @@ def _traced_tool_call(
 
 @router.post("/runs/{id}/tools/{name}", operation_id="callRunTool")
 @_traced_tool_call
-async def call_tool(
+async def call_tool(  # noqa: PLR0913 - the origin headers under both names (ADR 0226)
     id: str,
     name: str,
     body: dict[str, Any],
@@ -1173,12 +1178,17 @@ async def call_tool(
     claims: OpenRunAuth,
     tool_origin: Annotated[str | None, Header(alias=TOOL_ORIGIN_HEADER)] = None,
     script: Annotated[str | None, Header(alias=SCRIPT_HEADER)] = None,
+    former_tool_origin: Annotated[str | None, Header(alias=FORMER_TOOL_ORIGIN_HEADER)] = None,
+    former_script: Annotated[str | None, Header(alias=FORMER_SCRIPT_HEADER)] = None,
 ) -> dict[str, Any]:
     """Call a tool of the catalogue or of an extension for the run, and record it in the cost ledger.
 
     The origin headers are read here and recorded on the span, the ledger line and the event,
     nowhere else: the call is governed the same way whatever door it came through (ADR 0122 §2)."""
-    origin, script_sha256 = _call_origin(tool_origin, script)
+    origin, script_sha256 = _call_origin(
+        tool_origin if tool_origin is not None else former_tool_origin,
+        script if script is not None else former_script,
+    )
     run, item, project = await _run_and_item(session, id)
     origin, script_sha256 = _attributed(run, origin, script_sha256)
     # On the span from here on: a call refused below is a span with its door too.

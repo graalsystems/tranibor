@@ -1,5 +1,5 @@
 {
-  "schema": "choregos/ContextPack/v1",
+  "schema": "tranibor/ContextPack/v1",
   "query": "avoirs non déduits du total de facture",
   "paths": ["src/orders/**"], "kinds": ["decision", "incident", "ticket_summary"],
   "budget_tokens": 4000, "tokens_estimated": 1820, "truncated": false,

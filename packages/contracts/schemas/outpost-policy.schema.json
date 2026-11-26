@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-policy.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-policy.schema.json",
   "title": "OutpostPolicy",
   "description": "The local policy file of an outpost (ADR 0147 §6): what the daemon `choregos-outpost` checks alone, from a file the control plane cannot write. It pins the keys whose calls the outpost makes (ADR 0148 §13) and holds the only copy of each endpoint's address and credential (ADR 0147 §7). A file without `door_keys` is not a policy: an outpost that cannot check who orders it does not serve. Nothing in it names a project, an agent or a version: those are names the control plane asserts, and a rule on them would stop nobody who holds it.",
   "type": "object",
