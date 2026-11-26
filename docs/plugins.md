@@ -57,6 +57,7 @@ contents:
   evals: [evals/greeter.yaml]
   procedures: ["procedures/*.md"]   # the only list that may use *
   servers: [servers/hello.yaml]
+  # profiles: [profiles/notes.yaml]             # profiles a plugin declares, servers implement (ADR 0224)
   # matrix_cases: [evals/matrix/greeting.yaml]   # agent cases of the core's eval matrix (#1372)
   # assistants: [assistants/helper.yaml]        # assistants wrapping an agent of the plugin (ADR 0133)
 ```
@@ -1074,6 +1075,39 @@ approval).
 - **Fakes.** Under `TRANIBOR_FAKES=1` a plugin tracker is built as itself and talks to
   `FakePluginTrackerServer` (`tranibor_adapters.fakes.plugin_tracker`), an in-memory server of the
   profile with the same replay rules.
+
+## Profiles a plugin declares
+
+> **Status (S86-01): the contracts only.** The schemas below exist and `make contracts` generates their
+> types, but nothing reads them yet: the loader does not pack `contents.profiles`, `tranibor plugin
+> validate` does not compare a server with a profile (S86-02), and a profile entry in an agent's
+> `mcp_servers` opens no tool (S86-04). A plugin that uses them is refused by a core older than this
+> contract, so it declares the first core release that has them in its `core` range.
+
+A plugin may declare **profiles** ([ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md)):
+named contracts of tools that several plugin servers, of that plugin or of others, may implement, and that an
+agent may call by profile instead of by connector. The core keeps its own [tracker profile](#the-tracker-profile);
+a profile a plugin declares is a family beside it, and the core never reads what one means (ADR 0181).
+
+- **Declare** it in `contents.profiles: [profiles/<name>.yaml]`, a file that matches
+  `plugin-profile.schema.json`: `name` (`^[a-z][a-z0-9-]{0,31}$`), an integer `version`, a `description`,
+  `tools` (each with `name`, `access`, `input` and `output`, and optionally `human_approval` and
+  `platform_arguments` as a floor) and the `$defs` its schemas point to. Its identity is
+  `<plugin>/<name>@<version>`; a breaking change is a new version, and both may be served.
+- **The schema subset.** `input` and `output` use only `type`, `properties`, `required`,
+  `additionalProperties`, `items`, `enum` and `const` (scalars), `minimum`, `maximum`, `minLength`,
+  `maxLength`, `pattern`, `format` (`date-time`, `date`, `time`, `uri`, `email`, `uuid`), `$ref` to a
+  local `#/$defs/<name>` (no cycle), `description` and `title`. Anything else (`oneOf`, `anyOf`,
+  `allOf`, `not`, `if`, `patternProperties`, `prefixItems`) is refused by the schema, so that comparing a
+  server with the profile never has to guess. The comparison itself (a schema A is accepted by B when
+  every instance valid under A is valid under B) is written in the schema's `description`.
+- **Implement** it with `implements: [<plugin>/<name>@<version>]` in a server file, beside or instead of
+  `tracker`. The plugin that declares the profile must be among the implementing plugin's
+  `requires.plugins`; the server declares every tool with the same access, a governance never weaker
+  and compatible schemas (checked from S86-02).
+- **Call** it with `mcp_servers: [{profile: <plugin>/<name>@<version>, tools: [...]}]` in an agent: the
+  entry names a `connector` or a `profile`, never both, and a profile entry takes no `identity`. The
+  tools it lists are tools of the profile (resolved at run start from S86-04).
 
 ## Default plugins
 

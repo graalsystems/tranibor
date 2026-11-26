@@ -21,7 +21,7 @@ from ..deps import Config, Db, Me, Pagination, ProjectCtx, resolve_project
 from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
 from ..extensions import GestureRequest, check_gesture
 from ..keyset import keyset_page
-from ..knowledge.marked import listed_only, readable, require_readable
+from ..knowledge.marked import listed_only, readable_ids, require_readable
 from ..logging import get_logger
 from ..object_store import object_store
 from ..rbac import Permission
@@ -45,6 +45,7 @@ from ..services import (
     persist_event,
     record_reroute,
     work_item_dto,
+    work_item_dtos,
     work_item_workflow,
     workflow_model,
 )
@@ -156,12 +157,11 @@ async def list_work_items(
     window, meta = await keyset_page(
         session, query, sort=WorkItem.created_at, tiebreak=WorkItem.id, page=page
     )
+    # The page's facts are read once for all its work items, never once per work item (#2285).
+    dtos = await work_item_dtos(session, window, ctx.project)
+    seen = await readable_ids(session, ctx.principal, window, ctx.project.org_id)
     return WorkItemPage(
-        items=[
-            dto if await readable(session, ctx.principal, item, ctx.project.org_id) else listed_only(dto)
-            for item in window
-            for dto in [await work_item_dto(session, item, ctx.project)]
-        ],
+        items=[dto if item.id in seen else listed_only(dto) for item, dto in zip(window, dtos, strict=True)],
         meta=meta,
     )
 

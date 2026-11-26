@@ -71,7 +71,7 @@ allowed to create a namespace and to read cluster-scoped APIs, rights the chart 
 
 ```bash
 helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.4 --namespace choregos --create-namespace \
+  --version 0.29.5 --namespace choregos --create-namespace \
   -f my-values.yaml
 ```
 
@@ -2223,7 +2223,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.4 \
+helm install choregos oci://ghcr.io/graalsystems/charts/tranibor --version 0.29.5 \
   -n choregos --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/choregos/values/ of the chart
 ```
@@ -2738,7 +2738,7 @@ being killed by its liveness probe (#2139) can return to the defaults.
 
 ```bash
 curl -s https://<api-host>/edition
-{"edition":"community","features":[],"version":"0.29.4","publisher":null,"edition_version":null}
+{"edition":"community","features":[],"version":"0.29.5","publisher":null,"edition_version":null}
 ```
 
 `version` is the core's. `publisher` and `edition_version` are announced by the edition's plugin:

@@ -226,10 +226,14 @@ function ToolsSection({ spec }: { spec: AgentSpec }) {
         ) : (
           <ul className="space-y-0.5">
             {servers.map((server) => (
-              <li key={server.connector}>
-                <ToolLink href={`/admin/connectors?connector=${encodeURIComponent(server.connector)}`} testid={`composition-mcp-${server.connector}`}>
-                  {server.connector}
-                </ToolLink>
+              <li key={server.connector ?? server.profile}>
+                {server.connector === undefined ? (
+                  <span className="font-mono">{server.profile}</span>
+                ) : (
+                  <ToolLink href={`/admin/connectors?connector=${encodeURIComponent(server.connector)}`} testid={`composition-mcp-${server.connector}`}>
+                    {server.connector}
+                  </ToolLink>
+                )}
                 {(server.tools ?? []).length > 0 && <span className="text-xs text-ink-muted">{` · ${plural(server.tools!.length, "tool", "tools")} granted`}</span>}
               </li>
             ))}
