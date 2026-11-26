@@ -1325,7 +1325,7 @@ global:
 | `door.ratePerMinute` | `1200` | `TRANIBOR_OUTPOSTS_DOOR_RATE_PER_MINUTE`; `0` lifts the limit |
 | `door.requestTimeout` | `60s` | the HTTPRoute's `timeouts.request` (Gateway API v1.2 and later); empty leaves the field out |
 | `door.ingressController` | `ingress-nginx` | the controller whose timeout annotations the door's Ingress carries: `ingress-nginx` writes `nginx.ingress.kubernetes.io/proxy-read-timeout: "60"` and `…/proxy-buffering: "off"`; `""` writes none, for another controller. Any other value fails the render |
-| `door.annotations` | `{}` | the door Ingress's own annotations, verbatim, over the controller's (a key given here wins): another controller's timeouts, its rate limit or source restriction. Up to 0.29.4 the two ingress-nginx annotations were this map's default; an installation that added keys to it renders the same annotations |
+| `door.annotations` | `{}` | the door Ingress's own annotations, verbatim, over the controller's (a key given here wins): another controller's timeouts, its rate limit or source restriction. Up to 0.29.5 the two ingress-nginx annotations were this map's default; an installation that added keys to it renders the same annotations |
 | `door.dedicated` and what follows it | `false` | the door's own Deployment, below |
 
 `global.extraEnv` may not set one of these variables once `global.outposts.enabled` is true: the
@@ -2460,7 +2460,7 @@ monitoring:
 chart which types the cluster serves; an offline `helm template` does not, and leaves the scrape object
 and the rules out (`helm install` then says so in its notes). An offline render aimed at a cluster that
 has the operator sets `monitoring.skipCrdCheck: true`; `monitoring.serviceMonitor` and
-`monitoring.alerts` still switch each one off. Up to 0.29.4 they were rendered whatever the cluster
+`monitoring.alerts` still switch each one off. Up to 0.29.5 they were rendered whatever the cluster
 served: a pipeline that renders offline and applies the result loses them until it sets
 `skipCrdCheck` (`tests/charts/test_cluster_assumptions.py`).
 
@@ -2741,7 +2741,7 @@ value>` on the first model call. Nothing said the key had never resolved.
 If the API refuses to start with `réglages non résolus`, fix the source of the secret — the key
 is missing where it is stored, not where it is read.
 
-## Upgrading past 0.29.4: what the chart assumes about the cluster follows it
+## Upgrading past 0.29.5: what the chart assumes about the cluster follows it
 
 S87-16 ([On a managed cluster](#on-a-managed-cluster)). Rendered with the cluster's API versions, as Argo
 CD and `helm install` render, the default values render what they rendered before, policies byte for
