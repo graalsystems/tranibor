@@ -1,7 +1,7 @@
 # A refactoring (S59-02): behaviour must not change. A planner writes the steps and the test that proves
 # each; the developer refactors inside them; QA derives the edge cases and runs mutation testing on the
 # changed code, so the tests prove the behaviour is kept; a reviewer and a maintainer approve.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: refactoring

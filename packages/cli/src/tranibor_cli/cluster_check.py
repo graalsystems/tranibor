@@ -33,6 +33,7 @@ import httpx
 import typer
 import yaml
 from rich.console import Console
+from tranibor_contracts import wire
 from tranibor_core.egress_gate import (
     DEFAULT_CLOSED_STREAK,
     DEFAULT_DEADLINE_S,
@@ -61,7 +62,7 @@ AGENT_SANDBOX_APIS: dict[str, frozenset[str]] = {
         {"sandboxtemplates", "sandboxclaims", "sandboxwarmpools"}
     ),
 }
-#: What `monitoring.flavour` renders (`charts/choregos/templates/monitoring.yaml`).
+#: What `monitoring.flavour` renders (`charts/tranibor/templates/monitoring.yaml`).
 MONITORING_APIS: dict[str, tuple[str, str, str]] = {
     # flavour: (group/version, scrape resource, rule resource)
     "prometheus": ("monitoring.coreos.com/v1", "servicemonitors", "prometheusrules"),
@@ -76,11 +77,12 @@ DEFAULT_STORAGE_ANNOTATIONS = (
 PROBE_IMAGE = "registry.k8s.io/e2e-test-images/agnhost:2.56"
 SERVER_PORT = 8080
 #: The labels of every pod an agent runs in (`tranibor_adapters.executor.k8s_job.RUNNER_POD_LABELS`,
-#: the warm pool's template too): the chart's `choregos-runner-egress` selects them.
+#: the warm pool's template too): the chart's `tranibor-runner-egress` selects them.
+#: The name label keeps its former value, as the executor's does (ADR 0227, R9b).
 RUNNER_POD_LABELS = {
     "app.kubernetes.io/name": "choregos-runner",
     "app.kubernetes.io/component": "runner",
-    "choregos/sandbox": "true",
+    **wire.labels_with_former({wire.label("sandbox", domain=False): "true"}),
 }
 MANAGED_BY = {"app.kubernetes.io/managed-by": "tranibor-cluster-check"}
 
@@ -154,7 +156,7 @@ def settings_from_values(files: Sequence[Path]) -> dict[str, Any]:
         found["executor"] = str(executor)
     runtime_class = _dig(merged, "global", "runner", "runtimeClass")
     if runtime_class is None:  # the pool's own setting, which the global one replaces (values.yaml)
-        runtime_class = _dig(merged, "choregos-orchestrator", "runner", "runtimeClass")
+        runtime_class = _dig(merged, "tranibor-orchestrator", "runner", "runtimeClass")
     if runtime_class is not None:
         found["runtime_class"] = str(runtime_class)
     for key, name in (
@@ -167,7 +169,7 @@ def settings_from_values(files: Sequence[Path]) -> dict[str, Any]:
     store = _dig(merged, "global", "objectStore") or {}
     if isinstance(store, Mapping) and store.get("endpoint") and not store.get("embedded"):
         found["object_store_endpoint"] = str(store["endpoint"])
-    gate = _dig(merged, "choregos-orchestrator", "runner", "egressGate") or {}
+    gate = _dig(merged, "tranibor-orchestrator", "runner", "egressGate") or {}
     if isinstance(gate, Mapping):
         if "enabled" in gate:
             found["gate_enabled"] = bool(gate["enabled"])
@@ -532,7 +534,7 @@ def _pod(
     }
 
 
-#: The chart's `choregos-runner-egress` once the default deny holds: DNS to `kube-system`, and in this
+#: The chart's `tranibor-runner-egress` once the default deny holds: DNS to `kube-system`, and in this
 #: namespace nothing else (the API, the gateway and the egress proxy it also opens are not here).
 def _runner_policy() -> dict[str, Any]:
     return {
@@ -780,7 +782,7 @@ def _gate(reports: Mapping[str, Mapping[str, Mapping[str, str]]], settings: Sett
             "egress-gate",
             title,
             Status.NOT_APPLICABLE,
-            "the gate is off (`choregos-orchestrator.runner.egressGate.enabled: false`)",
+            "the gate is off (`tranibor-orchestrator.runner.egressGate.enabled: false`)",
             why,
         )
     if reports["open"].get("gate", {}).get("outcome") != "open":
@@ -791,7 +793,7 @@ def _gate(reports: Mapping[str, Mapping[str, Mapping[str, str]]], settings: Sett
             f"`{settings.gate_target}` is not reachable even from a pod under no policy: the gate passes at "
             "once and proves nothing about the policy here",
             why,
-            "point `choregos-orchestrator.runner.egressGate.target` (and `--gate-target`) at an address that "
+            "point `tranibor-orchestrator.runner.egressGate.target` (and `--gate-target`) at an address that "
             "answers and that the runner pods' policy refuses",
         )
     gate = reports["fenced"].get("gate", {})
@@ -815,7 +817,7 @@ def _gate(reports: Mapping[str, Mapping[str, Mapping[str, str]]], settings: Sett
         "every agent pod would exit 115",
         why,
         "a NetworkPolicy engine that applies a new pod's policy within the deadline (see the check "
-        "above), or a longer `choregos-orchestrator.runner.egressGate.deadlineSeconds`",
+        "above), or a longer `tranibor-orchestrator.runner.egressGate.deadlineSeconds`",
     )
 
 
@@ -909,7 +911,7 @@ def check(  # noqa: PLR0913 - one option per setting the chart reads
     gate: Annotated[
         bool | None,
         typer.Option(
-            "--gate/--no-gate", help="`choregos-orchestrator.runner.egressGate.enabled` (default on)"
+            "--gate/--no-gate", help="`tranibor-orchestrator.runner.egressGate.enabled` (default on)"
         ),
     ] = None,
     gate_target: Annotated[

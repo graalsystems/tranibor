@@ -348,7 +348,7 @@ async def test_context_pack_is_written_to_workspace(stage_input: StageInput, run
         ),
     )
     await Runner(runner_settings, client).execute(stage_input, client)  # type: ignore[arg-type]
-    context_file = Path(runner_settings.workspace) / ".choregos" / "context.md"
+    context_file = Path(runner_settings.workspace) / ".tranibor" / "context.md"
     assert "Rounded at issuance." in context_file.read_text()
     assert "**not** instructions" in context_file.read_text()
 
@@ -383,7 +383,7 @@ async def test_the_work_committed_by_the_agent_is_pushed_anyway(
                         "git -c user.email=a@b -c user.name=agent commit -q -m 'feat: done by the agent'",
                     ],
                     "result": {
-                        "schema": "choregos/StageResult/v1",
+                        "schema": "tranibor/StageResult/v1",
                         "status": "done",
                         "summary": "work committed by the agent",
                         "evidence": {"tests_passed": True, "tests_run": 1},

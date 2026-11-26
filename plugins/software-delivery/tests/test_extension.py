@@ -1,6 +1,6 @@
 """The twelve gates of software delivery are the `software-delivery` plugin's extension (ADR 0181, round C2).
 
-The extension is the workspace distribution `tranibor-software-delivery`, loaded from its `choregos.plugins`
+The extension is the workspace distribution `tranibor-software-delivery`, loaded from its `tranibor.plugins`
 entry point by the API and the worker. Without it the core knows the twelve only by name, so a workflow
 naming one is refused at publication, naming the plugin; with it, they validate and are judged on the
 facts of its `delivery` provider.
@@ -66,7 +66,7 @@ def without_the_extension() -> Iterator[None]:
 
 
 def test_the_entry_point_is_declared_under_the_plugin_s_name() -> None:
-    points = {p.name: p.value for p in metadata.entry_points(group="choregos.plugins")}
+    points = {p.name: p.value for p in metadata.entry_points(group="tranibor.plugins")}
     assert points[NAME] == "tranibor_software_delivery.extension:register"
     assert NAME == "software-delivery"
 

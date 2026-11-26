@@ -108,7 +108,7 @@ def test_an_identity_is_never_replaced_and_never_half_made(tmp_path: Path) -> No
     (directory / "sealing.key").unlink()
     with pytest.raises(identities.IdentityError, match="one key of two"):
         identities.load(directory)
-    with pytest.raises(identities.IdentityError, match="choregos-outpost enrol"):
+    with pytest.raises(identities.IdentityError, match="tranibor-outpost enrol"):
         identities.load(tmp_path / "nowhere")
 
 

@@ -99,3 +99,23 @@ async def plugin_text(session: AsyncSession, org_id: str, plugin: str, ref: str)
         return None
     path = inside(await _materialise(session, row), ref)
     return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+async def profile_tools(session: AsyncSession, org_id: str, profile: str) -> list[str] | None:
+    """The tools, in order, of the profile `<plugin>/<name>@<version>` as the installed plugin declares it
+    (ADR 0224 §4); `None` when that plugin is not installed or declares no such profile."""
+    plugin, _, rest = profile.partition("/")
+    name, _, version = rest.partition("@")
+    row = await _row(session, org_id, plugin)
+    if row is None:
+        return None
+    for ref in (row.manifest.get("contents") or {}).get("profiles") or []:
+        text = await plugin_text(session, org_id, plugin, str(ref))
+        document = yaml.safe_load(text) if text else None
+        if (
+            isinstance(document, dict)
+            and document.get("name") == name
+            and str(document.get("version")) == version
+        ):
+            return [str(tool["name"]) for tool in document.get("tools") or [] if isinstance(tool, dict)]
+    return None

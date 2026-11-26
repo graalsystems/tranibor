@@ -102,7 +102,7 @@ async def _events() -> list[Any]:
 
     async with session_scope() as session:
         return list(
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars()
         )
 
 

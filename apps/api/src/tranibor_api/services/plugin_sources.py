@@ -492,13 +492,13 @@ def _content_digest(root: Path) -> str:
 
 
 def installed_extensions() -> frozenset[str]:
-    """The extensions this deployment installed: the names of the `choregos.plugins` entry points, which
-    the API and the worker load at start-up (and refuse to start without, `load_extensions`)."""
-    from importlib import metadata
-
+    """The extensions this deployment installed: the names of the `tranibor.plugins` entry points (and of the
+    former `choregos.plugins`), which the API and the worker load at start-up (and refuse to start without,
+    `load_extensions`)."""
     from tranibor_adapters import EXTENSION_GROUP
+    from tranibor_contracts import wire
 
-    return frozenset(point.name for point in metadata.entry_points(group=EXTENSION_GROUP))
+    return frozenset(point.name for point in wire.entry_points(EXTENSION_GROUP))
 
 
 def _validated(root: Path, release: Release, core: str, extensions: frozenset[str] | None = None) -> Plugin:
@@ -529,7 +529,7 @@ def _validated(root: Path, release: Release, core: str, extensions: frozenset[st
             f"`{plugin.name}` {plugin.version} needs the extension{'s' if len(missing) > 1 else ''} "
             + ", ".join(f"`{name}`" for name in missing)
             + ", which this deployment has not installed: install the distribution its publisher ships for "
-            "it (a `choregos.plugins` entry point of that name)",
+            "it (a `tranibor.plugins` entry point of that name)",
         )
     return plugin
 

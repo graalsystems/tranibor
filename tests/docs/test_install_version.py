@@ -61,9 +61,9 @@ def test_the_install_pages_name_the_current_version() -> None:
 
 
 def test_the_deployment_guide_installs_the_chart_of_the_repository() -> None:
-    chart = (ROOT / "charts" / "choregos" / "Chart.yaml").read_text("utf-8")
+    chart = (ROOT / "charts" / "tranibor" / "Chart.yaml").read_text("utf-8")
     version = re.search(r"^version: (\S+)$", chart, re.M)
-    assert version, "charts/choregos/Chart.yaml lost its version"
+    assert version, "charts/tranibor/Chart.yaml lost its version"
     guide = (ROOT / "docs" / "deployment.md").read_text("utf-8")
     chart_ref = f"oci://{PUBLISHING.registry}/charts/{PUBLISHING.chart_name()}"
     assert f"{chart_ref} \\\n  --version {version.group(1)} " in guide

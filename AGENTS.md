@@ -30,7 +30,9 @@ or external: the external aliases' window closed with 0.23.0 and S45-49 removed 
 - Python: `uv run ruff check packages apps/api apps/orchestrator plugins tools tests` then
   `ruff format --check` on the same paths — **`tests/` is one of them**, an E501 there breaks CI.
   `make lint` also runs `tools/check_english.py` (lines added since `origin/main`) and the full-repo
-  ratchet `make english-ratchet` (`tools/check_english.py --all`, ADR 0098).
+  ratchet `make english-ratchet` (`tools/check_english.py --all`, ADR 0098), and the former name's
+  ratchet `make former-name-ratchet` (`tools/former_name.py`, ADR 0226: a file's count of the former
+  product name only goes down; `--write` lowers the ceilings in `tools/former_name_baseline.tsv`).
 - Typing: `uv run mypy packages/*/src apps/api/src apps/orchestrator/src plugins/*/src tools` (strict).
 - Tests: `uv run pytest -q`; `-m "not slow"` leaves out the slow ones (building the
   workspace). Coverage: `make test-cov` (part of `make ci`) over every package in pyproject's

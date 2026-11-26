@@ -25,6 +25,7 @@ HISTORY = (
 #: Files that still spell the name: the old source name, and the guards of the deleted frozen namespace.
 ALLOWED = {
     "tests/licences/test_no_varga.py": "this guard",
+    "tools/former_name_baseline.tsv": "the former name's ceilings (ADR 0226) list this guard's path",
     "packages/core/src/tranibor_core/plugins/sources.py": "resolves the old default source name",
     "packages/core/tests/test_plugin_sources.py": "tests that the old default source name resolves",
     "apps/api/tests/test_default_plugin_source_migration.py": "tests the rename of the old source name",

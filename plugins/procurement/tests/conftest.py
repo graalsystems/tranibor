@@ -38,9 +38,9 @@ EXPECTED = [
 
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """An empty job workspace: `.choregos/inputs/` exists, and `TRANIBOR_WORKSPACE` names it."""
+    """An empty job workspace: `.tranibor/inputs/` exists, and `TRANIBOR_WORKSPACE` names it."""
     root = tmp_path / "ws"
-    (root / ".choregos" / "inputs").mkdir(parents=True)
+    (root / ".tranibor" / "inputs").mkdir(parents=True)
     monkeypatch.setenv("TRANIBOR_WORKSPACE", str(root))
     return root
 
@@ -51,7 +51,7 @@ def hand(workspace: Path) -> Callable[..., Path]:
 
     def _hand(*names: str) -> Path:
         for name in names or sorted(p.name for p in FIXTURES.iterdir()):
-            shutil.copyfile(FIXTURES / name, workspace / ".choregos" / "inputs" / name)
+            shutil.copyfile(FIXTURES / name, workspace / ".tranibor" / "inputs" / name)
         return workspace
 
     return _hand

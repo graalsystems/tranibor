@@ -23,7 +23,7 @@ import contextlib
 from collections.abc import AsyncIterator
 from typing import Any
 
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import AgentContainer, ExecRef, ExecStatus, StageJobSpec
 from tranibor_core.egress_gate import EgressGate
@@ -35,7 +35,9 @@ from . import egress_gate, separate_agent
 from .isolation import refuse_unless_separate
 from .tekton import (
     CORE_API,
+    RUNNER_SERVICE_ACCOUNT,
     KubernetesClient,
+    RunnerServiceAccount,
     _parse_time,
     run_secret_data,
     runner_env_entries,
@@ -48,14 +50,18 @@ AGENT_CONTAINER = "agent"
 HOSTED_WORKSPACE_VOLUME = "hosted-workspace"
 #: The labels of every pod an agent runs in, the SAME as the warm pool's (`sandbox.yaml`'s
 #: `podTemplate`): the network policies that hold an agent's pod select one of them, the chart's
-#: `choregos-runner-egress` by name, a platform's (and the chart's `choregos-runner-assignment`) by
-#: `choregos/sandbox`. A Job's pod without `choregos/sandbox` was outside the platform's run-pod policy
-#: and reached Temporal, Redis and the web search from its agent's container (finding #2082);
-#: `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+#: `tranibor-runner-egress` by name, a platform's (and the chart's `tranibor-runner-assignment`) by
+#: `tranibor/sandbox` or `choregos/sandbox`. A Job's pod without the sandbox label was outside the
+#: platform's run-pod policy and reached Temporal, Redis and the web search from its agent's container
+#: (finding #2082); `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+#: The sandbox label is written under both names for the window of ADR 0226 (R9b): an operator's run-pod
+#: policy selects the former. `app.kubernetes.io/name` has one value only, and a policy of the operator's
+#: may select it, so it keeps the former value (`docs/deployment.md`, R9b); the chart's own policies and
+#: the code admit either value.
 RUNNER_POD_LABELS = {
     "app.kubernetes.io/name": "choregos-runner",
     "app.kubernetes.io/component": "runner",
-    "choregos/sandbox": "true",
+    **wire.labels_with_former({wire.label("sandbox", domain=False): "true"}),
 }
 
 
@@ -73,7 +79,7 @@ class KubernetesJobExecutor:
         self,
         client: KubernetesClient | None = None,
         *,
-        service_account: str = "choregos-runner",
+        service_account: str | None = None,
         ttl_seconds: int = 3600,
         cpu_limit: str = "2",
         memory_limit: str = "6Gi",
@@ -85,7 +91,8 @@ class KubernetesJobExecutor:
         runner_limits: dict[str, str] | None = None,
     ) -> None:
         self.client = client or KubernetesClient()
-        self.service_account = service_account
+        #: `tranibor-runner` where the namespace has it, else the former one (ADR 0226, R9b).
+        self.service_accounts = RunnerServiceAccount(service_account)
         self.ttl_seconds = ttl_seconds
         # Adjustable: a namespace under a LimitRange refuses the whole pod beyond its per-container
         # ceiling (4 Gi at one operator's tenants), without telling the Job why.
@@ -148,8 +155,10 @@ class KubernetesJobExecutor:
             # Job, returned... and the Secret stayed ownerless for good. It is handed over here.
             await self._attach_secret(spec.namespace, name, existing)
             return ExecRef(kind=self.kind, name=name, namespace=spec.namespace, run_id=spec.run_id)
+        # Which runner account the namespace has (ADR 0226, R9b), asked before anything is written.
+        account = await self.service_accounts.name(self.client, spec.namespace)
         await self._ensure_secret(spec, name)
-        job = self._job(spec, name)
+        job = self._job(spec, name, account)
         if self.max_active:
             active, _ = await self._queue_state(spec.namespace)
             if active >= self.max_active:
@@ -278,16 +287,18 @@ class KubernetesJobExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id},
+                "labels": wire.labels_with_former({wire.label("run-id", domain=False): spec.run_id}),
             },
             "type": "Opaque",
             "data": run_secret_data(spec),
         }
 
-    def _job(self, spec: StageJobSpec, name: str) -> dict[str, Any]:
+    def _job(
+        self, spec: StageJobSpec, name: str, service_account: str = RUNNER_SERVICE_ACCOUNT
+    ) -> dict[str, Any]:
         pod_spec: dict[str, Any] = {
             "restartPolicy": "Never",
-            "serviceAccountName": self.service_account,
+            "serviceAccountName": service_account,
             "automountServiceAccountToken": False,
             # The cluster's services are not announced as `<SERVICE>_PORT` variables (finding #2057):
             # the runner finds what it calls by name, and the agent has no map of the namespace.
@@ -359,11 +370,13 @@ class KubernetesJobExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                },
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                ),
             },
             "spec": {
                 "backoffLimit": 0,  # the retry is decided by the orchestrator, not by Kubernetes
@@ -372,7 +385,12 @@ class KubernetesJobExecutor:
                 "template": {
                     # A STABLE label besides the run's identifier: the network policies
                     # (Cilium, NetworkPolicy) select runners by family, not one by one.
-                    "metadata": {"labels": {"choregos/run-id": spec.run_id, **RUNNER_POD_LABELS}},
+                    "metadata": {
+                        "labels": {
+                            **wire.labels_with_former({wire.label("run-id", domain=False): spec.run_id}),
+                            **RUNNER_POD_LABELS,
+                        }
+                    },
                     "spec": pod_spec,
                 },
             },

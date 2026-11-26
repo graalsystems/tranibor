@@ -31,7 +31,7 @@ from a template, connect its repository, open an issue, let agents work, approve
 
    ```bash
    git clone https://github.com/graalsystems/tranibor.git
-   cd choregos
+   cd tranibor
    cp .env.example .env
    docker compose up
    ```
@@ -122,9 +122,9 @@ In the console:
 Or from the command line, once you are signed in (see [Install the CLI](cli/install.md)):
 
 ```bash
-choregos login --api-url https://choregos.example.com --org acme   # your browser opens; approve there
-choregos projects create billing-api --name "Billing API" --repo https://github.com/acme/billing-api --template github-software-delivery
-choregos projects provision billing-api --follow
+tranibor login --api-url https://tranibor.example.com --org acme   # your browser opens; approve there
+tranibor projects create billing-api --name "Billing API" --repo https://github.com/acme/billing-api --template github-software-delivery
+tranibor projects provision billing-api --follow
 ```
 
 Provisioning creates the routing labels (`bug`, `feature`, `study` and the others) and the webhooks on
@@ -148,7 +148,7 @@ by item, and who can fix each one. Work through it:
 The same list, from the command line (it exits with 1 while something is left to do):
 
 ```bash
-choregos projects readiness billing-api
+tranibor projects readiness billing-api
 ```
 
 ### 3. Open the first work item

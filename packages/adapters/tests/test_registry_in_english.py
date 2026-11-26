@@ -106,7 +106,7 @@ def test_the_factories_read_the_english_fake_global(monkeypatch: pytest.MonkeyPa
 def test_the_extension_group_value_is_the_entry_point_group_of_adr_0093() -> None:
     import tranibor_adapters
 
-    assert tranibor_adapters.EXTENSION_GROUP == "choregos.plugins"
+    assert tranibor_adapters.EXTENSION_GROUP == "tranibor.plugins"
 
 
 def test_the_board_keeps_its_former_french_names_as_data() -> None:
@@ -140,5 +140,5 @@ def test_the_english_group_is_the_one_the_loader_reads_by_default() -> None:
     # Declared in the source as the loader's default: renaming one without the other breaks discovery.
     source = (ROOT / SRC / "__init__.py").read_text(encoding="utf-8")
     assert re.search(r"def load_extensions\(group: str = EXTENSION_GROUP\)", source)
-    assert EXTENSION_GROUP == "choregos.plugins"
+    assert EXTENSION_GROUP == "tranibor.plugins"
     assert load_extensions("choregos.group.that.does.not.exist") == []

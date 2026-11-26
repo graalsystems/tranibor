@@ -54,7 +54,7 @@ clusters:
     proof:
       date: 2026-11-12
       version: null
-      what: the outposts end to end (the chart's door, the real daemon) on kind-choregos; the hosted pods on k8s_job (S41-24, undated)
+      what: the outposts end to end (the chart's door, the real daemon) on kind-tranibor; the hosted pods on k8s_job (S41-24, undated)
       evidence:
         - docs/plan/status/S65.md
         - docs/plan/status/S41.md

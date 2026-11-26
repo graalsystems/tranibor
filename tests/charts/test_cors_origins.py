@@ -1,6 +1,6 @@
 """The chart tells the API which browser origins may call it (S47-03).
 
-`CHOREGOS_CORS_ORIGINS` defaults to the console's public URL; `choregos-api.corsOrigins` lists more.
+`TRANIBOR_CORS_ORIGINS` defaults to the console's public URL; `tranibor-api.corsOrigins` lists more.
 The chart owns the variable, so `global.extraEnv` must not set it a second time.
 """
 
@@ -14,8 +14,8 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
-CORS = "CHOREGOS_CORS_ORIGINS"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
+CORS = "TRANIBOR_CORS_ORIGINS"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -34,7 +34,7 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
     (api,) = [
         container
         for doc in docs
-        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "choregos-api"
+        if doc["kind"] in {"Deployment", "Rollout"} and doc["metadata"]["name"] == "tranibor-api"
         for container in doc["spec"]["template"]["spec"]["containers"]
         if container["name"] == "api"
     ]
@@ -43,11 +43,11 @@ def _api_env(*json_sets: str) -> dict[str, dict[str, Any]]:
 
 def test_cors_origins_default_to_the_public_url() -> None:
     assert _api_env()[CORS]["value"] == "https://app.choregos.local"
-    listed = _api_env('choregos-api.corsOrigins=["https://a.example","https://b.example"]')
+    listed = _api_env('tranibor-api.corsOrigins=["https://a.example","https://b.example"]')
     assert listed[CORS]["value"] == "https://a.example,https://b.example"
 
 
 def test_an_extra_env_cors_value_fails_with_the_way_out() -> None:
     rendered = _render(f'global.extraEnv=[{{"name":"{CORS}","value":"https://x.example"}}]')
     assert rendered.returncode != 0, "the chart rendered two values for the CORS origins"
-    assert "choregos-api.corsOrigins" in rendered.stderr
+    assert "tranibor-api.corsOrigins" in rendered.stderr

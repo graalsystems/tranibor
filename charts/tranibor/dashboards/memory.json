@@ -1,0 +1,55 @@
+{
+  "title": "Tranibor — Memory",
+  "uid": "choregos-memoire",
+  "tags": [
+    "tranibor",
+    "choregos"
+  ],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Context pack latency (p95)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ecphoria_context_pack_seconds_bucket[5m])) by (le))"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Empty packs (circuit open)",
+      "targets": [
+        {
+          "expr": "sum(increase(tranibor_context_pack_empty_total[1h]))"
+        }
+      ],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "type": "table",
+      "title": "Facts awaiting validation",
+      "targets": [
+        {
+          "expr": "tranibor_memory_pending"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
+    }
+  ]
+}

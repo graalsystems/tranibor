@@ -12,6 +12,7 @@ from typing import Any
 
 import structlog
 from sqlalchemy import select
+from tranibor_api.db.models import MemoryStore, RunEvent, Skill, SkillVersion
 from tranibor_contracts import (
     KnowledgeRef,
     McpServerRef,
@@ -19,7 +20,7 @@ from tranibor_contracts import (
     StageMemory,
 )
 from tranibor_core.memory_bindings import SHARED, Binding, legacy_scope
-from tranibor_core.run_journal import MEMORY_SKIPPED
+from tranibor_core.run_journal import MEMORY_SKIPPED, PROFILE_CAPPED, PROFILE_UNBOUND
 
 logger = structlog.get_logger("choregos.stage")
 
@@ -74,7 +75,6 @@ async def _agent_skills(session: Any, bundle: Any, agent: Any) -> list[SkillRef]
     if agent is None or not agent.spec.skills:
         return []
     from temporalio.exceptions import ApplicationError
-    from tranibor_api.db.models import Skill, SkillVersion
 
     refs: list[SkillRef] = []
     for requested in agent.spec.skills:
@@ -118,7 +118,6 @@ async def _agent_skills(session: Any, bundle: Any, agent: Any) -> list[SkillRef]
 
 
 async def _skill_exists(session: Any, bundle: Any, slug: str) -> bool:
-    from tranibor_api.db.models import Skill
 
     trouvee = await session.execute(
         select(Skill.id).where(Skill.org_id == bundle.project.org_id, Skill.slug == slug)
@@ -221,7 +220,6 @@ async def _memory_bindings(session: Any, bundle: Any, agent: Any) -> ResolvedMem
     (ADR 0007). A playbook run, with no agent, is `[project:shared write]`, as before.
     """
     from sqlalchemy import select
-    from tranibor_api.db.models import MemoryStore
     from tranibor_api.services.memory_access import reaches_project
     from tranibor_core.memory_bindings import OWN, SHARED, effective_bindings, namespace_of_binding
 
@@ -296,7 +294,6 @@ async def _journal_skipped_memories(session: Any, run_id: str, skipped: list[dic
     if not skipped:
         return
     from sqlalchemy import func
-    from tranibor_api.db.models import RunEvent
     from tranibor_core import utcnow
 
     rows = (
@@ -322,3 +319,63 @@ async def _journal_skipped_memories(session: Any, run_id: str, skipped: list[dic
         session.add(
             RunEvent(run_id=run_id, seq=first + offset, type=MEMORY_SKIPPED, payload=dict(entry), ts=utcnow())
         )
+
+
+async def _journal_run_notes(
+    session: Any, run_id: str, skipped_memories: Any, project: Any, agent: Any
+) -> None:
+    """What the platform tells a run's page at its start: the memories it left out, the profile entries
+    that opened nothing or were capped."""
+    await _journal_skipped_memories(session, run_id, skipped_memories)
+    await _journal_profile_lines(session, run_id, project, agent)
+
+
+async def _journal_profile_lines(session: Any, run_id: str, project: Any, agent: Any) -> None:
+    """What the run's profile entries left out, on the run page (ADR 0224 §4): a `profile.unbound` line for
+    each entry that opened no tool, a `profile.capped` line for each that the cap cut. Not a failure: the
+    run starts. Numbered below 0 as the skipped memories are (see `_journal_skipped_memories`), once per
+    profile even when the stage is replayed."""
+    spec = getattr(getattr(agent, "spec", None), "model_dump", None)
+    stored = spec(mode="json") if spec is not None else None
+    from tranibor_api.services.broker import ProfileReport, profile_entries_of_spec, tools_of_selection
+
+    entries = profile_entries_of_spec(stored)
+    if not entries:
+        return
+    note = ProfileReport()
+    await tools_of_selection(session, {}, project, profiles=entries, report=note)
+    unbound: list[dict[str, Any]] = [
+        {"profile": profile, "reason": why} for profile, why in sorted(note.unbound.items())
+    ]
+    capped: list[dict[str, Any]] = [
+        {"profile": profile, "left_out": left} for profile, left in sorted(note.left_out.items())
+    ]
+    if not unbound and not capped:
+        return
+    from sqlalchemy import func
+    from tranibor_core import utcnow
+
+    rows = (
+        await session.execute(
+            select(RunEvent.type, RunEvent.payload).where(
+                RunEvent.run_id == run_id, RunEvent.type.in_([PROFILE_UNBOUND, PROFILE_CAPPED])
+            )
+        )
+    ).all()
+    already = {(kind, str(payload.get("profile"))) for kind, payload in rows}
+    unbound = [p for p in unbound if (PROFILE_UNBOUND, p["profile"]) not in already]
+    capped = [p for p in capped if (PROFILE_CAPPED, p["profile"]) not in already]
+    if not unbound and not capped:
+        return
+    lowest = (
+        await session.execute(
+            select(func.min(RunEvent.seq)).where(RunEvent.run_id == run_id, RunEvent.seq < 0)
+        )
+    ).scalar()
+    seq = int(lowest or 0) - len(unbound) - len(capped)
+    for payload in unbound:
+        session.add(RunEvent(run_id=run_id, seq=seq, type=PROFILE_UNBOUND, payload=payload, ts=utcnow()))
+        seq += 1
+    for payload in capped:
+        session.add(RunEvent(run_id=run_id, seq=seq, type=PROFILE_CAPPED, payload=payload, ts=utcnow()))
+        seq += 1

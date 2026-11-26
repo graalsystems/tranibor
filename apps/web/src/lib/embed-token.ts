@@ -3,13 +3,18 @@
  * The frame token of the embedded component (S63-12, API `embed_frame`): the session of a frame that a host on
  * ANOTHER site holds, since the console's cookie is `SameSite=Lax` and is not sent there. It is minted for the
  * person by the sign-in popup (first party), handed to the frame by `postMessage` (same origin), kept in the
- * frame's memory (and its `sessionStorage`, to survive a reload of the frame) and sent as `X-Choregos-Embed`.
+ * frame's memory (and its `sessionStorage`, to survive a reload of the frame) and sent as `X-Tranibor-Embed`
+ * (the API still reads the former `X-Choregos-Embed`, ADR 0226).
  * The host application never sees it.
  */
+import { storedName } from "./stored-names";
+
 /** What the sign-in popup says to the frame that opened it. */
-export const SIGNED_IN_MESSAGE = "choregos.embed.signed-in";
-export const EMBED_HEADER = "X-Choregos-Embed";
-const KEY = "choregos.embed.token";
+export const SIGNED_IN_MESSAGE = "tranibor.embed.signed-in";
+/** What a popup of the previous release says (ADR 0226, R9c): accepted too until 0.32.0, during a rolling upgrade. */
+export const SIGNED_IN_MESSAGES: readonly string[] = [SIGNED_IN_MESSAGE, "choregos.embed.signed-in"];
+export const EMBED_HEADER = "X-Tranibor-Embed";
+const KEY = storedName("embed.token");
 
 type Held = { token: string; expiresAt: number };
 let held: Held | null = null;

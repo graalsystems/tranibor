@@ -267,19 +267,22 @@ COPY --from=builder --chown=1000:1000 /app /app
 # that package declares, where the development environment has far more: a forgotten
 # dependency only showed at the first agent launched in a cluster, as a `ModuleNotFoundError`
 # (it happened with `pydantic-settings`). Here, the build fails.
-RUN /app/.venv/bin/choregos-runner --help >/dev/null
+RUN /app/.venv/bin/tranibor-runner --help >/dev/null
 # A job step's command comes from the image the operator maps for it (`CHOREGOS_JOB_IMAGES`, ADR 0056),
-# built FROM this one: the `investment-research` plugin's `choregos-quant` is in its own job image
+# built FROM this one: the `investment-research` plugin's `tranibor-quant` is in its own job image
 # (`plugins/investment-research/Dockerfile`, ADR 0181 O4-3), not here.
-# The platform's commands, by name, for whoever calls them so (a Tekton step's `choregos-runner run`),
-# without putting the venv's `python3` in front of the workspace (#713).
+# The platform's commands, by name, for whoever calls them so (a Tekton step's `tranibor-runner run`),
+# without putting the venv's `python3` in front of the workspace (#713). The former names
+# (`choregos-runner`, `choregos-tools`) stay for the window of ADR 0226 R5: a pipeline written before it
+# calls them.
 RUN set -eux; \
-    for command in choregos-runner choregos-tools; do \
+    for command in tranibor-runner tranibor-tools choregos-runner choregos-tools; do \
       ln -s "/app/.venv/bin/$command" "/usr/local/bin/$command"; \
     done; \
     test "$(command -v python3)" = /usr/local/bin/python3; \
     python3 -c 'import sys; assert sys.prefix == sys.base_prefix, sys.prefix'; \
     if python3 -c 'import tranibor_runner' 2>/dev/null; then exit 1; fi; \
+    tranibor-runner --help >/dev/null; \
     choregos-runner --help >/dev/null
 # headroom must hand the gateway's budget refusal to the agent as the gateway wrote it, or a spent
 # key looks like a silent agent and is retried with a fresh one (S37-12): the image's headroom, a
@@ -296,5 +299,5 @@ RUN timeout 180 /app/.venv/bin/python /tmp/relays_budget_refusal.py && rm /tmp/r
 RUN find /workspace -mindepth 1 -delete && test -z "$(ls -A /workspace)"
 WORKDIR /workspace
 USER 1000
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/.venv/bin/choregos-runner"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/.venv/bin/tranibor-runner"]
 CMD ["run"]

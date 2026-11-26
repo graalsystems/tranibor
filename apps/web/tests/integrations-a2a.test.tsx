@@ -231,7 +231,7 @@ describe("Integrations › An application or another agent (A2A), S62-11", () =>
       "machine:partner-app.p1@machines.choregos.invalid for Partner app",
     );
     expect(screen.getByTestId("a2a-follow-up")).toHaveTextContent(
-      "choregos machines revoke northwind:billing-api partner-app <token id>",
+      "tranibor machines revoke northwind:billing-api partner-app <token id>",
     );
     // Shown once: the page keeps it in memory only. Opened again, it is gone, and the examples say `<token>`.
     unmount();
@@ -260,7 +260,7 @@ describe("Integrations › An application or another agent (A2A), S62-11", () =>
     await waitFor(async () => expect(await snippet()).toContain("billing-api/ship-a-change"));
     const cli = await snippet();
     expect(cli).toContain("export TRANIBOR_API_URL=https://choregos.example TRANIBOR_ORG=northwind");
-    expect(cli).toContain("choregos a2a send billing-api/ship-a-change");
+    expect(cli).toContain("tranibor a2a send billing-api/ship-a-change");
     expect(cli).toContain("--field 'ticket=<ticket>'");
     fireEvent.click(screen.getByRole("tab", { name: "curl (A2A 0.3.0)" }));
     const curl = await snippet();
@@ -301,7 +301,7 @@ describe("Integrations › An application or another agent (A2A), S62-11", () =>
     arrange();
     render(wrap(<A2aIntegration org="northwind" projet="contracts" />));
     await waitFor(() => expect(screen.getByTestId("a2a-no-skill")).toHaveTextContent("northwind:contracts"));
-    expect(await snippet()).toContain("choregos a2a send <project>/<skill>");
+    expect(await snippet()).toContain("tranibor a2a send <project>/<skill>");
   });
 });
 

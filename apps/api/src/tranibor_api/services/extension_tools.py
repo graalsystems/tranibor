@@ -9,13 +9,15 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import status
+from tranibor_contracts import wire
 
 from ..db.models import Project, Run
 from ..errors import ApiError, conflict
 
 #: The platform's own key on an entry of the run's tool list (ADR 0122): what a call does. The run's
 #: tool server does not list it to the model, which reads it in the description and `readOnlyHint`.
-ACCESS_KEY = "x-choregos-access"
+#: `x-tranibor-access`; the former `x-choregos-access` is read and listed too (ADR 0226).
+ACCESS_KEY = wire.ACCESS_KEY
 ACCESSES = ("read", "write", "approval")
 
 
@@ -64,12 +66,13 @@ def extension_result_cap(plugin: str, tool: dict[str, Any]) -> int | None:
 
 
 def extension_access(plugin: str, tool: dict[str, Any]) -> str:
-    """What calling an extension's tool does (ADR 0122): the `x-choregos-access` it declares beside
+    """What calling an extension's tool does (ADR 0122): the `x-tranibor-access` (or the former
+    `x-choregos-access`) it declares beside
     its `name` (`read`, `write`, `approval` — a call that proposes what a person decides), else `read`
     when it is annotated `readOnlyHint: true`, else `write`: the platform does not know what it does,
     and MCP's own default is not read-only. Any other declaration is an extension bug, refused when
     the tools are listed, as a bad `result_max_bytes` is."""
-    declared = tool.get(ACCESS_KEY)
+    declared = wire.read_access(tool)
     if declared is not None:
         if declared not in ACCESSES:
             raise ApiError(

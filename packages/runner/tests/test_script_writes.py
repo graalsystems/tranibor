@@ -84,9 +84,9 @@ def _check_write(stage_input: StageInput, workspace: Path, path: str) -> bool:
 
 def _hook(stage_input: StageInput, workspace: Path, path: str) -> bool:
     """Claude Code's `PreToolUse` scope hook, as the runner writes it for this run, run on a Write."""
-    (workspace / ".choregos" / "hooks").mkdir(parents=True, exist_ok=True)
-    (workspace / ".choregos" / "allowed_paths.txt").write_text("\n".join(SCOPE) + "\n", encoding="utf-8")
-    hook = workspace / ".choregos" / "hooks" / "check_scope.sh"
+    (workspace / ".tranibor" / "hooks").mkdir(parents=True, exist_ok=True)
+    (workspace / ".tranibor" / "allowed_paths.txt").write_text("\n".join(SCOPE) + "\n", encoding="utf-8")
+    hook = workspace / ".tranibor" / "hooks" / "check_scope.sh"
     hook.write_text(
         ClaudeCodeBackend().launch_plan(stage_input, workspace).files[str(hook.relative_to(workspace))]
     )

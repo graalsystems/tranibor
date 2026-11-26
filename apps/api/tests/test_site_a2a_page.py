@@ -2,7 +2,7 @@
 """The public page `docs/site/integrate/a2a.md` says what the A2A door does (S62-09b).
 
 The page's opt-in block is published, the application's account is created by running the page's own
-`choregos machines` commands against the API, then every `curl` request of the page is sent to the
+`tranibor machines` commands against the API, then every `curl` request of the page is sent to the
 door in the page's order, with the headers the page shows. A request the door stops taking, an answer
 of another shape, or a refusal code the page does not list turns this red.
 """
@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 from httpx import AsyncClient
+from tranibor_contracts import wire
 from tranibor_testkit.workflows import CORE_SIMPLE
 
 from .site_pages import run_cli
@@ -91,9 +92,9 @@ async def _publish(client: AsyncClient, project: dict[str, Any]) -> None:
 
 
 async def _application_token(client: AsyncClient) -> str:
-    """The page's two `choregos machines` commands, run against the API as the project's admin."""
-    create = next(c for c in _commands("choregos machines create"))
-    token = next(c for c in _commands("choregos machines token"))
+    """The page's two `tranibor machines` commands, run against the API as the project's admin."""
+    create = next(c for c in _commands("tranibor machines create"))
+    token = next(c for c in _commands("tranibor machines token"))
     created = await run_cli(client, create)
     assert created.exit_code == 0, created.output
     issued = await run_cli(client, token)
@@ -152,8 +153,10 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
 
     card = (await client.get(CARD, headers=auth)).json()
     assert [skill["id"] for skill in card["skills"]] == ["billing-api/ship-a-change"], card
-    fields = next(e for e in card["capabilities"]["extensions"] if e["uri"].endswith("/skill-fields/v1"))
-    assert fields["uri"] in _page()
+    announced = [e for e in card["capabilities"]["extensions"] if e["uri"].endswith("/skill-fields/v1")]
+    fields = announced[0]
+    # The card names the extension under both URIs for the window of ADR 0226; the page the new one (R8).
+    assert [e["uri"] for e in announced if e["uri"] in _page()] == [wire.A2A_SKILL_FIELDS_EXTENSION]
     assert fields["params"]["skills"]["billing-api/ship-a-change"]["required"] == ["ticket"]
 
     calls = _calls()
@@ -180,8 +183,9 @@ async def test_the_page_s_requests_work_in_its_order(client: AsyncClient, projec
 
     registered = await _post(client, _with_task(push, task), {**auth, **push_h})
     assert registered["result"]["signing"]["secret"], registered
-    assert registered["result"]["signing"]["header"] == "X-Choregos-Signature"
-    assert registered["result"]["signing"]["header"] in _page()
+    assert registered["result"]["signing"]["header"] == "X-Tranibor-Signature"
+    # A push carries both names for the window of ADR 0226; the page names the new one only (R8).
+    assert "X-Tranibor-Signature" in _page() and "X-Choregos-Signature" not in _page()
 
     stopped = await _post(client, _with_task(cancel, task), {**auth, **cancel_h})
     assert "result" in stopped, stopped

@@ -59,3 +59,8 @@ def test_the_project_role_grants_what_the_executor_uses(resource: str, verb: str
         f"the executor does `{verb}` on `{resource}`, the project Role does not grant it "
         f"(granted: {sorted(granted)}). In a project namespace, the API would answer 403."
     )
+
+
+def test_the_project_role_lets_the_executor_ask_which_runner_account_it_has() -> None:
+    """ADR 0226 (R9b): the executors read `serviceaccounts/tranibor-runner` before naming an account."""
+    assert "get" in _project_role().get("serviceaccounts", set())

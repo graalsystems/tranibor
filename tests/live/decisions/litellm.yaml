@@ -1,5 +1,5 @@
 # The embedded gateway's configuration with `global.decisions.embedded: true`
-# (`charts/choregos/charts/litellm`), the Service name aside: `laya` here, `<release>-laya` in the
+# (`charts/tranibor/charts/litellm`), the Service name aside: `laya` here, `<release>-laya` in the
 # chart. `tests/charts/test_laya_decisions.py` holds the two together.
 model_list:
   - model_name: platform/decide

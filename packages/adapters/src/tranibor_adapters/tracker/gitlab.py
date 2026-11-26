@@ -2,7 +2,7 @@
 """The GitLab TrackerAdapter: issues, scoped labels, notes, fields in the description.
 
 GitLab looks more like GitHub than Jira: numbered issues, labels, notes. Two differences
-matter: the **scoped** labels (`choregos::implement`) are mutually exclusive on the GitLab side,
+matter: the **scoped** labels (`tranibor::implement`) are mutually exclusive on the GitLab side,
 which reflects a workflow state exactly; and there are no board fields, so the cost, the size
 and the risk live in a metadata block at the end of the description, rewritten every time.
 """
@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 from urllib.parse import quote
 
-from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size
+from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
 from ..errors import ConfigurationError
@@ -25,10 +25,13 @@ from .gitlab_events import parse_gitlab_event
 from .gitlab_instance import check_instance
 from .start_rules import label_searches
 
-STATUS_COMMENT_MARKER = "<!-- choregos:status -->"
-METADATA_START = "<!-- choregos:fields"
+#: `<!-- tranibor:status -->`; a comment written under the former `choregos:` marker is found too.
+STATUS_COMMENT_MARKER = wire.marker("status")
+#: The fields block written into an issue's description: `<!-- tranibor:fields {...} -->`; a description
+#: written before ADR 0226 carries `<!-- choregos:fields`, read too.
+METADATA_START = "<!-- tranibor:fields"
 METADATA_END = "-->"
-METADATA_RE = re.compile(re.escape(METADATA_START) + r"(?P<json>.*?)" + re.escape(METADATA_END), re.S)
+METADATA_RE = re.compile(r"<!-- (?:tranibor|choregos):fields(?P<json>.*?)" + re.escape(METADATA_END), re.S)
 
 
 class GitLabTracker:
@@ -42,7 +45,7 @@ class GitLabTracker:
         project: str,
         *,
         webhook_secret: str = "",
-        label_prefix: str = "choregos::",
+        label_prefix: str = f"{wire.NAME}::",
     ) -> None:
         if not project:
             raise ConfigurationError("`project` is required for the GitLab tracker")
@@ -91,7 +94,7 @@ class GitLabTracker:
                     author=(note.get("author") or {}).get("username", ""),
                     body=note.get("body") or "",
                     marker=STATUS_COMMENT_MARKER
-                    if STATUS_COMMENT_MARKER in (note.get("body") or "")
+                    if wire.carries_marker(note.get("body"), STATUS_COMMENT_MARKER)
                     else None,
                 )
                 for note in notes
@@ -126,7 +129,9 @@ class GitLabTracker:
         return self._key(int(issue["iid"]))
 
     async def set_state(self, key: str, state_mapping: TrackerStateMapping) -> None:
-        """A scoped label `choregos::<state>`: GitLab itself guarantees the exclusivity."""
+        """A scoped label `tranibor::<state>`: GitLab itself guarantees the exclusivity within one scope;
+        the previous state's label under the former scope (`choregos::<state>`, before 0.30.0) is in
+        `remove_labels` (ADR 0226, R9c)."""
         iid = self._iid(key)
         payload: dict[str, Any] = {}
         if state_mapping.label:
@@ -155,7 +160,7 @@ class GitLabTracker:
         body = markdown if marker in markdown else f"{marker}\n{markdown}"
         notes = await self.client.paginate(f"/api/v4/projects/{self.encoded}/issues/{iid}/notes")
         for note in notes:
-            if marker in (note.get("body") or ""):
+            if wire.carries_marker(note.get("body"), marker):
                 await self.client.request(
                     "PUT",
                     f"/api/v4/projects/{self.encoded}/issues/{iid}/notes/{note['id']}",

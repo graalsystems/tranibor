@@ -204,7 +204,7 @@ class JobActor(Strict):
 
     A backtest, a data snapshot or a conversion is code, not judgement: an agent asked to compute a
     Sharpe ratio narrates one. The job runs the same pod, the same declared inputs and outputs and the
-    same gates as an agent step; what it writes in `.choregos/job.json` is *measured*, because the
+    same gates as an agent step; what it writes in `.tranibor/job.json` is *measured*, because the
     platform ran the code that produced it — whereas an agent's facts are what it says.
     """
 
@@ -530,7 +530,7 @@ class Transition(Strict):
     #: is the default. `{"outcome": "pr", "confidence": {"gte": 0.8}}`, `{"done": False}`.
     when: dict[str, OutputCondition] | None = Field(default=None, min_length=1, max_length=10)
     #: The type of each declared output (ADR 0049): `deck: pptx` is a file the agent writes in
-    #: `.choregos/outputs/`; an output not listed is an inline value (markdown or JSON), as before.
+    #: `.tranibor/outputs/`; an output not listed is an inline value (markdown or JSON), as before.
     output_types: dict[str, str] = Field(default_factory=dict)
     on_fail: Retry | None = None
     on_reject: Identifier | None = None
@@ -670,7 +670,8 @@ class ArtifactSpec(Strict):
 class Workflow(Strict):
     """Complete definition of a workflow. Static validation lives in `tranibor_core.dsl`."""
 
-    apiVersion: Literal["choregos/v1"] = "choregos/v1"  # noqa: N815
+    #: `tranibor/v1`; a document written as `choregos/v1` is read as it was written (ADR 0226).
+    apiVersion: Literal["tranibor/v1", "choregos/v1"] = "tranibor/v1"  # noqa: N815
     kind: Literal["Workflow"] = "Workflow"
     metadata: WorkflowMetadata
     actors: dict[str, Actor]

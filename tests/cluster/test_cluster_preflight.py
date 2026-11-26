@@ -13,7 +13,7 @@ A cluster with neither is skipped rather than judged: the test would only be gue
     TRANIBOR_CLUSTER_CONTEXT=kind-preflight-kindnet \
       uv run pytest tests/cluster/test_cluster_preflight.py -m cluster
     make cluster-up                                               # Calico
-    TRANIBOR_CLUSTER_CONTEXT=kind-choregos \
+    TRANIBOR_CLUSTER_CONTEXT=kind-tranibor \
       uv run pytest tests/cluster/test_cluster_preflight.py -m cluster
 
 `TRANIBOR_CLUSTER_PROBE_IMAGE` names a mirror of the probe image where the nodes cannot pull

@@ -24,7 +24,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 needs_helm = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -56,18 +56,18 @@ def _env(deployment: dict[str, Any], container: str | None = None) -> dict[str, 
 @needs_helm
 def test_a_default_install_runs_agents_in_sandboxes() -> None:
     objects = _docs()
-    assert "SandboxTemplate/choregos-runner" in objects
-    worker = _env(objects["Deployment/choregos-orchestrator-executor"])
-    assert worker["CHOREGOS_EXECUTOR_KIND"] == "agent_sandbox"
-    assert worker["CHOREGOS_RUNNER_NAMESPACE_PATTERN"] == "choregos", "the release namespace"
+    assert "SandboxTemplate/tranibor-runner" in objects
+    worker = _env(objects["Deployment/tranibor-orchestrator-executor"])
+    assert worker["TRANIBOR_EXECUTOR_KIND"] == "agent_sandbox"
+    assert worker["TRANIBOR_RUNNER_NAMESPACE_PATTERN"] == "choregos", "the release namespace"
 
 
 @needs_helm
 def test_the_api_knows_the_executor() -> None:
     objects = _docs("--set", "global.runner.allowedExecutors={agent_sandbox,k8s_job}")
-    api = _env(objects["Deployment/choregos-api"], "api")
-    assert api["CHOREGOS_EXECUTOR_KIND"] == "agent_sandbox"
-    assert api["CHOREGOS_EXECUTORS_ALLOWED"] == "agent_sandbox,k8s_job"
+    api = _env(objects["Deployment/tranibor-api"], "api")
+    assert api["TRANIBOR_EXECUTOR_KIND"] == "agent_sandbox"
+    assert api["TRANIBOR_EXECUTORS_ALLOWED"] == "agent_sandbox,k8s_job"
 
 
 @needs_helm
@@ -81,8 +81,8 @@ def test_without_the_operator_the_render_fails_and_names_it() -> None:
 @needs_helm
 @pytest.mark.no_operator
 def test_the_operator_check_can_be_skipped_for_an_offline_rendering() -> None:
-    assert "SandboxTemplate/choregos-runner" in _docs(
-        "--set", "choregos-orchestrator.runner.skipOperatorCheck=true"
+    assert "SandboxTemplate/tranibor-runner" in _docs(
+        "--set", "tranibor-orchestrator.runner.skipOperatorCheck=true"
     )
 
 
@@ -90,10 +90,10 @@ def test_the_operator_check_can_be_skipped_for_an_offline_rendering() -> None:
 @pytest.mark.no_operator
 def test_other_executors_need_no_operator() -> None:
     objects = _docs("--set", "global.runner.executor=k8s_job")
-    assert "SandboxTemplate/choregos-runner" not in objects
-    assert _env(objects["Deployment/choregos-api"], "api")["CHOREGOS_EXECUTOR_KIND"] == "k8s_job"
-    assert _env(objects["Deployment/choregos-orchestrator-executor"])[
-        "CHOREGOS_RUNNER_NAMESPACE_PATTERN"
+    assert "SandboxTemplate/tranibor-runner" not in objects
+    assert _env(objects["Deployment/tranibor-api"], "api")["TRANIBOR_EXECUTOR_KIND"] == "k8s_job"
+    assert _env(objects["Deployment/tranibor-orchestrator-executor"])[
+        "TRANIBOR_RUNNER_NAMESPACE_PATTERN"
     ] == ("proj-{slug}-runners")
 
 
@@ -105,36 +105,37 @@ def test_tekton_objects_only_for_tekton() -> None:
     assert "tekton.dev" in tekton
     # S87-05: the agent stage's Task is inline in each PipelineRun; no copy is published to be copied
     # into the namespaces, where an older one could run the agent beside the runner.
-    assert "choregos-agent-stage" not in tekton and "kind: Task\n" not in tekton
+    assert "tranibor-agent-stage" not in tekton and "kind: Task\n" not in tekton
 
 
 @needs_helm
 def test_local_values_keep_k8s_job() -> None:
     objects = _docs("-f", str(CHART / "values" / "local.yaml"))
-    assert "SandboxTemplate/choregos-runner" not in objects
-    assert _env(objects["Deployment/choregos-api"], "api")["CHOREGOS_EXECUTOR_KIND"] == "k8s_job"
+    assert "SandboxTemplate/tranibor-runner" not in objects
+    assert _env(objects["Deployment/tranibor-api"], "api")["TRANIBOR_EXECUTOR_KIND"] == "k8s_job"
 
 
 @needs_helm
 def test_the_orchestrator_cannot_disagree_with_the_global_setting() -> None:
-    result = _render("--set", "choregos-orchestrator.runner.executor=k8s_job", check=False)
+    result = _render("--set", "tranibor-orchestrator.runner.executor=k8s_job", check=False)
     assert result.returncode != 0 and "global.runner.executor" in result.stderr
 
 
 @needs_helm
 def test_prod_values_write_the_executor_and_warm_the_pool() -> None:
     objects = _docs("-f", str(CHART / "values" / "prod.yaml"))
-    assert objects["SandboxWarmPool/choregos-runner"]["spec"]["replicas"] == 2
+    assert objects["SandboxWarmPool/tranibor-runner"]["spec"]["replicas"] == 2
+    assert objects["SandboxWarmPool/choregos-runner"]["spec"]["replicas"] == 0, "the former pool stays cold"
 
 
 @needs_helm
 def test_custom_image_executor_is_wired() -> None:
-    default = _env(_docs()["Deployment/choregos-orchestrator-executor"])
-    assert default["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
-    off = _docs("--set", "choregos-orchestrator.runner.customImageExecutor=")
-    assert _env(off["Deployment/choregos-orchestrator-executor"])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == ""
+    default = _env(_docs()["Deployment/tranibor-orchestrator-executor"])
+    assert default["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
+    off = _docs("--set", "tranibor-orchestrator.runner.customImageExecutor=")
+    assert _env(off["Deployment/tranibor-orchestrator-executor"])["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == ""
     jobs = _docs("--set", "global.runner.executor=k8s_job")
-    assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/choregos-orchestrator-executor"])
+    assert "TRANIBOR_CUSTOM_IMAGE_EXECUTOR" not in _env(jobs["Deployment/tranibor-orchestrator-executor"])
 
 
 @needs_helm
@@ -142,16 +143,16 @@ def test_custom_image_executor_is_wired() -> None:
 def test_tekton_under_container_renders_k8s_job_as_the_second_executor() -> None:
     """S87-02: an agent step Tekton cannot isolate goes to `runner.customImageExecutor`, `k8s_job` unless the
     values name another; under `process` nothing is routed, so nothing is rendered."""
-    executor = "Deployment/choregos-orchestrator-executor"
+    executor = "Deployment/tranibor-orchestrator-executor"
     tekton = _env(_docs("--set", "global.runner.executor=tekton")[executor])
-    assert tekton["CHOREGOS_RUNNER_AGENT_ISOLATION"] == "container"
-    assert tekton["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
+    assert tekton["TRANIBOR_RUNNER_AGENT_ISOLATION"] == "container"
+    assert tekton["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == "k8s_job"
     named = _docs(
         "--set",
         "global.runner.executor=tekton",
         "--set",
-        "choregos-orchestrator.runner.customImageExecutor=aca",
+        "tranibor-orchestrator.runner.customImageExecutor=aca",
     )
-    assert _env(named[executor])["CHOREGOS_CUSTOM_IMAGE_EXECUTOR"] == "aca"
+    assert _env(named[executor])["TRANIBOR_CUSTOM_IMAGE_EXECUTOR"] == "aca"
     process = _docs("--set", "global.runner.executor=tekton", "--set", "global.runner.agentIsolation=process")
-    assert "CHOREGOS_CUSTOM_IMAGE_EXECUTOR" not in _env(process[executor])
+    assert "TRANIBOR_CUSTOM_IMAGE_EXECUTOR" not in _env(process[executor])

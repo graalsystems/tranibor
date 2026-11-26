@@ -33,7 +33,7 @@ OTHER = "THE-FILE-THE-AGENT-CANNOT-WRITE"
 def tree(tmp_path: Path) -> tuple[Path, Path]:
     """(workspace, a file outside the agent's reach that the runner could write)."""
     workspace = tmp_path / "workspace"
-    (workspace / ".choregos").mkdir(parents=True)
+    (workspace / ".tranibor").mkdir(parents=True)
     other = tmp_path / "runner-owned.txt"
     other.write_text(OTHER, encoding="utf-8")
     return workspace, other
@@ -77,7 +77,7 @@ def test_the_context_files_over_a_link_are_refused(
     kind: str, name: str, tree: tuple[Path, Path], stage_input: StageInput
 ) -> None:
     workspace, other = tree
-    KINDS[kind](workspace / ".choregos" / name, other)
+    KINDS[kind](workspace / ".tranibor" / name, other)
     runner_files = Workspace.__new__(Workspace)
     runner_files.path = workspace
     with pytest.raises(safe_files.LinkRefusedError):
@@ -132,7 +132,7 @@ def test_a_skills_folder_that_is_a_link_is_refused(tree: tuple[Path, Path], tmp_
     workspace, _ = tree
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    _symlink(workspace / ".choregos" / "skills", elsewhere)
+    _symlink(workspace / ".tranibor" / "skills", elsewhere)
     with pytest.raises(safe_files.LinkRefusedError):
         place_skills([{"slug": "s", "files": SKILL}], [SKILL_REF], workspace, None)
     assert list(elsewhere.iterdir()) == []
@@ -202,7 +202,7 @@ async def test_a_resumed_workspace_with_a_link_on_task_md_stops_the_run_named(
 ) -> None:
     other = tmp_path / "runner-owned.txt"
     other.write_text(OTHER, encoding="utf-8")
-    KINDS[kind](runner_settings.workspace / ".choregos" / "task.md", other)
+    KINDS[kind](runner_settings.workspace / ".tranibor" / "task.md", other)
     client = FakeInternalClient(stage_input)
     outcome = await Runner(runner_settings, client).execute(stage_input, client)  # type: ignore[arg-type]
     assert outcome.exit_code is Exit.WORKSPACE_UNSAFE
@@ -220,8 +220,8 @@ async def test_a_resumed_workspace_without_a_link_runs_as_before(
 
     agent_script({"turns": [{"result": valid_result("ok")}]}, stage_input, runner_settings.workspace)
     client = FakeInternalClient(stage_input)
-    (runner_settings.workspace / ".choregos").mkdir(parents=True)
-    (runner_settings.workspace / ".choregos" / "task.md").write_text("an earlier turn", encoding="utf-8")
+    (runner_settings.workspace / ".tranibor").mkdir(parents=True)
+    (runner_settings.workspace / ".tranibor" / "task.md").write_text("an earlier turn", encoding="utf-8")
     outcome = await Runner(runner_settings, client).execute(stage_input, client)  # type: ignore[arg-type]
     assert outcome.exit_code is Exit.OK
 
@@ -232,10 +232,10 @@ def test_a_remote_agents_file_over_a_link_is_refused(kind: str, tree: tuple[Path
     from tranibor_runner.remote import _land
 
     workspace, other = tree
-    KINDS[kind](workspace / ".choregos" / "outputs" / "report.md", other)
+    KINDS[kind](workspace / ".tranibor" / "outputs" / "report.md", other)
     artifact = A2aArtifact(
         artifact_id="a", name="report.md", parts=[A2aPart(kind="file", name="report.md", content=b"x")]
     )
     with pytest.raises(safe_files.LinkRefusedError):
-        _land(workspace, artifact, Path(".choregos/outputs"), {}, {}, {})
+        _land(workspace, artifact, Path(".tranibor/outputs"), {}, {}, {})
     assert other.read_text(encoding="utf-8") == OTHER
