@@ -1,0 +1,72 @@
+{
+  "name": "notes",
+  "version": 1,
+  "description": "A shelf of short notes, whatever the product that keeps them.",
+  "tools": [
+    {
+      "name": "get_provider",
+      "access": "read",
+      "description": "Which instance answers, so that an agent can tell several apart.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "output": {
+        "type": "object",
+        "required": ["instance", "provider"],
+        "properties": {
+          "instance": {"type": "string"},
+          "provider": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "list_notes",
+      "access": "read",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tag": {"type": "string", "maxLength": 64},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 200}
+        }
+      },
+      "output": {
+        "type": "object",
+        "required": ["notes"],
+        "properties": {
+          "notes": {"type": "array", "items": {"$ref": "#/$defs/note"}}
+        }
+      }
+    },
+    {
+      "name": "add_note",
+      "access": "write",
+      "human_approval": false,
+      "platform_arguments": ["action_key"],
+      "input": {
+        "type": "object",
+        "required": ["text"],
+        "additionalProperties": false,
+        "properties": {
+          "text": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "tag": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+        }
+      },
+      "output": {"$ref": "#/$defs/note"}
+    }
+  ],
+  "$defs": {
+    "note": {
+      "type": "object",
+      "required": ["id", "text", "created"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "text": {"type": "string"},
+        "tag": {"type": ["string", "null"]},
+        "created": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

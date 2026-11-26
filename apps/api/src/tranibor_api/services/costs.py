@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -25,25 +26,35 @@ from ..schemas import (
 
 async def estimate_cost(session: AsyncSession, project_id: str, item: WorkItem) -> CostEstimate | None:
     """Median and p80 of the comparable work items over 90 days (S4-04)."""
-    if not item.size:
-        return None
-    since = datetime.now(UTC) - timedelta(days=90)
-    rows = (
-        (
-            await session.execute(
-                select(WorkItem.totals).where(
-                    WorkItem.project_id == project_id,
-                    WorkItem.size == item.size,
-                    WorkItem.closed_at.is_not(None),
-                    WorkItem.closed_at >= since,
-                )
+    return (await estimate_costs(session, project_id, [item]))[item.id]
+
+
+async def estimate_costs(
+    session: AsyncSession, project_id: str, items: Sequence[WorkItem]
+) -> dict[str, CostEstimate | None]:
+    """`estimate_cost` of each work item, by id: one query for a whole page, whatever its sizes (#2285)."""
+    sizes = sorted({item.size for item in items if item.size})
+    peers: dict[str, list[float]] = {size: [] for size in sizes}
+    if sizes:
+        since = datetime.now(UTC) - timedelta(days=90)
+        rows = await session.execute(
+            select(WorkItem.size, WorkItem.totals).where(
+                WorkItem.project_id == project_id,
+                WorkItem.size.in_(sizes),
+                WorkItem.closed_at.is_not(None),
+                WorkItem.closed_at >= since,
             )
         )
-        .scalars()
-        .all()
-    )
-    costs = sorted(float((t or {}).get("cost_usd", 0.0)) for t in rows if t)
-    costs = [c for c in costs if c > 0]
+        for size, totals in rows:
+            if totals:
+                peers[size].append(float(totals.get("cost_usd", 0.0)))
+    return {item.id: _estimate(item, peers.get(item.size or "", [])) for item in items}
+
+
+def _estimate(item: WorkItem, peers: list[float]) -> CostEstimate | None:
+    if not item.size:
+        return None
+    costs = sorted(c for c in peers if c > 0)
     if not costs:
         return None
     median = costs[len(costs) // 2]
