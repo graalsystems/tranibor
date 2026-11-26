@@ -4,8 +4,8 @@ description: >-
   Agentic delivery platform of GRAAL.SYSTEMS SAS: API, front end, Temporal workers,
   tools sidecar, and the dependencies that make it run.
 type: application
-version: 0.29.5
-appVersion: "0.29.5"
+version: 0.30.0
+appVersion: "0.30.0"
 home: https://github.com/graalsystems/tranibor
 sources:
   - https://github.com/graalsystems/tranibor
@@ -15,64 +15,64 @@ keywords: [agents, delivery, temporal, tekton, argocd]
 dependencies:
   - name: tranibor-api
     alias: api
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/api
   - name: tranibor-web
     alias: web
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/web
   - name: tranibor-orchestrator
     alias: orchestrator
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/orchestrator
   - name: tranibor-tools
     alias: tools
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/tools
   # The platform's dependencies. Off by default: a serious installation takes them
   # from outside (PostgreSQL operator, production Temporal, shared gateway).
   # Switched on, they are enough for a single-node bench — that is the `values/local.yaml` demo.
   - name: tranibor-postgresql
     alias: postgresql
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/postgresql
     condition: global.database.embedded
   - name: tranibor-temporal
     alias: temporal
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/temporal
     condition: global.temporal.embedded
   - name: tranibor-litellm
     alias: litellm
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/litellm
     condition: global.gateway.embedded
   - name: tranibor-ecphoria
     alias: ecphoria
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/ecphoria
     condition: global.memory.embedded
   # ADR 0121: a self-hosted decision model behind the embedded LiteLLM, as `platform/decide`.
   - name: tranibor-laya
     alias: laya
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/laya
     condition: global.decisions.embedded
   # S80-17: self-hosted web search (SearXNG + search-only Firecrawl [+ relay]). Off by default.
   - name: tranibor-websearch
     alias: websearch
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/websearch
     condition: tranibor-websearch.enabled,choregos-websearch.enabled,websearch.enabled
   # ADR 0208, the all-in-one mode: an S3-compatible object store and an OIDC provider, each off by
   # default and each with its own switch, so a site brings its own S3 or its own Keycloak instead.
   - name: tranibor-objectstore
     alias: objectstore
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/objectstore
     condition: global.objectStore.embedded
   - name: tranibor-keycloak
     alias: keycloak
-    version: 0.29.5
+    version: 0.30.0
     repository: file://charts/keycloak
     condition: global.oidc.embedded
