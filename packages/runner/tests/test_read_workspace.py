@@ -25,8 +25,8 @@ def test_the_read_only_scope_refuses_every_repository_file_and_keeps_the_deliver
     rails = GuardRails(Permissions(write_paths=READ_ONLY), workspace="/workspace")
     assert not rails.check_write("/workspace/src/orders.py").allowed
     assert not rails.check_write("README.md").allowed
-    assert rails.check_write("/workspace/.choregos/outputs/analysis.md").allowed
-    assert rails.check_write(".choregos/result.json").allowed
+    assert rails.check_write("/workspace/.tranibor/outputs/analysis.md").allowed
+    assert rails.check_write(".tranibor/result.json").allowed
     # Why the scope is never `[]`: that is "no scope declared", and the write goes through.
     assert GuardRails(Permissions(write_paths=[])).check_write("src/orders.py").allowed
 
@@ -42,7 +42,7 @@ async def test_a_read_run_changes_nothing_of_the_repository_and_pushes_nothing(
                 {
                     "writes": [
                         {"path": "src/orders.py", "content": "def total(lines):\n    return 0\n"},
-                        {"path": ".choregos/outputs/analysis.md", "content": "# Analysis\n"},
+                        {"path": ".tranibor/outputs/analysis.md", "content": "# Analysis\n"},
                     ],
                     "result": valid_result("analysed"),
                 },

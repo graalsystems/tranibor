@@ -12,8 +12,9 @@ the Job the executor posts, and these tests fail when they part again:
 - a Job's pod carries every label of the warm pool's pod, and the warm pool's pod every label of a
   Job's pod but the run's own identifier;
 - every NetworkPolicy the chart renders selects both shapes or neither;
-- the run-pod selector a platform is told to use (`choregos/sandbox: "true"`, docs/deployment.md)
-  selects both.
+- the run-pod selector a platform is told to use (`tranibor/sandbox: "true"`, docs/deployment.md), and
+  the former one an operator's policy written before 0.30.0 holds (`choregos/sandbox: "true"`), select
+  both (ADR 0226, R9b: the label is written under both keys for the window).
 """
 
 from __future__ import annotations
@@ -31,12 +32,15 @@ from tranibor_core.domain import StageJobSpec
 from .conftest import OPERATOR_API
 from .test_single_node_agent_network import _selects
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 #: What a platform that holds agent pods by a policy of its own selects (for example an operator's
 #: `choregos-sandbox-egress` and `choregos-sandbox-assignment`).
-PLATFORM_RUN_POD_SELECTOR = {"matchLabels": {"choregos/sandbox": "true"}}
+PLATFORM_RUN_POD_SELECTORS = (
+    {"matchLabels": {"tranibor/sandbox": "true"}},
+    {"matchLabels": {"choregos/sandbox": "true"}},
+)
 #: The labels a Job's pod carries that belong to ONE run, not to the family.
-PER_RUN = {"choregos/run-id"}
+PER_RUN = {"tranibor/run-id", "choregos/run-id"}
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -54,8 +58,8 @@ def _rendered(*overrides: str) -> list[dict[str, Any]]:
 def rendered() -> list[dict[str, Any]]:
     """The chart on the warm pool, with its own NetworkPolicies and the assignment policy."""
     return _rendered(
-        "choregos-orchestrator.runner.executor=agent_sandbox",
-        "choregos-orchestrator.runner.namespacePattern=choregos",
+        "tranibor-orchestrator.runner.executor=agent_sandbox",
+        "tranibor-orchestrator.runner.namespacePattern=choregos",
         "global.rbac.jobRunner=true",
         "networkPolicies.enabled=true",
     )
@@ -116,7 +120,7 @@ async def test_every_chart_policy_selects_both_pod_shapes_or_neither(
 ) -> None:
     policies = [d for d in rendered if d["kind"] == "NetworkPolicy"]
     names = {p["metadata"]["name"] for p in policies}
-    assert {"choregos-runner-assignment", "choregos-runner-egress"} <= names, names
+    assert {"tranibor-runner-assignment", "tranibor-runner-egress"} <= names, names
     apart = [
         policy["metadata"]["name"]
         for policy in policies
@@ -125,8 +129,13 @@ async def test_every_chart_policy_selects_both_pod_shapes_or_neither(
     assert not apart, f"policies that hold one executor's agent pods and not the other's: {apart}"
 
 
+@pytest.mark.parametrize("selector", PLATFORM_RUN_POD_SELECTORS, ids=["tranibor", "choregos"])
 async def test_the_platform_s_run_pod_selector_selects_both_pod_shapes(
-    sandbox_pod: dict[str, str], job_pod: dict[str, str]
+    selector: dict[str, Any], sandbox_pod: dict[str, str], job_pod: dict[str, str]
 ) -> None:
-    assert _selects(PLATFORM_RUN_POD_SELECTOR, sandbox_pod)
-    assert _selects(PLATFORM_RUN_POD_SELECTOR, job_pod), "a k8s_job pod is outside the run-pod policy"
+    assert _selects(selector, sandbox_pod)
+    assert _selects(selector, job_pod), "a k8s_job pod is outside the run-pod policy"
+
+
+async def test_a_job_s_pod_carries_its_run_under_both_keys(job_pod: dict[str, str]) -> None:
+    assert job_pod["tranibor/run-id"] == job_pod["choregos/run-id"] == "r-1"

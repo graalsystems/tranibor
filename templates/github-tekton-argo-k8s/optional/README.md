@@ -1,6 +1,6 @@
 # Optional GitHub add-ons
 
-These workflows are **not** part of Choregos's core: they add direct interactions with an agent
+These workflows are **not** part of Tranibor's core: they add direct interactions with an agent
 from GitHub, beside the platform. They are **disabled by default**; copy them into the project's
 `.github/workflows/` if you want them.
 

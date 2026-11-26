@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """A values file says each key once (S39-06e).
 
-`charts/choregos/values.yaml` carried `global.secrets` twice: the `envPattern` block, then the KEK
+`charts/tranibor/values.yaml` carried `global.secrets` twice: the `envPattern` block, then the KEK
 block. A YAML loader keeps the last one, so `global.secrets.envPattern` was silently dropped from the
 defaults the chart documents. Nothing broke only because its default was empty. A loader that
 refuses a repeated key makes the next such merge red.
@@ -37,7 +37,7 @@ _Strict.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping
 
 
 def test_there_are_values_files() -> None:
-    assert ROOT / "charts/choregos/values.yaml" in VALUES
+    assert ROOT / "charts/tranibor/values.yaml" in VALUES
 
 
 @pytest.mark.parametrize("path", VALUES, ids=lambda p: p.relative_to(ROOT).as_posix())
@@ -47,5 +47,5 @@ def test_no_key_is_repeated(path: pathlib.Path) -> None:
 
 
 def test_the_secrets_block_keeps_both_settings() -> None:
-    secrets = yaml.safe_load((ROOT / "charts/choregos/values.yaml").read_text())["global"]["secrets"]
+    secrets = yaml.safe_load((ROOT / "charts/tranibor/values.yaml").read_text())["global"]["secrets"]
     assert {"envPattern", "keksSecretRef", "keksKey", "keksInExternalSecret"} <= set(secrets)

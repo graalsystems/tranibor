@@ -26,7 +26,7 @@ A profile you cannot tie to the need does not go on the list. Two solid profiles
 than a list of three that look alike.
 
 ## Outputs
-In `.choregos/result.json`, `outputs.profils` carries the list (Markdown), and the `summary`
+In `.tranibor/result.json`, `outputs.profils` carries the list (Markdown), and the `summary`
 fits in one sentence: how many profiles, and the main point of caution.
 
 Fill in `evidence.facts` too — they are the only evidence the platform can check on its own,

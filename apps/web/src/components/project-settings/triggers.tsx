@@ -217,7 +217,7 @@ function TriggerLine({ slug, trigger }: { slug: string; trigger: Trigger }) {
           </p>
           {trigger.auth === "signature" && (
             <p className="break-all">
-              Signing secret (HMAC-SHA256 of the body, in <code>X-Choregos-Signature: sha256=…</code>):{" "}
+              Signing secret (HMAC-SHA256 of the body, in <code>X-Tranibor-Signature: sha256=…</code>):{" "}
               <code>{minted.signing_secret}</code>
             </p>
           )}

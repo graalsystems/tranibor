@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/human-decision.schema.json",
+  "$id": "https://tranibor.dev/schemas/human-decision.schema.json",
   "title": "HumanDecision",
   "description": "A person's decision, routed to a WorkflowInterpreter (console, board, comment, Slack, CLI).",
   "type": "object",

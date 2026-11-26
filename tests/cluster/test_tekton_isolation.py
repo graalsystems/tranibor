@@ -73,7 +73,7 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
         project_slug="demo",
         namespace=namespace,
         runner_image=IMAGE,
-        api_url="http://choregos-api:8000",
+        api_url="http://tranibor-api:8000",
         run_token="unused: read from the run's Secret",
         agent_isolation="container",
         timeout_minutes=10,
@@ -115,7 +115,7 @@ def outcome() -> dict[str, Any]:
     token = f"s87-run-token-{secrets.token_hex(16)}"
     kubectl_shared("create", "namespace", namespace)
     try:
-        kubectl_shared("create", "serviceaccount", "choregos-runner", "-n", namespace)
+        kubectl_shared("create", "serviceaccount", "tranibor-runner", "-n", namespace)
         secret = {
             "apiVersion": "v1",
             "kind": "Secret",

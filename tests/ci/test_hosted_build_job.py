@@ -17,7 +17,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CI = ROOT / ".github" / "workflows" / "ci.yml"
-VALUES = ROOT / "charts" / "choregos" / "values.yaml"
+VALUES = ROOT / "charts" / "tranibor" / "values.yaml"
 
 
 def _workflow() -> dict[str, Any]:

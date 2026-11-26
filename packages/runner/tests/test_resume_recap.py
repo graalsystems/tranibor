@@ -46,7 +46,7 @@ def _journal(workspace: Path, extra: list[dict[str, Any]] | None = None) -> None
         },
         *(extra or []),
     ]
-    path = workspace / ".choregos" / "transcript.jsonl"
+    path = workspace / ".tranibor" / "transcript.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(_update(i, u) for i, u in enumerate(updates, 1)) + "\n", encoding="utf-8")
     (workspace / SAVED_SESSION).write_text(

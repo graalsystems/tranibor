@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 L = "choregos-litellm"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")

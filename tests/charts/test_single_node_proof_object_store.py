@@ -23,7 +23,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 PROFILE = CHART / "values" / "single-node.yaml"
 PROOF = ROOT / "tools" / "single-node" / "proof.sh"
 #: What the k3d branch of `s3_up` computes at run time: the SeaweedFS container's address.
@@ -94,15 +94,15 @@ def _env(container: dict[str, Any]) -> dict[str, Any]:
 
 def test_the_proof_s_api_writes_its_files_to_a_bucket_the_proof_created() -> None:
     documents = _documents()
-    api = next(d for d in documents if (d["kind"], d["metadata"]["name"]) == ("Deployment", "choregos-api"))
+    api = next(d for d in documents if (d["kind"], d["metadata"]["name"]) == ("Deployment", "tranibor-api"))
     env = _env(api["spec"]["template"]["spec"]["containers"][0])
     # Not AWS: an empty endpoint is AWS's, where the bucket `choregos` is nobody's the proof knows.
-    assert env["CHOREGOS_OBJECT_STORE_ENDPOINT"] == ENDPOINT, env.get("CHOREGOS_OBJECT_STORE_ENDPOINT")
-    bucket = env["CHOREGOS_OBJECT_STORE_URL"].removeprefix("s3://").split("/", 1)[0]
+    assert env["TRANIBOR_OBJECT_STORE_ENDPOINT"] == ENDPOINT, env.get("TRANIBOR_OBJECT_STORE_ENDPOINT")
+    bucket = env["TRANIBOR_OBJECT_STORE_URL"].removeprefix("s3://").split("/", 1)[0]
     created = _created_buckets()
     assert bucket in created, f"the API writes to `{bucket}`, the proof creates {created}"
-    assert "CHOREGOS_OBJECT_STORE_ACCESS_KEY" in env, "the store's keys come from a Secret"
-    secret = env["CHOREGOS_OBJECT_STORE_ACCESS_KEY"]["secretKeyRef"]["name"]
+    assert "TRANIBOR_OBJECT_STORE_ACCESS_KEY" in env, "the store's keys come from a Secret"
+    secret = env["TRANIBOR_OBJECT_STORE_ACCESS_KEY"]["secretKeyRef"]["name"]
     assert f"create secret generic {secret}" in _function("install"), f"proof.sh never creates {secret}"
 
 

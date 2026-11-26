@@ -1,0 +1,88 @@
+# LOCAL single-node bench (kind, k3d, Docker Desktop): everything is embedded, nothing to provide.
+#
+#   helm install choregos charts/tranibor -f charts/tranibor/values/local.yaml
+#
+# What it is not: a production installation. A single-instance PostgreSQL without
+# backup, a development Temporal on SQLite, a single-replica gateway.
+global:
+  # Each agent stage is a Job of this namespace: a bench has no agent-sandbox operator.
+  runner:
+    executor: k8s_job
+  domain: choregos.localtest.me
+  publicUrl: http://choregos.localtest.me
+  apiUrl: http://choregos.localtest.me
+  environment: dev
+  database:
+    embedded: true
+  temporal:
+    embedded: true
+  gateway:
+    embedded: true
+    # Empty: the chart generates the master key and keeps it from one update to the next.
+    secretRef: ""
+  memory:
+    embedded: true
+  devSecrets: true
+  # A bench without an IdP: `/auth/login?as=<email>`. The two named admins receive ORG_ADMIN,
+  # any other e-mail is a developer.
+  devLogin:
+    enabled: true
+    adminEmails: "admin@northwind.dev,admin@demo.dev"
+  externalSecrets:
+    enabled: false
+  rbac:
+    # A local bench has no Tekton: nothing to read at cluster scale.
+    clusterScoped: false
+    # Nobody else sets this right here: the chart does.
+    jobRunner: true
+
+tranibor-api:
+  replicaCount: 1
+  migrations:
+    # The database is embedded: it does not exist before the installation. The API pods
+    # restart a few times while waiting for the schema, then stabilize.
+    hook: post-install,post-upgrade
+  autoscaling: { enabled: false }
+  podDisruptionBudget: { enabled: false }
+  ingress:
+    enabled: true
+    kind: ingress
+    className: nginx
+    hostnames: ["choregos.localtest.me"]
+
+tranibor-web:
+  replicaCount: 1
+  ingress:
+    enabled: true
+    kind: ingress
+    className: nginx
+    hostnames: ["choregos.localtest.me"]
+
+tranibor-orchestrator:
+  queues:
+    - { name: orchestrator, replicas: 1, resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } } }
+    - { name: executor, replicas: 1, resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } } }
+    - { name: tracker, replicas: 1, resources: { requests: { cpu: 50m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+    - { name: memory, replicas: 1, resources: { requests: { cpu: 50m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+  runner:
+    # A single namespace on a bench: the agents run next to the platform.
+    namespacePattern: choregos
+    # Neither NetworkPolicy nor proxy in this namespace: the agents exit directly.
+    egressProxy: ""
+    limits: { cpu: "2", memory: 4Gi }
+    # Nothing here forbids a direct way out, so the egress gate (S80-07f) would refuse every agent
+    # pod. A bench, never a site: the single-node profile (`values/single-node.yaml`) keeps it on.
+    egressGate:
+      enabled: false
+
+# Tools sidecar: a Tekton Task, hence not applicable on a local bench.
+tranibor-tools:
+  enabled: false
+
+# On a single node without Prometheus operator or Cilium, these objects have no reader.
+monitoring:
+  serviceMonitor: false
+  alerts: false
+  dashboards: false
+networkPolicies:
+  enabled: false

@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from starlette.datastructures import UploadFile
 from tranibor_adapters.storage import ObjectStoreError
 from tranibor_contracts import Artifact, Control, EventType, HumanDecision, HumanRequestKind, Role
+from tranibor_contracts.wire import both_headers
 from tranibor_core import WorkflowEngine, utcnow
 from tranibor_core.dsl.groups import group_for
 from tranibor_core.temporal_connection import organisation_scope
@@ -176,8 +177,8 @@ async def create_work_item(ctx: ProjectCtx, body: WorkItemCreate, session: Db) -
     """Files a work item, whatever the project's tracker (ADR 0059).
 
     Internal tracker: the platform mints the key. External tracker: the issue is created there
-    first (labelled `source:choregos`, never `agent-ready`), and the work item is recorded under
-    its key; a tracker that refuses gives a 502 and nothing is created.
+    first (labelled `source:tranibor` and the former `source:choregos`, never `agent-ready`), and the work
+    item is recorded under its key; a tracker that refuses gives a 502 and nothing is created.
     """
     ctx.require(Permission.ITEM_CONTROL)
     item = await file_work_item(session, ctx.principal, ctx.project, body)
@@ -342,7 +343,7 @@ async def get_artifact_content(
         headers={
             "Content-Disposition": f'{disposition}; filename="{filename_of(row)}"',
             "ETag": f'"{row.digest}"',
-            "X-Choregos-Digest": row.digest,
+            **both_headers("Digest", row.digest),
             "X-Content-Type-Options": "nosniff",
             # An HTML or SVG artifact is an agent's content: it must never run as the console's page.
             "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'",

@@ -153,7 +153,7 @@ async def main() -> int:
                     },
                     spend_collected=True,
                     result={
-                        "schema": "choregos/StageResult/v1",
+                        "schema": "tranibor/StageResult/v1",
                         "status": "done",
                         "summary": f"{role} stage done",
                         "evidence": {"facts": {"tests_passed": True, "tests_run": random.randint(80, 500)}},

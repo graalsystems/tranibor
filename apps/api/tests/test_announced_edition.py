@@ -75,7 +75,7 @@ def test_announcing_enterprise_with_an_extension_that_declares_itself_starts(mon
 
 @pytest.mark.asyncio
 async def test_the_metrics_tell_the_edition(client: Any) -> None:
-    """`choregos_edition_info`: without it, the metrics history does not say what was running.
+    """`tranibor_edition_info`: without it, the metrics history does not say what was running.
 
     An operator looking at a dashboard from three weeks ago must be able to know which edition
     produced those figures. `GET /edition` only answers for today's process.
@@ -84,8 +84,9 @@ async def test_the_metrics_tell_the_edition(client: Any) -> None:
 
     await refresh()
     body = (await client.get("/metrics")).text
-    assert 'choregos_edition_info{edition="community",version=' in body
-    assert body.count("choregos_edition_info{") == 1, "a single series: it is not a measurement"
+    for prefix in ("tranibor", "choregos"):  # the former name too, until 0.32.0 (ADR 0226, R9b)
+        assert f'{prefix}_edition_info{{edition="community",version=' in body
+        assert body.count(f"{prefix}_edition_info{{") == 1, "a single series: it is not a measurement"
 
 
 @pytest.mark.asyncio

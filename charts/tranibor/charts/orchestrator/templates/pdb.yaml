@@ -1,0 +1,26 @@
+{{- /*
+One budget per queue: it is the deployment a drain evicts. A single-
+replica queue has no budget — it would block the drain while protecting nothing.
+*/ -}}
+{{- if and .Values.enabled .Values.podDisruptionBudget.enabled }}
+{{- $root := . }}
+{{- range .Values.queues }}
+{{- if gt (int .replicas) 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tranibor-orchestrator-{{ .name }}
+  labels: {{- include "tranibor.labels" $root | nindent 4 }}
+    tranibor/queue: {{ .name }}
+    choregos/queue: {{ .name }}
+spec:
+  minAvailable: {{ $root.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: orchestrator
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      tranibor/queue: {{ .name }}
+{{- end }}
+{{- end }}
+{{- end }}

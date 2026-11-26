@@ -21,7 +21,7 @@ from .test_knowledge_rights import ORG, _as, _uid
 READER, STRANGER = "reader@northwind.dev", "stranger@northwind.dev"
 MEMBER = {"projects": {"billing-api": "contributor"}}
 
-STAFFING = """apiVersion: choregos/v1
+STAFFING = """apiVersion: tranibor/v1
 kind: Workflow
 metadata: {name: staffing, version: 1}
 actors:

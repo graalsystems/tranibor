@@ -119,7 +119,7 @@ async def _audit(action: str) -> list[Any]:
 
 
 def _replies(tracker: FakeTracker) -> list[str]:
-    return [c.body for c in tracker.items[KEY].comments if "choregos:command" in c.body]
+    return [c.body for c in tracker.items[KEY].comments if "tranibor:command" in c.body]
 
 
 async def _paused() -> bool:

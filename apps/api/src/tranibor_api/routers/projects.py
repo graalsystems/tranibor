@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Path, Query, Request, status
 from sqlalchemy import func, or_, select
 from sse_starlette.sse import EventSourceResponse
-from tranibor_contracts import EventType, ProjectConfig, Role
+from tranibor_contracts import EventType, ProjectConfig, Role, wire
 from tranibor_core import utcnow
 from tranibor_core.agent_completeness import ORG_SETTING as COMPLETE_AGENTS_SETTING
 from tranibor_core.agent_completeness import org_requires_complete
@@ -216,7 +216,7 @@ def _refuse_admin_switches(org: str, body: OrgUpdate) -> None:
 async def update_org(org: str, body: OrgUpdate, session: Db, principal: Me) -> OrgDto:
     """Renames an organisation. Its NAME, its administrator changes. Its SLUG, only the platform
     administrator: it is in every console URL, every MCP door address (`/mcp/projects/<org>:<project>`),
-    every qualified id (`<org>:<project>`) and the IdP's group names (`choregos:<org>:<group>`), so
+    every qualified id (`<org>:<project>`) and the IdP's group names (`tranibor:<org>:<group>`), so
     changing it is an instance gesture.
 
     Global memories (S40-11) follow: their tenant is `org:<memory key>`, and the key is the slug the
@@ -727,10 +727,10 @@ async def provision_status(
     async def stream() -> Any:
         yield {"event": "snapshot", "data": _provision_status(ctx.project).model_dump_json()}
         async for event in bus.subscribe(topic, request.headers.get("last-event-id")):
-            if not str(event.type).startswith("choregos.project.provisioning"):
+            if not wire.event_type(event.type).startswith(f"{wire.EVENT_TYPE_PREFIX}project.provisioning"):
                 continue
             yield sse_format(event)
-            if str(event.type) in {
+            if wire.event_type(event.type) in {
                 str(EventType.PROVISIONING_COMPLETED),
                 str(EventType.PROVISIONING_FAILED),
             }:

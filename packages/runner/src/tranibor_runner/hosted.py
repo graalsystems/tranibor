@@ -22,7 +22,7 @@ import httpx
 from tranibor_contracts import StageInput, StageResult
 from tranibor_core.hosted import LOOPBACK_HOST
 
-from . import safe_files
+from . import run_dir, safe_files
 from .outputs import expected_files
 from .result import load_result
 from .workspace import inline_outputs
@@ -167,7 +167,7 @@ def result_of(stage_input: StageInput, workspace: Path, text: str) -> tuple[Stag
         if not text.strip():
             return None, "the hosted agent answered nothing"
         payload = {"status": "done", "summary": text.strip()[:4000]}
-    path = workspace / ".choregos" / "result.json"
+    path = workspace / run_dir.path("result.json")
     try:
         safe_files.write_text(workspace, path.relative_to(workspace), json.dumps(payload, ensure_ascii=False))
     except safe_files.LinkRefusedError as exc:

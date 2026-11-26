@@ -542,7 +542,7 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
         ("runtime",),
         _object_schema(
             {
-                "warm_pool": {"type": "string", "default": "choregos-runner"},
+                "warm_pool": {"type": "string", "default": "tranibor-runner"},
                 "assignment_port": _INTEGER,
                 "runtime_class": _TEXT,
                 "pool_image": _TEXT,

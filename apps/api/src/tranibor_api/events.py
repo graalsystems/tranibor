@@ -118,7 +118,7 @@ def get_bus() -> EventBus:
 def emit(
     type_: EventType | str,
     *,
-    source: str = "/choregos/api",
+    source: str = "/tranibor/api",
     subject: str | None = None,
     project_slug: str | None = None,
     **data: Any,

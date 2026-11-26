@@ -42,7 +42,11 @@ transitions:
 
 
 def test_the_environment_really_lacks_the_plugins_extensions() -> None:
-    points = {point.name for point in metadata.entry_points(group="choregos.plugins")}
+    points = {
+        point.name
+        for group in ("tranibor.plugins", "choregos.plugins")
+        for point in metadata.entry_points(group=group)
+    }
     for name, package in LEFT_OUT.items():
         assert name not in points, f"the extension `{name}` is installed: this job proves nothing"
         assert importlib.util.find_spec(package) is None, package

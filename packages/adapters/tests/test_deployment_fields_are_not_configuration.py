@@ -103,10 +103,11 @@ def test_the_factories_take_the_pod_s_secrets_from_the_deployment_alone(
     assert executor.env_from_secrets == ["agent-credentials"]
     if type_name == "k8s_job":
         assert executor.image_pull_secrets == ["registry-pull"]
-        assert executor.service_account == "choregos-runner"
+        # Not the connector's `z`: the runners' account, found in the namespace (ADR 0226, R9b).
+        assert executor.service_accounts.configured is None
 
 
 def test_the_tekton_executor_runs_as_the_runner_s_account(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TRANIBOR_FAKES", raising=False)
     executor = build("runtime", "tekton", {**KUBE, "service_account": "z"})
-    assert executor.service_account == "choregos-runner"
+    assert executor.service_accounts.configured is None

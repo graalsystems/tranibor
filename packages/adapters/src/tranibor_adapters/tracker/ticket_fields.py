@@ -3,7 +3,7 @@
 
 Who filed the ticket, who created it, its labels and the answers of its form (Jira's custom fields,
 by their display name) reach the agents (`ticket.fields.tracker`) and the jobs
-(`.choregos/fields.json`). One shape, whatever the tracker:
+(`.tranibor/fields.json`). One shape, whatever the tracker:
 
     {"kind": "jira", "key": "FON-270",
      "reporter": {"account_id": ..., "display_name": ..., "email": ...},

@@ -291,7 +291,7 @@ async def test_a_runs_read_reaches_the_server_through_the_gateway_with_its_ident
     async with session_scope() as session:
         ledger = (await session.execute(select(CostLedger).where(CostLedger.run_id == RUN))).scalars().all()
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     assert [row.provider for row in ledger] == ["mcp:supplier"]
     assert [e.subject for e in events] == [RUN]

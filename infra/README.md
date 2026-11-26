@@ -8,7 +8,7 @@ reproducible from day one.
 ```
 bootstrap/   operators and tooling (sync-wave 0–2): cert-manager, ESO, Envoy Gateway,
              CNPG, Tekton, Argo Rollouts, Kyverno, monitoring, gVisor
-platform/    the `charts/choregos` umbrella, per environment (sync-wave 3)
+platform/    the `charts/tranibor` umbrella, per environment (sync-wave 3)
 projects/    written by ProjectProvisioning; one directory per project (sync-wave 4)
 policies/    Kyverno: images signed by digest, non-root, labels, quotas, RuntimeClass
 ```
@@ -28,7 +28,7 @@ argocd app sync bootstrap                        # then Argo CD does the rest
 | 1 | CNPG, Envoy Gateway, Tekton, Argo Rollouts, gVisor | the operators before their objects |
 | 1 | agent-sandbox, pinned in `operators/agent-sandbox/` (ADR 0016) | an operator before its objects; only where `runner.executor: agent_sandbox` |
 | 2 | monitoring (kube-prometheus-stack, Loki, Tempo, OTel) | to watch the rest start |
-| 3 | `platform/` — the Choregos umbrella | the platform itself |
+| 3 | `platform/` — the Tranibor umbrella | the platform itself |
 | 4 | `projects/` — one ApplicationSet per directory | the provisioned projects |
 
 ## Secrets

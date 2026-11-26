@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 # The plugin's code half (ADR 0181 point 4): the API and the worker load it at start-up.
-[project.entry-points."choregos.plugins"]
+[project.entry-points."tranibor.plugins"]
 software-delivery = "tranibor_software_delivery.extension:register"
 
 [build-system]

@@ -59,7 +59,7 @@ DEMO_PROJECT = "demo"
 #: The demo project's workflow: a request comes in, an agent writes a plan, a person approves it.
 #: No repository, no deployment: nothing a laptop does not have.
 DEMO_WORKFLOW = """\
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: local-demo

@@ -300,7 +300,7 @@ function WebhookKey({ org, slug }: Ref) {
     <Card title="Task webhook key" eyebrow="Shown once">
       <div className="space-y-3">
         <p className="text-sm text-ink-muted">
-          Deliveries to the task webhook are signed with this key (HMAC-SHA256 in <code>X-Choregos-Signature</code>).
+          Deliveries to the task webhook are signed with this key (HMAC-SHA256 in <code>X-Tranibor-Signature</code>).
           Copy it now: it is shown once, and a new one needs a rotation.
         </p>
         {shown && (

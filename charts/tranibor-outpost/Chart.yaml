@@ -1,0 +1,14 @@
+apiVersion: v2
+name: tranibor-outpost
+description: >-
+  The Tranibor outpost daemon: what an outpost's operator installs in their own cluster. It only
+  dials out, to one hostname, and makes the calls its own policy file allows.
+type: application
+version: 0.29.5
+appVersion: "0.29.5"
+home: https://github.com/graalsystems/tranibor
+sources:
+  - https://github.com/graalsystems/tranibor
+maintainers:
+  - name: GRAAL.SYSTEMS SAS
+keywords: [agents, outpost, mcp]

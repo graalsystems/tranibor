@@ -23,11 +23,11 @@ describe("the frame token of the embedded component (S63-12)", () => {
     expect(embedHeaders(2_000)).toEqual({ [EMBED_HEADER]: "tok" });
     expect(isFrameSession()).toBe(true);
     expect(embedHeaders(1_000 + 900_000)).toEqual({});
-    expect(window.sessionStorage.getItem("choregos.embed.token")).toBeNull();
+    expect(window.sessionStorage.getItem("tranibor.embed.token")).toBeNull();
   });
 
   it("is read back from the frame's sessionStorage after a reload", () => {
-    window.sessionStorage.setItem("choregos.embed.token", JSON.stringify({ token: "kept", expiresAt: Date.now() + 60_000 }));
+    window.sessionStorage.setItem("tranibor.embed.token", JSON.stringify({ token: "kept", expiresAt: Date.now() + 60_000 }));
     expect(embedHeaders()).toEqual({ [EMBED_HEADER]: "kept" });
   });
 });
