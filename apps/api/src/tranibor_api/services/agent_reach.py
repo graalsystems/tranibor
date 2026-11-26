@@ -48,7 +48,14 @@ from ..schemas.agents import (
 from . import outposts as outpost_registry
 from . import web_fetch, web_search
 from .agent_releases import served
-from .broker import BrokerTool, broker_tools, selection_of_spec, tools_of_selection
+from .broker import (
+    BrokerTool,
+    ProfileReport,
+    broker_tools,
+    profile_entries_of_spec,
+    selection_of_spec,
+    tools_of_selection,
+)
 from .extension_tools import extension_access, extension_tools
 from .mcp_gateway import OUTPOST_TYPE
 
@@ -161,10 +168,22 @@ async def tool_reach(
     else:
         reach.extensions = listed
 
+    note = ProfileReport()
     if spec is not None:
-        reach.brokered = await tools_of_selection(session, selection_of_spec(spec), project)
+        reach.brokered = await tools_of_selection(
+            session, selection_of_spec(spec), project, profiles=profile_entries_of_spec(spec), report=note
+        )
     else:
-        reach.brokered = await broker_tools(session, run, project)
+        reach.brokered = await broker_tools(session, run, project, note)
+    reach.refused += [
+        _refusal(f"profile:{profile}", "connector", f"profile.unbound: {why}")
+        for profile, why in sorted(note.unbound.items())
+    ]
+    reach.refused += [
+        _refusal(tool, "connector", f"left out by the cap of {profile}")
+        for profile, left in sorted(note.left_out.items())
+        for tool in left
+    ]
 
     web_named = {str(w) for w in tools["web"]} if "web" in reach.closed else {"fetch", "search"}
     for kind, module in (("fetch", web_fetch), ("search", web_search)):

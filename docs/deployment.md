@@ -947,6 +947,10 @@ tools:
 entry; `TRANIBOR_BROKER_RESULT_CEILING_BYTES` (1 MiB) bounds both, and an organisation's
 per-operation caps on its connectors too ([usage](usage.md), S40-17).
 
+`TRANIBOR_BROKER_PROFILE_TOOL_CAP` (16 by default, at least 1) bounds the tools one profile entry of an
+agent's `mcp_servers` offers over all the instances that implement the profile; the ones left out are named
+in the run's journal ([plugins](plugins.md#calling-a-profile), ADR 0224).
+
 ### How a tool reaches the agent
 
 An agent never calls a provider. It calls an MCP server that runs **in its own pod**, on
@@ -1789,7 +1793,21 @@ global:
       imageMirrors: {}          # registry prefix -> mirror prefix, for the pull only (below)
       # imagePullSecrets: []    # unset: global.imagePullSecrets; the Secrets live in the servers' namespace
       rbac: true                # false: the platform lays the Role and RoleBinding down itself
+      privateCidrs: []          # private ranges a server may reach (below); empty: none, the default
+      privateCidrsByOrg: {}     # multi-organisation: organisation slug -> its CIDRs, e.g. { northwind: [10.20.0.0/16] }
 ```
+
+**Private ranges (opt-in, [ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md) §6a).**
+By default a server reaches public addresses only, and a host typed in a plugin's configuration that
+resolves to a private address is refused (422). To let servers reach a controller on a private network,
+list its range in `privateCidrs`: a host that resolves inside it is admitted, within the organisation's
+network bounds, and the server's NetworkPolicy opens that host's address and port only (`toCIDR` with
+`egress: cilium`). Link-local, metadata (`169.254.169.254`, `fd00:ec2::254`, `100.100.100.200`) and loopback
+ranges are refused whatever is listed, and the API does not start on one. A deployment with several
+organisations (the enterprise edition's `multi_org`) must bind every listed CIDR to one organisation in
+`privateCidrsByOrg`, keyed by its slug (a former slug, ADR 0090, still matches): the API refuses to start
+otherwise, and an organisation never gets another's range. The address is the one resolved when the server
+is provisioned or reconciled.
 
 With `enabled`, the chart renders a Role in that namespace (Deployments, Services, NetworkPolicies,
 Secrets; CiliumNetworkPolicies with `egress: cilium`) bound to the API's ServiceAccount, nothing

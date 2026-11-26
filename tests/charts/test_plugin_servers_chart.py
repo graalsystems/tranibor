@@ -234,3 +234,49 @@ def test_every_caller_of_a_plugin_server_is_admitted_by_its_policy(tmp_path: pat
         name for name, labels in pods.items() if not _admits(platform["spec"]["podSelector"], labels)
     )
     assert out == [], f"callers the platform's egress does not let out: {out}"
+
+
+def _with(**servers: Any) -> dict[str, Any]:
+    values = json.loads(json.dumps(ON))
+    values["global"]["plugins"]["servers"].update(servers)
+    return values
+
+
+def test_private_ranges_are_off_by_default(tmp_path: pathlib.Path) -> None:
+    """ADR 0224 §6a: nothing listed, no variable, a private host stays refused."""
+    env = _api_env(_docs(ON, tmp_path))
+    assert "TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS" not in env
+    assert "TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS_BY_ORG" not in env
+
+
+def test_private_ranges_reach_the_api_as_json(tmp_path: pathlib.Path) -> None:
+    values = _with(
+        privateCidrs=["10.20.0.0/16", "10.30.4.0/24"],
+        privateCidrsByOrg={"northwind": ["10.20.0.0/16"], "contoso": ["10.30.4.0/24"]},
+    )
+    env = _api_env(_docs(values, tmp_path))
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS"]) == ["10.20.0.0/16", "10.30.4.0/24"]
+    assert json.loads(env["TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS_BY_ORG"]) == {
+        "northwind": ["10.20.0.0/16"],
+        "contoso": ["10.30.4.0/24"],
+    }
+
+
+def test_the_values_the_chart_renders_are_the_ones_the_api_accepts_or_refuses(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rendered variable is read by the real Settings: a closed range stops the start."""
+    from pydantic import ValidationError
+    from tranibor_api.config import Settings
+
+    good = _api_env(_docs(_with(privateCidrs=["10.20.0.0/16"]), tmp_path))
+    monkeypatch.setenv(
+        "TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS", good["TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS"]
+    )
+    assert Settings().plugin_servers_egress_private_cidrs == ["10.20.0.0/16"]
+    bad = _api_env(_docs(_with(privateCidrs=["169.254.0.0/16"]), tmp_path))
+    monkeypatch.setenv(
+        "TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS", bad["TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS"]
+    )
+    with pytest.raises(ValidationError):
+        Settings()

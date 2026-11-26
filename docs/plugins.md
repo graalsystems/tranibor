@@ -913,6 +913,19 @@ the server's NetworkPolicy lets through DNS and public addresses on those hosts'
 cluster's, the node's or the metadata endpoint's addresses). Kubernetes cannot name a host: with
 `plugins.servers.egress: cilium` a `CiliumNetworkPolicy` narrows egress to those exact names.
 
+A deployment may let the servers reach a named private range (a controller on the customer's LAN;
+[ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md) §6a):
+the operator lists CIDRs (`plugins.servers.privateCidrs`, nothing by default) and, in a deployment with
+several organisations, binds each to the organisation that owns it (`privateCidrsByOrg`, by slug). When a
+host is typed, the API resolves it: a host inside a listed range is admitted for that organisation only,
+after the organisation's network bounds ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md));
+any other private, link-local, CGNAT or metadata address is a 422, and the metadata and link-local
+ranges (`169.254.0.0/16`, `fd00:ec2::/32`, `fe80::/10`, `100.100.100.200`, loopback) are refused whatever
+is listed. The server's policy then opens exactly that host's address and port (`ipBlock` `/32` or `/128`,
+or a `toCIDR` rule with Cilium), never the range. Limits: the address is the one resolved when the server
+is provisioned or reconciled, a name that moves is followed at the next reconcile; a host that does not
+resolve when typed is not judged (it reaches nothing until it does, and the policy then opens nothing).
+
 ### On its fake, for the eval matrix
 
 A server may declare how the platform runs it on its fake for the live eval matrix (#1372):
@@ -1078,9 +1091,9 @@ approval).
 
 ## Profiles a plugin declares
 
-> **Status (S86-02): declared and proven, not yet served.** The loader packs `contents.profiles`,
-> `tranibor plugin validate` checks a profile and a server that implements one, and the installer checks it
-> again. A profile entry in an agent's `mcp_servers` still opens no tool (S86-04).
+> **Status (S86-04): declared, checked and served.** A profile entry in an agent's `mcp_servers` opens the
+> instances that implement it (see [Calling a profile](#calling-a-profile)). What makes instances from one
+> server (S86-03) is not part of this.
 
 A plugin may declare **profiles** ([ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md)):
 named contracts of tools that several plugin servers, of that plugin or of others, may implement, and that an
@@ -1106,7 +1119,28 @@ a profile a plugin declares is a family beside it, and the core never reads what
   profile](#checking-a-server-against-a-profile)).
 - **Call** it with `mcp_servers: [{profile: <plugin>/<name>@<version>, tools: [...]}]` in an agent: the
   entry names a `connector` or a `profile`, never both, and a profile entry takes no `identity`. The
-  tools it lists are tools of the profile (resolved at run start from S86-04).
+  tools it lists are tools of the profile, resolved at run start (see [Calling a profile](#calling-a-profile)).
+
+### Calling a profile
+
+At run start (and wherever the agent's tools are listed: its access, a session, the conversation's needs)
+an entry `{profile, tools}` resolves to **every connector of the organisation whose plugin server
+`implements` the profile and that the project may use**, through the same path as a connector named in an
+entry: the connector's availability for the project, its operation policy and the project's tightening, the
+groups, approvals and argument constraints all apply to each instance, and an operation the server does not
+declare stays refused.
+
+- **Names.** Each instance brings its tools as `<instance>__<tool>`, so the model, the ledger
+  (`mcp:<instance>`) and the audit line (`connector`) name the instance that answered.
+- **Only the profile.** A server may serve more than the profile (`purge_notes` next to `list_notes`): only
+  the profile's tools that the entry lists (patterns, as for a connector) are offered.
+- **The cap.** One entry offers at most `TRANIBOR_BROKER_PROFILE_TOOL_CAP` tools (16 by default), in the
+  profile's tool order then the instance's name, so that the same run offers the same tools. The tools left
+  out are named in the run's journal (`profile.capped`) and in the agent's access (`refused`).
+- **Unbound.** A profile no instance serves for the project (not installed, no connector implements it, none
+  usable by the project) opens nothing; the run starts and its journal carries a `profile.unbound` line with
+  the reason. `profile.` joins `gate.` and `memory.` as a prefix only the platform writes.
+- **A tool of the same name** that an entry naming a connector already opens is kept as it is.
 
 ### Checking a server against a profile
 
