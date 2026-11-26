@@ -29,3 +29,7 @@ When the cap is reached LiteLLM refuses: the agent gets an error, the runner fin
 
 - **Counting tokens in the runner**: duplicates pricing logic and misses the cache.
 - **Trusting the `StageResult`**: it would be the only unverified measurement in the chain.
+
+## Amendment, 2026-11-26: a subscription run has no key and no measured cost (ADR 0227)
+
+A subscription run (ADR 0227), executed at its `work_owner`'s personal outpost by the vendor's CLI on that person's own plan, does not go through LiteLLM and receives no virtual key: `prepare_stage` reserves nothing and `start_run` mints no key. Its cost is counted nowhere; `book_spend` writes a line of kind `subscription` at 0, flagged unmeasured and shown apart. Every other run, and every model call the platform makes itself, still goes through the gateway as decided here.

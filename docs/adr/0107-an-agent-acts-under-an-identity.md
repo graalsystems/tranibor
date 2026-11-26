@@ -114,3 +114,7 @@ What the code does today:
 - On behalf of a person depends on what each target system supports; where it supports nothing, the
   mode is not offered for that connector type, with the reason.
 - The console must say, wherever a write happens, which connector and which identity it used.
+
+## Amendment, 2026-11-26: a subscription run at its owner's own runner (ADR 0227)
+
+§6 and §7 do not apply to a run that ADR 0227 places on the personal outpost of its `work_owner` with the credential `subscription`. There, the vendor's unmodified CLI calls the provider directly with that person's own credential, which the runner reads from its keychain and puts only in the CLI's environment; no gateway measures the run, and turns, minutes and tool-call caps bound it, with a ledger line of kind `subscription`, unmeasured. The credential never comes from, passes through or is stored by the platform, and `gateway: direct` stays refused in staging and prod (ADR 0109 §1 unchanged).

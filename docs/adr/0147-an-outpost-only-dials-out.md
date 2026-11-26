@@ -208,3 +208,15 @@ Two things have to be separated before deciding.
 - A revocation moves the whole outpost's epoch, so what its other instances had in flight is not taken
   either, and a write among it ends in doubt (ADR 0149 §5). Revoking answers a key that may be stolen. It
   is not how a healthy instance is retired: the outpost is paused first and its calls left to finish.
+
+## Amendment, 2026-11-26: a person's own outpost, enrolled by its owner (ADR 0226)
+
+ADR 0226 §1-2 allows a person's own outpost: `outposts.owner_user_id`, one per person and organisation, each machine an instance, announcing `runs` only and only for that person's runs. For such an outpost the owner, not an administrator, creates it and asks for the enrolment token through `/me/runners`; the approval against the fingerprint, in a session that carries an authentication time, is unchanged, and every administrator route that reaches its instances, enrolments or calls refuses it. An organisation's outpost keeps this text as written, and an outpost is still never a project's.
+
+## Amendment, 2026-11-26: `runs` decided for personal outposts (ADR 0226)
+
+ADR 0226 §3-6 decides `runs` for personal outposts only, from door protocol 2: a lane inside the poll (no new verb), an offer claimed once, the run token minted at the claim and sealed to the claiming instance, and a lapsed lease that closes the run through ADR 0143. An organisation's outpost still announces `tools` only, and `OutpostCreate` still refuses `runs`.
+
+## Amendment, 2026-11-26: a person's own runs on that person's own device (ADR 0226)
+
+ADR 0226 places on a person's machine only that person's own runs (the runs of their personal space and their conversation turns), never a shared project's workflow, so this refusal holds in phase A. It is lifted only in phase C, by ADR 0234, for a step of a request whose responsible person accepted it, in a project that opted in. ADR 0061 §3 stands wherever a run executes.

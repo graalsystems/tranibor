@@ -54,3 +54,7 @@ the person who must not decide.
   decision time; one declared field is enough.
 - **Excluding the work item's reporter automatically**: the reporter of a trigger's work item is the
   platform; the workflow knows which field holds the requester.
+
+## Amendment, 2026-11-26: a personal installation's sole member meets groups and exclusions (ADR 0228)
+
+In a personal installation (ADR 0228) the sole member meets an approver group they do not belong to and an exclusion that names them, since no one else can decide. Only with a fresh authentication, and the decision and its audit row record `sole_member: true` with the group or the exclusion the rule asked. Outside that posture both clauses hold as written (`apps/api/tests/test_sole_member_decides.py`).

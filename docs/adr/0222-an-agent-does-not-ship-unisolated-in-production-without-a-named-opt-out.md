@@ -93,3 +93,7 @@ The plan's line is that nothing ships with the agent not isolated.
 No `docker compose up` with a real runner image (no Docker daemon here: the shape of the second container
 is proved by ADR 0146's tests and the `local_docker` tests, not by a compose run); no staging or prod
 cluster run of the refusal; gVisor on Compose (Docker's `--runtime=runsc` is not set).
+
+## Amendment, 2026-11-26: the opt-out for a run at a personal outpost (ADR 0226)
+
+For a run placed at a personal outpost (ADR 0226 §10) the opt-out the function reads is the organisation's policy `sandbox.personal_runner.native: accepted`, which a project may tighten and never widen, not the deployment's `TRANIBOR_AGENT_ISOLATION`. The judgment is made by `place_run` for the mode chosen (docker is a separate agent, native is `process`); the runner repeats it from its assignment, and each accepted native run logs `agent_isolation.none_accepted` with `outpost:<id>`. Every other executor keeps this clause as written.

@@ -36,12 +36,12 @@ Working decision: **Choregos**. Optional vocabulary for communication (never in 
 | D3 | Orchestration engine | Temporal (self-hosted via Helm + CloudNativePG; Temporal Cloud possible without changing the code) |
 | D4 | Languages | Python 3.12 (`uv`, FastAPI, Temporal SDK, pydantic v2) for API, orchestrator, runner, adapters, CLI; TypeScript (Next.js 15, React 19) for the front end; Rust for Ecphoria (existing) |
 | D5 | Day-1 executor | Tekton Pipelines on Kubernetes; abstract `Executor`, K8s Job as fallback |
-| D6 | Model gateway | LiteLLM proxy; one virtual key per run; cost counted at the gateway |
+| D6 | Model gateway | LiteLLM proxy; one virtual key per run; cost counted at the gateway; except a subscription run at its owner's personal outpost and a conversation placed there ([ADR 0227](../adr/0227-a-person-s-own-subscription-is-used-only-by-the-vendor-cli-on-that-person-s-runner.md)): no key, a `subscription` ledger line, unmeasured |
 | D7 | Memory | Ecphoria (refocused on memory + knowledge base); pgvector fallback |
 | D8 | Day-1 tracker / SCM / CI / CD | GitHub Issues + Projects v2 / GitHub / Tekton / Argo CD + Argo Rollouts |
-| D9 | Platform deployment | Kubernetes, Helm umbrella `charts/choregos`, GitOps Argo CD app-of-apps from `choregos-infra` |
+| D9 | Platform deployment | Kubernetes, Helm umbrella `charts/choregos`, GitOps Argo CD app-of-apps from `choregos-infra`; a personal installation ([ADR 0228](../adr/0228-a-personal-installation-is-one-person-s-production.md)) is `deploy/personal/compose.yaml` on published images |
 | D10 | Database | PostgreSQL 16 via CloudNativePG, `pgvector` extension |
-| D11 | Auth | OIDC (Keycloak in dev, the organisation's IdP in prod); RBAC with 5 roles |
+| D11 | Auth | OIDC (Keycloak in dev, the organisation's IdP in prod); RBAC with 5 roles; a personal installation ([ADR 0228](../adr/0228-a-personal-installation-is-one-person-s-production.md)) signs its one person in with an owner key on the loopback door, phones paired by a one-time link, and passkeys: no OIDC, no password |
 | D12 | Observability | OpenTelemetry → Prometheus / Loki / Tempo / Grafana (kube-prometheus-stack); Azure Monitor as an export option; Langfuse **optional** (phase 2) |
 | D13 | Repository instructions | `AGENTS.md` (standard); `CLAUDE.md` = symbolic link |
 | D14 | Default workflow | `default-simple` for a project with a repository, `default-request` without one (ADR 0110); production always through the release train |

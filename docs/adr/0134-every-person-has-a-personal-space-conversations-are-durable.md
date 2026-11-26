@@ -76,3 +76,7 @@ conversation with no installation, in the project given.
 - `projects` gains two columns and a second RLS policy; `test_rls_postgres.py` proves another person of the
   same organisation reads nothing of a personal space.
 - Budgets by person and installation are new caps of the reservation (S63-15).
+
+## Amendment, 2026-11-26: a conversation placed on its owner's runner (ADR 0227)
+
+For a conversation placed `personal_runner` (ADR 0226, ADR 0227 §10), §3 becomes "a credential per turn": a `turn-{conversation}-{n}` run token minted when the owner's runner claims the turn; nothing is reserved, no gateway key is minted, and the turn books one `subscription` line at 0. §5: the title is cut from the first message (`derive_title`), not written by a model. §6: streaming relays the deltas the runner posts, journaled `turn.delta` and deleted when `turn.answered` is recorded. Platform-placed conversations are unchanged.

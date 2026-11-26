@@ -88,3 +88,7 @@ The limit stated above is closed.
 - `agent_day` and `agent_month` subtract the open keys of the agent's runs too.
 - Cost: the lock is held until `prepare_stage` commits, which includes building the context pack.
   Stages of one organisation contend only when a scope they share has a cap.
+
+## Amendment, 2026-11-26: a subscription run reserves nothing (ADR 0227)
+
+A subscription run (ADR 0227) mints no key and reserves nothing, so §1 does not apply to it: its ledger line is kind `subscription` at cost 0, and no USD cap counts it, neither the ticket's, the project's day, the organisation's month nor the agent's day or month. §6's guardrails apply unchanged (`max_turns`, the minutes cap, the tool-call caps), and `Budget.usd` keeps a nominal value only because the contract requires `usd > 0`. ADR 0227 §8 extends §2's stop-never-retry rule to `subscription_login_required` and `subscription_limit`.

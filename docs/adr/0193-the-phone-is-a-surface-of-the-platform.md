@@ -58,3 +58,7 @@ that a decision waits while it is closed.
   [ADR 0192](0192-the-scope-freeze-is-lifted.md) lifted it.
 - **A cross-platform framework (React Native, Flutter).** The hard part is audio and the foreground
   service, which are native in both cases; one platform is asked for.
+
+## Amendment, 2026-11-26: a service worker that only notifies (ADR 0194)
+
+A progressive web app is still refused, except for notifications. The console ships `apps/web/public/sw.js`, which listens to `push` and `notificationclick` only, caches nothing and serves no page offline, and a web manifest (`display: standalone`), so that Android browsers and iPhone web apps added to the Home Screen receive the Web Push of §4 (ADR 0194 §7). The console has no offline shell and no install flow beyond what the browser offers. "iOS is not covered" now holds for the Android app only.

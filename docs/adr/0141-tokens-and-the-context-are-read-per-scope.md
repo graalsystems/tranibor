@@ -89,3 +89,7 @@ What the platform can see of a request differs by backend (audit of 2026-11-11):
 - Not covered: a real tokenizer per model (chars/4 scaled to the exact total is enough to rank sections);
   a breakdown for `code` and `remote`; attributing a CLI's own system prompt and built-in tools to anything
   finer than `backend`; a budget that reads the breakdown.
+
+## Amendment, 2026-11-26: Claude Code on a subscription (ADR 0227)
+
+The table gains a row: `| Claude Code on a subscription (personal runner, ADR 0227) | the vendor's CLI, on the person's machine | only what the platform supplies (instructions as CLAUDE.md, the MCP tool list); no gateway callback sees the request |`. §4's ACP measurement does not reach it: no `context.breakdown` is emitted, and the screen says context use is not measurable for that run or turn. Its ledger lines are kind `subscription`, unmeasured, and §2's in-flight spend shows "—", never 0.

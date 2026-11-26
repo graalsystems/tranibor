@@ -33,3 +33,7 @@ does not get through.
 - A stage's evidence is what the runner measured, not what the agent wrote — even when the
   agent is honest.
 - Every gate has a green test and a red test.
+
+## Amendment, 2026-11-26: no budget overrun on a subscription run (ADR 0227)
+
+A subscription run (ADR 0227) has no virtual key and puts no platform money at risk: for it, the row's mechanisms are `TurnGuard`'s `max_turns`, the minutes cap (the orchestrator's timeout, then the outpost's cancel lane) and the tool-call caps, and the run is recorded as a `subscription` ledger line, unmeasured. The guarantee that matters for those runs is "no subscription credential reaches the platform"; its mechanisms are the shape refusals at ingress and on writes, the runner's exact-value scrub and pre-push refusal, and the canary test `tests/e2e/test_subscription_never_reaches_platform.py`.

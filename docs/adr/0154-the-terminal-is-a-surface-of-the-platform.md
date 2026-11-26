@@ -198,3 +198,7 @@ setting (`CHOREGOS_LEGACY_DECISION_ROUTES`: `egress_requests`, `plugin_installs`
 (`decideDeviceRequest`), whose approval is already the person's own act on the device's page, and pending memory
 (`decidePendingMemory`, `decideGlobalPendingMemory`), which only changes what an assistant remembers, not what
 a run may do. Finding #1926.
+
+## Amendment, 2026-11-26: a surface may start a personal installation and its runner (ADR 0229)
+
+§1's "it never runs a tool, a model or an agent on the person's machine" now reads "in its own process", and §1 adds that a developer surface may start and stop, as separate processes, a personal installation and its personal runner; what an agent does happens where placement put it, a platform executor or the work owner's own runner (ADR 0226). The terminal still holds no model key, keeps no subscription credential and edits no file on an agent's behalf, and `tests/architecture/test_cli_local_imports_no_server.py` refuses a server, runner, outpost or Docker SDK module under `tranibor_cli.local`. §10's first non-goal reads "no tool, model, agent or file edit in the CLI's own process"; "no offline mode" stands (a personal installation is an instance reached at its loopback door), and "no administration screens" means the platform's objects, not the machine's installation that `choregos local` manages. The desktop app is a fifth surface under the same rule (ADR 0229).

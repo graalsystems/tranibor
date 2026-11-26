@@ -161,3 +161,7 @@ Eclipse Theia implement, through the Open VSX registry.
 - The colour of *queued* is settled once for both developer surfaces.
 - The extension is one more client of the contract: a path it is the only one to call is named in the API
   routes' guard (`tests/web/test_api_routes_have_a_client.py`) when the guard reads it.
+
+## Amendment, 2026-11-26: no tool, model or agent in the extension's own process (ADR 0229)
+
+§1's "it runs no tool, model or agent, holds no model key" now reads "it runs no tool, model or agent in its own process, holds no model key and keeps no subscription credential", and it may, like the terminal, start and stop a personal installation and its personal runner as separate processes (ADR 0154 §1 as amended). This version of the extension builds none of it: it starts no process, its rejected "Driving the `choregos` CLI as a child process" stands, and it reaches a personal installation as any instance, at the address of its loopback door. The three developer surfaces and the desktop app thus keep one rule.

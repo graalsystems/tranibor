@@ -112,3 +112,11 @@ devices and access alike. The product owner chose to widen the scope further.
   discarded; consuming one: [ADR 0105](0105-choregos-consumes-an-mcp-gateway-it-never-is-one.md)), for the reasons
   ADR 0028 gave: that fight is about capital, and it is already absorbed by identity, network and
   data vendors.
+
+## Amendment, 2026-11-26: a person's own vendor credential on their own runner (ADR 0227)
+
+One bounded exception: in a subscription run executed at that person's own personal outpost (ADR 0226, ADR 0227), the person's own vendor credential reaches the environment of the vendor's CLI there (in docker mode the agent's container, passed by name). It never comes from the platform and never reaches a pod the platform runs; ADR 0146 §7 journals the case. Every credential of the platform's (run token, gateway key, git token, egress token) stays out of the agent's reach as before.
+
+## Amendment, 2026-11-26: the sole member of a personal installation decides alone (ADR 0228)
+
+In a personal installation (ADR 0228), where the database holds exactly one person, that person approves what they or their agents proposed. The approval still needs a fresh authentication, and the decision and its audit row record `sole_member: true` with what the rule asked. Outside that posture, or with a second person, the clause holds as written; `apps/api/tests/test_sole_member_decides.py` tests both cases side by side.

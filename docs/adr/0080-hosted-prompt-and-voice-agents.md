@@ -255,3 +255,7 @@ agent cannot be a workflow step).
 - **Installing the zip's dependencies at run start**: refused by ADR 0063 for its supply chain.
 - **Trusting the gateway's realtime spend**: realtime usage arrives per response; the relay books it
   from `response.done` and enforces a per-minute ceiling as a backstop (S41-15).
+
+## Amendment, 2026-11-26: a per-turn token for a runner-placed conversation (ADR 0227)
+
+The internal session routes (`routers/agent_session_pods.py`) also accept a `turn-{conversation}-{n}` run token, for that turn only, for a conversation placed on its owner's personal runner (ADR 0227 §10); once the turn is answered or its lease has lapsed they answer 409. For such a conversation `/internal/agent-sessions/{id}/tools` serves the turn's whole toolset, the same function the prompt loop uses, and a launch only proposes. Hosted sessions keep their `session-` token and `session_tools` unchanged.

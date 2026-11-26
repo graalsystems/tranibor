@@ -189,3 +189,7 @@ connect. The same pod without the gate runs beside it as a control.
 - **A backup operator (CloudNativePG, Velero).** Right for a cluster, heavy for one machine: two
   operators to install and upgrade before the platform, and Temporal's SQLite file still outside
   both. Refused for this profile; still the answer for a multi-node installation.
+
+## Amendment, 2026-11-26: a personal installation is a compose bundle of its own (ADR 0228)
+
+A personal installation (ADR 0228) is a compose file made into a product: `deploy/personal/compose.yaml`, on published images, for one person's own machine. It cannot serve an organisation: a trigger on `memberships` refuses a second person, and the chart's guard refuses `global.environment: personal`. For an organisation on one machine this profile stays the supported installation, and the alternative "Harden `docker compose` into the product" stays refused for that need. The development `compose.yaml` is unchanged.

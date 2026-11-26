@@ -358,3 +358,7 @@ promises about it. Read on `main` at `9f646fda4`:
   never writing twice, and the count of in-doubt actions is the measure to watch.
 - A call gains the latency of one wake-up of the poll (ADR 0148 §7).
 - This record proves nothing: it is the decision. Stories S65-13 and S65-14 carry it.
+
+## Amendment, 2026-11-26: runs at a personal outpost (ADR 0226)
+
+ADR 0226 decides `runs` for personal outposts only. The token is minted at the claim, as this section asks, but carries no epoch: a run is claimed once and never handed over again, and a lapsed lease closes the run through ADR 0143 (409 `run_closed`), so ADR 0143 §9 holds. For a person's own machine the pinned CONNECT proxy and the verified wall are replaced by refusal at placement of what it cannot honour (a gVisor or Kata runtime, A2A steps, native mode without the organisation's `native: accepted`) and by recording the mode, the isolation, the confinement and the observed egress; `executed_at` is recorded as written here. For an organisation's outpost this section stands unchanged.
