@@ -18,6 +18,8 @@ from .base import Base
 
 _engine: AsyncEngine | None = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
+#: How long this PROCESS waits for a pooled connection, when it is not `db_pool_timeout_s` (#2331).
+_pool_timeout_s: int | None = None
 logger = get_logger("choregos.db")
 
 #: What waits for the transaction to commit, then what the commit released (ADR 0085).
@@ -227,7 +229,7 @@ def _create_engine(settings: Settings) -> AsyncEngine:
     if not settings.is_sqlite:
         kwargs["pool_size"] = settings.db_pool_size
         kwargs["max_overflow"] = settings.db_max_overflow
-        kwargs["pool_timeout"] = settings.db_pool_timeout_s
+        kwargs["pool_timeout"] = _pool_timeout_s or settings.db_pool_timeout_s
         kwargs["pool_recycle"] = settings.db_pool_recycle_s
         kwargs["pool_pre_ping"] = True
     engine = create_async_engine(settings.database_url, **kwargs)
@@ -241,6 +243,26 @@ def _create_engine(settings: Settings) -> AsyncEngine:
             cursor.close()
 
     return engine
+
+
+async def wait_for_a_connection_up_to(seconds: int) -> int:
+    """This process waits up to `seconds` for a pooled connection, instead of `db_pool_timeout_s` (#2331).
+
+    For a Temporal worker: it runs more activities at once than its pool has connections, so when the
+    database slows down they queue for one. An API request should not wait long (10 s by default: a
+    person is waiting); an activity should wait rather than fail, be retried from its start and add
+    to the load that made it wait. Its own deadline (`start_to_close_timeout`) still bounds it. The pool
+    is built with the engine: an engine already built (nothing should have used it yet, at a worker's
+    start) is disposed, and the next session builds it again with this wait. Returns the pool's
+    capacity (size + overflow; 0 on SQLite, which has no such pool), what the caller compares its
+    concurrency with."""
+    global _pool_timeout_s
+    if seconds < 1:
+        raise ValueError("a pool wait is at least one second")
+    _pool_timeout_s = seconds
+    await dispose_engine()
+    settings = get_settings()
+    return 0 if settings.is_sqlite else settings.db_pool_size + settings.db_max_overflow
 
 
 def get_engine() -> AsyncEngine:
