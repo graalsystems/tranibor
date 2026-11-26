@@ -34,6 +34,8 @@ def _clean_pool_wait() -> Iterator[None]:
     from tranibor_api.db import session
     from tranibor_orchestrator.config import reset_settings_cache
 
+    # Another test's `run_worker` in this process set it: start from the API's wait.
+    session._pool_timeout_s = None
     reset_settings_cache()
     yield
     session._pool_timeout_s = None
