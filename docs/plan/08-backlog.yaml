@@ -58,6 +58,7 @@ streams:
   S81: "The phone is a surface of the platform: an Android app for agents, assistants and voice (ADRs 0192-0194)"
   S83: "The contracts speak no trade: neutral names, software delivery and investment research as plugins, ontology removed (ADR 0181)"
   S85: "Procurement as a first-party plugin, and the files a person hands a work item (ADRs 0201-0202)"
+  S87: "Choregos for oneself, on one's own subscription: personal runner, personal installation, relay, phone, events, responsible person (ADRs 0194, 0226-0234)"
 
 stories:
 
@@ -6738,3 +6739,893 @@ stories:
       - "contract-change: Org.currency and CostReport.currency are ISO 4217 codes; OrgUpdate and Org carry fx_rate (units per USD) and its date; a cost report names how cost_display was obtained"
       - "An organisation in MXN with a declared rate gets converted amounts and the USD ones unchanged; an unknown code, a missing rate and a rate for EUR or USD are refused; budgets stay in USD"
       - "The CSV, the Spend page, the live board and the CLI show the converted amount labelled with its currency and say it is converted at the declared rate"
+
+  # ───────────── S87 — Choregos for oneself, on one's own subscription (ADRs 0194, 0226-0234) ─────────────
+  - id: S87-00
+    title: "docs(plan): Choregos for oneself on one's own subscription, stream S87 and its backlog stories"
+    stream: S87
+    sprint: 0
+    priority: 1
+    size: S
+    depends_on: []
+    acceptance:
+      - "docs/plan/PLAN-2026-11-26-personal-use.md is in the repository and every S87 story heading of the plan is a backlog story"
+      - "tests/docs/test_plan_s87_in_backlog.py turns red when a story is removed from the backlog or when a dependency does not come before its story"
+    notes: "PLAN-2026-11-26-personal-use, phase A. PLAN-2026-11-26-personal-use. sprint is the plan's wave. The stories of the agents repository (PP-NN) have no entry here."
+  - id: S87-01
+    title: "docs(adr): 0226, a person's own machine runs that person's runs (the personal outpost)"
+    stream: S87
+    sprint: 0
+    priority: 2
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The record is indexed as proposed and quotes each clause it amends: ADR 0147 §1, §11 and its refused personal device, ADR 0149 §12, ADR 0222 §2"
+      - "Each amended record carries a dated amendment note pointing back"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The product owner's decisions of 2026-11-26. ADR 0143 §9, ADR 0148 §3/§12 and ADR 0061 §3 are kept."
+  - id: S87-02
+    title: "docs(adr): 0227, a person's own subscription is used only by the vendor CLI on that person's runner"
+    stream: S87
+    sprint: 0
+    priority: 3
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The record is indexed as proposed, starts from the vendor terms and names every mechanism with the test that will hold it"
+      - "Plan decision D6 is amended in docs/plan/00-index.md for subscription runs only; ADR 0107 §6-7, 0004, 0047 §1, 0010, 0029 §5, 0134 §3/§5/§6, 0080 §10 and the 0141 table carry amendment notes"
+    notes: "PLAN-2026-11-26-personal-use, phase A. A decision PR for D6. ADR 0109 §1 is unchanged: a subscription is not a gateway."
+  - id: S87-03
+    title: "docs(adr): 0228, a personal installation is one person's production"
+    stream: S87
+    sprint: 0
+    priority: 4
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The record is indexed as proposed; plan decisions D9 and D11 are amended for the personal posture only; ADR 0184 §1 and ADR 0029 §3 carry amendment notes"
+    notes: "PLAN-2026-11-26-personal-use, phase A. A decision PR for D9 and D11. The development compose.yaml stays a developer install."
+  - id: S87-04
+    title: "docs(adr): 0229, surfaces may install and supervise a personal installation and its runner"
+    stream: S87
+    sprint: 0
+    priority: 5
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The record is indexed as proposed; ADR 0154 §1/§10 and ADR 0155 §1 carry amendment notes; the desktop app is a fifth surface that runs no agent in its own process"
+    notes: "PLAN-2026-11-26-personal-use, phase A. ADR 0151 §3 is unchanged: the CLI binary still refuses every server module."
+  - id: S87-05
+    title: "docs(adr): 0230, a hosted relay reaches a personal installation by TLS passthrough"
+    stream: S87
+    sprint: 0
+    priority: 6
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The record is indexed as proposed and says what the relay sees, keeps and never carries (runner and run-API traffic)"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Amends nothing; records why it is not ADR 0147's refused generic relay."
+  - id: S87-06
+    title: "docs(adr): 0194, a person's devices are told by Web Push, with a notification-only service worker"
+    stream: S87
+    sprint: 0
+    priority: 7
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "The reserved number is written and indexed as proposed; ADR 0193 carries an amendment note (a progressive web app is refused except for notifications)"
+    notes: "PLAN-2026-11-26-personal-use, phase A. ADR 0193 and S81-02/S81-03 cite 0194, which had no file."
+  - id: S87-07
+    title: "spike(runner): Claude Code on a subscription through claude-agent-acp, measured"
+    stream: S87
+    sprint: 1
+    priority: 1
+    size: M
+    depends_on: [S87-02]
+    acceptance:
+      - "Measured in the runner image and natively (Linux, macOS arm64) with HOME forced as workspace.agent_home does: a setup-token token completes an ACP prompt; the ACP error when signed out; usage-limit texts; hosts contacted; loadSession and session/load; CLAUDE_CONFIG_DIR isolation; precedence against ANTHROPIC_API_KEY; request_permission for MCP tools; usage reported"
+      - "The findings are fixtures under packages/runner/tests/fixtures/subscription/ that later tests read"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Gates S87-21 to S87-24 and S87-38. A trial README records what was run and on which versions."
+  - id: S87-08
+    title: "contract(schemas): personal runners, subscription runs, personal sign-in and turns on a runner"
+    stream: S87
+    sprint: 1
+    priority: 2
+    size: L
+    depends_on: [S87-01, S87-02, S87-03, S87-04, S87-05, S87-06]
+    acceptance:
+      - "contract-change, additions only: door protocol 2 (runs lane, cancel_runs, runs_running, runs_ended, runner block), outpost-run.schema.json, ExecutorKind outpost, executor capability claim, /me/runners, client_kind browser and runner, /auth/owner, /auth/methods, /me/device-pairings, /auth/device/session, passkey routes, cost kind subscription, policy sandbox.personal_runner, run executed_at and credential, Conversation.placement, AgentSessionTurn and its result extended, the turn deltas route, offer kind conversation_turn, relay.yaml, local-status.schema.json"
+      - "OutpostCreate still refuses runs; test_runs_is_reserved_and_no_message_of_protocol_1_carries_it becomes test_runs_is_announced_from_protocol_2_only"
+    notes: "PLAN-2026-11-26-personal-use, phase A. One contract-change PR (ADR 0001), human review owed (ADR 0180 §3). No StageInput change."
+  - id: S87-09
+    title: "feat(core): personal is a production environment, and production is named in one place"
+    stream: S87
+    sprint: 2
+    priority: 1
+    size: M
+    depends_on: [S87-03]
+    acceptance:
+      - "TRANIBOR_ENV=personal is production: dev login, fakes, demo connectors, the direct gateway, a superuser role, clear Temporal payloads and unisolated agents are refused"
+      - "Every literal staging/prod check calls is_production(); an architecture test refuses a new one"
+    notes: "PLAN-2026-11-26-personal-use, phase A. packages/core/src/tranibor_core/production.py is the one place."
+  - id: S87-10
+    title: "feat(api): a personal installation holds one person, enforced by the database"
+    stream: S87
+    sprint: 3
+    priority: 1
+    size: M
+    depends_on: [S87-09]
+    acceptance:
+      - "An installation row records the posture; a trigger on memberships refuses a second person on every path; machine accounts are accepted; the API refuses to start on a mismatch"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Proven on PostgreSQL under the application role."
+  - id: S87-11
+    title: "feat(api): the sole member decides alone, with a fresh sign-in, recorded as such"
+    stream: S87
+    sprint: 4
+    priority: 1
+    size: M
+    depends_on: [S87-10]
+    acceptance:
+      - "In the personal posture the only person passes separation of duties, group-addressed steps and ADR 0196 excluded, always with a fresh authentication, and the decision records sole_member: true; the same case stays refused in prod"
+    notes: "PLAN-2026-11-26-personal-use, phase A. services/actions.py, services/agent_releases.py, services/human_assignee.py."
+  - id: S87-12
+    title: "feat(api,web): the owner signs in on the loopback door; the edge names the door by listener"
+    stream: S87
+    sprint: 3
+    priority: 2
+    size: L
+    depends_on: [S87-09]
+    acceptance:
+      - "POST /auth/owner opens a session from a 60-second single-use ticket signed by the owner key, on the loopback door only; per-door cookies; a request without a door in the personal posture is refused"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The door is decided by the edge listener, never by the Host header."
+  - id: S87-13
+    title: "feat(api,web): pair a phone from the computer with a one-time link shown as a QR code"
+    stream: S87
+    sprint: 4
+    priority: 2
+    size: M
+    depends_on: [S87-12]
+    acceptance:
+      - "Only the owner on the loopback door, freshly signed in, creates a 5-minute pairing; it is exchanged once on the relay door for a session listed and revocable under My account"
+    notes: "PLAN-2026-11-26-personal-use, phase A. client_kind browser; a computer-initiated pre-approved device authorization."
+  - id: S87-14
+    title: "feat(api,web): passkeys sign the owner in and re-authenticate them on the relay door"
+    stream: S87
+    sprint: 5
+    priority: 1
+    size: L
+    depends_on: [S87-13]
+    acceptance:
+      - "WebAuthn with the relay hostname as RP ID and user verification; a passkey re-authentication counts as fresh for ADR 0170; a regressed counter and a foreign origin are refused"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Every route answers 404 outside the personal posture."
+  - id: S87-15
+    title: "feat(outposts): a person's own outpost, enrolled and approved by its owner only"
+    stream: S87
+    sprint: 2
+    priority: 2
+    size: M
+    depends_on: [S87-08]
+    acceptance:
+      - "outposts.owner_user_id with a restrictive RLS policy; /me/runners; one per person and organisation; every administrator route refuses to enrol or approve a personal outpost"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Organisation outposts stay tools-only."
+  - id: S87-16
+    title: "feat(outposts): the door's runs lane, an offer claimed once, the run token minted at claim"
+    stream: S87
+    sprint: 3
+    priority: 3
+    size: L
+    depends_on: [S87-15]
+    acceptance:
+      - "outpost_runs claimed once (SKIP LOCKED + CAS); the token is minted at claim and sealed to the instance key; a poll naming the run renews its lease; a lapsed lease marks it lost and the run is closed through ADR 0143"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Reuses outposts/door.py, outposts/rendezvous.py and sealing.py."
+  - id: S87-17
+    title: "feat(executor): the outpost executor offers a run and mints nothing"
+    stream: S87
+    sprint: 4
+    priority: 3
+    size: L
+    depends_on: [S87-16]
+    acceptance:
+      - "ExecutorKind outpost (queue, claim, separate_agent): start writes the offer, status reads it (waiting for the owner's runner), cancel goes through cancel_runs, the queue timeout withdraws it"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Registered as a runtime type behind RoutingExecutor."
+  - id: S87-18
+    title: "feat(orchestrator): a run is placed on its work owner's runner, or refused, never downgraded"
+    stream: S87
+    sprint: 5
+    priority: 2
+    size: M
+    depends_on: [S87-17]
+    acceptance:
+      - "place_run runs in prepare_stage before model resolution and reservation; work_owner is the personal space's owner, never the initiator; the personal posture defaults to required and subscription; a subscription profile maps to the provider's model id"
+      - "runs.work_owner_user_id and on_behalf_of are recorded next to the run chain"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Refused at placement: gVisor, A2A steps, policies a laptop cannot honour."
+  - id: S87-19
+    title: "feat(cost): a subscription run reserves nothing, mints no key, and is booked apart"
+    stream: S87
+    sprint: 6
+    priority: 1
+    size: M
+    depends_on: [S87-18]
+    acceptance:
+      - "No reservation, no key, no spend read; one ledger line of kind subscription at 0, unmeasured, outside every USD budget; turns and minutes still end the run"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The run keeps a nominal budget.usd the contract requires, labelled not a budget."
+  - id: S87-20
+    title: "feat(security): a subscription credential is refused and scrubbed on the platform side"
+    stream: S87
+    sprint: 2
+    priority: 3
+    size: L
+    depends_on: [S87-08]
+    acceptance:
+      - "One module defines the subscription shapes; they join SECRET_PATTERNS, redaction and SECRET_FILE_PATTERNS; /api/v1/internal refuses them; connector, secret and launch-env writes answer 422; DirectGateway and the worker refuse a shaped value"
+    notes: "PLAN-2026-11-26-personal-use, phase A. No Temporal scrub codec (ADR 0227)."
+  - id: S87-21
+    title: "feat(runner): the personal-runner mode, subscription only at an outpost, scrubbed by exact value"
+    stream: S87
+    sprint: 3
+    priority: 4
+    size: M
+    depends_on: [S87-07, S87-08]
+    acceptance:
+      - "A subscription run off an outpost exits with its own code; no model listener; gateway variables removed; every URL and body the runner sends the platform is scrubbed by exact value; a push whose diff holds the token is refused"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The runner's single HTTP client to the platform carries the scrub."
+  - id: S87-22
+    title: "feat(runner,outpost): Claude Code on the person's subscription"
+    stream: S87
+    sprint: 4
+    priority: 4
+    size: M
+    depends_on: [S87-21]
+    acceptance:
+      - "choregos-outpost personal login claude reads the token from stdin into the OS keychain or a 0600 file; the daemon announces anthropic only while one is present; the token reaches only the child environment of a subscription run; the ACP pre-flight maps a signed-out CLI to subscription_login_required"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Reads the S87-07 fixtures."
+  - id: S87-23
+    title: "feat(runner,orchestrator): a subscription signed out or at its limit stops for its person"
+    stream: S87
+    sprint: 5
+    priority: 3
+    size: M
+    depends_on: [S87-22]
+    acceptance:
+      - "Signatures from the spike give subscription_login_required and subscription_limit for subscription runs only; a patch marker makes them needs-human and never retried; older histories replay unchanged"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Like BUDGET_NEVER_RETRIES."
+  - id: S87-24
+    title: "feat(network): a subscription run's egress names its provider's hosts, and only that run's"
+    stream: S87
+    sprint: 6
+    priority: 2
+    size: S
+    depends_on: [S87-18]
+    acceptance:
+      - "Provider hosts measured by the spike are implied only for subscription runs; a deny list wins and placement then refuses the subscription; gateway runs never get a provider host"
+    notes: "PLAN-2026-11-26-personal-use, phase A. services/network.py."
+  - id: S87-25
+    title: "feat(outpost): the daemon runs runs in docker mode, never one run twice"
+    stream: S87
+    sprint: 5
+    priority: 4
+    size: L
+    depends_on: [S87-16, S87-22]
+    acceptance:
+      - "The daemon verifies, opens and journals each run before starting it; docker mode uses LocalDockerExecutor with separate_agent on the runs network, secrets passed by name; cancel stops it; the end is reported in the next poll; capabilities are computed"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Native mode is S87-51."
+  - id: S87-26
+    title: "build(outpost): a native choregos-outpost binary for Linux and macOS"
+    stream: S87
+    sprint: 6
+    priority: 3
+    size: M
+    depends_on: [S87-25]
+    acceptance:
+      - "A second build target, daemon plus runner, for linux x86_64/arm64 and macOS arm64/x86_64, refusing the API, the orchestrator, sqlalchemy and temporalio; the smoke runs doctor --json; Windows is pointed to WSL2"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Unsigned until BLOCKERS S62-07 is resolved."
+  - id: S87-27
+    title: "feat(deploy): the personal bundle on published images, with an edge, durable data and no Docker socket in the platform"
+    stream: S87
+    sprint: 6
+    priority: 4
+    size: L
+    depends_on: [S87-09, S87-12, S87-16]
+    acceptance:
+      - "deploy/personal/compose.yaml uses only published images; only the edge publishes, on 127.0.0.1; no platform service mounts the Docker socket; PostgreSQL keeps fsync; secrets come from a generated file; /outposts and /api/v1/internal are routed on the loopback listener only; outposts on, executor outpost, run-door hosts set"
+      - "A runner profile mounts the socket into the person's runner container only"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The development compose.yaml is unchanged."
+  - id: S87-28
+    title: "feat(cli): choregos local init, up, down, status, doctor, open and logs, by subprocess only"
+    stream: S87
+    sprint: 7
+    priority: 1
+    size: L
+    depends_on: [S87-27]
+    acceptance:
+      - "init writes the data directory, secrets and the owner key; up starts the bundle of the CLI's own version; open signs an owner ticket; status and doctor answer local-status.schema.json; no server module is imported"
+    notes: "PLAN-2026-11-26-personal-use, phase A. FORBIDDEN_MODULES unchanged."
+  - id: S87-29
+    title: "feat(cli): the personal runner beside the stack, started, enrolled and watched"
+    stream: S87
+    sprint: 8
+    priority: 1
+    size: M
+    depends_on: [S87-28, S87-26, S87-22]
+    acceptance:
+      - "local up downloads and verifies choregos-outpost at the stack's version, writes its policy, starts it and enrols it with an owner ticket; local runner login claude passes stdin through without reading it or putting it in argv or environment"
+    notes: "PLAN-2026-11-26-personal-use, phase A. One enrolment API for the CLI and the desktop app."
+  - id: S87-30
+    title: "feat(deploy,cli): backups and restore of a personal installation, with a proof"
+    stream: S87
+    sprint: 8
+    priority: 2
+    size: M
+    depends_on: [S87-28]
+    acceptance:
+      - "Nightly and pre-upgrade backups of every database and the object store, a manifest first and a completion marker last; local backup and restore; doctor warns on an old or same-disk backup; a nightly proof restores a finished work item"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-31
+    title: "feat(api): a personal installation seeds its starter into the owner's personal space"
+    stream: S87
+    sprint: 8
+    priority: 3
+    size: M
+    depends_on: [S87-27]
+    acceptance:
+      - "The offline lock carries the personal-assistant plugin (PP-01); the seed installs it idempotently into the personal space with placement required and credential subscription; the agent stages keep the claude-code backend"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The plugin itself is PP-01 in the agents repository."
+  - id: S87-32
+    title: "ci: the personal installation end to end on Linux, to a finished work item"
+    stream: S87
+    sprint: 9
+    priority: 1
+    size: M
+    depends_on: [S87-29, S87-11, S87-19, S87-31]
+    acceptance:
+      - "Job personal-install: local init and up on images built in CI, an owner ticket, a work item placed on the runner, a scripted ACP agent on a fake subscription, a sole-member approval, the item done; nightly on the published release"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-33
+    title: "test(e2e): the subscription canary, the token is nowhere on the platform side"
+    stream: S87
+    sprint: 9
+    priority: 2
+    size: M
+    depends_on: [S87-25, S87-21, S87-20, S87-19]
+    acceptance:
+      - "A canary token goes through a full run; it and its base64 and URL forms are absent from every table, decoded Temporal history, docker inspect of every platform container, log, object and relay log; a tool call, a question and a push are part of the run; a positive control sees the agent received it"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Runs per PR in process and nightly against the bundle."
+  - id: S87-34
+    title: "feat(api): a conversation records where it runs; on the personal runner it asks no gateway"
+    stream: S87
+    sprint: 6
+    priority: 5
+    size: S
+    depends_on: [S87-08, S87-18]
+    acceptance:
+      - "agent_sessions.placement, personal_runner by default in the personal posture; opening one calls no gateway; hosted, voice and JSON assistants are refused with the field named; NULL reads as platform"
+    notes: "PLAN-2026-11-26-personal-use, phase A. cost_ledger.subscription added by the same migration."
+  - id: S87-35
+    title: "feat(api): a turn token speaks for its turn only on the internal session routes"
+    stream: S87
+    sprint: 7
+    priority: 2
+    size: S
+    depends_on: [S87-34]
+    acceptance:
+      - "A turn-{id}-{n} run token is accepted only for a runner-placed conversation, its current turn, under its lease and before the turn is answered; 409 lease_lost otherwise"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Hosted pods' session tokens are unchanged."
+  - id: S87-36
+    title: "refactor(api): one toolset for a conversation turn, served to the prompt loop and to the internal tool routes"
+    stream: S87
+    sprint: 8
+    priority: 4
+    size: M
+    depends_on: [S87-35]
+    acceptance:
+      - "turn_toolset serves the same names to respond and to /internal/agent-sessions/{id}/tools; launch__x only proposes; behaviour of platform conversations unchanged"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-37
+    title: "feat(api): a runner-placed turn is offered to its owner's runner, streamed from its deltas, booked without a gateway"
+    stream: S87
+    sprint: 9
+    priority: 3
+    size: L
+    depends_on: [S87-36, S87-16]
+    acceptance:
+      - "One conversation_turn offer per turn; deltas journaled and pruned at the answer; the result route books the history once; a subscription ledger line at 0; no key, reservation or model title; an unclaimed offer fails runner_offline, a lapsed lease runner_lost"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-38
+    title: "feat(runner): serve-turn, one conversation turn run by Claude Code on the subscription"
+    stream: S87
+    sprint: 8
+    priority: 5
+    size: L
+    depends_on: [S87-35, S87-22]
+    acceptance:
+      - "A runner-owned CLAUDE_CONFIG_DIR, the instructions as project memory, only the MCP loopback, built-in tools denied twice, ANTHROPIC_* removed; session/load when the platform's history matches, a recap otherwise; deltas batched and scrubbed"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-39
+    title: "feat(outpost): the daemon hands a conversation_turn offer to serve-turn and stops it on cancel"
+    stream: S87
+    sprint: 9
+    priority: 4
+    size: M
+    depends_on: [S87-38, S87-25]
+    acceptance:
+      - "The turn token travels in the environment, never argv; the offer stays in runs_running while the child lives; cancel sends SIGTERM; capacity is reported; an unknown kind is refused"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-40
+    title: "test(subscription): the canary covers a conversation turn end to end"
+    stream: S87
+    sprint: 10
+    priority: 1
+    size: M
+    depends_on: [S87-37, S87-39, S87-33]
+    acceptance:
+      - "A fake agent leaks the token in a chunk, an MCP argument, a tool title and stderr; after the turn the canary is absent from every body sent, table, journal event and log"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-41
+    title: "feat(web): a runner-placed conversation says where it runs and why a turn failed"
+    stream: S87
+    sprint: 10
+    priority: 2
+    size: S
+    depends_on: [S87-37]
+    acceptance:
+      - "Runs on your runner, on your Claude subscription; no dollar figure; its own message for runner_offline, runner_lost, runner_unsupported, subscription_limited and subscription_unauthorized"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-42
+    title: "feat(relay): the SNI relay routes TLS without terminating it"
+    stream: S87
+    sprint: 2
+    priority: 4
+    size: L
+    depends_on: [S87-05, S87-08]
+    acceptance:
+      - "A bounded ClientHello parser routes <id>.<domain> to one install's control session and splices bytes; the relay holds no private key for the name; rate limits, suspension, random ids, pairing by device code, metadata-only logs"
+    notes: "PLAN-2026-11-26-personal-use, phase A. packages/sni-relay, Apache-2.0."
+  - id: S87-43
+    title: "feat(relay,deploy,cli): the installation's relay agent, its own certificate, and choregos local relay"
+    stream: S87
+    sprint: 8
+    priority: 6
+    size: L
+    depends_on: [S87-42, S87-27, S87-28]
+    acceptance:
+      - "local relay enable pairs the install and sets its public URL; the agent dials out and splices to the edge; the certificate comes by TLS-ALPN-01; /api/v1/internal and /outposts answer 404 on the relay listener"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Proven with the Pebble test CA."
+  - id: S87-44
+    title: "ops(relay): a relay anyone can run, and the runbook of the hosted one"
+    stream: S87
+    sprint: 3
+    priority: 5
+    size: M
+    depends_on: [S87-42]
+    acceptance:
+      - "charts/choregos-relay renders with no secret in values and a passthrough service; docs/relay.md says what the relay sees and keeps; the runbook covers abuse, suspension, key rotation, certificate limits and incidents"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The hosted deployment lives in an operations repository, neither the core nor the enterprise edition."
+  - id: S87-45
+    title: "feat(api,web): Web Push from an installation to its person's browsers"
+    stream: S87
+    sprint: 8
+    priority: 7
+    size: M
+    depends_on: [S87-06, S87-28]
+    acceptance:
+      - "/me/push-subscriptions and the VAPID key route; keys generated per installation; a pending decision sends an RFC 8291 push straight to the push service, never through the relay; the payload holds kind, title, line and reference; a notification-only service worker and a manifest"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Delivers S81-02 and S81-03 for every installation."
+  - id: S87-46
+    title: "feat(web): the console on a phone through the relay: pairing, passkey, inbox, approval"
+    stream: S87
+    sprint: 6
+    priority: 6
+    size: M
+    depends_on: [S87-13, S87-14]
+    acceptance:
+      - "On a 390x844 touch viewport: pair, create a passkey, see a pending decision, approve with a passkey step-up, see the item done; no horizontal overflow, 44 px targets"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-47
+    title: "test(e2e): scenario 1 end to end through the relay, from a phone viewport"
+    stream: S87
+    sprint: 10
+    priority: 3
+    size: M
+    depends_on: [S87-43, S87-46, S87-32, S87-33]
+    acceptance:
+      - "Through the relay with the Pebble CA: a request created from a phone viewport, run by the docker daemon with a fake ACP agent on a canary subscription, its deliverable approved with a passkey, the canary absent everywhere on the platform side"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The single proof of scenario 1."
+  - id: S87-48
+    title: "feat(desktop): the Tauri app supervises the personal installation and its runner"
+    stream: S87
+    sprint: 9
+    priority: 5
+    size: L
+    depends_on: [S87-28, S87-29, S87-43]
+    acceptance:
+      - "Sidecars choregos and choregos-outpost; first launch runs doctor, init and up and opens the console signed in; a tray; a native window with bundled assets for Connect Claude; the console origins get no IPC"
+    notes: "PLAN-2026-11-26-personal-use, phase A. apps/desktop."
+  - id: S87-49
+    title: "test(desktop): the desktop app end to end in CI"
+    stream: S87
+    sprint: 10
+    priority: 4
+    size: M
+    depends_on: [S87-48]
+    acceptance:
+      - "Linux with a real Docker: first launch to a signed-in console and a work item; Windows: the UI with a fake CLI; macOS: build and Rust tests, said in the status row"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-50
+    title: "build(desktop): signed installers and auto-update"
+    stream: S87
+    sprint: 10
+    priority: 5
+    size: M
+    depends_on: [S87-48]
+    acceptance:
+      - "macOS notarized dmg, Windows Authenticode installer, Linux AppImage and deb; an updater manifest signed with its own key; a backup before a stack upgrade; no downgrade past a migrated schema"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Blocked by BLOCKERS S62-07 (certificates)."
+  - id: S87-51
+    title: "feat(gates,isolation): a personal runner's facts are declared; native mode needs a named acceptance"
+    stream: S87
+    sprint: 7
+    priority: 3
+    size: M
+    depends_on: [S87-18, S87-25]
+    acceptance:
+      - "GateContext carries executed_at and measured_only treats an outpost run's facts as declared; native mode on a personal runner is accepted only through policy native: accepted, logged and journaled per run"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The daemon's native run host comes with it."
+  - id: S87-52
+    title: "feat(runner,outpost): local actions, the folders a native run may write are named on the machine"
+    stream: S87
+    sprint: 8
+    priority: 8
+    size: M
+    depends_on: [S87-51]
+    acceptance:
+      - "runs.write_roots in the machine's policy reach Landlock on Linux and are recorded as not enforced on macOS; HOME itself is refused; docker mode needs declared mounts; the platform cannot widen them"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-53
+    title: "feat(outpost): the runner keeps the machine awake while it holds a run"
+    stream: S87
+    sprint: 6
+    priority: 7
+    size: S
+    depends_on: [S87-25]
+    acceptance:
+      - "caffeinate on macOS, systemd-inhibit on Linux when available, none recorded otherwise; released when the last run ends"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-54
+    title: "feat(web): My runner, and where a run executed"
+    stream: S87
+    sprint: 7
+    priority: 4
+    size: M
+    depends_on: [S87-15, S87-18, S87-19]
+    acceptance:
+      - "My runner lists instances, modes, providers announced (never a value), last seen and waiting runs; the run page shows executed_at and the credential; the administrators' page shows personal runners apart with no approve action"
+    notes: "PLAN-2026-11-26-personal-use, phase A."
+  - id: S87-55
+    title: "feat(api): a person is told when runs wait for their offline runner"
+    stream: S87
+    sprint: 5
+    priority: 5
+    size: S
+    depends_on: [S87-17]
+    acceptance:
+      - "One notice per runner per hour names the runs that wait and the time left before their queue timeout"
+    notes: "PLAN-2026-11-26-personal-use, phase A. Carried by Web Push once S87-45 lands."
+  - id: S87-56
+    title: "chore(demo): retire the cluster-wide subscription secret and keep it out"
+    stream: S87
+    sprint: 3
+    priority: 6
+    size: S
+    depends_on: [S87-20]
+    acceptance:
+      - "The agent-creds secret and the copy of a local credentials file leave demo/; a test refuses CLAUDE_CODE_OAUTH_TOKEN, agent-creds and claudeAiOauth in charts, demo, compose files and examples"
+    notes: "PLAN-2026-11-26-personal-use, phase A. The demo points to the personal runner."
+  - id: S87-57
+    title: "docs(adr): 0231, a member proves their chat accounts, and an event is addressed to one person"
+    stream: S87
+    sprint: 11
+    priority: 1
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "Indexed as proposed; amendment notes on ADR 0161, 0102, 0137, 0097 and 0077; a third party's event may only notify or propose"
+    notes: "PLAN-2026-11-26-personal-use, phase B. Decisions stay in signed-in surfaces (ADR 0102 §2 and 0030 §5 kept)."
+  - id: S87-58
+    title: "docs(adr): 0232, a person is told in person, by a link"
+    stream: S87
+    sprint: 11
+    priority: 2
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "Indexed as proposed; amendment note on ADR 0153's limits"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-59
+    title: "fix(api): background task runs are started by subscriber:<email>, not by the person"
+    stream: S87
+    sprint: 11
+    priority: 3
+    size: M
+    depends_on: [S87-57]
+    acceptance:
+      - "Schedule, poll and event task runs carry subscriber:<email> and act for the person only under a valid ADR 0137 delegation; run_now keeps person:<email>"
+    notes: "PLAN-2026-11-26-personal-use, phase B. Flips the assertion at apps/api/tests/test_assistant_tasks.py:89; a release note."
+  - id: S87-60
+    title: "feat(api): a member proves their Slack account by signing in with Slack"
+    stream: S87
+    sprint: 12
+    priority: 1
+    size: L
+    depends_on: [S87-57]
+    acceptance:
+      - "A chat_account connector of type slack-oidc enables the link; the team must be allowed; a chat account is never declared by an administrator; no token is kept"
+    notes: "PLAN-2026-11-26-personal-use, phase B. Extends services/linked_accounts.py."
+  - id: S87-61
+    title: "feat(api): Entra and Notion accounts are linked the same way"
+    stream: S87
+    sprint: 13
+    priority: 1
+    size: M
+    depends_on: [S87-60]
+    acceptance:
+      - "Entra by OIDC and PKCE keyed by oid within its tenant; Notion by OAuth with owner=user, the token dropped"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-62
+    title: "contract(schemas): ChatEvent v1; feat(adapters): Slack deliveries verified and normalised"
+    stream: S87
+    sprint: 12
+    priority: 2
+    size: M
+    depends_on: [S87-57]
+    acceptance:
+      - "contract-change: chat-event.schema.json; Slack v0 signing with a 300-second window, url_verification, mentions, direct messages and a shortcut normalised; the model carries no token"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-63
+    title: "feat(adapters): Teams activities and Notion webhooks verified and normalised"
+    stream: S87
+    sprint: 13
+    priority: 2
+    size: M
+    depends_on: [S87-62]
+    acceptance:
+      - "The Bot Framework token ported from the desk plugin; the Notion signature under its verification token"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-64
+    title: "feat(api): the chat door addresses each event to one member through a proven account"
+    stream: S87
+    sprint: 13
+    priority: 3
+    size: L
+    depends_on: [S87-60, S87-62]
+    acceptance:
+      - "POST /webhooks/chat/{org}/{connector} verifies, answers within three seconds, deduplicates, resolves addressees through verified links only and journals outcomes, never the text"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-65
+    title: "feat(api): Slack Socket Mode feeds the same door without a public URL"
+    stream: S87
+    sprint: 14
+    priority: 1
+    size: M
+    depends_on: [S87-64]
+    acceptance:
+      - "An envelope is acknowledged before processing and routed once across replicas and reconnects; off starts no loop"
+    notes: "PLAN-2026-11-26-personal-use, phase B. The default for a personal installation."
+  - id: S87-66
+    title: "feat(api): a person's event rules decide what an event addressed to them does"
+    stream: S87
+    sprint: 14
+    priority: 2
+    size: L
+    depends_on: [S87-64, S87-59]
+    acceptance:
+      - "notify, propose, task or start, written only in a person session; an event written by someone else may only notify or propose (422 at write); an hourly cap per rule"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-67
+    title: "feat(api): an event proposal waits in my pending list and only my session confirms it"
+    stream: S87
+    sprint: 15
+    priority: 1
+    size: M
+    depends_on: [S87-66]
+    acceptance:
+      - "Listed in /me/pending; confirmed only through a person session, re-checking the project right; filed as person:<email>; a token gets 403; expired after seven days"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-68
+    title: "feat(api,orchestrator): the person a step is addressed to is told in person"
+    stream: S87
+    sprint: 13
+    priority: 4
+    size: L
+    depends_on: [S87-60, S87-58]
+    acceptance:
+      - "A personal notice outbox keyed by person, kind and reference; Slack direct message, e-mail and Web Push in the person's order; never fails the act; a marked item is withheld"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-69
+    title: "fix(adapters): a Slack notice carries links, not decision buttons that never post back"
+    stream: S87
+    sprint: 11
+    priority: 4
+    size: S
+    depends_on: [S87-57]
+    acceptance:
+      - "No Slack message carries a button other than the open link; the S3-07 row is corrected to what is proven"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-70
+    title: "feat(api): inbound webhooks reach a personal installation through its relay hostname"
+    stream: S87
+    sprint: 14
+    priority: 3
+    size: S
+    depends_on: [S87-64, S87-43]
+    acceptance:
+      - "Webhook paths are public on the relay listener and internal routes stay 404; a readiness item checks reachability; a signed delivery through the relay is verified at the install"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-71
+    title: "feat(web): my chat accounts, event rules, proposals and notice channels"
+    stream: S87
+    sprint: 16
+    priority: 1
+    size: M
+    depends_on: [S87-60, S87-66, S87-67, S87-68]
+    acceptance:
+      - "A person links accounts, writes rules (task and start hidden for events from anyone), confirms or refuses proposals and orders notice channels; every new /me route has a client"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-72
+    title: "docs(procedures): set up Slack, the Teams bot and the Notion webhook"
+    stream: S87
+    sprint: 16
+    priority: 2
+    size: S
+    depends_on: [S87-64, S87-65, S87-70]
+    acceptance:
+      - "Each chat connector type has its procedure and page, including what a personal installation needs"
+    notes: "PLAN-2026-11-26-personal-use, phase B."
+  - id: S87-73
+    title: "docs(adr): 0233, a work item has a responsible person"
+    stream: S87
+    sprint: 17
+    priority: 1
+    size: S
+    depends_on: [S87-00]
+    acceptance:
+      - "Indexed as proposed; amendment notes on ADR 0153 §1/§5 and 0196 §1-2; ADR 0077 §2 kept"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-74
+    title: "docs(adr): 0234, a responsible person's step runs at their runner, under their rights"
+    stream: S87
+    sprint: 17
+    priority: 2
+    size: S
+    depends_on: [S87-01, S87-02]
+    acceptance:
+      - "Indexed as proposed; amendment notes on ADR 0097 §1, 0107 §3 and 0077 §3; lifts ADR 0147's refused personal device for an accepted responsible person only; a legal reading recorded before subscriptions serve a shared project"
+    notes: "PLAN-2026-11-26-personal-use, phase C. ADR 0061 §3 kept."
+  - id: S87-75
+    title: "contract(openapi): a work item has a responsible person, with a history"
+    stream: S87
+    sprint: 18
+    priority: 1
+    size: M
+    depends_on: [S87-73]
+    acceptance:
+      - "contract-change: WorkItem.responsible (offered or accepted), its history, audit and event; a page reads them in one query; initiated_by untouched"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-76
+    title: "feat(api): take charge, hand over, accept, refuse and release a work item"
+    stream: S87
+    sprint: 19
+    priority: 1
+    size: L
+    depends_on: [S87-75]
+    acceptance:
+      - "accepted only from a person session; taking a held item needs the holder's hand-over or a project owner; removing a member releases what they held; every gesture audited"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-77
+    title: "feat(api): each door sets the responsible person at birth"
+    stream: S87
+    sprint: 20
+    priority: 1
+    size: M
+    depends_on: [S87-76, S87-67]
+    acceptance:
+      - "The console's me or a member's e-mail; a confirmed launch or event proposal makes the confirming person accepted; a trigger's pointer offers; an unknown person is refused"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-78
+    title: "feat(adapters,api): a forge assignee with a proven link is offered the work item"
+    stream: S87
+    sprint: 19
+    priority: 2
+    size: M
+    depends_on: [S87-75]
+    acceptance:
+      - "GitHub, GitLab and Forgejo assignees with a link are offered, never accepted; a tracker change after an acceptance is journaled, not applied"
+    notes: "PLAN-2026-11-26-personal-use, phase C. Jira and Azure Boards wait for linked providers."
+  - id: S87-79
+    title: "contract(schemas): a human step and an exclusion may name the work item's responsible person"
+    stream: S87
+    sprint: 19
+    priority: 3
+    size: M
+    depends_on: [S87-75]
+    acceptance:
+      - "contract-change: user and excluded accept {{ work_item.responsible }}, resolved when a request is answered or listed; a hand-over re-addresses waiting steps"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-80
+    title: "feat(api,web,cli): my work, on the board, the item page and in the terminal"
+    stream: S87
+    sprint: 20
+    priority: 2
+    size: M
+    depends_on: [S87-76]
+    acceptance:
+      - "responsible filter, GET /me/work-items, the board's Mine view, the item page's gestures and the CLI's items mine, claim, accept and release"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-81
+    title: "feat(api,orchestrator): the accepted responsible person is the run's work owner and on-behalf subject"
+    stream: S87
+    sprint: 20
+    priority: 3
+    size: M
+    depends_on: [S87-76, S87-18]
+    acceptance:
+      - "For an accepted responsible person, work_owner and on_behalf_of name them and restricted bases are judged with their rights; a hand-over refuses the previous subject's reads"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-82
+    title: "feat(orchestrator): a shared project's step runs at its responsible person's runner"
+    stream: S87
+    sprint: 21
+    priority: 1
+    size: L
+    depends_on: [S87-81, S87-51, S87-74]
+    acceptance:
+      - "The project's policy opts in; a run waits for the runner and its person is told, falls back to the platform only when the project chose it, and is never offered to another member's runner; a subscription in a shared project needs a separate organisation switch, off by default"
+    notes: "PLAN-2026-11-26-personal-use, phase C. The legal reading of ADR 0234 comes before the switch is offered."
+  - id: S87-83
+    title: "feat(api): a hand-over cancels what runs for the previous holder"
+    stream: S87
+    sprint: 22
+    priority: 1
+    size: S
+    depends_on: [S87-82]
+    acceptance:
+      - "On hand-over or release the previous holder's runs are cancelled through the cancel lane, claimed ones included, and a late result is refused"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
+  - id: S87-84
+    title: "feat(api): who ran a step on their own machine does not approve what it proposed"
+    stream: S87
+    sprint: 20
+    priority: 4
+    size: S
+    depends_on: [S87-18, S87-11, S87-74]
+    acceptance:
+      - "Outside the personal posture, the owner of the runner that executed a run cannot approve the governed actions it proposed"
+    notes: "PLAN-2026-11-26-personal-use, phase C. The sole member of a personal installation keeps S87-11's rule."
+  - id: S87-85
+    title: "feat(auth): a person enrols their runner with the device flow"
+    stream: S87
+    sprint: 18
+    priority: 2
+    size: M
+    depends_on: [S87-15, S87-74]
+    acceptance:
+      - "client_kind runner; the fingerprint shown and approved under fresh authentication; a single-use session usable only on the enrolment routes"
+    notes: "PLAN-2026-11-26-personal-use, phase C. For a hosted deployment; the personal installation enrols with an owner ticket."
+  - id: S87-86
+    title: "feat(chart): personal runners on a hosted deployment"
+    stream: S87
+    sprint: 19
+    priority: 4
+    size: M
+    depends_on: [S87-16, S87-85]
+    acceptance:
+      - "Runs enabled only with a run door hostname; the door gets the run-token key only then; prod and staging presets leave them off"
+    notes: "PLAN-2026-11-26-personal-use, phase C. Proving the run door on a real ingress stays S65-02's job."
+  - id: S87-87
+    title: "feat(api): a project trigger may take a verified chat event and offer the item to the linked member"
+    stream: S87
+    sprint: 21
+    priority: 2
+    size: M
+    depends_on: [S87-64, S87-77]
+    acceptance:
+      - "A trigger bound to a chat connector opens a work item in the internal tracker and offers it to the member the proven account names; they act for nobody until they accept"
+    notes: "PLAN-2026-11-26-personal-use, phase C."
