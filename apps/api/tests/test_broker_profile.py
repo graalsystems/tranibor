@@ -217,7 +217,7 @@ async def test_a_call_names_the_instance_in_the_ledger_and_the_audit(
         called = [
             e
             for e in (
-                await session.execute(select(Event).where(Event.type == "choregos.tool.called"))
+                await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))
             ).scalars()
             if e.subject == "run-profile-1"
         ]
