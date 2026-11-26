@@ -55,7 +55,7 @@ global:
   # switch rolls the pods and recreates nothing. The runners' pods and what holds data keep theirs.
   labelValues: former
   imageRegistry: ghcr.io/graalsystems
-  imageTag: "0.29.5"
+  imageTag: "0.30.0"
   imagePullPolicy: IfNotPresent
   # Images are referenced by digest in staging and prod (Kyverno policy).
   imageDigest: ""
