@@ -12,6 +12,7 @@ from typing import Any
 
 import structlog
 from sqlalchemy import select
+from tranibor_api.db.models import MemoryStore, RunEvent, Skill, SkillVersion
 from tranibor_contracts import (
     KnowledgeRef,
     McpServerRef,
@@ -74,7 +75,6 @@ async def _agent_skills(session: Any, bundle: Any, agent: Any) -> list[SkillRef]
     if agent is None or not agent.spec.skills:
         return []
     from temporalio.exceptions import ApplicationError
-    from tranibor_api.db.models import Skill, SkillVersion
 
     refs: list[SkillRef] = []
     for requested in agent.spec.skills:
@@ -118,7 +118,6 @@ async def _agent_skills(session: Any, bundle: Any, agent: Any) -> list[SkillRef]
 
 
 async def _skill_exists(session: Any, bundle: Any, slug: str) -> bool:
-    from tranibor_api.db.models import Skill
 
     trouvee = await session.execute(
         select(Skill.id).where(Skill.org_id == bundle.project.org_id, Skill.slug == slug)
@@ -221,7 +220,6 @@ async def _memory_bindings(session: Any, bundle: Any, agent: Any) -> ResolvedMem
     (ADR 0007). A playbook run, with no agent, is `[project:shared write]`, as before.
     """
     from sqlalchemy import select
-    from tranibor_api.db.models import MemoryStore
     from tranibor_api.services.memory_access import reaches_project
     from tranibor_core.memory_bindings import OWN, SHARED, effective_bindings, namespace_of_binding
 
@@ -296,7 +294,6 @@ async def _journal_skipped_memories(session: Any, run_id: str, skipped: list[dic
     if not skipped:
         return
     from sqlalchemy import func
-    from tranibor_api.db.models import RunEvent
     from tranibor_core import utcnow
 
     rows = (
@@ -356,7 +353,6 @@ async def _journal_profile_lines(session: Any, run_id: str, project: Any, agent:
     if not unbound and not capped:
         return
     from sqlalchemy import func
-    from tranibor_api.db.models import RunEvent
     from tranibor_core import utcnow
 
     rows = (
