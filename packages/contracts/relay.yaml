@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: Choregos relay
+  version: v1
+  description: |
+    The relay a personal installation dials out to (ADR 0230): `/relay/v1`, protocol 1. It is not part of
+    `openapi.yaml`, nor of `outpost-door.yaml`: its two parties are the relay server and the installation's
+    relay agent (`packages/sni-relay`), and the platform's API is neither. A change here is a
+    `contract-change` (ADR 0001). It is not one of ADR 0168's frozen surfaces, but installations upgrade when
+    their person chooses, so a relay serves its own protocol and the one before (`x-protocol`).
+
+    The relay's own host serves four paths, all under `/relay/v1`:
+
+    - `pairing`: the agent's new public key; answers a device code and the user code the owner enters in
+      their relay account.
+    - `pairing/poll`: where that pairing stands; once approved, the id the relay drew and the hostname.
+    - `control`: one WSS connection per installation. The relay sends a challenge, the agent a signed hello,
+      and from then on the relay sends one order to dial back per phone connection (`x-control`).
+    - `data/{stream}`: one dial-back per phone connection, opened with that stream's single-use ticket; once
+      upgraded, it carries bytes both ways and nothing else (`x-data`).
+
+    Phones never reach these paths. They connect to `<id>.<relay-domain>` on 443, where the relay reads the
+    server name of their ClientHello within bounds and splices the connection, ClientHello first, to the
+    installation's dial-back (`x-sni`). The relay holds no certificate and no key for any `<id>` name: TLS
+    ends at the installation's edge.
+
+    No message names a host or a port to connect to: the agent connects only to the relay's own host, and
+    splices only to the one target its own configuration names (`x-target`). That is what keeps this relay
+    from being ADR 0147's refused "generic HTTP relay into the outpost's network".
+
+    The five schemas of this contract are closed, and their models are strict: a field they do not describe
+    is refused, by the relay (a pairing request that names an id) and by the agent (an order to dial back
+    that names anything more). What the relay sends besides them (the challenge, the welcome, a close, a
+    problem) is open: an agent ignores a field it does not know, because an agent of protocol N-1 reads them
+    before the relay knows its protocol. Every problem is an RFC 9457 document with a `code` and the relay's
+    `server_time`.
+  license: { name: Apache-2.0, url: https://www.apache.org/licenses/LICENSE-2.0 }
+servers:
+  - url: /
+    description: >-
+      The relay's own host, which has a certificate of its own: the one name an agent dials, for the pairing,
+      the control channel and the dial-backs. It is not any `<id>.<relay-domain>` name, which only phones use.
+
+x-protocol:
+  version: 1
+  served: >-
+    A relay of protocol N serves N and N-1: `protocol.current` is N, `protocol.minimum` is N-1 (and never
+    below 1). An agent announces its protocol in each pairing request, each pairing poll and its hello. One
+    below the minimum is refused `protocol_unsupported`, with the window: a 426 problem on the HTTP paths, a
+    `close` message on the control channel. `choregos local doctor` and the readiness page show it. The
+    minimum moves only with a release note: dropping N-1 too early cuts old installations off their phones.
+  negotiation: >-
+    The relay sends its window in the challenge, before it knows the agent's protocol, and again in the
+    welcome, in every pairing answer and in a `protocol_unsupported` refusal. Nothing the relay sends makes an
+    agent download or run anything; upgrading is its person's gesture.
+
+x-request-signature:
+  whose: >-
+    The agent's. A pairing request and a pairing poll are signed with the Ed25519 key being paired, as the
+    outposts' enrolment is (`outpost-door.yaml`, `x-request-signature`): it proves the agent holds the key the
+    relay will bind an id to.
+  header: Relay-Signature
+  format: >-
+    A compact JWS (RFC 7515). Protected header: `alg` `EdDSA` (Ed25519) and `typ` `choregos-relay+jwt`, and no
+    `kid`: the relay reads the key from the request's `signing_key`, or, for a poll, from the pairing its
+    device code names.
+  algorithm: EdDSA
+  type: choregos-relay+jwt
+  claims:
+    htm: The request's method, in capitals.
+    htu: >-
+      The request's URL without query or fragment. The relay compares it with its own public URL, scheme and
+      host in lower case, a default port left out.
+    body_sha256: The SHA-256 of the body exactly as sent, lowercase hex.
+    iat: >-
+      When the signature was made, in seconds, by the agent's own clock. Refused when it is more than 60
+      seconds from the relay's clock, either way. An agent never corrects `iat` from `server_time`.
+  claim_names: [htm, htu, body_sha256, iat]
+  checks: >-
+    A request that fails several checks is answered for the first that fails, in this order: the body's size
+    (413, before anything is parsed); the protocol (426), read from the body before the rest of it is judged;
+    the body against its schema (422); the signature (401 `invalid_signature`); what it binds (401
+    `request_mismatch`); `iat` (401 `stale_iat`); the rate (429); then what the path itself refuses (404
+    `unknown_device_code`).
+
+x-hello-signature:
+  whose: >-
+    The agent's, by the installation's Ed25519 key, the one the pairing bound to the id. It is how the
+    outposts' uplink signs a request (`packages/outpost/src/tranibor_outpost/uplink.py`, checked by
+    `apps/api/src/tranibor_api/outposts/auth.py`), carried in the hello's `signature`.
+  format: >-
+    A compact JWS (RFC 7515). Protected header, these three members and no other: `alg` `EdDSA` (Ed25519),
+    `typ` `choregos-relay-hello+jwt`, and `kid`, the id.
+  algorithm: EdDSA
+  type: choregos-relay-hello+jwt
+  claims:
+    htu: >-
+      The control channel's URL, `wss://` and the relay's own host followed by `/relay/v1/control`: a hello
+      made for one relay is not another's.
+    id: The id, as the pairing answered it; the hello's `id`.
+    protocol: The hello's `protocol`.
+    nonce: >-
+      The nonce of this connection's challenge. It is good for this connection only, until the hello or
+      `hello_timeout_s`, whichever comes first.
+    iat: >-
+      When the signature was made, in seconds, by the agent's own clock. Refused when it is more than 60
+      seconds from the relay's clock, either way.
+  claim_names: [htu, id, protocol, nonce, iat]
+  checks: >-
+    In this order, each refusal a `close` message with its code: the message's size and shape
+    (`invalid_message`); the protocol (`protocol_unsupported`, with the window); the id (`unknown_id`); the
+    signature, under the id's key, and what it binds, the URL, the id and the protocol (`invalid_signature`,
+    which does not say which); the nonce (`stale_nonce`); `iat` (`stale_iat`); the id's state (`suspended`);
+    the rate (`rate_limited`). A refused hello leaves the id's live session as it was. A hello that passes
+    opens this id's one session: a live one is sent `close` `replaced` and closed.
+
+x-control:
+  transport: >-
+    One WebSocket over TLS (WSS) per installation, opened by the agent at `/relay/v1/control`. Each message is
+    one JSON object in one text frame, `MAX_CONTROL_MESSAGE_BYTES` at most, and its `type` says which. Binary
+    frames are refused `invalid_message`. The relay pings every `ping_interval_s`; a session that misses
+    `max_missed_pongs` pongs is closed, and its installation gets no stream until the agent dials again.
+  sequence: >-
+    The relay sends `challenge`; the agent answers `hello` within `hello_timeout_s`; the relay answers
+    `welcome`, or `close` and closes. From the welcome on, the relay sends one `open_stream` per phone
+    connection, and the agent sends nothing: it dials back on a new connection (`x-data`). The relay may send
+    `close` at any time (`replaced`, `suspended`) and closes.
+  messages:
+    challenge:
+      from: relay
+      schema: { $ref: "#/components/schemas/Challenge" }
+    hello:
+      from: agent
+      schema: { $ref: "./schemas/relay-hello.schema.json" }
+    welcome:
+      from: relay
+      schema: { $ref: "#/components/schemas/Welcome" }
+    open_stream:
+      from: relay
+      schema: { $ref: "./schemas/relay-open-stream.schema.json" }
+    close:
+      from: relay
+      schema: { $ref: "#/components/schemas/Close" }
+
+x-data:
+  dial_back: >-
+    For each `open_stream`, the agent opens a new connection to the relay's own host:
+    `GET /relay/v1/data/{stream}` with `Connection: Upgrade`, `Upgrade: choregos-relay-stream` and the ticket in
+    `Relay-Ticket`, never in the URL. A ticket is single use, bound to its stream, and valid
+    `ticket_ttl_s` after its order; a ticket used twice, unknown, expired or of another stream is refused 401
+    `ticket_refused`, and the relay does not say which. A phone connection whose dial-back does not come in
+    time is closed (`dial_back_timeout`).
+  splice: >-
+    After the 101, the relay writes the phone's bytes, its ClientHello first, and the agent's bytes go back
+    to the phone; neither side parses them. Before the first of them, the agent opens its one target and
+    writes a PROXY protocol v2 header carrying the order's `client_ip`; the edge accepts that header on its
+    relay listener only, from the agent only. Either side closing closes the other.
+  one_per_connection: >-
+    One dial-back per phone connection: streams are never multiplexed inside the control channel or inside
+    one another (ADR 0230, "Alternatives rejected").
+
+x-target:
+  rule: >-
+    The agent connects to two places: the relay's own host, named in its configuration, for the pairing, the
+    control channel and the dial-backs; and its one target, named in its configuration, the edge's relay
+    listener (`edge:8443` in the personal bundle), for what it splices. No message of this contract names a
+    host, a port or an address to connect to, and an agent refuses one that does (`relay-open-stream` is
+    closed). The agent publishes nothing.
+
+x-sni:
+  routing: >-
+    The relay listens on 443 for `*.<relay-domain>` and reads each phone's ClientHello with a bounded parser:
+    `client_hello_max_bytes` and `client_hello_timeout_s` at most. The `server_name` must be exactly
+    `<id>.<relay-domain>`, with an id that is active and has a control session. A connection without a server
+    name, with a malformed ClientHello, a name outside the domain, an unknown or suspended id, or no control
+    session, is closed. The relay speaks TCP only.
+  certificates: >-
+    The relay holds no certificate and no private key for any `<id>` name. The installation's edge obtains its
+    own by ACME TLS-ALPN-01 through the passthrough (ADR 0230 §5).
+
+x-ids:
+  rule: >-
+    An id is 60 random bits drawn by the relay when the owner enters the user code, written as 12 lowercase
+    base32 characters (RFC 4648's alphabet), and bound to the owner's relay account and the agent's public
+    key. Nobody chooses one: a pairing request has no field that could name it. The installation's hostname
+    is `<id>.<relay-domain>`.
+  bits: 60
+  length: 12
+  alphabet: abcdefghijklmnopqrstuvwxyz234567
+
+x-metadata:
+  rule: >-
+    One line per phone connection the relay accepts, routed or not, validated against
+    `schemas/relay-metadata-line.schema.json` before it is written: the id (null when none was known), the
+    open and close times, the client's IP address, the bytes each way, the duration and the close reason.
+    Nothing else: no server name, no ALPN, no cipher list, no byte of the stream. The retention is fixed by
+    the relay's operator; a relay refuses to start without one, and deletes older lines.
+  line: { $ref: "./schemas/relay-metadata-line.schema.json" }
+
+x-bounds:
+  iat_window_s: 60
+  hello_timeout_s: 10
+  ping_interval_s: 25
+  max_missed_pongs: 2
+  ticket_ttl_s: 10
+  pairing_ttl_s: 600
+  pairing_interval_s: 5
+  client_hello_max_bytes: 16384
+  client_hello_timeout_s: 5
+  max_control_message_bytes: 4096
+  max_body_bytes: { pairing: 4096, pairing_poll: 4096 }
+  protocols_served: 2
+  limits: >-
+    Per installation, concurrent streams, new streams per minute and bytes per month; per client IP address,
+    new connections per minute. Their values are the relay operator's. Past a limit the connection is closed
+    and its line says which (ADR 0230 §8).
+
+x-examples:
+  key: >-
+    The pairing request's `signing_key` and the hello's signature are made with one Ed25519 key whose 32-byte
+    seed is the SHA-256 of the label below: test material, derivable by anyone, never a key in service.
+  label: "choregos relay example: the agent's signing key, test material only"
+  control_url: wss://relay.example/relay/v1/control
+
+paths:
+  /relay/v1/pairing:
+    post:
+      operationId: requestRelayPairing
+      summary: Ask for a device code for a new installation key
+      description: >-
+        Carries the agent's new Ed25519 public key, and nothing that names an id. Signed with that key
+        (`x-request-signature`). Answers a `pending` pairing: the device code the agent polls with and the user
+        code it shows the owner, valid `pairing_ttl_s`.
+      security: [{ relaySignature: [] }]
+      x-max-body-bytes: 4096
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "./schemas/relay-pairing-request.schema.json" }
+            examples:
+              pairing: { externalValue: "./schemas/examples/relay-pairing-request.example.json" }
+      responses:
+        "201":
+          description: A pending pairing
+          content:
+            application/json:
+              schema: { $ref: "./schemas/relay-pairing-answer.schema.json" }
+              examples:
+                pending: { externalValue: "./schemas/examples/relay-pairing-answer.example.json" }
+        "401": { $ref: "#/components/responses/NotAuthenticated" }
+        "413": { $ref: "#/components/responses/BodyTooLarge" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+        "426": { $ref: "#/components/responses/ProtocolUnsupported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /relay/v1/pairing/poll:
+    post:
+      operationId: pollRelayPairing
+      summary: Learn where a pairing stands; once approved, the id and the hostname
+      description: >-
+        Signed with the key the device code was issued to. Answers `pending` until the owner enters the user
+        code, then `approved` with the id the relay drew and the hostname, or `denied`, or `expired`. Polled no
+        more often than `interval_s`; sooner is a 429.
+      security: [{ relaySignature: [] }]
+      x-max-body-bytes: 4096
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PairingPoll" }
+            examples:
+              poll: { externalValue: "./schemas/examples/relay-pairing-poll.example.json" }
+      responses:
+        "200":
+          description: Where the pairing stands
+          content:
+            application/json:
+              schema: { $ref: "./schemas/relay-pairing-answer.schema.json" }
+              examples:
+                approved: { externalValue: "./schemas/examples/relay-pairing-answer.approved.example.json" }
+        "401": { $ref: "#/components/responses/NotAuthenticated" }
+        "404":
+          description: No pairing under this device code for this key
+          x-codes: [unknown_device_code]
+          content: { application/problem+json: { schema: { $ref: "#/components/schemas/RelayProblem" } } }
+        "413": { $ref: "#/components/responses/BodyTooLarge" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+        "426": { $ref: "#/components/responses/ProtocolUnsupported" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /relay/v1/control:
+    get:
+      operationId: openRelayControl
+      summary: Open the installation's control channel (WebSocket)
+      description: >-
+        A WebSocket upgrade. The relay sends a challenge; the agent answers a signed hello
+        (`x-hello-signature`); then the relay orders the dial-backs (`x-control`). A refused hello is a
+        `close` message, not an HTTP status: the upgrade has happened by then.
+      security: []
+      responses:
+        "101":
+          description: Switched to WebSocket; the messages are `x-control`'s
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /relay/v1/data/{stream}:
+    parameters: [{ $ref: "#/components/parameters/StreamId" }]
+    get:
+      operationId: openRelayStream
+      summary: Dial back for one phone connection, with its single-use ticket
+      description: >-
+        An upgrade to `choregos-relay-stream`, the ticket in `Relay-Ticket` (`x-data`). After the 101 the
+        connection carries the phone's bytes both ways, and nothing else.
+      security: [{ relayTicket: [] }]
+      responses:
+        "101":
+          description: Switched to the stream; bytes both ways from now on
+          headers:
+            Upgrade:
+              description: "`choregos-relay-stream`"
+              schema: { type: string, const: choregos-relay-stream }
+        "401":
+          description: The ticket is unknown, used, expired or another stream's; the relay does not say which
+          x-codes: [ticket_refused]
+          content: { application/problem+json: { schema: { $ref: "#/components/schemas/RelayProblem" } } }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+components:
+  securitySchemes:
+    relaySignature:
+      type: apiKey
+      in: header
+      name: Relay-Signature
+      description: >-
+        A compact JWS signed with the agent's Ed25519 key (`x-request-signature`). It binds the method, the
+        URL, a digest of the body and `iat`.
+    relayTicket:
+      type: apiKey
+      in: header
+      name: Relay-Ticket
+      description: The single-use ticket of the stream, from its `open_stream` order. It opens that one dial-back.
+  parameters:
+    StreamId:
+      name: stream
+      in: path
+      required: true
+      description: The stream's id, as its `open_stream` order named it
+      schema: { type: string, pattern: "^[A-Za-z0-9_-]{22,64}$" }
+  responses:
+    NotAuthenticated:
+      description: The signature is refused; every code carries the relay's time
+      x-codes: [invalid_signature, request_mismatch, stale_iat]
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/RelayProblem" }
+    BodyTooLarge:
+      description: The body is above the path's cap (`x-max-body-bytes`); refused before it is parsed
+      x-codes: [body_too_large]
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/RelayProblem" } } }
+    InvalidRequest:
+      description: The body is not what the path's schema describes; a pairing request naming an id is one
+      x-codes: [invalid_request]
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/RelayProblem" } } }
+    ProtocolUnsupported:
+      description: The agent's protocol is below the relay's minimum; the problem names the window
+      x-codes: [protocol_unsupported]
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/RelayProblem" } } }
+    RateLimited:
+      description: Too many requests; `retry_after` says when to come back
+      x-codes: [rate_limited]
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/RelayProblem" }
+          examples:
+            rate-limited: { externalValue: "./schemas/examples/relay-problem.example.json" }
+  schemas:
+    ProtocolWindow:
+      type: object
+      additionalProperties: false
+      description: The protocols the relay serves, its own and the one before. An agent below `minimum` is refused.
+      required: [current, minimum]
+      properties:
+        current: { type: integer, minimum: 1 }
+        minimum: { type: integer, minimum: 1 }
+    PairingPoll:
+      type: object
+      additionalProperties: false
+      description: Where the pairing of this device code stands. Signed by the key the device code was issued to.
+      required: [protocol, device_code]
+      properties:
+        protocol: { type: integer, minimum: 1, description: "The protocol the agent speaks: 1 for this contract" }
+        device_code: { type: string, pattern: "^[A-Za-z0-9_-]{43,128}$", description: "As the pairing answered it" }
+    Challenge:
+      type: object
+      description: The relay's first message on a control connection. An agent ignores a field it does not know.
+      required: [type, nonce, server_time, protocol]
+      properties:
+        type: { const: challenge }
+        nonce: { type: string, pattern: "^[A-Za-z0-9_-]{22,128}$", description: "What the hello's signature binds; good for this connection only" }
+        server_time: { type: string, format: date-time }
+        protocol: { $ref: "#/components/schemas/ProtocolWindow" }
+    Welcome:
+      type: object
+      description: The relay took the hello; this session is the id's from now on. An agent ignores a field it does not know.
+      required: [type, id, hostname, server_time, protocol]
+      properties:
+        type: { const: welcome }
+        id: { type: string, pattern: "^[a-z2-7]{12}$" }
+        hostname: { type: string, maxLength: 253, pattern: "^[a-z2-7]{12}(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$" }
+        server_time: { type: string, format: date-time }
+        protocol: { $ref: "#/components/schemas/ProtocolWindow" }
+    Close:
+      type: object
+      description: >-
+        The relay refuses a hello, or ends a session, and closes the connection. An agent ignores a field it
+        does not know, and goes by `close` alone for a code it does not know.
+      required: [type, code, server_time]
+      properties:
+        type: { const: close }
+        code:
+          enum:
+            - invalid_message
+            - hello_timeout
+            - protocol_unsupported
+            - unknown_id
+            - invalid_signature
+            - stale_nonce
+            - stale_iat
+            - suspended
+            - replaced
+            - rate_limited
+          description: >-
+            `invalid_message`: not a message this protocol describes, or above its size. `hello_timeout`: no
+            hello in time. `protocol_unsupported`: below the minimum; `protocol` names the window. `unknown_id`:
+            the relay has no installation under this id; pair again. `invalid_signature`: the signature does
+            not verify under the id's key, or binds another URL, id or protocol. `stale_nonce`: not this
+            connection's nonce. `stale_iat`. `suspended`: the id is suspended. `replaced`: a newer session of
+            the id took this one's place. `rate_limited`.
+        server_time: { type: string, format: date-time }
+        protocol: { $ref: "#/components/schemas/ProtocolWindow" }
+        detail: { type: string, maxLength: 2000 }
+    RelayProblem:
+      type: object
+      description: >-
+        A problem of the relay's HTTP paths (RFC 9457) with its `code` and the relay's time. An agent ignores a
+        field it does not know.
+      required: [type, title, status, code, server_time]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        retry_after: { type: integer, minimum: 0, description: "Seconds before the agent comes back (`rate_limited`)" }
+        code:
+          enum:
+            - invalid_request
+            - body_too_large
+            - invalid_signature
+            - request_mismatch
+            - stale_iat
+            - protocol_unsupported
+            - unknown_device_code
+            - ticket_refused
+            - rate_limited
+          description: >-
+            `invalid_request` (422). `body_too_large` (413). `invalid_signature` (401): no signature, one that
+            does not verify, or under a key the relay does not know. `request_mismatch` (401): the signature
+            binds another method, URL or body. `stale_iat` (401). `protocol_unsupported` (426): `protocol`
+            names the window. `unknown_device_code` (404). `ticket_refused` (401): a dial-back's ticket is
+            unknown, used, expired or another stream's. `rate_limited` (429).
+        server_time: { type: string, format: date-time, description: "The relay's clock" }
+        protocol: { $ref: "#/components/schemas/ProtocolWindow" }

@@ -6,8 +6,8 @@ Contract only: no route serves any of this yet (`CONTRACT_ONLY` in
 `apps/api/tests/test_contract_conformance.py`), so what is proven here is what the documents say, and
 that the three forms a daemon and a door will read (JSON Schema, Python model, the door's own
 document) cannot drift apart. `tests/docs/test_outpost_door_contract.py` holds what needs the
-cryptography: the two signatures (a request's, the instance's; a call's, the door's) and the sealed
-envelope.
+cryptography: the signatures (a request's, the instance's; a call's and a run's offer's, the door's) and
+the sealed envelopes. Protocol 2 (S87-08, ADR 0226 §3) adds the runs lane inside the poll.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from jsonschema.exceptions import best_match
 from pydantic import BaseModel, ValidationError
 from tranibor_contracts import outpost
 from tranibor_contracts.enums import (
+    OfferKind,
     OutpostAnswerOutcome,
     OutpostAuditEvent,
     OutpostCallKind,
@@ -37,6 +38,8 @@ from tranibor_contracts.enums import (
     OutpostInstanceStatus,
     OutpostRefusalCode,
     OutpostStatus,
+    RunCredential,
+    SubscriptionProvider,
 )
 
 from .test_contracts import _compare
@@ -116,12 +119,16 @@ FILE_EXAMPLES: list[tuple[str, str, type[BaseModel]]] = [
         "outpost-enrolment-answer.schema.json",
         outpost.OutpostEnrolmentAnswer,
     ),
+    ("outpost-run.example.json", "outpost-run.schema.json", outpost.OutpostRun),
+    ("outpost-run.conversation-turn.example.json", "outpost-run.schema.json", outpost.OutpostRun),
 ]
 
 #: (example, component of the door's document, model).
 DOOR_EXAMPLES: list[tuple[str, str, type[BaseModel]]] = [
     ("outpost-poll-request.example.json", "PollRequest", outpost.OutpostPollRequest),
     ("outpost-poll-answer.example.json", "PollAnswer", outpost.OutpostPollAnswer),
+    ("outpost-poll-request.runs.example.json", "PollRequest", outpost.OutpostPollRequest),
+    ("outpost-poll-answer.runs.example.json", "PollAnswer", outpost.OutpostPollAnswer),
     ("outpost-sealed-answer.example.json", "SealedAnswer", outpost.OutpostSealedAnswer),
     ("outpost-call-ack.example.json", "CallAck", outpost.OutpostCallAck),
     ("outpost-door-problem.example.json", "DoorProblem", outpost.OutpostDoorProblem),
@@ -458,10 +465,14 @@ SAME_FIELDS: list[tuple[str, dict[str, Any], type[BaseModel]]] = [
         contracts.load_schema("outpost-enrolment-answer.schema.json")["$defs"]["window"],
         outpost.OutpostProtocolWindow,
     ),
+    ("run", contracts.load_schema("outpost-run.schema.json"), outpost.OutpostRun),
     ("door.ProtocolWindow", DOOR_SCHEMAS["ProtocolWindow"], outpost.OutpostProtocolWindow),
     ("door.PollRequest", DOOR_SCHEMAS["PollRequest"], outpost.OutpostPollRequest),
+    ("door.Runner", DOOR_SCHEMAS["Runner"], outpost.OutpostRunner),
+    ("door.RunEnded", DOOR_SCHEMAS["RunEnded"], outpost.OutpostRunEnded),
     ("door.PollAnswer", DOOR_SCHEMAS["PollAnswer"], outpost.OutpostPollAnswer),
     ("door.SealedCall", DOOR_SCHEMAS["SealedCall"], outpost.OutpostSealedCall),
+    ("door.SealedRun", DOOR_SCHEMAS["SealedRun"], outpost.OutpostSealedRun),
     ("door.SealedAnswer", DOOR_SCHEMAS["SealedAnswer"], outpost.OutpostSealedAnswer),
     ("door.CallAck", DOOR_SCHEMAS["CallAck"], outpost.OutpostCallAck),
     ("door.DoorProblem", DOOR_SCHEMAS["DoorProblem"], outpost.OutpostDoorProblem),
@@ -495,6 +506,8 @@ def test_what_a_daemon_sends_is_closed_and_what_it_reads_is_open() -> None:
         contracts.load_schema("outpost-answer.schema.json"),
         contracts.load_schema("outpost-refusal.schema.json"),
         DOOR_SCHEMAS["PollRequest"],
+        DOOR_SCHEMAS["Runner"],
+        DOOR_SCHEMAS["RunEnded"],
         DOOR_SCHEMAS["SealedAnswer"],
     ]
     for schema in sent:
@@ -502,8 +515,10 @@ def test_what_a_daemon_sends_is_closed_and_what_it_reads_is_open() -> None:
     read = [
         contracts.load_schema("outpost-enrolment-answer.schema.json"),
         contracts.load_schema("outpost-call.schema.json"),
+        contracts.load_schema("outpost-run.schema.json"),
         DOOR_SCHEMAS["PollAnswer"],
         DOOR_SCHEMAS["SealedCall"],
+        DOOR_SCHEMAS["SealedRun"],
         DOOR_SCHEMAS["CallAck"],
         DOOR_SCHEMAS["DoorProblem"],
     ]
@@ -515,6 +530,16 @@ def test_what_a_daemon_sends_is_closed_and_what_it_reads_is_open() -> None:
     request = _json("outpost-poll-request.example.json") | {"a_later_field": 1}
     assert list(_door("PollRequest").iter_errors(request))
     assert not _accepts(outpost.OutpostPollRequest, request)
+    runner = _json("outpost-poll-request.runs.example.json")
+    for closed in (
+        runner | {"runner": runner["runner"] | {"a_later_field": 1}},
+        runner | {"runs_ended": [{}]},
+    ):
+        assert list(_door("PollRequest").iter_errors(closed))
+        assert not _accepts(outpost.OutpostPollRequest, closed)
+    offer = _json("outpost-run.example.json") | {"a_later_field": True}
+    assert not list(_file("outpost-run.schema.json").iter_errors(offer))
+    assert "a_later_field" not in outpost.OutpostRun.model_validate(offer).model_dump()
     # The files the outpost writes or reads alone are closed too: a typo is not a silent default.
     for name in ("outpost-policy.schema.json", "outpost-audit-line.schema.json"):
         assert contracts.load_schema(name)["additionalProperties"] is False
@@ -716,7 +741,13 @@ def test_an_audit_line_holds_digests_and_never_a_payload() -> None:
 
 def test_an_enrolment_is_read_the_same_by_the_schema_and_the_model() -> None:
     request = _json("outpost-enrolment-request.example.json")
-    accepted = [request, _without(request, "facts")]
+    accepted = [
+        request,
+        _without(request, "facts"),
+        # A personal outpost's instance announces `runs`, from protocol 2 (ADR 0226 §3).
+        request | {"protocol": 2, "capabilities": ["runs"]},
+        request | {"protocol": 2},
+    ]
     refused = [
         _without(request, "token"),
         _without(request, "signing_key"),
@@ -725,6 +756,7 @@ def test_an_enrolment_is_read_the_same_by_the_schema_and_the_model() -> None:
         request | {"protocol": 0},
         request | {"signing_key": request["signing_key"] + "="},
         request | {"capabilities": ["tools", "runs"]},
+        request | {"capabilities": ["runs"]},
         request | {"capabilities": ["relay"]},
         request | {"private_key": "x"},
         request | {"facts": {"hostname": "h" * 257}},
@@ -748,10 +780,22 @@ def test_an_enrolment_is_read_the_same_by_the_schema_and_the_model() -> None:
 
 def test_a_poll_is_read_the_same_by_the_door_and_the_model() -> None:
     request = _json("outpost-poll-request.example.json")
+    runs = _json("outpost-poll-request.runs.example.json")
+    runner = runs["runner"]
     accepted = [
         request,
         _without(request, "wait_s", "endpoints", "running"),
         request | {"wait_s": 0, "capacity": 0},
+        # A daemon of protocol 2 that announces no `runs` is a daemon of protocol 1 with another number.
+        request | {"protocol": 2},
+        request | {"protocol": 2, "runs_running": ["r-1"], "runs_ended": [{"id": "r-0", "exit_code": 137}]},
+        # The fields a model writes for what it did not set: nothing of the lane, in values.
+        request | {"runner": None, "runs_running": [], "runs_ended": []},
+        runs,
+        _without(runs, "runs_running", "runs_ended"),
+        runs | {"capabilities": ["tools", "runs"], "capacity": 4},
+        runs | {"runner": _without(runner, "subscriptions")},
+        runs | {"runner": runner | {"modes": ["docker", "native"], "run_capacity": 0}},
     ]
     refused = [
         request | {"wait_s": outpost.MAX_WAIT_S + 1},
@@ -762,6 +806,30 @@ def test_a_poll_is_read_the_same_by_the_door_and_the_model() -> None:
         _without(request, "capacity"),
         _without(request, "protocol"),
         request | {"seq": 41},
+        # Nothing of the runs lane in a poll of protocol 1.
+        request | {"capabilities": ["tools", "runs"], "runner": runner},
+        request | {"runner": runner},
+        request | {"runs_running": ["r-1"]},
+        request | {"runs_ended": [{"id": "r-0", "exit_code": 0}]},
+        # `runner` with `runs`, and only with it.
+        _without(runs, "runner"),
+        runs | {"runner": None},
+        runs | {"capabilities": ["tools"]},
+        # What the instance takes is bounded and named once.
+        runs | {"runner": runner | {"run_capacity": outpost.MAX_RUN_CAPACITY + 1}},
+        runs | {"runner": runner | {"modes": []}},
+        runs | {"runner": runner | {"modes": ["docker", "docker"]}},
+        runs | {"runner": runner | {"modes": ["podman"]}},
+        runs | {"runner": runner | {"offer_kinds": []}},
+        runs | {"runner": runner | {"offer_kinds": ["deploy"]}},
+        runs | {"runner": runner | {"subscriptions": ["openai"]}},
+        runs | {"runner": runner | {"subscriptions": ["anthropic", "anthropic"]}},
+        runs | {"runner": _without(runner, "version")},
+        runs | {"runs_running": ["r"] * (outpost.MAX_RUNS_RUNNING + 1)},
+        runs | {"runs_running": ["../r"]},
+        runs | {"runs_ended": [{"id": "r-0", "exit_code": 256}]},
+        runs | {"runs_ended": [{"id": "r-0", "exit_code": -9}]},
+        runs | {"runs_ended": [{"id": "r-0"}]},
     ]
     for document in accepted:
         assert not list(_door("PollRequest").iter_errors(document)), document
@@ -804,19 +872,148 @@ def test_the_enumerations_are_the_documents_lists() -> None:
     audit = contracts.load_schema("outpost-audit-line.schema.json")["properties"]
     assert audit["outcome"]["enum"] == [*outcomes, None]
     assert audit["event"]["enum"] == [e.value for e in OutpostAuditEvent]
-
-
-def test_runs_is_reserved_and_no_message_of_protocol_1_carries_it() -> None:
-    """ADR 0149 §12: `runs` is a capability no outpost announces until a record decides it."""
-    assert [c.value for c in OutpostCapability] == ["tools", "runs"]
-    announced = [
-        contracts.load_schema("outpost-enrolment-request.schema.json")["properties"]["capabilities"],
-        DOOR_SCHEMAS["PollRequest"]["properties"]["capabilities"],
-        API_SCHEMAS["OutpostCreate"]["properties"]["capabilities"],
+    # The runs lane's lists (protocol 2): one list each, wherever it is written.
+    run = contracts.load_schema("outpost-run.schema.json")["properties"]
+    runner = DOOR_SCHEMAS["Runner"]["properties"]
+    kinds = [k.value for k in OfferKind]
+    assert kinds == ["stage_run", "conversation_turn"]
+    assert run["kind"]["enum"] == DOOR_SCHEMAS["SealedRun"]["properties"]["kind"]["enum"] == kinds
+    assert runner["offer_kinds"]["items"]["enum"] == kinds
+    assert run["credential"]["enum"] == [c.value for c in RunCredential] == ["gateway", "subscription"]
+    providers = [p.value for p in SubscriptionProvider]
+    assert providers == ["anthropic", "google"]
+    assert runner["subscriptions"]["items"]["enum"] == providers and run["provider"]["enum"] == [
+        *providers,
+        None,
     ]
-    for capabilities in announced:
-        assert capabilities["items"]["enum"] == ["tools"]
+    assert run["isolation"]["enum"] == ["container", "process"]
+    assert runner["modes"]["items"]["enum"] == ["docker", "native"]
+
+
+def test_runs_is_announced_from_protocol_2_only() -> None:
+    """ADR 0226 §3 (S87-08): `runs` is announced from protocol 2, by an instance of a personal outpost; no
+    message of protocol 1 carries it, and no organisation enables it: `OutpostCreate` still refuses it."""
+    assert [c.value for c in OutpostCapability] == ["tools", "runs"]
+    assert outpost.RUNS_PROTOCOL == outpost.OUTPOST_PROTOCOL == 2
+    enrolment = contracts.load_schema("outpost-enrolment-request.schema.json")
+    poll = DOOR_SCHEMAS["PollRequest"]
+    for schema in (enrolment, poll):
+        assert schema["properties"]["capabilities"]["items"]["enum"] == ["tools", "runs"]
+    # The documents say "protocol 1 announces `tools` and nothing else" where they say it.
+    assert enrolment["if"] == {"properties": {"protocol": {"maximum": outpost.RUNS_PROTOCOL - 1}}}
+    assert enrolment["then"]["properties"]["capabilities"]["items"]["enum"] == ["tools"]
+    (protocol_1, _) = poll["allOf"]
+    assert protocol_1["if"] == {"properties": {"protocol": {"maximum": outpost.RUNS_PROTOCOL - 1}}}
+    assert protocol_1["then"]["properties"]["capabilities"]["items"]["enum"] == ["tools"]
+    # A request of protocol 1 that announces `runs` is refused by both forms; the same of protocol 2 is not.
+    documents: list[tuple[Draft202012Validator, type[BaseModel], dict[str, Any]]] = [
+        (
+            _file("outpost-enrolment-request.schema.json"),
+            outpost.OutpostEnrolmentRequest,
+            _json("outpost-enrolment-request.example.json") | {"capabilities": ["runs"]},
+        ),
+        (_door("PollRequest"), outpost.OutpostPollRequest, _json("outpost-poll-request.runs.example.json")),
+    ]
+    for validator, model, document in documents:
+        assert document["capabilities"] == ["runs"]
+        for protocol, valid in ((1, False), (2, True), (3, True)):
+            spoken = document | {"protocol": protocol}
+            assert (not list(validator.iter_errors(spoken)), _accepts(model, spoken)) == (valid, valid), (
+                model.__name__,
+                protocol,
+            )
+    with pytest.raises(ValidationError) as refused:
+        outpost.OutpostPollRequest.model_validate(
+            _json("outpost-poll-request.runs.example.json") | {"protocol": 1}
+        )
+    assert [error["loc"] for error in refused.value.errors()] == [("capabilities",)]
+    # No organisation enables it: an outpost's creation refuses `runs`, as before.
+    assert API_SCHEMAS["OutpostCreate"]["properties"]["capabilities"]["items"]["enum"] == ["tools"]
     assert "runs" in API_SCHEMAS["OutpostCapability"]["description"]
+    said = " ".join(DOOR["x-protocol"]["capabilities"].split())
+    assert "from protocol 2 only, by an instance of a personal outpost" in said
+    assert "no message of protocol 1 carries `runs`" in said
+    assert "refuses an enrolment or a poll that announces `runs`" in said
+    assert "a daemon of protocol 1 is handed no offer" in said
+    assert "reads `runs` and `cancel_runs` as fields it does not know" in DOOR["x-run-lease"]["protocol_1"]
+
+
+def test_a_poll_of_protocol_1_is_written_byte_for_byte_as_protocol_1_wrote_it() -> None:
+    """A daemon signs the body it writes (`body_sha256`): the fields protocol 2 adds are left out of a
+    poll that carries nothing of the runs lane, so that a daemon of protocol 1 built on this contract
+    writes the vectors' `poll` exactly, and a poll of the lane keeps every field it carries."""
+    signed = _json("outpost-signature.vector.json")["requests"]
+    (poll,) = [request["body"] for request in signed if request["name"] == "poll"]
+    assert outpost.OutpostPollRequest.model_validate_json(poll).model_dump_json() == poll
+    written = outpost.OutpostPollRequest.model_validate(
+        _json("outpost-poll-request.example.json")
+    ).model_dump()
+    assert not set(outpost.RUNS_LANE_FIELDS) & set(written)
+    assert set(outpost.RUNS_LANE_FIELDS) <= set(DOOR_SCHEMAS["PollRequest"]["properties"])
+    lane = _json("outpost-poll-request.runs.example.json")
+    assert outpost.OutpostPollRequest.model_validate(lane).model_dump(mode="json") == lane | {
+        "endpoints": [],
+        "running": [],
+    }
+
+
+def test_an_offer_is_read_the_same_by_the_schema_and_the_model() -> None:
+    """`outpost-run.schema.json` (ADR 0226 §4, ADR 0227 §1): a stage's run names its run, a turn its
+    conversation and its turn; a subscription run names its provider, and a gateway run none."""
+    run, turn = _json("outpost-run.example.json"), _json("outpost-run.conversation-turn.example.json")
+    accepted = [
+        run,
+        turn,
+        _without(run, "env"),
+        run | {"credential": "gateway", "provider": None},
+        _without(run | {"credential": "gateway"}, "provider"),
+        run | {"isolation": "process"},
+        run | {"lease_s": outpost.MAX_LEASE_S},
+        run | {"conversation_id": None, "turn_id": None},
+        turn | {"run_id": None},
+        run | {"env": {"https_proxy": "http://egress:3128"}},
+    ]
+    refused = [
+        *(_without(run, name) for name in ("id", "kind", "api_url", "run_token", "credential", "isolation")),
+        _without(run, "lease_s"),
+        _without(run, "max_minutes"),
+        _without(run, "run_id"),
+        run | {"conversation_id": turn["conversation_id"]},
+        run | {"turn_id": turn["turn_id"]},
+        _without(turn, "turn_id"),
+        _without(turn, "conversation_id"),
+        turn | {"run_id": run["run_id"]},
+        _without(run, "provider"),
+        run | {"provider": None},
+        run | {"provider": "openai"},
+        run | {"credential": "gateway"},
+        run | {"credential": "an_api_key"},
+        run | {"kind": "deploy"},
+        run | {"isolation": "none"},
+        run | {"lease_s": outpost.MIN_RUN_LEASE_S - 1},
+        run | {"lease_s": outpost.MAX_LEASE_S + 1},
+        run | {"max_minutes": 0},
+        run | {"api_url": "ftp://edge"},
+        run | {"api_url": "http://user:secret@edge"},
+        run | {"run_token": "not a token"},
+        run | {"env": {"HTTPS PROXY": "x"}},
+        run | {"env": {"TRANIBOR_ENV": 1}},
+        run | {"env": {f"NAME_{n}": "x" for n in range(65)}},
+        run | {"id": "../other", "run_id": "../other"},
+    ]
+    schema, model = "outpost-run.schema.json", outpost.OutpostRun
+    for document in accepted:
+        assert _both(schema, model, document) == (True, True), document
+    for document in refused:
+        assert _both(schema, model, document) == (False, False), document
+    # What the schema cannot say, the model does: the offer's id is its run's, or its turn's.
+    for other in (run | {"run_id": "another-run"}, turn | {"turn_id": "turn-another"}):
+        assert _both(schema, model, other) == (True, False)
+    # The offer carries no gateway key and no subscription credential: the token is the run's own.
+    declared = set(contracts.load_schema(schema)["properties"])
+    assert not {name for name in declared if "key" in name or "secret" in name or "oauth" in name}
+    assert run["credential"] == "subscription" and run["provider"] == "anthropic"
+    assert run["id"] == run["run_id"] and turn["id"] == turn["turn_id"]
 
 
 def _responses(operation: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -885,6 +1082,15 @@ def test_the_bounds_of_the_document_are_the_constants() -> None:
     poll = DOOR_SCHEMAS["PollRequest"]["properties"]
     assert poll["wait_s"]["maximum"] == poll["wait_s"]["default"] == outpost.MAX_WAIT_S
     assert poll["capacity"]["maximum"] == outpost.MAX_CONCURRENCY
+    # The runs lane (protocol 2): what an instance reports, what it takes, what one offer weighs.
+    assert bounds["max_runs_running"] == outpost.MAX_RUNS_RUNNING == 64
+    assert bounds["max_run_capacity"] == outpost.MAX_RUN_CAPACITY == 16
+    assert bounds["max_sealed_run_bytes"] == outpost.MAX_SEALED_RUN_BYTES == 65_536
+    assert poll["runs_running"]["maxItems"] == poll["runs_ended"]["maxItems"] == outpost.MAX_RUNS_RUNNING
+    assert DOOR_SCHEMAS["Runner"]["properties"]["run_capacity"]["maximum"] == outpost.MAX_RUN_CAPACITY
+    lease = contracts.load_schema("outpost-run.schema.json")["properties"]["lease_s"]
+    assert (lease["minimum"], lease["maximum"]) == (outpost.MIN_RUN_LEASE_S, outpost.MAX_LEASE_S)
+    assert outpost.MIN_RUN_LEASE_S > outpost.MAX_WAIT_S, "a poll renews a lease before it lapses"
     policy = contracts.load_schema("outpost-policy.schema.json")
     assert policy["properties"]["concurrency"]["maximum"] == outpost.MAX_CONCURRENCY
     assert policy["$defs"]["endpoint"]["properties"]["timeout_s"]["maximum"] == outpost.MAX_LEASE_S
@@ -908,6 +1114,18 @@ def test_the_patterns_are_the_same_in_every_document() -> None:
     assert call_id == outpost.OUTPOST_ID_PATTERN
     assert DOOR_SCHEMAS["SealedCall"]["properties"]["id"]["pattern"] == outpost.OUTPOST_ID_PATTERN
     assert contracts.load_schema("outpost-call.schema.json")["properties"]["id"]["pattern"] == call_id
+    run = contracts.load_schema("outpost-run.schema.json")["properties"]
+    for name in ("id", "run_id", "conversation_id", "turn_id"):
+        assert run[name]["pattern"] == call_id, name
+    assert run["api_url"]["pattern"] == outpost.RUN_API_URL_PATTERN
+    assert run["run_token"]["pattern"] == outpost.RUN_TOKEN_PATTERN
+    assert run["env"]["propertyNames"]["pattern"] == outpost.ENV_NAME_PATTERN
+    poll = DOOR_SCHEMAS["PollRequest"]["properties"]
+    for ids in (poll["runs_running"], DOOR_SCHEMAS["PollAnswer"]["properties"]["cancel_runs"]):
+        assert ids["items"]["pattern"] == call_id
+    assert DOOR_SCHEMAS["RunEnded"]["properties"]["id"]["pattern"] == call_id
+    assert DOOR_SCHEMAS["SealedRun"]["properties"]["id"]["pattern"] == call_id
+    assert DOOR_SCHEMAS["Runner"]["properties"]["version"]["pattern"] == outpost.DAEMON_VERSION_PATTERN
     assert OPENAPI["components"]["parameters"]["OutpostInstanceId"]["schema"]["pattern"] == call_id
     slug = OPENAPI["components"]["parameters"]["OutpostSlug"]["schema"]["pattern"]
     assert slug == outpost.OUTPOST_SLUG_PATTERN
@@ -924,8 +1142,9 @@ def test_the_patterns_are_the_same_in_every_document() -> None:
         API_SCHEMAS["OutpostInstanceApprove"]["properties"]["fingerprint"]["pattern"]
         == fingerprint["pattern"]
     )
-    for sealed in (DOOR_SCHEMAS["SealedCall"], DOOR_SCHEMAS["SealedAnswer"]):
+    for sealed in (DOOR_SCHEMAS["SealedCall"], DOOR_SCHEMAS["SealedAnswer"], DOOR_SCHEMAS["SealedRun"]):
         assert sealed["properties"]["sealed"]["pattern"] == outpost.SEALED_PATTERN
+    assert DOOR_SCHEMAS["SealedRun"]["properties"]["signature"]["pattern"] == outpost.CALL_SIGNATURE_PATTERN
 
 
 # ───────────────────────── what a signature binds, what a digest covers ─────────────────────────
@@ -1014,6 +1233,89 @@ def test_the_call_signature_is_described_as_the_helpers_build_it() -> None:
     assert vector["signature_claims"] == outpost.call_signature_claims(
         call_id=vector["associated_data"], instance_id=vector["instance"], sealed=vector["sealed"]
     )
+
+
+def test_the_run_signature_is_described_as_the_helpers_build_it() -> None:
+    """ADR 0226 §4: an offer is signed by the door as a call is, under the same pinned keys, and neither
+    signature passes for the other."""
+    signature = DOOR["x-run-signature"]
+    assert "door's" in signature["whose"] and "`x-call-signature`" in signature["whose"]
+    assert "`x-request-signature`" in signature["whose"] and "`door_keys`" in signature["whose"]
+    assert (signature["algorithm"], signature["type"]) == (
+        outpost.SIGNATURE_ALGORITHM,
+        outpost.RUN_SIGNATURE_TYPE,
+    )
+    assert outpost.RUN_SIGNATURE_TYPE == "choregos-outpost-run+jwt"
+    assert len({outpost.RUN_SIGNATURE_TYPE, outpost.CALL_SIGNATURE_TYPE, outpost.REQUEST_SIGNATURE_TYPE}) == 3
+    assert outpost.RUN_SIGNATURE_CLAIMS[0] not in outpost.CALL_SIGNATURE_CLAIMS
+    claims = outpost.run_signature_claims(run_id="r-1", instance_id="i-1", sealed="abc")
+    assert list(claims) == signature["claim_names"] == list(outpost.RUN_SIGNATURE_CLAIMS)
+    assert signature["claim_names"] == ["run", "instance", "sealed_sha256"]  # and nothing else: no `iat`
+    assert set(signature["claims"]) == set(claims)
+    assert claims == {"run": "r-1", "instance": "i-1", "sealed_sha256": hashlib.sha256(b"abc").hexdigest()}
+    assert outpost.run_signature_header(PINNED) == {
+        "alg": "EdDSA",
+        "typ": "choregos-outpost-run+jwt",
+        "kid": PINNED,
+    }
+    assert "no `iat`" in signature["freshness"] and "run token" in signature["freshness"]
+    checks = signature["checks"]
+    assert checks.startswith("The journal decides first, always")
+    order = [
+        "pinned keys",
+        "verifies under",
+        "`run` is",
+        "`instance` is",
+        "`sealed_sha256` is",
+        "Then it opens",
+    ]
+    positions = [checks.index(step) for step in order]
+    assert positions == sorted(positions), "the order of the daemon's checks moved"
+    assert "is not started" in checks and "never which check failed" in checks
+    # An offer crosses the door signed, as a call does, and the model still reads an unsigned one.
+    sealed = DOOR_SCHEMAS["SealedRun"]
+    assert sealed["required"] == ["id", "kind", "sealed", "signature"]
+    assert sealed["properties"]["sealed"]["maxLength"] == outpost.MAX_SEALED_RUN_BYTES
+    assert sealed["properties"]["sealed"]["x-plaintext"] == {"$ref": "./schemas/outpost-run.schema.json"}
+    handed = _json("outpost-poll-answer.runs.example.json")["runs"][0]
+    assert set(handed) == {"id", "kind", "sealed", "signature"}
+    unsigned = _without(handed, "signature")
+    assert list(_door("SealedRun").iter_errors(unsigned))
+    assert outpost.OutpostSealedRun.model_validate(unsigned).signature is None
+    # What is not signed says so, in the one place it is said.
+    not_signed = DOOR["x-call-signature"]["not_signed"]
+    assert "`cancel_runs`" in not_signed and "start a run" in not_signed and "`x-run-signature`" in not_signed
+
+
+def test_a_run_is_claimed_once_and_its_lease_renewed_by_the_claiming_instances_poll_only() -> None:
+    """ADR 0226 §4, §5: what the runs lane promises a daemon, and what it never does."""
+    lease = {name: " ".join(text.split()) for name, text in DOOR["x-run-lease"].items()}
+    assert "claimed once, by one instance" in lease["claim"] and "minted at that claim" in lease["claim"]
+    assert "lists the offer in `runs_running`" in lease["renewal"]
+    assert "never past the claim plus the run's `max_minutes`" in lease["renewal"]
+    assert "A poll of another instance renews nothing" in lease["renewal"]
+    assert "never handed over again, to any instance" in lease["never_again"]
+    assert "closed through ADR 0143" in lease["lapse"] and "`run_closed`" in lease["lapse"]
+    assert "`cancel_runs`" in lease["lapse"]
+    assert "starts an id once" in lease["journal"]
+    assert "`runs_ended`" in lease["ended"] and "`runs_ended`" in lease["cancel"]
+    sealing = " ".join(DOOR["x-sealing"]["run"].split())
+    assert (
+        "when it is claimed, and never before" in sealing and "`schemas/outpost-run.schema.json`" in sealing
+    )
+    assert "offer's id" in DOOR["x-sealing"]["associated_data"]
+    answer = DOOR_SCHEMAS["PollAnswer"]
+    assert {"runs", "cancel_runs"} <= set(answer["properties"]) and not {"runs", "cancel_runs"} & set(
+        answer["required"]
+    ), "an answer of protocol 1 carries neither"
+    assert answer["properties"]["runs"]["maxItems"] == outpost.MAX_RUN_CAPACITY
+    assert answer["properties"]["cancel_runs"]["maxItems"] == outpost.MAX_RUNS_RUNNING
+    # A daemon of protocol 1 reads an answer with the runs lane as the answer it always read.
+    lane = _json("outpost-poll-answer.runs.example.json")
+    read = outpost.OutpostPollAnswer.model_validate(lane)
+    assert [offer.kind for offer in read.runs] == [OfferKind.STAGE_RUN]
+    assert read.cancel_runs == _json("outpost-poll-request.runs.example.json")["runs_running"]
+    assert outpost.OutpostPollAnswer.model_validate(_json("outpost-poll-answer.example.json")).runs == []
 
 
 def test_a_call_crosses_the_door_signed_and_an_unsigned_one_is_still_read_far_enough_to_refuse_it() -> None:
@@ -1153,15 +1455,23 @@ def test_a_daemon_can_bound_what_a_poll_hands_over() -> None:
     # What a daemon bounds its reading to, before it parses anything.
     assert outpost.max_poll_answer_bytes(0) == 65_536
     assert outpost.max_poll_answer_bytes(7) == 65_536 + 7 * 2_097_152
+    assert outpost.max_poll_answer_bytes(0, run_capacity=3) == 65_536 + 3 * 65_536
+    assert "plus `run_capacity` times 64 KiB" in " ".join(handed.split())
     for capacity in (-1, outpost.MAX_CONCURRENCY + 1):
         with pytest.raises(ValueError, match="0 to 64"):
             outpost.max_poll_answer_bytes(capacity)
-    # The arithmetic holds: the heaviest answer without a call fits in the 64 KiB, and a call as heavy as
-    # the bound, id and signature included, is still a call the document and the model take.
+    for run_capacity in (-1, outpost.MAX_RUN_CAPACITY + 1):
+        with pytest.raises(ValueError, match="0 to 16"):
+            outpost.max_poll_answer_bytes(0, run_capacity)
+    # The arithmetic holds: the heaviest answer without a call or an offer fits in the 64 KiB, the
+    # cancellations of both lanes included, and a call as heavy as the bound, id and signature included,
+    # is still a call the document and the model take.
     longest_id = "c" * 128
     rest = _json("outpost-poll-answer.example.json") | {
         "calls": [],
         "cancel": [longest_id[:-3] + f"{n:03d}" for n in range(outpost.MAX_RUNNING)],
+        "runs": [],
+        "cancel_runs": [longest_id[:-3] + f"{n:03d}" for n in range(outpost.MAX_RUNS_RUNNING)],
     }
     assert not list(_door("PollAnswer").iter_errors(rest))
     assert len(json.dumps(rest).encode("utf-8")) <= outpost.MAX_POLL_ANSWER_REST_BYTES
@@ -1174,9 +1484,30 @@ def test_a_daemon_can_bound_what_a_poll_hands_over() -> None:
     too_heavy = handed_call | {"sealed": "A" * (outpost.MAX_SEALED_CALL_BYTES + 1)}
     assert list(_door("SealedCall").iter_errors(too_heavy))
     assert not _accepts(outpost.OutpostSealedCall, too_heavy)
-    # More calls than an instance may hold, or more cancellations than it may report, is not an answer.
-    full = _json("outpost-poll-answer.example.json")
-    for field, most in (("calls", outpost.MAX_CONCURRENCY), ("cancel", outpost.MAX_RUNNING)):
+    # An offer as heavy as its bound is still an offer; one byte more is not.
+    offer = _json("outpost-poll-answer.runs.example.json")["runs"][0]
+    around = len(json.dumps(offer | {"id": longest_id, "sealed": ""}).encode("utf-8")) + 2
+    heaviest_offer = offer | {"id": longest_id, "sealed": "A" * (outpost.MAX_SEALED_RUN_BYTES - around)}
+    assert len(json.dumps(heaviest_offer).encode("utf-8")) <= outpost.MAX_SEALED_RUN_BYTES
+    assert not list(_door("SealedRun").iter_errors(heaviest_offer))
+    assert _accepts(outpost.OutpostSealedRun, heaviest_offer)
+    too_heavy_offer = offer | {"sealed": "A" * (outpost.MAX_SEALED_RUN_BYTES + 1)}
+    assert list(_door("SealedRun").iter_errors(too_heavy_offer))
+    assert not _accepts(outpost.OutpostSealedRun, too_heavy_offer)
+    # More calls or offers than an instance may hold, or more cancellations than it may report, is not an
+    # answer.
+    full = _json("outpost-poll-answer.example.json") | {
+        key: value
+        for key, value in _json("outpost-poll-answer.runs.example.json").items()
+        if key in {"runs", "cancel_runs"}
+    }
+    for field, most in (
+        ("calls", outpost.MAX_CONCURRENCY),
+        ("cancel", outpost.MAX_RUNNING),
+        ("runs", outpost.MAX_RUN_CAPACITY),
+        ("cancel_runs", outpost.MAX_RUNS_RUNNING),
+    ):
+        assert not list(_door("PollAnswer").iter_errors(full | {field: [full[field][0]] * most})), field
         over = full | {field: [full[field][0]] * (most + 1)}
         assert list(_door("PollAnswer").iter_errors(over)), field
         assert not _accepts(outpost.OutpostPollAnswer, over), field
@@ -1362,9 +1693,14 @@ def test_the_digest_of_arguments_is_of_their_canonical_json() -> None:
     assert outpost.arguments_sha256({"a": 1}) != outpost.arguments_sha256({"a": "1"})
 
 
-def test_the_protocol_is_1_and_the_window_is_negotiated_at_enrol_and_at_every_poll() -> None:
-    assert DOOR["x-protocol"]["version"] == outpost.OUTPOST_PROTOCOL == 1
-    assert DOOR["info"]["version"] == f"v{outpost.OUTPOST_PROTOCOL}"
+def test_the_protocol_is_2_and_the_window_is_negotiated_at_enrol_and_at_every_poll() -> None:
+    """S87-08: protocol 2 adds the runs lane inside the poll and no verb, so the paths keep their `v1`,
+    which names the path and not the protocol; the door still serves a daemon of protocol 1."""
+    assert DOOR["x-protocol"]["version"] == outpost.OUTPOST_PROTOCOL == 2
+    assert DOOR["info"]["version"] == "v1" and outpost.OUTPOST_DOOR_PREFIX == "/outposts/v1"
+    assert "name the paths and not the protocol" in " ".join(DOOR["x-protocol"]["path_version"].split())
+    assert DOOR["x-protocol"]["window"] == {"current": outpost.OUTPOST_PROTOCOL, "minimum": 1}
+    assert "a daemon of protocol 1 is still served" in " ".join(DOOR["info"]["description"].split())
     assert all(path.startswith(outpost.OUTPOST_DOOR_PREFIX + "/") for path in DOOR["paths"])
     assert "protocol" in contracts.load_schema("outpost-enrolment-request.schema.json")["required"]
     assert "protocol" in DOOR_SCHEMAS["PollRequest"]["required"]

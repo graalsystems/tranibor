@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/relay-open-stream.schema.json",
+  "title": "RelayOpenStream",
+  "description": "The relay's order, on the control channel, to dial back for one phone connection (ADR 0230 §3): a stream id, a single-use ticket bound to that stream, and the phone's address. It has no host and no port field: the agent opens a new connection to the relay's own host only, and splices what comes back to the one target its own configuration names, the edge's relay listener. The agent refuses an order holding any field outside this schema, and connects nowhere.",
+  "type": "object",
+  "required": [
+    "type",
+    "stream",
+    "ticket",
+    "client_ip"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "const": "open_stream"
+    },
+    "stream": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22,64}$",
+      "description": "The stream's id: the path segment of the dial-back."
+    },
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43,128}$",
+      "description": "Single use, bound to this stream, valid 10 seconds: what the dial-back presents in `Relay-Ticket`."
+    },
+    "client_ip": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "ipv4"
+        },
+        {
+          "type": "string",
+          "format": "ipv6"
+        }
+      ],
+      "description": "The phone's IP address, which the agent writes in a PROXY protocol v2 header before the stream's bytes."
+    }
+  }
+}

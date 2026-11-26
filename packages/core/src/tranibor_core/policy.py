@@ -258,6 +258,18 @@ def policy_warnings(policy: Policy) -> list[Issue]:
                 "sandbox.network.deny_by_default",
             )
         )
+    # ADR 0226: `sandbox.personal_runner` is read by placement (S87-18). Until it is, a value other than
+    # the defaults would be a guard written and never applied: refused when written (ADR 0101).
+    runner = policy.sandbox.personal_runner
+    if runner.model_fields_set:
+        issues.append(
+            Issue(
+                "policy.personal_runner_not_enforced",
+                "`sandbox.personal_runner` is not enforced yet: no run is placed on a personal runner "
+                "before placement reads it (ADR 0226, S87-18). Leave it out of the policy until then.",
+                "sandbox.personal_runner",
+            )
+        )
     for name in ("allow_domains", "deny_domains"):
         for entry in getattr(net, name):
             try:
@@ -275,7 +287,12 @@ def policy_warnings(policy: Policy) -> list[Issue]:
 
 #: The warning codes that are refused when written: guards the platform accepts and never applies.
 UNENFORCED_GOVERNANCE_CODES = frozenset(
-    {"policy.approval_not_enforced", "policy.default_max_not_enforced", "policy.review_not_enforced"}
+    {
+        "policy.approval_not_enforced",
+        "policy.default_max_not_enforced",
+        "policy.review_not_enforced",
+        "policy.personal_runner_not_enforced",
+    }
 )
 
 

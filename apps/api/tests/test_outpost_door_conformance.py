@@ -129,6 +129,8 @@ def test_the_bounds_the_door_applies_are_the_documents() -> None:
     assert served.SLOT_MARGIN_S > 0 and max(rendezvous.LOOK_S) <= 10 and min(rendezvous.LOOK_S) >= 5
     assert DOOR["x-protocol"]["version"] == auth.PROTOCOL_CURRENT == outpost.OUTPOST_PROTOCOL
     assert auth.PROTOCOL_MINIMUM <= auth.PROTOCOL_CURRENT
+    # Protocol 2 still serves a daemon of protocol 1 (S87-08): the window the document states.
+    assert DOOR["x-protocol"]["window"] == auth.window() == {"current": 2, "minimum": 1}
     # One element of `calls`, 2 MiB as carried; at most 256 cancellations, which is what a poll may say
     # it holds (S65-10b).
     assert bounds["max_sealed_call_bytes"] == rendezvous.MAX_SEALED_CALL_BYTES == 2 * 1024 * 1024

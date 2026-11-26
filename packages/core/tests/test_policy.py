@@ -225,3 +225,13 @@ def test_parse_policy_rejects_garbage() -> None:
 def test_unknown_preset_raises() -> None:
     with pytest.raises(FileNotFoundError, match="unknown policy preset"):
         load_preset("licorne")
+
+
+def test_a_personal_runner_policy_is_refused_until_placement_reads_it() -> None:
+    """ADR 0101: S87-08 lets a policy write `sandbox.personal_runner`; S87-18 is what reads it."""
+    from tranibor_core.policy import parse_policy, unenforced_governance
+
+    head = "apiVersion: choregos/v1\nkind: Policy\nmetadata: {name: p, version: 1}\n"
+    written = parse_policy(head + "sandbox:\n  personal_runner:\n    placement: required\n")
+    assert [issue.code for issue in unenforced_governance(written)] == ["policy.personal_runner_not_enforced"]
+    assert unenforced_governance(parse_policy(head + "sandbox:\n  network:\n    allow_domains: []\n")) == []

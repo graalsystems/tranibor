@@ -122,6 +122,41 @@
           "minimum": 0,
           "default": 24,
           "description": "How long a sandbox may stay suspended while a person answers its agent's question, with an executor that can suspend (agent_sandbox). Beyond it the sandbox is destroyed and the stage replays. 0: never suspend"
+        },
+        "personal_runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Whether a run may execute on its work owner's personal runner, and with what (ADR 0226 §9, ADR 0227 §2). The personal posture's defaults are its own (ADR 0228 §8); these are everyone else's.",
+          "properties": {
+            "placement": {
+              "type": "string",
+              "enum": ["never", "preferred", "required"],
+              "default": "never",
+              "description": "never: the platform runs it. preferred: the work owner's runner when it is present and can honour the run, otherwise the platform after prefer_wait_minutes at most. required: the work owner's runner or nothing; a work owner without one is refused"
+            },
+            "prefer_wait_minutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120,
+              "default": 10,
+              "description": "preferred: how long a run waits for the work owner's runner before the platform takes it"
+            },
+            "credential": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["gateway", "subscription"] },
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "default": ["gateway"],
+              "description": "The credential sources a run may use: the platform's gateway, and the work owner's own subscription, used only by the vendor's CLI on the work owner's runner (ADR 0227)"
+            },
+            "native": {
+              "type": "string",
+              "enum": ["refused", "accepted"],
+              "default": "refused",
+              "description": "Whether a run may execute natively on the runner, outside a container: the organisation's named opt-out of ADR 0222, never the deployment's (ADR 0226 §10)"
+            }
+          }
         }
       }
     },

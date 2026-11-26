@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Outposts: the door's protocol 1 and the outpost's own files (ADRs 0147, 0148, 0149).
+"""Outposts: the door's protocol 2 and the outpost's own files (ADRs 0147, 0148, 0149, 0226).
 
 An outpost is a place a person enrols, which only dials out. Two programs nobody upgrades together
 speak this contract: the door (`/outposts/v1`, in the API) and the daemon `choregos-outpost`, which
@@ -12,13 +12,16 @@ and nowhere else:
   (`schemas/outpost-refusal.schema.json`) and a line of the local audit log
   (`schemas/outpost-audit-line.schema.json`);
 - the enrolment (`schemas/outpost-enrolment-request.schema.json`, `…-answer.schema.json`);
-- the messages of the three other verbs, the two signatures, the sealing and the bounds, which
+- a run's offer as a personal outpost sees it once the envelope is open
+  (`schemas/outpost-run.schema.json`, protocol 2, ADR 0226 §4);
+- the messages of the three other verbs, the signatures, the sealing and the bounds, which
   `outpost-door.yaml` describes and the constants below repeat.
 
-Two signatures cross the door, and they are not the same thing. A *request's* signature is the
+A request's signature and the door's are not the same thing. A *request's* signature is the
 instance's: every request an outpost sends is signed with the key it enrolled (ADR 0148 §4). A
 *call's* signature is the door's: every call the door hands over is signed with a key the outpost's
-own policy file pins, and an outpost makes no other (ADR 0148 §13).
+own policy file pins, and an outpost makes no other (ADR 0148 §13). From protocol 2 a *run's* offer
+is signed by the door too, under the same pinned keys and with a type of its own (ADR 0226 §4).
 
 The models read what the door sends leniently (a field a later door adds is ignored, ADR 0148 §3)
 and what the daemon sends strictly (a hostile outpost meets a closed shape, ADR 0148 §9). This
@@ -34,21 +37,40 @@ import json
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationInfo,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from .enums import (
+    OfferKind,
     OutpostAnswerOutcome,
     OutpostAuditEvent,
     OutpostCallKind,
     OutpostDoorCode,
     OutpostRefusalCode,
+    RunCredential,
+    SubscriptionProvider,
 )
 from .workflow import Strict
 
-# ───────────────────────── protocol 1: names and bounds ─────────────────────────
+# ───────────────────────── protocol 2: names and bounds ─────────────────────────
 
-#: The protocol this contract describes; `outpost-door.yaml` is its document (`info.version: v1`).
-OUTPOST_PROTOCOL: Final = 1
+#: The protocol this contract describes; `outpost-door.yaml` is its document. Its paths keep the `v1`
+#: of their prefix (`info.version`), which names the path and not the protocol: protocol 2 adds the
+#: runs lane inside the poll, and no verb (ADR 0226 §3).
+OUTPOST_PROTOCOL: Final = 2
+#: The first protocol of the runs lane: `runs` is announced from it, and no message of an earlier
+#: protocol carries anything of the lane.
+RUNS_PROTOCOL: Final = 2
+#: What protocol 2 adds to a poll (ADR 0226 §3); a poll of protocol 1 carries none of it.
+RUNS_LANE_FIELDS: Final = ("runner", "runs_running", "runs_ended")
 #: The prefix every verb of the door is served under.
 OUTPOST_DOOR_PREFIX: Final = "/outposts/v1"
 
@@ -67,6 +89,10 @@ REQUEST_SIGNATURE_SESSION_CLAIMS: Final = ("nonce", "seq")
 #: the envelope, which `sealed_sha256` covers.
 CALL_SIGNATURE_TYPE: Final = "choregos-outpost-call+jwt"
 CALL_SIGNATURE_CLAIMS: Final = ("call", "instance", "sealed_sha256")
+#: A run's offer is signed by the door as a call is, under the same pinned keys, with a `typ` and a
+#: first claim of its own, so that neither signature passes for the other (ADR 0226 §4).
+RUN_SIGNATURE_TYPE: Final = "choregos-outpost-run+jwt"
+RUN_SIGNATURE_CLAIMS: Final = ("run", "instance", "sealed_sha256")
 #: The most door keys a policy file pins: the one that signs, and room for a rotation.
 MAX_DOOR_KEYS: Final = 4
 
@@ -98,6 +124,19 @@ MAX_SEALED_CALL_BYTES: Final = 2_097_152
 MAX_POLL_ANSWER_REST_BYTES: Final = 65_536
 #: The most calls an instance reports as held, hence the most a poll's answer cancels.
 MAX_RUNNING: Final = 256
+#: The most runs an instance reports as running, or as ended, in one poll; hence the most runs a
+#: poll's answer cancels.
+MAX_RUNS_RUNNING: Final = 64
+#: The most more runs an instance says it can take now (`runner.run_capacity`), hence the most offers
+#: one poll hands over.
+MAX_RUN_CAPACITY: Final = 16
+#: The most one offer weighs as a poll's answer carries it: its id, its kind, its envelope and its
+#: signature together. An offer whose envelope would be larger is refused where it is placed, on the
+#: platform's side, and never handed over.
+MAX_SEALED_RUN_BYTES: Final = 65_536
+#: The shortest lease of a run's offer: longer than a poll's longest wait, so that the poll which lists
+#: the run renews it before it lapses.
+MIN_RUN_LEASE_S: Final = 30
 #: The highest sequence a request's signature carries: a whole number JSON keeps exact. The door keeps
 #: it as a 64-bit integer.
 MAX_SEQUENCE: Final = 2**53 - 1
@@ -143,6 +182,12 @@ DAEMON_VERSION_PATTERN: Final = r"^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$"
 SEALED_PATTERN: Final = r"^[A-Za-z0-9_-]{80,}$"
 #: A compact JWS whose signature is an Ed25519 one (64 bytes).
 CALL_SIGNATURE_PATTERN: Final = r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}$"
+#: A compact JWS of any algorithm: a run token, which the door mints and the daemon never reads.
+RUN_TOKEN_PATTERN: Final = r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$"  # noqa: S105 - a shape, not a token
+#: Where a run calls back: an origin and maybe a path, no credentials, query or fragment.
+RUN_API_URL_PATTERN: Final = r"^https?://[^\s@?#]+$"
+#: A name of a run's environment, as a shell takes it (`HTTPS_PROXY` and `https_proxy` alike).
+ENV_NAME_PATTERN: Final = r"^[A-Za-z_][A-Za-z0-9_]{0,127}$"
 
 OutpostSlug = Annotated[str, Field(pattern=OUTPOST_SLUG_PATTERN)]
 EndpointAlias = Annotated[str, Field(pattern=ENDPOINT_ALIAS_PATTERN)]
@@ -155,9 +200,32 @@ ToolName = Annotated[str, Field(min_length=1, max_length=128)]
 ToolPattern = Annotated[str, Field(pattern=TOOL_PATTERN_PATTERN)]
 DaemonVersion = Annotated[str, Field(pattern=DAEMON_VERSION_PATTERN)]
 Protocol = Annotated[int, Field(ge=1)]
-#: The one capability a daemon of protocol 1 announces; `runs` is reserved (`OutpostCapability`).
-AnnouncedCapability = Literal["tools"]
+#: What an instance announces (`OutpostCapability`): `tools` from protocol 1; `runs` from protocol 2
+#: only, by an instance of a personal outpost (ADR 0226 §1, §3).
+AnnouncedCapability = Literal["tools", "runs"]
 AssertedName = Annotated[str, Field(max_length=256)]
+#: How a personal runner runs an offer (ADR 0226 §10): `docker`, the agent in a container of its own
+#: (`separate_agent`); `native`, the runner a process and the agent its child.
+RunnerMode = Literal["docker", "native"]
+#: Where a run's agent runs, as `StageJobSpec.agent_isolation` says it: `container` in the docker mode,
+#: `process` in the native mode.
+RunIsolation = Literal["container", "process"]
+EnvName = Annotated[str, Field(pattern=ENV_NAME_PATTERN)]
+
+
+def _runs_from_protocol_2(capabilities: list[str], info: ValidationInfo) -> list[str]:
+    """`runs` is announced from protocol 2 only (ADR 0226 §3). A protocol that did not validate is
+    refused on its own field, and says nothing here."""
+    protocol = info.data.get("protocol")
+    if "runs" in capabilities and isinstance(protocol, int) and protocol < RUNS_PROTOCOL:
+        raise ValueError(f"`runs` is announced from protocol {RUNS_PROTOCOL} only")
+    return capabilities
+
+
+def _named_once[Named](values: list[Named]) -> list[Named]:
+    if len(set(values)) != len(values):
+        raise ValueError("a value is named once")
+    return values
 
 
 class Lenient(BaseModel):
@@ -363,6 +431,60 @@ class OutpostRefusal(Strict):
     code: OutpostRefusalCode
 
 
+# ───────────────────────── a run's offer, once the envelope is open ─────────────────────────
+
+
+class OutpostRun(Lenient):
+    """An offer of the runs lane as a personal outpost sees it once it has opened the envelope with its
+    sealing key (protocol 2, ADR 0226 §4, ADR 0227 §1): what it runs, where the run's API is, and the
+    run token minted when it claimed the offer. Sealed to that instance only, under the offer's id;
+    the door keeps no token. A field this version does not know is ignored."""
+
+    #: The offer's id, the envelope's too: the run's id for a stage's run, the turn's for a turn.
+    id: OutpostId
+    kind: OfferKind
+    #: `stage_run`: the run's id, which the runner reports under.
+    run_id: OutpostId | None = None
+    #: `conversation_turn`: the conversation and the turn the offer runs.
+    conversation_id: OutpostId | None = None
+    turn_id: OutpostId | None = None
+    #: A run door (ADR 0144, ADR 0226 §12): never the outposts' door, never the relay.
+    api_url: Annotated[str, Field(pattern=RUN_API_URL_PATTERN, max_length=2000)]
+    #: Minted at the claim, never before; it speaks for this run or this turn only (ADR 0226 §4, §11).
+    run_token: Annotated[str, Field(pattern=RUN_TOKEN_PATTERN, max_length=8192)]
+    #: The runner's environment beyond its id, address and token: never a platform secret, never a
+    #: subscription's credential (ADR 0226 §9, ADR 0227 §4).
+    env: Annotated[dict[EnvName, Annotated[str, Field(max_length=4096)]], Field(max_length=64)] = Field(
+        default_factory=dict
+    )
+    credential: RunCredential
+    #: `subscription`: the vendor whose sign-in on this runner the run uses; null for a gateway run.
+    provider: SubscriptionProvider | None = None
+    isolation: RunIsolation
+    #: The lease a poll that lists the run renews (`x-run-lease`).
+    lease_s: Annotated[int, Field(ge=MIN_RUN_LEASE_S, le=MAX_LEASE_S)]
+    max_minutes: Annotated[int, Field(ge=1)]
+
+    @model_validator(mode="after")
+    def _the_kind_and_the_credential_say_what_it_carries(self) -> Self:
+        if self.kind is OfferKind.STAGE_RUN:
+            needed, unwanted, own = ["run_id"], ["conversation_id", "turn_id"], self.run_id
+        else:
+            needed, unwanted, own = ["conversation_id", "turn_id"], ["run_id"], self.turn_id
+        missing = [name for name in needed if getattr(self, name) is None]
+        if missing:
+            raise ValueError(f"a `{self.kind.value}` offer needs {', '.join(missing)}")
+        extra = [name for name in unwanted if getattr(self, name) is not None]
+        if extra:
+            raise ValueError(f"a `{self.kind.value}` offer carries no {', '.join(extra)}")
+        if own != self.id:
+            # What the schema cannot say: the offer's id is its run's, or its turn's.
+            raise ValueError("an offer's id is its run's id, or its turn's")
+        if (self.credential is RunCredential.SUBSCRIPTION) != (self.provider is not None):
+            raise ValueError("a `subscription` run names its provider, and a `gateway` run none")
+        return self
+
+
 # ───────────────────────── the local audit log ─────────────────────────
 
 
@@ -437,6 +559,7 @@ class OutpostEnrolmentRequest(Strict):
     #: X25519: the calls this instance claims are sealed to it.
     sealing_key: PublicKey
     daemon_version: DaemonVersion
+    #: `runs` from protocol 2 only, by an instance of a personal outpost (ADR 0226 §3).
     capabilities: Annotated[list[AnnouncedCapability], Field(max_length=4)]
     #: Facts about the instance, for the person who approves it: bounded, stored as data, never
     #: interpreted (ADR 0148 §9).
@@ -447,6 +570,8 @@ class OutpostEnrolmentRequest(Strict):
         ],
         Field(max_length=16),
     ] = Field(default_factory=dict)
+
+    _runs_from_protocol_2 = field_validator("capabilities")(_runs_from_protocol_2)
 
 
 class OutpostEnrolmentAnswer(Lenient):
@@ -462,19 +587,82 @@ class OutpostEnrolmentAnswer(Lenient):
     server_time: datetime
 
 
+class OutpostRunner(Strict):
+    """What an instance that announces `runs` takes (protocol 2, ADR 0226 §3, §10): the door hands it
+    only an offer of a kind it names, for a mode it names, within its capacity."""
+
+    #: The runner's own release, as a fact to show.
+    version: DaemonVersion
+    modes: Annotated[list[RunnerMode], Field(min_length=1, max_length=2)]
+    #: The providers whose sign-in is present on this runner, and only while it is (ADR 0227 §4): a
+    #: name, never the credential.
+    subscriptions: Annotated[list[SubscriptionProvider], Field(max_length=2)] = Field(default_factory=list)
+    offer_kinds: Annotated[list[OfferKind], Field(min_length=1, max_length=2)]
+    #: How many more runs it can take now; the door hands over no more offers, and none at 0.
+    run_capacity: Annotated[int, Field(ge=0, le=MAX_RUN_CAPACITY)]
+
+    _named_once = field_validator("modes", "subscriptions", "offer_kinds")(_named_once)
+
+
+class OutpostRunEnded(Strict):
+    """A run an instance ended since its last poll (protocol 2): it lists it in `runs_running` no more."""
+
+    id: OutpostId
+    #: As a shell reports it: 0 for success, 128 plus the signal's number for a process a signal ended.
+    exit_code: Annotated[int, Field(ge=0, le=255)]
+
+
 class OutpostPollRequest(Strict):
-    """`POST /outposts/v1/poll`: how long the instance waits, what it can take and what it holds."""
+    """`POST /outposts/v1/poll`: how long the instance waits, what it can take and what it holds.
+
+    Protocol 2 adds the runs lane (ADR 0226 §3): `runs`, announced with `runner`, which says what the
+    instance takes, `runs_running` and `runs_ended`. A poll of protocol 1 carries nothing of it."""
 
     protocol: Protocol
     daemon_version: DaemonVersion
     wait_s: Annotated[int, Field(ge=0, le=MAX_WAIT_S)] = MAX_WAIT_S
     #: How many more calls it can take now; the door hands over no more. 0 takes none.
     capacity: Annotated[int, Field(ge=0, le=MAX_CONCURRENCY)]
+    #: `runs` from protocol 2 only, by an instance of a personal outpost (ADR 0226 §3).
     capabilities: Annotated[list[AnnouncedCapability], Field(max_length=4)]
     #: The aliases its policy file serves: names only (ADR 0147 §7, §10).
     endpoints: Annotated[list[EndpointAlias], Field(max_length=64)] = Field(default_factory=list)
     #: The calls it holds and has not answered.
     running: Annotated[list[OutpostId], Field(max_length=MAX_RUNNING)] = Field(default_factory=list)
+    #: What it takes: present exactly when it announces `runs`.
+    runner: OutpostRunner | None = None
+    #: The offers it runs: listing one renews its lease (`x-run-lease`).
+    runs_running: Annotated[list[OutpostId], Field(max_length=MAX_RUNS_RUNNING)] = Field(default_factory=list)
+    #: The runs it ended since its last poll, each with its exit code.
+    runs_ended: Annotated[list[OutpostRunEnded], Field(max_length=MAX_RUNS_RUNNING)] = Field(
+        default_factory=list
+    )
+
+    _runs_from_protocol_2 = field_validator("capabilities")(_runs_from_protocol_2)
+
+    @model_validator(mode="after")
+    def _the_runs_lane_is_protocol_2s(self) -> Self:
+        if self.protocol < RUNS_PROTOCOL:
+            carried = [name for name in RUNS_LANE_FIELDS if getattr(self, name)]
+            if carried:
+                raise ValueError(f"a poll of protocol {self.protocol} carries no {', '.join(carried)}")
+        announced = "runs" in self.capabilities
+        if announced and self.runner is None:
+            raise ValueError("an instance that announces `runs` says what it takes in `runner`")
+        if self.runner is not None and not announced:
+            raise ValueError("`runner` comes with `runs` announced, and only with it")
+        return self
+
+    @model_serializer(mode="wrap")
+    def _written_as_protocol_1_wrote_it(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """A poll that carries nothing of the runs lane is written without its fields: byte for byte the
+        body protocol 1 wrote, so that a daemon of protocol 1 built on this contract signs what it signed
+        before (the vectors' `poll`)."""
+        written: dict[str, Any] = handler(self)
+        for name in RUNS_LANE_FIELDS:
+            if not getattr(self, name):
+                written.pop(name, None)
+        return written
 
 
 class OutpostSealedCall(Lenient):
@@ -490,8 +678,23 @@ class OutpostSealedCall(Lenient):
     signature: Annotated[str, Field(max_length=2048)] | None = None
 
 
+class OutpostSealedRun(Lenient):
+    """An offer of the runs lane as it crosses the door (protocol 2, ADR 0226 §4): its id and its kind,
+    everything else sealed to the claiming instance, and the door's signature over the id, the
+    instance and the envelope. The envelope's kind is the one that counts.
+
+    The door always signs. The model still reads an offer without a signature, so that one bad offer
+    does not lose the whole answer; a daemon never opens such an envelope and never starts it."""
+
+    id: OutpostId
+    kind: OfferKind
+    sealed: Annotated[str, Field(pattern=SEALED_PATTERN, max_length=MAX_SEALED_RUN_BYTES)]
+    signature: Annotated[str, Field(max_length=2048)] | None = None
+
+
 class OutpostPollAnswer(Lenient):
-    """The door's answer to a poll. One connection per instance carries every lane."""
+    """The door's answer to a poll. One connection per instance carries every lane: from protocol 2,
+    the runs lane's offers and cancellations too, which a daemon of protocol 1 ignores."""
 
     protocol: OutpostProtocolWindow
     server_time: datetime
@@ -503,6 +706,12 @@ class OutpostPollAnswer(Lenient):
     #: call not yet started is refused `cancelled`; a read in flight is abandoned and answered
     #: `unanswered`; a write that has reached its server is never interrupted: it finishes.
     cancel: Annotated[list[OutpostId], Field(max_length=MAX_RUNNING)] = Field(default_factory=list)
+    #: Protocol 2: offers claimed by this instance from this answer on, of a kind and a mode it
+    #: announced, at most its `run_capacity`.
+    runs: Annotated[list[OutpostSealedRun], Field(max_length=MAX_RUN_CAPACITY)] = Field(default_factory=list)
+    #: Protocol 2: runs among `runs_running` the door waits for no more; the daemon stops each and
+    #: reports it in `runs_ended`.
+    cancel_runs: Annotated[list[OutpostId], Field(max_length=MAX_RUNS_RUNNING)] = Field(default_factory=list)
 
 
 class OutpostSealedAnswer(Strict):
@@ -614,13 +823,27 @@ def call_signature_header(door_key: str) -> dict[str, str]:
     return {"alg": SIGNATURE_ALGORITHM, "typ": CALL_SIGNATURE_TYPE, "kid": door_key}
 
 
-def max_poll_answer_bytes(capacity: int) -> int:
-    """The most a poll's answer weighs for a daemon that asked for `capacity` calls: what a daemon may
-    bound its reading to. No call the door hands over is heavier than `MAX_SEALED_CALL_BYTES`, and
-    everything else in the answer fits in `MAX_POLL_ANSWER_REST_BYTES`."""
+def run_signature_claims(*, run_id: str, instance_id: str, sealed: str) -> dict[str, str]:
+    """The claims of a run's signature, the door's (ADR 0226 §4): this offer, for this instance, in
+    this envelope. `run_id` is the offer's id: the run's, or the turn's."""
+    return {"run": run_id, "instance": instance_id, "sealed_sha256": sealed_sha256(sealed)}
+
+
+def run_signature_header(door_key: str) -> dict[str, str]:
+    """The protected header of a run's signature: a call's, with the run's `typ`."""
+    return {"alg": SIGNATURE_ALGORITHM, "typ": RUN_SIGNATURE_TYPE, "kid": door_key}
+
+
+def max_poll_answer_bytes(capacity: int, run_capacity: int = 0) -> int:
+    """The most a poll's answer weighs for a daemon that asked for `capacity` calls and, from protocol
+    2, `run_capacity` offers: what a daemon may bound its reading to. No call the door hands over is
+    heavier than `MAX_SEALED_CALL_BYTES`, no offer heavier than `MAX_SEALED_RUN_BYTES`, and everything
+    else in the answer fits in `MAX_POLL_ANSWER_REST_BYTES`."""
     if not 0 <= capacity <= MAX_CONCURRENCY:
         raise ValueError(f"a poll asks for 0 to {MAX_CONCURRENCY} calls")
-    return MAX_POLL_ANSWER_REST_BYTES + capacity * MAX_SEALED_CALL_BYTES
+    if not 0 <= run_capacity <= MAX_RUN_CAPACITY:
+        raise ValueError(f"a poll asks for 0 to {MAX_RUN_CAPACITY} runs")
+    return MAX_POLL_ANSWER_REST_BYTES + capacity * MAX_SEALED_CALL_BYTES + run_capacity * MAX_SEALED_RUN_BYTES
 
 
 def next_sequence(last: int | None, now_ms: int) -> int:

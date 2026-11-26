@@ -816,7 +816,8 @@ def test_the_distillation_job_is_in_the_contract() -> None:
         "/orgs/{org}/costs.csv",
     ):
         kind = next(p for p in paths[route]["get"]["parameters"] if p.get("name") == "kind")
-        assert kind["schema"]["enum"] == ["model", "tool", "distill"], route
+        # S87-08: a run on a person's own subscription books a line of its own (ADR 0227 §7).
+        assert kind["schema"]["enum"] == ["model", "tool", "distill", "subscription"], route
 
 
 def test_an_organisation_lists_the_slugs_it_had_and_an_alias_can_be_released() -> None:
@@ -1054,14 +1055,20 @@ def test_the_device_token_errors_are_the_ones_of_rfc_8628() -> None:
     assert request["properties"]["grant_type"]["enum"] == ["urn:ietf:params:oauth:grant-type:device_code"]
 
 
-def test_a_session_has_a_kind_and_surfaces_are_cli_or_editor() -> None:
+def test_a_session_has_a_kind_and_surfaces_are_cli_editor_or_runner() -> None:
     spec = contracts.load_openapi()
-    session = spec["components"]["schemas"]["BrowserSession"]
-    assert session["properties"]["kind"]["enum"] == ["browser", "cli", "editor"]
+    schemas = spec["components"]["schemas"]
+    session = schemas["BrowserSession"]
+    assert session["properties"]["kind"]["enum"] == ["browser", "cli", "editor", "runner"]
     assert "kind" in session["required"]
-    start = spec["components"]["schemas"]["DeviceAuthorizationRequest"]
-    assert start["properties"]["client_kind"]["enum"] == ["cli", "editor"]
-    assert spec["components"]["schemas"]["DeviceToken"]["properties"]["kind"]["enum"] == ["cli", "editor"]
+    # S87-08: a personal runner's daemon may start a device sign-in (ADR 0226 §2); a phone never does, its
+    # device authorization is created on the computer, already approved (ADR 0228 §4).
+    start = schemas["DeviceAuthorizationRequest"]
+    assert start["properties"]["client_kind"]["enum"] == ["cli", "editor", "runner"]
+    assert schemas["DeviceToken"]["properties"]["kind"]["enum"] == ["cli", "editor", "runner"]
+    # what the console's /device page reads names every kind a device authorization may hold
+    request = schemas["DeviceRequest"]["properties"]["client_kind"]
+    assert request["enum"] == ["cli", "editor", "browser", "runner"]
     # a surface session ends through the route that ends a browser one
     assert spec["paths"]["/me/sessions/{id}"]["delete"]["operationId"] == "endMySession"
 

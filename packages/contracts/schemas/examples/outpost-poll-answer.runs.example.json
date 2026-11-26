@@ -1,0 +1,21 @@
+{
+  "protocol": {
+    "current": 2,
+    "minimum": 1
+  },
+  "server_time": "2026-11-26T09:00:02Z",
+  "stop": false,
+  "calls": [],
+  "cancel": [],
+  "runs": [
+    {
+      "id": "7c2e9a41-3b5d-4f60-8e12-9d4a6b0c1f37",
+      "kind": "stage_run",
+      "sealed": "7pc2qDTYzaxzLUwvU5mrI4sMtC8kRG6XmQAgPJcgGAGYapjO1Mh3Tg5SHulEi79We8DiP9wXmsr-EroX2itaUyr6eWRox3pn-w2lVjyABvHe_9n6II0waz2oEC34OLUl822Sw48fC3Fvtv6nf4YLT3OKtyt2qPh1U6jfXTBZ36Nmm1K_NI16au5K7u9UgUHrsICNlflLuJas67pgndMK7nA2R0ndEQcJxvHcTHTLFfjT-jP_YR7ubJ_kzqLDHf0TSZHb-xnK_qm1iixOXB3fHXsbYUgfoN77vlYUZOw1z07Zggle-p-hCGgVbKABTMgLrQRhNncJYWQhD0LPG-edhUHBqsRMVxEMrcUbxGOmGPU7g5AzDm9SffxbXfyfcMCRT8g4UuQALVHj4vKeYmEkOFhT-0Aq8BdRtJlWdE4ENVD2g_BdUuXL2L9laCTHzMAkCfbMWaYbXoQStx_X0xXzMdIimE9B4SwoT5o-L90YyO_BBEo-ZR-1M8McRySIr81zLJ8mzKDdPSxiFExgjFCXWWkHkRP6WH3vP8ZYtqeYyg4sOf-FTHedeA3IzK7OID_5-YXOpp_XWagW70vPUKKkbbmpFXK71oAhKvqBvcheH1N-0X49D5EKmRN6vMlgUI6t-vPM-ZPql2KyclNYV3vbd3qwq-DUgb3sShxJadBT6SBjZ03lePz_Mn1CWpZNk3S12vNeMwtn7LJ9wieXDw3ddiLNOdN0n94b4w9gqgcC7wk-vlK6fECsi7povkPyspyMBzSt8xPcqf3vYw4Q7CyZGpn7PVbXRFHUOhwI46HrNNOu53UoiyoO8JdHDwWySpf81DMFoK70YgiqprlysvRlGqJUvML2eBIYj5SA7bUX86ES21bSIaaabg0UekRStmEt2_WRMexsFaoh-5pSpaEc7zmoRP57bkFa3oCMDWzowz9Gfi47vcjlQM9P0Bl4O1W6wr6CLH1l9jphzWTPLV8",
+      "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6IjNrOWZadGktUDNaOUR1OVJtTm1KbS1wTnhnVVFTSGZHTl9ieDdEbVh3TnciLCJ0eXAiOiJjaG9yZWdvcy1vdXRwb3N0LXJ1bitqd3QifQ.eyJydW4iOiI3YzJlOWE0MS0zYjVkLTRmNjAtOGUxMi05ZDRhNmIwYzFmMzciLCJpbnN0YW5jZSI6ImIzYzFmNmEyLTZkMGUtNGI3YS05YTU1LTJmMWM4ZTdkNGE5MCIsInNlYWxlZF9zaGEyNTYiOiI4YTdiMjJhYjQ5NzQ3ZTA1YWQwNTZjMDMzZGE3NDE3ODE4ZmYyYWQ2ODVkYzM4M2JlN2FiNTEyNDM4ZGU0YTViIn0.n88jTZ0QMdW1JZG5vVhcLa48mQre1W4qJuVn_N2Xg8b0qpkSo91Av0jpOrSy452AY-ss5jXhxq4XTd1jHSt6BQ"
+    }
+  ],
+  "cancel_runs": [
+    "5d7a2c19-8e4b-4f31-b6a0-3c9e1f72d845"
+  ]
+}

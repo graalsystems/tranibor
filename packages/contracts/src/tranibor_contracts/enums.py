@@ -164,6 +164,10 @@ class ExecutorKind(StrEnum):
     #: kubernetes-sigs/agent-sandbox: warm pool, suspend across a human question (ADR 0016).
     AGENT_SANDBOX = "agent_sandbox"
     FAKE = "fake"
+    #: A person's own machine, through the outposts' door (ADR 0226 §6): the run is offered to the
+    #: personal outpost of its work owner and claimed once by one of its instances, and its run token
+    #: is minted at that claim, never at the start.
+    OUTPOST = "outpost"
 
 
 class ApiFormat(StrEnum):
@@ -302,8 +306,10 @@ class OutpostCapability(StrEnum):
     """What an instance may announce and an organisation enable (ADR 0147 §11)."""
 
     TOOLS = "tools"
-    #: Reserved (ADR 0149 §12): announced by no daemon of protocol 1 and enabled by no organisation.
-    #: It is named here so that no other meaning takes the word.
+    #: A person's own runs (ADR 0226 §1, §3): announced from protocol 2 only, by an instance of a
+    #: personal outpost and of no other, with what the instance takes (`runner`). No organisation
+    #: enables it: an organisation's outpost announces `tools` and its creation refuses `runs`. The
+    #: door refuses an enrolment or a poll that announces it until it serves the runs lane (S87-16).
     RUNS = "runs"
 
 
@@ -314,6 +320,38 @@ class OutpostCallKind(StrEnum):
     CALL_TOOL = "call_tool"
     #: Discovery: the tools the endpoint's server lists and the outpost's policy lets through.
     LIST_TOOLS = "list_tools"
+
+
+class OfferKind(StrEnum):
+    """What an offer of the door's runs lane asks of a personal outpost (door protocol 2, ADR 0226 §3,
+    §11). An instance announces the kinds it knows (`runner.offer_kinds`) and is handed no other."""
+
+    #: A stage's run: the runner runs it as an executor would, and calls the run's API back.
+    STAGE_RUN = "stage_run"
+    #: One turn of a conversation placed on its owner's runner: one offer per turn, never queued
+    #: across a sleep (ADR 0226 §11).
+    CONVERSATION_TURN = "conversation_turn"
+
+
+class RunCredential(StrEnum):
+    """Where a run's model credential comes from (ADR 0227 §1). It travels in the sealed offer
+    (`outpost-run.schema.json`) and on the run's row, never in `StageInput`."""
+
+    #: The platform's gateway, with a key it mints and a budget it reserves: every run until ADR 0227.
+    GATEWAY = "gateway"
+    #: The work owner's own subscription, used only by the vendor's CLI on that person's runner: the
+    #: platform reserves nothing, mints no key and books a `subscription` line (ADR 0227 §2, §3, §7).
+    SUBSCRIPTION = "subscription"
+
+
+class SubscriptionProvider(StrEnum):
+    """A vendor whose subscription a person's runner may hold (ADR 0227 §4, §12). A daemon announces a
+    provider only while a sign-in to it is present on the runner."""
+
+    ANTHROPIC = "anthropic"
+    #: Named, and refused by placement until a record decides how a Google sign-in may be used
+    #: (ADR 0227 §12).
+    GOOGLE = "google"
 
 
 class OutpostCallState(StrEnum):

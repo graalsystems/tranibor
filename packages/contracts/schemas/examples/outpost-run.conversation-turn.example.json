@@ -1,0 +1,16 @@
+{
+  "id": "turn-c0a8e3f1-6b2d-4e57-9a14-2f7d5c9b8e60-3",
+  "kind": "conversation_turn",
+  "conversation_id": "c0a8e3f1-6b2d-4e57-9a14-2f7d5c9b8e60",
+  "turn_id": "turn-c0a8e3f1-6b2d-4e57-9a14-2f7d5c9b8e60-3",
+  "api_url": "http://edge:8080",
+  "run_token": "eyJhbGciOiAiRVMyNTYiLCAia2lkIjogInJ1bi10b2tlbi1leGFtcGxlIiwgInR5cCI6ICJKV1QifQ.eyJhdWQiOiAiaW50ZXJuYWwiLCAic3ViIjogInR1cm4tYzBhOGUzZjEtNmIyZC00ZTU3LTlhMTQtMmY3ZDVjOWI4ZTYwLTMiLCAiZXhwIjogMTc5NTY4MzYwMH0.ojaGxIZGmYPFbY0U4KYiOtHodgH-FDr9pffmIODavUuWZGdWF3cE12EnehfnjujpAomjr8F1n8C3cWXQ7G3VEg",
+  "env": {
+    "TRANIBOR_ENV": "personal"
+  },
+  "credential": "subscription",
+  "provider": "anthropic",
+  "isolation": "container",
+  "lease_s": 60,
+  "max_minutes": 10
+}

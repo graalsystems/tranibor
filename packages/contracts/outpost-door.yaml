@@ -3,25 +3,30 @@ info:
   title: Choregos outposts' door
   version: v1
   description: |
-    The door an outpost dials (ADR 0147, ADR 0148): `/outposts/v1`, protocol 1. It is not part of
-    `openapi.yaml`: its caller is neither the console nor the CLI, it is the daemon `choregos-outpost`,
-    installed in someone else's network and upgraded on their schedule. A change here is a
-    `contract-change` (ADR 0001), and every verb added is one every daemon in the field must learn.
+    The door an outpost dials (ADR 0147, ADR 0148): `/outposts/v1`, protocol 2, and a daemon of protocol 1
+    is still served (`x-protocol`). It is not part of `openapi.yaml`: its caller is neither the console nor
+    the CLI, it is the daemon `choregos-outpost`, installed in someone else's network or on a person's own
+    machine and upgraded on their schedule. A change here is a `contract-change` (ADR 0001), and every verb
+    added is one every daemon in the field must learn.
 
     Four verbs, all `POST`, all JSON:
 
     - `enrol`: an enrolment token and the instance's public keys; answers a *pending* instance.
     - `poll`: a long poll; answers the calls to make, the cancellations, the door's time, the protocol
-      window and a stop flag.
+      window and a stop flag; from protocol 2, the runs lane's offers and their cancellations too
+      (ADR 0226 §3), with no verb of its own.
     - `calls/{id}/answer`: the sealed answer of a call the instance claimed; recorded once.
     - `calls/{id}/refuse`: a refusal code from a closed list; recorded once.
 
     The door serves assignments and never MCP: no tool listing of the platform, no JSON-RPC, and no route
-    that names a connector or a server (ADR 0148 §12). The one path parameter is a call's `{id}`.
+    that names a connector or a server (ADR 0148 §12). The one path parameter is a call's `{id}`. A run
+    offered through the runs lane calls the run's API at a run door, never through this one (ADR 0226 §12).
 
-    Two signatures cross the door. A request is signed by the instance that sends it
-    (`x-request-signature`). A call is signed by the door that hands it over (`x-call-signature`), with a
-    key the outpost's own policy file pins, and an outpost makes no other call (ADR 0148 §13).
+    A request is signed by the instance that sends it (`x-request-signature`). A call is signed by the
+    door that hands it over (`x-call-signature`), with a key the outpost's own policy file pins, and an
+    outpost makes no other call (ADR 0148 §13). A run's offer is signed by the door in the same way, under
+    the same pinned keys and with a type of its own (`x-run-signature`), and a personal outpost starts no
+    other run (ADR 0226 §4).
 
     Requests are closed shapes: a field the verb does not describe is a 422. Answers are open: a daemon
     ignores a field it does not know, which is how a later need reaches an older daemon before it ever
@@ -37,19 +42,29 @@ servers:
       root: a request's URL is the `control_plane` of the outpost's policy file followed by the verb's path.
 
 x-protocol:
-  version: 1
+  version: 2
+  window: { current: 2, minimum: 1 }
   negotiation: >-
     The daemon announces the protocol it speaks in `protocol`, at `enrol` and at every `poll`. The door answers
     the window it serves, `protocol.current` and `protocol.minimum`, in the answer of both. A daemon below the
     minimum gets a 426 `protocol_unsupported` whose problem carries the same window, and no assignment: it stops
     polling and says so; nobody upgrades it for its operator (ADR 0147 §9). No verb makes a daemon download or
-    run anything.
+    run anything. This door serves `window`: protocol 2, and a daemon of protocol 1 as before, which is handed
+    nothing of protocol 2.
+  path_version: >-
+    The `v1` of the paths, and `info.version`, name the paths and not the protocol. Protocol 2 adds a lane
+    inside the poll and no verb (ADR 0226 §3, ADR 0148 §3), so its paths are protocol 1's.
   later_kinds: >-
-    A call's `kind` is `call_tool` or `list_tools` in protocol 1. A kind added later does not break a daemon of
-    this protocol: it refuses the call with the refusal code `unsupported_kind`.
+    A call's `kind` is `call_tool` or `list_tools` in protocols 1 and 2. A kind added later does not break a
+    daemon of these protocols: it refuses the call with the refusal code `unsupported_kind`. An offer's `kind`
+    is one the instance announced in `runner.offer_kinds`, and no other is handed to it.
   capabilities: >-
-    A daemon of protocol 1 announces `tools` and nothing else. `runs` is reserved (ADR 0149 §12): no message of
-    this protocol carries it.
+    `tools` is announced by an organisation's outpost, from protocol 1. `runs` is announced from protocol 2
+    only, by an instance of a personal outpost and of no other (ADR 0226 §1, §3), with `runner`, which says what
+    it takes: no message of protocol 1 carries `runs` or anything of the runs lane (`runner`, `runs_running`,
+    `runs_ended`), and a daemon of protocol 1 is handed no offer. No organisation enables `runs`: an outpost's
+    creation in the management API refuses it. Until this door serves the runs lane (ADR 0226 §4, S87-16), it
+    refuses an enrolment or a poll that announces `runs` with a 422 `invalid_request`, whichever the outpost.
 
 x-request-signature:
   whose: >-
@@ -164,13 +179,53 @@ x-call-signature:
     outpost that did not add it refuses with `signature_refused`, visibly. No message of this protocol
     rotates a pinned key.
   not_signed: >-
-    Only a call is signed. The rest of a poll's answer (`stop`, `cancel`, `protocol`, `server_time`), the
-    enrolment's answer, the `Outpost-Nonce` header and every problem are not. Whoever sits on the path, an
-    outbound proxy that terminates TLS for one, can therefore stop, starve or mislead a daemon about versions
-    and time, as it can by dropping packets. It cannot make it call anything, nor read an answer. Two rules
-    keep that true: a daemon judges a call's `deadline` by its own clock, which `server_time` may bring
-    closer and never push away; and it prints the fingerprint of its own signing key, never the one the
-    enrolment's answer echoes.
+    Only a call is signed, and from protocol 2 a run's offer (`x-run-signature`). The rest of a poll's answer
+    (`stop`, `cancel`, `cancel_runs`, `protocol`, `server_time`, an offer's `kind` in clear), the enrolment's
+    answer, the `Outpost-Nonce` header and every problem are not. Whoever sits on the path, an outbound proxy
+    that terminates TLS for one, can therefore stop, starve or mislead a daemon about versions and time, and
+    stop the runs it holds, as it can by dropping packets. It cannot make it call anything or start a run,
+    nor read an answer or an offer. Two rules keep that true: a daemon judges a call's `deadline` by its own
+    clock, which `server_time` may bring closer and never push away; and it prints the fingerprint of its own
+    signing key, never the one the enrolment's answer echoes.
+
+x-run-signature:
+  whose: >-
+    The door's, as a call's is (`x-call-signature`), and under the same pinned keys (`door_keys`): every offer
+    of the runs lane the door hands over carries it in `signature`, beside `id`, `kind` and `sealed`, and a
+    personal outpost starts only an offer signed by a key its own policy file pins (ADR 0226 §4). It is not
+    the request's signature (`x-request-signature`), which is the instance's.
+  format: >-
+    A compact JWS (RFC 7515). Protected header, these three members and no other: `alg` `EdDSA` (Ed25519),
+    `typ` `choregos-outpost-run+jwt`, and `kid`, the signing public key itself, written as every key of this
+    contract is. Another `typ` and another first claim than a call's, so that neither passes for the other.
+  algorithm: EdDSA
+  type: choregos-outpost-run+jwt
+  claims:
+    run: >-
+      The offer's id, the envelope's associated data. The run's id for a stage's run, the turn's for a turn.
+    instance: The id of the instance that claimed the offer. An offer handed to one instance is not another's.
+    sealed_sha256: The SHA-256 of the `sealed` string exactly as carried (its ASCII bytes), lowercase hex.
+  claim_names: [run, instance, sealed_sha256]
+  freshness: >-
+    There is no `iat`. An offer is as fresh as the run token inside its envelope, which `sealed_sha256` covers
+    and which lapses with the run: its maximum minutes plus 15 for a stage's run, plus 5 for a turn
+    (ADR 0226 §4, §11). And a daemon starts an offer's id once, whatever envelope carries it again
+    (`x-run-lease`, `journal`).
+  checks: >-
+    The journal decides first, always: an offer whose id the daemon's journal holds is not started again,
+    whoever sent it. Only for an id the journal does not hold does the daemon check, before it opens the
+    envelope and in this order: the header is the one above and its `kid` is one of the pinned keys, compared
+    as written; the signature verifies under that key; `run` is the offer's `id`; `instance` is the daemon's
+    own id; `sealed_sha256` is the digest of `sealed`; the claims are these three and no other. Then it opens
+    the envelope under the offer's id, and starts the run only when what it holds is
+    `schemas/outpost-run.schema.json`, its `id` and `kind` are the offer's, its kind is one the instance
+    announced and its isolation that of a mode it announced (`docker` for `container`, `native` for
+    `process`), and its provider, for a subscription run, is one whose sign-in the runner holds.
+    An offer that fails one of these is not started, is never listed in `runs_running`, and its lease lapses
+    (`x-run-lease`); the daemon writes a line to its audit log that names a class, never which check failed.
+  rotation: >-
+    The keys and their rotation are a call's (`x-call-signature`, `keys`, `rotation`): one set, pinned in the
+    policy file, which no message of this protocol changes.
 
 x-sealing:
   construction: >-
@@ -182,7 +237,9 @@ x-sealing:
     recipient's public key (64 bytes); info: `choregos/assignment/v1`.
   info: choregos/assignment/v1
   cipher: ChaCha20-Poly1305, with a random 12-byte nonce.
-  associated_data: The call's id, UTF-8. An envelope moved to another call does not open.
+  associated_data: >-
+    The call's id, UTF-8. An envelope moved to another call does not open. An offer's envelope is sealed under
+    the offer's id: the run's id for a stage's run, the turn's id for a conversation turn (`run`).
   plaintext: One JSON object, UTF-8.
   encoding: >-
     base64url without padding of: the ephemeral public key (32 bytes), the nonce (12 bytes), the ciphertext
@@ -196,6 +253,12 @@ x-sealing:
     a proxy could rewrite. Its plaintext is `schemas/outpost-answer.schema.json`. The door cannot open it: it
     records the envelope, and the side that placed the call, which holds the key, opens it. A refusal is not
     sealed: it is a code.
+  run: >-
+    From protocol 2, an offer of the runs lane is sealed to the X25519 key the claiming instance enrolled
+    (`sealing_key`) when it is claimed, and never before: the run token in it is minted then, and the row the
+    door keeps never holds it (ADR 0226 §4). Its associated data is the offer's id, and its plaintext is
+    `schemas/outpost-run.schema.json`. Nothing is sealed back: a run reports to the run's API (`api_url`), and
+    its end to this door only as an id and an exit code (`runs_ended`).
   origin: >-
     Sealing hides a call from whoever is not its recipient. Alone it proves no origin: anyone who knows a
     public key can seal to it. What proves a call is the door's is the door's signature (`x-call-signature`),
@@ -214,13 +277,19 @@ x-bounds:
   max_sealed_call_bytes: 2097152
   max_poll_answer_rest_bytes: 65536
   max_running: 256
+  max_runs_running: 64
+  max_run_capacity: 16
+  max_sealed_run_bytes: 65536
   handed_over: >-
     No call the door hands over weighs more than `max_sealed_call_bytes` as a poll's answer carries it, its
-    id, its envelope and its signature together: the same 2 MiB as an answer. A poll's answer holds at most
-    `capacity` calls, and everything else in it (the window, the clock, the stop flag, at most 256
-    cancellations) fits in `max_poll_answer_rest_bytes`. A daemon can therefore bound what it reads to 64 KiB
-    plus `capacity` times 2 MiB, before it parses anything. A call whose envelope would be larger is refused
-    where it is admitted, on the platform's side: it is never handed over, and never cut.
+    id, its envelope and its signature together: the same 2 MiB as an answer. No offer of the runs lane
+    weighs more than `max_sealed_run_bytes`, its id, its kind, its envelope and its signature together. A
+    poll's answer holds at most `capacity` calls and `runner.run_capacity` offers, and everything else in it
+    (the window, the clock, the stop flag, at most 256 cancellations of calls and 64 of runs) fits in
+    `max_poll_answer_rest_bytes`. A daemon can therefore bound what it reads to 64 KiB plus `capacity` times
+    2 MiB, plus `run_capacity` times 64 KiB, before it parses anything. A call or an offer whose envelope
+    would be larger is refused where it is admitted, on the platform's side: it is never handed over, and
+    never cut.
   cancel: >-
     `cancel` names calls among `running` the door waits for no more. A call not yet started is refused
     `cancelled`. A read in flight is abandoned and answered `unanswered`. A cancel never interrupts a write
@@ -254,6 +323,40 @@ x-bounds:
     meets the journal before its deadline, and `deadline_passed` after it. A read handed over again to the
     same instance under the same id meets its entry too: a door that wants a read made again hands it to
     another instance, or under a new id.
+
+x-run-lease:
+  claim: >-
+    From protocol 2, an offer of the runs lane is claimed once, by one instance: a poll of that instance hands
+    it over, and only an offer of a kind and for a mode the instance announced (`runner`), within its
+    `run_capacity` (ADR 0226 §4). The run token is minted at that claim, never before, and travels only inside
+    the sealed envelope (`x-sealing`, `run`).
+  renewal: >-
+    The lease starts at the claim and lasts the envelope's `lease_s`. Each poll of the claiming instance that
+    lists the offer in `runs_running` sets it to `lease_s` from that poll, never past the claim plus the run's
+    `max_minutes`. A poll of another instance renews nothing, and nothing else extends it: the lifetime is the
+    door's, whatever a daemon asks for (ADR 0148 §9).
+  never_again: >-
+    A claimed offer is never handed over again, to any instance, not even once its lease has lapsed: the
+    platform cannot know whether a sleeping machine started the agent (ADR 0149 §5).
+  lapse: >-
+    A lease that lapses (the lid closed, the machine offline), or the revocation of the instance or of its
+    outpost, makes the offer lost, and the run is closed through ADR 0143: from then on the run's API answers
+    the late process 409 `run_closed`, and the claiming instance's next poll carries the run in
+    `cancel_runs`. A conversation turn whose lease lapses fails, and its partial answer is dropped
+    (ADR 0226 §11).
+  journal: >-
+    A daemon writes an offer's id to its journal before it starts the run, and starts an id once, after a
+    restart too: an offer replayed to the same instance, by the door or by whoever sits on the path, starts
+    nothing.
+  ended: >-
+    An instance reports a run it ended in its next poll, in `runs_ended` with its exit code, and lists it in
+    `runs_running` no more.
+  cancel: >-
+    `cancel_runs` names runs among `runs_running` the door waits for no more: the daemon stops each, its
+    agent included, and reports it in `runs_ended`.
+  protocol_1: >-
+    A daemon of protocol 1 announces no `runs`, is handed no offer, and reads `runs` and `cancel_runs` as fields
+    it does not know.
 
 x-vectors:
   description: >-
@@ -328,10 +431,12 @@ paths:
         The one connection an instance holds: every lane is in its answer. The door answers as soon as it
         has a call to hand over or a cancellation to tell, and with nothing at the end of the wait. It hands
         over at most `capacity` calls, each sealed to this instance, signed by the door and claimed by this
-        instance from that moment. Nothing else of the answer is signed (`x-call-signature`, `not_signed`). A
-        paused outpost is handed nothing and reads `stop: true`; what its instances hold may finish. A second
-        poll while one waits under the same key is a 409 `poll_conflict`: two holders of one key is what a
-        stolen key looks like.
+        instance from that moment. From protocol 2, to an instance that announced `runs`, it hands over at
+        most `runner.run_capacity` offers of the runs lane in the same way (`x-run-signature`), each claimed
+        once (`x-run-lease`); the poll that lists a run in `runs_running` renews its lease. Nothing else of the
+        answer is signed (`x-call-signature`, `not_signed`). A paused outpost is handed nothing and reads
+        `stop: true`; what its instances hold may finish. A second poll while one waits under the same key is a
+        409 `poll_conflict`: two holders of one key is what a stolen key looks like.
       x-max-body-bytes: 65536
       requestBody:
         required: true
@@ -340,15 +445,17 @@ paths:
             schema: { $ref: "#/components/schemas/PollRequest" }
             examples:
               poll: { externalValue: "./schemas/examples/outpost-poll-request.example.json" }
+              runs: { externalValue: "./schemas/examples/outpost-poll-request.runs.example.json" }
       responses:
         "200":
-          description: The calls to make and the cancellations, or nothing
+          description: The calls to make, the offers to run and the cancellations, or nothing
           headers: { Outpost-Nonce: { $ref: "#/components/headers/OutpostNonce" } }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PollAnswer" }
               examples:
                 a-call: { externalValue: "./schemas/examples/outpost-poll-answer.example.json" }
+                an-offer: { externalValue: "./schemas/examples/outpost-poll-answer.runs.example.json" }
         "401": { $ref: "#/components/responses/NotAuthenticated" }
         "403": { $ref: "#/components/responses/InstanceNotActive" }
         "409":
@@ -506,16 +613,60 @@ components:
     PollRequest:
       type: object
       additionalProperties: false
-      description: How long the instance waits, what it can take and what it holds. Its sequence is in its signature.
+      description: >-
+        How long the instance waits, what it can take and what it holds. Its sequence is in its signature.
+        Protocol 2 adds the runs lane (ADR 0226 §3): `runs` announced with `runner`, `runs_running` and
+        `runs_ended`. A poll of protocol 1 carries nothing of it.
       required: [protocol, daemon_version, capacity, capabilities]
       properties:
-        protocol: { type: integer, minimum: 1, description: "The protocol the daemon speaks: 1 for this contract" }
+        protocol: { type: integer, minimum: 1, description: "The protocol the daemon speaks: 2 for this contract, and 1 is still served (`x-protocol`)" }
         daemon_version: { type: string, pattern: "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$", description: "The daemon's own release, as a fact to show" }
         wait_s: { type: integer, minimum: 0, maximum: 25, default: 25, description: "How long the poll may wait; 0 answers at once" }
         capacity: { type: integer, minimum: 0, maximum: 64, description: "How many more calls the instance can take now; the door hands over no more, and none at 0" }
-        capabilities: { type: array, maxItems: 4, items: { enum: [tools] }, description: "What the instance can do; an outpost is used only for what its instances announce and its organisation enabled" }
+        capabilities: { type: array, maxItems: 4, items: { enum: [tools, runs] }, description: "What the instance can do; an outpost is used only for what its instances announce and its organisation enabled. `runs` from protocol 2 only, by an instance of a personal outpost (`x-protocol`, `capabilities`)" }
         endpoints: { type: array, maxItems: 64, default: [], items: { type: string, pattern: "^[a-z][a-z0-9-]{0,62}$" }, description: "The aliases its policy file serves: names only, never an address (ADR 0147 §7)" }
         running: { type: array, maxItems: 256, default: [], items: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }, description: "The calls it holds and has not answered" }
+        runner:
+          oneOf: [{ $ref: "#/components/schemas/Runner" }, { type: "null" }]
+          default: null
+          description: "Protocol 2: what the instance takes, present exactly when it announces `runs`"
+        runs_running: { type: array, maxItems: 64, default: [], items: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }, description: "Protocol 2: the offers it runs, by id; listing one renews its lease (`x-run-lease`)" }
+        runs_ended: { type: array, maxItems: 64, default: [], items: { $ref: "#/components/schemas/RunEnded" }, description: "Protocol 2: the runs it ended since its last poll, each with its exit code" }
+      allOf:
+        - description: A poll of protocol 1 carries nothing of the runs lane.
+          if: { properties: { protocol: { maximum: 1 } } }
+          then:
+            properties:
+              capabilities: { items: { enum: [tools] } }
+              runner: { type: "null" }
+              runs_running: { maxItems: 0 }
+              runs_ended: { maxItems: 0 }
+        - description: "`runner` comes with `runs` announced, and only with it."
+          if: { required: [capabilities], properties: { capabilities: { contains: { const: runs } } } }
+          then: { required: [runner], properties: { runner: { type: object } } }
+          else: { properties: { runner: { type: "null" } } }
+    Runner:
+      type: object
+      additionalProperties: false
+      description: >-
+        What an instance that announces `runs` takes (protocol 2, ADR 0226 §3, §10): the door hands it only an
+        offer of a kind it names, for a mode it names, within its capacity. A run's credential and its
+        isolation are placement's to choose (ADR 0226 §9, §10); these are the facts it chooses among.
+      required: [version, modes, offer_kinds, run_capacity]
+      properties:
+        version: { type: string, pattern: "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$", description: "The runner's own release, as a fact to show" }
+        modes: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { enum: [docker, native] }, description: "`docker`: the agent in a container of its own (isolation `container`); `native`, an opt-in of the daemon's local policy: the runner a process and the agent its child (isolation `process`)" }
+        subscriptions: { type: array, maxItems: 2, uniqueItems: true, default: [], items: { enum: [anthropic, google] }, description: "The providers whose sign-in is present on this runner, and only while it is (ADR 0227 §4): a name, never the credential" }
+        offer_kinds: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { enum: [stage_run, conversation_turn] }, description: "The kinds of offer it knows; it is handed no other" }
+        run_capacity: { type: integer, minimum: 0, maximum: 16, description: "How many more runs it can take now; the door hands over no more offers, and none at 0" }
+    RunEnded:
+      type: object
+      additionalProperties: false
+      description: A run the instance ended since its last poll (protocol 2); it lists it in `runs_running` no more.
+      required: [id, exit_code]
+      properties:
+        id: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$", description: "The offer's id" }
+        exit_code: { type: integer, minimum: 0, maximum: 255, description: "As a shell reports it: 0 for success, 128 plus the signal's number for a process a signal ended" }
     SealedCall:
       type: object
       description: >-
@@ -541,11 +692,40 @@ components:
             The door's signature of this call (`x-call-signature`): a compact JWS under a key the outpost's
             policy file pins. A daemon verifies it before it opens `sealed`, and opens nothing it cannot verify
           x-signed-by: the door, with a key of the outpost's `door_keys`
+    SealedRun:
+      type: object
+      description: >-
+        An offer of the runs lane as it crosses the door (protocol 2, ADR 0226 §4): its id and its kind,
+        everything else sealed to the claiming instance (`x-sealing`, `run`), and the door's signature over the
+        id, the instance and the envelope (`x-run-signature`). The envelope's kind is the one that counts: a
+        daemon starts nothing whose sealed kind is not this one.
+      required: [id, kind, sealed, signature]
+      properties:
+        id: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$", description: "The run's id for a stage's run, the turn's id for a conversation turn: the envelope's associated data, and the id the instance lists in `runs_running` and `runs_ended`" }
+        kind: { enum: [stage_run, conversation_turn], description: "One the instance announced in `runner.offer_kinds`" }
+        sealed:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{80,}$"
+          maxLength: 65536
+          description: >-
+            The envelope; once open, `schemas/outpost-run.schema.json`. With the offer's id, kind and signature
+            it weighs 64 KiB at most (`x-bounds`, `handed_over`)
+          x-sealed-to: the claiming instance's `sealing_key`
+          x-plaintext: { $ref: "./schemas/outpost-run.schema.json" }
+        signature:
+          type: string
+          maxLength: 2048
+          pattern: "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{86}$"
+          description: >-
+            The door's signature of this offer (`x-run-signature`): a compact JWS under a key the outpost's
+            policy file pins. A daemon verifies it before it opens `sealed`, and starts nothing it cannot verify
+          x-signed-by: the door, with a key of the outpost's `door_keys`
     PollAnswer:
       type: object
       description: >-
-        The door's answer to a poll. A daemon ignores a field it does not know. Each call is signed by the
-        door; nothing else here is, so nothing else here can make a daemon call anything.
+        The door's answer to a poll. A daemon ignores a field it does not know. Each call and each offer is
+        signed by the door; nothing else here is, so nothing else here can make a daemon call anything or
+        start a run. A daemon of protocol 1 is never sent `runs` or `cancel_runs`, and ignores them.
       required: [protocol, server_time, stop, calls, cancel]
       properties:
         protocol: { $ref: "#/components/schemas/ProtocolWindow" }
@@ -553,6 +733,8 @@ components:
         stop: { type: boolean, description: "The outpost is paused: nothing is handed over until it is resumed; what the instance holds may finish, and it keeps polling" }
         calls: { type: array, maxItems: 64, items: { $ref: "#/components/schemas/SealedCall" }, description: "Claimed by this instance from this answer on; at most `capacity`, none heavier than 2 MiB (`x-bounds`, `handed_over`)" }
         cancel: { type: array, maxItems: 256, items: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }, description: "Calls among `running` the door waits for no more: an answer to one would be a 409 `lease_lost`. A call not yet started is refused `cancelled`, a read in flight is abandoned and answered `unanswered`, and a write that has reached its server is never interrupted (`x-bounds`, `cancel`)" }
+        runs: { type: array, maxItems: 16, items: { $ref: "#/components/schemas/SealedRun" }, description: "Protocol 2: offers claimed by this instance from this answer on, each of a kind and for a mode it announced, at most `runner.run_capacity`, none heavier than 64 KiB (`x-run-lease`, `x-bounds`)" }
+        cancel_runs: { type: array, maxItems: 64, items: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }, description: "Protocol 2: runs among `runs_running` the door waits for no more, a lost one included: the daemon stops each and reports it in `runs_ended` (`x-run-lease`, `cancel`)" }
     SealedAnswer:
       type: object
       additionalProperties: false

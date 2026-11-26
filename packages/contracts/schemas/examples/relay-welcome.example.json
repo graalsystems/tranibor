@@ -1,0 +1,10 @@
+{
+  "type": "welcome",
+  "id": "kq7mz3xw2pa5",
+  "hostname": "kq7mz3xw2pa5.relay.example",
+  "server_time": "2026-11-26T09:50:03Z",
+  "protocol": {
+    "current": 1,
+    "minimum": 1
+  }
+}

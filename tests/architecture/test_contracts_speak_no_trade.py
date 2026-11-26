@@ -6,8 +6,8 @@ and the enterprise seams. A name still there on that day stays for the whole maj
 own concepts neutral names, C2 and D move what belongs to software delivery into the `software-delivery`
 plugin. This guard is round C0's: it says where the vocabulary is today, and turns red when it grows.
 
-What is read: `packages/contracts` (the schemas, `openapi.yaml`, `outpost-door.yaml`, the Python types of
-`src/`), the MCP door (`tranibor_api/mcp/`), the A2A door (`tranibor_api/a2a/`), the trigger route
+What is read: `packages/contracts` (the schemas, `openapi.yaml`, `outpost-door.yaml`, `relay.yaml`, the Python
+types of `src/`), the MCP door (`tranibor_api/mcp/`), the A2A door (`tranibor_api/a2a/`), the trigger route
 (`routers/triggers.py`, `services/triggers.py`) and the enterprise seams (`edition.py`, `extensions.py`,
 `tenant_sign_in.py`). `packages/contracts/ts` is generated from the schemas and `openapi.yaml`, and a test
 refuses any divergence, so guarding its sources guards it.
@@ -62,6 +62,7 @@ SURFACES: tuple[str, ...] = (
     "packages/contracts/schemas/*.json",
     "packages/contracts/openapi.yaml",
     "packages/contracts/outpost-door.yaml",
+    "packages/contracts/relay.yaml",
     "packages/contracts/src/**/*.py",
     f"{API}/mcp/**/*.py",
     f"{API}/a2a/**/*.py",

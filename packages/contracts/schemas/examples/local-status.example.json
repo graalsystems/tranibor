@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.30.0",
+  "stack": {
+    "state": "running",
+    "version": "0.30.0",
+    "engine": "docker",
+    "url": "http://127.0.0.1:8484"
+  },
+  "services": [
+    { "name": "edge", "state": "running", "health": "healthy" },
+    { "name": "api", "state": "running", "health": "healthy" },
+    { "name": "console", "state": "running", "health": "healthy" },
+    { "name": "orchestrator", "state": "running", "health": "healthy" },
+    { "name": "postgres", "state": "running", "health": "healthy" },
+    { "name": "temporal", "state": "running", "health": "healthy" },
+    { "name": "egress", "state": "running", "health": null }
+  ],
+  "runner": {
+    "state": "running",
+    "version": "0.30.0",
+    "providers": ["claude"]
+  },
+  "relay": {
+    "enabled": true,
+    "hostname": "kq7mz3xw2pa5.relay.example"
+  },
+  "backups": {
+    "last": "2026-11-25T22:00:04Z",
+    "location": "/home/user/.local/share/choregos/backups"
+  },
+  "checks": [
+    { "name": "engine", "ok": true, "detail": "Docker Engine 27.3.1, Compose v2.29.7" },
+    { "name": "data_dir", "ok": true, "detail": "/home/user/.local/share/choregos, secrets.env and the owner key at mode 0600" },
+    { "name": "stack.health", "ok": true, "detail": "7 services running, 6 healthy, 1 without a health check" },
+    { "name": "runner.door", "ok": true, "detail": "the runner polls the loopback door, protocol 2" },
+    { "name": "relay.protocol", "ok": true, "detail": "the relay serves protocols 1 to 1; this agent speaks 1" }
+  ]
+}

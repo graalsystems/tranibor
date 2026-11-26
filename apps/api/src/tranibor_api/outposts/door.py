@@ -77,6 +77,24 @@ _ENROLMENT_REFUSALS: Final = {
 }
 
 
+def _runs_not_served(capabilities: list[str]) -> None:
+    """Refuse an instance that announces `runs`, whichever its outpost. Protocol 2 lets a personal
+    outpost's instance announce it (ADR 0226 §3), and this door does not serve the runs lane yet: it
+    hands no offer, so an instance that waits for one is told now, by a 422 `invalid_request` that says
+    where, rather than left to wait (`outpost-door.yaml`, `x-protocol`, `capabilities`). The lane is
+    S87-16's."""
+    announced = [index for index, capability in enumerate(capabilities) if capability == "runs"]
+    if announced:
+        raise auth.Refused(
+            OutpostDoorCode.INVALID_REQUEST,
+            "this door does not serve the runs lane yet (S87-16): an instance announces `tools` only",
+            errors=[
+                {"loc": ["capabilities", str(index)], "msg": "`runs` is not served by this door yet"}
+                for index in announced
+            ],
+        )
+
+
 def _moment(moment: datetime | None) -> datetime | None:
     """SQLite returns naive datetimes; PostgreSQL returns UTC ones."""
     return moment if moment is None or moment.tzinfo is not None else moment.replace(tzinfo=UTC)
@@ -117,7 +135,10 @@ async def _enrol(request: Request, session: AsyncSession, settings: Settings) ->
         )
         auth.limited(f"enrol:{admitted.outpost.id}", settings)
         auth.speaks(document)
-        enrolled = await service.enrol(session, auth.shaped(OutpostEnrolmentRequest, raw))
+        body = auth.shaped(OutpostEnrolmentRequest, raw)
+        # What the verb itself refuses comes after the schema, as the contract orders the checks.
+        _runs_not_served(list(body.capabilities))
+        enrolled = await service.enrol(session, body)
     except service.EnrolmentRefused as refused:
         raise auth.Refused(refused.code, _ENROLMENT_REFUSALS[refused.code]) from None
     return auth.answer(
@@ -326,6 +347,7 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
     caller = await auth.authenticate(request, session, settings, raw)
     auth.speaks(auth.document_of(raw))
     body = auth.shaped(OutpostPollRequest, raw)
+    _runs_not_served(list(body.capabilities))
     holder = secrets.token_hex(16)
     now = utcnow()
     if not await _take_the_slot(session, caller, body, holder, now):

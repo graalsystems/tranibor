@@ -32,7 +32,12 @@ export default function DevicePage() {
   );
 }
 
-const KINDS = { cli: "the command line", editor: "an editor" } as const;
+const KINDS = {
+  cli: "the command line",
+  editor: "an editor",
+  browser: "a browser",
+  runner: "a personal runner",
+} as const;
 
 function Device() {
   const params = useSearchParams();

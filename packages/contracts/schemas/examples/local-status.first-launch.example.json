@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.30.0",
+  "stack": {
+    "state": "unavailable",
+    "version": null,
+    "engine": null,
+    "url": null
+  },
+  "services": [],
+  "runner": {
+    "state": "not_installed",
+    "version": null,
+    "providers": []
+  },
+  "relay": {
+    "enabled": false
+  },
+  "backups": {
+    "last": null,
+    "location": null
+  },
+  "checks": [
+    { "name": "engine", "ok": false, "detail": "neither the Docker Engine nor a Podman socket answered: install one, then run `choregos local doctor` again" },
+    { "name": "data_dir", "ok": false, "detail": "no data directory yet: `choregos local init` makes it" }
+  ]
+}

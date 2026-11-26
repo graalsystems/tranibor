@@ -10,8 +10,46 @@ PREFIX = "/api/v1"
 
 # Contract-first (ADR 0001): operations the contract declares before the API serves them. Each entry
 # names the story that implements it; an entry the API does serve must be removed from here.
-CONTRACT_ONLY: dict[str, str] = {}
-CONTRACT_ONLY_PATHS: set[str] = set()
+CONTRACT_ONLY: dict[str, str] = {
+    # S87-08 (ADR 0228 §4): a personal installation's sign-in, by door.
+    "getAuthMethods": "S87-12",
+    "signInAsOwner": "S87-12",
+    "createMyDevicePairing": "S87-13",
+    "exchangeDevicePairing": "S87-13",
+    "listMyPasskeys": "S87-14",
+    "registerMyPasskey": "S87-14",
+    "startMyPasskeyRegistration": "S87-14",
+    "deleteMyPasskey": "S87-14",
+    "startPasskeySignIn": "S87-14",
+    "signInWithPasskey": "S87-14",
+    # S87-08 (ADR 0226 §2): a person's own runner, enrolled and approved by its owner only.
+    "listMyRunners": "S87-15",
+    "createMyRunnerEnrolment": "S87-15",
+    "approveMyRunnerInstance": "S87-15",
+    "pauseMyRunner": "S87-15",
+    "resumeMyRunner": "S87-15",
+    "revokeMyRunner": "S87-15",
+    # S87-08 (ADR 0226 §11): a runner-placed turn's answer, streamed from its deltas.
+    "postAgentSessionTurnDeltas": "S87-37",
+}
+CONTRACT_ONLY_PATHS: set[str] = {
+    "/auth/methods",
+    "/auth/owner",
+    "/me/device-pairings",
+    "/auth/device/session",
+    "/me/passkeys",
+    "/me/passkeys/options",
+    "/me/passkeys/{id}",
+    "/auth/passkey/options",
+    "/auth/passkey",
+    "/me/runners",
+    "/me/runners/{org}/enrolments",
+    "/me/runners/instances/{instance}/approval",
+    "/me/runners/{org}/pause",
+    "/me/runners/{org}/resume",
+    "/me/runners/{org}/revocation",
+    "/internal/agent-sessions/{id}/turns/{turn_id}/deltas",
+}
 VERBS = {"get", "post", "put", "patch", "delete"}
 
 

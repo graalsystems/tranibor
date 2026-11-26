@@ -492,6 +492,84 @@ export type InboundEvent = {
   };
 };
 
+/** The Compose stack of the personal bundle. */
+export type LocalStatusStack = {
+  /** `not_initialised`: no data directory yet (`init`). `unavailable`: no container engine answered. `stopped`, `starting`, `running`. `degraded`: a service is not running or not healthy. */
+  state: "not_initialised" | "unavailable" | "stopped" | "starting" | "running" | "degraded";
+  /** The images' version, the CLI's own (ADR 0229 §2); null before the first `up`. */
+  version?: string | null;
+  /** The container engine found: Docker Engine, or Podman's Docker-compatible socket. */
+  engine?: "docker" | "podman" | null;
+  /** The console on the loopback door, without a ticket. */
+  url?: string | null;
+};
+
+/** One service of the bundle. */
+export type LocalStatusService = {
+  name: string;
+  /** Its container's state as Compose reports it, or `missing`: the bundle declares it, no container is. */
+  state: "running" | "created" | "restarting" | "paused" | "exited" | "dead" | "removing" | "missing";
+  /** Null for a service without a health check. */
+  health?: "healthy" | "unhealthy" | "starting" | null;
+};
+
+/** The personal runner, `choregos-outpost` (ADR 0226), from its pid file and its presence in `/me/runners` (ADR 0229 §4). */
+export type LocalStatusRunner = {
+  /** `disconnected`: its process runs, and the door does not see it. */
+  state: "not_installed" | "not_enrolled" | "pending_approval" | "stopped" | "running" | "disconnected";
+  /** The daemon's own release; null when it is not installed. */
+  version?: string | null;
+  /** The providers its instance announces, by name only (`claude`): never a credential (ADR 0227). */
+  providers?: Array<string>;
+};
+
+/** The relay agent (ADR 0230): off, being paired, or on under its hostname. Enabled, it has a hostname and no pairing under way; not enabled, it has no hostname. */
+export type LocalStatusRelay = {
+  enabled: boolean;
+  /** `<id>.<relay-domain>`, when enabled. */
+  hostname?: string | null;
+  /** `relay enable`, until the owner enters the code. */
+  pairing?: LocalStatusPairing | null;
+};
+
+/** What the owner enters in their relay account (ADR 0230 §6). The device code stays with the agent. */
+export type LocalStatusPairing = {
+  user_code: string;
+  verification_uri: string;
+  expires_at: string;
+};
+
+/** The last backup `choregos local backup` made, and where backups go. */
+export type LocalStatusBackups = {
+  /** Null when none was made. */
+  last?: string | null;
+  /** A directory of the person's machine. */
+  location?: string | null;
+};
+
+/** One check of `doctor`: what it looked at, whether it passed, and what it found. */
+export type LocalStatusCheck = {
+  name: string;
+  ok: boolean;
+  detail: string;
+};
+
+/** What `choregos local status|doctor --json` prints of a personal installation (ADR 0228, ADR 0229 §2): the stack, its services, the personal runner, the relay, the backups and the checks. `open --print-url --json` and `relay enable --json` print the same shape with the field that is theirs (`open_url`, `relay.pairing`). It is the only shape the desktop app reads (ADR 0229 §6), from the CLI sidecar of its own release, so the shape is closed. It carries no secret: a runner's providers are announced by name, and a pairing carries its user code, never its device code. */
+export type LocalStatus = {
+  /** The release of the CLI that printed it. */
+  cli_version: string;
+  stack: LocalStatusStack;
+  /** The bundle's services, each once; empty when no container engine answered. */
+  services: Array<LocalStatusService>;
+  runner: LocalStatusRunner;
+  relay: LocalStatusRelay;
+  backups: LocalStatusBackups;
+  /** `doctor` lists every check it made, each once; `status` may list none. */
+  checks: Array<LocalStatusCheck>;
+  /** `open --print-url` only: the console's URL with a single-use owner ticket (ADR 0228), on the loopback door. */
+  open_url?: string | null;
+};
+
 /** A tool as the MCP client reads a `tools/list` entry. */
 export type OutpostAnswerTool = {
   name: string;
@@ -645,7 +723,7 @@ export type OutpostEnrolmentAnswer = {
 
 /** The body of `POST /outposts/v1/enrol` (ADR 0148 §3): an enrolment token and the public halves of the keys the instance made on the spot (ADR 0147 §2, §4). The private halves never leave the machine. The request is signed with the key it enrols, which ties the sealing key to the signing key whose fingerprint a person compares. */
 export type OutpostEnrolmentRequest = {
-  /** The protocol the daemon speaks: 1 for this contract. */
+  /** The protocol the daemon speaks: 2 for this contract, and 1 is still served (`outpost-door.yaml`, `x-protocol`). */
   protocol: number;
   /** The enrolment token a person created for one outpost: single use, valid 15 minutes at most. Opaque to a daemon; the door reads in it which outpost it is for (ADR 0148 §6). */
   token: string;
@@ -655,8 +733,8 @@ export type OutpostEnrolmentRequest = {
   sealing_key: string;
   /** The daemon's own release, as a fact to show. */
   daemon_version: string;
-  /** What the instance can do. `tools` is the one capability of protocol 1; `runs` is reserved and announced by no daemon of this protocol (ADR 0147 §11, ADR 0149 §12). */
-  capabilities: Array<"tools">;
+  /** What the instance can do (ADR 0147 §11). `tools`, from protocol 1, is an organisation's outpost's; `runs` is announced from protocol 2 only, by an instance of a personal outpost (ADR 0226 §1, §3), and no enrolment of protocol 1 carries it. */
+  capabilities: Array<"tools" | "runs">;
   /** Facts about the instance for the person who approves it (a host name, a platform): bounded, stored as data, never interpreted (ADR 0148 §9). */
   facts?: {
     [key: string]: string;
@@ -709,6 +787,38 @@ export type OutpostPolicy = {
 export type OutpostRefusal = {
   /** `unknown_endpoint`: the policy file has no endpoint under this alias. `tool_not_allowed`: the tool is outside the endpoint's patterns. `write_denied`: the endpoint denies writes and its server does not declare the tool read-only. `payload_too_large`: the arguments weigh more than the endpoint's ceiling. `busy`: the concurrency ceiling is reached, or the outpost is stopping; it also covers a call the daemon claimed and never began because it was stopping or was restarted. `endpoint_unavailable`: the outpost could not reach or open its own server, and sent it nothing. `cannot_record`: the outpost could not write its journal or its audit line, so it did not make the call. `unsupported_kind`: the daemon does not know this kind of call. `signature_refused`: the call is not signed by a key the outpost's policy file pins, or its signature binds another call, another instance or another envelope; the envelope was not opened. `call_unreadable`: the envelope does not open with this instance's key, or what it holds is not a call. `deadline_passed`: the deadline had passed before the outpost could start, or the call's id met an entry of the journal that had lapsed. `cancelled`: the door cancelled the call before the outpost started it. */
   code: "unknown_endpoint" | "tool_not_allowed" | "write_denied" | "payload_too_large" | "busy" | "endpoint_unavailable" | "cannot_record" | "unsupported_kind" | "signature_refused" | "call_unreadable" | "deadline_passed" | "cancelled";
+};
+
+/** An offer of the outposts' door's runs lane as a personal outpost sees it once it has opened the envelope with its sealing key (door protocol 2, ADR 0226 §4, ADR 0227 §1): what it runs, where the run's API is, and the run token minted when the instance claimed the offer. It is sealed to that instance only, under the offer's id (`outpost-door.yaml`, `x-sealing`, `run`), and the row the door keeps never holds the token. It carries no gateway key and no subscription's credential: a subscription stays on its owner's runner (ADR 0227 §4). A daemon ignores a field it does not know. */
+export type OutpostRun = {
+  /** The offer's id: the envelope's too, and the associated data it was sealed under. The run's id for a stage's run (`run_id`), the turn's id for a conversation turn (`turn_id`). A daemon starts nothing whose id is not its envelope's. */
+  id: string;
+  /** `stage_run`: a stage's run, which the runner runs as an executor would. `conversation_turn`: one turn of a conversation placed on its owner's runner (ADR 0226 §11). The same kind as the offer carries in clear, or the daemon starts nothing. */
+  kind: "stage_run" | "conversation_turn";
+  /** `stage_run`: the run's id, which the runner reports under. Null for a turn. */
+  run_id?: string | null;
+  /** `conversation_turn`: the conversation the turn belongs to. */
+  conversation_id?: string | null;
+  /** `conversation_turn`: the turn the offer runs, one offer per turn. */
+  turn_id?: string | null;
+  /** Where the runner calls the run's API: a run door (ADR 0144, ADR 0226 §12), in a personal installation its loopback and its `runs` network. Never the outposts' door, which carries assignments and no run API, and never the relay. */
+  api_url: string;
+  /** The run token, minted when the instance claimed the offer and never before (ADR 0226 §4): it speaks for this run, or for this turn on the internal session routes only, and lapses with it, the run's maximum minutes plus 15, a turn's plus 5 (ADR 0226 §11). A daemon hands it to the runner and reads nothing in it. */
+  run_token: string;
+  /** The runner's environment beyond its id, address and token, by name: what the deployment passes every run (its `TRANIBOR_ENV`, its egress proxy). Never a secret of the platform (an offer carries no gateway key in phase A, ADR 0226 §9) and never a subscription's credential. */
+  env?: {
+    [key: string]: string;
+  };
+  /** Where the run's model credential comes from (ADR 0227 §1), as placement chose it: `subscription`, the sign-in on this runner of the provider below; `gateway`, the platform's, which no offer carries in phase A (ADR 0226 §9). */
+  credential: "gateway" | "subscription";
+  /** `subscription`: the vendor whose sign-in on this runner the run uses, one the instance announced (`runner.subscriptions`). Null for a gateway run. */
+  provider?: "anthropic" | "google" | null;
+  /** Where the agent runs, as placement chose it for a mode the instance announced (ADR 0226 §10): `container`, the docker mode's container of its own; `process`, the native mode's child process, placed only under the organisation's `native: accepted`. */
+  isolation: "container" | "process";
+  /** The lease the claiming instance's polls renew by listing the run in `runs_running` (`x-run-lease`): longer than a poll's longest wait, and never past the claim plus `max_minutes`. */
+  lease_s: number;
+  /** The run's maximum minutes, or the turn's: what bounds it with its turns and its tool calls, since a subscription run is under no USD budget (ADR 0227 §7). */
+  max_minutes: number;
 };
 
 export type PluginEvalsNeedles = Array<string>;
@@ -1235,6 +1345,17 @@ export type Policy = {
     prompt_injection?: "ignore" | "warn" | "block";
     /** How long a sandbox may stay suspended while a person answers its agent's question, with an executor that can suspend (agent_sandbox). Beyond it the sandbox is destroyed and the stage replays. 0: never suspend */
     suspend_max_hours?: number;
+    /** Whether a run may execute on its work owner's personal runner, and with what (ADR 0226 §9, ADR 0227 §2). The personal posture's defaults are its own (ADR 0228 §8); these are everyone else's. */
+    personal_runner?: {
+      /** never: the platform runs it. preferred: the work owner's runner when it is present and can honour the run, otherwise the platform after prefer_wait_minutes at most. required: the work owner's runner or nothing; a work owner without one is refused */
+      placement?: "never" | "preferred" | "required";
+      /** preferred: how long a run waits for the work owner's runner before the platform takes it */
+      prefer_wait_minutes?: number;
+      /** The credential sources a run may use: the platform's gateway, and the work owner's own subscription, used only by the vendor's CLI on the work owner's runner (ADR 0227) */
+      credential?: Array<"gateway" | "subscription">;
+      /** Whether a run may execute natively on the runner, outside a container: the organisation's named opt-out of ADR 0222, never the deployment's (ADR 0226 §10) */
+      native?: "refused" | "accepted";
+    };
   };
   findings?: {
     max_per_run?: number;
@@ -1443,6 +1564,89 @@ export type Project = {
       apps?: Array<string>;
     } | null;
   } | null;
+};
+
+/** The agent's first message on the control channel, answering the relay's challenge (ADR 0230 §3): its id, and a compact JWS by the installation's Ed25519 key binding the relay's control URL, the id, the protocol, the nonce of this connection's challenge and an `iat` within 60 seconds of the relay's clock (`x-hello-signature` of `relay.yaml`). One control session per id: a hello that verifies replaces the live one, a hello that does not is refused and the live one kept. */
+export type RelayHello = {
+  type: "hello";
+  /** The protocol the agent speaks: 1 for this contract. The relay serves its own and the one before. */
+  protocol: number;
+  /** The agent's own release, as a fact to show. */
+  agent_version: string;
+  /** The id the relay drew at the pairing; the `kid` of the signature. */
+  id: string;
+  /** A compact JWS (`alg` `EdDSA`, `typ` `choregos-relay-hello+jwt`, `kid` the id) whose claims are `htu`, `id`, `protocol`, `nonce` and `iat`. */
+  signature: string;
+};
+
+/** The one line the relay keeps of a phone's connection, and nothing else (ADR 0230 §7): which installation, when, from which address, how many bytes each way, how long, and why it ended. No server name, no ALPN, no cipher list and no byte of the stream: the relay never has a header, a path or a body to log. Every line is validated against this schema before it is written, and kept for the retention the relay's operator fixed. */
+export type RelayMetadataLine = {
+  /** The installation's id; null when the connection ended before one was known (no server name or an unknown one, a ClientHello out of bounds, the limit of the client's address). */
+  install_id: string | null;
+  /** When the relay accepted the phone's connection. */
+  started_at: string;
+  /** When it was closed. */
+  ended_at: string;
+  /** The phone's IP address. */
+  client_ip: string | string;
+  /** Bytes from the phone towards the installation, the ClientHello included. */
+  bytes_in: number;
+  /** Bytes from the installation towards the phone. */
+  bytes_out: number;
+  /** How long the connection lasted. */
+  duration_ms: number;
+  /** Why it ended. A limit closes the connection and says which (ADR 0230 §8); an installation without a control session is closed and nothing is stored but this line (§9). */
+  close_reason: "client_closed" | "installation_closed" | "idle_timeout" | "no_sni" | "malformed_client_hello" | "client_hello_too_large" | "client_hello_timeout" | "outside_domain" | "unknown_id" | "suspended" | "no_control_session" | "dial_back_timeout" | "limit_concurrent_streams" | "limit_streams_per_minute" | "limit_bytes_per_month" | "limit_client_connections_per_minute" | "relay_shutdown" | "error";
+};
+
+/** The relay's order, on the control channel, to dial back for one phone connection (ADR 0230 §3): a stream id, a single-use ticket bound to that stream, and the phone's address. It has no host and no port field: the agent opens a new connection to the relay's own host only, and splices what comes back to the one target its own configuration names, the edge's relay listener. The agent refuses an order holding any field outside this schema, and connects nowhere. */
+export type RelayOpenStream = {
+  type: "open_stream";
+  /** The stream's id: the path segment of the dial-back. */
+  stream: string;
+  /** Single use, bound to this stream, valid 10 seconds: what the dial-back presents in `Relay-Ticket`. */
+  ticket: string;
+  /** The phone's IP address, which the agent writes in a PROXY protocol v2 header before the stream's bytes. */
+  client_ip: string | string;
+};
+
+/** The protocols the relay serves: its own and the one before. An agent below `minimum` is refused. */
+export type RelayPairingAnswerWindow = {
+  current: number;
+  minimum: number;
+};
+
+/** The relay's answer to a pairing request and to each poll of it (ADR 0230 §6). `pending` carries the device code the agent polls with and the user code it shows the owner; `approved` carries the id the relay drew, 60 random bits written as 12 base32 characters, and the installation's hostname; `denied` and `expired` carry nothing more. */
+export type RelayPairingAnswer = {
+  /** `pending`: the owner has not entered the user code yet, poll again. `approved`: the id is bound to the owner's account and this key. `denied`: the owner refused it. `expired`: nobody entered it in time, ask for another. */
+  status: "pending" | "approved" | "denied" | "expired";
+  /** The relay's clock: an agent whose own drifts learns it here, and never corrects `iat` from it. */
+  server_time: string;
+  protocol: RelayPairingAnswerWindow;
+  /** `pending`: what the agent polls with. A secret of the agent, never shown. */
+  device_code?: string | null;
+  /** `pending`: what the agent shows the owner, who enters it in their relay account (RFC 8628 §6.1's consonants). */
+  user_code?: string | null;
+  /** `pending`: where the owner enters the user code. */
+  verification_uri?: string | null;
+  /** `pending`: after it, the pairing is `expired`. */
+  expires_at?: string | null;
+  /** `pending`: the agent polls no more often. */
+  interval_s?: number | null;
+  /** `approved`: the id the relay drew, 60 random bits as 12 lowercase base32 characters. Nobody chooses it. */
+  id?: string | null;
+  /** `approved`: `<id>.<relay-domain>`, the name a phone reaches the installation under. */
+  hostname?: string | null;
+};
+
+/** The body of `POST /relay/v1/pairing` (ADR 0230 §6): the relay agent's new Ed25519 public key, asking for a device code. It names no id: the relay draws one when the owner enters the user code, and a request that names one is refused as an extra field. The request is signed with the key it pairs (`Relay-Signature`), which proves the agent holds it. */
+export type RelayPairingRequest = {
+  /** The protocol the agent speaks: 1 for this contract. */
+  protocol: number;
+  /** The agent's own release, as a fact to show. */
+  agent_version: string;
+  /** Ed25519, raw 32 bytes, base64url without padding: verifies every later hello of this installation. The private half never leaves the installation. */
+  signing_key: string;
 };
 
 /** Orchestrator → runner contract (docs/plan/01 §1.5). */
@@ -2236,6 +2440,7 @@ export type ChoregosContract =
   | Finding
   | HumanDecision
   | InboundEvent
+  | LocalStatus
   | OutpostAnswer
   | OutpostAuditLine
   | OutpostCall
@@ -2243,6 +2448,7 @@ export type ChoregosContract =
   | OutpostEnrolmentRequest
   | OutpostPolicy
   | OutpostRefusal
+  | OutpostRun
   | PluginEvals
   | PluginIndex
   | PluginProfile
@@ -2251,6 +2457,11 @@ export type ChoregosContract =
   | Plugin
   | Policy
   | Project
+  | RelayHello
+  | RelayMetadataLine
+  | RelayOpenStream
+  | RelayPairingAnswer
+  | RelayPairingRequest
   | StageInput
   | StageResult
   | Template

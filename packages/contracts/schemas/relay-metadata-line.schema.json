@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/relay-metadata-line.schema.json",
+  "title": "RelayMetadataLine",
+  "description": "The one line the relay keeps of a phone's connection, and nothing else (ADR 0230 §7): which installation, when, from which address, how many bytes each way, how long, and why it ended. No server name, no ALPN, no cipher list and no byte of the stream: the relay never has a header, a path or a body to log. Every line is validated against this schema before it is written, and kept for the retention the relay's operator fixed.",
+  "type": "object",
+  "required": [
+    "install_id",
+    "started_at",
+    "ended_at",
+    "client_ip",
+    "bytes_in",
+    "bytes_out",
+    "duration_ms",
+    "close_reason"
+  ],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "close_reason": {
+        "enum": [
+          "no_sni",
+          "malformed_client_hello",
+          "client_hello_too_large",
+          "client_hello_timeout",
+          "outside_domain",
+          "unknown_id",
+          "limit_client_connections_per_minute"
+        ]
+      }
+    },
+    "required": [
+      "close_reason"
+    ]
+  },
+  "then": {
+    "properties": {
+      "install_id": {
+        "type": "null"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "install_id": {
+        "type": "string"
+      }
+    }
+  },
+  "properties": {
+    "install_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z2-7]{12}$",
+      "description": "The installation's id; null when the connection ended before one was known (no server name or an unknown one, a ClientHello out of bounds, the limit of the client's address)."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the relay accepted the phone's connection."
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When it was closed."
+    },
+    "client_ip": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "ipv4"
+        },
+        {
+          "type": "string",
+          "format": "ipv6"
+        }
+      ],
+      "description": "The phone's IP address."
+    },
+    "bytes_in": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Bytes from the phone towards the installation, the ClientHello included."
+    },
+    "bytes_out": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Bytes from the installation towards the phone."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How long the connection lasted."
+    },
+    "close_reason": {
+      "enum": [
+        "client_closed",
+        "installation_closed",
+        "idle_timeout",
+        "no_sni",
+        "malformed_client_hello",
+        "client_hello_too_large",
+        "client_hello_timeout",
+        "outside_domain",
+        "unknown_id",
+        "suspended",
+        "no_control_session",
+        "dial_back_timeout",
+        "limit_concurrent_streams",
+        "limit_streams_per_minute",
+        "limit_bytes_per_month",
+        "limit_client_connections_per_minute",
+        "relay_shutdown",
+        "error"
+      ],
+      "description": "Why it ended. A limit closes the connection and says which (ADR 0230 §8); an installation without a control session is closed and nothing is stored but this line (§9)."
+    }
+  }
+}

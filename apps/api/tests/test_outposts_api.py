@@ -124,7 +124,8 @@ async def test_an_outposts_name_is_its_slug_when_none_is_given_and_a_slug_is_tak
 async def test_a_creation_the_contract_does_not_describe_is_a_422(
     client: AsyncClient, admin: str, door: kit.Door, body: dict[str, Any]
 ) -> None:
-    """`runs` is reserved (ADR 0149 §12), and nothing of an outpost's side is stored (ADR 0147 §7)."""
+    """No organisation enables `runs`: only a personal outpost's instance announces it, from protocol 2
+    (ADR 0226 §1, §3); and nothing of an outpost's side is stored (ADR 0147 §7)."""
     assert (await client.post(BASE, json=body)).status_code == 422
     assert (await client.get(BASE)).json()["items"] == []
 

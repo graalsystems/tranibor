@@ -17,3 +17,4 @@ packages = ["src/tranibor_contracts"]
 "schemas" = "tranibor_contracts/schemas"
 "openapi.yaml" = "tranibor_contracts/openapi.yaml"
 "outpost-door.yaml" = "tranibor_contracts/outpost-door.yaml"
+"relay.yaml" = "tranibor_contracts/relay.yaml"

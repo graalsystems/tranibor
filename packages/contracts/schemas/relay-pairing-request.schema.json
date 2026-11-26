@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/relay-pairing-request.schema.json",
+  "title": "RelayPairingRequest",
+  "description": "The body of `POST /relay/v1/pairing` (ADR 0230 §6): the relay agent's new Ed25519 public key, asking for a device code. It names no id: the relay draws one when the owner enters the user code, and a request that names one is refused as an extra field. The request is signed with the key it pairs (`Relay-Signature`), which proves the agent holds it.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "agent_version",
+    "signing_key"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The protocol the agent speaks: 1 for this contract."
+    },
+    "agent_version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$",
+      "description": "The agent's own release, as a fact to show."
+    },
+    "signing_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
+      "description": "Ed25519, raw 32 bytes, base64url without padding: verifies every later hello of this installation. The private half never leaves the installation."
+    }
+  }
+}

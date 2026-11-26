@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field, model_validator
+from pydantic import BeforeValidator, Field, field_validator, model_validator
 
 from . import delivery as _delivery
 from .approval import ApprovalRule
@@ -78,6 +78,41 @@ class NetworkPolicy(Strict):
     builtin_web_tools: Literal["allow", "deny"] = "allow"
 
 
+#: Where a run executes: never on a personal runner, on its work owner's runner when present, or
+#: only there (ADR 0226 §9).
+PersonalRunnerPlacement = Literal["never", "preferred", "required"]
+#: Where a run's model credential comes from (ADR 0227 §1).
+CredentialSource = Literal["gateway", "subscription"]
+
+
+def _gateway_only() -> list[CredentialSource]:
+    """Everyone's default but the personal posture's: the platform's gateway (ADR 0227 §2)."""
+    return ["gateway"]
+
+
+class PersonalRunnerPolicy(Strict):
+    """Whether a run may execute on its work owner's personal runner, and with what (ADR 0226 §9,
+    ADR 0227 §2). These defaults are everyone's but the personal posture's, which defaults to
+    `required` and `[subscription]` (ADR 0228 §8); placement reads the effective values."""
+
+    placement: PersonalRunnerPlacement = "never"
+    #: `preferred`: how long a run waits for the work owner's runner before the platform takes it.
+    prefer_wait_minutes: int = Field(default=10, ge=1, le=120)
+    #: The credential sources a run may use. `subscription` is used only by the vendor's CLI on the
+    #: work owner's own runner, never by a platform executor (ADR 0227 §2).
+    credential: list[CredentialSource] = Field(default_factory=_gateway_only, min_length=1, max_length=2)
+    #: `accepted` is the organisation's named opt-out of ADR 0222 for a native run, never the
+    #: deployment's (ADR 0226 §10).
+    native: Literal["refused", "accepted"] = "refused"
+
+    @field_validator("credential")
+    @classmethod
+    def _a_source_is_listed_once(cls, sources: list[CredentialSource]) -> list[CredentialSource]:
+        if len(set(sources)) != len(sources):
+            raise ValueError("a credential source is listed once")
+        return sources
+
+
 class SandboxPolicy(Strict):
     runtime: Literal["default", "gvisor", "kata"] = "default"
     deny_commands: list[str] = Field(
@@ -99,6 +134,8 @@ class SandboxPolicy(Strict):
     #: executor that announces `suspend` and `resume` (ADR 0016). Beyond it the sandbox is
     #: destroyed and the stage replays from scratch, as with every other executor. 0: never.
     suspend_max_hours: float = Field(default=24, ge=0)
+    #: Whether a run may execute on its work owner's personal runner (ADR 0226 §9).
+    personal_runner: PersonalRunnerPolicy = Field(default_factory=PersonalRunnerPolicy)
 
 
 class WebSearchPolicy(Strict):

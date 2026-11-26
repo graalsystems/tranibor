@@ -221,9 +221,13 @@ gives the operator's.
 
 ## What is not there yet
 
-- **Runs at an outpost.** A whole run executing at an outpost is not decided:
-  [ADR 0149](adr/0149-a-tool-may-live-at-an-outpost.md) §12 lists
-  what would have to be true first. `tools` is the only capability an instance announces.
+- **Runs at an outpost.** A whole run executing at an organisation's outpost is not decided:
+  [ADR 0149](adr/0149-a-tool-may-live-at-an-outpost.md) §12 lists what would have to be true first.
+  A person's own machine running that person's runs is decided (ADR 0226): door protocol 2 describes
+  its runs lane inside the poll (`runs`, announced by a personal outpost's instance only), and the door
+  serves protocol 2 and still protocol 1. Until the lane is served, the door refuses an enrolment or a
+  poll that announces `runs` (422 `invalid_request`): `tools` is the only capability an instance
+  announces today.
 - **A person's identity.** A call reaches the server under the credential the outpost holds for the
   alias. A need that must be called as the person cannot be bound to such a connector.
 - **Two details of the deployment**, said in [Deployment](deployment.md#outposts-adrs-0147-0149):

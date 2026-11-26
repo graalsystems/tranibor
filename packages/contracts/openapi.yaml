@@ -125,6 +125,98 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/EndedSessions" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /me/device-pairings:
+    post:
+      tags: [session]
+      operationId: createMyDevicePairing
+      security: [{ session: [] }]
+      summary: Create a one-time link that pairs a phone, from the computer (ADR 0228 §4)
+      description: >-
+        The installation's person, on the loopback door, with a console session (a cookie: no API token, no
+        surface session) whose authentication is no older than 10 minutes, creates a pairing: a device
+        authorization already approved, of `client_kind` `browser`, valid 5 minutes, which a phone exchanges once,
+        on the relay door, for a session of its own (`exchangeDevicePairing`). The answer's `url` is shown as a QR
+        code; its code travels in the fragment, which no server receives or logs, and the platform keeps its
+        digest only. A pairing is created from the computer only, never started from the phone (ADR 0154 §6 and
+        ADR 0193 §2 keep the device flow of the terminal, the editor and the Android app as it is). 401
+        `step_up_required` for an older authentication, which a new owner ticket answers. 404 on the relay door
+        and outside the personal posture. 409 when the installation is reachable through no relay
+        (`choregos local relay enable`, ADR 0230 §6): the link would have no host.
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/DevicePairing" } } } }
+        "401":
+          description: >-
+            Not signed in, or a fresh authentication is needed: `errors` holds `step_up_required`, and `detail` says
+            that creating a pairing needs a sign-in less than 10 minutes old
+          content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /me/passkeys:
+    get:
+      tags: [session]
+      operationId: listMyPasskeys
+      security: [{ session: [] }]
+      summary: The caller's passkeys, newest first (ADR 0228 §4)
+      description: >-
+        What tells the caller's passkeys apart, never a key: the name given at registration, when it was registered
+        and last used. Read on either door. 404 outside the personal posture.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PasskeyList" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [session]
+      operationId: registerMyPasskey
+      security: [{ session: [] }]
+      summary: Register a passkey for the caller, on the relay door (ADR 0228 §4)
+      description: >-
+        Verifies a WebAuthn registration against a challenge `startMyPasskeyRegistration` issued to this session:
+        the relay's hostname as RP ID, the relay origin, user verification. Registered from a console session (a
+        cookie: no API token, no surface session registers a passkey), audited as `passkey.register`. A passkey is
+        bound to the relay's hostname: a person who changes relays registers theirs again. 404 on the loopback door,
+        whose origin is not the RP ID's, and outside the personal posture. 409 for a credential already
+        registered. 422 for a registration that does not verify (a foreign origin, no user verification, a
+        challenge not issued to this session, used or expired).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PasskeyRegistration" } } }
+      responses:
+        "201": { description: Registered, content: { application/json: { schema: { $ref: "#/components/schemas/Passkey" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /me/passkeys/options:
+    post:
+      tags: [session]
+      operationId: startMyPasskeyRegistration
+      security: [{ session: [] }]
+      summary: The WebAuthn options to register a passkey, on the relay door (ADR 0228 §4)
+      description: >-
+        A challenge of at least 128 bits, issued to this session, taken once and valid 5 minutes, for the relay's
+        hostname as RP ID, with user verification required and the caller's passkeys excluded. The browser passes
+        `public_key` to `navigator.credentials.create` and posts the result to `registerMyPasskey`. 404 on the
+        loopback door and outside the personal posture.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PasskeyRegistrationOptions" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /me/passkeys/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, maxLength: 64 } }
+    delete:
+      tags: [session]
+      operationId: deleteMyPasskey
+      security: [{ session: [] }]
+      summary: Delete one of the caller's passkeys, and end the sessions it opened (ADR 0228 §4)
+      description: >-
+        From its next request, every session the passkey opened is refused, as `endMySession` ends one; the session
+        this request came with is ended too when the passkey opened it. Audited as `passkey.delete`. On either
+        door. 404 for another person's passkey, for an unknown one, and outside the personal posture.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /auth/login:
     get:
       tags: [session]
@@ -242,6 +334,112 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /auth/device/session:
+    post:
+      tags: [session]
+      operationId: exchangeDevicePairing
+      security: []
+      summary: Exchange a one-time pairing for a browser session, on the relay door (ADR 0228 §4)
+      description: >-
+        The phone's half of a pairing the computer created (`createMyDevicePairing`): the console's `/pair` page
+        reads the code from the fragment of the link it was opened with, which no server receives or logs, and
+        posts it here. The exchange is a conditional update: a code is exchanged once, and of two exchanges at the
+        same time one wins and the other is refused. 204 opens a browser session of the person who created the
+        pairing and sets the relay door's cookie (`__Host-choregos_session`, `Secure`), accepted on that door only
+        (ADR 0228 §5). The session's authentication time is the one of the sign-in that created the pairing, never
+        fresher (as `decideDeviceRequest` binds a surface session); it is listed by `GET /me/sessions` with the
+        client's name and address, ended there (ADR 0130), and audited as `device.paired`. 401 for a code that is
+        unknown, already exchanged or expired, without saying which. 404 on the loopback door and outside the
+        personal posture.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DevicePairingExchange" } } }
+      responses:
+        "204": { description: "Paired: the relay door's session cookie is set" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /auth/methods:
+    get:
+      tags: [session]
+      operationId: getAuthMethods
+      security: []
+      summary: How a person signs in on the door this request came through (ADR 0228 §4)
+      description: >-
+        Read by the console's sign-in page before it shows anything. `posture` is the installation's, recorded at
+        its first start and never converted (ADR 0228 §2, §9). In the personal posture there is no identity
+        provider and no password: `methods` names, of `owner` (`signInAsOwner`, on the loopback door only),
+        `device_pairing` (`exchangeDevicePairing`, on the relay door only) and `passkey` (`signInWithPasskey`, on
+        the relay door only), those the request's door accepts, and no other; `/auth/login` and `/auth/callback`
+        answer 404 there. In the organisation posture `methods` is `[identity_provider]` (`authLogin`) and the
+        routes of the three answer 404. The door is the edge's listener, which the edge writes in
+        `X-Choregos-Door` over whatever the client sent (ADR 0228 §6), never the `Host` header, which a client
+        through the relay chooses.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AuthMethods" } } } }
+  /auth/owner:
+    post:
+      tags: [session]
+      operationId: signInAsOwner
+      security: []
+      summary: Exchange an owner ticket for a session of the installation's one person, on the loopback door (ADR 0228 §4)
+      description: >-
+        `choregos local open` (or the desktop app, ADR 0229) signs a ticket with the owner key `choregos local init`
+        generated, whose private half stays in the installation's data directory at mode 0600 (the API holds the
+        public half only, `TRANIBOR_OWNER_PUBLIC_KEY_FILE`), and opens the console's loopback URL with the ticket in
+        the fragment, which no server receives or logs; the console posts it here. A ticket is a compact JWS signed
+        with Ed25519, for the audience `choregos-owner`, valid 60 seconds at most, with a `jti` taken once. 204
+        opens a session of the installation's one person, whose authentication time is now (it is fresh for
+        ADR 0170 and for ADR 0228 §3), and sets the loopback door's cookie (`choregos_session`, without `Secure`),
+        accepted on that door only (ADR 0228 §5). 401 for a ticket replayed, expired, valid for more than 60
+        seconds, for another audience or signed by another key, without saying which. 404 on the relay door, at
+        the edge and at the API (ADR 0230 §11), and outside the personal posture.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/OwnerTicketExchange" } } }
+      responses:
+        "204": { description: "Signed in: the loopback door's session cookie is set" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /auth/passkey/options:
+    post:
+      tags: [session]
+      operationId: startPasskeySignIn
+      security: []
+      summary: The WebAuthn options of a passkey sign-in or re-authentication, on the relay door (ADR 0228 §4)
+      description: >-
+        A challenge of at least 128 bits, taken once and valid 5 minutes, for the relay's hostname as RP ID, with
+        user verification required. The browser passes `public_key` to `navigator.credentials.get` and posts the
+        assertion to `signInWithPasskey`. 404 on the loopback door, whose origin is not the RP ID's, and outside
+        the personal posture.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PasskeyAssertionOptions" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /auth/passkey:
+    post:
+      tags: [session]
+      operationId: signInWithPasskey
+      security: []
+      summary: Sign in, or re-authenticate the current session, with a passkey, on the relay door (ADR 0228 §4)
+      description: >-
+        Verifies a WebAuthn assertion of one of the person's passkeys against a challenge `startPasskeySignIn`
+        issued: the relay's hostname as RP ID, the relay origin, user verification, a signature counter that did not
+        go back. Without a session, 204 opens one whose authentication time is now and sets the relay door's cookie
+        (`__Host-choregos_session`, `Secure`); with the cookie of a session of the same person, it re-authenticates
+        that session instead. Either counts as fresh for ADR 0170 (`approval_freshness_s`, a gesture's
+        `step_up_minutes`) and for ADR 0228 §3: on the relay door, a `step_up_required` is answered with a passkey.
+        The session records the passkey that opened it, and deleting the passkey ends it. 401 for an assertion that
+        does not verify (a foreign origin, a regressed counter, an unknown or deleted passkey, a challenge not
+        issued, used or expired), without saying which. 404 on the loopback door and outside the personal posture.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/PasskeyAssertion" } } }
+      responses:
+        "204": { description: "Signed in or re-authenticated: the relay door's session cookie is set" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
   /orgs:
     get:
@@ -2468,7 +2666,7 @@ paths:
         - { name: group_by, in: query, schema: { type: string, enum: [day, stage, model, backend, size, kind, agent, workflow, work_item, project, origin, run, assistant], default: day }, description: "origin is the door a tool call came through (model, script, job; S57-06), `—` for a line that does not say (a model call, a tool line booked before S57-06)" }
         - { name: since, in: query, schema: { type: string, format: date } }
         - { name: until, in: query, schema: { type: string, format: date } }
-        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill] }, description: "only what models cost, only what tools cost (S29-03), or only what knowledge-base distillations cost (S42-10d)" }
+        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill, subscription] }, description: "only what models cost, only what tools cost (S29-03), only what knowledge-base distillations cost (S42-10d), or only the lines of runs and conversation turns on a person's own subscription: cost 0, unmeasured, outside every USD budget (ADR 0227 §7)" }
         - { name: agent, in: query, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }, description: "only the lines of this agent (its slug; ADR 0141 §1)" }
         - { name: workflow, in: query, schema: { type: string, minLength: 1, maxLength: 64 }, description: "only the lines of the work items born in this workflow (its name)" }
         - { name: work_item, in: query, schema: { type: string, minLength: 1, maxLength: 128 }, description: "only the lines of this work item (its id)" }
@@ -2485,7 +2683,7 @@ paths:
         - { name: group_by, in: query, schema: { type: string, enum: [day, stage, model, backend, size, kind, agent, workflow, work_item, project, origin, run, assistant], default: day } }
         - { name: since, in: query, schema: { type: string, format: date } }
         - { name: until, in: query, schema: { type: string, format: date } }
-        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill] }, description: "only what models cost, only what tools cost (S29-03), or only what knowledge-base distillations cost (S42-10d)" }
+        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill, subscription] }, description: "only what models cost, only what tools cost (S29-03), only what knowledge-base distillations cost (S42-10d), or only the lines of runs and conversation turns on a person's own subscription: cost 0, unmeasured, outside every USD budget (ADR 0227 §7)" }
         - { name: agent, in: query, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }, description: "only the lines of this agent (its slug; ADR 0141 §1)" }
         - { name: workflow, in: query, schema: { type: string, minLength: 1, maxLength: 64 }, description: "only the lines of the work items born in this workflow (its name)" }
         - { name: work_item, in: query, schema: { type: string, minLength: 1, maxLength: 128 }, description: "only the lines of this work item (its id)" }
@@ -2561,7 +2759,7 @@ paths:
         - { name: group_by, in: query, schema: { type: string, enum: [day, stage, model, backend, size, kind, agent, workflow, work_item, project, origin, run, assistant], default: day }, description: "agent, workflow and work_item come from the ledger's own columns (S29-01); a project is named by its slug, a work item by its tracker key; origin is the door a tool call came through (model, script, job; S57-06), `—` for a line that does not say (a model call, a tool line booked before S57-06)" }
         - { name: since, in: query, schema: { type: string, format: date } }
         - { name: until, in: query, schema: { type: string, format: date } }
-        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill] }, description: "only what models cost, only what tools cost (S29-03), or only what knowledge-base distillations cost (S42-10d)" }
+        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill, subscription] }, description: "only what models cost, only what tools cost (S29-03), only what knowledge-base distillations cost (S42-10d), or only the lines of runs and conversation turns on a person's own subscription: cost 0, unmeasured, outside every USD budget (ADR 0227 §7)" }
         - { name: agent, in: query, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }, description: "only the lines of this agent (its slug; ADR 0141 §1)" }
         - { name: workflow, in: query, schema: { type: string, minLength: 1, maxLength: 64 }, description: "only the lines of the work items born in this workflow (its name)" }
         - { name: work_item, in: query, schema: { type: string, minLength: 1, maxLength: 128 }, description: "only the lines of this work item (its id)" }
@@ -2578,7 +2776,7 @@ paths:
         - { name: group_by, in: query, schema: { type: string, enum: [day, stage, model, backend, size, kind, agent, workflow, work_item, project, origin, run, assistant], default: day } }
         - { name: since, in: query, schema: { type: string, format: date } }
         - { name: until, in: query, schema: { type: string, format: date } }
-        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill] }, description: "only what models cost, only what tools cost (S29-03), or only what knowledge-base distillations cost (S42-10d)" }
+        - { name: kind, in: query, schema: { type: string, enum: [model, tool, distill, subscription] }, description: "only what models cost, only what tools cost (S29-03), only what knowledge-base distillations cost (S42-10d), or only the lines of runs and conversation turns on a person's own subscription: cost 0, unmeasured, outside every USD budget (ADR 0227 §7)" }
         - { name: agent, in: query, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }, description: "only the lines of this agent (its slug; ADR 0141 §1)" }
         - { name: workflow, in: query, schema: { type: string, minLength: 1, maxLength: 64 }, description: "only the lines of the work items born in this workflow (its name)" }
         - { name: work_item, in: query, schema: { type: string, minLength: 1, maxLength: 128 }, description: "only the lines of this work item (its id)" }
@@ -3416,6 +3614,132 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
+  /me/runners:
+    get:
+      tags: [outposts]
+      operationId: listMyRunners
+      summary: The caller's personal runners, one per organisation at most (ADR 0226 §1-2)
+      description: >-
+        A personal runner is a personal outpost: an outpost of the organisation that one person owns
+        (`outposts.owner_user_id`), whose instances are that person's machines and which runs that person's runs
+        only (ADR 0226 §1). Each comes with its instances, pending ones first, each with the fingerprint its daemon
+        printed (which `choregos local up` compares before it approves, ADR 0229 §4), the modes and the providers
+        it announced (names only: never a credential, never an account, ADR 0227 §4) and when it was last seen;
+        and with how many runs wait for it. The caller's own only: another person's runner, its instances and its
+        offers are seen by their owner, by the door that names it and under the platform scope, by no other person
+        (ADR 0226 §1). `org` keeps the runner of one organisation.
+      parameters:
+        - { name: org, in: query, required: false, schema: { type: string, maxLength: 120 }, description: "an organisation's slug" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/PersonalRunnerList" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /me/runners/{org}/enrolments:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [outposts]
+      operationId: createMyRunnerEnrolment
+      summary: Issue an enrolment token for one of the caller's machines, creating their runner on first use (ADR 0226 §2)
+      description: >-
+        Creates the caller's runner in this organisation when they have none, one per person and organisation
+        (ADR 0226 §1), announcing `runs` and nothing else; then issues an enrolment token for one instance of it,
+        as `createOutpostEnrolment` does for an organisation's outpost: single use, valid 15 minutes at most,
+        stored as a digest, its plaintext returned only once, with the door's origin and the door's keys to pin
+        (ADR 0148 §13). Only the runner's owner issues one: no administrator route enrols a machine into a
+        person's runner (ADR 0226 §2), since that machine would receive the person's sealed runs and run them on
+        another subscription (ADR 0227). `choregos-outpost enrol` presents it with the door's signed `enrol` verb;
+        the instance it enrols is born pending until its owner approves it (`approveMyRunnerInstance`). Audited as
+        `outpost.create` the first time, then `outpost.enrol`. 404 for an organisation the caller is not a member
+        of. 409 `outposts_disabled`, `door_key_missing` or `outpost_revoked`.
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: "#/components/schemas/OutpostEnrolmentCreate" } } }
+      responses:
+        "201": { description: Issued, content: { application/json: { schema: { $ref: "#/components/schemas/OutpostEnrolmentCreated" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/OutpostConflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /me/runners/instances/{instance}/approval:
+    parameters:
+      - { name: instance, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }, description: "the `id` of a `PersonalRunnerInstance`" }
+    post:
+      tags: [outposts]
+      operationId: approveMyRunnerInstance
+      summary: The owner approves a pending instance of their runner against its fingerprint (ADR 0226 §2)
+      description: >-
+        As `approveOutpostInstance` for an organisation's outpost (ADR 0147 §4), by the runner's owner and no one
+        else: the fingerprint sent must be the one the door recorded (409 `fingerprint_mismatch` otherwise), and
+        only then is the instance `active`. It takes a person's session that carries a recent authentication, one
+        less than `approval_step_up_minutes` old (`PersonalRunnerInstance`); 401 `step_up_required` otherwise. An
+        API token cannot approve: 403 with the `code` `approval_requires_session`. Audited as `outpost.approve`.
+        404 for an instance of another person's runner, as for an unknown one. 409 `instance_not_pending` or
+        `outpost_revoked`.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/OutpostInstanceApprove" } } }
+      responses:
+        "200": { description: Approved, content: { application/json: { schema: { $ref: "#/components/schemas/PersonalRunnerInstance" } } } }
+        "401":
+          description: >-
+            Not signed in, or a fresh authentication is needed: `errors` holds `step_up_required`, and `detail` says
+            that approving an instance needs a sign-in less than `approval_step_up_minutes` old
+          content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+        "403":
+          description: "`code` `approval_requires_session`: an API token, or any caller that is not a person's session, cannot approve"
+          content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/OutpostConflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /me/runners/{org}/pause:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [outposts]
+      operationId: pauseMyRunner
+      summary: The owner pauses their runner (ADR 0226 §2)
+      description: >-
+        Nothing more is offered to the runner from its instances' next poll, whose stop flag tells them; what they
+        claimed may finish (ADR 0148 §10). Pausing a paused runner changes nothing. A pause is lifted by the side
+        that made it: the owner's by `resumeMyRunner`, an administrator's by `resumeOutpost` (`paused_by`). Audited
+        as `outpost.pause`. 404 when the caller has no runner in this organisation. 409 `outpost_revoked`.
+      responses:
+        "200": { description: Paused, content: { application/json: { schema: { $ref: "#/components/schemas/PersonalRunner" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/OutpostConflict" }
+  /me/runners/{org}/resume:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [outposts]
+      operationId: resumeMyRunner
+      summary: The owner lifts the pause they made (ADR 0226 §2)
+      description: >-
+        Resuming a runner that is not paused changes nothing. A pause an administrator made (`pauseOutpost`) is
+        lifted by an administrator only (`resumeOutpost`): 403 here. Audited as `outpost.resume`. 404 when the
+        caller has no runner in this organisation. 409 `outpost_revoked`.
+      responses:
+        "200": { description: Active again, content: { application/json: { schema: { $ref: "#/components/schemas/PersonalRunner" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/OutpostConflict" }
+  /me/runners/{org}/revocation:
+    parameters: [{ $ref: "#/components/parameters/Org" }]
+    post:
+      tags: [outposts]
+      operationId: revokeMyRunner
+      summary: The owner revokes their runner and every instance of it (ADR 0226 §2)
+      description: >-
+        As `revokeOutpost` (ADR 0147 §5): from the next request the runner and each of its instances are revoked and
+        its epoch moves. An offer an instance had claimed is lost, and its run is closed `lost` before anything else
+        (ADR 0226 §5, ADR 0143). It is final, and nothing stands in its way (no 409): it answers a machine that may
+        be stolen. Revoking a revoked runner changes nothing. A revoked runner enrols no machine again
+        (`createMyRunnerEnrolment` answers 409 `outpost_revoked`). Audited as `outpost.revoke`. 404 when the caller
+        has no runner in this organisation.
+      responses:
+        "200": { description: Revoked, content: { application/json: { schema: { $ref: "#/components/schemas/PersonalRunner" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /orgs/{org}/network-activity:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -6707,7 +7031,10 @@ paths:
       operationId: nextAgentSessionTurn
       description: >-
         The oldest response the session's person asked for that the pod has not answered. With `wait`, up to that many
-        seconds for one to come; no turn is 204, a session that ended is 410 and the runner stops.
+        seconds for one to come; no turn is 204, a session that ended is 410 and the runner stops. A personal runner
+        that claimed a turn of a conversation placed on it (ADR 0226 §11) reads that turn here with the turn's token
+        (`turn-{conversation}-{n}`), and only that turn: it carries the turn's `number`, the instructions and their
+        digest, the history the platform holds, which is the source of truth, and the turn's limits.
       parameters:
         - { name: wait, in: query, required: false, schema: { type: number, minimum: 0, maximum: 30, default: 0 } }
       responses:
@@ -6727,6 +7054,10 @@ paths:
       operationId: postAgentSessionTurnResult
       description: >-
         How the session's container answered a turn. Journaled once: a second post of the same turn changes nothing.
+        A turn of a conversation placed on its owner's runner (ADR 0226 §11) is posted by that runner with the
+        token minted when it claimed the turn (`turn-{conversation}-{n}`), which speaks for that turn only, under
+        its lease and before it is answered: once the lease lapsed, or the turn failed or was cancelled, the post
+        is a 409 `lease_lost` and its answer is dropped.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/AgentSessionTurnResult" } } }
@@ -6735,6 +7066,35 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "`code` `lease_lost`: the runner's lease on the turn lapsed, or the turn ended without it (ADR 0226 §11)", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "410": { description: The session ended, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /internal/agent-sessions/{id}/turns/{turn_id}/deltas:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+      - { name: turn_id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [internal]
+      security: [{ runToken: [] }]
+      operationId: postAgentSessionTurnDeltas
+      description: >-
+        The answer of a turn a personal runner serves, as it comes: the person follows it as a turn the gateway
+        streams (ADR 0227, amending ADR 0134 §6). Posted by the runner with the turn's token
+        (`turn-{conversation}-{n}`, ADR 0226 §11), in batches it numbers from 1 for the turn. Each number is
+        journaled once: a batch posted again changes nothing; `last_n` is the last number the journal holds, which
+        the runner continues after. The runner scrubs each chunk before it leaves (ADR 0227 §6). The deltas are
+        pruned when the turn's result is recorded: the result's `text` is the answer. 409 `lease_lost` once the
+        runner's lease on the turn lapsed, or the turn was answered, failed or cancelled: the runner stops, and
+        what it streamed is dropped. 409 `delta_out_of_order` for a number that leaves a hole after `last_n`.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AgentSessionTurnDeltas" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AgentSessionTurnDeltasRecorded" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "`code` `lease_lost` or `delta_out_of_order`", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
         "410": { description: The session ended, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
         "422": { $ref: "#/components/responses/ValidationError" }
   /internal/agent-sessions/{id}/socket/next:
@@ -8841,6 +9201,11 @@ components:
         max_usd: { type: [number, "null"], description: "the conversation's own cap" }
         created_at: { type: string, format: date-time }
         last_activity_at: { type: string, format: date-time }
+        placement:
+          type: string
+          enum: [platform, personal_runner]
+          default: platform
+          description: "Where the conversation's turns run, recorded at its opening for its whole life (ADR 0226 §11): `platform`, or `personal_runner`, each turn offered to the runner of the conversation's owner and to no other, and run by the vendor's CLI on that person's own subscription (ADR 0227 §10). `personal_runner` by default in the personal posture (ADR 0228 §8); a conversation opened before it was recorded is `platform`."
     ConversationMessage:
       type: object
       required: [role, content]
@@ -8916,12 +9281,44 @@ components:
         context: { type: [object, "null"], additionalProperties: true }
     AgentSessionTurn:
       type: object
-      description: "A response a hosted session's person asked for, waiting for the session's pod (S41-11)."
+      description: >-
+        A response a hosted session's person asked for, waiting for the session's pod (S41-11); or a turn of a
+        conversation placed on its owner's runner, read by that runner with the turn's token (ADR 0226 §11), which
+        also carries the fields a hosted session's turn leaves out: `number`, the instructions and their digest, the
+        history, `answered_turns` and `limits`. Between turns the runner keeps no platform credential: its ACP
+        session id, the last turn it recorded and the instructions' digest only.
       required: [turn_id, input, protocol]
       properties:
         turn_id: { type: string }
         input: { type: string }
         protocol: { type: string, enum: [responses, invocations] }
+        number: { type: integer, minimum: 1, description: "the turn's number in the conversation, from 1: the `n` of its token's subject `turn-{conversation}-{n}`" }
+        instructions: { type: string, maxLength: 200000, description: "the system message the platform composed for the turn (the agent's instructions and what the platform supplies, ADR 0141), which the runner writes as the vendor CLI's project memory" }
+        instructions_sha256: { type: string, pattern: "^[0-9a-f]{64}$", description: "the SHA-256 of `instructions`, hex: what the runner keeps between turns to tell whether they changed" }
+        history:
+          type: array
+          maxItems: 200
+          description: "The conversation's messages before this turn, oldest first, at most the last 200: the platform's history is the source of truth. The runner reloads its ACP session (`session/load`) when this history is the one it recorded, and opens a new one primed with a recap of it otherwise."
+          items: { $ref: "#/components/schemas/AgentSessionHistoryMessage" }
+        answered_turns: { type: integer, minimum: 0, description: "how many turns of the conversation were answered before this one, which the runner compares with the last turn it recorded" }
+        limits: { $ref: "#/components/schemas/AgentSessionTurnLimits" }
+    AgentSessionHistoryMessage:
+      type: object
+      additionalProperties: false
+      description: "One message of a conversation's history, as a runner-placed turn carries it (ADR 0226 §11): what was said, without the system message and the tool traffic."
+      required: [role, text]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        text: { type: string, maxLength: 200000 }
+    AgentSessionTurnLimits:
+      type: object
+      additionalProperties: false
+      description: "What bounds a runner-placed turn, which no USD budget does (ADR 0227 §7): the runner enforces each, and the platform's lease ends the turn regardless."
+      required: [max_tool_calls, max_minutes, builtin_web_tools]
+      properties:
+        max_tool_calls: { type: integer, minimum: 0, description: "the platform's tool calls the turn may make" }
+        max_minutes: { type: integer, minimum: 1, description: "the turn's wall-clock bound; its token is valid this long plus 5 minutes (ADR 0226 §11)" }
+        builtin_web_tools: { type: boolean, description: "whether the vendor CLI's own web tools are allowed; false denies them as every other built-in tool is denied, in the runner-owned settings and by the ACP permission handler (ADR 0227 §10)" }
     AgentSessionPodEvent:
       type: object
       required: [type]
@@ -8930,16 +9327,46 @@ components:
         payload: { type: object, additionalProperties: true }
     AgentSessionTurnResult:
       type: object
-      description: "How the session's container answered a turn."
+      description: >-
+        How the session's container answered a turn, or how a personal runner did (ADR 0226 §11). A runner's turn
+        may also end `cancelled` (the person cancelled it and the daemon stopped it), `subscription_limited` (the
+        person's plan is at its limit) or `subscription_unauthorized` (the vendor CLI is signed out): the last two go
+        to the person and are never retried, nor sent to the organisation's gateway (ADR 0227 §8).
       required: [status]
       properties:
-        status: { type: string, enum: [answered, failed, not_ready, timeout, max_turns, budget_exceeded] }
+        status: { type: string, enum: [answered, failed, not_ready, timeout, max_turns, budget_exceeded, cancelled, subscription_limited, subscription_unauthorized] }
         text: { type: string, maxLength: 200000, default: "" }
         error: { type: [string, "null"], maxLength: 4000 }
         response_id: { type: [string, "null"], maxLength: 200 }
         turns: { type: integer, minimum: 0, default: 0 }
         tool_calls: { type: integer, minimum: 0, default: 0 }
         events: { type: array, maxItems: 200, items: { $ref: "#/components/schemas/AgentSessionPodEvent" } }
+        continuity:
+          type: string
+          enum: [warm, loaded, recap, new]
+          description: "How a personal runner joined the conversation for this turn: `warm` (its ACP session was still open from the turn before), `loaded` (reloaded with `session/load`, the history matching what it recorded), `recap` (a new ACP session primed with a recap of the platform's history, which did not match), `new` (the conversation's first turn). Absent for a hosted session's turn."
+        adapter_version: { type: string, maxLength: 64, description: "the version of the ACP adapter that ran the vendor CLI for a personal runner's turn (`claude-agent-acp`, as `backends/versions.lock` pins it)" }
+    AgentSessionTurnDelta:
+      type: object
+      additionalProperties: false
+      description: "A piece of a runner-placed turn's answer, numbered from 1 for the turn (ADR 0226 §11)."
+      required: [n, text]
+      properties:
+        n: { type: integer, minimum: 1 }
+        text: { type: string, maxLength: 8192 }
+    AgentSessionTurnDeltas:
+      type: object
+      additionalProperties: false
+      description: "A batch of a runner-placed turn's deltas, in order."
+      required: [chunks]
+      properties:
+        chunks: { type: array, minItems: 1, maxItems: 64, items: { $ref: "#/components/schemas/AgentSessionTurnDelta" } }
+    AgentSessionTurnDeltasRecorded:
+      type: object
+      additionalProperties: false
+      required: [last_n]
+      properties:
+        last_n: { type: integer, minimum: 0, description: "the last delta number the journal holds for the turn: the runner numbers the next one after it" }
     AgentSessionSocketFrame:
       type: object
       description: "What a hosted session's caller did on its socket (S41-21): `open`, a text frame `in`, `close`."
@@ -10905,7 +11332,7 @@ components:
     OutpostCapability:
       type: string
       enum: [tools, runs]
-      description: "What an outpost may be used for (ADR 0147 §11). `tools` is the one capability of this version. `runs` is reserved: no daemon announces it and no organisation can enable it (ADR 0149 §12)."
+      description: "What an outpost may be used for (ADR 0147 §11). An organisation's outpost serves `tools` only. `runs` is a person's own outpost's, from door protocol 2 (ADR 0226); the door refuses it until its runs lane is served (S87-16), and no organisation can enable it on its own outposts."
     OutpostCallKind:
       type: string
       enum: [call_tool, list_tools]
@@ -11078,6 +11505,49 @@ components:
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/OutpostCallRecord" } }
         meta: { $ref: "#/components/schemas/PageMeta" }
+    PersonalRunner:
+      type: object
+      additionalProperties: false
+      description: "A person's own outpost, as its owner sees it (ADR 0226 §1): one per person and organisation, each of their machines an instance. It announces `runs` and nothing else, and is offered its owner's runs only (ADR 0226 §8)."
+      required: [org, slug, owner, status, paused_by, online, last_seen_at, instances, runs_waiting, created_at]
+      properties:
+        org: { type: string, description: "the organisation's slug" }
+        slug: { type: string, description: "the outpost's slug, as the organisation's administrators see it among its outposts (`listOutposts`)" }
+        owner: { type: string, description: "the person whose runs it runs, by address" }
+        status: { $ref: "#/components/schemas/OutpostStatus" }
+        paused_by: { type: [string, "null"], enum: [owner, administrator, null], description: "for a paused runner, who paused it, which is the side that lifts the pause: `owner` by `resumeMyRunner`, `administrator` by `resumeOutpost` (ADR 0226 §2); null otherwise" }
+        online: { type: boolean, description: "an active instance polled within the poll window" }
+        last_seen_at: { type: [string, "null"], format: date-time, description: "the last poll of any of its instances" }
+        instances: { type: array, items: { $ref: "#/components/schemas/PersonalRunnerInstance" }, description: "pending ones first" }
+        runs_waiting: { type: integer, minimum: 0, description: "the runs offered to it that no instance has claimed yet: each waits for one of its instances to poll, with no token, no key and no reservation held for it (ADR 0226 §6)" }
+        created_at: { type: string, format: date-time }
+    PersonalRunnerInstance:
+      type: object
+      additionalProperties: false
+      description: "One of the owner's machines, running the daemon `choregos-outpost` with keys made on the spot (ADR 0147 §2): only public data, and what it announced."
+      required: [id, status, fingerprint, daemon_version, protocol, modes, providers, capacity, runs_running, facts, enrolled_at, approval_step_up_minutes, approved_at, last_seen_at, online]
+      properties:
+        id: { type: string, description: "what `approveMyRunnerInstance` takes" }
+        status: { $ref: "#/components/schemas/OutpostInstanceStatus" }
+        fingerprint: { type: string, pattern: "^SHA256:[A-Za-z0-9_-]{43}$", description: "`SHA256:` and the unpadded base64url SHA-256 of its raw Ed25519 signing key: what the daemon printed at enrolment and its owner compares before approving" }
+        daemon_version: { type: string, description: "the daemon's own release, as it announced it last" }
+        protocol: { type: integer, minimum: 1, description: "the door protocol it spoke last: runs are offered from protocol 2 only (ADR 0226 §3)" }
+        modes: { type: array, uniqueItems: true, items: { type: string, enum: [docker, native] }, description: "how it said it runs a run, in its last poll (ADR 0226 §10): `docker` (the runner and the agent in separate containers), `native` (a process, under the daemon's local opt-in); empty before its first poll of protocol 2" }
+        providers: { type: array, uniqueItems: true, items: { type: string, pattern: "^[a-z][a-z0-9-]{0,62}$" }, description: "the providers whose sign-in it holds, as its last poll announced them: names only, never a credential or an account; a provider is announced only while its token is present (ADR 0227 §4)" }
+        capacity: { type: integer, minimum: 0, description: "how many runs it said it takes at once" }
+        runs_running: { type: integer, minimum: 0, description: "the offers it claimed and has not reported ended" }
+        facts: { type: object, additionalProperties: { type: string }, description: "what it said of itself at enrolment (a host name, a platform): stored as data, never interpreted" }
+        enrolled_at: { type: string, format: date-time }
+        approval_step_up_minutes: { type: integer, minimum: 1, description: "how recent its owner's sign-in must be to approve it, in minutes: older, the approval is a 401 `step_up_required`" }
+        approved_at: { type: [string, "null"], format: date-time }
+        last_seen_at: { type: [string, "null"], format: date-time }
+        online: { type: boolean, description: "active, and it polled within the poll window" }
+    PersonalRunnerList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PersonalRunner" } }
     McpOutpostConnectorConfig:
       type: object
       additionalProperties: false
@@ -12336,7 +12806,7 @@ components:
       properties:
         id: { type: string }
         channel: { type: string, description: "How the session was opened: `oidc`, `saml`, `dev`..." }
-        kind: { type: string, enum: [browser, cli, editor], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie." }
+        kind: { type: string, enum: [browser, cli, editor, runner], description: "What holds the session (ADR 0154 §6): `browser` (the console's cookie, a phone paired from the computer included, ADR 0228 §4), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155), `runner` (a personal runner's daemon enrolling through the device flow: a session for the enrolment and approval routes of `/me/runners` only, ADR 0226 §2). A surface session's credential is a bearer, never a cookie." }
         client_name: { type: [string, "null"], description: "What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser." }
         auth_time: { type: [string, "null"], format: date-time, description: "When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known." }
         idle_expires_at: { type: [string, "null"], format: date-time, description: "A surface session ends after this much inactivity; null for a browser session (its `expires_at` is absolute)." }
@@ -12351,7 +12821,7 @@ components:
       required: [client_kind]
       additionalProperties: false
       properties:
-        client_kind: { type: string, enum: [cli, editor], description: "What asks: it becomes the session's `kind`." }
+        client_kind: { type: string, enum: [cli, editor, runner], description: "What asks: it becomes the session's `kind`. `runner` is a personal runner's daemon (ADR 0226 §2). Never `browser`: a phone's device authorization is created on the computer, already approved (`createMyDevicePairing`, ADR 0228 §4), and is never started here." }
         client_name: { type: string, maxLength: 80, description: "How the surface names itself, shown to the person before they approve." }
         org: { type: string, maxLength: 120, description: "The organisation whose identity provider must have signed the approver in (ADR 0108)." }
     DeviceAuthorization:
@@ -12378,7 +12848,7 @@ components:
         access_token: { type: string, description: "The session credential, a bearer. Shown once; the surface keeps it as a secret and never prints it." }
         token_type: { type: string, enum: [Bearer] }
         session_id: { type: string, description: "The id `GET /me/sessions` lists, to end the session." }
-        kind: { type: string, enum: [cli, editor] }
+        kind: { type: string, enum: [cli, editor, runner] }
         expires_in: { type: integer, description: "Seconds of inactivity after which the session ends; each use renews it." }
         auth_time: { type: [string, "null"], format: date-time, description: "The approving sign-in's authentication time." }
     DeviceTokenError:
@@ -12393,7 +12863,7 @@ components:
       required: [user_code, client_kind, expires_at]
       properties:
         user_code: { type: string }
-        client_kind: { type: string, enum: [cli, editor] }
+        client_kind: { type: string, enum: [cli, editor, browser, runner], description: "What asked: a surface (`cli`, `editor`), a personal runner's daemon (`runner`), or a phone's pairing (`browser`), which the computer created already approved (ADR 0228 §4)." }
         client_name: { type: [string, "null"] }
         org: { type: [string, "null"] }
         expires_at: { type: string, format: date-time }
@@ -12408,6 +12878,80 @@ components:
       required: [ended]
       properties:
         ended: { type: integer, description: "How many recorded sessions were ended." }
+    AuthMethods:
+      type: object
+      additionalProperties: false
+      description: "How a person signs in on the door a request came through (ADR 0228 §4)."
+      required: [posture, methods]
+      properties:
+        posture: { type: string, enum: [organisation, personal], description: "The installation's posture, recorded at its first start and never converted (ADR 0228 §2, §9)." }
+        door: { type: [string, "null"], enum: [loopback, relay, null], description: "The door the edge named for the request (ADR 0228 §6): `loopback` (the computer, on `127.0.0.1`) or `relay` (through the relay, ADR 0230). Null outside the personal posture, which has no doors." }
+        methods:
+          type: array
+          uniqueItems: true
+          description: "The ways to sign in on that door. `identity_provider`: `authLogin`, the organisation posture's only one. `owner`: an owner ticket (`signInAsOwner`), on the loopback door. `device_pairing`: a link created on the computer (`exchangeDevicePairing`), on the relay door. `passkey` (`signInWithPasskey`), on the relay door."
+          items: { type: string, enum: [identity_provider, owner, device_pairing, passkey] }
+    OwnerTicketExchange:
+      type: object
+      additionalProperties: false
+      required: [ticket]
+      properties:
+        ticket: { type: string, minLength: 1, maxLength: 4096, description: "The ticket `choregos local open` signed with the owner key, as the console read it from its URL's fragment (ADR 0228 §4)." }
+    DevicePairing:
+      type: object
+      additionalProperties: false
+      description: "A one-time link that pairs a phone with a personal installation (ADR 0228 §4); its code is shown this once."
+      required: [url, expires_at]
+      properties:
+        url: { type: string, description: "`https://<relay host>/pair#<code>`, to show as a QR code: the code is in the fragment, which no server receives or logs." }
+        expires_at: { type: string, format: date-time, description: "5 minutes after its creation; the pairing is exchanged once before then, or never." }
+    DevicePairingExchange:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 256, description: "The code the pairing link carried in its fragment." }
+    Passkey:
+      type: object
+      additionalProperties: false
+      description: "One of a person's passkeys (WebAuthn, ADR 0228 §4): what tells it apart, never its public key."
+      required: [id, name, created_at, last_used_at]
+      properties:
+        id: { type: string, description: "What `deleteMyPasskey` takes." }
+        name: { type: string, description: "What the person called it when they registered it." }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time, description: "Its last sign-in or re-authentication; null before its first." }
+    PasskeyList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Passkey" } }
+    PasskeyRegistrationOptions:
+      type: object
+      additionalProperties: false
+      required: [public_key]
+      properties:
+        public_key: { type: object, additionalProperties: true, required: [challenge, rp, user, pubKeyCredParams], description: "WebAuthn's `PublicKeyCredentialCreationOptionsJSON`: `rp.id` is the relay's hostname, user verification is required, and `excludeCredentials` lists the person's passkeys." }
+    PasskeyRegistration:
+      type: object
+      additionalProperties: false
+      required: [name, credential]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80, description: "What the person calls the passkey (`my phone`), to tell it apart." }
+        credential: { type: object, additionalProperties: true, required: [id, rawId, type, response], description: "WebAuthn's `RegistrationResponseJSON`, as `PublicKeyCredential.toJSON()` gives it." }
+    PasskeyAssertionOptions:
+      type: object
+      additionalProperties: false
+      required: [public_key]
+      properties:
+        public_key: { type: object, additionalProperties: true, required: [challenge], description: "WebAuthn's `PublicKeyCredentialRequestOptionsJSON`: `rpId` is the relay's hostname and user verification is required." }
+    PasskeyAssertion:
+      type: object
+      additionalProperties: false
+      required: [credential]
+      properties:
+        credential: { type: object, additionalProperties: true, required: [id, rawId, type, response], description: "WebAuthn's `AuthenticationResponseJSON`, as `PublicKeyCredential.toJSON()` gives it." }
     ApiTokenCreated:
       allOf:
         - $ref: "#/components/schemas/ApiToken"
@@ -12932,6 +13476,14 @@ components:
             agent_slug: { type: [string, "null"], description: "The agent whose version ran the step." }
             agent_version: { type: [integer, "null"] }
             initiated_by: { type: [string, "null"], description: "The work item's initiator, copied at stage start (ADR 0077)." }
+            executed_at:
+              type: [string, "null"]
+              pattern: "^(platform|outpost:[A-Za-z0-9][A-Za-z0-9_-]{0,127})$"
+              description: "Where the run executed, as placement recorded it before the model and the money (ADR 0226 §7): `platform`, or `outpost:<id>` for the personal runner of the run's work owner. A recorded fact, not an assurance level (ADR 0149 §12): a runner's facts are declared. Null for a run placed before it was recorded."
+            credential:
+              type: [string, "null"]
+              enum: [gateway, subscription, null]
+              description: "The run's credential source (ADR 0227 §1): `gateway` (a key of the organisation's model gateway, every run on the platform's executors), or `subscription` (the work owner's own sign-in, used by the vendor's CLI on their own runner only, with no key minted and nothing reserved). It never enters `StageInput`. Null for a run placed before it was recorded."
             tool_connectors:
               type: array
               description: >-
@@ -13774,7 +14326,7 @@ components:
       type: object
       required: [kind, enabled]
       properties:
-        kind: { type: string, enum: [tekton, k8s_job, local_docker, aca, agent_sandbox] }
+        kind: { type: string, enum: [tekton, k8s_job, local_docker, aca, agent_sandbox, outpost] }
         enabled: { type: boolean }
         cluster: { type: [string, "null"] }
         namespace_pattern: { type: [string, "null"] }

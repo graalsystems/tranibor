@@ -1,0 +1,32 @@
+{
+  "protocol": 2,
+  "daemon_version": "0.30.0",
+  "wait_s": 25,
+  "capacity": 0,
+  "capabilities": [
+    "runs"
+  ],
+  "runner": {
+    "version": "0.30.0",
+    "modes": [
+      "docker"
+    ],
+    "subscriptions": [
+      "anthropic"
+    ],
+    "offer_kinds": [
+      "stage_run",
+      "conversation_turn"
+    ],
+    "run_capacity": 1
+  },
+  "runs_running": [
+    "5d7a2c19-8e4b-4f31-b6a0-3c9e1f72d845"
+  ],
+  "runs_ended": [
+    {
+      "id": "e1b94f06-27c3-4d8a-9f15-6a0c3b7e2d91",
+      "exit_code": 0
+    }
+  ]
+}

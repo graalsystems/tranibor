@@ -25,7 +25,10 @@ except _metadata.PackageNotFoundError:  # a source tree that was not installed
     __version__ = "0.0.0+unknown"
 
 #: The protocol this daemon speaks. A door whose minimum is above it is one this daemon stops
-#: polling, and says so: nobody upgrades it for its operator.
-PROTOCOL = OUTPOST_PROTOCOL
+#: polling, and says so: nobody upgrades it for its operator. Protocol 1, below the contract's: the
+#: contract's protocol 2 adds the runs lane (ADR 0226 §3), which this daemon does not serve yet
+#: (S87-25), and the door's window still serves protocol 1.
+PROTOCOL = 1
+assert PROTOCOL <= OUTPOST_PROTOCOL, "a daemon speaks no protocol its contract does not describe"
 
 __all__ = ["PROTOCOL", "__version__"]

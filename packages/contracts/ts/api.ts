@@ -1769,6 +1769,8 @@ export type ConversationSummary = {
   max_usd?: number | null;
   created_at: string;
   last_activity_at: string;
+  /** Where the conversation's turns run, recorded at its opening for its whole life (ADR 0226 §11): `platform`, or `personal_runner`, each turn offered to the runner of the conversation's owner and to no other, and run by the vendor's CLI on that person's own subscription (ADR 0227 §10). `personal_runner` by default in the personal posture (ADR 0228 §8); a conversation opened before it was recorded is `platform`. */
+  placement?: "platform" | "personal_runner";
 };
 
 export type ConversationMessage = {
@@ -1847,11 +1849,38 @@ export type ConversationCandidateAccept = {
   } | null;
 };
 
-/** A response a hosted session's person asked for, waiting for the session's pod (S41-11). */
+/** A response a hosted session's person asked for, waiting for the session's pod (S41-11); or a turn of a conversation placed on its owner's runner, read by that runner with the turn's token (ADR 0226 §11), which also carries the fields a hosted session's turn leaves out: `number`, the instructions and their digest, the history, `answered_turns` and `limits`. Between turns the runner keeps no platform credential: its ACP session id, the last turn it recorded and the instructions' digest only. */
 export type AgentSessionTurn = {
   turn_id: string;
   input: string;
   protocol: "responses" | "invocations";
+  /** the turn's number in the conversation, from 1: the `n` of its token's subject `turn-{conversation}-{n}` */
+  number?: number;
+  /** the system message the platform composed for the turn (the agent's instructions and what the platform supplies, ADR 0141), which the runner writes as the vendor CLI's project memory */
+  instructions?: string;
+  /** the SHA-256 of `instructions`, hex: what the runner keeps between turns to tell whether they changed */
+  instructions_sha256?: string;
+  /** The conversation's messages before this turn, oldest first, at most the last 200: the platform's history is the source of truth. The runner reloads its ACP session (`session/load`) when this history is the one it recorded, and opens a new one primed with a recap of it otherwise. */
+  history?: Array<AgentSessionHistoryMessage>;
+  /** how many turns of the conversation were answered before this one, which the runner compares with the last turn it recorded */
+  answered_turns?: number;
+  limits?: AgentSessionTurnLimits;
+};
+
+/** One message of a conversation's history, as a runner-placed turn carries it (ADR 0226 §11): what was said, without the system message and the tool traffic. */
+export type AgentSessionHistoryMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+/** What bounds a runner-placed turn, which no USD budget does (ADR 0227 §7): the runner enforces each, and the platform's lease ends the turn regardless. */
+export type AgentSessionTurnLimits = {
+  /** the platform's tool calls the turn may make */
+  max_tool_calls: number;
+  /** the turn's wall-clock bound; its token is valid this long plus 5 minutes (ADR 0226 §11) */
+  max_minutes: number;
+  /** whether the vendor CLI's own web tools are allowed; false denies them as every other built-in tool is denied, in the runner-owned settings and by the ACP permission handler (ADR 0227 §10) */
+  builtin_web_tools: boolean;
 };
 
 export type AgentSessionPodEvent = {
@@ -1861,15 +1890,35 @@ export type AgentSessionPodEvent = {
   };
 };
 
-/** How the session's container answered a turn. */
+/** How the session's container answered a turn, or how a personal runner did (ADR 0226 §11). A runner's turn may also end `cancelled` (the person cancelled it and the daemon stopped it), `subscription_limited` (the person's plan is at its limit) or `subscription_unauthorized` (the vendor CLI is signed out): the last two go to the person and are never retried, nor sent to the organisation's gateway (ADR 0227 §8). */
 export type AgentSessionTurnResult = {
-  status: "answered" | "failed" | "not_ready" | "timeout" | "max_turns" | "budget_exceeded";
+  status: "answered" | "failed" | "not_ready" | "timeout" | "max_turns" | "budget_exceeded" | "cancelled" | "subscription_limited" | "subscription_unauthorized";
   text?: string;
   error?: string | null;
   response_id?: string | null;
   turns?: number;
   tool_calls?: number;
   events?: Array<AgentSessionPodEvent>;
+  /** How a personal runner joined the conversation for this turn: `warm` (its ACP session was still open from the turn before), `loaded` (reloaded with `session/load`, the history matching what it recorded), `recap` (a new ACP session primed with a recap of the platform's history, which did not match), `new` (the conversation's first turn). Absent for a hosted session's turn. */
+  continuity?: "warm" | "loaded" | "recap" | "new";
+  /** the version of the ACP adapter that ran the vendor CLI for a personal runner's turn (`claude-agent-acp`, as `backends/versions.lock` pins it) */
+  adapter_version?: string;
+};
+
+/** A piece of a runner-placed turn's answer, numbered from 1 for the turn (ADR 0226 §11). */
+export type AgentSessionTurnDelta = {
+  n: number;
+  text: string;
+};
+
+/** A batch of a runner-placed turn's deltas, in order. */
+export type AgentSessionTurnDeltas = {
+  chunks: Array<AgentSessionTurnDelta>;
+};
+
+export type AgentSessionTurnDeltasRecorded = {
+  /** the last delta number the journal holds for the turn: the runner numbers the next one after it */
+  last_n: number;
 };
 
 /** What a hosted session's caller did on its socket (S41-21): `open`, a text frame `in`, `close`. */
@@ -3890,7 +3939,7 @@ export type OutpostStatus = "active" | "paused" | "revoked";
 /** `pending`: enrolled with a token and handed nothing until a person approves it against its fingerprint (ADR 0147 §4). */
 export type OutpostInstanceStatus = "pending" | "active" | "revoked";
 
-/** What an outpost may be used for (ADR 0147 §11). `tools` is the one capability of this version. `runs` is reserved: no daemon announces it and no organisation can enable it (ADR 0149 §12). */
+/** What an outpost may be used for (ADR 0147 §11). An organisation's outpost serves `tools` only. `runs` is a person's own outpost's, from door protocol 2 (ADR 0226); the door refuses it until its runs lane is served (S87-16), and no organisation can enable it on its own outposts. */
 export type OutpostCapability = "tools" | "runs";
 
 /** A tool call, or a tool listing (discovery). */
@@ -4067,6 +4116,64 @@ export type OutpostCallRecord = {
 export type OutpostCallPage = {
   items: Array<OutpostCallRecord>;
   meta: PageMeta;
+};
+
+/** A person's own outpost, as its owner sees it (ADR 0226 §1): one per person and organisation, each of their machines an instance. It announces `runs` and nothing else, and is offered its owner's runs only (ADR 0226 §8). */
+export type PersonalRunner = {
+  /** the organisation's slug */
+  org: string;
+  /** the outpost's slug, as the organisation's administrators see it among its outposts (`listOutposts`) */
+  slug: string;
+  /** the person whose runs it runs, by address */
+  owner: string;
+  status: OutpostStatus;
+  /** for a paused runner, who paused it, which is the side that lifts the pause: `owner` by `resumeMyRunner`, `administrator` by `resumeOutpost` (ADR 0226 §2); null otherwise */
+  paused_by: "owner" | "administrator" | null;
+  /** an active instance polled within the poll window */
+  online: boolean;
+  /** the last poll of any of its instances */
+  last_seen_at: string | null;
+  /** pending ones first */
+  instances: Array<PersonalRunnerInstance>;
+  /** the runs offered to it that no instance has claimed yet: each waits for one of its instances to poll, with no token, no key and no reservation held for it (ADR 0226 §6) */
+  runs_waiting: number;
+  created_at: string;
+};
+
+/** One of the owner's machines, running the daemon `choregos-outpost` with keys made on the spot (ADR 0147 §2): only public data, and what it announced. */
+export type PersonalRunnerInstance = {
+  /** what `approveMyRunnerInstance` takes */
+  id: string;
+  status: OutpostInstanceStatus;
+  /** `SHA256:` and the unpadded base64url SHA-256 of its raw Ed25519 signing key: what the daemon printed at enrolment and its owner compares before approving */
+  fingerprint: string;
+  /** the daemon's own release, as it announced it last */
+  daemon_version: string;
+  /** the door protocol it spoke last: runs are offered from protocol 2 only (ADR 0226 §3) */
+  protocol: number;
+  /** how it said it runs a run, in its last poll (ADR 0226 §10): `docker` (the runner and the agent in separate containers), `native` (a process, under the daemon's local opt-in); empty before its first poll of protocol 2 */
+  modes: Array<"docker" | "native">;
+  /** the providers whose sign-in it holds, as its last poll announced them: names only, never a credential or an account; a provider is announced only while its token is present (ADR 0227 §4) */
+  providers: Array<string>;
+  /** how many runs it said it takes at once */
+  capacity: number;
+  /** the offers it claimed and has not reported ended */
+  runs_running: number;
+  /** what it said of itself at enrolment (a host name, a platform): stored as data, never interpreted */
+  facts: {
+    [key: string]: string;
+  };
+  enrolled_at: string;
+  /** how recent its owner's sign-in must be to approve it, in minutes: older, the approval is a 401 `step_up_required` */
+  approval_step_up_minutes: number;
+  approved_at: string | null;
+  last_seen_at: string | null;
+  /** active, and it polled within the poll window */
+  online: boolean;
+};
+
+export type PersonalRunnerList = {
+  items: Array<PersonalRunner>;
 };
 
 /** The `config` of an organisation connector of type `mcp-outpost` (kind `mcp`, ADR 0149 §1): a tool server that lives at an outpost. It names the outpost and the alias of an endpoint in that outpost's policy file. It has no URL and no secret field: the address and the credential are the outpost's and exist in its file only (ADR 0147 §7), and a declaration that carries either is a 422. */
@@ -5246,8 +5353,8 @@ export type BrowserSession = {
   id: string;
   /** How the session was opened: `oidc`, `saml`, `dev`... */
   channel: string;
-  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155). A surface session's credential is a bearer, never a cookie. */
-  kind: "browser" | "cli" | "editor";
+  /** What holds the session (ADR 0154 §6): `browser` (the console's cookie, a phone paired from the computer included, ADR 0228 §4), `cli` (`choregos login`), `editor` (an editor extension, ADR 0155), `runner` (a personal runner's daemon enrolling through the device flow: a session for the enrolment and approval routes of `/me/runners` only, ADR 0226 §2). A surface session's credential is a bearer, never a cookie. */
+  kind: "browser" | "cli" | "editor" | "runner";
   /** What the surface called itself when it asked for its code (`choregos 0.27.8 on host`), for the person to recognise it; null for a browser. */
   client_name?: string | null;
   /** When the person authenticated at their identity provider, the sign-in that opened (or approved) the session; null when it is not known. */
@@ -5266,8 +5373,8 @@ export type BrowserSession = {
 };
 
 export type DeviceAuthorizationRequest = {
-  /** What asks: it becomes the session's `kind`. */
-  client_kind: "cli" | "editor";
+  /** What asks: it becomes the session's `kind`. `runner` is a personal runner's daemon (ADR 0226 §2). Never `browser`: a phone's device authorization is created on the computer, already approved (`createMyDevicePairing`, ADR 0228 §4), and is never started here. */
+  client_kind: "cli" | "editor" | "runner";
   /** How the surface names itself, shown to the person before they approve. */
   client_name?: string;
   /** The organisation whose identity provider must have signed the approver in (ADR 0108). */
@@ -5300,7 +5407,7 @@ export type DeviceToken = {
   token_type: "Bearer";
   /** The id `GET /me/sessions` lists, to end the session. */
   session_id: string;
-  kind: "cli" | "editor";
+  kind: "cli" | "editor" | "runner";
   /** Seconds of inactivity after which the session ends; each use renews it. */
   expires_in: number;
   /** The approving sign-in's authentication time. */
@@ -5316,7 +5423,8 @@ export type DeviceTokenError = {
 
 export type DeviceRequest = {
   user_code: string;
-  client_kind: "cli" | "editor";
+  /** What asked: a surface (`cli`, `editor`), a personal runner's daemon (`runner`), or a phone's pairing (`browser`), which the computer created already approved (ADR 0228 §4). */
+  client_kind: "cli" | "editor" | "browser" | "runner";
   client_name?: string | null;
   org?: string | null;
   expires_at: string;
@@ -5329,6 +5437,79 @@ export type DeviceDecision = {
 export type EndedSessions = {
   /** How many recorded sessions were ended. */
   ended: number;
+};
+
+/** How a person signs in on the door a request came through (ADR 0228 §4). */
+export type AuthMethods = {
+  /** The installation's posture, recorded at its first start and never converted (ADR 0228 §2, §9). */
+  posture: "organisation" | "personal";
+  /** The door the edge named for the request (ADR 0228 §6): `loopback` (the computer, on `127.0.0.1`) or `relay` (through the relay, ADR 0230). Null outside the personal posture, which has no doors. */
+  door?: "loopback" | "relay" | null;
+  /** The ways to sign in on that door. `identity_provider`: `authLogin`, the organisation posture's only one. `owner`: an owner ticket (`signInAsOwner`), on the loopback door. `device_pairing`: a link created on the computer (`exchangeDevicePairing`), on the relay door. `passkey` (`signInWithPasskey`), on the relay door. */
+  methods: Array<"identity_provider" | "owner" | "device_pairing" | "passkey">;
+};
+
+export type OwnerTicketExchange = {
+  /** The ticket `choregos local open` signed with the owner key, as the console read it from its URL's fragment (ADR 0228 §4). */
+  ticket: string;
+};
+
+/** A one-time link that pairs a phone with a personal installation (ADR 0228 §4); its code is shown this once. */
+export type DevicePairing = {
+  /** `https://<relay host>/pair#<code>`, to show as a QR code: the code is in the fragment, which no server receives or logs. */
+  url: string;
+  /** 5 minutes after its creation; the pairing is exchanged once before then, or never. */
+  expires_at: string;
+};
+
+export type DevicePairingExchange = {
+  /** The code the pairing link carried in its fragment. */
+  code: string;
+};
+
+/** One of a person's passkeys (WebAuthn, ADR 0228 §4): what tells it apart, never its public key. */
+export type Passkey = {
+  /** What `deleteMyPasskey` takes. */
+  id: string;
+  /** What the person called it when they registered it. */
+  name: string;
+  created_at: string;
+  /** Its last sign-in or re-authentication; null before its first. */
+  last_used_at: string | null;
+};
+
+export type PasskeyList = {
+  items: Array<Passkey>;
+};
+
+export type PasskeyRegistrationOptions = {
+  /** WebAuthn's `PublicKeyCredentialCreationOptionsJSON`: `rp.id` is the relay's hostname, user verification is required, and `excludeCredentials` lists the person's passkeys. */
+  public_key: {
+    [key: string]: unknown;
+  };
+};
+
+export type PasskeyRegistration = {
+  /** What the person calls the passkey (`my phone`), to tell it apart. */
+  name: string;
+  /** WebAuthn's `RegistrationResponseJSON`, as `PublicKeyCredential.toJSON()` gives it. */
+  credential: {
+    [key: string]: unknown;
+  };
+};
+
+export type PasskeyAssertionOptions = {
+  /** WebAuthn's `PublicKeyCredentialRequestOptionsJSON`: `rpId` is the relay's hostname and user verification is required. */
+  public_key: {
+    [key: string]: unknown;
+  };
+};
+
+export type PasskeyAssertion = {
+  /** WebAuthn's `AuthenticationResponseJSON`, as `PublicKeyCredential.toJSON()` gives it. */
+  credential: {
+    [key: string]: unknown;
+  };
 };
 
 export type ApiTokenCreated = ApiToken & {
@@ -5783,6 +5964,10 @@ export type Run = RunSummary & {
   agent_version?: number | null;
   /** The work item's initiator, copied at stage start (ADR 0077). */
   initiated_by?: string | null;
+  /** Where the run executed, as placement recorded it before the model and the money (ADR 0226 §7): `platform`, or `outpost:<id>` for the personal runner of the run's work owner. A recorded fact, not an assurance level (ADR 0149 §12): a runner's facts are declared. Null for a run placed before it was recorded. */
+  executed_at?: string | null;
+  /** The run's credential source (ADR 0227 §1): `gateway` (a key of the organisation's model gateway, every run on the platform's executors), or `subscription` (the work owner's own sign-in, used by the vendor's CLI on their own runner only, with no key minted and nothing reserved). It never enters `StageInput`. Null for a run placed before it was recorded. */
+  credential?: "gateway" | "subscription" | null;
   /** The organisation connectors this run's agent may call through the broker, and the account each one calls with (ADR 0107): resolved by the API, so a member who cannot read the organisation's connectors still sees them. */
   tool_connectors?: Array<ToolConnector>;
 };
@@ -6580,7 +6765,7 @@ export type RelinkPlan = {
 };
 
 export type ExecutorInfo = {
-  kind: "tekton" | "k8s_job" | "local_docker" | "aca" | "agent_sandbox";
+  kind: "tekton" | "k8s_job" | "local_docker" | "aca" | "agent_sandbox" | "outpost";
   enabled: boolean;
   cluster?: string | null;
   namespace_pattern?: string | null;
@@ -6871,6 +7056,7 @@ export interface Operations {
   alertmanagerWebhook: { method: "POST"; path: "/webhooks/alertmanager"; body: {
   [key: string]: unknown;
 }; response: WebhookAck };
+  approveMyRunnerInstance: { method: "POST"; path: "/me/runners/instances/{instance}/approval"; body: OutpostInstanceApprove; response: PersonalRunnerInstance };
   approveOrgEgressRequest: { method: "POST"; path: "/orgs/{org}/egress/requests/{rule_id}/approve"; body: EgressDecision; response: EgressRule };
   approveOutpostInstance: { method: "POST"; path: "/orgs/{org}/outposts/{slug}/instances/{instance_id}/approve"; body: OutpostInstanceApprove; response: OutpostInstance };
   approvePluginInstall: { method: "POST"; path: "/orgs/{org}/plugin-approvals/{approval_id}/approve"; body: never; response: PluginApproval };
@@ -6931,6 +7117,8 @@ export interface Operations {
   createMachineAccount: { method: "POST"; path: "/projects/{id}/machine-accounts"; body: MachineAccountCreate; response: MachineAccount };
   createMachineToken: { method: "POST"; path: "/projects/{id}/machine-accounts/{slug}/tokens"; body: MachineTokenCreate; response: ApiTokenCreated };
   createMyDelegation: { method: "POST"; path: "/me/delegations"; body: DelegationCreate; response: Delegation };
+  createMyDevicePairing: { method: "POST"; path: "/me/device-pairings"; body: never; response: DevicePairing };
+  createMyRunnerEnrolment: { method: "POST"; path: "/me/runners/{org}/enrolments"; body: OutpostEnrolmentCreate; response: OutpostEnrolmentCreated };
   createMyToken: { method: "POST"; path: "/me/tokens"; body: ApiTokenCreate; response: ApiTokenCreated };
   createOrg: { method: "POST"; path: "/orgs"; body: OrgCreate; response: Org };
   createOrgConnector: { method: "POST"; path: "/orgs/{org}/connectors"; body: OrgConnectorCreate; response: OrgConnector };
@@ -6965,6 +7153,7 @@ export interface Operations {
   deleteMyAvatar: { method: "DELETE"; path: "/me/avatar"; body: never; response: void };
   deleteMyConversation: { method: "DELETE"; path: "/me/conversations/{conversation_id}"; body: never; response: void };
   deleteMyLinkedAccount: { method: "DELETE"; path: "/me/linked-accounts/{account_id}"; body: never; response: void };
+  deleteMyPasskey: { method: "DELETE"; path: "/me/passkeys/{id}"; body: never; response: void };
   deleteMyTaskSubscription: { method: "DELETE"; path: "/me/assistants/{org}/{slug}/tasks/{task}"; body: never; response: void };
   deleteOrgConnector: { method: "DELETE"; path: "/orgs/{org}/connectors/{name}"; body: never; response: void };
   deleteOrgGroup: { method: "DELETE"; path: "/orgs/{org}/groups/{slug}"; body: never; response: void };
@@ -7013,6 +7202,7 @@ export interface Operations {
   eraseAssistantSubject: { method: "POST"; path: "/orgs/{org}/assistants/{slug}/erasure"; body: SubjectErasureRequest; response: SubjectErasure };
   eraseMyAssistantData: { method: "DELETE"; path: "/me/assistants/{org}/{slug}"; body: never; response: UserErasure };
   estimateKnowledgeDistillation: { method: "GET"; path: "/orgs/{org}/knowledge/{slug}/distill/estimate"; body: never; response: KnowledgeDistillEstimate };
+  exchangeDevicePairing: { method: "POST"; path: "/auth/device/session"; body: DevicePairingExchange; response: void };
   exportGlobalMemory: { method: "GET"; path: "/orgs/{org}/memories/{slug}/export"; body: never; response: void };
   exportKnowledgeBase: { method: "GET"; path: "/orgs/{org}/knowledge/{slug}/export"; body: never; response: void };
   exportMemory: { method: "GET"; path: "/projects/{id}/memory/export"; body: never; response: void };
@@ -7041,6 +7231,7 @@ export interface Operations {
   getAssistantEmbed: { method: "GET"; path: "/public/assistants/{org}/{slug}/embed"; body: never; response: AssistantEmbed };
   getAssistantInstallationMemory: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/memory/{space}"; body: never; response: MemorySpace };
   getAssistantReadiness: { method: "GET"; path: "/orgs/{org}/assistants/{slug}/readiness"; body: never; response: AssistantReadiness };
+  getAuthMethods: { method: "GET"; path: "/auth/methods"; body: never; response: AuthMethods };
   getDeviceRequest: { method: "GET"; path: "/auth/device/requests/{user_code}"; body: never; response: DeviceRequest };
   getGitHubAppStatus: { method: "GET"; path: "/orgs/{org}/github"; body: never; response: GitHubAppStatus };
   getHostedSource: { method: "GET"; path: "/orgs/{org}/hosted-sources/{sha256}"; body: never; response: HostedSource };
@@ -7241,7 +7432,9 @@ export interface Operations {
   listMyDelegations: { method: "GET"; path: "/me/delegations"; body: never; response: DelegationList };
   listMyInbox: { method: "GET"; path: "/me/inbox"; body: never; response: InboxList };
   listMyLinkedAccounts: { method: "GET"; path: "/me/linked-accounts"; body: never; response: MyLinkedAccounts };
+  listMyPasskeys: { method: "GET"; path: "/me/passkeys"; body: never; response: PasskeyList };
   listMyPending: { method: "GET"; path: "/me/pending"; body: never; response: PendingList };
+  listMyRunners: { method: "GET"; path: "/me/runners"; body: never; response: PersonalRunnerList };
   listMySessions: { method: "GET"; path: "/me/sessions"; body: never; response: BrowserSessionPage };
   listMyTokens: { method: "GET"; path: "/me/tokens"; body: never; response: ApiTokenPage };
   listOrgActions: { method: "GET"; path: "/orgs/{org}/actions"; body: never; response: ActionPage };
@@ -7293,6 +7486,7 @@ export interface Operations {
   nextAgentSessionSocketFrames: { method: "GET"; path: "/internal/agent-sessions/{id}/socket/next"; body: never; response: AgentSessionSocketNext };
   nextAgentSessionTurn: { method: "GET"; path: "/internal/agent-sessions/{id}/turns/next"; body: never; response: AgentSessionTurn };
   openMyAssistantConversation: { method: "POST"; path: "/me/assistants/{org}/{slug}/conversations"; body: AssistantConversationOpen; response: Conversation };
+  pauseMyRunner: { method: "POST"; path: "/me/runners/{org}/pause"; body: never; response: PersonalRunner };
   pauseOutpost: { method: "POST"; path: "/orgs/{org}/outposts/{slug}/pause"; body: never; response: Outpost };
   pinProjectAgent: { method: "PUT"; path: "/projects/{id}/agents/{slug}"; body: ProjectAgentPut; response: ProjectAgent };
   pluginWebhook: { method: "POST"; path: "/webhooks/plugins/{org}/{plugin}/{server}"; body: {
@@ -7300,6 +7494,7 @@ export interface Operations {
 }; response: WebhookAck };
   pollDeviceToken: { method: "POST"; path: "/auth/device/token"; body: DeviceTokenRequest; response: DeviceToken };
   postAgentSessionSocketFrames: { method: "POST"; path: "/internal/agent-sessions/{id}/socket/out"; body: AgentSessionSocketOut; response: AgentSessionSocketRecorded };
+  postAgentSessionTurnDeltas: { method: "POST"; path: "/internal/agent-sessions/{id}/turns/{turn_id}/deltas"; body: AgentSessionTurnDeltas; response: AgentSessionTurnDeltasRecorded };
   postAgentSessionTurnResult: { method: "POST"; path: "/internal/agent-sessions/{id}/turns/{turn_id}"; body: AgentSessionTurnResult; response: {
   status: "recorded" | "already_recorded";
   turn_id: string;
@@ -7359,6 +7554,7 @@ export interface Operations {
   refreshGitHubInstallations: { method: "POST"; path: "/orgs/{org}/github/refresh"; body: never; response: GitHubAppStatus };
   refuseMyConversationAction: { method: "POST"; path: "/me/conversations/{conversation_id}/actions/{action_id}/refuse"; body: ConversationActionRefusal; response: ConversationAction };
   refuseOrgEgressRequest: { method: "POST"; path: "/orgs/{org}/egress/requests/{rule_id}/refuse"; body: EgressDecision; response: EgressRule };
+  registerMyPasskey: { method: "POST"; path: "/me/passkeys"; body: PasskeyRegistration; response: Passkey };
   reimportMemory: { method: "POST"; path: "/projects/{id}/memory/reimport"; body: {
   sources?: Array<string>;
 }; response: void };
@@ -7376,12 +7572,14 @@ export interface Operations {
   restoreAgentVersion: { method: "POST"; path: "/orgs/{org}/agents/{slug}/versions/{version}/restore"; body: AgentVersionRestore; response: AgentVersion };
   restoreWorkflowVersion: { method: "POST"; path: "/projects/{id}/workflows/{name}/versions/{version}/restore"; body: never; response: WorkflowDef };
   resumeAssistant: { method: "POST"; path: "/orgs/{org}/assistants/{slug}/resume"; body: never; response: Assistant };
+  resumeMyRunner: { method: "POST"; path: "/me/runners/{org}/resume"; body: never; response: PersonalRunner };
   resumeOutpost: { method: "POST"; path: "/orgs/{org}/outposts/{slug}/resume"; body: never; response: Outpost };
   revealAssistantWebhookSecret: { method: "POST"; path: "/orgs/{org}/assistants/{slug}/webhook-secret"; body: WebhookSecretRequest; response: WebhookSecret };
   revealTaskEventKey: { method: "POST"; path: "/orgs/{org}/assistants/{slug}/tasks/{task}/event-key"; body: never; response: TaskEventKey };
   revokeMachineToken: { method: "DELETE"; path: "/projects/{id}/machine-accounts/{slug}/tokens/{token_id}"; body: never; response: void };
   revokeMemberSessions: { method: "POST"; path: "/orgs/{org}/members/{email}/sessions/revocation"; body: SessionRevocation; response: SessionsRevoked };
   revokeMyDelegation: { method: "DELETE"; path: "/me/delegations/{delegation_id}"; body: never; response: void };
+  revokeMyRunner: { method: "POST"; path: "/me/runners/{org}/revocation"; body: never; response: PersonalRunner };
   revokeMyToken: { method: "DELETE"; path: "/me/tokens/{id}"; body: never; response: void };
   revokeOrgEgressRule: { method: "DELETE"; path: "/orgs/{org}/egress/rules/{rule_id}"; body: never; response: EgressRule };
   revokeOutpost: { method: "POST"; path: "/orgs/{org}/outposts/{slug}/revoke"; body: never; response: Outpost };
@@ -7412,12 +7610,16 @@ export interface Operations {
   settleAction: { method: "POST"; path: "/projects/{id}/actions/{action_id}/settlement"; body: ActionSettlementRequest; response: Action };
   shareWorkflow: { method: "POST"; path: "/orgs/{org}/workflow-catalogue"; body: WorkflowShare; response: WorkflowCatalogueEntry };
   shredTemporalKeys: { method: "POST"; path: "/orgs/{org}/temporal-keys/shredding"; body: TemporalKeyShredding; response: TemporalKeysShredded };
+  signInAsOwner: { method: "POST"; path: "/auth/owner"; body: OwnerTicketExchange; response: void };
+  signInWithPasskey: { method: "POST"; path: "/auth/passkey"; body: PasskeyAssertion; response: void };
   starAgent: { method: "PUT"; path: "/orgs/{org}/agents/{slug}/star"; body: never; response: AgentSocial };
   startAgentEvaluation: { method: "POST"; path: "/orgs/{org}/agents/{slug}/versions/{version}/evaluations"; body: AgentEvaluationCreate; response: AgentEvaluation };
   startAgentTrial: { method: "POST"; path: "/orgs/{org}/agent-trials"; body: AgentTrialCreate; response: AgentTrial };
   startDeviceSignIn: { method: "POST"; path: "/auth/device"; body: DeviceAuthorizationRequest; response: DeviceAuthorization };
   startGitHubAppManifest: { method: "POST"; path: "/platform/github-app/manifest"; body: GitHubAppManifestRequest; response: GitHubAppManifestStart };
   startMyLinkedAccount: { method: "POST"; path: "/me/linked-accounts/{provider}/start"; body: never; response: LinkedAccountStart };
+  startMyPasskeyRegistration: { method: "POST"; path: "/me/passkeys/options"; body: never; response: PasskeyRegistrationOptions };
+  startPasskeySignIn: { method: "POST"; path: "/auth/passkey/options"; body: never; response: PasskeyAssertionOptions };
   stopAgent: { method: "POST"; path: "/orgs/{org}/agents/{slug}/stop"; body: StopRequest; response: AgentStopResult };
   stopAssistant: { method: "POST"; path: "/orgs/{org}/assistants/{slug}/stop"; body: StopRequest; response: AssistantStopResult };
   stopKnowledgeDistillation: { method: "POST"; path: "/orgs/{org}/knowledge/{slug}/distill/stop"; body: never; response: KnowledgeBase };

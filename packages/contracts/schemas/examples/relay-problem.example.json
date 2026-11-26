@@ -1,0 +1,8 @@
+{
+  "type": "about:blank",
+  "title": "Too many requests",
+  "status": 429,
+  "code": "rate_limited",
+  "server_time": "2026-11-26T09:41:04Z",
+  "retry_after": 5
+}

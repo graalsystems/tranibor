@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/relay-hello.schema.json",
+  "title": "RelayHello",
+  "description": "The agent's first message on the control channel, answering the relay's challenge (ADR 0230 §3): its id, and a compact JWS by the installation's Ed25519 key binding the relay's control URL, the id, the protocol, the nonce of this connection's challenge and an `iat` within 60 seconds of the relay's clock (`x-hello-signature` of `relay.yaml`). One control session per id: a hello that verifies replaces the live one, a hello that does not is refused and the live one kept.",
+  "type": "object",
+  "required": [
+    "type",
+    "protocol",
+    "agent_version",
+    "id",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "const": "hello"
+    },
+    "protocol": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The protocol the agent speaks: 1 for this contract. The relay serves its own and the one before."
+    },
+    "agent_version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$",
+      "description": "The agent's own release, as a fact to show."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z2-7]{12}$",
+      "description": "The id the relay drew at the pairing; the `kid` of the signature."
+    },
+    "signature": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{86}$",
+      "description": "A compact JWS (`alg` `EdDSA`, `typ` `choregos-relay-hello+jwt`, `kid` the id) whose claims are `htu`, `id`, `protocol`, `nonce` and `iat`."
+    }
+  }
+}

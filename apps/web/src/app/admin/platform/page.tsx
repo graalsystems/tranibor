@@ -18,6 +18,7 @@ const EXECUTORS: Record<ExecutorInfo["kind"], string> = {
   tekton: "A Tekton PipelineRun per stage, where Tekton is installed.",
   aca: "An Azure Container Apps job per stage.",
   local_docker: "A container on the worker's own Docker, for the local install.",
+  outpost: "Personal runner: a person's own machine runs that person's runs, through the outposts' door.",
 };
 
 /** What an executor needs before a deployment can turn it on. */

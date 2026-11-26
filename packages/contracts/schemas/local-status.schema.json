@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/local-status.schema.json",
+  "title": "LocalStatus",
+  "description": "What `choregos local status|doctor --json` prints of a personal installation (ADR 0228, ADR 0229 §2): the stack, its services, the personal runner, the relay, the backups and the checks. `open --print-url --json` and `relay enable --json` print the same shape with the field that is theirs (`open_url`, `relay.pairing`). It is the only shape the desktop app reads (ADR 0229 §6), from the CLI sidecar of its own release, so the shape is closed. It carries no secret: a runner's providers are announced by name, and a pairing carries its user code, never its device code.",
+  "type": "object",
+  "required": [
+    "cli_version",
+    "stack",
+    "services",
+    "runner",
+    "relay",
+    "backups",
+    "checks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "cli_version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$",
+      "description": "The release of the CLI that printed it."
+    },
+    "stack": {
+      "$ref": "#/$defs/stack"
+    },
+    "services": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/service"
+      },
+      "description": "The bundle's services, each once; empty when no container engine answered."
+    },
+    "runner": {
+      "$ref": "#/$defs/runner"
+    },
+    "relay": {
+      "$ref": "#/$defs/relay"
+    },
+    "backups": {
+      "$ref": "#/$defs/backups"
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/check"
+      },
+      "description": "`doctor` lists every check it made, each once; `status` may list none."
+    },
+    "open_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^https?://(127\\.0\\.0\\.1|\\[::1\\]|localhost)(:[0-9]{1,5})?(/[^\\s]*)?$",
+      "maxLength": 4096,
+      "description": "`open --print-url` only: the console's URL with a single-use owner ticket (ADR 0228), on the loopback door."
+    }
+  },
+  "$defs": {
+    "stack": {
+      "type": "object",
+      "description": "The Compose stack of the personal bundle.",
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "not_initialised",
+            "unavailable",
+            "stopped",
+            "starting",
+            "running",
+            "degraded"
+          ],
+          "description": "`not_initialised`: no data directory yet (`init`). `unavailable`: no container engine answered. `stopped`, `starting`, `running`. `degraded`: a service is not running or not healthy."
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$",
+          "description": "The images' version, the CLI's own (ADR 0229 §2); null before the first `up`."
+        },
+        "engine": {
+          "enum": [
+            "docker",
+            "podman",
+            null
+          ],
+          "description": "The container engine found: Docker Engine, or Podman's Docker-compatible socket."
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^https?://(127\\.0\\.0\\.1|\\[::1\\]|localhost)(:[0-9]{1,5})?(/[^\\s]*)?$",
+          "maxLength": 4096,
+          "description": "The console on the loopback door, without a ticket."
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "description": "One service of the bundle.",
+      "required": [
+        "name",
+        "state"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+        },
+        "state": {
+          "enum": [
+            "running",
+            "created",
+            "restarting",
+            "paused",
+            "exited",
+            "dead",
+            "removing",
+            "missing"
+          ],
+          "description": "Its container's state as Compose reports it, or `missing`: the bundle declares it, no container is."
+        },
+        "health": {
+          "enum": [
+            "healthy",
+            "unhealthy",
+            "starting",
+            null
+          ],
+          "description": "Null for a service without a health check."
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "description": "The personal runner, `choregos-outpost` (ADR 0226), from its pid file and its presence in `/me/runners` (ADR 0229 §4).",
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "not_installed",
+            "not_enrolled",
+            "pending_approval",
+            "stopped",
+            "running",
+            "disconnected"
+          ],
+          "description": "`disconnected`: its process runs, and the door does not see it."
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$",
+          "description": "The daemon's own release; null when it is not installed."
+        },
+        "providers": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "default": [],
+          "description": "The providers its instance announces, by name only (`claude`): never a credential (ADR 0227)."
+        }
+      }
+    },
+    "relay": {
+      "type": "object",
+      "description": "The relay agent (ADR 0230): off, being paired, or on under its hostname. Enabled, it has a hostname and no pairing under way; not enabled, it has no hostname.",
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "then": {
+        "required": [
+          "hostname"
+        ],
+        "properties": {
+          "hostname": {
+            "type": "string"
+          },
+          "pairing": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "hostname": {
+            "type": "null"
+          }
+        }
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "hostname": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z2-7]{12}(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
+          "maxLength": 253,
+          "description": "`<id>.<relay-domain>`, when enabled."
+        },
+        "pairing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pairing"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`relay enable`, until the owner enters the code."
+        }
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "description": "What the owner enters in their relay account (ADR 0230 §6). The device code stays with the agent.",
+      "required": [
+        "user_code",
+        "verification_uri",
+        "expires_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "user_code": {
+          "type": "string",
+          "pattern": "^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$"
+        },
+        "verification_uri": {
+          "type": "string",
+          "pattern": "^https://[^\\s/@?#]+(/[^\\s?#]*)?$",
+          "maxLength": 2000
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "backups": {
+      "type": "object",
+      "description": "The last backup `choregos local backup` made, and where backups go.",
+      "additionalProperties": false,
+      "properties": {
+        "last": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "Null when none was made."
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "A directory of the person's machine."
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "description": "One check of `doctor`: what it looked at, whether it passed, and what it found.",
+      "required": [
+        "name",
+        "ok",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}

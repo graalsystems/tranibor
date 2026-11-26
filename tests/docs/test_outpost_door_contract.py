@@ -6,10 +6,10 @@ proven here is what `packages/contracts/outpost-door.yaml` says, on the model of
 `test_relay_route_contract.py`: that it declares the four verbs and no other, that nothing in it names
 a connector or a server (ADR 0148 §12), that every answer has a schema and every example is valid, and
 that the signatures and the envelope it describes are the ones the code already makes
-(`tranibor_adapters.sealing`, the installed PyJWT). Two signatures cross the door: a request's is the
-instance's (ADR 0148 §4), a call's is the door's, under a key the outpost's policy file pins (ADR 0148
-§13). The two vectors are what S65-12 and S65-15 are built against: a door and a daemon that agree
-with them agree with each other.
+(`tranibor_adapters.sealing`, the installed PyJWT). A request's signature is the instance's (ADR 0148
+§4); a call's is the door's, under a key the outpost's policy file pins (ADR 0148 §13), and from protocol 2
+so is a run's offer's (ADR 0226 §4, S87-08). The two vectors are what S65-12 and S65-15 are built against:
+a door and a daemon that agree with them agree with each other.
 """
 
 from __future__ import annotations
@@ -284,6 +284,8 @@ def test_every_example_the_door_shows_is_valid_where_it_is_shown() -> None:
         "outpost-enrolment-answer.example.json",
         "outpost-poll-request.example.json",
         "outpost-poll-answer.example.json",
+        "outpost-poll-request.runs.example.json",
+        "outpost-poll-answer.runs.example.json",
         "outpost-sealed-answer.example.json",
         "outpost-refusal.example.json",
         "outpost-call-ack.example.json",
@@ -297,11 +299,14 @@ def test_what_a_sealed_field_holds_is_a_schema_that_exists() -> None:
     schemas = DOOR["components"]["schemas"]
     call = schemas["SealedCall"]["properties"]["sealed"]
     answer = schemas["SealedAnswer"]["properties"]["sealed"]
+    run = schemas["SealedRun"]["properties"]["sealed"]
     assert call["x-plaintext"] == {"$ref": "./schemas/outpost-call.schema.json"}
     assert answer["x-plaintext"] == {"$ref": "./schemas/outpost-answer.schema.json"}
-    for field in (call, answer):
+    assert run["x-plaintext"] == {"$ref": "./schemas/outpost-run.schema.json"}
+    for field in (call, answer, run):
         assert (CONTRACTS / field["x-plaintext"]["$ref"]).is_file()
     assert "sealing_key" in call["x-sealed-to"] and "answer_key" in answer["x-sealed-to"]
+    assert "sealing_key" in run["x-sealed-to"]
     # A refusal is a code, in clear: nothing of the policy is in it to seal.
     refuse = DOOR["paths"]["/outposts/v1/calls/{id}/refuse"]["post"]["requestBody"]["content"]
     assert refuse["application/json"]["schema"] == {"$ref": "./schemas/outpost-refusal.schema.json"}
@@ -786,6 +791,8 @@ def test_nothing_else_of_an_answer_is_signed_and_the_document_says_so_in_one_pla
     poll = json.loads((EXAMPLES / "outpost-poll-answer.example.json").read_text(encoding="utf-8"))
     signed_fields = [name for name, value in poll.items() if "signature" in json.dumps(value)]
     assert signed_fields == ["calls"]
+    lane = json.loads((EXAMPLES / "outpost-poll-answer.runs.example.json").read_text(encoding="utf-8"))
+    assert [name for name, value in lane.items() if "signature" in json.dumps(value)] == ["runs"]
     said = [name for name, section in DOOR.items() if name.startswith("x-") and "not_signed" in section]
     assert said == ["x-call-signature"]
     schemas = DOOR["components"]["schemas"]
@@ -793,6 +800,123 @@ def test_nothing_else_of_an_answer_is_signed_and_the_document_says_so_in_one_pla
     assert "signature" not in schemas["DoorProblem"]["properties"]
     answer = json.loads((CONTRACTS / "schemas" / "outpost-enrolment-answer.schema.json").read_text("utf-8"))
     assert "signature" not in answer["properties"]
+
+
+# ───────────────────── a run's offer is sealed and signed by the door (ADR 0226 §4) ─────────────────────
+
+
+def _offer() -> dict[str, Any]:
+    """The offer the runs lane's example hands over: its id, its kind, its envelope, the door's signature."""
+    poll = json.loads((EXAMPLES / "outpost-poll-answer.runs.example.json").read_text(encoding="utf-8"))
+    offer: dict[str, Any] = poll["runs"][0]
+    return offer
+
+
+def _verified_offer(offer: dict[str, Any], *, pinned: list[str], instance: str) -> bool:
+    """What `x-run-signature.checks` asks of a daemon before it opens an offer's envelope, written from
+    the document: a call's checks, with the run's header and the run's claims."""
+    signature = offer.get("signature")
+    if not isinstance(signature, str):
+        return False
+    try:
+        header = jwt.get_unverified_header(signature)
+    except jwt.InvalidTokenError:
+        return False
+    key = header.get("kid")
+    if header != outpost.run_signature_header(str(key)) or key not in pinned:
+        return False
+    try:
+        claims = jwt.decode(
+            signature,
+            Ed25519PublicKey.from_public_bytes(_unb64(key)),
+            algorithms=[DOOR["x-run-signature"]["algorithm"]],
+        )
+    except jwt.InvalidTokenError:
+        return False
+    expected = outpost.run_signature_claims(run_id=offer["id"], instance_id=instance, sealed=offer["sealed"])
+    return bool(claims == expected)
+
+
+def test_the_examples_offer_is_signed_by_the_door_and_sealed_to_the_instance_under_its_id() -> None:
+    """The example of the runs lane is real: the door's key of the vectors signs it, the instance's sealing
+    key of the vectors opens it under the run's id, and what it holds is the offer's example."""
+    offer, instance = _offer(), SIGNED["instance_id"]
+    pinned = _policy_example()["door_keys"]
+    assert _verified_offer(offer, pinned=pinned, instance=instance)
+    header = jwt.get_unverified_header(offer["signature"])
+    assert header == outpost.run_signature_header(SEALED["door"]["signing_key"])
+    assert header["typ"] == DOOR["x-run-signature"]["type"]
+    claims = jwt.decode(offer["signature"], _door_key().public_key(), algorithms=["EdDSA"])
+    assert list(claims) == DOOR["x-run-signature"]["claim_names"]
+    # Sealed to the key the instance enrolled, under the offer's id: the run's id.
+    private = _recipient(SEALED["call"])
+    opened = sealing.open_sealed(private, offer["id"], offer["sealed"])
+    assert opened == json.loads((EXAMPLES / "outpost-run.example.json").read_text(encoding="utf-8"))
+    assert _opened_as_described(private, offer["id"], offer["sealed"]) == opened
+    read = outpost.OutpostRun.model_validate(opened)
+    assert (read.id, read.run_id, read.kind.value) == (offer["id"], offer["id"], offer["kind"])
+    # Moved to another run, it does not open; the token it carries is nowhere in clear.
+    with pytest.raises(sealing.SealError):
+        sealing.open_sealed(private, "another-run", offer["sealed"])
+    poll = (EXAMPLES / "outpost-poll-answer.runs.example.json").read_text(encoding="utf-8")
+    for hidden in (opened["run_token"], opened["api_url"], opened["provider"], opened["credential"]):
+        assert hidden not in poll
+
+
+def test_a_call_signature_does_not_pass_for_a_runs_and_an_offer_is_refused_unless_the_door_signed_it() -> (
+    None
+):
+    """Another `typ` and another first claim: the door's signature of a call cannot start a run, and the
+    checks of `x-run-signature` refuse each departure."""
+    offer, instance = _offer(), SIGNED["instance_id"]
+    pinned, door = _policy_example()["door_keys"], _door_key()
+    public = _b64(door.public_key().public_bytes(*RAW))
+    claims = outpost.run_signature_claims(run_id=offer["id"], instance_id=instance, sealed=offer["sealed"])
+    as_a_call = jwt.encode(
+        outpost.call_signature_claims(call_id=offer["id"], instance_id=instance, sealed=offer["sealed"]),
+        door,
+        algorithm="EdDSA",
+        headers=outpost.call_signature_header(public),
+    )
+    refused = {
+        "a call's signature by the door's own key": offer | {"signature": as_a_call},
+        "the run's claims under a call's type": offer
+        | {
+            "signature": jwt.encode(
+                claims, door, algorithm="EdDSA", headers=outpost.call_signature_header(public)
+            )
+        },
+        "the call's example signature": offer | {"signature": _handed()["signature"]},
+        "a changed envelope": offer | {"sealed": _altered(offer["sealed"])},
+        "another run's id": offer | {"id": "another-run"},
+        "no signature": {key: value for key, value in offer.items() if key != "signature"},
+        "a key nobody pinned": offer
+        | {
+            "signature": jwt.encode(
+                claims,
+                Ed25519PrivateKey.generate(),
+                algorithm="EdDSA",
+                headers=outpost.run_signature_header(public),
+            )
+        },
+        "one claim more": offer
+        | {
+            "signature": jwt.encode(
+                claims | {"iat": 1}, door, algorithm="EdDSA", headers=outpost.run_signature_header(public)
+            )
+        },
+    }
+    for what, attempt in refused.items():
+        assert not _verified_offer(attempt, pinned=pinned, instance=instance), what
+    assert not _verified_offer(offer, pinned=pinned, instance="another-instance")
+    assert not _verified_offer(offer, pinned=[], instance=instance)
+    # And the call's checks refuse the run's signature in turn.
+    assert not _verified_call(
+        {"id": offer["id"], "sealed": offer["sealed"], "signature": offer["signature"]},
+        pinned=pinned,
+        instance=instance,
+    )
+    assert _verified_offer(offer, pinned=pinned, instance=instance)
 
 
 # ───────────────────────── where the door meets the platform's own shapes ─────────────────────────

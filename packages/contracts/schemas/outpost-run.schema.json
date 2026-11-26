@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/outpost-run.schema.json",
+  "title": "OutpostRun",
+  "description": "An offer of the outposts' door's runs lane as a personal outpost sees it once it has opened the envelope with its sealing key (door protocol 2, ADR 0226 §4, ADR 0227 §1): what it runs, where the run's API is, and the run token minted when the instance claimed the offer. It is sealed to that instance only, under the offer's id (`outpost-door.yaml`, `x-sealing`, `run`), and the row the door keeps never holds the token. It carries no gateway key and no subscription's credential: a subscription stays on its owner's runner (ADR 0227 §4). A daemon ignores a field it does not know.",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "api_url",
+    "run_token",
+    "credential",
+    "isolation",
+    "lease_s",
+    "max_minutes"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "description": "The offer's id: the envelope's too, and the associated data it was sealed under. The run's id for a stage's run (`run_id`), the turn's id for a conversation turn (`turn_id`). A daemon starts nothing whose id is not its envelope's."
+    },
+    "kind": {
+      "enum": [
+        "stage_run",
+        "conversation_turn"
+      ],
+      "description": "`stage_run`: a stage's run, which the runner runs as an executor would. `conversation_turn`: one turn of a conversation placed on its owner's runner (ADR 0226 §11). The same kind as the offer carries in clear, or the daemon starts nothing."
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "default": null,
+      "description": "`stage_run`: the run's id, which the runner reports under. Null for a turn."
+    },
+    "conversation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "default": null,
+      "description": "`conversation_turn`: the conversation the turn belongs to."
+    },
+    "turn_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "default": null,
+      "description": "`conversation_turn`: the turn the offer runs, one offer per turn."
+    },
+    "api_url": {
+      "type": "string",
+      "pattern": "^https?://[^\\s@?#]+$",
+      "maxLength": 2000,
+      "description": "Where the runner calls the run's API: a run door (ADR 0144, ADR 0226 §12), in a personal installation its loopback and its `runs` network. Never the outposts' door, which carries assignments and no run API, and never the relay."
+    },
+    "run_token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+      "maxLength": 8192,
+      "description": "The run token, minted when the instance claimed the offer and never before (ADR 0226 §4): it speaks for this run, or for this turn on the internal session routes only, and lapses with it, the run's maximum minutes plus 15, a turn's plus 5 (ADR 0226 §11). A daemon hands it to the runner and reads nothing in it."
+    },
+    "env": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 4096
+      },
+      "default": {},
+      "description": "The runner's environment beyond its id, address and token, by name: what the deployment passes every run (its `TRANIBOR_ENV`, its egress proxy). Never a secret of the platform (an offer carries no gateway key in phase A, ADR 0226 §9) and never a subscription's credential."
+    },
+    "credential": {
+      "enum": [
+        "gateway",
+        "subscription"
+      ],
+      "description": "Where the run's model credential comes from (ADR 0227 §1), as placement chose it: `subscription`, the sign-in on this runner of the provider below; `gateway`, the platform's, which no offer carries in phase A (ADR 0226 §9)."
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "anthropic",
+        "google",
+        null
+      ],
+      "default": null,
+      "description": "`subscription`: the vendor whose sign-in on this runner the run uses, one the instance announced (`runner.subscriptions`). Null for a gateway run."
+    },
+    "isolation": {
+      "enum": [
+        "container",
+        "process"
+      ],
+      "description": "Where the agent runs, as placement chose it for a mode the instance announced (ADR 0226 §10): `container`, the docker mode's container of its own; `process`, the native mode's child process, placed only under the organisation's `native: accepted`."
+    },
+    "lease_s": {
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 300,
+      "description": "The lease the claiming instance's polls renew by listing the run in `runs_running` (`x-run-lease`): longer than a poll's longest wait, and never past the claim plus `max_minutes`."
+    },
+    "max_minutes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The run's maximum minutes, or the turn's: what bounds it with its turns and its tool calls, since a subscription run is under no USD budget (ADR 0227 §7)."
+    }
+  },
+  "if": {
+    "required": [
+      "kind"
+    ],
+    "properties": {
+      "kind": {
+        "const": "stage_run"
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "run_id"
+    ],
+    "properties": {
+      "run_id": {
+        "type": "string"
+      },
+      "conversation_id": {
+        "type": "null"
+      },
+      "turn_id": {
+        "type": "null"
+      }
+    },
+    "if": {
+      "required": [
+        "credential"
+      ],
+      "properties": {
+        "credential": {
+          "const": "subscription"
+        }
+      }
+    },
+    "then": {
+      "required": [
+        "provider"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "provider": {
+          "type": "null"
+        }
+      }
+    }
+  },
+  "else": {
+    "required": [
+      "conversation_id",
+      "turn_id"
+    ],
+    "properties": {
+      "conversation_id": {
+        "type": "string"
+      },
+      "turn_id": {
+        "type": "string"
+      },
+      "run_id": {
+        "type": "null"
+      }
+    },
+    "if": {
+      "required": [
+        "credential"
+      ],
+      "properties": {
+        "credential": {
+          "const": "subscription"
+        }
+      }
+    },
+    "then": {
+      "required": [
+        "provider"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "provider": {
+          "type": "null"
+        }
+      }
+    }
+  }
+}

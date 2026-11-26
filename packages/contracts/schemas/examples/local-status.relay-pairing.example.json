@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.30.0",
+  "stack": {
+    "state": "running",
+    "version": "0.30.0",
+    "engine": "podman",
+    "url": "http://127.0.0.1:8484"
+  },
+  "services": [
+    { "name": "edge", "state": "running", "health": "healthy" },
+    { "name": "api", "state": "running", "health": "healthy" },
+    { "name": "relay-agent", "state": "running", "health": null }
+  ],
+  "runner": {
+    "state": "pending_approval",
+    "version": "0.30.0",
+    "providers": []
+  },
+  "relay": {
+    "enabled": false,
+    "hostname": null,
+    "pairing": {
+      "user_code": "BCDF-KMPT",
+      "verification_uri": "https://relay.example/pair",
+      "expires_at": "2026-11-26T09:51:02Z"
+    }
+  },
+  "backups": {
+    "last": null,
+    "location": "/home/user/.local/share/choregos/backups"
+  },
+  "checks": []
+}

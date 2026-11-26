@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/relay-pairing-answer.schema.json",
+  "title": "RelayPairingAnswer",
+  "description": "The relay's answer to a pairing request and to each poll of it (ADR 0230 §6). `pending` carries the device code the agent polls with and the user code it shows the owner; `approved` carries the id the relay drew, 60 random bits written as 12 base32 characters, and the installation's hostname; `denied` and `expired` carry nothing more.",
+  "type": "object",
+  "required": [
+    "status",
+    "server_time",
+    "protocol"
+  ],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "status": {
+        "const": "pending"
+      }
+    },
+    "required": [
+      "status"
+    ]
+  },
+  "then": {
+    "required": [
+      "device_code",
+      "user_code",
+      "verification_uri",
+      "expires_at",
+      "interval_s"
+    ],
+    "properties": {
+      "device_code": {
+        "type": "string"
+      },
+      "user_code": {
+        "type": "string"
+      },
+      "verification_uri": {
+        "type": "string"
+      },
+      "expires_at": {
+        "type": "string"
+      },
+      "interval_s": {
+        "type": "integer"
+      },
+      "id": {
+        "type": "null"
+      },
+      "hostname": {
+        "type": "null"
+      }
+    }
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "status": {
+          "const": "approved"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "then": {
+      "required": [
+        "id",
+        "hostname"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hostname": {
+          "type": "string"
+        },
+        "device_code": {
+          "type": "null"
+        },
+        "user_code": {
+          "type": "null"
+        },
+        "verification_uri": {
+          "type": "null"
+        },
+        "expires_at": {
+          "type": "null"
+        },
+        "interval_s": {
+          "type": "null"
+        }
+      }
+    },
+    "else": {
+      "properties": {
+        "id": {
+          "type": "null"
+        },
+        "hostname": {
+          "type": "null"
+        },
+        "device_code": {
+          "type": "null"
+        },
+        "user_code": {
+          "type": "null"
+        },
+        "verification_uri": {
+          "type": "null"
+        },
+        "expires_at": {
+          "type": "null"
+        },
+        "interval_s": {
+          "type": "null"
+        }
+      }
+    }
+  },
+  "properties": {
+    "status": {
+      "enum": [
+        "pending",
+        "approved",
+        "denied",
+        "expired"
+      ],
+      "description": "`pending`: the owner has not entered the user code yet, poll again. `approved`: the id is bound to the owner's account and this key. `denied`: the owner refused it. `expired`: nobody entered it in time, ask for another."
+    },
+    "server_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The relay's clock: an agent whose own drifts learns it here, and never corrects `iat` from it."
+    },
+    "protocol": {
+      "$ref": "#/$defs/window"
+    },
+    "device_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9_-]{43,128}$",
+      "description": "`pending`: what the agent polls with. A secret of the agent, never shown."
+    },
+    "user_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$",
+      "description": "`pending`: what the agent shows the owner, who enters it in their relay account (RFC 8628 §6.1's consonants)."
+    },
+    "verification_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^https://[^\\s/@?#]+(/[^\\s?#]*)?$",
+      "maxLength": 2000,
+      "description": "`pending`: where the owner enters the user code."
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "`pending`: after it, the pairing is `expired`."
+    },
+    "interval_s": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 5,
+      "maximum": 60,
+      "description": "`pending`: the agent polls no more often."
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z2-7]{12}$",
+      "description": "`approved`: the id the relay drew, 60 random bits as 12 lowercase base32 characters. Nobody chooses it."
+    },
+    "hostname": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z2-7]{12}(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$",
+      "maxLength": 253,
+      "description": "`approved`: `<id>.<relay-domain>`, the name a phone reaches the installation under."
+    }
+  },
+  "$defs": {
+    "window": {
+      "type": "object",
+      "description": "The protocols the relay serves: its own and the one before. An agent below `minimum` is refused.",
+      "required": [
+        "current",
+        "minimum"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

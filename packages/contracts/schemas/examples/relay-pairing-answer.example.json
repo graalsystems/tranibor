@@ -1,0 +1,13 @@
+{
+  "status": "pending",
+  "server_time": "2026-11-26T09:41:02Z",
+  "protocol": {
+    "current": 1,
+    "minimum": 1
+  },
+  "device_code": "Gm4cJx0aT9qVb2Rk7LsNw1EyZp5Hd8Ui3Fo6Ct0Xj2Q",
+  "user_code": "BCDF-KMPT",
+  "verification_uri": "https://relay.example/pair",
+  "expires_at": "2026-11-26T09:51:02Z",
+  "interval_s": 5
+}

@@ -158,7 +158,7 @@ async def test_an_instance_enrols_through_the_door_and_is_born_pending(
         "status": "pending",
         # What the daemon prints from its own key and a person compares in the console.
         "fingerprint": outpost.fingerprint_of(daemon.signing_key),
-        "protocol": {"current": 1, "minimum": 1},
+        "protocol": {"current": 2, "minimum": 1},
         "server_time": None,
     }
     assert response.headers[NONCE_HEADER], "the nonce of the first signed request"
@@ -319,7 +319,7 @@ async def test_a_signed_poll_is_taken(client: AsyncClient, daemon: Daemon) -> No
     answered = response.json()
     daemon_kit.is_a("PollAnswer", answered)
     assert answered | {"server_time": None} == {
-        "protocol": {"current": 1, "minimum": 1},
+        "protocol": {"current": 2, "minimum": 1},
         "server_time": None,
         "stop": False,
         "calls": [],
@@ -759,7 +759,9 @@ async def test_a_daemon_below_the_minimum_version_is_refused_with_the_minimum(
         ({"capacity": 65}, ("capacity",)),
         ({"capacity": "4"}, ("capacity",)),
         ({"wait_s": 26}, ("wait_s",)),
-        ({"capabilities": ["runs"]}, ("capabilities", "0")),
+        # No poll of protocol 1 announces `runs` (S87-08): the contract's model refuses it on the field.
+        ({"capabilities": ["runs"]}, ("capabilities",)),
+        ({"capabilities": ["relay"]}, ("capabilities", "0")),
         ({"endpoints": ["Tracker"]}, ("endpoints", "0")),
         ({"endpoints": ["http://tracker.internal"]}, ("endpoints", "0")),
         ({"running": ["a/b"]}, ("running", "0")),

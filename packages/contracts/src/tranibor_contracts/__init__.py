@@ -306,7 +306,14 @@ SCHEMA_FILES = (
     "outpost-audit-line.schema.json",
     "outpost-enrolment-request.schema.json",
     "outpost-enrolment-answer.schema.json",
+    "outpost-run.schema.json",
     "demo-history.schema.json",
+    "relay-pairing-request.schema.json",
+    "relay-pairing-answer.schema.json",
+    "relay-hello.schema.json",
+    "relay-open-stream.schema.json",
+    "relay-metadata-line.schema.json",
+    "local-status.schema.json",
 )
 
 
@@ -349,6 +356,18 @@ def outpost_door_path() -> Path:
 
 def load_outpost_door() -> dict[str, Any]:
     with outpost_door_path().open(encoding="utf-8") as fh:
+        data: dict[str, Any] = yaml.safe_load(fh)
+    return data
+
+
+def relay_path() -> Path:
+    """The contract of the relay (ADR 0230): its own document, between the relay server and the
+    installation's relay agent, not part of `openapi.yaml`."""
+    return contracts_dir() / "relay.yaml"
+
+
+def load_relay() -> dict[str, Any]:
+    with relay_path().open(encoding="utf-8") as fh:
         data: dict[str, Any] = yaml.safe_load(fh)
     return data
 
@@ -587,12 +606,14 @@ __all__ = [
     "knowledge_digest",
     "load_openapi",
     "load_outpost_door",
+    "load_relay",
     "load_schema",
     "max_poll_answer_bytes",
     "missing_outputs",
     "next_sequence",
     "openapi_path",
     "outpost_door_path",
+    "relay_path",
     "request_signature_claims",
     "request_signature_header",
     "resolve_display",

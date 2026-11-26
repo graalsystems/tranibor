@@ -125,6 +125,34 @@ NO_CLIENT_YET: dict[str, str] = {
     "is API-only in the core; the enterprise edition's platform route has no console screen either",
     "/orgs/{org}/saml": "the organisation's SAML provider (ADR 0170, D5) is API-only in the core; the "
     "enterprise edition's console section writes it today",
+    # S87-08: a personal installation's sign-in (ADR 0228 §4); S87-12 to S87-14 serve it and give it a client.
+    "/auth/methods": "the sign-in page reads it to show the door's methods; S87-12 serves it and gives it "
+    "its client",
+    "/auth/owner": "the console's loopback page posts the owner ticket `choregos local open` put in its "
+    "fragment; S87-12 serves it and gives it its client",
+    "/me/device-pairings": "My account on the computer shows the pairing link as a QR code; S87-13 serves "
+    "it and gives it its client",
+    "/auth/device/session": "the phone's `/pair` page posts the code its link carried; S87-13 serves it and "
+    "gives it its client",
+    "/me/passkeys": "My account's passkeys page lists and registers them; S87-14 serves it and gives it "
+    "its client",
+    "/me/passkeys/options": "My account's passkeys page asks for the registration's options; S87-14 serves "
+    "it and gives it its client",
+    "/me/passkeys/{id}": "My account's passkeys page deletes one; S87-14 serves it and gives it its client",
+    "/auth/passkey/options": "the relay door's sign-in page and its step-up ask for an assertion's options; "
+    "S87-14 serves it and gives it its client",
+    "/auth/passkey": "the relay door's sign-in page and its step-up post the assertion; S87-14 serves it "
+    "and gives it its client",
+    # S87-08: a person's own runner (ADR 0226 §2), served by S87-15.
+    "/me/runners": "the console's My runner (S87-54) and `choregos local status` (S87-29) read it; S87-15 "
+    "serves it",
+    "/me/runners/{org}/enrolments": "`choregos local up` (S87-29) and My runner (S87-54) create the "
+    "enrolment; S87-15 serves it",
+    "/me/runners/instances/{instance}/approval": "`choregos local up` (S87-29) and My runner (S87-54) "
+    "approve against the fingerprint; S87-15 serves it",
+    "/me/runners/{org}/pause": "My runner (S87-54) pauses it; S87-15 serves it",
+    "/me/runners/{org}/resume": "My runner (S87-54) resumes it; S87-15 serves it",
+    "/me/runners/{org}/revocation": "My runner (S87-54) revokes it; S87-15 serves it",
 }
 
 #: Paths the CLI calls and the console must not: an operator's command, not a screen.

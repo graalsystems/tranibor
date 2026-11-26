@@ -1,0 +1,10 @@
+{
+  "install_id": "kq7mz3xw2pa5",
+  "started_at": "2026-11-26T10:02:11.204Z",
+  "ended_at": "2026-11-26T10:07:43.918Z",
+  "client_ip": "203.0.113.24",
+  "bytes_in": 48211,
+  "bytes_out": 1320455,
+  "duration_ms": 332714,
+  "close_reason": "client_closed"
+}

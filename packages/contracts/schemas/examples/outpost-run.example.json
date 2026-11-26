@@ -1,0 +1,17 @@
+{
+  "id": "7c2e9a41-3b5d-4f60-8e12-9d4a6b0c1f37",
+  "kind": "stage_run",
+  "run_id": "7c2e9a41-3b5d-4f60-8e12-9d4a6b0c1f37",
+  "api_url": "http://edge:8080",
+  "run_token": "eyJhbGciOiAiRVMyNTYiLCAia2lkIjogInJ1bi10b2tlbi1leGFtcGxlIiwgInR5cCI6ICJKV1QifQ.eyJhdWQiOiAiaW50ZXJuYWwiLCAic3ViIjogIjdjMmU5YTQxLTNiNWQtNGY2MC04ZTEyLTlkNGE2YjBjMWYzNyIsICJleHAiOiAxNzk1NjgzNjAwfQ.6_nHluhNeQnEg3G2SqM89KhrbBaSs-pigtjrOuzwtTfVMlxNW8zW0LnnPMnsxTf9abiSGKCjCj-5gEWvPDoQgw",
+  "env": {
+    "TRANIBOR_ENV": "personal",
+    "HTTPS_PROXY": "http://egress:3128",
+    "NO_PROXY": "edge,localhost,127.0.0.1"
+  },
+  "credential": "subscription",
+  "provider": "anthropic",
+  "isolation": "container",
+  "lease_s": 90,
+  "max_minutes": 60
+}
