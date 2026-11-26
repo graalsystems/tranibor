@@ -15,7 +15,7 @@ import yaml
 from temporalio import activity
 from tranibor_api.db.models import Project
 from tranibor_api.services import persist_event
-from tranibor_contracts import EventType
+from tranibor_contracts import EventType, wire
 from tranibor_core import Fact, Message, Provenance, utcnow
 from tranibor_core.temporal_connection import organisation_scope
 
@@ -42,7 +42,7 @@ TEMPLATES_DIR = templates_dir()
 
 LABELS = {
     "agent-ready": "0e8a16",
-    "choregos:inbox": "ededed",
+    wire.state_label("inbox"): "ededed",
     "finding": "d93f0b",
     "source:agent": "c5def5",
     "needs-triage": "fbca04",

@@ -22,9 +22,10 @@ def _absent_plugins() -> set[str]:
     `software-delivery` plugin's): where it is installed they are served like the core's, where it is not
     (the `core-without-plugins` job) none of them is.
     """
-    from importlib import metadata
+    from tranibor_adapters import EXTENSION_GROUP
+    from tranibor_contracts import wire
 
-    installed = {point.name for point in metadata.entry_points(group="choregos.plugins")}
+    installed = {point.name for point in wire.entry_points(EXTENSION_GROUP)}
     marked = {
         str(op.get("x-plugin") or item.get("x-plugin"))
         for item in contracts.load_openapi()["paths"].values()

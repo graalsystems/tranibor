@@ -1,7 +1,7 @@
 # A code audit (S59-02): read-only. A researcher audits the scope the work item names — architecture,
 # quality, tests, debt, risks — and writes the report with evidence; a reviewer critiques it with fresh
 # eyes; a product owner accepts it. Nothing in the repository changes (`diff_size_max: 0`).
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: code-audit

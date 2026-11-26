@@ -69,7 +69,7 @@ list whose first element is a `google.rpc.ErrorInfo`; refused fields come in a `
 | HTTP | Means |
 | --- | --- |
 | `202` | accepted: `outcome` is `created_work_item`, `already_open`, `reopened` or `ignored`; `duplicate: true` for a delivery received before |
-| `401` | an invalid trigger token, or a missing or wrong `X-Choregos-Signature` |
+| `401` | an invalid trigger token, or a missing or wrong `X-Tranibor-Signature` |
 | `404` | no such organisation, project or trigger, or a trigger without a token yet |
 | `409` | the project's tracker is external |
 | `413` | a body over 256 KiB |

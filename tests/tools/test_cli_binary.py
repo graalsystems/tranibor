@@ -19,21 +19,37 @@ import urllib.request
 import pygments.lexers
 import pytest
 from tranibor_cli import a2a
+from tranibor_core.publishing import CLI_PLATFORMS, FORMER_CLI_PREFIX, PUBLISHING
 
 from tools.cli_binary import build, release, smoke
 
+#: The file names since ADR 0226 R5: the publishing identity's prefix, then the platform.
 CONTRACT = {
-    "choregos-linux-x86_64": ("linux", "x86_64"),
-    "choregos-linux-arm64": ("linux", "arm64"),
-    "choregos-macos-arm64": ("macos", "arm64"),
-    "choregos-macos-x86_64": ("macos", "x86_64"),
-    "choregos-windows-x86_64.exe": ("windows", "x86_64"),
+    "tranibor-linux-x86_64": ("linux", "x86_64"),
+    "tranibor-linux-arm64": ("linux", "arm64"),
+    "tranibor-macos-arm64": ("macos", "arm64"),
+    "tranibor-macos-x86_64": ("macos", "x86_64"),
+    "tranibor-windows-x86_64.exe": ("windows", "x86_64"),
 }
+#: Their former names, still attached to the release and served by the instance for the window.
+FORMER = {name: name.replace("tranibor-", "choregos-", 1) for name in CONTRACT}
 
 
 def test_the_five_file_names_are_the_contract_s() -> None:
     assert {name: target for target, name in build.TARGETS.items()} == CONTRACT
     assert release.TARGETS == CONTRACT
+    assert release.FORMER_NAMES == FORMER
+
+
+def test_the_names_follow_the_publishing_identity() -> None:
+    """The scripts read `publishing.json` as a file (no workspace yet); the code reads it as a module."""
+    assert build.PLATFORMS == release.PLATFORMS == CLI_PLATFORMS
+    assert (build.PREFIX, build.FORMER_PREFIX) == (release.PREFIX, release.FORMER_PREFIX)
+    assert (PUBLISHING.image_prefix, FORMER_CLI_PREFIX) == (build.PREFIX, build.FORMER_PREFIX)
+    for name, (os_name, arch) in CONTRACT.items():
+        assert PUBLISHING.cli_file_names(os_name, arch) == (name, FORMER[name])
+        assert PUBLISHING.cli_twin(name) == FORMER[name] and PUBLISHING.cli_twin(FORMER[name]) == name
+    assert PUBLISHING.cli_twin("manifest.json") is None
 
 
 def test_this_machine_has_a_target() -> None:
@@ -56,7 +72,7 @@ def test_the_build_s_version_is_the_cli_s() -> None:
 def test_the_nuitka_command_carries_the_data_and_leaves_out_what_is_not_the_cli(
     tmp_path: pathlib.Path,
 ) -> None:
-    command = build.nuitka_command(pathlib.Path("python"), tmp_path, "choregos-linux-x86_64", "0.25.3")
+    command = build.nuitka_command(pathlib.Path("python"), tmp_path, "tranibor-linux-x86_64", "0.25.3")
     assert "--mode=onefile" in command
     for package in ("tranibor_core", "tranibor_contracts", "jsonschema_specifications", "textual"):
         assert f"--include-package-data={package}" in command
@@ -64,7 +80,8 @@ def test_the_nuitka_command_carries_the_data_and_leaves_out_what_is_not_the_cli(
     for module in ("opentelemetry", "tranibor_orchestrator", "zstandard"):
         assert f"--nofollow-import-to={module}" in command
     spec = next(arg for arg in command if arg.startswith("--onefile-tempdir-spec="))
-    assert spec.startswith("--onefile-tempdir-spec={CACHE_DIR}/choregos/cli-0.25.3-")
+    assert spec.startswith("--onefile-tempdir-spec={CACHE_DIR}/tranibor/cli-0.25.3-")
+    assert "--product-name=tranibor" in command
     assert command[-1] == str(build.ENTRY)
 
 
@@ -97,7 +114,7 @@ def test_the_report_names_the_metadata_the_binary_carries(tmp_path: pathlib.Path
     assert build.bundled_metadata(report) == ["attrs", "tranibor-cli"]
     assert set(build.REQUIRED_METADATA) <= set(build.bundled_metadata(report))
     for name in build.REQUIRED_METADATA:
-        command = build.nuitka_command(pathlib.Path("python"), tmp_path, "choregos-linux-x86_64", "0.25.3")
+        command = build.nuitka_command(pathlib.Path("python"), tmp_path, "tranibor-linux-x86_64", "0.25.3")
         assert f"--include-distribution-metadata={name}" in command
 
 
@@ -131,14 +148,33 @@ def test_the_manifest_and_the_sums(tmp_path: pathlib.Path) -> None:
         assert entry["size"] == len(entry["name"])
         assert entry["sha256"] == release.sha256(tmp_path / entry["name"])
     sums = (tmp_path / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
-    assert sums == [f"{e['sha256']}  {e['name']}" for e in manifest["files"]]
+    # Each digest under the file's name, then under its former name (ADR 0226 R5), which the manifest
+    # never lists: a CLI picks its file by platform.
+    assert sums == [f"{e['sha256']}  {e['name']}" for e in manifest["files"]] + [
+        f"{e['sha256']}  {FORMER[e['name']]}" for e in manifest["files"]
+    ]
+
+
+def test_the_github_release_s_former_names_are_copies_with_their_bundles(tmp_path: pathlib.Path) -> None:
+    _binaries(tmp_path, list(CONTRACT))
+    release.write(tmp_path, "0.25.3")
+    for name in CONTRACT:
+        (tmp_path / f"{name}.sigstore.json").write_text(f'{{"bundle": "{name}"}}', encoding="utf-8")
+    written = release.former_copies(tmp_path)
+    assert sorted(written) == sorted([*FORMER.values(), *(f"{n}.sigstore.json" for n in FORMER.values())])
+    for name, former in FORMER.items():
+        assert (tmp_path / former).read_bytes() == (tmp_path / name).read_bytes()
+        bundle = (tmp_path / f"{name}.sigstore.json").read_bytes()
+        assert (tmp_path / f"{former}.sigstore.json").read_bytes() == bundle
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert [entry["name"] for entry in manifest["files"]] == list(CONTRACT), "the manifest is not rewritten"
 
 
 def test_a_release_without_all_five_binaries_is_refused(tmp_path: pathlib.Path) -> None:
-    _binaries(tmp_path, ["choregos-linux-x86_64"])
+    _binaries(tmp_path, ["tranibor-linux-x86_64"])
     with pytest.raises(ValueError, match="binaries missing"):
         release.write(tmp_path, "0.25.3")
-    assert release.write(tmp_path, "0.25.3", partial=True)["files"][0]["name"] == "choregos-linux-x86_64"
+    assert release.write(tmp_path, "0.25.3", partial=True)["files"][0]["name"] == "tranibor-linux-x86_64"
     with pytest.raises(ValueError, match="not a release version"):
         release.write(tmp_path, "v0.25", partial=True)
 
@@ -173,7 +209,7 @@ def test_the_bare_environment_has_no_python(tmp_path: pathlib.Path) -> None:
 def test_a_cli_that_needs_a_python_fails_the_smoke_test(tmp_path: pathlib.Path) -> None:
     """The installed CLI's console script is a Python program: in the smoke test's environment it
     cannot start, so a 'binary' that is a Python in disguise never passes."""
-    fake = tmp_path / "choregos-linux-x86_64"
+    fake = tmp_path / "tranibor-linux-x86_64"
     fake.write_text(f"#!{sys.executable}\nfrom tranibor_cli.main import main\nmain()\n", encoding="utf-8")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     with pytest.raises(smoke.SmokeError, match="--version"):
@@ -181,12 +217,12 @@ def test_a_cli_that_needs_a_python_fails_the_smoke_test(tmp_path: pathlib.Path) 
 
 
 def test_expect_reads_the_exit_code_and_the_output() -> None:
-    result = smoke.Result(code=0, out="choregos 0.25.3\n", err="", seconds=0.1)
-    smoke.expect(result, 0, "choregos 0.25.3", what="--version")
+    result = smoke.Result(code=0, out="tranibor 0.25.3\n", err="", seconds=0.1)
+    smoke.expect(result, 0, "tranibor 0.25.3", what="--version")
     with pytest.raises(smoke.SmokeError, match="exit 0, expected 1"):
         smoke.expect(result, 1, what="a broken workflow")
     with pytest.raises(smoke.SmokeError, match="not in the output"):
-        smoke.expect(result, 0, "choregos 9.9.9", what="--version")
+        smoke.expect(result, 0, "tranibor 9.9.9", what="--version")
 
 
 @pytest.mark.parametrize(
@@ -196,7 +232,7 @@ def test_expect_reads_the_exit_code_and_the_output() -> None:
 def test_the_budgets_are_enforced(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, warm: float, max_size_mb: float, failure: str
 ) -> None:
-    binary = tmp_path / "choregos-linux-x86_64"
+    binary = tmp_path / "tranibor-linux-x86_64"
     binary.write_bytes(b"x" * 100)
     monkeypatch.setattr(smoke, "timings", lambda runner, version: (0.2, warm))
     monkeypatch.setattr(smoke, "functional_checks", lambda runner, version: None)
@@ -213,7 +249,7 @@ def _info(**overrides: object) -> str:
         "version": "0.25.3",
         "metadata_version": "0.25.3",
         "compiled": True,
-        "argv0": "choregos",
+        "argv0": "tranibor",
         "running_binary": None,
         "detector": "tranibor_cli.binary_info",
     }
@@ -228,14 +264,14 @@ def _info(**overrides: object) -> str:
         ({"compiled": False}, "not a Nuitka build"),
         ({"metadata_version": None, "version": "0.0.0+unknown"}, "left the distribution metadata out"),
         ({"version": "0.25.3-hard-coded"}, "does not come from the metadata"),
-        ({"running_binary": "/tmp/elsewhere/choregos"}, "the running binary resolves to"),
+        ({"running_binary": "/tmp/elsewhere/tranibor"}, "the running binary resolves to"),
     ],
 )
 def test_the_binary_must_know_its_version_and_its_path(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, overrides: dict[str, object], failure: str | None
 ) -> None:
-    """What S62-08's version check and `self update` rely on, read from `choregos binary-info`."""
-    binary = tmp_path / "choregos-linux-x86_64"
+    """What S62-08's version check and `self update` rely on, read from `tranibor binary-info`."""
+    binary = tmp_path / "tranibor-linux-x86_64"
     binary.write_bytes(b"x")
     runner = smoke.Runner(binary, tmp_path, {"PATH": str(tmp_path)})
     real = os.path.normcase(str(binary.resolve()))

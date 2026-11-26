@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos a2a`: start a workflow over the A2A door, hand it its data and files, follow it to its end.
+"""`tranibor a2a`: start a workflow over the A2A door, hand it its data and files, follow it to its end.
 
 The door is A2A 0.3.0 JSON-RPC at `/a2a/orgs/<org>` (ADR 0078); `docs/starting-a-workflow-from-outside.md`
 says what each call does. This module is the CLI's own small client of that door rather than
 `tranibor_adapters.a2a.A2aClient`: the CLI depends on `tranibor-core` and httpx only, and the adapters'
 client parses a task into dataclasses that drop what a script reads here (the raw task for `--json`,
-`error.data.errors`, `metadata.choregos`), and has neither the card nor `tasks/resubscribe`.
+`error.data.errors`, `metadata.tranibor`, or the former `metadata.choregos`), and has neither the card
+nor `tasks/resubscribe`.
 
 Exit codes of the commands that wait for the end: 0 completed, 3 failed (or rejected), 4 canceled,
 1 when the door refused a call or could not be reached, 130 when interrupted.
@@ -28,6 +29,7 @@ import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
+from tranibor_contracts import wire
 
 from . import __version__
 from .client import NoOrganisationError, Profile
@@ -37,7 +39,8 @@ console = Console()
 errors = Console(stderr=True)
 
 #: The card's extension that gives each skill's fields as a JSON Schema (the door's `SKILL_FIELDS_EXTENSION`).
-SKILL_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+#: A card of an instance before ADR 0226 announces it under the former URI, read too.
+SKILL_FIELDS_EXTENSION = wire.A2A_SKILL_FIELDS_EXTENSION
 #: The states after which a task does not change any more.
 FINAL_STATES = frozenset({"completed", "failed", "canceled", "rejected"})
 EXIT_COMPLETED, EXIT_REFUSED, EXIT_FAILED, EXIT_CANCELED, EXIT_INTERRUPTED = 0, 1, 3, 4, 130
@@ -47,8 +50,8 @@ STREAM_SILENCE = 60.0
 RECONNECT_PAUSE = 1.0
 MISSING_SCOPE = (
     "the A2A door needs a token of scope `a2a`, and refuses a `*` one such as the CLI's profile token: "
-    "create one with `choregos tokens create --name <name> --scope a2a --project <org:project>` (as you) "
-    "or `choregos machines token <org:project> <application> --name <name>` (as an application), then "
+    "create one with `tranibor tokens create --name <name> --scope a2a --project <org:project>` (as you) "
+    "or `tranibor machines token <org:project> <application> --name <name>` (as an application), then "
     "pass it with `--token` or TRANIBOR_A2A_TOKEN"
 )
 
@@ -227,7 +230,7 @@ def skills_of(card: dict[str, Any]) -> list[dict[str, Any]]:
     extensions = (card.get("capabilities") or {}).get("extensions") or []
     fields: dict[str, Any] = {}
     for extension in extensions:
-        if isinstance(extension, dict) and extension.get("uri") == SKILL_FIELDS_EXTENSION:
+        if isinstance(extension, dict) and extension.get("uri") in wire.A2A_SKILL_FIELDS_EXTENSIONS:
             fields = (extension.get("params") or {}).get("skills") or {}
     return [{**skill, "fields": fields.get(skill.get("id"))} for skill in card.get("skills") or []]
 
@@ -384,21 +387,21 @@ class Printer:
     @staticmethod
     def mark(result: dict[str, Any]) -> tuple[str, str, Any]:
         """What makes a status worth a line: the A2A state, the workflow's state, the request."""
-        choregos = (result.get("metadata") or {}).get("choregos") or {}
+        platform = wire.read_a2a_metadata(result.get("metadata"))
         return (
             state_of(result),
-            str(choregos.get("state") or ""),
+            str(platform.get("state") or ""),
             (decision_of(result) or {}).get("request_id"),
         )
 
     def __call__(self, result: dict[str, Any]) -> None:
-        choregos = (result.get("metadata") or {}).get("choregos") or {}
+        platform = wire.read_a2a_metadata(result.get("metadata"))
         decision = decision_of(result)
         mark = self.mark(result)
         if mark == self.seen:
             return
         self.seen = mark
-        where = f" (workflow state `{choregos['state']}`)" if choregos.get("state") else ""
+        where = f" (workflow state `{platform['state']}`)" if platform.get("state") else ""
         self.out.print(f"· {mark[0]}{where}", markup=False, highlight=False, soft_wrap=True)
         if decision:
             self.out.print(
@@ -419,7 +422,7 @@ def save_artifacts(task: dict[str, Any], directory: Path) -> list[tuple[str, Pat
     written: list[tuple[str, Path | None, str]] = []
     for artifact in task.get("artifacts") or []:
         name = str(artifact.get("name") or artifact.get("artifactId") or "artifact")
-        described = ((artifact.get("metadata") or {}).get("choregos") or {}).get("content")
+        described = wire.read_a2a_metadata(artifact.get("metadata")).get("content")
         if described:
             written.append((name, None, str(described)))
             continue
@@ -501,12 +504,12 @@ def _print_json(value: Any) -> None:
 
 
 def _summary(task: dict[str, Any], out: Console) -> None:
-    choregos = (task.get("metadata") or {}).get("choregos") or {}
-    key = f", {choregos['key']}" if choregos.get("key") else ""
-    where = f", workflow state `{choregos['state']}`" if choregos.get("state") else ""
+    platform = wire.read_a2a_metadata(task.get("metadata"))
+    key = f", {platform['key']}" if platform.get("key") else ""
+    where = f", workflow state `{platform['state']}`" if platform.get("state") else ""
     out.print(f"task {task.get('id')} — {state_of(task)}{key}{where}", markup=False, highlight=False)
-    if choregos.get("console_url"):
-        out.print(f"  console: {choregos['console_url']}", markup=False, highlight=False, soft_wrap=True)
+    if platform.get("console_url"):
+        out.print(f"  console: {platform['console_url']}", markup=False, highlight=False, soft_wrap=True)
     decision = decision_of(task)
     if decision:
         out.print(
@@ -554,7 +557,7 @@ def skills(org: OrgOption = None, token: TokenOption = None, as_json: JsonOption
 @a2a_app.command("send")
 def send(  # noqa: PLR0913 - one option per part of the message, as the guide names them
     skill: Annotated[
-        str, typer.Argument(help="the skill, `project/skill` as `choregos a2a skills` lists it")
+        str, typer.Argument(help="the skill, `project/skill` as `tranibor a2a skills` lists it")
     ],
     text: Annotated[
         list[str] | None,
@@ -619,7 +622,7 @@ def send(  # noqa: PLR0913 - one option per part of the message, as the guide na
     try:
         task = _run(_door(org, token), work)
     except KeyboardInterrupt:
-        errors.print("interrupted: `choregos a2a follow <task>` picks it up again")
+        errors.print("interrupted: `tranibor a2a follow <task>` picks it up again")
         raise typer.Exit(EXIT_INTERRUPTED) from None
     _finish(task, as_json=as_json, out_dir=out_dir, out=out)
     if wait:

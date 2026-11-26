@@ -115,7 +115,8 @@ from .stage_tools import (
     ResolvedMemories,
     _agent_skills,
     _gateway_catalogue,
-    _journal_skipped_memories,
+    _journal_run_notes,
+    _journal_skipped_memories,  # noqa: F401 - the tests import it from here
     _knowledge_of_agent,
     _mcp_servers,
     _memory_bindings,
@@ -461,7 +462,7 @@ async def prepare_stage(plan_data: dict[str, Any]) -> dict[str, Any]:
         if existing is None:
             session.add(run)
         await session.flush()
-        await _journal_skipped_memories(session, run_id, resolved_memories.skipped)
+        await _journal_run_notes(session, run_id, resolved_memories.skipped, bundle.project, agent)
         # What this run's prompt carries from the earlier steps, under the fingerprint of the
         # embedded revision (S25-04). Replayable: an existing receipt is not rewritten (ADR 0008).
         # From the same reads, `_record_chain` writes the run's chain on the row (ADR 0077 §2).

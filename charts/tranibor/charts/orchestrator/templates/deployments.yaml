@@ -1,0 +1,289 @@
+{{- if .Values.enabled }}
+{{- $root := . }}
+{{- range .Values.queues }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tranibor-orchestrator-{{ .name }}
+  labels: {{- include "tranibor.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: orchestrator
+    tranibor/queue: {{ .name }}
+    choregos/queue: {{ .name }}
+spec:
+  replicas: {{ .replicas }}
+  # The queue's label under both names for the window of ADR 0226 (a policy or a dashboard may select
+  # either); this Deployment is new under its new name, so its own selector takes the new one.
+  # Its component and its queue, not its name (ADR 0226, R9b): `global.labelValues` recreates nothing.
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: orchestrator
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      tranibor/queue: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $root "name" "orchestrator") }}
+        app.kubernetes.io/instance: {{ $root.Release.Name }}
+        app.kubernetes.io/component: orchestrator
+        tranibor/queue: {{ .name }}
+        choregos/queue: {{ .name }}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: choregos-orchestrator
+      {{- include "tranibor.imagePullSecrets" $ | nindent 6 }}
+      {{- include "tranibor.antiAffinity" (dict "global" $root.Values.global "labels" (dict "app.kubernetes.io/component" "orchestrator" "tranibor/queue" .name)) | nindent 6 }}
+      # A node that disappears (spot eviction, hardware failure) is only noticed after about
+      # fifty seconds, and Kubernetes' default then leaves the pod **five minutes**
+      # stuck to that dead node before evicting it. Measured on a cluster: 359 s of immobility with
+      # the defaults, 74 s with these tolerations (`tests/cluster/test_node_loss.py`).
+      #
+      # A worker is replaceable and its work is picked up by Temporal: nothing justifies
+      # waiting five minutes for it. Adjustable through `tranibor-orchestrator.unreachableTolerationSeconds`; setting
+      # `0` restores Kubernetes' default behavior.
+      {{- if gt (int $root.Values.unreachableTolerationSeconds) 0 }}
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: {{ $root.Values.unreachableTolerationSeconds }}
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: {{ $root.Values.unreachableTolerationSeconds }}
+      {{- end }}
+      securityContext: {{- toYaml $root.Values.global.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "tranibor.image" (dict "global" $root.Values.global "image" $root.Values.image) }}
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          securityContext: {{- toYaml $root.Values.global.securityContext | nindent 12 }}
+          # The ENTIRE command, not only its arguments: the image's entry point
+          # is `tini`, and its `CMD` already carries `python -m …`. Sending only `--queues x`
+          # replaced that CMD, and tini tried to execute "--queues" — "exec --queues
+          # failed: No such file or directory", a message that does not blame the chart.
+          command: ["python", "-m", "tranibor_orchestrator.worker"]
+          args: ["--queues", {{ .name | quote }}]
+          env:
+            {{- include "tranibor.commonEnv" $root | nindent 12 }}
+            {{- include "tranibor.temporalSecurityEnv" $root | nindent 12 }}
+            - name: TRANIBOR_RUNNER_IMAGE
+              # The runner tag follows the deployment's when it is not pinned: pinned,
+              # it pointed at `1.0.0` in a 0.1.0 installation — a missing image, and an
+              # agent pod in ErrImagePull that nothing else explains.
+              value: {{ $root.Values.global.imageRegistry }}/{{ $root.Values.runner.image }}:{{ $root.Values.runner.tag | default $root.Values.global.imageTag }}
+            - name: TRANIBOR_RUNNER_NAMESPACE_PATTERN
+              value: {{ include "tranibor.runnerNamespacePattern" $root | quote }}
+            # Where provisioning opens the runners towards and binds their executor Role (`gitops.py`).
+            - name: TRANIBOR_PLATFORM_NAMESPACE
+              value: {{ $root.Release.Namespace | quote }}
+            {{- with $root.Values.global.playbooks.configMap }}
+            - name: TRANIBOR_PLAYBOOKS_DIR
+              value: {{ $root.Values.global.playbooks.mountPath | quote }}
+            {{- end }}
+            {{- with $root.Values.global.workflowTemplates.configMap }}
+            - name: TRANIBOR_WORKFLOW_TEMPLATES_DIR
+              value: {{ $root.Values.global.workflowTemplates.mountPath | quote }}
+            {{- end }}
+            # The key that SIGNS the run tokens. The orchestrator issues, the API verifies:
+            # without this variable it signed with an ephemeral pair, and the agent received
+            # "Signature verification failed" — a message that blames the token.
+            - name: TRANIBOR_RUN_TOKEN_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ $root.Values.global.apiSecretRef }}, key: run-token-private-key }
+            # The GitHub App: the tracker reads `agent-ready` issues, the executor opens and merges
+            # PRs. Only the API received it: the catch-up failed with "no authentication
+            # configured" on a tenant that did have its App (S22-04). Optional, as
+            # in the API: a tenant without GitHub has none.
+            - name: TRANIBOR_GITHUB_APP_ID
+              valueFrom: { secretKeyRef: { name: {{ $root.Values.global.apiSecretRef }}, key: github-app-id, optional: true } }
+            - name: TRANIBOR_GITHUB_APP_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: {{ $root.Values.global.apiSecretRef }}, key: github-app-private-key, optional: true } }
+            # The key that seals the connector secrets typed in the console (ADR 0058). Optional: a
+            # deployment without it keeps `env:` references and answers 409 when a value is typed.
+            - name: TRANIBOR_SECRETS_KEKS
+              valueFrom: { secretKeyRef: { name: {{ $root.Values.global.secrets.keksSecretRef | default $root.Values.global.apiSecretRef }}, key: {{ $root.Values.global.secrets.keksKey | default "secrets-keks" }}, optional: true } }
+            # The API's internal service: this is what agents call back, never
+            # the public URL, which a pod cannot resolve.
+            - name: TRANIBOR_INTERNAL_API_URL
+              value: {{ $root.Values.global.internalApiUrl | default "http://tranibor-api:8000" | quote }}
+            - name: TRANIBOR_RUNNER_ENV
+              value: {{ toJson $root.Values.runner.env | quote }}
+            - name: TRANIBOR_RUNNER_ENV_SECRETS
+              value: {{ join "," $root.Values.runner.envFromSecrets | quote }}
+            - name: TRANIBOR_RUNNER_CPU_LIMIT
+              value: {{ $root.Values.runner.limits.cpu | quote }}
+            - name: TRANIBOR_RUNNER_MEMORY_LIMIT
+              value: {{ $root.Values.runner.limits.memory | quote }}
+            # The runner container's own requests and limits when the agent has a container of its
+            # own (ADR 0146 §12); the agent's take the two values above.
+            - name: TRANIBOR_RUNNER_OWN_RESOURCES
+              value: {{ toJson ($root.Values.runner.ownResources | default dict) | quote }}
+            # Simultaneous runs in the namespace. Beyond that, the Job is created SUSPENDED: it
+            # has no pod, does not pull the image and takes no room in the quota.
+            # 0 = no ceiling, the previous behavior.
+            - name: TRANIBOR_RUNNER_MAX_ACTIVE
+              value: {{ $root.Values.runner.maxActive | default 0 | quote }}
+            # The pull secrets of a runner pod the executor creates (S51-09): the `k8s_job` pod of a
+            # step that names its own image runs in the runners' namespace, from a private registry
+            # as often as not. Names only; each secret must exist in that namespace.
+            - name: TRANIBOR_RUNNER_IMAGE_PULL_SECRETS
+              value: {{ join "," ($root.Values.global.imagePullSecrets | default list) | quote }}
+            # The proxy through which an agent pod gets out: the one the provisioning deploys
+            # in the runners namespace, with the allowlist of the project's policy.
+            # Empty on a bench whose namespace has neither NetworkPolicy nor proxy.
+            # The egress gate (S80-07f): the `k8s_job` pod's first init container. The chart's, never
+            # a connector's: a project cannot turn it off.
+            {{- $gate := $root.Values.runner.egressGate | default dict }}
+            - name: TRANIBOR_RUNNER_EGRESS_GATE
+              value: {{ ne (toString $gate.enabled) "false" | quote }}
+            - name: TRANIBOR_RUNNER_EGRESS_GATE_TARGET
+              value: {{ $gate.target | default "1.1.1.1:443" | quote }}
+            - name: TRANIBOR_RUNNER_EGRESS_GATE_DEADLINE
+              value: {{ $gate.deadlineSeconds | default 30 | quote }}
+            - name: TRANIBOR_RUNNER_EGRESS_PROXY
+              value: {{ $root.Values.runner.egressProxy | default "" | quote }}
+            - name: TRANIBOR_EGRESS_IMAGE
+              value: {{ $root.Values.runner.egressImage | default "" | quote }}
+            {{- if (($root.Values.global.egress | default dict).enabled) }}
+            # The per-run egress proxy of the release namespace (ADR 0070): runners present their run
+            # id and token as proxy credentials, and the deployment's deny list applies to every run.
+            - name: TRANIBOR_RUNNER_EGRESS_AUTH
+              value: "run"
+            - name: TRANIBOR_NETWORK_INSTANCE_DENY
+              value: {{ join "," (($root.Values.global.egress).denyDomains | default list) | quote }}
+            {{- end }}
+            {{- if not (hasKey ($root.Values.global.runner | default dict) "runtimeClass") }}
+            # `global.runner.runtimeClass` never set: the sub-chart's value alone (commonEnv sets it otherwise).
+            - name: TRANIBOR_RUNNER_RUNTIME_CLASS
+              value: {{ include "tranibor.runtimeClass" $root | quote }}
+            {{- end }}
+            {{- with $root.Values.global.images }}
+            # The images an operator names for job steps and agents written in code (ADR 0056,
+            # ADR 0063): name -> reference. The API validates a version against the names, the
+            # orchestrator resolves them; a workflow or an agent never writes a reference.
+            {{- with .jobs }}
+            - name: TRANIBOR_JOB_IMAGES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with .agents }}
+            - name: TRANIBOR_AGENT_IMAGES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            - name: TRANIBOR_REQUIRE_IMAGE_DIGEST
+              value: {{ .requireDigest | default false | quote }}
+            # Where a hosted zip's image is built and pushed (ADR 0080 §9).
+            {{- with .buildRegistry }}
+            - name: TRANIBOR_HOSTED_BUILD_REPOSITORY
+              value: {{ . | quote }}
+            {{- end }}
+            - name: TRANIBOR_HOSTED_BUILDER
+              value: {{ .hostedBuilder | default "buildkit" | quote }}
+            {{- end }}
+            {{- with include "tranibor.buildkitAddress" $root }}
+            # The `buildkitd` the build activity dials: the operator's, else the chart's (S41-13).
+            - name: TRANIBOR_BUILDKIT_ADDRESS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if (($root.Values.global.buildkitd | default dict).tls | default dict).clientSecret }}
+            - name: TRANIBOR_BUILDKIT_TLS_DIR
+              value: /etc/tranibor/buildkit
+            {{- end }}
+            {{- if eq (include "tranibor.executorKind" $root) "agent_sandbox" }}
+            # The warm pool the `agent_sandbox` executor claims from, and the port its warm
+            # runners listen on for their one assignment (sandbox.yaml renders both).
+            - name: TRANIBOR_SANDBOX_WARM_POOL
+              value: "tranibor-runner"
+            - name: TRANIBOR_SANDBOX_ASSIGNMENT_PORT
+              value: {{ (($root.Values.runner.sandbox | default dict).assignmentPort | default 8765) | quote }}
+            # A step that names its own image cannot run in a pool made from one image (ADR 0072):
+            # it goes to this executor. Empty keeps the sandbox executor's refusal.
+            - name: TRANIBOR_CUSTOM_IMAGE_EXECUTOR
+              value: {{ $root.Values.runner.customImageExecutor | default "" | quote }}
+            # How long a finished sandbox keeps its workspace volume before the controller
+            # deletes it: every second of it counts against the namespace's storage quota.
+            - name: TRANIBOR_SANDBOX_TTL_SECONDS
+              value: {{ (($root.Values.runner.sandbox | default dict).ttlSecondsAfterFinished | default 300) | quote }}
+            {{- end }}
+            # The kill switch for context reduction (ADR 0055): "off" refuses rtk and headroom
+            # to every run, whatever a project's policy asks.
+            - name: TRANIBOR_CONTEXT_REDUCTION
+              value: {{ ternary "on" "off" (ne $root.Values.runner.contextReduction.enabled false) | quote }}
+            # Tool scripts (ADR 0122, S57-05b): the DEFAULT of an organisation that does not choose
+            # ("off", the default, offers its runs no tool bridge); its `tool_scripts` setting wins.
+            - name: TRANIBOR_TOOL_SCRIPTS
+              value: {{ ternary "on" "off" (eq ((($root.Values.runner.toolScripts | default dict).enabled) | default false) true) | quote }}
+            # The hard brake: "off" offers the tool bridge to no run of any organisation, whatever
+            # its setting says. On unless `allowed: false` is written.
+            - name: TRANIBOR_TOOL_SCRIPTS_ALLOWED
+              value: {{ ternary "on" "off" (ne (($root.Values.runner.toolScripts | default dict).allowed) false) | quote }}
+            - name: TRANIBOR_GATEWAY_MASTER_KEY
+              valueFrom: { secretKeyRef: { name: {{ include "tranibor.gatewaySecret" $root }}, key: master-key } }
+            {{- $concurrency := mergeOverwrite (deepCopy ($root.Values.concurrency | default dict)) (.concurrency | default dict) }}
+            # What this pod takes on at once (S80-07a): the chart's `concurrency`, then the queue's.
+            - name: TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES
+              value: {{ $concurrency.activities | default 20 | quote }}
+            - name: TRANIBOR_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS
+              value: {{ $concurrency.workflowTasks | default 100 | quote }}
+            - name: TRANIBOR_WORKER_MAX_CONCURRENT_LOCAL_ACTIVITIES
+              value: {{ $concurrency.localActivities | default 100 | quote }}
+            - name: TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS
+              value: {{ (hasKey $concurrency "cachedWorkflows") | ternary $concurrency.cachedWorkflows 1000 | quote }}
+          resources: {{- toYaml .resources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- include "tranibor.temporalSecurityMounts" $root | nindent 12 }}
+            {{- if (($root.Values.global.buildkitd | default dict).tls | default dict).clientSecret }}
+            {{- include "tranibor.etcMount" (dict "name" "buildkit-client" "path" "/etc/tranibor/buildkit") | nindent 12 }}
+            {{- end }}
+            {{- with $root.Values.global.playbooks.configMap }}
+            {{- include "tranibor.etcMount" (dict "name" "playbooks" "path" $root.Values.global.playbooks.mountPath) | nindent 12 }}
+            {{- end }}
+            {{- with $root.Values.global.workflowTemplates.configMap }}
+            {{- include "tranibor.etcMount" (dict "name" "workflow-templates" "path" $root.Values.global.workflowTemplates.mountPath) | nindent 12 }}
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- include "tranibor.temporalSecurityVolumes" $root | nindent 8 }}
+        {{- with (($root.Values.global.buildkitd | default dict).tls | default dict).clientSecret }}
+        - name: buildkit-client
+          secret: { secretName: {{ . }} }
+        {{- end }}
+        {{- with $root.Values.global.playbooks.configMap }}
+        - name: playbooks
+          configMap: { name: {{ . }} }
+        {{- end }}
+        {{- with $root.Values.global.workflowTemplates.configMap }}
+        - name: workflow-templates
+          configMap: { name: {{ . }} }
+        {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: choregos-orchestrator
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+  annotations: {{- toYaml .Values.global.serviceAccount.annotations | nindent 4 }}
+{{- if has (include "tranibor.executorKind" .) (list "k8s_job" "agent_sandbox") }}
+{{- /* Same account for `agent_sandbox`: the SandboxTemplate names it, with no token mounted.
+# The `k8s_job` executor launches runners in THIS namespace under this account: without it,
+# pod creation fails. No rights, no token mounted — an agent has nothing to
+# ask of the Kubernetes API. (With Tekton, the provisioning creates it per project.)
+# The pull secrets too (S51-09): a job step's named image (`global.images.jobs`) or a hosted
+# agent's may sit in a private registry project, and a pod of this account pulls it.
+# `tranibor-runner` since 0.30.0 (ADR 0226, R9b): the new template names it, and the `k8s_job` executor
+# names it where the namespace has it. The former `choregos-runner` stays until 0.32.0: the former template
+# and the sandboxes made from it name it, and so does a Job started before the upgrade. */}}
+{{- range $account := list "tranibor-runner" "choregos-runner" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $account }}
+  labels: {{- include "tranibor.labels" $ | nindent 4 }}
+automountServiceAccountToken: false
+{{- include "tranibor.imagePullSecrets" $ }}
+{{- end }}
+{{- end }}
+{{- end }}

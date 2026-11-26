@@ -1,23 +1,23 @@
-# Choregos images
+# Tranibor images
 
 | Image | Content | Specificity |
 | :-- | :-- | :-- |
-| `choregos-api` | FastAPI API + Alembic migrations | non-root, read-only file system |
-| `choregos-orchestrator` | Temporal workers | `worker` target of `api.Dockerfile` — same build, same commit |
-| `choregos-tools` | MCP sidecar | holds nothing but the run's token |
-| `choregos-outpost` | the daemon an outpost's operator runs in their own network (ADR 0147) | not a workload of the platform: it only dials out, listens on nothing, and carries no secret and no address (the policy file and the keys are mounted) |
-| `choregos-web` | Next.js front end | production build, strict CSP |
-| `choregos-runner` | an agent's workspace | pinned ACP agents, scanners, **refusal shims** |
-| `choregos-laya` | the decision model behind LiteLLM (`platform/decide`, ADR 0121) | CPU only, checkpoint baked in at a pinned commit, offline at run time (`HF_HUB_OFFLINE=1`) |
+| `tranibor-api` | FastAPI API + Alembic migrations | non-root, read-only file system |
+| `tranibor-orchestrator` | Temporal workers | `worker` target of `api.Dockerfile` — same build, same commit |
+| `tranibor-tools` | MCP sidecar | holds nothing but the run's token |
+| `tranibor-outpost` | the daemon an outpost's operator runs in their own network (ADR 0147) | not a workload of the platform: it only dials out, listens on nothing, and carries no secret and no address (the policy file and the keys are mounted) |
+| `tranibor-web` | Next.js front end | production build, strict CSP |
+| `tranibor-runner` | an agent's workspace | pinned ACP agents, scanners, **refusal shims** |
+| `tranibor-laya` | the decision model behind LiteLLM (`platform/decide`, ADR 0121) | CPU only, checkpoint baked in at a pinned commit, offline at run time (`HF_HUB_OFFLINE=1`) |
 
 ## Build locally
 
 ```bash
-docker build -f docker/api.Dockerfile --target api    -t choregos-api:dev .
-docker build -f docker/api.Dockerfile --target worker -t choregos-orchestrator:dev .
-docker build -f docker/runner.Dockerfile              -t choregos-runner:dev .
-docker build -f docker/outpost.Dockerfile             -t choregos-outpost:dev .
-docker build -f docker/laya.Dockerfile                -t choregos-laya:dev .
+docker build -f docker/api.Dockerfile --target api    -t tranibor-api:dev .
+docker build -f docker/api.Dockerfile --target worker -t tranibor-orchestrator:dev .
+docker build -f docker/runner.Dockerfile              -t tranibor-runner:dev .
+docker build -f docker/outpost.Dockerfile             -t tranibor-outpost:dev .
+docker build -f docker/laya.Dockerfile                -t tranibor-laya:dev .
 ```
 
 Behind a TLS-inspecting proxy, add `--build-context build-ca=<directory of *.pem/*.crt>` and the proxy

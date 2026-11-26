@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-admin`: the gestures that come before the first token.
+"""`tranibor-admin` (`choregos-admin`, its former name, for the window of ADR 0226 R5): the gestures
+that come before the first token.
 
 The first API token cannot come from the API: calling `POST /me/tokens` takes a session, and a
 session comes from an IdP or from the front end. A new installation, from a terminal, needs a
 server-side gesture: this one. It talks to the database directly, like the migrations, and is
 used for nothing else.
 
-    choregos-admin tokens create --email admin@example.org --name bootstrap
-    choregos-admin orgs bootstrap   # replays the bootstrap (TRANIBOR_BOOTSTRAP_*) by hand
-    choregos-admin audit verify     # walks every audit chain, reports the first break (ADR 0182)
-    choregos-admin audit checkpoint --key-file - < audit-checkpoint.pem
-    choregos-admin audit prune --dry-run   # applies the retention rule once (ADR 0221)
+    tranibor-admin tokens create --email admin@example.org --name bootstrap
+    tranibor-admin orgs bootstrap   # replays the bootstrap (TRANIBOR_BOOTSTRAP_*) by hand
+    tranibor-admin audit verify     # walks every audit chain, reports the first break (ADR 0182)
+    tranibor-admin audit checkpoint --key-file - < audit-checkpoint.pem
+    tranibor-admin audit prune --dry-run   # applies the retention rule once (ADR 0221)
 """
 
 from __future__ import annotations

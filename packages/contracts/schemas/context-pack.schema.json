@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/context-pack.schema.json",
+  "$id": "https://tranibor.dev/schemas/context-pack.schema.json",
   "title": "ContextPack",
   "description": "The memory selected for a stage, within a token budget. **Untrusted** content: data, never instructions.",
   "type": "object",
   "required": ["schema", "query", "tokens_estimated", "memories"],
   "additionalProperties": false,
   "properties": {
-    "schema": { "const": "choregos/ContextPack/v1" },
+    "schema": { "enum": ["tranibor/ContextPack/v1", "choregos/ContextPack/v1"], "description": "`tranibor/ContextPack/v1`; the former `choregos/ContextPack/v1` is read until 0.32.0 (ADR 0226)" },
     "query": { "type": "string" },
     "paths": { "type": "array", "items": { "type": "string" }, "default": [] },
     "kinds": { "type": "array", "items": { "type": "string" }, "default": [] },

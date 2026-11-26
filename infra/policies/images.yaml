@@ -3,7 +3,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-verify-images
+  name: tranibor-verify-images
   annotations:
     policies.kyverno.io/description: >-
       Verifies the cosign signature of the Choregos images and requires the reference by digest.
@@ -17,7 +17,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
-              namespaces: ["choregos", "choregos-*", "proj-*"]
+              namespaces: ["tranibor", "tranibor-*", "choregos", "choregos-*", "proj-*"]
       verifyImages:
         # The former names (ADR 0176 R3): no longer published since step (e), after 0.29.4, but still
         # admitted with the same signer so that a pod running an image pushed under them is not refused

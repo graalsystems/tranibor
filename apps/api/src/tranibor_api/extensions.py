@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The routes an extension adds to the API, without forking `main.py`.
 
-An extension (a `choregos.plugins` entry-point package, loaded by the adapters' extension loader)
+An extension (a `tranibor.plugins` entry-point package, loaded by the adapters' extension loader)
 could already register a connector, a guarantee, declare an edition or a group mapper. It could not
 **serve** anything: `create_app()` only included its own routers. Any feature that needs a route (an
 organisation's life cycle, an in-house integration) therefore asked for a patch of the core.
@@ -180,11 +180,11 @@ class ToolProvider:
     `inputSchema`); `call_tool(session, run, project, name, arguments)` returns `(HTTP code, body)`.
     A code of 400 or more is an answer the agent reads, not a failure.
 
-    A listed tool may carry `result_max_bytes` (an integer of at least 1024): how much of its answer
-    the agent reads, as a catalogue entry declares it (S40-17b); the agent is never shown it. It may
-    carry `x-choregos-access` (`read`, `write` or `approval`: a call proposes what a person decides),
-    which the run's tool list announces (ADR 0122); without it, a tool annotated `readOnlyHint: true`
-    is a read and any other a write.
+    A listed tool may carry `result_max_bytes` (an integer of at least 1024): how much of its answer the agent
+    reads, as a catalogue entry declares it (S40-17b); the agent is never shown it. It may carry
+    `x-tranibor-access` (or the former `x-choregos-access`, ADR 0226): `read`, `write` or `approval` (a call
+    proposes what a person decides), which the run's tool list announces (ADR 0122); without it, a tool
+    annotated `readOnlyHint: true` is a read and any other a write.
 
     `call_tool` is handed the request's session with no transaction open (#1354): the request holds no
     pooled connection while the extension works. What it reads or writes begins a transaction under the

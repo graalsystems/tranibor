@@ -87,9 +87,9 @@ def access_report(events: list[dict[str, Any]]) -> AccessReport:
     """Fold the log of a run into an access report.
 
     The events are the ones we already record: `session/request_permission` carries the
-    guardrail's decision (nature, target, allowed, reason), and `choregos.tool.called` a call to
-    the catalogue. The rest of the log, the agent's prose, does not enter here: this report
-    answers "what did it touch", not "what did it say".
+    guardrail's decision (nature, target, allowed, reason), and `tranibor.tool.called` (formerly
+    `choregos.tool.called`) a call to the catalogue. The rest of the log, the agent's prose, does not
+    enter here: this report answers "what did it touch", not "what did it say".
     """
     groups: OrderedDict[tuple[str, str], AccessLine] = OrderedDict()
     count = 0
@@ -106,7 +106,7 @@ def access_report(events: list[dict[str, Any]]) -> AccessReport:
                 continue
             allowed = bool(payload.get("allowed", True))
             reason = str(payload.get("reason") or "")
-        elif type_ in {"choregos.tool.called", "tool.called"}:
+        elif type_ in {"tranibor.tool.called", "choregos.tool.called", "tool.called"}:
             nature, target, allowed = "tool", str(payload.get("tool") or ""), True
             reason = str(payload.get("provider") or "")
             if not target:

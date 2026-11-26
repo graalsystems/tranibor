@@ -26,7 +26,7 @@ What the core guarantees, whatever the resolver returns, and why each guarantee 
   `example.com` and refuses unless it is the same one. Without it, any tenant's provider could
   assert any address and sign in as a member of another tenant.
 - **A tenant's provider grants roles in its tenant only.** A group naming another organisation
-  (`choregos:<other>:org-admins`) is dropped; a bare group applies to the tenant.
+  (`tranibor:<other>:org-admins`) is dropped; a bare group applies to the tenant.
 - **A tenant's subject never collides with another provider's.** It is stored as
   `tenant:<org id>:<sub>`: two providers may well issue the same `sub`.
 

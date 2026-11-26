@@ -26,7 +26,7 @@ def test_validate_accepts_a_conforming_result(tmp_path: Path) -> None:
     path.write_text(
         json.dumps(
             {
-                "schema": "choregos/StageResult/v1",
+                "schema": "tranibor/StageResult/v1",
                 "status": "done",
                 "summary": "step finished",
                 "evidence": {"tests_passed": True, "tests_run": 3},

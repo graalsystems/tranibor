@@ -28,7 +28,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 PROFILE = CHART / "values" / "single-node.yaml"
 SITE = ("backup.target.s3.url=s3://backups/choregos", "backup.target.s3.endpoint=http://s3:8333")
 JOBS = ("c-backup", "c-restore")
@@ -77,12 +77,12 @@ def _owner_claim(docs: list[dict[str, Any]], component: str) -> str:
 CASES = {
     "defaults": ((), "c-temporal", "c-ecphoria"),
     "adopted memory claim": (
-        ("choregos-ecphoria.persistence.existingClaim=ecphoria-data",),
+        ("tranibor-ecphoria.persistence.existingClaim=ecphoria-data",),
         "c-temporal",
         "ecphoria-data",
     ),
     "adopted temporal claim": (
-        ("choregos-temporal.persistence.existingClaim=temporal-data",),
+        ("tranibor-temporal.persistence.existingClaim=temporal-data",),
         "temporal-data",
         "c-ecphoria",
     ),
@@ -118,7 +118,7 @@ def test_the_backup_and_the_restore_mount_the_claims_the_owners_mount(
 
 
 def test_the_memory_has_one_writer_and_the_backup_never_opens_its_duckdb_files() -> None:
-    docs = _docs("choregos-ecphoria.persistence.existingClaim=ecphoria-data")
+    docs = _docs("tranibor-ecphoria.persistence.existingClaim=ecphoria-data")
     (ecphoria,) = [d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "c-ecphoria"]
     assert ecphoria["spec"]["replicas"] == 1
     # Never an old and a new Ecphoria pod on the volume at once.
@@ -141,8 +141,8 @@ def _temporal_mounts(pod: dict[str, Any]) -> list[str]:
 
 def test_only_a_dev_mode_temporal_has_a_claim_the_backup_mounts() -> None:
     """`dev` keeps Temporal in a SQLite file on its claim; `server` keeps it in PostgreSQL (#2156)."""
-    dev = _docs("choregos-temporal.mode=dev")
-    server = _docs("choregos-temporal.mode=server")
+    dev = _docs("tranibor-temporal.mode=dev")
+    server = _docs("tranibor-temporal.mode=server")
     for job in JOBS:
         dev_pod = _job_pod(_one(dev, "CronJob", job))
         assert _claims(dev_pod)["temporal"] == "c-temporal", job
@@ -156,7 +156,7 @@ def test_only_a_dev_mode_temporal_has_a_claim_the_backup_mounts() -> None:
 
 
 def test_in_server_mode_the_backup_pod_spec_holds_and_the_database_step_dumps_temporal() -> None:
-    docs = _docs("choregos-temporal.mode=server")
+    docs = _docs("tranibor-temporal.mode=server")
     rendered = {d["metadata"]["name"] for d in docs if d["kind"] == "PersistentVolumeClaim"}
     assert "c-temporal" not in rendered
     for job in JOBS:
@@ -183,7 +183,7 @@ def test_a_server_mode_temporal_alone_is_nothing_for_the_backup_to_back_up() -> 
     command = ["helm", "template", "c", str(CHART), "-n", "choregos", "-f", str(PROFILE)]
     for value in (
         *SITE,
-        "choregos-temporal.mode=server",
+        "tranibor-temporal.mode=server",
         "global.database.embedded=false",
         "global.memory.embedded=false",
     ):

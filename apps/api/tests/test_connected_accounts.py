@@ -384,6 +384,8 @@ async def test_a_plugin_server_receives_the_persons_token_next_to_the_platforms(
     (call,) = calls
     assert call.headers["authorization"] == "Bearer platform-token"
     assert call.headers["x-choregos-user-token"] == "the-persons-token"
+    # ADR 0226: the new name, beside the former one a server built before it reads.
+    assert call.headers["x-tranibor-user-token"] == "the-persons-token"
 
 
 # ───────────────────────── security review of the consent (2026-11-11) ─────────────────────────

@@ -1,7 +1,7 @@
 # The default workflow of a project without a repository (ADR 0110): a brief a person approves, then a
 # deliverable the same people accept. It needs no repository, no CI and no CD — a core test pins its
 # requirements to tracker, runtime and gateway, so a step that would need one turns the suite red.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: default-request
@@ -12,7 +12,7 @@ actors:
   owner: { type: human, group: product-owners, sla_hours: 24 }
   assistant: { type: agent, role: deliver, model: "profile:by_size" }
 states:
-  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "choregos:inbox" } }
+  inbox: { display: To triage, kind: wait, tracker: { status: Todo, label: "tranibor:inbox" } }
   refining: { display: Refining, tracker: { status: Refining } }
   awaiting_brief_approval: { display: Brief to approve, kind: wait, tracker: { status: Needs review } }
   ready: { display: Ready, tracker: { status: Ready } }

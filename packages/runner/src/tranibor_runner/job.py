@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """A job step (ADR 0056): the runner runs a command instead of an agent.
 
-The command reads what an agent would read — `.choregos/task.md`, the declared inputs in
-`.choregos/inputs/`, the work item's fields in `.choregos/fields.json` — and writes what an agent
-would write: files in `.choregos/outputs/`, and `.choregos/job.json`, whose `outputs` carry the
+The command reads what an agent would read — `.tranibor/task.md`, the declared inputs in
+`.tranibor/inputs/`, the work item's fields in `.tranibor/fields.json` — and writes what an agent
+would write: files in `.tranibor/outputs/`, and `.tranibor/job.json`, whose `outputs` carry the
 declared inline outputs (json, markdown: values, not files — ADR 0049):
 
     {"summary": "...", "facts": {"relevant_count": 2}, "outputs": {"verdict": "..."}}
@@ -12,6 +12,9 @@ The exit code is the status (0: done, anything else: failed); the job cannot cla
 `facts` are recorded as *measured* (ADR 0045): the platform ran the code that produced them — which
 is the whole difference with an agent, whose facts are what it says. A fact the project measures
 with a `dod.facts` command still wins over the job's.
+
+A job image built before ADR 0226 (R9a) knows only `.choregos/`: until 0.32.0 the runner lays what a job
+reads there too, and reads `.choregos/job.json` when the job wrote no `.tranibor/job.json`.
 """
 
 from __future__ import annotations
@@ -26,12 +29,13 @@ from typing import Any
 
 from pydantic import ValidationError
 from tranibor_contracts import Evidence, StageInput, StageOutputs, StageResult, StageStatus
+from tranibor_contracts.wire import run_path
 
-from . import safe_files
+from . import run_dir, safe_files
 from .workspace import run_command
 
-JOB_RESULT = ".choregos/job.json"
-FIELDS = ".choregos/fields.json"
+JOB_RESULT = run_path("job.json")
+FIELDS = run_path("fields.json")
 #: The report keys a job's result carries: what ran, so that a result can be traced to its code.
 REPORT_IMAGE = "job_image"
 REPORT_COMMAND = "job_command_sha256"
@@ -77,7 +81,7 @@ def job_result(stage_input: StageInput, workspace: Path, ran: JobRun) -> tuple[S
     """The step's result and the evidence the job measured, from its exit code and `job.json`."""
     declared: dict[str, Any] = {}
     problem = ""
-    path = workspace / JOB_RESULT
+    path = run_dir.found(workspace, "job.json")
     if path.is_file():
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))

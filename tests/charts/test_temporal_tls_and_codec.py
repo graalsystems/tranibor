@@ -17,7 +17,9 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+from .conftest import both_paths
+
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -46,7 +48,7 @@ def _temporal_clients(*sets: str) -> dict[str, dict[str, Any]]:
         if doc.get("kind") != "Deployment":
             continue
         name = doc["metadata"]["name"]
-        if name == "choregos-api" or name.startswith("choregos-orchestrator-"):
+        if name == "tranibor-api" or name.startswith("tranibor-orchestrator-"):
             pods[name] = doc["spec"]["template"]["spec"]
     return pods
 
@@ -56,9 +58,13 @@ def _env(spec: dict[str, Any]) -> dict[str, str]:
     return {v["name"]: v.get("value", "") for v in container.get("env", [])}
 
 
-def _mounts(spec: dict[str, Any]) -> dict[str, str]:
+def _mounts(spec: dict[str, Any]) -> dict[str, list[str]]:
+    """Each volume's mount paths: the chart's `/etc/tranibor/…`, then its former `/etc/choregos/…` (R9b)."""
     (container,) = [c for c in spec["containers"] if c["name"] in ("api", "worker")]
-    return {m["name"]: m["mountPath"] for m in container.get("volumeMounts", [])}
+    found: dict[str, list[str]] = {}
+    for mount in container.get("volumeMounts", []):
+        found.setdefault(mount["name"], []).append(mount["mountPath"])
+    return found
 
 
 def _secret_volumes(spec: dict[str, Any]) -> dict[str, str]:
@@ -67,14 +73,14 @@ def _secret_volumes(spec: dict[str, Any]) -> dict[str, str]:
 
 def test_tls_is_off_by_default_and_the_codec_is_on() -> None:
     pods = _temporal_clients()
-    assert "choregos-api" in pods and any(n.startswith("choregos-orchestrator-") for n in pods)
+    assert "tranibor-api" in pods and any(n.startswith("tranibor-orchestrator-") for n in pods)
     for name, spec in pods.items():
         env = _env(spec)
-        assert not [k for k in env if k.startswith("CHOREGOS_TEMPORAL_TLS")], name
-        assert env["CHOREGOS_TEMPORAL_CODEC_KEYS_FILE"] == "/etc/choregos/temporal-codec/keys", name
-        assert "CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS" not in env, name
+        assert not [k for k in env if k.startswith("TRANIBOR_TEMPORAL_TLS")], name
+        assert env["TRANIBOR_TEMPORAL_CODEC_KEYS_FILE"] == "/etc/tranibor/temporal-codec/keys", name
+        assert "TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS" not in env, name
         assert "temporal-tls" not in _mounts(spec), name
-        assert _mounts(spec)["temporal-codec"] == "/etc/choregos/temporal-codec", name
+        assert _mounts(spec)["temporal-codec"] == both_paths("/etc/tranibor/temporal-codec"), name
         assert _secret_volumes(spec)["temporal-codec"] == "choregos-temporal-codec", name
 
 
@@ -107,7 +113,7 @@ def test_a_secret_named_by_the_operator_is_mounted_and_none_is_drawn() -> None:
 
 def test_the_opt_out_in_dev_mounts_nothing_and_sets_no_variable() -> None:
     for name, spec in _temporal_clients("global.temporal.codec.enabled=false").items():
-        assert not [k for k in _env(spec) if k.startswith("CHOREGOS_TEMPORAL_CODEC")], name
+        assert not [k for k in _env(spec) if k.startswith("TRANIBOR_TEMPORAL_CODEC")], name
         assert "temporal-codec" not in _mounts(spec), name
 
 
@@ -133,14 +139,14 @@ def test_production_without_the_codec_is_refused_unless_allow_clear_says_so(envi
     envs = [
         c["env"]
         for d in yaml.safe_load_all(allowed.stdout)
-        if d and d.get("kind") == "Deployment" and d["metadata"]["name"] == "choregos-api"
+        if d and d.get("kind") == "Deployment" and d["metadata"]["name"] == "tranibor-api"
         for c in d["spec"]["template"]["spec"]["containers"]
         if c["name"] == "api"
     ]
     (api_env,) = envs
     values = {e["name"]: e.get("value") for e in api_env}
-    assert values["CHOREGOS_TEMPORAL_ALLOW_CLEAR_PAYLOADS"] == "true"
-    assert "CHOREGOS_TEMPORAL_CODEC_KEYS_FILE" not in values
+    assert values["TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS"] == "true"
+    assert "TRANIBOR_TEMPORAL_CODEC_KEYS_FILE" not in values
 
 
 def test_enabled_the_api_and_every_worker_mount_both_secrets_and_name_the_files() -> None:
@@ -155,15 +161,15 @@ def test_enabled_the_api_and_every_worker_mount_both_secrets_and_name_the_files(
             }.items()
         ), name
         mounts = _mounts(spec)
-        assert mounts["temporal-tls"] == "/etc/choregos/temporal-tls", name
-        assert mounts["temporal-codec"] == "/etc/choregos/temporal-codec", name
+        assert mounts["temporal-tls"] == both_paths("/etc/tranibor/temporal-tls"), name
+        assert mounts["temporal-codec"] == both_paths("/etc/tranibor/temporal-codec"), name
         env = _env(spec)
-        assert env["CHOREGOS_TEMPORAL_TLS"] == "true", name
-        assert env["CHOREGOS_TEMPORAL_TLS_CA_FILE"] == "/etc/choregos/temporal-tls/ca.crt", name
-        assert env["CHOREGOS_TEMPORAL_TLS_CERT_FILE"] == "/etc/choregos/temporal-tls/tls.crt", name
-        assert env["CHOREGOS_TEMPORAL_TLS_KEY_FILE"] == "/etc/choregos/temporal-tls/tls.key", name
-        assert env["CHOREGOS_TEMPORAL_TLS_SERVER_NAME"] == "frontend.temporal.internal", name
-        assert env["CHOREGOS_TEMPORAL_CODEC_KEYS_FILE"] == "/etc/choregos/temporal-codec/keys", name
+        assert env["TRANIBOR_TEMPORAL_TLS"] == "true", name
+        assert env["TRANIBOR_TEMPORAL_TLS_CA_FILE"] == "/etc/tranibor/temporal-tls/ca.crt", name
+        assert env["TRANIBOR_TEMPORAL_TLS_CERT_FILE"] == "/etc/tranibor/temporal-tls/tls.crt", name
+        assert env["TRANIBOR_TEMPORAL_TLS_KEY_FILE"] == "/etc/tranibor/temporal-tls/tls.key", name
+        assert env["TRANIBOR_TEMPORAL_TLS_SERVER_NAME"] == "frontend.temporal.internal", name
+        assert env["TRANIBOR_TEMPORAL_CODEC_KEYS_FILE"] == "/etc/tranibor/temporal-codec/keys", name
 
 
 def test_without_mutual_tls_no_client_certificate_is_named() -> None:
@@ -171,9 +177,9 @@ def test_without_mutual_tls_no_client_certificate_is_named() -> None:
         "global.temporal.tls.enabled=true", "global.temporal.tls.secretName=ca"
     ).values():
         env = _env(spec)
-        assert env["CHOREGOS_TEMPORAL_TLS_CA_FILE"].endswith("/ca.crt")
-        assert "CHOREGOS_TEMPORAL_TLS_CERT_FILE" not in env and "CHOREGOS_TEMPORAL_TLS_KEY_FILE" not in env
-        assert _mounts(spec)["temporal-codec"] == "/etc/choregos/temporal-codec"
+        assert env["TRANIBOR_TEMPORAL_TLS_CA_FILE"].endswith("/ca.crt")
+        assert "TRANIBOR_TEMPORAL_TLS_CERT_FILE" not in env and "TRANIBOR_TEMPORAL_TLS_KEY_FILE" not in env
+        assert _mounts(spec)["temporal-codec"] == both_paths("/etc/tranibor/temporal-codec")
 
 
 @pytest.mark.parametrize(
@@ -181,8 +187,8 @@ def test_without_mutual_tls_no_client_certificate_is_named() -> None:
     [
         (("global.temporal.tls.enabled=true",), "global.temporal.tls.secretName"),
         (
-            (*ON, "global.extraEnv[0].name=CHOREGOS_TEMPORAL_CODEC_KEYS", "global.extraEnv[0].value=x"),
-            "CHOREGOS_TEMPORAL_CODEC_KEYS",
+            (*ON, "global.extraEnv[0].name=TRANIBOR_TEMPORAL_CODEC_KEYS", "global.extraEnv[0].value=x"),
+            "TRANIBOR_TEMPORAL_CODEC_KEYS",
         ),
     ],
 )

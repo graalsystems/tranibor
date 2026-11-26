@@ -1,6 +1,6 @@
 # 0224 — A plugin server implements a profile a plugin declares, and runs as named instances
 
-- **Status**: accepted, 2026-11-25, by the project lead for §1 to §5; §6 stays open (a choice between 6a and 6b). The stories are stream S86 ([status](../plan/status/S86.md)).
+- **Status**: accepted, 2026-11-25, by the project lead for §1 to §5; §6 accepted on 2026-11-26 by the project lead as 6a; 6b is left to a later ADR. The stories are stream S86 ([status](../plan/status/S86.md)).
 - **Concerns**: `packages/contracts/schemas/plugin.schema.json` (`contents.profiles`),
   `packages/contracts/schemas/plugin-server.schema.json` (`implements`), a new
   `packages/contracts/schemas/plugin-profile.schema.json`, the agent catalogue entry's `mcp_servers`
@@ -167,22 +167,32 @@ operations and their policies. `SchemaForm` gains two hints the servers already 
 under a field) and `x-link` (a documentation link). With one plugin per provider, it needs no conditional
 fields.
 
-### 6. Reaching a private system (to decide; two options)
+### 6. A deployment may let plugin servers reach named private ranges
 
-- **6a. A deployment may let plugin servers reach named private ranges** (recommended first). The
-  operator lists CIDRs in `plugins.servers.egress.privateCidrs`, off by default and refused on a
-  multi-organisation deployment unless each CIDR is also bound to one organisation
-  (`plugins.servers.egress.privateCidrsByOrg`). An instance's egress host that resolves into a listed
-  range is admitted, against the organisation's network bounds (ADR 0070), when it is typed. The
-  NetworkPolicy then opens exactly that host and port, and with Cilium a `toFQDNs` or `toCIDR` rule. The
-  metadata and link-local ranges stay closed whatever is listed. This suits a deployment that runs
-  inside its customer's network, which is the case of most self-hosted installs.
-- **6b. An instance may be placed at an outpost** (a later ADR). The outpost runs the server's pinned
-  and signed image beside its daemon. The platform keeps the declaration, the operations and the
-  governance, and calls it through the rendezvous (ADR 0149 §3 to §5). The configuration typed in the
-  console is sealed to the claiming instance's X25519 key (ADR 0147 §2), so the platform never holds it
-  in clear on the outpost's side. This suits a SaaS platform and remote sites. It is larger work, and it
-  needs a security review of the image's supply chain at the outpost.
+[ADR 0096](0096-a-plugin-s-code-runs-as-an-mcp-server-the-platform-runs.md) §8 refuses private,
+link-local and CGNAT addresses for a plugin server's egress. A system a plugin must reach (a LAN
+controller, an on-premises directory) sits in exactly those ranges. The decision:
+
+- The operator lists CIDRs in `plugins.servers.egress.privateCidrs`. It is empty, so off, by default.
+- On a multi-organisation deployment, each listed CIDR must also be bound to one organisation in
+  `plugins.servers.egress.privateCidrsByOrg`. A CIDR that is not bound is refused at startup: the
+  API does not start.
+- When an instance's configuration is typed, an egress host that resolves into a listed range is
+  admitted for that organisation only, and within the organisation's network bounds (ADR 0070).
+  Every other private, link-local, CGNAT or metadata address stays refused, as today.
+- The NetworkPolicy opens exactly that host's resolved address and port, and with Cilium a `toCIDR`
+  rule (or `toFQDNs` where the existing path uses it) of the same scope.
+- The metadata addresses (`169.254.169.254`, `fd00:ec2::254` and the like) and the link-local ranges stay
+  closed whatever is listed.
+
+This suits a deployment that runs inside its customer's network, which is the case of most self-hosted
+installs.
+
+**Later: an instance at an outpost (6b).** The outpost would run the server's pinned and signed image
+beside its daemon, and the platform would call it through the rendezvous (ADR 0149 §3 to §5), the
+configuration sealed to the claiming instance's key (ADR 0147 §2). It suits a SaaS platform and remote
+sites. It is larger work and needs a security review of the image's supply chain at the outpost. It is
+left to a later ADR; nothing here decides it.
 
 ## Consequences
 
@@ -215,7 +225,7 @@ fields.
    uninstall of all instances, and the migration test that existing installs keep their names.
 4. Broker: profile resolution, the cap, `profile.unbound`, and the ledger lines naming the instance.
 5. Console: profiles, servers and instances, Add instance, `x-help` and `x-link`.
-6. Egress 6a (if accepted): `privateCidrs`, `privateCidrsByOrg`, NetworkPolicy and Cilium rules, and the
+6. Egress 6a: `privateCidrs`, `privateCidrsByOrg`, NetworkPolicy and Cilium rules, and the
    check at typing.
 7. Plugins (graalsystems/tranibor-agents): the seven profile plugins and their implementations, rebuilt
    from #55 to #62, which close unmerged.

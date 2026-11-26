@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Smoke test of a native `choregos` binary, run where no Python is available (S62-07).
+"""Smoke test of a native `tranibor` binary, run where no Python is available (S62-07).
 
-    python tools/cli_binary/smoke.py dist/cli/choregos-linux-x86_64 --expect-version 0.25.3
-    python tools/cli_binary/smoke.py dist/cli/choregos-linux-x86_64 --expect-version 0.25.3 \\
+    python tools/cli_binary/smoke.py dist/cli/tranibor-linux-x86_64 --expect-version 0.25.3
+    python tools/cli_binary/smoke.py dist/cli/tranibor-linux-x86_64 --expect-version 0.25.3 \\
         --container debian:bookworm-slim
 
 This script is the DRIVER: it needs the standard library of any Python 3.12, writes the files the
@@ -15,7 +15,7 @@ binary reads, and serves a fake A2A door. The binary under test never sees a Pyt
   image has no Python at all (the driver checks that too), reaching the door as
   `host.docker.internal` (Docker's `host-gateway`, on Docker Engine and Docker Desktop alike).
 
-What it proves, in order: the size budget; `choregos --version` prints the expected version, and its
+What it proves, in order: the size budget; `tranibor --version` prints the expected version, and its
 start-up stays under budget (a cold start unpacks the binary, a warm one reuses it: the warm median
 is enforced, the cold one is printed); `workflow templates` lists the core's templates (the data
 files are inside); `workflow validate` passes a shipped template and fails a broken workflow and an
@@ -65,7 +65,7 @@ TEMPLATES = ROOT / "packages" / "core" / "src" / "tranibor_core" / "dsl" / "temp
 MAX_SIZE_MB = 40.0
 MAX_WARM_START_S = 2.0
 #: The extension the CLI reads a skill's fields from (`tranibor_cli.a2a.SKILL_FIELDS_EXTENSION`).
-SKILL_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+SKILL_FIELDS_EXTENSION = "https://tranibor.dev/a2a/extensions/skill-fields/v1"
 ORG = "smoke"
 TOKEN = "smoke-a2a-token"  # noqa: S105 - the fake door's own, valid nowhere else
 CARD: dict[str, Any] = {
@@ -112,7 +112,7 @@ CARD: dict[str, Any] = {
     },
 }
 BROKEN_WORKFLOW = """\
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: broken
@@ -250,7 +250,7 @@ class Runner:
     log: list[str] = field(default_factory=list)
 
     #: Where the container sees the binary; its directory is on the container's PATH.
-    INSIDE = "/opt/choregos/choregos"
+    INSIDE = "/opt/tranibor/tranibor"
 
     def expected_path(self) -> str:
         """The executable `self update` must find: the binary's real path, wherever it was called from."""
@@ -275,7 +275,7 @@ class Runner:
         inside["TRANIBOR_API_URL"] = self.env["TRANIBOR_API_URL"].replace("127.0.0.1", "host.docker.internal")
         inside.update(
             {
-                "PATH": "/opt/choregos:/usr/sbin:/usr/bin:/sbin:/bin",
+                "PATH": "/opt/tranibor:/usr/sbin:/usr/bin:/sbin:/bin",
                 "PYTHONHOME": "/nowhere",
                 "PYTHONPATH": "/nowhere",
             }
@@ -292,7 +292,7 @@ class Runner:
             "--workdir=/smoke",
             *[f"--env={key}={value}" for key, value in sorted(inside.items())],
             self.container,
-            "choregos" if by_name else self.INSIDE,
+            "tranibor" if by_name else self.INSIDE,
             *args,
         ]
 
@@ -317,7 +317,7 @@ class Runner:
             seconds,
         )
         how = " (by name, on the PATH)" if by_name else ""
-        self.log.append(f"$ choregos {' '.join(args)}{how}  -> exit {result.code} in {seconds:.2f} s")
+        self.log.append(f"$ tranibor {' '.join(args)}{how}  -> exit {result.code} in {seconds:.2f} s")
         return result
 
 
@@ -372,7 +372,7 @@ def functional_checks(runner: Runner, version: str) -> None:
 
 
 def self_knowledge_checks(runner: Runner, version: str) -> list[dict[str, Any]]:
-    """What S62-08 relies on, asked of the binary itself (`choregos binary-info`, hidden).
+    """What S62-08 relies on, asked of the binary itself (`tranibor binary-info`, hidden).
 
     The version comes from the `tranibor-cli` distribution metadata the build embeds — not from a
     string written in the code — and is the release's; the executable `self update` would replace
@@ -441,7 +441,7 @@ def smoke(
         raise SmokeError(f"no binary at {binary}")
     size = binary.stat().st_size
     bind = "0.0.0.0" if container else "127.0.0.1"  # noqa: S104 - the container reaches it from outside
-    with tempfile.TemporaryDirectory(prefix="choregos-smoke-") as tmp, fake_door(bind) as port:
+    with tempfile.TemporaryDirectory(prefix="tranibor-smoke-") as tmp, fake_door(bind) as port:
         work = pathlib.Path(tmp).resolve()
         write_inputs(work)
         runner = Runner(binary, work, bare_environment(work, f"http://127.0.0.1:{port}"))
@@ -485,7 +485,7 @@ def _summary(report: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke test of a native choregos binary.")
+    parser = argparse.ArgumentParser(description="Smoke test of a native tranibor binary.")
     parser.add_argument("binary", type=pathlib.Path)
     parser.add_argument("--expect-version", required=True, help="the version `--version` must print")
     parser.add_argument("--container", help="also run the checks in this image (Linux, no Python in it)")

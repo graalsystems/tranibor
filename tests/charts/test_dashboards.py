@@ -18,7 +18,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 ACCENTS = re.compile(
     r"[àâçéèêëîïôûùüÿœ]",  # lang: fr-ok: the accents this test looks for in the dashboards
     re.IGNORECASE,

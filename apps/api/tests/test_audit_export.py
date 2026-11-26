@@ -561,12 +561,12 @@ async def test_the_lag_is_the_distance_between_the_heads_and_the_cursors(orgs: d
     await exporter.run_pass()
     await metrics.refresh()
     text = metrics.expose().decode()
-    assert 'choregos_audit_export_lag_entries{sink="siem"} 8.0' in text
+    assert 'tranibor_audit_export_lag_entries{sink="siem"} 8.0' in text
 
     await exporter.run_pass()
     await metrics.refresh()
     text = metrics.expose().decode()
-    assert 'choregos_audit_export_lag_entries{sink="siem"} 0.0' in text
-    assert 'choregos_audit_export_progress_timestamp_seconds{sink="siem"}' in text
-    assert 'choregos_audit_export_failures_total{sink="fake"}' in text
-    assert 'choregos_audit_export_events_total{sink="fake"}' in text
+    assert 'tranibor_audit_export_lag_entries{sink="siem"} 0.0' in text
+    assert 'tranibor_audit_export_progress_timestamp_seconds{sink="siem"}' in text
+    assert 'tranibor_audit_export_failures_total{sink="fake"}' in text
+    assert 'tranibor_audit_export_events_total{sink="fake"}' in text

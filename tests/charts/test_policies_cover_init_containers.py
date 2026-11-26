@@ -97,7 +97,7 @@ def test_the_latest_tag_rule_names_ephemeral_containers_as_out_of_scope() -> Non
 @pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 @pytest.mark.parametrize("env", ["local", "dev", "staging", "prod"])
 def test_every_image_the_chart_renders_has_a_tag_or_a_digest(env: str) -> None:
-    chart = ROOT / "charts" / "choregos"
+    chart = ROOT / "charts" / "tranibor"
     rendered = subprocess.run(
         ["helm", "template", "choregos", str(chart), "-f", str(chart / "values" / f"{env}.yaml")],
         capture_output=True,

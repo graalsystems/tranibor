@@ -11,11 +11,11 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm is missing")
 
-VOLUMES = '{"choregos-api": {"extraVolumes": [{"name": "theme", "configMap": {"name": "my-theme"}}]}}'
+VOLUMES = '{"tranibor-api": {"extraVolumes": [{"name": "theme", "configMap": {"name": "my-theme"}}]}}'
 
 
 def _helm(values: str | None, tmp_path: pathlib.Path) -> subprocess.CompletedProcess[str]:
@@ -29,10 +29,10 @@ def _helm(values: str | None, tmp_path: pathlib.Path) -> subprocess.CompletedPro
 
 def _api(output: str) -> dict[str, Any]:
     for doc in yaml.safe_load_all(output):
-        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "choregos-api":
+        if doc and doc.get("kind") == "Deployment" and doc["metadata"]["name"] == "tranibor-api":
             spec: dict[str, Any] = doc["spec"]["template"]["spec"]
             return spec
-    raise AssertionError("no choregos-api Deployment rendered")
+    raise AssertionError("no tranibor-api Deployment rendered")
 
 
 def test_default_adds_nothing(tmp_path: pathlib.Path) -> None:
@@ -52,7 +52,7 @@ def test_default_adds_nothing(tmp_path: pathlib.Path) -> None:
 
 def test_extra_volumes_and_mounts_are_rendered(tmp_path: pathlib.Path) -> None:
     values = (
-        '{"choregos-api": {"extraVolumes": [{"name": "theme", "configMap": {"name": "my-theme"}}],'
+        '{"tranibor-api": {"extraVolumes": [{"name": "theme", "configMap": {"name": "my-theme"}}],'
         ' "extraVolumeMounts": [{"name": "theme", "mountPath": "/etc/theme", "readOnly": true}]}}'
     )
     result = _helm(values, tmp_path)

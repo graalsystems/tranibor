@@ -139,7 +139,7 @@ A manifest describes a base, its sources, its uploads and its eval set. Applying
 match the file; applying it again changes nothing.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: KnowledgeBase
 slug: billing-docs
 name: Billing documentation
@@ -169,10 +169,10 @@ eval:
 ```
 
 ```bash
-choregos knowledge apply -f billing-docs.yaml --dry-run
-choregos knowledge apply -f billing-docs.yaml
-choregos knowledge sync billing-docs
-choregos knowledge eval billing-docs
+tranibor knowledge apply -f billing-docs.yaml --dry-run
+tranibor knowledge apply -f billing-docs.yaml
+tranibor knowledge sync billing-docs
+tranibor knowledge eval billing-docs
 ```
 
 `--dry-run` prints the plan and changes nothing. Without `--prune`, sources and uploads the file does

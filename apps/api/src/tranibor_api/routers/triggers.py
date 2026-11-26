@@ -2,10 +2,10 @@
 """HTTP triggers (S56-01, ADR 0113): the door another system calls, its token, and firing it by hand.
 
 `POST /webhooks/triggers/{org}/{project}/{name}` takes the caller's JSON with the trigger's token
-(`Authorization: Bearer`, `X-Choregos-Token`, or `?token=` for a sender that can only set a URL), maps
-it onto a work item and starts it in the trigger's workflow or the one the project's routing picks.
-The project routes list the declared triggers, mint a token (shown once) and fire a trigger with a
-payload typed by a person — the same mapping, initiated by that person.
+(`Authorization: Bearer`, `X-Tranibor-Token` (formerly `X-Choregos-Token`), or `?token=` for a sender that can
+only set a URL), maps it onto a work item and starts it in the trigger's workflow or the one the project's
+routing picks. The project routes list the declared triggers, mint a token (shown once) and fire a trigger
+with a payload typed by a person — the same mapping, initiated by that person.
 
 A refused call (a missing key, fields the workflow refuses, an external tracker) answers its 4xx
 problem document AND commits its `received_events` row: the route returns the problem instead of
@@ -20,6 +20,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Header, Path, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from tranibor_contracts.wire import read_header
 
 from ..audit import record
 from ..config import get_settings
@@ -184,10 +185,10 @@ async def _project(session: Any, org: str, project: str) -> Project | None:
     return found
 
 
-def _token(authorization: str, x_choregos_token: str, request: Request) -> str:
+def _token(authorization: str, request: Request) -> str:
     if authorization.lower().startswith("bearer "):
         return authorization.split(" ", 1)[1].strip()
-    return x_choregos_token or request.query_params.get("token", "")
+    return read_header(request.headers, "Token") or request.query_params.get("token", "")
 
 
 @router.post(
@@ -204,14 +205,13 @@ async def trigger_webhook(
     request: Request,
     session: PlatformDb,
     authorization: Annotated[str, Header()] = "",
-    x_choregos_token: Annotated[str, Header()] = "",
     idempotency_key: Annotated[str, Header()] = "",
 ) -> TriggerAck | JSONResponse:
     """Another system opens a work item. 404: no such trigger, or none with a token; 401: a wrong
-    token, or a wrong or missing `X-Choregos-Signature` for a trigger with `auth: signature`
-    (S56-04); 413: a body over 256 KiB; 422: not a JSON object, or a work item the workflow refuses;
-    409: the project's tracker is external. A replayed delivery (`Idempotency-Key`, else the body's
-    digest) answers `duplicate` and starts nothing."""
+    token, or a wrong or missing `X-Tranibor-Signature` (or the former `X-Choregos-Signature`) for a trigger
+    with `auth: signature` (S56-04); 413: a body over 256 KiB; 422: not a JSON object, or a work item the
+    workflow refuses; 409: the project's tracker is external. A replayed delivery (`Idempotency-Key`, else the
+    body's digest) answers `duplicate` and starts nothing."""
     target = await _project(session, org, project)
     trigger = triggers.declared(target, name) if target is not None else None
     row = await triggers.token_row(session, target, name) if target is not None else None
@@ -221,11 +221,9 @@ async def trigger_webhook(
     if trigger.auth == "signature":
         # Only the signature: a bearer token would let a sender skip what the trigger asks for.
         secret = triggers.signing_secret(row.token_sha256)
-        if not triggers.verify_signature(secret, body, request.headers.get("x-choregos-signature", "")):
-            raise unauthorized("invalid or missing X-Choregos-Signature")
-    elif not await triggers.verify_token(
-        session, target, name, _token(authorization, x_choregos_token, request)
-    ):
+        if not triggers.verify_signature(secret, body, read_header(request.headers, "Signature")):
+            raise unauthorized("invalid or missing X-Tranibor-Signature")
+    elif not await triggers.verify_token(session, target, name, _token(authorization, request)):
         raise unauthorized("invalid trigger token")
     if len(body) > MAX_BODY:
         return JSONResponse(

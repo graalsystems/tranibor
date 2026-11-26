@@ -66,10 +66,12 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 from tranibor_contracts import load_schema
+from tranibor_contracts.wire import API_VERSION
 
 from ..errors import ChoregosError
 from ..paths import PathOutsideError, files_under, inside, symlinks_under
 from . import assistants as _assistant_rules
+from . import profiles as _profiles
 
 MANIFEST = "plugin.yaml"
 #: Files at the root that ship with a plugin when present, though `contents` does not name them.
@@ -130,6 +132,8 @@ class Plugin:
     warnings: tuple[str, ...] = ()
     #: its assistants (`contents.assistants`, ADR 0133): `metadata.name` -> the assistant document
     assistants: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: its profiles (`contents.profiles`, ADR 0224): `<plugin>/<name>@<version>` -> the profile document
+    profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -465,7 +469,16 @@ def _assistant_named(root: Path, contents: dict[str, list[str]]) -> tuple[list[s
 
 def _declared_refs(root: Path, contents: dict[str, list[str]]) -> list[str]:
     refs = [MANIFEST, *(n for n in ROOT_FILES if (root / n).is_symlink() or (root / n).is_file())]
-    for kind in ("agents", "evals", "servers", "skills", "templates", "matrix_cases", "assistants"):
+    for kind in (
+        "agents",
+        "evals",
+        "servers",
+        "skills",
+        "templates",
+        "matrix_cases",
+        "assistants",
+        "profiles",
+    ):
         refs.extend(contents.get(kind, []))
     named, seeds = _assistant_named(root, contents)
     refs.extend([*named, *seeds])
@@ -662,6 +675,81 @@ def _servers(root: Path, refs: list[str], problems: list[str]) -> dict[str, dict
     return servers
 
 
+def _profiles_of(root: Path, refs: list[str], plugin: str, problems: list[str]) -> dict[str, dict[str, Any]]:
+    """Each profile file against `plugin-profile.schema.json` and its subset (ADR 0224), by its identity."""
+    found: dict[str, dict[str, Any]] = {}
+    for ref in refs:
+        path = _target(root, ref, problems)
+        if path is None:
+            continue
+        if not path.is_file():
+            problems.append(f"{ref}: profile file missing")
+            continue
+        doc = _yaml(path, ref, problems)
+        issues = _profiles.profile_problems(doc, ref)
+        problems.extend(issues)
+        if not issues:
+            identity = _profiles.profile_name(plugin, doc)
+            if identity in found:
+                problems.append(f"{ref}: profile `{identity}` is declared twice")
+            found[identity] = doc
+    return found
+
+
+def _required_plugins(manifest: dict[str, Any]) -> set[str]:
+    required = (manifest.get("requires") or {}).get("plugins") or []
+    return {str(r.get("name") if isinstance(r, dict) else r) for r in required}
+
+
+def conformance_problems(plugin: Plugin, foreign: dict[str, dict[str, Any]] | None = None) -> list[str]:
+    """Why a server of `plugin` does not keep a profile it implements (ADR 0224 §2). `foreign` holds the
+    profiles of the plugins it requires, `<plugin>/<name>@<version>` -> document; `None` leaves those
+    unchecked. The loader checks the plugin's own; `validate --profiles-from` and the installer pass
+    the rest."""
+    problems: list[str] = []
+    requires = _required_plugins(plugin.manifest)
+    for name, server in sorted(plugin.servers.items()):
+        problems.extend(
+            _profiles.conformance_problems(
+                server,
+                f"server `{name}`",
+                plugin=plugin.name,
+                requires=requires,
+                own=plugin.profiles,
+                foreign=foreign,
+            )
+        )
+    return problems
+
+
+def foreign_profile_names(plugin: Plugin) -> list[str]:
+    """The profiles of other plugins that `plugin`'s servers implement, sorted: what `conformance_problems`
+    cannot check without their documents."""
+    names = {
+        str(n)
+        for server in plugin.servers.values()
+        for n in server.get("implements") or []
+        if (m := _profiles.PROFILE_NAME.match(str(n))) and m.group(1) != plugin.name
+    }
+    return sorted(names)
+
+
+def profiles_from(paths: list[Path]) -> dict[str, dict[str, Any]]:
+    """The profiles of the plugins at `paths`, `<plugin>/<name>@<version>` -> document. A path is a plugin
+    directory, or a directory of plugin directories (the layout of `plugins/`); each is loaded and
+    validated like any plugin, `PluginError` if one is not valid."""
+    found: dict[str, dict[str, Any]] = {}
+    for path in paths:
+        roots = (
+            [path]
+            if (path / MANIFEST).is_file()
+            else sorted(p for p in path.iterdir() if (p / MANIFEST).is_file())
+        )
+        for root in roots:
+            found.update(load_directory(root).profiles)
+    return found
+
+
 def _conversation_suites(doc: dict[str, Any], root: Path, problems: list[str]) -> None:
     """Each eval file an assistant names, against `conversation-evals.schema.json`, then against the
     assistant's tools. A missing file or a bad path is reported by the assistant's own check."""
@@ -739,10 +827,11 @@ def load_directory(root: Path) -> Plugin:
     procedures = _procedures(root, contents.get("procedures", []), name, servers, problems)
     matrix = _matrix_cases(root, contents.get("matrix_cases", []), name, set(agents), servers, problems)
     assistants = _assistants(root, contents.get("assistants", []), agents, problems)
+    profiles = _profiles_of(root, contents.get("profiles", []), name, problems)
 
     if problems:
         raise PluginError(problems)
-    return Plugin(
+    plugin = Plugin(
         root,
         manifest,
         _digest(files),
@@ -753,7 +842,11 @@ def load_directory(root: Path) -> Plugin:
         tuple(files),
         tuple(_knowledge_warnings(agents, shipped)),
         assistants,
+        profiles,
     )
+    if conformance := conformance_problems(plugin):
+        raise PluginError(conformance)
+    return plugin
 
 
 # -- canonical tar, digest, pack ------------------------------------------------------------------------
@@ -878,7 +971,7 @@ def build_index(
         plugins[plugin.name] = {"versions": {plugin.version: release}}
     if not plugins and not problems:
         problems.append(f"{plugins_dir}: holds no plugin directory")
-    index = {"apiVersion": "choregos/v1", "kind": "PluginIndex", "plugins": plugins}
+    index = {"apiVersion": API_VERSION, "kind": "PluginIndex", "plugins": plugins}
     problems.extend(_schema_problems("index.yaml", "plugin-index.schema.json", index))
     if problems:
         raise PluginError(problems)
@@ -899,11 +992,14 @@ __all__ = [
     "build_index",
     "canonical_tar",
     "configuration_variables",
+    "conformance_problems",
     "digest",
     "fake_scenes",
+    "foreign_profile_names",
     "load_directory",
     "opened",
     "pack",
     "plugin_files",
+    "profiles_from",
     "suite_problems",
 ]

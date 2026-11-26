@@ -23,8 +23,8 @@ platform's processes, registered through the core's seams when the API and the w
   `webhooks.py`);
 - the project figures `Project.has_release_train` and `ProjectStats.trains_pending`, through
   `extensions.declare_project_figure` (`figures.py`);
-- the train's Prometheus series (`choregos_releases_total`, `choregos_train_frozen`,
-  `choregos_train_status`), through `metrics.declare_series` (`train/metrics.py`);
+- the train's Prometheus series (`tranibor_releases_total`, `tranibor_train_frozen`,
+  `tranibor_train_status`), through `metrics.declare_series` (`train/metrics.py`);
 - the `scm`, `ci` and `cd` connector types (GitHub, GitLab, Azure Repos; Tekton, GitLab CI, GitHub Actions,
   Jenkins, Azure Pipelines; Argo CD and the demonstration environment) and their fakes, through
   `tranibor_adapters.register`, and the `scm`, `ci` and `cd` slots of every project's adapter set, through
