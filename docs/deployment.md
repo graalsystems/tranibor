@@ -2799,7 +2799,7 @@ under `container`, `choregos-orchestrator.runner.customImageExecutor`, for a run
 | A `runtime` connector of type `tekton` whose configuration names `pipeline` | Ignored: there is no Pipeline to name. | Remove the field when next editing the connector. |
 | The `choregos-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
 
-## Upgrading past 0.29.4: a Container Apps job runs the agent in its own container
+## Upgrading past 0.29.5: a Container Apps job runs the agent in its own container
 
 A deployment on `aca` with `global.runner.agentIsolation: container` (the default) had every run refused
 (`agent_isolation_unavailable`). Measured on a real subscription (S87-07): the containers of a job's replica
