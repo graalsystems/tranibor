@@ -167,7 +167,7 @@ def test_out_of_scope_files_that_cannot_be_reverted_block() -> None:
 
 
 def test_writing_and_rereading_the_result(tmp_path: Path) -> None:
-    path = tmp_path / ".choregos" / "result.json"
+    path = tmp_path / ".tranibor" / "result.json"
     write_result(path, fallback_result("agent_error", "the agent crashed"))
     reread = load_result(path)
     assert reread.ok and reread.result is not None
@@ -241,8 +241,8 @@ async def test_scope_check_without_restriction(tmp_path: Path) -> None:
 
 async def test_the_runner_files_are_ignored(tmp_path: Path) -> None:
     workspace = await _git_workspace(tmp_path)
-    (workspace.path / ".choregos").mkdir(exist_ok=True)
-    (workspace.path / ".choregos" / "result.json").write_text("{}", encoding="utf-8")
+    (workspace.path / ".tranibor").mkdir(exist_ok=True)
+    (workspace.path / ".tranibor" / "result.json").write_text("{}", encoding="utf-8")
     check = await check_scope(workspace, "HEAD", ["src/**"])
     assert check.clean, check.remaining
 
@@ -350,7 +350,7 @@ async def test_the_internal_client_speaks_the_contract() -> None:
             return httpx.Response(
                 200,
                 json={
-                    "schema": "choregos/ContextPack/v1",
+                    "schema": "tranibor/ContextPack/v1",
                     "query": "q",
                     "tokens_estimated": 0,
                     "memories": [],
@@ -560,7 +560,7 @@ async def test_the_runner_really_serves_the_files_it_announces(tmp_path) -> None
 
 
 def test_the_scope_hook_lets_the_result_be_written(tmp_path, stage_input) -> None:  # type: ignore[no-untyped-def]
-    """The contract REQUIRES `.choregos/result.json`, and the ticket's scope never
+    """The contract REQUIRES `.tranibor/result.json`, and the ticket's scope never
     covers it. A hook that refuses it puts the agent in front of a contradiction: it wrote it
     in its transcript, then abandoned the step."""
     import json
@@ -569,11 +569,11 @@ def test_the_scope_hook_lets_the_result_be_written(tmp_path, stage_input) -> Non
     from tranibor_runner.backends.claude_code import ClaudeCodeBackend
 
     workspace = tmp_path / "ws"
-    (workspace / ".choregos").mkdir(parents=True)
-    (workspace / ".choregos" / "allowed_paths.txt").write_text("src/**\ntests/**\n")
+    (workspace / ".tranibor").mkdir(parents=True)
+    (workspace / ".tranibor" / "allowed_paths.txt").write_text("src/**\ntests/**\n")
     hook = workspace / "hook.sh"
     plan = ClaudeCodeBackend().launch_plan(stage_input, workspace)
-    hook.write_text(plan.files[".choregos/hooks/check_scope.sh"])
+    hook.write_text(plan.files[".tranibor/hooks/check_scope.sh"])
     hook.chmod(0o755)
 
     def verdict(rel_path: str) -> int:
@@ -583,7 +583,7 @@ def test_the_scope_hook_lets_the_result_be_written(tmp_path, stage_input) -> Non
         )
         return rendu.returncode
 
-    assert verdict(".choregos/result.json") == 0, "the step's result must be writable"
+    assert verdict(".tranibor/result.json") == 0, "the step's result must be writable"
     assert verdict("src/panier.py") == 0
     assert verdict("infra/secrets.yaml") == 2, "out of scope: always refused"
 

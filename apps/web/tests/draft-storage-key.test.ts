@@ -19,7 +19,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 const BASE = "metadata: { name: w }\n";
 const EDITED = "metadata: { name: w }\n# edited\n";
-const NEW_KEY = "choregos.draft.p.w";
+const NEW_KEY = "tranibor.draft.p.w";
 const OLD_KEY = "choregos.brouillon.p.w"; // lang: fr-ok - the former key, asserted ignored
 
 function wrapper({ children }: { children: ReactNode }) {

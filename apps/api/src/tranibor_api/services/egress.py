@@ -13,7 +13,7 @@ from urllib.parse import quote, urlparse
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tranibor_contracts import Role
+from tranibor_contracts import Role, wire
 from tranibor_core import utcnow
 from tranibor_core.egress import (
     FAMILIES,
@@ -47,11 +47,12 @@ MAX_OPEN_REQUESTS = 20
 #: Where a Confluence download is redirected to (a signed URL on another origin).
 CONFLUENCE_MEDIA_HOST = "api.media.atlassian.com"
 
-#: The pod selector of each family in the chart, when the deployment does not say otherwise.
+#: The pod selector of each family in the chart, when the deployment does not say otherwise. Either value of
+#: `app.kubernetes.io/name` for the window of ADR 0226 (R9b): the chart's pods carry the former one by default
+#: and the new one under `global.labelValues: tranibor`, and a change written today must hold after the move.
 DEFAULT_SELECTORS = {
-    "api": "app.kubernetes.io/name=choregos-api",
-    "workers": "app.kubernetes.io/name=choregos-orchestrator",
-    "runners": "app.kubernetes.io/name=choregos-runner",
+    family: f"app.kubernetes.io/name in ({wire.NAME}-{pod},{wire.FORMER_NAME}-{pod})"
+    for family, pod in (("api", "api"), ("workers", "orchestrator"), ("runners", "runner"))
 }
 DEFAULT_TEMPLATE = """\
 # Allow egress from the Tranibor {{family}} pods ({{selector}}) to:

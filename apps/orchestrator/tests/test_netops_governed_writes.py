@@ -155,7 +155,7 @@ async def test_an_approved_change_is_applied_once_and_marked(
     assert result["status"] == "succeeded"
     rule = firewall.rules[1]
     assert rule["destination_port"] == "9443" and rule["descr"].startswith(
-        "WAN to the reverse proxy [choregos:"
+        "WAN to the reverse proxy [tranibor:"
     )
     assert firewall.writes == 1
 

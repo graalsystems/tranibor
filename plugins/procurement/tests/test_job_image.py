@@ -70,5 +70,5 @@ def test_ci_builds_it_from_the_runner_it_just_built_and_reads_a_pdf() -> None:
     run = step["run"]
     assert "plugins/procurement/Dockerfile" in run and "RUNNER_IMAGE" in run
     assert "tranibor-procurement" in run and " extract" in run
-    assert "alderbrook-offer.pdf" in run and ".choregos/inputs" in run and "job.json" in run
+    assert "alderbrook-offer.pdf" in run and ".tranibor/inputs" in run and "job.json" in run
     assert (PLUGIN / "tests" / "fixtures" / "alderbrook-offer.pdf").is_file()

@@ -26,7 +26,7 @@ It needs, in the realm the console already signs in with:
    - `claude-code` — public, standard flow, PKCE `S256`, redirect URIs
      `http://localhost:<port>/callback` and `http://127.0.0.1:<port>/callback` (Claude Code
      v2.1.229 sent the second form), the port given to
-     `claude mcp add --transport http --client-id claude-code --callback-port <port> choregos https://<console-host>/mcp`.
+     `claude mcp add --transport http --client-id claude-code --callback-port <port> tranibor https://<console-host>/mcp`.
 4. **`offline_access` as an optional scope of both clients.** Claude adds it to its request as soon
    as the realm's metadata lists it, and Keycloak refuses the whole request (`invalid_scope`) when a
    requested scope is not attached to the client.

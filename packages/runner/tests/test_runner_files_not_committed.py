@@ -41,32 +41,32 @@ def test_a_jobs_scratch_files_are_runner_files() -> None:
 
 async def test_a_scratch_file_the_branch_already_tracks_is_not_committed_again(tmp_path: Path) -> None:
     _init(tmp_path, "main")
-    for relative in (".choregos/task.md", ".choregos/job.json", ".claude/skills/review/SKILL.md"):
+    for relative in (".tranibor/task.md", ".choregos/job.json", ".claude/skills/review/SKILL.md"):
         _write(tmp_path, relative, "from an older run\n")
-    _write(tmp_path, ".choregos/workflow.yaml", "the project's own\n")
+    _write(tmp_path, ".tranibor/workflow.yaml", "the project's own\n")
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "commit", "-q", "-m", "an older run committed its scratch files")
 
     workspace = Workspace(tmp_path, git_dir=tmp_path / ".git")
     workspace.exclude([".claude/skills/review/"])
-    for relative in (".choregos/task.md", ".choregos/job.json", ".claude/skills/review/SKILL.md"):
+    for relative in (".tranibor/task.md", ".choregos/job.json", ".claude/skills/review/SKILL.md"):
         _write(tmp_path, relative, "this run's\n")
-    _write(tmp_path, ".choregos/workflow.yaml", "changed by the step\n")
+    _write(tmp_path, ".tranibor/workflow.yaml", "changed by the step\n")
     _write(tmp_path, "src/report.py", "ROWS = 2\n")
 
     assert await workspace.commit("feat(1): report") is not None
     committed = _git(tmp_path, "show", "--name-only", "--format=", "HEAD").split()
-    assert sorted(committed) == [".choregos/workflow.yaml", "src/report.py"], (
-        "only the step's own changes are committed; the project's `.choregos/` files are its own"
+    assert sorted(committed) == [".tranibor/workflow.yaml", "src/report.py"], (
+        "only the step's own changes are committed; the project's `.tranibor/` files are its own"
     )
-    assert _git(tmp_path, "show", "HEAD:.choregos/task.md") == "from an older run", "kept as it was"
+    assert _git(tmp_path, "show", "HEAD:.tranibor/task.md") == "from an older run", "kept as it was"
 
 
 async def test_without_a_first_commit_the_scratch_files_stay_out_too(tmp_path: Path) -> None:
     """A project without a repository (ADR 0012): a fresh `git init`, nothing tracked yet."""
     _init(tmp_path, "travail")  # lang: fr-ok (the runner's own branch name)
     workspace = Workspace(tmp_path, git_dir=tmp_path / ".git")
-    _write(tmp_path, ".choregos/fields.json", "{}\n")
+    _write(tmp_path, ".tranibor/fields.json", "{}\n")
     _write(tmp_path, "notes.md", "a finding\n")
 
     assert await workspace.commit("docs(1): notes") is not None

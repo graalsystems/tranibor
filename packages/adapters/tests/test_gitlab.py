@@ -155,8 +155,9 @@ async def test_the_fields_live_in_the_description() -> None:
 
     description = sent_body["description"]
     assert description.startswith("Ticket body.")
-    assert description.count("choregos:fields") == 1, "a single metadata block"
-    payload = jsonlib.loads(description.split("choregos:fields", 1)[1].rsplit("-->", 1)[0].strip())
+    assert description.count("tranibor:fields") == 1, "a single metadata block"
+    assert "choregos:fields" not in description, "the block written before ADR 0226 is replaced, not kept"
+    payload = jsonlib.loads(description.split("tranibor:fields", 1)[1].rsplit("-->", 1)[0].strip())
     # The block from before S22-21 (former French `Size`) is rewritten under the English name, no duplicate.
     assert payload == {"Cost (€)": "1,25", "Run": "https://x/1", "Size": "M"}
 

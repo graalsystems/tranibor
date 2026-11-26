@@ -87,10 +87,11 @@ class Platform:
         media_type: str = "text/markdown",
         digest: str | None = "",
         status: int = 200,
+        header: str = "X-Tranibor-Digest",
     ) -> respx.Route:
-        headers = {"content-type": media_type, "X-Choregos-Digest": digest or _digest(data)}
+        headers = {"content-type": media_type, header: digest or _digest(data)}
         if digest is None:
-            del headers["X-Choregos-Digest"]
+            del headers[header]
         response = (
             Response(200, content=data, headers=headers)
             if status == 200
@@ -176,6 +177,15 @@ def test_bytes_that_do_not_match_the_announced_digest_are_not_written(
     platform: Platform, tmp_path: Path
 ) -> None:
     platform.content("spec.md", b"tampered", digest=_digest(b"original"))
+    target = tmp_path / "spec.md"
+    result = _run("download", ITEM, "spec.md", str(target))
+    assert result.exit_code == 1 and "announced" in " ".join(result.output.split())
+    assert not target.exists()
+
+
+def test_the_digest_of_an_api_before_the_rename_is_checked_too(platform: Platform, tmp_path: Path) -> None:
+    """An API of a release before ADR 0226 announces the digest in `X-Choregos-Digest`."""
+    platform.content("spec.md", b"tampered", digest=_digest(b"original"), header="X-Choregos-Digest")
     target = tmp_path / "spec.md"
     result = _run("download", ITEM, "spec.md", str(target))
     assert result.exit_code == 1 and "announced" in " ".join(result.output.split())

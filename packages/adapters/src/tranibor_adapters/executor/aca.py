@@ -22,7 +22,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_contracts.env import with_legacy_entries
 from tranibor_core.domain import RUN_GATEWAY_KEY_ENV, RUN_REMOTE_TOKEN_ENV, ExecRef, ExecStatus, StageJobSpec
 
@@ -222,11 +222,13 @@ class AcaExecutor:
         definition: dict[str, Any] = {
             "location": self.location,
             "tags": _tags(
-                {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                }
+                wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                )
             ),
             "properties": {
                 "environmentId": self.environment_id,

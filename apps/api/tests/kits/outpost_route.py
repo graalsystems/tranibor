@@ -233,7 +233,7 @@ async def events(tool: str | None = None) -> list[Any]:
 
     async with session_scope(orgs="*") as session:
         rows = await session.execute(
-            select(Event).where(Event.type == "choregos.tool.called").order_by(Event.ts)
+            select(Event).where(Event.type == "tranibor.tool.called").order_by(Event.ts)
         )
         return [event for event in rows.scalars() if tool is None or event.payload.get("tool") == tool]
 

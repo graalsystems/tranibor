@@ -31,6 +31,8 @@ from typing import Any
 
 import httpx
 from sqlalchemy import exists, func, or_, select
+from tranibor_contracts import wire
+from tranibor_contracts.wire import both_headers, header
 from tranibor_core import utcnow
 from tranibor_core.egress import EgressRefusedError, host_port_of
 from tranibor_core.mcp import INVALID_PARAMS, METHOD_NOT_FOUND
@@ -58,8 +60,10 @@ BATCH = 100
 MAX_ATTEMPTS = 8
 TIMEOUT_S = 10.0
 #: `t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">`: the receiver checks it and the age of `t`.
-SIGNATURE = "X-Choregos-Signature"
-EVENT_ID = "X-Choregos-Event-Id"
+#: Sent under both names for the window of ADR 0226 (`both_headers`): a receiver registered before it
+#: checks `X-Choregos-Signature`; the value is the same under either name.
+SIGNATURE = header("Signature")
+EVENT_ID = header("Event-Id")
 #: A2A's header for the token the client gave at registration.
 CLIENT_TOKEN = "X-A2A-Notification-Token"  # noqa: S105 - a header name
 TERMINAL = frozenset({"completed", "failed", "canceled"})
@@ -198,13 +202,13 @@ def _view(config: A2aPushConfig) -> dict[str, Any]:
     return {
         "taskId": config.work_item_id,
         "pushNotificationConfig": {"id": config.config_id, "url": config.url},
-        "metadata": {
-            "choregos": {
+        "metadata": wire.a2a_metadata(
+            {
                 "delivered_event": config.cursor_event_id,
                 "finished": config.finished_at is not None,
                 "last_error": config.last_error,
             }
-        },
+        ),
     }
 
 
@@ -276,7 +280,7 @@ async def _deliver(session: Any, config: A2aPushConfig) -> bool:
     view = json.dumps(
         [
             task["status"]["state"],
-            task["metadata"]["choregos"]["state"],
+            wire.read_a2a_metadata(task["metadata"])["state"],
             next(
                 (
                     p["data"].get("request_id")
@@ -301,8 +305,8 @@ async def _deliver(session: Any, config: A2aPushConfig) -> bool:
     stamp = str(int(time.time()))
     headers = {
         "Content-Type": "application/json",
-        SIGNATURE: f"t={stamp},v1={sign(stored['secret'], stamp, body)}",
-        EVENT_ID: latest.id,
+        **both_headers("Signature", f"t={stamp},v1={sign(stored['secret'], stamp, body)}"),
+        **both_headers("Event-Id", latest.id),
         "Idempotency-Key": latest.id,
     }
     if stored.get("token"):

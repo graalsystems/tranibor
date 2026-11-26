@@ -18,7 +18,7 @@ from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_core.agent_isolation import AGENT_ISOLATION_ENV, SEPARATE_AGENT
 from tranibor_core.domain import StageJobSpec
 
-RUNNER = "registry.example/choregos-runner:1.0"
+RUNNER = "registry.example/tranibor-runner:1.0"
 
 
 def _spec(**changes: Any) -> StageJobSpec:
@@ -27,7 +27,7 @@ def _spec(**changes: Any) -> StageJobSpec:
         "project_slug": "demo",
         "namespace": "proj-demo-runners",
         "runner_image": RUNNER,
-        "api_url": "http://choregos-api:8000",
+        "api_url": "http://tranibor-api:8000",
         "run_token": "token",
         "gateway_key": "gk",
         "env": {"HTTP_PROXY": "http://egress:3128"},
@@ -78,7 +78,7 @@ def test_under_process_the_agent_stage_has_no_sidecar_and_the_runner_holds_the_r
     task = _stage(_run())
     assert "sidecars" not in task and "volumes" not in task
     step = _step(task)
-    assert step["image"] == RUNNER and step["command"] == ["choregos-runner"]
+    assert step["image"] == RUNNER and step["command"] == ["tranibor-runner"]
     assert step["args"][:1] == ["run"] and "$(results.status.path)" in step["args"]
     env = {e["name"]: e for e in step["env"]}
     assert env["TRANIBOR_RUN_TOKEN"]["valueFrom"]["secretKeyRef"] == {"name": "run-r-1", "key": "token"}
@@ -162,4 +162,4 @@ async def test_a_container_run_reaches_the_cluster_with_the_sidecar() -> None:
 def test_no_pipeline_is_named_in_the_configuration(isolation: str) -> None:
     """The `pipeline` knob is gone with the Pipeline it named: nothing but the run's spec says what runs."""
     run = _run(agent_isolation=isolation)
-    assert "choregos-agent" not in yaml.safe_dump(run["spec"]["pipelineSpec"])
+    assert "tranibor-agent" not in yaml.safe_dump(run["spec"]["pipelineSpec"])

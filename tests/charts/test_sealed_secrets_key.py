@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -36,7 +36,7 @@ def _keks_refs(docs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             continue
         for container in doc["spec"]["template"]["spec"]["containers"]:
             for var in container.get("env", []):
-                if var["name"] == "CHOREGOS_SECRETS_KEKS":
+                if var["name"] == "TRANIBOR_SECRETS_KEKS":
                     refs[doc["metadata"]["name"]] = var["valueFrom"]["secretKeyRef"]
     return refs
 

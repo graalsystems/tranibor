@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Running as a Tranibor job step (ADR 0056): the workspace in, `.choregos/job.json` out.
+"""Running as a Tranibor job step (ADR 0056): the workspace in, `.tranibor/job.json` out.
 
-The runner gives the command a workspace: the work item's fields in `.choregos/fields.json`, the files
-a step declares in `.choregos/inputs/`. What the command computes goes back in `.choregos/job.json` =
-`{summary, facts, outputs}`, written whole or not at all.
+The runner gives the command a workspace: the work item's fields in `.tranibor/fields.json`, the files
+a step declares in `.tranibor/inputs/`. What the command computes goes back in `.tranibor/job.json` =
+`{summary, facts, outputs}`, written whole or not at all. A runner before 0.30.0 lays the run directory
+under its former name only: the command then reads and writes there (`run_directory`, ADR 0226 R9a,
+until 0.32.0).
 
 The exit code is 0 whenever the contract is kept, even if no file could be read: the facts say what
 could not, and the workflow's gate decides. It is non-zero for a broken contract only.
@@ -19,6 +21,8 @@ from typing import Any, Final
 #: The most an inline output may weigh. The runner sets no bound of its own (`tranibor_runner.job`
 #: keeps what `job.json` says); the value is what a workflow engine moves comfortably between steps.
 MAX_INLINE_BYTES: Final = 2 * 1024 * 1024
+#: The run directory, then its former name (ADR 0226, R9a).
+RUN_DIRECTORIES: Final = (".tranibor", ".choregos")
 
 
 class ContractError(Exception):
@@ -31,8 +35,15 @@ def workspace() -> Path:
     return Path(root) if root else Path.cwd()
 
 
+def run_directory(root: Path) -> Path:
+    """`<root>/.tranibor`, or the former `<root>/.choregos` when only that one was laid down: the job runs
+    under a runner before 0.30.0, which reads its `job.json` there only."""
+    new, former = (root / name for name in RUN_DIRECTORIES)
+    return former if former.is_dir() and not new.is_dir() else new
+
+
 def inputs_dir(root: Path) -> Path:
-    path = root / ".choregos" / "inputs"
+    path = run_directory(root) / "inputs"
     if not path.is_dir():
         raise ContractError(
             f"no inputs directory at {path}: the step declares no input, or this is not a job"
@@ -41,7 +52,7 @@ def inputs_dir(root: Path) -> Path:
 
 
 def read_fields(root: Path) -> dict[str, Any]:
-    path = root / ".choregos" / "fields.json"
+    path = run_directory(root) / "fields.json"
     if not path.is_file():
         return {}
     try:
@@ -54,7 +65,7 @@ def read_fields(root: Path) -> dict[str, Any]:
 
 
 def publish(root: Path, *, summary: str, facts: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
-    """Writes `.choregos/job.json`; refuses an inline output past the bound, and writes nothing then."""
+    """Writes `.tranibor/job.json`; refuses an inline output past the bound, and writes nothing then."""
     doc = {"summary": summary, "facts": facts, "outputs": outputs}
     body = json.dumps(doc, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     for name, value in outputs.items():
@@ -64,7 +75,7 @@ def publish(root: Path, *, summary: str, facts: dict[str, Any], outputs: dict[st
                 f"the output `{name}` weighs {size} bytes, the most an inline output may weigh is "
                 f"{MAX_INLINE_BYTES}: lower --max-chars-per-file or hand fewer files"
             )
-    target = root / ".choregos" / "job.json"
+    target = run_directory(root) / "job.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     scratch = target.with_suffix(".json.tmp")
     scratch.write_text(body, encoding="utf-8")

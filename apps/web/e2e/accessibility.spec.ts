@@ -80,7 +80,7 @@ const PAGES = [
 for (const theme of ["dark", "light"] as const) {
   test.describe(`theme ${theme}`, () => {
     test.beforeEach(async ({ page }) => {
-      await page.addInitScript((choice) => window.localStorage.setItem("choregos.theme", choice), theme);
+      await page.addInitScript((choice) => window.localStorage.setItem("tranibor.theme", choice), theme);
     });
 
     for (const path of PAGES) {

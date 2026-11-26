@@ -15,7 +15,8 @@ from fastapi import APIRouter, Header, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from tranibor_adapters.errors import AdapterError, UpstreamError
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent, InboundEventType, wire
+from tranibor_contracts.wire import read_header, with_twin_headers
 from tranibor_core import utcnow
 from tranibor_core.temporal_connection import organisation_scope
 
@@ -203,7 +204,7 @@ def _by_labels(matches: list[Any], issue: dict[str, Any]) -> list[Any]:
 #: Verbs a tracker comment can carry. None is honoured (ADR 0102): a tracker login is not a principal.
 DECISION_VERBS = frozenset({"approve", "reject", "answer", "scope"})
 CONTROL_VERBS = frozenset({"pause", "resume", "stop"})
-COMMAND_MARKER = "<!-- choregos:command -->"
+COMMAND_MARKER = wire.marker("command")  # formerly `<!-- choregos:command -->` (ADR 0226)
 
 
 LINK_HINT = "you can link your GitHub account on My account (or an organisation administrator declares it)"
@@ -238,20 +239,20 @@ async def _control_from_a_signed_comment(
             item,
             org_slug,
             verb,  # type: ignore[arg-type]
-            f"/choregos {verb} on the tracker",
+            f"/{wire.NAME} {verb} on the tracker",
             "tracker",
         )
     except ApiError as refused:
-        return f"`/choregos {verb}` was not applied: {refused.detail}"
+        return f"`/{wire.NAME} {verb}` was not applied: {refused.detail}"
     except InterpreterNotRunningError:
-        return f"`/choregos {verb}` was not applied: the work item is not running"
+        return f"`/{wire.NAME} {verb}` was not applied: the work item is not running"
     return f"Done: {verb} by {user.email}"
 
 
 async def _answer_tracker_command(
     session: Any, project: Project, item: WorkItem, event: InboundEvent
 ) -> None:
-    """Answer a `/choregos ...` comment on the tracker with a console link, and audit it.
+    """Answer a `/tranibor ...` comment (or the former `/choregos ...`) with a console link, and audit it.
 
     Nothing reaches the interpreter. The reply never starts with the command, so it is not read as one,
     and a tracker that cannot be reached or built never fails the delivery."""
@@ -262,7 +263,7 @@ async def _answer_tracker_command(
     if verb in DECISION_VERBS:
         link = f"{base}/inbox"
         text = (
-            f"`/choregos {verb}` is not taken from a comment: a decision is made in the console, "
+            f"`/{wire.NAME} {verb}` is not taken from a comment: a decision is made in the console, "
             f"after a fresh sign-in: {link}"
         )
     else:
@@ -270,7 +271,7 @@ async def _answer_tracker_command(
         answered_by_a_member = done is not None
         link = f"{base}/p/{project.slug}/items/{item.id}"
         text = done or (
-            f"`/choregos {verb}` is not taken from this comment: pause, resume and stop are done from "
+            f"`/{wire.NAME} {verb}` is not taken from this comment: pause, resume and stop are done from "
             f"the work item in the console: {link}. {LINK_HINT[0].upper()}{LINK_HINT[1:]}."
         )
     try:
@@ -561,11 +562,10 @@ async def github_webhook(
 async def alertmanager_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     body = await request.body()
     settings = get_settings()
-    if not verify_shared_secret(settings.generic_webhook_secret, x_choregos_secret):
+    if not verify_shared_secret(settings.generic_webhook_secret, read_header(request.headers, "Secret")):
         raise unauthorized("invalid shared secret")
     payload = json_body(body)
     alerts = payload.get("alerts", [])
@@ -623,12 +623,13 @@ async def _alert_reaches_memory(session: Any, project: Project, event: InboundEv
 async def jira_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
     x_atlassian_webhook_identifier: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """Jira Cloud does not sign its webhooks: the shared secret is the only barrier."""
     body = await request.body()
-    if not verify_shared_secret(get_settings().generic_webhook_secret, x_choregos_secret):
+    if not verify_shared_secret(
+        get_settings().generic_webhook_secret, read_header(request.headers, "Secret")
+    ):
         raise unauthorized("invalid shared secret")
     delivery = x_atlassian_webhook_identifier or body_digest(body)
     if await already_seen(session, "jira", delivery, "jira", body):
@@ -679,16 +680,15 @@ def _jira_tracker_of(session: Any) -> TrackerOf:
 async def azure_boards_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-    authorization: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """A service hook does not sign its deliveries: the shared secret is the only barrier, sent as the
-    password of the subscription's basic authentication or in an `X-Choregos-Secret` header."""
+    password of the subscription's basic authentication or in an `X-Tranibor-Secret` header (formerly
+    `X-Choregos-Secret`, ADR 0226)."""
     from tranibor_adapters.azure_devops import shared_secret_of
     from tranibor_adapters.tracker.azure_boards_events import parse_azure_boards_event
 
     body = await request.body()
-    provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
+    provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
     payload = json_body(body)
@@ -812,18 +812,16 @@ def _azure_boards_tracker_of(session: Any) -> TrackerOf:
 async def azure_devops_webhook(
     request: Request,
     session: PlatformDb,
-    x_choregos_secret: Annotated[str, Header()] = "",
-    authorization: Annotated[str, Header()] = "",
 ) -> WebhookAck:
     """The service hooks of pull requests (`git.pullrequest.*`) and of builds and runs (`build.complete`,
     `ms.vss-pipelines.run-state-changed-event`). A service hook does not sign its deliveries: the shared
     secret is the only barrier, sent as the password of the subscription's basic authentication or in an
-    `X-Choregos-Secret` header, as for the Azure Boards route."""
+    `X-Tranibor-Secret` header, as for the Azure Boards route."""
     from tranibor_adapters.azure_devops import shared_secret_of
     from tranibor_adapters.azure_devops_events import parse_azure_devops_event
 
     body = await request.body()
-    provided = shared_secret_of({"X-Choregos-Secret": x_choregos_secret, "Authorization": authorization})
+    provided = shared_secret_of(request.headers)
     if not verify_shared_secret(get_settings().generic_webhook_secret, provided):
         raise unauthorized("invalid shared secret")
     payload = json_body(body)
@@ -1018,7 +1016,8 @@ async def plugin_webhook(
     if not candidates:
         raise not_found("Plugin tracker server", f"{org}/{plugin}/{server}")
     body = await request.body()
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in _NOT_FORWARDED}
+    # A server built before ADR 0226 reads `X-Choregos-*`, a newer one `X-Tranibor-*`: both are relayed.
+    headers = with_twin_headers({k: v for k, v in request.headers.items() if k.lower() not in _NOT_FORWARDED})
     sender = request.headers.get("authorization")
     for connector in candidates:
         # A sender that signs with a bearer token (ADR 0198): only the server that declares it sees it.

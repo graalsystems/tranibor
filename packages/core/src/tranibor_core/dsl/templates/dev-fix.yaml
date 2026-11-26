@@ -1,6 +1,6 @@
 # A bug fix (S59-02): the core's copy of the `github-software-delivery` template's `dev-simple`. Triage
 # keeps only small, low-risk work; anything else goes to a person, who moves it to `dev-feature`.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: dev-fix

@@ -4,7 +4,7 @@
 
 Deployment: LiteLLM chart (2 replicas), dedicated Postgres (CNPG, `litellm` database) for keys and spend logs, Redis for the cache and routing, `master_key` as a secret. **Pinned** version and image verified by digest (compromised versions have existed: never follow `latest`).
 
-Base configuration (`charts/choregos/values/gateway.yaml`):
+Base configuration (`charts/tranibor/values/gateway.yaml`):
 
 ```yaml
 model_list:

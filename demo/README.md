@@ -46,7 +46,7 @@ turns and minutes. Say so when showing the dashboard.
 ```bash
 kubectl -n choregos create secret generic agent-creds \
   --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(jq -r .claudeAiOauth.accessToken ~/.claude/.credentials.json)"
-helm upgrade choregos charts/choregos -n choregos -f charts/choregos/values/local.yaml \
+helm upgrade choregos charts/tranibor -n choregos -f charts/tranibor/values/local.yaml \
   -f demo/values-demo.yaml --set global.gateway.embedded=false --reuse-values
 make demo-seed GATEWAY=direct
 ```
@@ -110,8 +110,8 @@ kubectl -n choregos exec deploy/demo-git -- sh -c \
 ## Watching
 
 ```bash
-kubectl -n choregos logs -l choregos/run-id --tail=50 -f         # the agents at work
-kubectl -n choregos port-forward deploy/choregos-web 3000:3000   # the front end
+kubectl -n choregos logs -l tranibor/run-id --tail=50 -f         # the agents at work
+kubectl -n choregos port-forward deploy/tranibor-web 3000:3000   # the front end
 ```
 
 The demonstration repository can be read back from the cluster:

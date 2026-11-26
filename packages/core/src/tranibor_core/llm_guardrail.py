@@ -5,7 +5,7 @@ An agent sends its model everything it read: a file holding a key, a log line wi
 a clone URL with credentials. The agent process cannot be trusted to clean that up — it is the
 thing being guarded — so the masking happens at the gateway, in LiteLLM, before the provider call.
 
-The gateway loads this file as a custom guardrail (`charts/choregos/charts/litellm/files/`, a
+The gateway loads this file as a custom guardrail (`charts/tranibor/charts/litellm/files/`, a
 byte-identical copy, and the local install writes it next to LiteLLM's config). It runs on every
 request but acts only for a key whose **metadata** says `choregos_llm_guard: redact`, which the
 platform writes when it mints a run's key and the policy sets `sandbox.llm_security_analyzer`. A

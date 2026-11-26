@@ -300,7 +300,7 @@ class GitHubScm(GitHubChanges):
         summary: str,
         annotations: list[str] | None = None,
     ) -> None:
-        """Check-runs `choregos/scope` et `choregos/evidence` (S3-05)."""
+        """Check-runs `tranibor/scope` and `tranibor/evidence` (S3-05), and their former names."""
         await self.client.request(
             "POST",
             f"/repos/{repo}/check-runs",

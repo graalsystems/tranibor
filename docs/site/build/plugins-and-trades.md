@@ -23,7 +23,7 @@ a **plugin**. There is one such unit, and no other: no "pack", no "module", no "
 | **Core** | The platform: work items, workflows and their interpreter, gates, governed actions, decisions, agents and their runs, budgets, audit, and the five surfaces 1.0 freezes. It names no trade. | GRAAL.SYSTEMS, Apache 2.0 | The images and the chart |
 | **Plugin** | The one unit a trade ships. Its **content** (`plugin.yaml`: agents, assistants, skills, templates with their workflows, evals, procedures, MCP servers) and, only when the trade needs code inside the platform, its **extension**. Both halves carry the plugin's name and version. | Anyone | Content: an organisation administrator installs it (**Plugins** in the sidebar). Extension: the operator installs it in the images. |
 | **First-party plugin** | A plugin GRAAL.SYSTEMS publishes. Same formats, same entry point, same checks, same seams. It has no access another plugin lacks. | GRAAL.SYSTEMS | As any plugin |
-| **Extension** | Python code loaded at start-up by the API and the workers, from the `choregos.plugins` entry point. It is the code half of a plugin, or code that is no trade at all (an edition, an in-house connector). | The plugin's or edition's publisher | A distribution installed in the images |
+| **Extension** | Python code loaded at start-up by the API and the workers, from the `tranibor.plugins` entry point (the former group is read too until 0.32.0). It is the code half of a plugin, or code that is no trade at all (an edition, an in-house connector). | The plugin's or edition's publisher | A distribution installed in the images |
 | **Extension seam** | A named interface of the core that an extension calls when it loads, for example `tranibor_adapters.register` (a connector type), `effects.declare_effect` (an effect of a governed action), `extensions.declare_router` (routes), `edition.declare`. | The core | Part of the core; frozen at 1.0 |
 | **Edition** | Which platform runs: community or enterprise. An edition changes what the platform allows (several organisations, sign-in, isolation), never what work it does. | Community: the core. Enterprise: GRAAL.SYSTEMS, from a separate repository | The enterprise edition is an extension that calls `edition.declare` |
 
@@ -45,7 +45,7 @@ the platform's own processes.
 | Tools of an outside system | an MCP server (an image pinned by digest), governed tool by tool | |
 | A connector type (a tracker, a directory, a market data feed) | an MCP server that implements the tracker profile | a connector type, through `tranibor_adapters.register`; a kind every project's adapters hold (a source control, a CI), through `declare_adapter_slot` (ADR 0181, round D) |
 | Effects of a governed action | | `effects.declare_effect` |
-| Its own tables, its own routes | | the `choregos.migrations` entry point, `extensions.declare_router` |
+| Its own tables, its own routes | | the `tranibor.migrations` entry point, `extensions.declare_router` |
 | Gates and the facts they read | | `gates.gate` and `gates.context_provider`, with its `judged` hook ([ADR 0181](../../adr/0181-the-contracts-speak-no-trade.md), rounds C0 and C2) |
 | Step effects for `does:` | | `step_effects.step_effect` (ADR 0181, round C0) |
 | Inbound event types, finding types, memory kinds, stage roles | | `INBOUND_EVENT_TYPES`, `FINDING_TYPES`, `MEMORY_KINDS` of `tranibor_contracts`, `stage_roles.declare_stage_roles` (ADR 0181, round C0) |
@@ -83,7 +83,7 @@ names it.
   campaign template, two agents, two skills, their evals and the setup procedures of its connectors.
   Extension: the `marketdata` connector family, the distribution `tranibor-investment-research` in
   `plugins/investment-research/` of the core's repository, which the published images install. Its
-  template's deterministic steps run `choregos-quant` in the plugin's job image,
+  template's deterministic steps run `tranibor-quant` in the plugin's job image,
   `tranibor-investment-research`, which each release builds FROM its own runner image.
 - **Procurement**: `procurement`, planned ([ADR 0202](../../adr/0202-procurement-is-a-plugin-whose-code-half-is-a-job-image.md),
   stream S85), a first-party plugin with a code half and no extension. Content: a template that compares
@@ -107,7 +107,7 @@ first-party plugin like any other, in its own distribution, before 1.0.
 | `pr_url` on a work item and a step's result, `repository` fields | `links`, with `rel: change_request`; `workspace`: done (S83-03) |
 | The twelve gates that read a diff or a CI | `software-delivery`'s extension, under the same names: done (S83-04a, `plugins/software-delivery/`) |
 | `does: open_pr` and `merge_pr` | `software-delivery`, under the same names: done (S83-04b) |
-| The `scm.*`, `ci.*`, `cd.*` events, the finding types `bug`, `perf`, `tech-debt`, `flaky-test`, the memory kinds `flaky_test` and `hotspot`, the connector kinds `scm`, `ci`, `cd`, the release train's `choregos.release.*` events and statuses | `software-delivery`, under the same names: done, only its extension declares them (S83-04c, S83-04f, S83-04r). A stored value is still read without it. Without it, the GitHub, GitLab and Azure DevOps webhooks deliver no pull request or pipeline event |
+| The `scm.*`, `ci.*`, `cd.*` events, the finding types `bug`, `perf`, `tech-debt`, `flaky-test`, the memory kinds `flaky_test` and `hotspot`, the connector kinds `scm`, `ci`, `cd`, the release train's `tranibor.release.*` events and statuses | `software-delivery`, under the same names: done, only its extension declares them (S83-04c, S83-04f, S83-04r). A stored value is still read without it. Without it, the GitHub, GitLab and Azure DevOps webhooks deliver no pull request or pipeline event |
 | The release train, its routes and the DORA figures | `software-delivery`: its routes are outside the frozen REST set (S83-04d), its code is the extension's: done (S83-05) |
 | The source control, CI and CD connectors, their fakes and webhooks, the pull request's activities | `software-delivery`'s extension, under the same kinds, types, paths and activity names: done (S83-05i, S83-05j). The GitHub App and the GitHub and GitLab webhooks stay the core's: they serve its trackers too |
 | The core's suite needs the plugin | the core runs without it (the `core-without-plugins` jobs); the software delivery tests are the plugin's, on a shared test kit: 91 core test files still drive a delivery workflow (S83-05l) |

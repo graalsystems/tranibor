@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Normalization of GitHub webhooks into `InboundEvent`, and the `/choregos ...` commands.
+"""Normalization of GitHub webhooks into `InboundEvent`, and the `/tranibor ...` commands.
 
 This is where the tracker becomes an interface: a moved card or a label that was set become
 events the orchestrator understands.
 
-The `/choregos ...` comments are PARSED into `HUMAN_DECISION`, but the orchestrator translates
+The `/tranibor ...` comments (and, until 0.32.0, the former `/choregos ...`, ADR 0226) are PARSED
+into `HUMAN_DECISION`, but the orchestrator translates
 them into nothing: no decision goes through them (#138). A tracker login is not a Tranibor
 principal: no rights, no recent authentication, no gesture checks. Wiring them up will mean
 resolving that login to a user and going through `extensions.check_gesture`.
@@ -15,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from tranibor_contracts import InboundEvent, InboundEventType
+from tranibor_contracts import InboundEvent, InboundEventType, wire
 
 from ..forge_events import (
     CHECK_COMPLETED,
@@ -30,13 +31,17 @@ from ..forge_events import (
     forge_events,
 )
 
+#: `/tranibor <verb>`, or the former `/choregos <verb>`: a comment written before the upgrade, or by a person
+#: who still types the former word, is the same command (ADR 0226, R9c).
 COMMAND_RE = re.compile(
-    r"^\s*/choregos\s+(?P<verb>approve|reject|answer|scope|pause|resume|stop)\b(?P<rest>.*)$", re.I | re.M
+    rf"^\s*/(?:{'|'.join(wire.COMMAND_WORDS)})\s+"
+    r"(?P<verb>approve|reject|answer|scope|pause|resume|stop)\b(?P<rest>.*)$",
+    re.I | re.M,
 )
 
 
 def parse_command(body: str) -> dict[str, Any] | None:
-    """`/choregos approve`, `/choregos reject raison`, `/choregos answer texte`…"""
+    """`/tranibor approve`, `/tranibor reject <reason>`, `/tranibor answer <text>`… (or `/choregos …`)."""
     match = COMMAND_RE.search(body or "")
     if match is None:
         return None

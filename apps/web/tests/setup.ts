@@ -7,8 +7,8 @@ afterEach(() => {
   if (typeof window === "undefined") return;
   window.sessionStorage.clear();
   // The chosen theme and the collapsed sidebar (ADR 0043) do not carry over from one test to the next either.
-  window.localStorage.removeItem("choregos.theme");
-  window.localStorage.removeItem("choregos.sidebar");
+  window.localStorage.removeItem("tranibor.theme");
+  window.localStorage.removeItem("tranibor.sidebar");
   delete document.documentElement.dataset.theme;
   delete document.documentElement.dataset.sidebar;
 });

@@ -14,6 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
+from tranibor_contracts.wire import both_headers
 
 from ..db.session import ALL_ORGS, get_sessionmaker, limit_to_organisations
 from ..extensions import theme_provider
@@ -31,13 +32,13 @@ async def get_theme(
 ) -> Response:
     """The look of the console, for the host it is reached on or for `?org=`.
 
-    On a host an organisation owns (ADR 0175, `declare_host_resolver`), that organisation's theme
-    is served whatever `?org=` says: a host's look is the host's, not the visitor's remembered
-    choice. The host is `X-Forwarded-Host` (first entry) or `Host`; the console's server, which
-    calls this route from inside the cluster, forwards the visitor's host in that header. Both
-    headers are client-controlled, which is harmless here: the route is public, and a host only
-    selects a look the route already serves for `?org=`. `X-Choregos-Host-Org` names the
-    organisation the host belongs to, so the console can imply it on its sign-in page.
+    On a host an organisation owns (ADR 0175, `declare_host_resolver`), that organisation's theme is served
+    whatever `?org=` says: a host's look is the host's, not the visitor's remembered choice. The host is
+    `X-Forwarded-Host` (first entry) or `Host`; the console's server, which calls this route from inside the
+    cluster, forwards the visitor's host in that header. Both headers are client-controlled, which is harmless
+    here: the route is public, and a host only selects a look the route already serves for `?org=`.
+    `X-Tranibor-Host-Org` (and the former `X-Choregos-Host-Org`) names the organisation the host belongs to,
+    so the console can imply it on its sign-in page.
     """
     if org is not None and not ORG_SLUG.match(org):
         org = None  # an unknown slug is "no organisation", never an error on a public route
@@ -59,10 +60,11 @@ async def get_theme(
         "ETag": etag,
         "Cache-Control": "no-cache",
         "Vary": "Host, X-Forwarded-Host",
-        "X-Choregos-Theme": source,
+        # Both names for the window of ADR 0226: a console of the previous release reads the former.
+        **both_headers("Theme", source),
     }
     if host_org:
-        headers["X-Choregos-Host-Org"] = host_org
+        headers.update(both_headers("Host-Org", host_org))
     if if_none_match == etag:
         return Response(status_code=304, headers=headers)
     return JSONResponse(theme, headers=headers)

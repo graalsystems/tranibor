@@ -23,12 +23,13 @@ from __future__ import annotations
 import base64
 import contextlib
 import os
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from tranibor_contracts import ExecutorKind, StageResult
+from tranibor_contracts import ExecutorKind, StageResult, wire
 from tranibor_contracts.delivery import repository_of
 from tranibor_contracts.env import with_legacy_entries
 from tranibor_core.agent_isolation import SEPARATE_AGENT
@@ -47,6 +48,46 @@ from .isolation import refuse_unless_separate
 
 TEKTON_API = "/apis/tekton.dev/v1"
 CORE_API = "/api/v1"
+
+#: The runners' service account (ADR 0226, R9b). Provisioning and the chart create it beside the former
+#: one, which they keep creating for the window; a namespace provisioned before 0.30.0 has only the former.
+RUNNER_SERVICE_ACCOUNT = "tranibor-runner"
+FORMER_RUNNER_SERVICE_ACCOUNT = "choregos-runner"
+
+
+class RunnerServiceAccount:
+    """The service account a runner's pod is given in a namespace (ADR 0226, R9b).
+
+    A name the deployment configured is used as it is. Otherwise the new `tranibor-runner` when the
+    namespace has it, else the former `choregos-runner`: a project namespace provisioned before 0.30.0 has
+    only the former one, and its Role may not even let the executor read service accounts (a refusal reads
+    as "absent"). A pod named after an account that does not exist is never created, and the Job says so
+    nowhere the run can see: so the executor looks before it names one. What it found is kept, the former
+    for `recheck_s` only, so a namespace provisioned again moves to the new name without a restart.
+    """
+
+    def __init__(self, configured: str | None = None, *, recheck_s: float = 300.0) -> None:
+        self.configured = configured or None
+        self.recheck_s = recheck_s
+        self._known: dict[str, tuple[str, float]] = {}
+
+    async def name(self, client: Any, namespace: str) -> str:
+        if self.configured:
+            return self.configured
+        known = self._known.get(namespace)
+        if known is not None and known[1] > time.monotonic():
+            return known[0]
+        try:
+            found = await client.request(
+                "GET", f"{CORE_API}/namespaces/{namespace}/serviceaccounts/{RUNNER_SERVICE_ACCOUNT}"
+            )
+        except UpstreamError:
+            found = None  # a Role written before 0.30.0 cannot read service accounts: the former is there
+        if found is not None:
+            self._known[namespace] = (RUNNER_SERVICE_ACCOUNT, float("inf"))
+            return RUNNER_SERVICE_ACCOUNT
+        self._known[namespace] = (FORMER_RUNNER_SERVICE_ACCOUNT, time.monotonic() + self.recheck_s)
+        return FORMER_RUNNER_SERVICE_ACCOUNT
 
 
 class KubernetesClient:
@@ -133,7 +174,7 @@ class TektonExecutor:
         self,
         client: KubernetesClient | None = None,
         *,
-        service_account: str = "choregos-runner",
+        service_account: str | None = None,
         storage: str = "10Gi",
         cpu_limit: str = "2",
         memory_limit: str = "6Gi",
@@ -141,7 +182,8 @@ class TektonExecutor:
         runner_limits: dict[str, str] | None = None,
     ) -> None:
         self.client = client or KubernetesClient()
-        self.service_account = service_account
+        #: `tranibor-runner` where the namespace has it, else the former one (ADR 0226, R9b).
+        self.service_accounts = RunnerServiceAccount(service_account)
         self.storage = storage
         #: The agent stage's ceiling: the runner's step under `process`, the agent's container under
         #: `container`, whose runner step then takes `separate_agent.RUNNER_REQUESTS`/`RUNNER_LIMITS`.
@@ -174,8 +216,10 @@ class TektonExecutor:
             await self._attach_secret(spec.namespace, name, existing)
             return ExecRef(kind=self.kind, name=name, namespace=spec.namespace, run_id=spec.run_id)
 
+        # Which runner account the namespace has (ADR 0226, R9b), asked before anything is written.
+        account = await self.service_accounts.name(self.client, spec.namespace)
         await self._ensure_secret(spec, name)
-        body = self._pipeline_run(spec, name)
+        body = self._pipeline_run(spec, name, account)
         try:
             created = await self.client.request(
                 "POST", f"{TEKTON_API}/namespaces/{spec.namespace}/pipelineruns", json=body
@@ -241,7 +285,12 @@ class TektonExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id, "choregos/project": spec.project_slug},
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                    }
+                ),
             },
             "type": "Opaque",
             "data": run_secret_data(spec),
@@ -254,7 +303,9 @@ class TektonExecutor:
                 "PUT", f"{CORE_API}/namespaces/{spec.namespace}/secrets/{name}", json=secret
             )
 
-    def _pipeline_run(self, spec: StageJobSpec, name: str) -> dict[str, Any]:
+    def _pipeline_run(
+        self, spec: StageJobSpec, name: str, service_account: str = RUNNER_SERVICE_ACCOUNT
+    ) -> dict[str, Any]:
         depot = repository_of(spec.stage_input) if spec.stage_input else None
         pod_template: dict[str, Any] = {
             "securityContext": {
@@ -277,16 +328,18 @@ class TektonExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {
-                    "choregos/run-id": spec.run_id,
-                    "choregos/project": spec.project_slug,
-                    **spec.labels,
-                },
+                "labels": wire.labels_with_former(
+                    {
+                        wire.label("run-id", domain=False): spec.run_id,
+                        wire.label("project", domain=False): spec.project_slug,
+                        **spec.labels,
+                    }
+                ),
             },
             "spec": {
                 # Inline (S87-05): no Pipeline nor Task of the namespace is read to run the agent stage.
                 "pipelineSpec": self._pipeline_spec(spec, name, cloned=depot is not None),
-                "taskRunTemplate": {"serviceAccountName": self.service_account, "podTemplate": pod_template},
+                "taskRunTemplate": {"serviceAccountName": service_account, "podTemplate": pod_template},
                 "timeouts": {"pipeline": f"{spec.timeout_minutes}m"},
                 "params": [
                     {"name": "run-id", "value": spec.run_id},
@@ -374,7 +427,7 @@ class TektonExecutor:
         step: dict[str, Any] = {
             "name": "run",
             "image": spec.runner_image,
-            "command": ["choregos-runner"],
+            "command": ["tranibor-runner"],
             "args": args,
             "workingDir": WORKSPACE_PATH,
             "env": [*runner_env_entries(spec, name), {"name": WORKSPACE_ENV, "value": WORKSPACE_PATH}],

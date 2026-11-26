@@ -101,7 +101,7 @@ describe("the CLI the instance serves (S62-08), pure parts", () => {
     expect(formatSize(2048)).toBe("2 KiB");
     expect(formatSize(12)).toBe("12 B");
     const posix = firstCommands("linux", "https://choregos.example.org", "acme");
-    expect(posix).toContain("choregos login --api-url https://choregos.example.org --token <full-access token> --org acme");
+    expect(posix).toContain("tranibor login --api-url https://choregos.example.org --token <full-access token> --org acme");
     expect(posix).toContain("export TRANIBOR_API_URL=https://choregos.example.org TRANIBOR_TOKEN=");
     expect(firstCommands("windows", "https://choregos.example.org", "acme")).toContain(
       '$env:TRANIBOR_API_URL = "https://choregos.example.org"',
@@ -114,7 +114,7 @@ describe("the download block on Integrations › CLI", () => {
     withUserAgent(WINDOWS_UA);
     vi.mocked(api.cliManifest).mockResolvedValue(MANIFEST);
     mount(<CliDownload origin="https://choregos.example.org" version="0.26.0" org="acme" />);
-    expect(await screen.findByTestId("cli-version")).toHaveTextContent("choregos 0.26.0");
+    expect(await screen.findByTestId("cli-version")).toHaveTextContent("tranibor 0.26.0");
     expect(screen.getByTestId("cli-install-command")).toHaveTextContent(
       "irm https://choregos.example.org/cli/install.ps1 | iex",
     );
@@ -125,8 +125,8 @@ describe("the download block on Integrations › CLI", () => {
     expect(link).toHaveAttribute("href", "/downloads/cli/choregos-windows-x86_64.exe");
     expect(link.closest("tr")).toHaveAttribute("data-recommended", "true");
     expect(within(table).getByText(SHA("c"))).toBeInTheDocument();
-    expect(screen.getByTestId("cli-first-commands")).toHaveTextContent("choregos login --api-url https://choregos.example.org");
-    expect(screen.getByText(/choregos self update/)).toBeInTheDocument();
+    expect(screen.getByTestId("cli-first-commands")).toHaveTextContent("tranibor login --api-url https://choregos.example.org");
+    expect(screen.getByText(/tranibor self update/)).toBeInTheDocument();
 
     // Another system: its own command, and its own file first.
     fireEvent.change(screen.getByRole("combobox", { name: "System" }), { target: { value: "macos" } });

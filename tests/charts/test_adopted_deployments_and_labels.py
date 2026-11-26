@@ -15,13 +15,13 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
 BASE = {
     "global": {"memory": {"embedded": True}},
-    "choregos-websearch": {
+    "tranibor-websearch": {
         "enabled": True,
         "relay": {"enabled": True, "secretName": "s", "organisation": "o"},
     },
@@ -62,10 +62,10 @@ def _pod_labels(dep: dict[str, Any]) -> dict[str, str]:
 # (piece, default Deployment name, default `app.kubernetes.io/name`, subchart values key, component)
 PIECES = [
     ("ecphoria", "c-ecphoria", "choregos-ecphoria", "choregos-ecphoria", "memory"),
-    ("searxng", "c-searxng", "choregos-searxng", "choregos-websearch.searxng", "websearch"),
-    ("firecrawl", "c-firecrawl", "choregos-firecrawl", "choregos-websearch.firecrawl", "websearch"),
-    ("redis", "c-firecrawl-redis", "choregos-firecrawl-redis", "choregos-websearch.redis", "websearch"),
-    ("relay", "c-relay", "choregos-relay", "choregos-websearch.relay", "websearch"),
+    ("searxng", "c-searxng", "choregos-searxng", "tranibor-websearch.searxng", "websearch"),
+    ("firecrawl", "c-firecrawl", "choregos-firecrawl", "tranibor-websearch.firecrawl", "websearch"),
+    ("redis", "c-firecrawl-redis", "choregos-firecrawl-redis", "tranibor-websearch.redis", "websearch"),
+    ("relay", "c-relay", "choregos-relay", "tranibor-websearch.relay", "websearch"),
 ]
 
 
@@ -119,7 +119,7 @@ def test_pod_labels_are_added_to_the_pods_and_never_to_a_selector(
 
 
 def test_ecphoria_adopts_the_deployment_name_and_the_volume_keeps_its_own(tmp_path: pathlib.Path) -> None:
-    docs = _docs(tmp_path, {"choregos-ecphoria": {"deploymentName": "ecphoria"}})
+    docs = _docs(tmp_path, {"tranibor-ecphoria": {"deploymentName": "ecphoria"}})
     dep = _get(docs, "Deployment", "ecphoria")
     assert dep["spec"]["strategy"] == {"type": "Recreate"}
     (data,) = [v for v in dep["spec"]["template"]["spec"]["volumes"] if v["name"] == "data"]
@@ -129,7 +129,7 @@ def test_ecphoria_adopts_the_deployment_name_and_the_volume_keeps_its_own(tmp_pa
 
 
 def test_the_charts_own_network_policy_follows_the_adopted_ecphoria_label(tmp_path: pathlib.Path) -> None:
-    docs = _docs(tmp_path, {"choregos-ecphoria": {"selectorLabels": {"app.kubernetes.io/name": "ecphoria"}}})
+    docs = _docs(tmp_path, {"tranibor-ecphoria": {"selectorLabels": {"app.kubernetes.io/name": "ecphoria"}}})
     peers = [
         p["to"][0]["podSelector"]["matchLabels"]["app.kubernetes.io/name"]
         for d in docs
@@ -143,7 +143,7 @@ def test_the_charts_own_network_policy_follows_the_adopted_ecphoria_label(tmp_pa
 
 def test_websearch_deployments_follow_the_adopted_names(tmp_path: pathlib.Path) -> None:
     docs = _docs(
-        tmp_path, {"choregos-websearch": {"names": {"searxng": "searxng", "relay": "choregos-relay"}}}
+        tmp_path, {"tranibor-websearch": {"names": {"searxng": "searxng", "relay": "choregos-relay"}}}
     )
     _get(docs, "Deployment", "searxng")
     _get(docs, "Deployment", "choregos-relay")
@@ -158,5 +158,5 @@ def test_the_searxng_restart_checksum_ignores_the_labels(tmp_path: pathlib.Path)
         return str(dep["spec"]["template"]["metadata"]["annotations"]["checksum/settings"])
 
     plain = checksum({})
-    assert checksum(_values("choregos-websearch.searxng", podLabels={"a": "b"})) == plain
-    assert checksum(_values("choregos-websearch.searxng", instanceName="other")) != plain
+    assert checksum(_values("tranibor-websearch.searxng", podLabels={"a": "b"})) == plain
+    assert checksum(_values("tranibor-websearch.searxng", instanceName="other")) != plain

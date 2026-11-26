@@ -21,7 +21,7 @@ from tranibor_api.services import (
     restart_payload,
 )
 from tranibor_api.services.initiator import initiator
-from tranibor_contracts import EventType, HumanActor, HumanRequestKind, StageResult
+from tranibor_contracts import EventType, HumanActor, HumanRequestKind, StageResult, wire
 from tranibor_contracts.open_lists import STORED
 from tranibor_core import Message, MessageAction, TrackerStateMapping, elapsed_seconds, utcnow
 from tranibor_core.domain import TRACKER_FIELD, TRIAL_STATE
@@ -48,9 +48,9 @@ logger = get_logger("choregos.tracker")
 
 #: The delivery comment: one per work item, rewritten if needed, so a replayed close_out does not
 #: post a second one.
-DELIVERED_MARKER = "<!-- choregos:delivered -->"
+DELIVERED_MARKER = wire.marker("delivered")  # the former `choregos:` one is found too (ADR 0226)
 #: The comment that closes a work item already fixed on the default branch (S22-47): one, upserted.
-ALREADY_FIXED_MARKER = "<!-- choregos:already-fixed -->"
+ALREADY_FIXED_MARKER = wire.marker("already-fixed")
 
 
 #: The reason the interpreter mirrors the state it (re)starts from: no decision is applied then.
@@ -62,6 +62,26 @@ CANCELLED_OUTCOME = "cancelled"
 def _via(bundle: Any) -> dict[str, Any]:
     """The tracker write an event stands for (ADR 0107 point 4): its connector type and account."""
     return {"via": bundle.tracker_via} if bundle.tracker_via else {}
+
+
+def _state_label(state: Any, name: str | None) -> str | None:
+    """The tracker label of a state: the one the workflow declares, else `tranibor:<state>` (ADR 0226, R9c;
+    `choregos:<state>` before 0.30.0). `None` for no state."""
+    if state is not None and state.tracker is not None:
+        return str(state.tracker.label) if state.tracker.label else None
+    return wire.state_label(name) if name else None
+
+
+def _stale_state_labels(label: str | None, previous: str | None) -> list[str]:
+    """The state labels a state change removes beside the new one: the previous state's, and the former
+    twin of each (`choregos:<state>`, written before 0.30.0), so an issue never carries two states. Only
+    the platform's state-label family is removed; a label a workflow names without that prefix is the
+    workflow's own. A state that sets no label (its `tracker` names a status only) removes none, as before.
+    Replayed, the same list: removing a label the issue no longer has changes nothing."""
+    if not label:
+        return []
+    stale = {twin for name in (label, previous) if name for twin in wire.state_label_twins(name)}
+    return sorted(name for name in stale if name != label and wire.is_state_label(name))
 
 
 @activity.defn(name="mirror_state")
@@ -77,7 +97,8 @@ async def mirror_state(payload: dict[str, Any]) -> dict[str, Any]:
         bundle = await project_bundle(session, payload["project_id"])
         item = await load_work_item(session, payload["work_item_id"])
         state_name = payload["state"]
-        state = (await work_item_workflow(session, item)).states.get(state_name)
+        states = (await work_item_workflow(session, item)).states
+        state = states.get(state_name)
         previous = item.state
         item.state = state_name
         if payload.get("reason") != STARTED_REASON:
@@ -92,9 +113,11 @@ async def mirror_state(payload: dict[str, Any]) -> dict[str, Any]:
             )
         if state is not None and state.terminal and item.closed_at is None:
             item.closed_at = utcnow()
+        label = _state_label(state, state_name)
         mapping = TrackerStateMapping(
             status=(state.tracker.status if state and state.tracker else None),
-            label=(state.tracker.label if state and state.tracker else f"choregos:{state_name}"),
+            label=label,
+            remove_labels=_stale_state_labels(label, _state_label(states.get(previous), previous)),
         )
         await tracker_for(bundle, item).set_state(item.tracker_key, mapping)
         if previous != state_name:

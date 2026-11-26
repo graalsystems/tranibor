@@ -48,12 +48,12 @@ const EXTRA_COMMANDS = [
   revokeCommand("acme:billing-api", "partner-app"),
 ];
 
-/** Each `choregos <group> <command> …` invocation, with the options it passes (continuation lines joined). */
+/** Each `tranibor <group> <command> …` invocation, with the options it passes (continuation lines joined). */
 function invocations(code: string): Array<{ command: string[]; options: string[] }> {
   return code
     .replace(/\\\n\s*/g, " ")
     .split("\n")
-    .filter((line) => line.startsWith("choregos "))
+    .filter((line) => line.startsWith("tranibor "))
     .map((line) => {
       const words = line.split(/\s+/);
       return { command: words.slice(1, 3), options: [...line.matchAll(/(?:^|\s)(--[a-z][a-z-]*)/g)].map((m) => m[1]!) };
@@ -82,14 +82,14 @@ describe("the A2A snippets name only what the door and the CLI have (a2a-names.j
     for (const code of [...ALL_CODE, ...EXTRA_COMMANDS]) {
       for (const { command, options } of invocations(code)) {
         const key = command.join(" ");
-        expect(listed.has(key), `choregos ${key} is not in a2a-names.json`).toBe(true);
-        for (const option of options) expect(listed.get(key)!.has(option), `choregos ${key} ${option}`).toBe(true);
+        expect(listed.has(key), `tranibor ${key} is not in a2a-names.json`).toBe(true);
+        for (const option of options) expect(listed.get(key)!.has(option), `tranibor ${key} ${option}`).toBe(true);
         used.set(key, new Set([...(used.get(key) ?? []), ...options]));
       }
     }
     for (const [key, options] of listed) {
-      expect(used.has(key), `choregos ${key} is listed but no snippet shows it`).toBe(true);
-      for (const option of options) expect(used.get(key)!.has(option), `choregos ${key} ${option} unused`).toBe(true);
+      expect(used.has(key), `tranibor ${key} is listed but no snippet shows it`).toBe(true);
+      for (const option of options) expect(used.get(key)!.has(option), `tranibor ${key} ${option} unused`).toBe(true);
     }
   });
 

@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/demo-history.schema.json",
+  "$id": "https://tranibor.dev/schemas/demo-history.schema.json",
   "title": "DemoHistory",
   "description": "A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused.",
   "type": "object",
   "required": ["schema", "work_items"],
   "additionalProperties": false,
   "properties": {
-    "schema": { "const": "choregos/DemoHistory/v1" },
+    "schema": { "enum": ["tranibor/DemoHistory/v1", "choregos/DemoHistory/v1"], "description": "`tranibor/DemoHistory/v1`; the former `choregos/DemoHistory/v1` is read until 0.32.0 (ADR 0226)" },
     "workflow": {
       "type": "string",
       "minLength": 1,

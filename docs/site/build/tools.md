@@ -137,7 +137,7 @@ above:
 The project's part of its policy, for a project whose implementer installs Python packages:
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Policy
 metadata: { name: billing-api, version: 1, preset: team }
 budgets:

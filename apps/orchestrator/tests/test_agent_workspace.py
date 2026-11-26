@@ -117,9 +117,9 @@ async def test_an_agent_that_reads_clones_the_repository_but_writes_none_of_it(s
     ].startswith("https://github.com/")
     assert "github.com" in stage_input["permissions"]["allow_domains"], "a clone reaches its host"
     # Never `[]`: an empty scope is "no scope declared, write allowed" to the runner's guards.
-    assert stage_input["allowed_paths"] == [".choregos/outputs/**"]
-    assert stage_input["permissions"]["write_paths"] == [".choregos/outputs/**"]
-    assert await _recorded_scope(setup) == [".choregos/outputs/**"], "a scope change is judged on it"
+    assert stage_input["allowed_paths"] == [".tranibor/outputs/**"]
+    assert stage_input["permissions"]["write_paths"] == [".tranibor/outputs/**"]
+    assert await _recorded_scope(setup) == [".tranibor/outputs/**"], "a scope change is judged on it"
 
 
 @pytest.mark.parametrize("declared", [None, "write"])

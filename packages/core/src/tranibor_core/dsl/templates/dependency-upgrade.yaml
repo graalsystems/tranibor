@@ -1,7 +1,7 @@
 # A dependency upgrade (S59-02): the developer moves the versions and adapts the code to them, the tester
 # runs the full checks, the supply-chain review scans the branch (vulnerabilities, licences, SBOM, secrets)
 # and must approve; a maintainer approves the pull request and the release train ships it.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: dependency-upgrade

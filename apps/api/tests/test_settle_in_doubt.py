@@ -170,7 +170,7 @@ async def test_made_records_the_effect_done_with_the_stated_result_and_the_actio
         "made",
         1,
     )
-    (event,) = await _events(action_id, "choregos.action.settled")
+    (event,) = await _events(action_id, "tranibor.action.settled")
     assert (event["outcome"], event["position"], event["by"]) == ("made", 1, OPS)
 
     # The run that follows, as the workflow plays it: the journal answers what was done or settled,
@@ -325,7 +325,7 @@ async def test_settling_twice_with_the_same_outcome_changes_nothing_and_the_othe
     assert again.status_code == 200, again.text
     assert again.json()["settlement"] == first.json()["settlement"], "the first record stands"
     assert len(temporal.action_restarts) == starts, "no second start"
-    assert len(await _events(action_id, "choregos.action.settled")) == 1
+    assert len(await _events(action_id, "tranibor.action.settled")) == 1
     assert len(await outposts_kit.audit_rows("action.settle")) == 1
     other = await ops.post(path, json={"outcome": "not_made", "note": "changed my mind"})
     assert other.status_code == 409 and other.json()["code"] == "action_already_settled", other.text
@@ -493,7 +493,7 @@ async def test_on_temporal_made_runs_the_rest_of_the_action_and_it_succeeds(
         ("done", 1),
         ("done", 1),
     ]
-    assert len(await _events(action_id, "choregos.action.succeeded")) == 1
+    assert len(await _events(action_id, "tranibor.action.succeeded")) == 1
 
 
 async def test_on_temporal_not_made_fails_the_action_and_compensates_what_came_before(
@@ -512,7 +512,7 @@ async def test_on_temporal_not_made_fails_the_action_and_compensates_what_came_b
     action = await kit.action_row(action_id)
     assert action.status == "failed"
     assert [row.status for row in await kit.journal(action_id)] == ["compensated", "not_made"]
-    failed = await _events(action_id, "choregos.action.failed")
+    failed = await _events(action_id, "tranibor.action.failed")
     assert [event["status"] for event in failed] == ["in_doubt", "failed"]
 
 

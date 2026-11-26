@@ -363,13 +363,16 @@ async def test_compare_lists_but_does_not_count_a_file_over_the_limit(server: Fa
 async def test_a_commit_status_names_the_verdict_and_the_perimeter(server: FakeAzureDevOpsServer) -> None:
     scm = build(server)
     sha = server.refs["refs/heads/main"]
-    await scm.create_check_run("r", sha, "choregos/scope", "failure", "out of scope", ["secrets/a"])
+    await scm.create_check_run("r", sha, "tranibor/scope", "failure", "out of scope", ["secrets/a"])
     status = server.commit_statuses[0]
     assert status["sha"] == sha and status["state"] == "failed"
-    assert status["context"] == {"name": "choregos/scope", "genre": "choregos"}
+    assert status["context"] == {"name": "tranibor/scope", "genre": "tranibor"}
     assert "secrets/a" in status["description"]
-    await scm.create_check_run("r", sha, "choregos/evidence", "success", "ok")
+    await scm.create_check_run("r", sha, "tranibor/evidence", "success", "ok")
     assert server.commit_statuses[1]["state"] == "succeeded"
+    # The former name a branch policy may still require keeps its genre until 0.32.0 (ADR 0226, R9c).
+    await scm.create_check_run("r", sha, "choregos/scope", "failure", "out of scope")
+    assert server.commit_statuses[2]["context"] == {"name": "choregos/scope", "genre": "choregos"}
 
 
 async def test_mint_token_hands_out_the_run_token_or_refuses(server: FakeAzureDevOpsServer) -> None:

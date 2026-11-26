@@ -10,7 +10,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/graalsystems/tranibor.git
-    path: charts/choregos
+    path: charts/tranibor
     targetRevision: HEAD
     helm:
       valueFiles: [values.yaml, values/staging.yaml]

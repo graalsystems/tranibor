@@ -187,8 +187,9 @@ async def test_a_branch_whose_head_cannot_be_read_is_not_judged(
 
 
 async def test_the_check_runs_carry_the_judged_commit(setup: Fixture) -> None:
-    """`choregos/scope` and `choregos/evidence` mark the commit the verdict is about, not the one the
-    run declared."""
+    """`tranibor/scope` and `tranibor/evidence` mark the commit the verdict is about, not the one the
+    run declared; until 0.32.0 each is posted under its former name too, a branch protection may require
+    it (ADR 0226, R9c)."""
     from tranibor_orchestrator.activities.gates import evaluate_gates
 
     scm = setup.adapters.scm
@@ -201,7 +202,9 @@ async def test_the_check_runs_carry_the_judged_commit(setup: Fixture) -> None:
     )
 
     assert [(c["name"], c["sha"]) for c in scm.check_runs] == [
+        ("tranibor/scope", head),
         ("choregos/scope", head),
+        ("tranibor/evidence", head),
         ("choregos/evidence", head),
     ]
 

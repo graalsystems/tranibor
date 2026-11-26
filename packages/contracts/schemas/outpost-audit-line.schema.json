@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-audit-line.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-audit-line.schema.json",
   "title": "OutpostAuditLine",
   "description": "One line of the outpost's own audit log (ADR 0147 §8), a file of JSON lines: one line when an assignment is received, one when it is executed, refused or answered from the journal. It is the operator's record, independent of the platform's, so that the two can be compared. It holds digests, never arguments or results. A call refused for its signature has one line, which says nothing of what the envelope held: it was not opened.",
   "type": "object",

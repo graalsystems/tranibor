@@ -15,19 +15,19 @@ with no event and no failure — the API reads the workflow status on every work
 
 ## Embedded Temporal (`global.temporal.embedded: true`)
 
-The chart embeds Temporal in one of two modes (`choregos-temporal.mode`, ADR 0195).
+The chart embeds Temporal in one of two modes (`tranibor-temporal.mode`, ADR 0195).
 
 **`server` mode** (`temporalio/auto-setup`, the production tier): the pod holds **no data**. Temporal's
-state is two PostgreSQL databases (`choregos-temporal.database.name`, default `temporal`, and
+state is two PostgreSQL databases (`tranibor-temporal.database.name`, default `temporal`, and
 `.visibilityName`, default `temporal_visibility`), and the chart renders no Temporal volume. Back them up
 as the platform database is:
 
 - on the embedded PostgreSQL, they are in the scheduled backup's `pg_dump` (single-node profile,
   `single-node-restore.md`), which mounts no Temporal claim (#2156, #2179);
-- on the operator's PostgreSQL (`global.database` or `choregos-temporal.database.host`), whoever runs
+- on the operator's PostgreSQL (`global.database` or `tranibor-temporal.database.host`), whoever runs
   that PostgreSQL backs them up: see "External Temporal" below, the rules are the same.
 
-`choregos-temporal.server.numHistoryShards` is immutable once the database is initialised. Restarting the
+`tranibor-temporal.server.numHistoryShards` is immutable once the database is initialised. Restarting the
 pod cuts the workflows for about 30 s; the clients resume alone.
 
 **`dev` mode** (`temporal server start-dev`): one process, **SQLite** on a PersistentVolume
@@ -38,7 +38,7 @@ backup copies the SQLite file (`single-node-restore.md`).
 If you still need a copy of the `dev` one — to move a bench, or to keep a history for a replay test:
 
 ```bash
-NS=choregos
+NS=tranibor
 POD=$(kubectl -n $NS get pod -l app.kubernetes.io/name=choregos-temporal -o jsonpath='{.items[0].metadata.name}')
 # 1. Quiesce: no worker, no new workflow. Workers resume where they stopped.
 kubectl -n $NS scale deploy -l app.kubernetes.io/component=orchestrator --replicas=0
@@ -78,7 +78,7 @@ temporal workflow list --query 'ExecutionStatus="Running"' --address <frontend>:
 For every work item that is not terminal, compare with what the API reports:
 
 ```bash
-choregos items list <project>        # state and workflow_status per ticket
+tranibor items list <project>        # state and workflow_status per ticket
 ```
 
 - `workflow_status: NOT_FOUND` on a non-terminal ticket: the workflow was lost. Restart it

@@ -201,7 +201,7 @@ DELIVERY: dict[str, tuple[OpenList, type[StrEnum], frozenset[str]]] = {
         EVENT_TYPES,
         EventType,
         frozenset(
-            f"choregos.release.{name}"
+            f"tranibor.release.{name}"
             for name in (
                 "collected",
                 "departed",

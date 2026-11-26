@@ -16,12 +16,12 @@ import { api, ApiError } from "@/lib/api";
 import { shortDate } from "@/lib/format";
 
 /**
- * Where a developer surface's sign-in is approved (ADR 0154 §6, S67-05). `choregos login` (or the editor)
+ * Where a developer surface's sign-in is approved (ADR 0154 §6, S67-05). `tranibor login` (or the editor)
  * shows a code and opens this page; the person, signed in to the console as themselves, sees what is asking
  * and approves or refuses it. The surface then holds a session of its own, the person's, listed under
  * My account and ended there.
  *
- * `fresh=1` (from `choregos login --fresh`) sends the person through their identity provider once more
+ * `fresh=1` (from `tranibor login --fresh`) sends the person through their identity provider once more
  * first, so that the sign-in this approves is a recent one.
  */
 export default function DevicePage() {
