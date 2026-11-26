@@ -176,7 +176,7 @@ step "the agent's own container: what it reads of the runner's (S65-04), under t
 # Read where the executor reads it: its own environment (the chart sets it in a shared block, not always
 # as a literal of the Deployment).
 RUNTIME_CLASS=$(k exec deploy/tranibor-orchestrator-executor -- sh -c \
-  'printf %s "${TRANIBOR_RUNNER_RUNTIME_CLASS:-${TRANIBOR_RUNNER_RUNTIME_CLASS:-}}"' 2>/dev/null || true)
+  'printf %s "${TRANIBOR_RUNNER_RUNTIME_CLASS:-}"' 2>/dev/null || true)
 echo "  RuntimeClass: ${RUNTIME_CLASS:-the cluster default}" | record
 TRANIBOR_CLUSTER_CONTEXT="$PROOF_CONTEXT" TRANIBOR_CLUSTER_ALLOW_SHARED="$PROOF_CONTEXT" \
   TRANIBOR_ISOLATION_RUNTIME_CLASS="$RUNTIME_CLASS" \
