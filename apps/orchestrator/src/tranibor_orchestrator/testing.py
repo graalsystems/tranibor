@@ -57,6 +57,32 @@ def group_by_queue(activities: Iterable[Any], workflow_queue: str) -> dict[str, 
     return by_queue
 
 
+#: Temporal fails a workflow activation that has not yielded after this many seconds ("TMPRL1101
+#: Potential deadlock detected"). The SDK fixes it; only its `debug_mode` lifts it, and that mode also
+#: runs every activation inline on the event loop and relaxes the sandbox, which would change what the
+#: tests exercise.
+SDK_DEADLOCK_SECONDS = 2
+
+
+def set_deadlock_seconds(worker: Any, seconds: float) -> None:
+    """Give `worker`'s workflow activations `seconds` before Temporal calls them deadlocked.
+
+    A test-only setting (issue #2307): on a runner shared by many CI runs, replaying a history for a
+    query or a resumed run took longer than 2 s, and four orchestrator tests failed on the detector, not
+    on a deadlock. The SDK keeps the window in a private attribute: if a release moves it, this refuses
+    loudly instead of leaving the window at 2 s in silence.
+    """
+    workflow_worker = getattr(worker, "_workflow_worker", None)
+    if workflow_worker is None:
+        return  # a worker that carries no workflow runs no activation
+    if getattr(workflow_worker, "_deadlock_timeout_seconds", None) != SDK_DEADLOCK_SECONDS:
+        raise RuntimeError(
+            "temporalio no longer keeps its deadlock window in _WorkflowWorker._deadlock_timeout_seconds "
+            f"(= {SDK_DEADLOCK_SECONDS}): set_deadlock_seconds must follow the SDK"
+        )
+    workflow_worker._deadlock_timeout_seconds = seconds
+
+
 @contextlib.asynccontextmanager
 async def workers_by_queue(
     client: Any,
@@ -65,9 +91,14 @@ async def workers_by_queue(
     workflows: Iterable[Any],
     workflow_queue: str = "test",
     replacements: Mapping[str, Any] | None = None,
+    deadlock_seconds: float | None = None,
     **options: Any,
 ) -> AsyncIterator[dict[str, list[Any]]]:
-    """One worker per queue, for the length of the block. Yields the split, so a test can assert it."""
+    """One worker per queue, for the length of the block. Yields the split, so a test can assert it.
+
+    `deadlock_seconds` widens Temporal's deadlock window (`set_deadlock_seconds`); left out, the SDK's
+    2 s stand, as in production and in the replay suite, where a real deadlock is the point.
+    """
     from temporalio.worker import Worker
 
     by_queue = group_by_queue(with_doubles(activities, replacements), workflow_queue)
@@ -86,6 +117,9 @@ async def workers_by_queue(
         for queue, queue_activities in by_queue.items()
         if queue_activities or (queue == workflow_queue and carried)
     ]
+    if deadlock_seconds is not None:
+        for worker in workers:
+            set_deadlock_seconds(worker, deadlock_seconds)
     async with contextlib.AsyncExitStack() as stack:
         for worker in workers:
             await stack.enter_async_context(worker)
