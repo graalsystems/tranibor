@@ -1,0 +1,64 @@
+{
+  "provenance": "from_source",
+  "measured": false,
+  "read_on": "2026-11-26",
+  "packages": {
+    "@agentclientprotocol/claude-agent-acp": "0.85.1",
+    "@anthropic-ai/claude-agent-sdk": "0.3.286",
+    "@agentclientprotocol/sdk": "1.6.0"
+  },
+  "credential": {
+    "token_variable": "CLAUDE_CODE_OAUTH_TOKEN",
+    "config_dir_variable": "CLAUDE_CONFIG_DIR",
+    "outrank_a_subscription": ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "apiKeyHelper"],
+    "sources": [
+      "claude-agent-acp dist/hide-claude-auth.js: an API key, apiKeyHelper or a managed key outrank a stored subscription",
+      "claude-agent-acp dist/auth-status.js: tokenSource CLAUDE_CODE_OAUTH_TOKEN and CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR",
+      "claude-agent-acp dist/paths.js: process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude')"
+    ]
+  },
+  "initialize": {
+    "load_session": true,
+    "auth_methods_only_for_terminal_auth_clients": true,
+    "sources": [
+      "claude-agent-acp dist/acp-agent.js: agentCapabilities.loadSession true",
+      "claude-agent-acp dist/acp-agent.js: authMethods added only when clientCapabilities.auth.terminal or _meta terminal-auth"
+    ]
+  },
+  "signed_out": {
+    "acp_error_code": -32000,
+    "acp_error_message": "Authentication required",
+    "result_texts": ["Not logged in · Please run /login", "Session expired. Please run /login to sign in again."],
+    "marker": "Please run /login",
+    "sources": [
+      "@agentclientprotocol/sdk dist/jsonrpc.js:1032-1034: RequestError.authRequired -> code -32000, 'Authentication required'",
+      "claude-agent-acp dist/acp-agent.js:859-885 and :4317-4318: a result containing 'Please run /login' fails the turn with authRequired"
+    ]
+  },
+  "usage_limit": {
+    "category": "quota_exhausted",
+    "prefixes": [
+      "You've hit your",
+      "You've reached your",
+      "You're out of usage credits",
+      "Your org is out of usage · add funds to continue",
+      "Your org is out of usage · contact your admin",
+      "Your seat type doesn't include usage credits",
+      "Your seat type doesn't include usage",
+      "Your usage allocation has been disabled by your admin",
+      "Your group's usage limit is set to $0",
+      "Fable 5 requires usage credits",
+      "You're out of extra usage",
+      "Your seat type doesn't include extra usage"
+    ],
+    "sources": [
+      "@anthropic-ai/claude-agent-sdk sdk.d.ts: USAGE_LIMIT_ERROR_PREFIXES",
+      "claude-agent-acp dist/session-failure-extension.js:121-131 and :329-331: a synthetic assistant message with one of these prefixes is quota_exhausted"
+    ]
+  },
+  "provider_hosts": {
+    "known": ["api.anthropic.com"],
+    "to_measure": "any host the CLI tunnels to beyond the model API (refresh, telemetry left on by mistake): the probe records them",
+    "sources": ["packages/runner/src/tranibor_runner/backends/claude_code.py CLAUDE_CODE_QUIET_ENV (#1987: three non-model tunnels without it)"]
+  }
+}
