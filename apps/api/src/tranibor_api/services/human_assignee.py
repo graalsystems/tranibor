@@ -106,7 +106,7 @@ async def assignees_of_requests(
     workflows = await work_item_workflows(session, needing)
     project_ids = sorted({item.project_id for item in needing})
     read = await session.execute(select(Project.id, Project.slug).where(Project.id.in_(project_ids)))
-    slugs: dict[str, str] = {project_id: slug for project_id, slug in read.all()}
+    slugs = {str(project_id): str(slug) for project_id, slug in read.all()}
     models: dict[str | None, Workflow] = {}
     found: list[StepAssignee | None] = []
     for item, row in requests:
