@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://choregos.dev/schemas/plugin-profile.schema.json",
+  "title": "PluginProfile",
+  "description": "A profile a plugin declares (`contents.profiles`, ADR 0224): a named contract of tools that several plugin servers may implement (`implements: [<plugin>/<name>@<version>]` in plugin-server.schema.json) and that an agent may call by profile (`mcp_servers: [{profile: ...}]`) instead of by connector. The profile's identity is `<plugin>/<name>@<version>`; the core treats it as opaque and never reads what it means (ADR 0181). Every `input` and `output` is written in the SUBSET below, and a profile that uses anything outside it is refused at validation, so that the comparison of a server's schemas with the profile's never has to guess. THE SUBSET: `type` (one of object, array, string, integer, number, boolean, null, or a list of them), `properties`, `required`, `additionalProperties` (a boolean or a schema), `items` (one schema), `enum` and `const` (scalars only), `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `format` (date-time, date, time, uri, email, uuid), `$ref` (to `#/$defs/<name>` of the same profile, no cycle, no sibling but `description` and `title`), `description` and `title`; nothing else (no oneOf, anyOf, allOf, not, if, patternProperties, prefixItems, tuple items, `$ref` elsewhere). Comparison (`tranibor plugin validate`, ADR 0224 §2): a schema A is ACCEPTED BY a schema B when every instance valid under A is valid under B. A server's input schema must accept what the profile's input accepts (profile input accepted by the server's); the profile's output schema must accept what the server returns (server output accepted by the profile's). An absent `type` is any type; an absent `additionalProperties` is true; an absent `required` is empty; an absent bound is unbounded; a keyword of the server's schema outside the subset makes the comparison fail rather than pass.",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "tools"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "scalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "schema": {
+      "type": "object",
+      "description": "a schema in the profile subset: any other keyword is refused",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/type_name"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/type_name"
+              }
+            }
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "maxProperties": 128,
+          "propertyNames": {
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/schema"
+          }
+        },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/schema"
+            }
+          ]
+        },
+        "items": {
+          "$ref": "#/$defs/schema"
+        },
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/scalar"
+          }
+        },
+        "const": {
+          "$ref": "#/$defs/scalar"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "format": {
+          "enum": [
+            "date-time",
+            "date",
+            "time",
+            "uri",
+            "email",
+            "uuid"
+          ]
+        },
+        "$ref": {
+          "type": "string",
+          "pattern": "^#/\\$defs/[A-Za-z_][A-Za-z0-9_-]{0,63}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "if": {
+        "required": [
+          "$ref"
+        ]
+      },
+      "then": {
+        "propertyNames": {
+          "enum": [
+            "$ref",
+            "description",
+            "title"
+          ]
+        }
+      }
+    },
+    "type_name": {
+      "enum": [
+        "object",
+        "array",
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "access",
+        "input",
+        "output"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "description": "unique within the profile; the operation name a server declares"
+        },
+        "access": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "description": "required: nothing is assumed read; a server declares the same access"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "human_approval": {
+          "type": "boolean",
+          "default": false,
+          "description": "a floor: a server may raise it, never lower it"
+        },
+        "platform_arguments": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "action_key",
+              "work_item_key"
+            ]
+          },
+          "description": "arguments the PLATFORM fills, never the agent (as in plugin-server.schema.json): a floor, a server may add some, never drop one"
+        },
+        "input": {
+          "$ref": "#/$defs/schema",
+          "description": "the tool's arguments, an object schema in the subset"
+        },
+        "output": {
+          "$ref": "#/$defs/schema",
+          "description": "the tool's structured answer, in the subset"
+        }
+      }
+    }
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "unique within the plugin; the profile is named `<plugin>/<name>@<version>`"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "a breaking change is a new version, and both may be served"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/tool"
+      }
+    },
+    "$defs": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/schema"
+      },
+      "description": "named schemas of the subset that `$ref` points to"
+    }
+  }
+}

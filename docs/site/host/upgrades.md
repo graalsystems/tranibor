@@ -25,7 +25,7 @@ The same command as the install, with the new version:
 
 ```shell
 helm upgrade --install choregos oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.29.4 --namespace choregos -f my-values.yaml
+  --version 0.29.5 --namespace choregos -f my-values.yaml
 ```
 
 - The database migrations run as a Helm hook **before** the new API starts
