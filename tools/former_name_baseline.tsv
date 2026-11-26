@@ -643,7 +643,7 @@
 2	docs/TRADEMARK.md
 7	docs/cli.md
 3	docs/code-agents.md
-480	docs/deployment.md
+485	docs/deployment.md
 34	docs/development.md
 1	docs/getting-started.md
 7	docs/hosted-agents.md
@@ -1384,6 +1384,7 @@
 9	tests/docs/test_site_build_integrate.py
 14	tests/docs/test_the_visible_name_is_tranibor.py
 3	tests/docs/test_upgrade_notes.py
+2	tests/docs/test_upgrade_notes_service_accounts.py
 2	tests/e2e/test_m1_vertical_slice.py
 2	tests/e2e/test_m5_hardened.py
 1	tests/e2e/test_m6_hr.py
