@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from pathlib import Path
 from typing import Annotated
@@ -66,6 +67,9 @@ def run(
     telemetry.configure_tracing("choregos-runner")
     try:
         outcome = asyncio.run(Runner(settings).run())
+    except BaseException:
+        _tell_the_agents_container(1)  # what Python exits with on an uncaught exception
+        raise
     finally:
         telemetry.shutdown_tracing()
     status = str(outcome.result.status) if outcome.result else "failed"
@@ -88,7 +92,20 @@ def run(
         # Empty on purpose (#410): nothing uploads a `result.json`, and a URL that leads nowhere
         # is worse than none. A result the runner could not post is read from its journal.
         write_result_url.write_text("", encoding="utf-8")
+    _tell_the_agents_container(int(outcome.exit_code))
     raise typer.Exit(int(outcome.exit_code))
+
+
+def _tell_the_agents_container(code: int) -> None:
+    """Where the platform ends a run only once every container has ended (a Container Apps job, ADR 0227
+    §2), the executor names a file in the exchange directory: the runner writes its exit code there and
+    the agent's launcher, watching for it (`--until-file`), ends too."""
+    import os
+
+    done = os.environ.get("TRANIBOR_RUNNER_DONE_FILE", "")
+    if done:
+        with contextlib.suppress(OSError):
+            Path(done).write_text(str(code), encoding="utf-8")
 
 
 @app.command("await-assignment")
@@ -151,13 +168,21 @@ async def _serve_then_run(port: int, workspace: Path | None) -> tuple[RunOutcome
 def launcher(
     port: Annotated[int, typer.Option("--port", envvar="TRANIBOR_RUNNER_LAUNCHER_PORT")] = 8766,
     host: Annotated[str, typer.Option("--host", envvar="TRANIBOR_RUNNER_LAUNCHER_HOST")] = "127.0.0.1",
+    until_file: Annotated[
+        str,
+        typer.Option(
+            "--until-file",
+            envvar="TRANIBOR_RUNNER_LAUNCHER_UNTIL_FILE",
+            help="end once this file exists (the runner writes it when it is done)",
+        ),
+    ] = "",
 ) -> None:
     """The agent's container (ADR 0146): start, on the runner's request, the agent and the project's
     checks. Holds no credential and starts nothing until it is asked."""
     # Imported here: the module is standard-library only and must stay loadable alone.
     from .launcher import serve
 
-    asyncio.run(serve(host=host, port=port))
+    asyncio.run(serve(host=host, port=port, until=until_file))
 
 
 @app.command("serve-session")

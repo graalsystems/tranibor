@@ -648,7 +648,7 @@ workers read the same setting, and `agent_sandbox` is the default.
 | :-- | :-- | :-- |
 | `tekton` | A `PipelineRun` per stage | Only where written: `global.runner.executor: tekton`; under `container` the agent stage's Task carries the agent's own container as a sidecar |
 | `k8s_job` | A `Job` per stage | Fewest moving parts; supports queueing |
-| `aca` | Azure Container Apps job | Verified against a real subscription; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
+| `aca` | Azure Container Apps job, the agent in a second container of the job (S87-08) | Verified against a real subscription, the agent's container included; runs outside the cluster, so it needs a [run door](#the-runs-api-and-the-run-door) |
 | `local_docker` | A container on the host | Development only |
 | `agent_sandbox` | A claimed sandbox from a warm pool (`kubernetes-sigs/agent-sandbox`) | **The default**; needs the operator (the chart fails at render without it); supports queueing |
 
@@ -2825,6 +2825,19 @@ under `container`, `tranibor-orchestrator.runner.customImageExecutor`, for a run
 | A `runtime` connector of type `tekton` whose configuration names `pipeline` | Ignored: there is no Pipeline to name. | Remove the field when next editing the connector. |
 | The `tranibor-tools` sidecar the reference Task carried | Gone: the runner serves `localhost:7777` itself, as on every other executor. | Nothing. |
 
+## Upgrading past 0.30.0: a Container Apps job runs the agent in its own container
+
+A deployment on `aca` with `global.runner.agentIsolation: container` (the default) had every run refused
+(`agent_isolation_unavailable`). Measured on a real subscription (S87-07): the containers of a job's replica
+share loopback and an `EmptyDir`, each has its own process namespace, and an execution ends only once every
+container has ended. The job now carries the agent's container beside the runner's (S87-08):
+
+| What | What happens | What to do |
+| :-- | :-- | :-- |
+| A deployment on `aca` under `container` | Each job has two containers: `runner` (0.5 vCPU, 1Gi, the run's secrets) and `agent` (the step's resources, `launcher --until-file /exchange/.runner-done`, no secret), sharing a `workspace` and an `exchange` `EmptyDir`. The runner writes its exit code to the done file and the launcher ends with it: a launcher that kept serving held the execution open until its timeout, then reported it `Failed`. | Run a runner image that carries `launcher --until-file` (the release after 0.29.4); an older image's launcher refuses the option and the run fails at once. |
+| The agent's uid on `aca` | The image's own `USER`, the same as the runner's (1000): Container Apps has no `securityContext`. What keeps the run's credentials from the agent is its own process namespace and a container given no secret; a file the runner leaves in `/workspace` or `/exchange` is writable by the agent, as on the other executors through the shared group. | Nothing; an agent image with its own `USER` gives it another uid. |
+| A deployment on `aca` under `process` | Unchanged: one container (in staging and prod only with `acceptUnisolatedAgent`). | Nothing; or switch to `container`. |
+
 ## Upgrading to 0.30.0: the commands and files take the name tranibor (ADR 0226, R5)
 
 ([ADR 0226](adr/0226-the-former-name-leaves-every-layer-wire-included.md), round R5.) The commands a person
@@ -3036,6 +3049,7 @@ pushes its per-commit images under `tranibor-*` only. The versions already publi
 - **Not renamed by this step**: the native CLI files keep their names, `choregos-<platform>` (the install
   scripts and the self-update know only those; a second name needs the manifest to carry it first), and
   the Helm release name, namespace and database names are your deployment's values.
+
 ## Upgrading past 0.29.4: the policy ceiling's diff caps and the software stage roles are the plugin's
 
 [ADR 0181](adr/0181-the-contracts-speak-no-trade.md) moves two more groups into the `software-delivery`

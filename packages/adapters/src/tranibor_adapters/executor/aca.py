@@ -24,12 +24,25 @@ from typing import Any
 import httpx
 from tranibor_contracts import ExecutorKind, wire
 from tranibor_contracts.env import with_legacy_entries
+from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import RUN_GATEWAY_KEY_ENV, RUN_REMOTE_TOKEN_ENV, ExecRef, ExecStatus, StageJobSpec
 
 from ..errors import ConfigurationError, UpstreamError
 from .isolation import refuse_unless_separate
+from .separate_agent import (
+    AGENT_CONTAINER,
+    EXCHANGE,
+    EXCHANGE_VOLUME,
+    LAUNCHER_PORT,
+    RUNNER_DONE_ENV,
+    RUNNER_DONE_FILE,
+    runner_env,
+)
 
 ARM = "https://management.azure.com"
+#: The runner's own container under `container` (ADR 0146 §12): ACA wants a number of vCPU and a memory of
+#: twice that in Gi; the agent's container takes the step's resources, as the single container did.
+RUNNER_RESOURCES: dict[str, Any] = {"cpu": 0.5, "memory": "1Gi"}
 API_VERSION = "2024-03-01"
 LOG_ANALYTICS = "https://api.loganalytics.io/v1"
 
@@ -116,9 +129,11 @@ class AcaExecutor:
     """One ACA job per run, triggered manually, cleaned up by the ACA lifecycle."""
 
     kind = ExecutorKind.ACA
-    #: Never `separate_agent` (ADR 0146 §9, S65-04l): under `container` every run is refused at `start`,
-    #: with the reason in `tranibor_core.agent_isolation.WHY_NOT_SEPARATE`.
-    capabilities: frozenset[str] = frozenset()
+    #: The agent's own container (ADR 0146, ADR 0227 §2, S87-08): measured on a real subscription by
+    #: S87-07 (`tests/live/test_aca_two_containers_live.py`): the two containers of a job's replica share
+    #: loopback and an `EmptyDir`, each has its own process namespace, and an execution ends only once
+    #: every container has ended, so the launcher ends on the runner's done file.
+    capabilities: frozenset[str] = frozenset({SEPARATE_AGENT})
 
     def __init__(
         self,
@@ -206,6 +221,9 @@ class AcaExecutor:
             ),
             "resources": self._resources(spec),
         }
+        template: dict[str, Any] = {"containers": [container]}
+        if spec.agent_isolation == "container":
+            self._separate_the_agent(spec, template)
         configuration: dict[str, Any] = {
             "triggerType": "Manual",
             "replicaTimeout": spec.timeout_minutes * 60,
@@ -233,7 +251,7 @@ class AcaExecutor:
             "properties": {
                 "environmentId": self.environment_id,
                 "configuration": configuration,
-                "template": {"containers": [container]},
+                "template": template,
             },
         }
         if self.identity_id:
@@ -242,6 +260,47 @@ class AcaExecutor:
                 "userAssignedIdentities": {self.identity_id: {}},
             }
         return definition
+
+    def _separate_the_agent(self, spec: StageJobSpec, template: dict[str, Any]) -> None:
+        """The agent's own container beside the runner's (ADR 0146, S87-08), in ACA's terms.
+
+        What differs from a pod (`separate_agent.add_to_pod`), because Container Apps has no
+        `securityContext` and no native sidecar:
+
+        - the uid is the image's own `USER`: the runner image runs both as 1000. What keeps the run's
+          credentials from the agent is that each container of a replica has its own process namespace
+          (measured, S87-07) and that the agent's container is given no secret, only `TMPDIR` and `HOME`;
+        - the working tree and the exchange directory are two `EmptyDir` volumes of the replica;
+        - the launcher ends when the runner writes `/exchange/.runner-done` (`--until-file`): an execution
+          ends only once every container has ended, and a launcher left running held it open until its
+          timeout, then reported `Failed` (S87-07).
+        """
+        runner = template["containers"][0]
+        runner["env"] = (
+            [e for e in runner["env"] if e["name"] not in runner_env()]
+            + [{"name": key, "value": value} for key, value in runner_env().items()]
+            + [{"name": RUNNER_DONE_ENV, "value": RUNNER_DONE_FILE}]
+        )
+        shared = [
+            {"volumeName": "workspace", "mountPath": "/workspace"},
+            {"volumeName": EXCHANGE_VOLUME, "mountPath": EXCHANGE},
+        ]
+        runner["volumeMounts"] = list(shared)
+        runner["resources"] = dict(RUNNER_RESOURCES)
+        template["containers"].append(
+            {
+                "name": AGENT_CONTAINER,
+                "image": spec.agent_image or spec.runner_image,
+                "args": ["launcher", "--port", str(LAUNCHER_PORT), "--until-file", RUNNER_DONE_FILE],
+                "env": [{"name": "TMPDIR", "value": EXCHANGE}, {"name": "HOME", "value": EXCHANGE}],
+                "resources": self._resources(spec),
+                "volumeMounts": list(shared),
+            }
+        )
+        template["volumes"] = [
+            {"name": "workspace", "storageType": "EmptyDir"},
+            {"name": EXCHANGE_VOLUME, "storageType": "EmptyDir"},
+        ]
 
     def _resources(self, spec: StageJobSpec) -> dict[str, Any]:
         """The step's resources, with the executor's values as a fallback.

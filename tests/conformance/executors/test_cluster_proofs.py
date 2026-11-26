@@ -27,6 +27,10 @@ from .test_capabilities import CONFIGS
 pytestmark = pytest.mark.conformance
 
 CLUSTER = pathlib.Path(__file__).resolve().parents[2] / "cluster"
+#: An executor that does not run on a cluster proves its capabilities where it runs: a Container Apps job
+#: on a real subscription (S87-08), in a module of `tests/live` marked `live` as a whole.
+LIVE = pathlib.Path(__file__).resolve().parents[2] / "live"
+OUTSIDE_A_CLUSTER = frozenset({"aca"})
 
 #: Announced before this rule, with no cluster test yet. An entry leaves this list the day its
 #: test is written; no entry is ever added — `test_the_exemptions_only_shrink` checks both.
@@ -38,7 +42,9 @@ WITHOUT_CLUSTER_TEST: Mapping[tuple[str, str], str] = {
 }
 
 
-def cluster_proofs(directory: pathlib.Path = CLUSTER) -> dict[tuple[str, str], list[str]]:
+def cluster_proofs(
+    directory: pathlib.Path = CLUSTER, marker: str = "cluster"
+) -> dict[tuple[str, str], list[str]]:
     """`{(executor, capability): [test ids]}` read from the cluster tests' decorators.
 
     Read, not imported: the cluster tests need a cluster, CI has none. A test counts only in a
@@ -47,7 +53,7 @@ def cluster_proofs(directory: pathlib.Path = CLUSTER) -> dict[tuple[str, str], l
     proofs: dict[tuple[str, str], list[str]] = {}
     for path in sorted(directory.glob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        if not _module_marked_cluster(tree):
+        if not _module_marked_cluster(tree, marker):
             continue
         for node in tree.body:
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) or not node.name.startswith(
@@ -61,12 +67,12 @@ def cluster_proofs(directory: pathlib.Path = CLUSTER) -> dict[tuple[str, str], l
     return proofs
 
 
-def _module_marked_cluster(tree: ast.Module) -> bool:
+def _module_marked_cluster(tree: ast.Module, marker: str = "cluster") -> bool:
     for node in tree.body:
         if (
             isinstance(node, ast.Assign)
             and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets)
-            and "mark.cluster" in ast.unparse(node.value)
+            and f"mark.{marker}" in ast.unparse(node.value)
         ):
             return True
     return False
@@ -103,7 +109,8 @@ def _announced(monkeypatch: pytest.MonkeyPatch) -> dict[str, frozenset[str]]:
 
 
 def test_every_announced_capability_has_its_cluster_test(monkeypatch: pytest.MonkeyPatch) -> None:
-    missing = missing_proofs(_announced(monkeypatch), cluster_proofs(), WITHOUT_CLUSTER_TEST)
+    live = {pair: ids for pair, ids in cluster_proofs(LIVE, "live").items() if pair[0] in OUTSIDE_A_CLUSTER}
+    missing = missing_proofs(_announced(monkeypatch), {**cluster_proofs(), **live}, WITHOUT_CLUSTER_TEST)
     assert missing == [], (
         f"{missing} announced without a test in tests/cluster marked "
         "`@pytest.mark.capability(executor, capability)`: prove it on a cluster before announcing it"
