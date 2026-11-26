@@ -1303,13 +1303,18 @@ Usage: choregos plugin validate [OPTIONS] {path}
 
   Check a plugin and everything it ships; print its name, version and content
   digest. Only what plugin.yaml declares is read: a server's source or a .venv
-  beside it is ignored.
+  beside it is ignored. A profile it declares is checked against its schema,
+  and a server that implements a profile is checked against it.
 
 Arguments:
   path  A plugin directory or a packed .tar.gz.  [required]
 
 Options:
-  --help  Show this message and exit.
+  --profiles-from <directory>  A plugin directory, or a directory of them,
+                               whose profiles a server of this plugin
+                               implements (ADR 0224); repeat it. Without it,
+                               those profiles are not checked, and it says so.
+  --help                       Show this message and exit.
 ```
 
 ## `choregos projects`

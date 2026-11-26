@@ -1,0 +1,16 @@
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: shelf
+  version: 1.0.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: A test plugin whose server implements the profile `notes/notes@1`.
+  homepage: https://github.com/graalsystems/tranibor
+  core: ">=0.20.0"
+requires:
+  plugins:
+    - {name: notes, version: ">=1.0.0"}
+  connectors: {}
+contents:
+  servers: [servers/shelf.yaml]
