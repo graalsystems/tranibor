@@ -4,13 +4,14 @@ item; the storing of a stage's outputs."""
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
 from pydantic import ValidationError
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
 from tranibor_contracts import CHANGE_REQUEST, EventType, Workflow
@@ -379,11 +380,16 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
     """Assigns `<PREFIX>-<n>` when the platform keeps the work items itself (`tracker: internal`).
 
     Counting in the database rather than keeping a counter avoids a second place where the state
-    lives; the race between two simultaneous creations is left to the uniqueness constraint
-    `(project_id, tracker_key)`. It served the orchestrator (findings); it also serves the API
-    since `POST /projects/{id}/work-items` exists.
+    lives. It serves the API (`POST /projects/{id}/work-items`, the MCP and A2A doors, triggers,
+    actions) and the orchestrator (findings, through `internal_ticket_key`), each in its own session.
 
-    `numerotee=False` returns the prefix alone: a schedule builds its own key on it (S38-11).
+    Two creations in flight on one project used to read the same `max + 1`, and the uniqueness
+    constraint `(project_id, tracker_key)` turned the second into an HTTP 500: 84 of 100 on a real
+    PostgreSQL with 10 at a time (#2284). The number is now minted under `lock_key_minting`, held
+    until the caller's transaction ends, so the next creation reads it once it is committed.
+
+    `numerotee=False` returns the prefix alone: a schedule or a trigger builds its own key on it
+    (S38-11), so nothing is minted and nothing is locked.
     """
     connector = (
         await session.execute(
@@ -394,6 +400,7 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
     prefix = str(configured or project.slug).upper()
     if not numerotee:
         return prefix
+    await lock_key_minting(session, project.id)
     existing = (
         (
             await session.execute(
@@ -409,6 +416,35 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
         int(suffix) for tracker_key in existing if (suffix := tracker_key.rsplit("-", 1)[-1]).isdigit()
     ]
     return f"{prefix}-{max(numbers, default=0) + 1}"
+
+
+def key_minting_lock_number(project_id: str) -> int:
+    """The project's `pg_advisory_xact_lock` number: a stable signed 64-bit hash, its own namespace."""
+    digest = hashlib.sha256(f"work-item-key:{project_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big", signed=True)
+
+
+async def lock_key_minting(session: AsyncSession, project_id: str) -> None:
+    """Serialises the minting of the project's keys until this transaction ends (#2284).
+
+    PostgreSQL: `pg_advisory_xact_lock`, taken BEFORE the keys are read and released only by the
+    commit or the rollback, never before: the next creation waits, then reads (under READ COMMITTED,
+    each statement takes a new snapshot) the number this one inserted. It is re-entrant within a
+    transaction, so a caller minting several keys of one project in one transaction does not wait on
+    itself. What a creation locks afterwards (its rows; the audit chain's head, when its audit row is
+    flushed) comes after this lock for every creation path: the route, the MCP and A2A doors,
+    triggers, actions and findings write their audit rows after they mint, so no two of them wait on
+    each other. The local install's seeding (`local_demo`, once at start) publishes a workflow, which
+    is audited, before it mints: were a creation on the same demo project to race it, PostgreSQL
+    would detect the deadlock (`deadlock_timeout`) and roll one of the two back whole.
+
+    SQLite (development, the unit tests): nothing. It writes one transaction at a time, and an
+    in-process lock would not be re-entrant.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    number = key_minting_lock_number(project_id)
+    await session.execute(text("SELECT pg_advisory_xact_lock(:n)"), {"n": number})
 
 
 async def tracker_is_internal(session: AsyncSession, project: Project) -> bool:
