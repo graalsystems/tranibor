@@ -20,7 +20,7 @@ and nothing else —
 | the agent seam | ACP (Agent Client Protocol, from Zed) to the runner, through the official `agent-client-protocol` library. **Not** IBM's Agent Communication Protocol, which merged into A2A |
 | governed tools | MCP, every call through the runner's permission request |
 | a counted, budgeted model | an OpenAI-compatible (or Anthropic) endpoint, the run's own key, every request one turn |
-| a result | `.choregos/result.json`, validated against `choregos/StageResult/v1` |
+| a result | `.tranibor/result.json`, validated against `tranibor/StageResult/v1` |
 
 Control flow, prompts, memory and multi-agent patterns belong to the framework you choose. Durable
 state, retries and human gates belong to the workflow one level up (Temporal): a framework's own
@@ -76,12 +76,12 @@ from tranibor_agent_sdk import Context, Result, agent
 
 @agent(name="ticket-triager")
 async def run(ctx: Context) -> Result:
-    ticket = ctx.task                                  # .choregos/task.md: the work item, inputs, expected outputs
-    tools = await ctx.tools()                          # the run's MCP servers (choregos-tools, memory, connectors)
+    ticket = ctx.task                                  # .tranibor/task.md: the work item, inputs, expected outputs
+    tools = await ctx.tools()                          # the run's MCP servers (tranibor-tools, memory, connectors)
     if await tools.has("knowledge_search"):
         hits = await tools.call("knowledge_search", {"query": ticket[:200]})
     reply = await ctx.llm.chat([{"role": "user", "content": ticket}])
-    await ctx.write_output("triage.md", reply.text)    # .choregos/outputs/: stored as an artifact
+    await ctx.write_output("triage.md", reply.text)    # .tranibor/outputs/: stored as an artifact
     return Result(summary="triaged", facts={"priority": "P2"})
 
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 | `ctx.say(text)` | a line in the run's journal |
 
 `Result(summary, status="done", reason=None, facts={}, outputs={}, questions=[])` is validated against
-`choregos/StageResult/v1` and written to `.choregos/result.json`. `facts` are named plain values a
+`tranibor/StageResult/v1` and written to `.tranibor/result.json`. `facts` are named plain values a
 gate can read. An exception becomes a `failed` result (`reason=agent_error`); `PermissionDenied` ends
 it with `reason=permission_denied`; the step's turn limit with `reason=max_turns`.
 
@@ -177,7 +177,7 @@ A code agent passes the same seven checks as a shipped backend before it is trus
 `initialize`, `mcp`, `prompt_trivial`, `permission_denied`, `result_valid`, `max_turns`,
 `cost_at_gateway` (`tests/conformance/backends/test_code_agents.py`). A code agent is not scripted, so
 what is observed is a deliverable the SDK writes through the guard: the agent is prompted with a
-ticket and must leave a file in `.choregos/outputs/`; then every write is refused and the file must
+ticket and must leave a file in `.tranibor/outputs/`; then every write is refused and the file must
 not appear; the result file must be valid after both turns; the runner's turn guard must not trip on
 the first; and the gateway must see no key but the run's.
 

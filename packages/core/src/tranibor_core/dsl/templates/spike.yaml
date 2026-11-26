@@ -1,7 +1,7 @@
 # A spike (S59-02): a time-boxed question answered with evidence, no code kept. The spec writer frames the
 # question, the researcher answers it from the code, the decisions and memory with options and evidence,
 # a reviewer critiques the answer and a product owner accepts it. Nothing in the repository changes.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: spike

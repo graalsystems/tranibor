@@ -1,7 +1,8 @@
 """An ACP agent that ignores the guard: it writes its deliverable without asking.
 
 Not a test: `test_code_agents.py` starts it to prove the conformance suite can fail (this is what
-an agent that skips the SDK's permission path looks like).
+an agent that skips the SDK's permission path looks like). It writes under the run directory's former
+name, `.choregos/`, as an agent built on an SDK before 0.30.0 does: the suite watches both (ADR 0226, R9a).
 """
 
 import json

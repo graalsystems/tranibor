@@ -1,5 +1,5 @@
 # Preset `regulated`: maximum traceability, hardened and closed sandbox, approved trains.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Policy
 metadata:
   name: regulated
@@ -25,7 +25,7 @@ attempts:
 scope:
   auto_grant_max_files: 0
   deny_paths:
-    [".choregos/**", ".github/**", "charts/**", "infra/**", "deploy/**", "migrations/**", "**/secrets/**"]
+    [".tranibor/**", ".choregos/**", ".github/**", "charts/**", "infra/**", "deploy/**", "migrations/**", "**/secrets/**"]
 sandbox:
   runtime: gvisor
   deny_commands: [kubectl, terraform, sudo, docker, "git push --force", curl, wget]

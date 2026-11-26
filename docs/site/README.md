@@ -79,7 +79,7 @@ Then, in this order, with these headings where they apply:
   platform's own models (`tranibor_core.parse_workflow`, the policy model, the CLI's manifest model),
   with no warning;
 - every `json` block parses;
-- every `choregos` command in a `bash` block exists, with the options it is given;
+- every `tranibor` command in a `bash` block exists, with the options it is given;
 - every screen path written as `**A › B**` names labels the console has, and every console address
   in backticks (`/p/<project>/settings`) is a page of the console;
 - no page sets `slug` or `id`, and every page has a `title` and a `description`.

@@ -140,7 +140,7 @@ async def test_a_secret_in_a_field_leaves_masked(ready: Fixture) -> None:
     (call,) = ready.adapters.decisions.calls
     assert TOKEN not in str(call.state)
     assert call.state["fields.notes"] == "deploy with [REDACTED]"
-    (started,) = await _events("choregos.run.started")
+    (started,) = await _events("tranibor.run.started")
     assert started.payload["secrets_masked"] == 1
     assert TOKEN not in str(started.payload), "the event names what left, never its values"
 
@@ -311,7 +311,7 @@ async def test_the_injection_guard_reads_the_state_before_it_leaves(ready: Fixtu
         await decide(_payload(ready))
     assert refused.value.type == "injection_suspected"
     assert ready.adapters.decisions.calls == [], "nothing left for the model"
-    (event,) = await _events("choregos.security.injection_suspected")
+    (event,) = await _events("tranibor.security.injection_suspected")
     assert event.payload["suspicions"][0]["source"] == "decision.fields.department"
 
 

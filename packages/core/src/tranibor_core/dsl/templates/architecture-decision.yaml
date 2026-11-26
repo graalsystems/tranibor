@@ -2,7 +2,7 @@
 # It ends with one ADR in MADR 4 format, decided by the architects and merged; nothing is deployed. Two
 # simultaneous decisions read the same "highest number": the second to merge has its number refused
 # (`adr_number_free`) and returns to the architect, who renumbers before marking it accepted again (#287).
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: architecture-decision

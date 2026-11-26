@@ -49,7 +49,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from tranibor_contracts import ExecutorKind
+from tranibor_contracts import ExecutorKind, wire
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import (
     RUN_GATEWAY_KEY_ENV,
@@ -79,10 +79,19 @@ from .tekton import (
 AGENT_SANDBOX_RELEASE = "v1.0.6"
 SANDBOX_API = "/apis/agents.x-k8s.io/v1beta1"
 EXTENSIONS_API = "/apis/extensions.agents.x-k8s.io/v1beta1"
-#: Set on the claim once its run has been pushed to the sandbox: the push happens once.
-ASSIGNED = "choregos/assigned-at"
-#: On the run's Secret while the run waits for a slot (`queue`), before any claim exists.
-QUEUED = "choregos/queued"
+#: Set on the claim once its run has been pushed to the sandbox: the push happens once. Written under
+#: both names for the window of ADR 0226 (R9b), read by `_twin`: a claim made before the upgrade carries
+#: the former one only, and a worker of the previous release reads and writes the former one only.
+ASSIGNED = wire.label("assigned-at", domain=False)
+FORMER_ASSIGNED = wire.former_label("assigned-at", domain=False)
+#: On the run's Secret while the run waits for a slot (`queue`), before any claim exists. Both names are
+#: written; the queue is listed by the former, which every Secret carries for the window.
+QUEUED = wire.label("queued", domain=False)
+FORMER_QUEUED = wire.former_label("queued", domain=False)
+#: The warm pool claims are made from (ADR 0226, R9b): the chart renders `tranibor-runner` and keeps the
+#: former pool, at size 0, for the window, because the claims of suspended sandboxes name it.
+WARM_POOL = "tranibor-runner"
+FORMER_WARM_POOL = "choregos-runner"
 #: Where the controller records the name of a sandbox's pod when it is not the sandbox's own.
 POD_NAME_ANNOTATION = "agents.x-k8s.io/pod-name"
 
@@ -115,7 +124,7 @@ class AgentSandboxExecutor:
         self,
         client: KubernetesClient | None = None,
         *,
-        warm_pool: str = "choregos-runner",
+        warm_pool: str = WARM_POOL,
         assignment_port: int = 8765,
         runtime_class: str | None = None,
         pool_image: str | None = None,
@@ -192,7 +201,7 @@ class AgentSandboxExecutor:
             await self._own(spec.namespace, name, claim)
             return ref
         existing = await self.client.request("GET", f"{self._secrets(spec.namespace)}/{name}")
-        if _labels(existing).get(QUEUED) == "true":
+        if _twin(_labels(existing), "queued") == "true":
             return ref
         await self._write_secret(spec, name, existing)
         if self.max_active:
@@ -225,7 +234,13 @@ class AgentSandboxExecutor:
             "api_url": spec.api_url,
             "env": dict(spec.env),
             "timeout_minutes": spec.timeout_minutes,
-            "labels": {"choregos/run-id": spec.run_id, "choregos/project": spec.project_slug, **spec.labels},
+            "labels": wire.labels_with_former(
+                {
+                    wire.label("run-id", domain=False): spec.run_id,
+                    wire.label("project", domain=False): spec.project_slug,
+                    **spec.labels,
+                }
+            ),
         }
         queued = "true" if self.max_active else "false"
         secret = {
@@ -234,7 +249,9 @@ class AgentSandboxExecutor:
             "metadata": {
                 "name": name,
                 "namespace": spec.namespace,
-                "labels": {"choregos/run-id": spec.run_id, QUEUED: queued},
+                "labels": wire.labels_with_former(
+                    {wire.label("run-id", domain=False): spec.run_id, QUEUED: queued}
+                ),
             },
             "type": "Opaque",
             "data": {
@@ -272,7 +289,9 @@ class AgentSandboxExecutor:
                 # An annotation, not a label: claim labels must be in the controller's allowlisted
                 # domains. It tells whoever looks at the pod which run it serves.
                 "additionalPodMetadata": {
-                    "annotations": {"choregos/run-id": str(assignment.get("run_id", ""))}
+                    "annotations": wire.labels_with_former(
+                        {wire.label("run-id", domain=False): str(assignment.get("run_id", ""))}
+                    )
                 },
             },
         }
@@ -282,7 +301,7 @@ class AgentSandboxExecutor:
     async def _own(self, namespace: str, name: str, claim: Any) -> None:
         """Hands the run's Secret to its claim (owner reference), and takes it off the queue.
         Idempotent: a replayed start calls it again on the claim it finds."""
-        patch: dict[str, Any] = {"metadata": {"labels": {QUEUED: "false"}}}
+        patch: dict[str, Any] = {"metadata": {"labels": {QUEUED: "false", FORMER_QUEUED: "false"}}}
         uid = ((claim or {}).get("metadata") or {}).get("uid") if isinstance(claim, dict) else None
         if uid:
             patch["metadata"]["ownerReferences"] = [
@@ -305,11 +324,13 @@ class AgentSandboxExecutor:
     async def _queue(self, namespace: str) -> tuple[int, list[dict[str, Any]]]:
         """How many runs hold a sandbox, and which wait — oldest first."""
         claims = await self.client.request(
-            "GET", self._claims(namespace), params={"labelSelector": "choregos/run-id"}
+            "GET",
+            self._claims(namespace),
+            params={"labelSelector": wire.former_label("run-id", domain=False)},
         )
         active = sum(1 for claim in (claims or {}).get("items", []) if not _finished(claim))
         secrets = await self.client.request(
-            "GET", self._secrets(namespace), params={"labelSelector": f"{QUEUED}=true"}
+            "GET", self._secrets(namespace), params={"labelSelector": f"{FORMER_QUEUED}=true"}
         )
         waiting = sorted(
             (secrets or {}).get("items", []),
@@ -339,7 +360,7 @@ class AgentSandboxExecutor:
         claim = await self.client.request("GET", f"{self._claims(namespace)}/{ref.name}")
         if claim is None:
             secret = await self.client.request("GET", f"{self._secrets(namespace)}/{ref.name}")
-            if _labels(secret).get(QUEUED) != "true":
+            if _twin(_labels(secret), "queued") != "true":
                 return ExecStatus(state="unknown", message="SandboxClaim not found")
             if self.max_active and await self._admit(ref):
                 return ExecStatus(state="pending")
@@ -354,7 +375,7 @@ class AgentSandboxExecutor:
         )
         if sandbox is None:
             return ExecStatus(state="pending")
-        assigned_at = _annotations(claim).get(ASSIGNED)
+        assigned_at = _twin(_annotations(claim), "assigned-at")
         ready = _condition(sandbox, "Ready")
         reason = str(ready.get("reason") or "")
         if reason == "PodSucceeded":
@@ -451,7 +472,7 @@ class AgentSandboxExecutor:
         await self.client.request(
             "PATCH",
             f"{self._claims(namespace)}/{ref.name}",
-            json={"metadata": {"annotations": {ASSIGNED: stamp}}},
+            json={"metadata": {"annotations": {ASSIGNED: stamp, FORMER_ASSIGNED: stamp}}},
             headers={"Content-Type": "application/merge-patch+json"},
         )
         return stamp
@@ -554,7 +575,7 @@ class AgentSandboxExecutor:
             namespace,
             ref.name,
             {
-                "metadata": {"annotations": {ASSIGNED: None}},
+                "metadata": {"annotations": {ASSIGNED: None, FORMER_ASSIGNED: None}},
                 "spec": {
                     "lifecycle": {
                         "shutdownTime": _rfc3339(until),
@@ -614,6 +635,28 @@ class AgentSandboxExecutor:
             "DELETE", f"{self._claims(namespace)}/{ref.name}", json={"propagationPolicy": "Background"}
         )
         await self.client.request("DELETE", f"{self._secrets(namespace)}/{ref.name}")
+
+
+def _twin(values: dict[str, str], key: str) -> str | None:
+    """A label or annotation of the window (ADR 0226, R9b), the FORMER key first: every worker writes it,
+    the previous release's included, during a rolling upgrade, while only the new release writes the new
+    one. A worker of the previous release that takes a run off the queue, or clears an assignment, changes
+    the former key alone; reading the new key first would see the value it left behind."""
+    former = values.get(wire.former_label(key, domain=False))
+    return former if former is not None else values.get(wire.label(key, domain=False))
+
+
+def warm_pool_of(configured: str | None, deployment: str | None) -> str:
+    """The pool a connector's claims are made from: its own `warm_pool`, else the deployment's
+    (`TRANIBOR_SANDBOX_WARM_POOL`, which the chart sets), else `tranibor-runner`.
+
+    A connector saved before 0.30.0 may hold the former default, `choregos-runner`, written by the form
+    rather than chosen: it reads as the default (ADR 0226, R9b). The former pool is kept at size 0 for the
+    window, so a claim made from it would always start cold.
+    """
+    if configured and configured != FORMER_WARM_POOL:
+        return configured
+    return deployment or WARM_POOL
 
 
 def runtime_class_refusal(asked: str | None, pool_runtime: str | None, warm_pool: str) -> str | None:

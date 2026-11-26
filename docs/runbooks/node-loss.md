@@ -25,7 +25,7 @@ The five minutes in between are a pod's default toleration of
 to start — a Tranibor worker is not one of them: it is interchangeable and Temporal resumes
 its work where it stopped.
 
-The chart therefore sets `choregos-orchestrator.unreachableTolerationSeconds: 20`. To get
+The chart therefore sets `tranibor-orchestrator.unreachableTolerationSeconds: 20`. To get
 Kubernetes' standard behaviour back: `0`. Since 2026-09-25 the replicas of the API, the
 front and each worker queue also repel each other across nodes (`global.antiAffinity`), so
 one lost node does not take a whole component down.
@@ -42,7 +42,7 @@ one lost node does not take a whole component down.
    duplicates for nothing.
 3. **After the eviction**, check that the runs the node carried resumed:
    ```bash
-   kubectl -n choregos-system logs -l choregos/queue=executor --tail=50 | grep -i resume
+   kubectl -n choregos-system logs -l tranibor/queue=executor --tail=50 | grep -i resume
    ```
    Temporal replays the activity; `start` being idempotent, the job already launched is not
    launched a second time — which is what `test_start_rejoue_ne_double_pas_l_execution`
@@ -54,9 +54,9 @@ A run whose pod vanished without Temporal noticing unblocks by relaunching the a
 
 ```bash
 # Identify the run
-kubectl -n choregos-system exec deploy/choregos-api -- choregos runs list --state running
+kubectl -n choregos-system exec deploy/tranibor-api -- tranibor runs list --state running
 # Relaunch it (idempotent — no double execution, no double billing)
-kubectl -n choregos-system exec deploy/choregos-api -- choregos runs resume <run-id>
+kubectl -n choregos-system exec deploy/tranibor-api -- tranibor runs resume <run-id>
 ```
 
 ## What this does not cover

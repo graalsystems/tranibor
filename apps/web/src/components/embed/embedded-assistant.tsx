@@ -13,7 +13,8 @@ import {
   targetOrigins,
   type EmbedEventType,
 } from "@/lib/embed";
-import { clearEmbedToken, embedHeaders, setEmbedToken, SIGNED_IN_MESSAGE } from "@/lib/embed-token";
+import { clearEmbedToken, embedHeaders, setEmbedToken, SIGNED_IN_MESSAGES } from "@/lib/embed-token";
+import { storedName } from "@/lib/stored-names";
 import type { Conversation, ConversationAction } from "@/lib/types";
 
 /**
@@ -25,7 +26,7 @@ import type { Conversation, ConversationAction } from "@/lib/types";
  * Signed out: one silent attempt (OIDC `prompt=none`, the API's `silent=1`), then a "Sign in" button that
  * opens the identity provider in a popup. The console's session cookie is `SameSite=Lax`, so under a host on
  * another site the frame has none: the popup (first party) mints a short-lived frame token and hands it to
- * this frame (`/embed/signed-in`, `lib/embed-token.ts`), which sends it as `X-Choregos-Embed`.
+ * this frame (`/embed/signed-in`, `lib/embed-token.ts`), which sends it as `X-Tranibor-Embed`.
  */
 type Phase =
   | { kind: "starting" }
@@ -35,7 +36,7 @@ type Phase =
 
 type Turn = { role: "user" | "assistant"; content: string };
 
-const SILENT_TRIED = "choregos.embed.silent-tried";
+const SILENT_TRIED = storedName("embed.silent-tried");
 
 function flag(action: "get" | "set" | "clear"): boolean {
   try {
@@ -59,7 +60,7 @@ async function signedIn(): Promise<boolean> {
 }
 
 function storageKey(org: string, installation: string, rawContext: string | null): string {
-  return `choregos.embed.${org}.${installation}.${rawContext ?? ""}`;
+  return storedName(`embed.${org}.${installation}.${rawContext ?? ""}`);
 }
 
 function remembered(key: string): string | null {
@@ -179,7 +180,7 @@ export function EmbeddedAssistant({
         event.origin === window.location.origin &&
         typeof data === "object" &&
         data !== null &&
-        (data as { type?: unknown }).type === SIGNED_IN_MESSAGE
+        SIGNED_IN_MESSAGES.includes(String((data as { type?: unknown }).type))
       ) {
         const { token, expires_in } = data as { token?: unknown; expires_in?: unknown };
         if (typeof token === "string" && typeof expires_in === "number") setEmbedToken(token, expires_in);
@@ -271,7 +272,7 @@ export function EmbeddedAssistant({
             onClick={() =>
               window.open(
                 api.loginUrl(`/embed/signed-in?org=${encodeURIComponent(org)}&installation=${encodeURIComponent(installation)}`),
-                "choregos-signin",
+                "tranibor-signin",
                 "popup,width=520,height=680",
               )
             }

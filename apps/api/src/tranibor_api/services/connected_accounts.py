@@ -55,7 +55,7 @@ from .identity_exchange import IdentityUnavailable
 USER_CONSENT: Final = "user_consent"
 #: The typed tool error of a `user_consent` need without a usable account.
 NOT_CONNECTED: Final = "account_not_connected"
-HANDSHAKE_COOKIE: Final = "choregos_consent"
+HANDSHAKE_COOKIE: Final = "tranibor_consent"  # formerly `choregos_consent` (ADR 0226)
 HANDSHAKE_S: Final = 600
 _STATE_PURPOSE: Final = "consent-state"
 _COOKIE_PURPOSE: Final = "consent-handshake"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pytest
@@ -45,6 +46,19 @@ def gateway(monkeypatch: pytest.MonkeyPatch) -> Scripted:
     monkeypatch.setattr("tranibor_api.routers.model_catalogue.org_gateway", org_gateway)
     monkeypatch.setattr("tranibor_api.routers.model_catalogue.org_gateway_and_type", with_type)
     return scripted
+
+
+class _Recording:
+    """An embedder that records what it is asked to embed."""
+
+    model = "recording"
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        self.calls.append(texts)
+        return [[0.0] for _ in texts]
 
 
 async def _entries(client: AsyncClient) -> dict[str, dict[str, Any]]:
@@ -395,7 +409,7 @@ async def test_indexing_is_refused_when_the_embedding_model_lost_its_usage(
     from tranibor_api.db.session import session_scope
     from tranibor_api.knowledge.conversion import conversions
     from tranibor_api.knowledge.embeddings import ModelNotAllowedError, embedding_model
-    from tranibor_api.knowledge.index import index_document
+    from tranibor_api.knowledge.index import FULL_TEXT, index_document, search_mode
 
     await client.post(
         "/api/v1/orgs/northwind/knowledge", json={"slug": "kb", "name": "KB", "serving_mode": "index"}
@@ -412,7 +426,21 @@ async def test_indexing_is_refused_when_the_embedding_model_lost_its_usage(
     assert await index_document("northwind", document_id) > 0, "open mode: indexed"
 
     # the embedding model is in the catalogue and no longer carries the `embed` usage
-    await client.post(BASE, json={"model_name": embedding_model(get_settings()), "usages": ["agent"]})
+    disabled = await client.post(
+        BASE, json={"model_name": embedding_model(get_settings()), "usages": ["agent"]}
+    )
+    assert disabled.status_code < 300, disabled.text
+    async with session_scope(orgs=["northwind"]) as session:
+        mode = await search_mode(session)
+    if os.environ.get("TRANIBOR_TEST_EXPECT_PGVECTOR") == "1":
+        assert mode != FULL_TEXT, "the database has pgvector: vectors are what is indexed"
+    if mode == FULL_TEXT:
+        # PostgreSQL without pgvector (#2314): nothing is embedded, so no model is asked and there is
+        # nothing to refuse; the document is still indexed, for the full-text ranking.
+        embedder = _Recording()
+        assert await index_document("northwind", document_id, embedder=embedder) > 0
+        assert embedder.calls == [], "full-text mode sent the chunks to a model"
+        return
     with pytest.raises(ModelNotAllowedError, match="/admin/models"):
         await index_document("northwind", document_id)
 

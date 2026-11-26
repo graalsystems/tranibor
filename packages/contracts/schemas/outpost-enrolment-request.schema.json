@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-enrolment-request.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-enrolment-request.schema.json",
   "title": "OutpostEnrolmentRequest",
   "description": "The body of `POST /outposts/v1/enrol` (ADR 0148 §3): an enrolment token and the public halves of the keys the instance made on the spot (ADR 0147 §2, §4). The private halves never leave the machine. The request is signed with the key it enrols, which ties the sealing key to the signing key whose fingerprint a person compares.",
   "type": "object",

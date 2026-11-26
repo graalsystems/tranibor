@@ -583,7 +583,7 @@ def _outputs_present(ctx: GateContext, params: dict[str, Any]) -> GateOutcome:
     # `StageOutputs` tolerates extra fields (custom roles): that is what lets
     # a trade name its own outputs without touching the contract.
     produced = ctx.result.outputs.model_dump(exclude_none=True)
-    # A file output (ADR 0049) is present when the runner stored it from `.choregos/outputs/`.
+    # A file output (ADR 0049) is present when the runner stored it from `.tranibor/outputs/`.
     produced.update(dict.fromkeys(ctx.result.artifacts.files, True))
     missing = [key for key in required if not produced.get(key)]
     return GateOutcome(

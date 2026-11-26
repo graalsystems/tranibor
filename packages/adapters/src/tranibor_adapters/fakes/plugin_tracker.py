@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """A plugin server that serves the tracker profile, in memory (S43-07, ADR 0005).
 
-`FakePluginTrackerServer` answers MCP over HTTP through an `httpx.MockTransport`: `initialize`,
-`tools/list` (the eight profile tools) and `tools/call`. It keeps items, notes and states the way the
-profile says a real server does: a replayed `action_key` writes nothing, an upsert with the same text
-adds nothing, closing a closed item answers `closed: false`, and `tracker_parse_event` verifies the
-`X-Choregos-Secret` header against its secret and answers `{kind, item_key, delivery_id}` per event,
+`FakePluginTrackerServer` answers MCP over HTTP through an `httpx.MockTransport`: `initialize`, `tools/list`
+(the eight profile tools) and `tools/call`. It keeps items, notes and states the way the profile says a real
+server does: a replayed `action_key` writes nothing, an upsert with the same text adds nothing, closing a
+closed item answers `closed: false`, and `tracker_parse_event` verifies the `X-Tranibor-Secret` header (or the
+former `X-Choregos-Secret`) against its secret and answers `{kind, item_key, delivery_id}` per event,
 `delivery_id = <key>:<revision>` so a replayed delivery has the same id.
 
 It also records every request (`requests`), so a test can see the bearer token on each call, and lets a
@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+from tranibor_contracts.wire import read_header
 
 CLOSED = {"Resolved", "Closed"}
 
@@ -36,7 +37,8 @@ class FakeItem:
 
 
 class FakePluginTrackerServer:
-    """In-memory tracker profile server. `secret`: what `X-Choregos-Secret` must carry."""
+    """In-memory tracker profile server. `secret`: what `X-Tranibor-Secret` (or `X-Choregos-Secret`) must
+    carry."""
 
     def __init__(self, secret: str = "fake-webhook-secret", *, token: str | None = None) -> None:
         self.secret = secret
@@ -127,7 +129,7 @@ class FakePluginTrackerServer:
 
     def _tracker_parse_event(self, args: dict[str, Any]) -> dict[str, Any]:
         headers = {str(k).lower(): str(v) for k, v in (args.get("headers") or {}).items()}
-        if not hmac.compare_digest(headers.get("x-choregos-secret", ""), self.secret):
+        if not hmac.compare_digest(read_header(headers, "Secret"), self.secret):
             return {"verified": False, "events": []}
         raw = json.loads(args.get("body") or "{}")
         events = []

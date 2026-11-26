@@ -1,7 +1,7 @@
 # A documentation change (S59-02): the docs writer updates the user documentation, the changelog or the
 # API reference; the `docs_updated` guarantee checks that a documentation file really changed; a reviewer
 # and a maintainer approve; the pull request merges once its CI is green. Nothing is deployed.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: documentation

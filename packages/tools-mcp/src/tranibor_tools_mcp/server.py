@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from tranibor_contracts.wire import PLATFORM_KEY_PREFIXES
 from tranibor_core.mcp import INVALID_PARAMS, METHOD_NOT_FOUND, negotiate
 from tranibor_core.mcp import error as _error
 from tranibor_core.mcp import ok as _ok
@@ -23,19 +24,20 @@ PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {"name": "choregos-tools", "version": "1.0.0"}
 
 
-#: The prefix of the platform's own keys on an entry of the run's tool list (`x-choregos-access`).
-PLATFORM_KEYS = "x-choregos-"
+#: The prefixes of the platform's own keys on an entry of the run's tool list (`x-tranibor-access`, and
+#: the former `x-choregos-access`, ADR 0226).
+PLATFORM_KEYS = PLATFORM_KEY_PREFIXES
 
 
 def listed_to_the_model(tool: dict[str, Any]) -> dict[str, Any]:
     """An entry of the API's tool list as this server lists it to the model (ADR 0122).
 
-    Without `outputSchema`: a relayed call's `structuredContent` is the API's whole answer and its
-    notices (S57-04), never the operation's output, and an MCP client validates `structuredContent`
-    against a tool's output schema — it would refuse every answer. Without the platform's
-    `x-choregos-*` keys either, at the top and inside `annotations`: MCP's tool has no such key, and a
-    strict client could refuse the list. MCP's own `annotations` stay. The tool bridge (S57-07)
-    reads the API's list itself, whole."""
+    Without `outputSchema`: a relayed call's `structuredContent` is the API's whole answer and its notices
+    (S57-04), never the operation's output, and an MCP client validates `structuredContent` against a tool's
+    output schema — it would refuse every answer. Without the platform's `x-tranibor-*` keys (nor the former
+    `x-choregos-*`), at the top and inside `annotations`: MCP's tool has no such key, and a strict client
+    could refuse the list. MCP's own `annotations` stay. The tool bridge (S57-07) reads the API's list itself,
+    whole."""
     listed = {k: v for k, v in tool.items() if k != "outputSchema" and not k.startswith(PLATFORM_KEYS)}
     annotations = listed.get("annotations")
     if isinstance(annotations, dict):
@@ -144,7 +146,7 @@ class McpServer:
                     "not nested in another output.",
                     is_error=True,
                 )
-        return text_result("ok: the result conforms to choregos/StageResult/v1")
+        return text_result("ok: the result conforms to tranibor/StageResult/v1")
 
     async def _declared_outputs(self) -> list[str]:
         """The transition's outputs, read once from the run's input. Unreadable (a client without
@@ -197,7 +199,7 @@ class McpServer:
         await self.client.ask_human(str(arguments["question"]), list(arguments.get("options", [])))
         self.context.questions_asked += 1
         return text_result(
-            "question sent. Finish cleanly now: write `.choregos/result.json` "
+            "question sent. Finish cleanly now: write `.tranibor/result.json` "
             'with `"status": "needs_human"` and your question in `questions`.'
         )
 

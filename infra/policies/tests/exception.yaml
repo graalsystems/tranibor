@@ -1,10 +1,14 @@
 apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
-  name: choregos-buildkitd
+  name: tranibor-buildkitd
   namespace: choregos-platform
 spec:
   exceptions:
+  - policyName: tranibor-pod-security
+    ruleNames:
+    - non-root
+    - autogen-non-root
   - policyName: choregos-pod-security
     ruleNames:
     - non-root
@@ -17,4 +21,4 @@ spec:
         namespaces:
         - choregos-platform
         names:
-        - choregos-buildkitd*
+        - tranibor-buildkitd*

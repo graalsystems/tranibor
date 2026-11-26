@@ -120,6 +120,6 @@ def test_the_settlement_is_on_the_action_and_on_its_effect_with_the_doubt_s_evid
 def test_a_person_s_settlement_is_an_event_of_its_own() -> None:
     from tranibor_contracts.enums import EventType
 
-    assert EventType.ACTION_SETTLED.value == "choregos.action.settled"
+    assert EventType.ACTION_SETTLED.value == "tranibor.action.settled"
     event = json.loads((CONTRACTS / "schemas" / "event.schema.json").read_text())
-    assert "choregos.action.settled" in event["properties"]["type"]["description"]
+    assert "tranibor.action.settled" in event["properties"]["type"]["description"]

@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: choregos-buildkitd-7d9f
+  name: tranibor-buildkitd-7d9f
   namespace: choregos-platform
 spec:
   containers:

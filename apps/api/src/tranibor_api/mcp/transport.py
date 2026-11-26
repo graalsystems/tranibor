@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
+from tranibor_contracts import wire
 from tranibor_core.mcp import (
     INVALID_PARAMS,
     INVALID_REQUEST,
@@ -228,7 +229,8 @@ async def _answer(ctx: Context, message: dict[str, Any], request: Request) -> di
                     "resources": {"listChanged": False},
                     **({"prompts": {"listChanged": False}} if ctx.assistant is not None else {}),
                 },
-                "serverInfo": {"name": "choregos", "title": "Tranibor", "version": __version__},
+                # `tranibor` (ADR 0226); a client's configuration keys servers by its own name, not by this.
+                "serverInfo": {"name": wire.MCP_SERVER_NAME, "title": "Tranibor", "version": __version__},
                 "instructions": INSTRUCTIONS,
             },
         )

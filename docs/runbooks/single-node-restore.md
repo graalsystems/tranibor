@@ -1,13 +1,13 @@
 # Single node: restore from the nightly backup
 
-For an installation made with `charts/choregos/values/single-node.yaml` ([ADR 0184](../adr/0184-a-supported-single-node-installation.md)).
+For an installation made with `charts/tranibor/values/single-node.yaml` ([ADR 0184](../adr/0184-a-supported-single-node-installation.md)).
 What the backup holds: every database of the embedded PostgreSQL (`pg_dump -Fc --create`), Temporal's
 SQLite file (an online copy) in `dev` mode, the memory as Ecphoria backs it up itself, and the object
 store when `backup.objectStore` is on.
-A `server` mode Temporal (`choregos-temporal.mode: server`) has no file: its two databases are in the
+A `server` mode Temporal (`tranibor-temporal.mode: server`) has no file: its two databases are in the
 PostgreSQL dump when they are on the embedded PostgreSQL, and the backup mounts no Temporal volume (#2156).
 The memory is never copied as files: the backup's `memory` step asks the running Ecphoria for its own
-backup (`POST /api/v1/admin/backup` with the platform's admin key, `choregos-memory`), which exports its
+backup (`POST /api/v1/admin/backup` with the platform's admin key, the Secret `tranibor-memory`), which exports its
 stores and its vector index with a `manifest.json` of digests written last, checks the digests on its
 copy, and keeps it under `memory/ecphoria/` (S80-41). Ecphoria is not stopped for it. A copy of its
 DuckDB files taken while it ran did not replay, and the restored Ecphoria ran empty without an error
@@ -52,17 +52,17 @@ Without a stamp the restore takes the newest complete one.
    `secrets-keks` above all: with another `secrets-keks` no sealed connector secret opens again.
 
    ```bash
-   kubectl create namespace choregos
-   kubectl -n choregos create secret generic choregos-api-secrets \
+   kubectl create namespace tranibor
+   kubectl -n tranibor create secret generic choregos-api-secrets \
      --from-file=run-token-private-key=run-token.pem \
      --from-literal=session-secret="$SESSION_SECRET" --from-literal=secrets-keks="$SECRETS_KEKS"
-   kubectl -n choregos create secret generic choregos-oidc --from-literal=client-secret="$OIDC_SECRET"
-   kubectl -n choregos create secret generic choregos-backup-target \
+   kubectl -n tranibor create secret generic choregos-oidc --from-literal=client-secret="$OIDC_SECRET"
+   kubectl -n tranibor create secret generic choregos-backup-target \
      --from-literal=access-key="$S3_ACCESS_KEY" --from-literal=secret-key="$S3_SECRET_KEY"
    ```
 3. **The chart**, with the same values files as the lost installation:
-   `helm install choregos charts/choregos -n choregos -f charts/choregos/values/single-node.yaml -f my-site.yaml`.
-   Wait until every Deployment is available (`kubectl -n choregos get deploy`). It starts empty; the
+   `helm install tranibor charts/tranibor -n tranibor -f charts/tranibor/values/single-node.yaml -f my-site.yaml`.
+   Wait until every Deployment is available (`kubectl -n tranibor get deploy`). It starts empty; the
    restore replaces that.
 4. **The restore**:
 
@@ -72,7 +72,7 @@ Without a stamp the restore takes the newest complete one.
    ```
 
    It stops every writer (API, console, workers, Temporal, gateway) and leaves the memory running,
-   runs the chart's restore job (`kubectl create job --from=cronjob/choregos-restore …`), prints its
+   runs the chart's restore job (`kubectl create job --from=cronjob/tranibor-restore …`), prints its
    log, and starts the writers again with the replica counts they had (saved in the
    `choregos-restore-replicas` annotation, so a run that follows a failed one still starts them). The
    job drops and re-creates each database from its dump, puts Temporal's file back (`dev` mode), stages
@@ -88,7 +88,7 @@ Skip steps 1 to 3: `tools/single-node/restore.sh [stamp]` on the running install
 ## If the restore fails
 
 The script leaves the writers stopped: starting them over a half-restored database would write on
-it. Read the job's log (`kubectl -n choregos logs job/<name> -c fetch|database|files|objects`):
+it. Read the job's log (`kubectl -n tranibor logs job/<name> -c fetch|database|files|objects`):
 
 - `no complete backup … nothing restored`: the bucket, prefix or keys of `backup.target` are not
   those of the backups; check `choregos-backup-target` and the values.
@@ -96,7 +96,7 @@ it. Read the job's log (`kubectl -n choregos logs job/<name> -c fetch|database|f
   by a newer PostgreSQL than the embedded one is refused. Restore with the chart version that made
   the backup.
 - `memory: … Ecphoria answered 403`: the key in `global.memory.tokenSecret` is not an admin key
-  (`<key>@:admin` in its `api-keys`); the chart's own `choregos-memory` is one. `… answered 500
+  (`<key>@:admin` in its `api-keys`); the chart's own `tranibor-memory` is one. `… answered 500
   … RESTORE_ERROR`: Ecphoria refused the backup (a digest that does not match, or a manifest newer
   than this Ecphoria: restore with the Ecphoria version that made it); its log says which.
 - `memory: this backup holds Ecphoria's files, not Ecphoria's own backup`: see below.
@@ -106,8 +106,8 @@ it. Read the job's log (`kubectl -n choregos logs job/<name> -c fetch|database|f
 A backup made before S80-41 holds Ecphoria's files under `memory/` (no `memory/ecphoria/`). They are
 good only if Ecphoria was stopped when the backup was taken (the copy then holds no `.wal` beside a
 DuckDB file); otherwise they do not replay (#2185). The restore job does not put them back. To put
-them back by hand once the rest is restored: `kubectl -n choregos scale deploy/choregos-ecphoria
---replicas=0`, copy the files of `memory/` onto Ecphoria's volume (`choregos-ecphoria` claim) in
+them back by hand once the rest is restored: `kubectl -n tranibor scale deploy/tranibor-ecphoria
+--replicas=0`, copy the files of `memory/` onto Ecphoria's volume (`tranibor-ecphoria` claim) in
 place of its own, scale it back to 1, and check its log for `falling back` (there must be none).
 
 Fix the cause and run the script again: every step overwrites what the previous attempt left.
@@ -115,9 +115,9 @@ Fix the cause and run the script again: every step overwrites what the previous 
 ## How to check it is fixed
 
 ```bash
-kubectl -n choregos get deploy                      # every Deployment available
-kubectl -n choregos logs deploy/choregos-api | grep -i "API starting"
-kubectl -n choregos logs deploy/choregos-ecphoria | grep -c "falling back"   # must be 0
+kubectl -n tranibor get deploy                      # every Deployment available
+kubectl -n tranibor logs deploy/tranibor-api | grep -i "API starting"
+kubectl -n tranibor logs deploy/tranibor-ecphoria | grep -c "falling back"   # must be 0
 ```
 
 Temporal (`server` mode): its workflows come back with the databases; `temporal workflow list` (see

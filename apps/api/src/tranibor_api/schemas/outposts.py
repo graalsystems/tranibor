@@ -101,7 +101,7 @@ class OutpostEnrolmentCreated(Dto):
     """An enrolment token, shown once. The platform keeps its digest."""
 
     id: str
-    #: The plaintext token: what `choregos-outpost enrol` presents.
+    #: The plaintext token: what `tranibor-outpost enrol` presents.
     token: str = Field(repr=False)
     expires_at: datetime
     #: The door's origin, as the outpost's policy file names it; null when the deployment declares none.

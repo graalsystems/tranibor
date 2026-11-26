@@ -14,7 +14,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "docker" / "api.Dockerfile"
-VALUES = ROOT / "charts" / "choregos" / "values.yaml"
+VALUES = ROOT / "charts" / "tranibor" / "values.yaml"
 
 
 def _stage(name: str) -> str:

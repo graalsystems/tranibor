@@ -19,7 +19,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "name": "validate_result",
         "description": (
-            "Checks your `.choregos/result.json` against the `choregos/StageResult/v1` contract BEFORE "
+            "Checks your `.tranibor/result.json` against the `tranibor/StageResult/v1` contract BEFORE "
             "you finish: returns `ok` or the exact list of errors (field, message). Without it, a malformed "
             "result comes back to you for repair afterwards."
         ),

@@ -42,7 +42,7 @@ describe("what an outpost's operator pastes (ADR 0148 §13)", () => {
   });
 
   it("the enrolment command is the daemon's, with the token", () => {
-    expect(enrolCommand("choe_abc")).toBe("choregos-outpost enrol --token choe_abc");
+    expect(enrolCommand("choe_abc")).toBe("tranibor-outpost enrol --token choe_abc");
   });
 });
 

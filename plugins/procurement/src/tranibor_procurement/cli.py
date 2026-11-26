@@ -48,7 +48,7 @@ def _parser() -> argparse.ArgumentParser:
         prog="tranibor-procurement", description="Deterministic steps of the procurement plugin"
     )
     sub = p.add_subparsers(dest="command", required=True)
-    e = sub.add_parser("extract", help="the files of .choregos/inputs/ as one JSON document of text")
+    e = sub.add_parser("extract", help="the files of .tranibor/inputs/ as one JSON document of text")
     e.add_argument("--timeout", type=_positive, default=DEFAULT_TIMEOUT_S, help="seconds per file")
     e.add_argument("--max-chars-per-file", type=int, default=DEFAULT_MAX_CHARS, help="text kept per file")
     sub.add_parser("compare", help="the numbers of a comparison, computed from the structured offers")

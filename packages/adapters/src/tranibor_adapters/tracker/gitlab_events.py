@@ -2,7 +2,7 @@
 """Normalization of GitLab webhooks into `InboundEvent`.
 
 GitLab announces the type in `object_kind` (`issue`, `note`, `merge_request`, `pipeline`) and
-describes what changed in `changes`. The scoped labels `choregos::<state>` arrive there as
+describes what changed in `changes`. The scoped labels `tranibor::<state>` arrive there as
 ordinary labels: it is the passage from one label to another that signals the move.
 """
 

@@ -56,5 +56,5 @@ def test_the_job_reaches_the_instance_only_through_the_connector() -> None:
 
 def test_the_job_always_leaves_a_verdict() -> None:
     script = _probe().command[2]
-    assert ".choregos/job.json" in script
+    assert ".tranibor/job.json" in script
     assert script.count("GREEN:") == 1 and script.count("RED:") >= 4

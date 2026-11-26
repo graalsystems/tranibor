@@ -63,7 +63,7 @@ stopped on budget is **never retried on its own**: a retry would mint a fresh ke
 Here is a policy for `billing-api`:
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Policy
 metadata:
   name: billing-api
@@ -84,7 +84,7 @@ attempts:
   max_stages_per_ticket: 40
 scope:
   auto_grant_max_files: 3
-  deny_paths: [".choregos/**", ".github/workflows/**", "deploy/**"]
+  deny_paths: [".tranibor/**", ".choregos/**", ".github/workflows/**", "deploy/**"]
 sandbox:
   deny_commands: [kubectl, "terraform apply", "git push --force", sudo]
   network:
@@ -133,7 +133,7 @@ stage** is refused unless you grant a top-up. It adds to the work item's budget,
 records who granted it:
 
 ```bash
-choregos items action <item-id> rerun_stage --top-up 5
+tranibor items action <item-id> rerun_stage --top-up 5
 ```
 
 ## The organisation's ceiling

@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -30,7 +30,7 @@ def _env_du_web(*surcharges: str) -> dict[str, str]:
     assert rendu.returncode == 0, rendu.stderr
     documents: list[dict[str, Any]] = [d for d in yaml.safe_load_all(rendu.stdout) if d]
     (web,) = [
-        d for d in documents if d.get("kind") == "Deployment" and d["metadata"]["name"] == "choregos-web"
+        d for d in documents if d.get("kind") == "Deployment" and d["metadata"]["name"] == "tranibor-web"
     ]
     (conteneur,) = [c for c in web["spec"]["template"]["spec"]["containers"] if c["name"] == "web"]
     return {e["name"]: e.get("value", "") for e in conteneur.get("env", []) if "value" in e}

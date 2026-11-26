@@ -23,5 +23,5 @@ COPY --from=builder /app /app
 ENV PYTHONUNBUFFERED=1 HOME=/workspace
 WORKDIR /workspace
 USER 1000
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/.venv/bin/choregos-runner"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/.venv/bin/tranibor-runner"]
 CMD ["run"]

@@ -47,9 +47,9 @@ def test_an_azure_url_names_a_container_and_an_endpoint() -> None:
         AzureBlobObjectStore("azblob://c", endpoint="")
     with pytest.raises(ValueError, match="no storage account"):
         AzureBlobObjectStore("azblob://c", endpoint="http://127.0.0.1:10000", account_key=KEY)
-    store = AzureBlobObjectStore("azblob://files/choregos/", endpoint="https://acme.blob.core.windows.net/")
+    store = AzureBlobObjectStore("azblob://files/tranibor/", endpoint="https://acme.blob.core.windows.net/")
     assert isinstance(store, ObjectStore)
-    assert store.url_of("/orgs/a") == "azblob://files/choregos/orgs/a"
+    assert store.url_of("/orgs/a") == "azblob://files/tranibor/orgs/a"
     assert account_of("https://acme.blob.core.windows.net") == "acme"
     assert account_of("https://acme.blob.core.chinacloudapi.cn") == "acme"
     assert account_of("http://127.0.0.1:10000/devstoreaccount1") == "devstoreaccount1"
@@ -90,15 +90,15 @@ def test_the_shared_key_signature_is_the_documented_one() -> None:
 async def test_azure_puts_a_block_blob_signed_with_the_shared_key() -> None:
     seen: list[httpx.Request] = []
     store = AzureBlobObjectStore(
-        "azblob://files/choregos",
+        "azblob://files/tranibor",
         endpoint="https://acme.blob.core.windows.net",
         account_key=KEY,
         client=_client(seen=seen),
     )
-    assert await store.put("orgs/a deck", b"PK", "application/zip") == "azblob://files/choregos/orgs/a deck"
+    assert await store.put("orgs/a deck", b"PK", "application/zip") == "azblob://files/tranibor/orgs/a deck"
     request = seen[0]
     assert request.method == "PUT"
-    assert request.url.raw_path == b"/files/choregos/orgs/a%20deck"
+    assert request.url.raw_path == b"/files/tranibor/orgs/a%20deck"
     assert request.headers["x-ms-blob-type"] == "BlockBlob"
     assert request.headers["Content-Type"] == "application/zip"
     assert request.headers["x-ms-version"] == "2021-12-02"
@@ -110,7 +110,7 @@ async def test_azure_appends_the_sas_token_and_sends_no_authorization() -> None:
     seen: list[httpx.Request] = []
     sas = "?sv=2021-12-02&ss=b&sp=rwdl&sig=abc%2Bdef%2F%3D"
     store = AzureBlobObjectStore(
-        "azblob://files/choregos",
+        "azblob://files/tranibor",
         endpoint="https://acme.blob.core.windows.net",
         sas_token=sas,
         client=_client(httpx.Response(200), seen=seen),
@@ -121,7 +121,7 @@ async def test_azure_appends_the_sas_token_and_sends_no_authorization() -> None:
     query = parse_qs(request.url.query.decode())
     assert query["sig"] == ["abc+def/="], "the signature reaches the service as Azure issued it"
     assert query["restype"] == ["container"] and query["comp"] == ["list"]
-    assert query["prefix"] == ["choregos/"] and query["maxresults"] == ["1"]
+    assert query["prefix"] == ["tranibor/"] and query["maxresults"] == ["1"]
     assert store.authorisation == "SAS token"
 
 
@@ -168,16 +168,16 @@ def test_a_gcs_url_names_a_bucket() -> None:
         GcsObjectStore("s3://b")
     with pytest.raises(ValueError, match="no bucket"):
         GcsObjectStore("gs://")
-    store = GcsObjectStore("gs://files/choregos", endpoint="http://127.0.0.1:4443/")
+    store = GcsObjectStore("gs://files/tranibor", endpoint="http://127.0.0.1:4443/")
     assert isinstance(store, ObjectStore)
     assert store.endpoint == "http://127.0.0.1:4443"
-    assert store.url_of("orgs/a") == "gs://files/choregos/orgs/a"
+    assert store.url_of("orgs/a") == "gs://files/tranibor/orgs/a"
 
 
 async def test_gcs_speaks_the_json_api_with_the_object_name_as_one_segment() -> None:
     seen: list[httpx.Request] = []
     store = GcsObjectStore(
-        "gs://files/choregos",
+        "gs://files/tranibor",
         token_source=StaticToken("ya29"),
         client=_client(httpx.Response(200), seen=seen),
     )
@@ -188,14 +188,14 @@ async def test_gcs_speaks_the_json_api_with_the_object_name_as_one_segment() -> 
     put, get, delete, check = seen
     assert put.method == "POST"
     assert (
-        put.url.raw_path == b"/upload/storage/v1/b/files/o?uploadType=media&name=choregos%2Forgs%2Fa%20deck"
+        put.url.raw_path == b"/upload/storage/v1/b/files/o?uploadType=media&name=tranibor%2Forgs%2Fa%20deck"
     )
     assert put.headers["Content-Type"] == "application/octet-stream"
     assert put.content == b"PK"
-    assert get.url.raw_path == b"/storage/v1/b/files/o/choregos%2Forgs%2Fa%20deck?alt=media"
+    assert get.url.raw_path == b"/storage/v1/b/files/o/tranibor%2Forgs%2Fa%20deck?alt=media"
     assert delete.method == "DELETE"
-    assert delete.url.raw_path == b"/storage/v1/b/files/o/choregos%2Forgs%2Fa%20deck"
-    assert check.url.raw_path == b"/storage/v1/b/files/o?maxResults=1&fields=kind&prefix=choregos%2F"
+    assert delete.url.raw_path == b"/storage/v1/b/files/o/tranibor%2Forgs%2Fa%20deck"
+    assert check.url.raw_path == b"/storage/v1/b/files/o?maxResults=1&fields=kind&prefix=tranibor%2F"
     assert all(r.headers["Authorization"] == "Bearer ya29" for r in seen)
     assert all(r.url.host == "storage.googleapis.com" for r in seen)
 

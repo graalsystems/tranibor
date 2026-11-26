@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from tranibor_contracts import wire
 from tranibor_core.domain import Message
 
 from ..errors import UpstreamError
@@ -73,7 +74,7 @@ class SlackNotifier:
                     "type": "button",
                     "text": {"type": "plain_text", "text": action.label},
                     "style": {"primary": "primary", "danger": "danger"}.get(action.style),
-                    "action_id": f"choregos:{action.id}",
+                    "action_id": wire.chat_action(action.id),
                     "value": action.value,
                 }
             )
@@ -83,7 +84,7 @@ class SlackNotifier:
                     "type": "button",
                     "text": {"type": "plain_text", "text": "Open in Tranibor"},
                     "url": message.url,
-                    "action_id": "choregos:open",
+                    "action_id": wire.chat_action("open"),
                 }
             )
         if elements:

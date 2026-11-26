@@ -2,7 +2,7 @@
 """The public pages of S62-09b do what they say, against the real API (S62-09b).
 
 Each test reads its page's own examples and sends them: the skill of `build/skills.md`, the agents and
-the workflow of `build/agents.md` (run through the CLI's own `choregos workflow push`), the MCP server
+the workflow of `build/agents.md` (run through the CLI's own `tranibor workflow push`), the MCP server
 and the policy of `build/tools.md`, the trigger of `integrate/triggers.md` and each answer its table
 promises, the work item of `integrate/rest.md`, the token and the tool list of `integrate/mcp.md`, and
 the refusal codes of `reference/errors.md` against the doors' code. A page whose example the API stops
@@ -161,13 +161,13 @@ async def test_from_nothing_to_an_agent_used_in_a_workflow(
 
     workflow = next(b for b in _blocks("build/agents.md", "yaml") if "kind: Workflow" in b)
     (tmp_path / "release-notes.yaml").write_text(workflow, encoding="utf-8")
-    for prefix in ("choregos workflow validate", "choregos workflow push"):
+    for prefix in ("tranibor workflow validate", "tranibor workflow push"):
         ran = await run_cli(client, _command("build/agents.md", prefix), cwd=tmp_path)
         assert ran.exit_code == 0, ran.output
     listed = (await client.get(f"/api/v1/projects/{project['id']}/workflows")).json()["items"]
     assert "release-notes" in json.dumps(listed)
 
-    item = await run_cli(client, _command("build/agents.md", "choregos items create"))
+    item = await run_cli(client, _command("build/agents.md", "tranibor items create"))
     assert item.exit_code == 0, item.output
 
     published = await client.post(publish_path, json=next_version)
@@ -253,7 +253,7 @@ async def test_the_trigger_of_the_page_answers_as_its_table_says(client: AsyncCl
     minted = await client.post(f"/api/v1/projects/{project['id']}/triggers/error-alert/token")
     assert minted.status_code == 201 and minted.json()["token"].startswith("chtrg_"), minted.text
     url = re.search(
-        r"POST https://choregos\.example\.com(/api/v1/webhooks/triggers/\S+)", _page("integrate/triggers.md")
+        r"POST https://tranibor\.example\.com(/api/v1/webhooks/triggers/\S+)", _page("integrate/triggers.md")
     )
     assert url and minted.json()["url"].endswith(url.group(1).replace("/acme/", "/northwind/"))
     client.cookies.clear()
@@ -307,7 +307,7 @@ async def test_the_rest_page_s_requests_work_with_a_full_access_token(
         f"/api/v1/projects/{project['id']}/workflows/ship-a-change",
         json={"yaml": yaml.safe_dump(workflow, sort_keys=False)},
     )
-    tokens = await run_cli(client, _command("integrate/rest.md", "choregos tokens create"))
+    tokens = await run_cli(client, _command("integrate/rest.md", "tranibor tokens create"))
     assert tokens.exit_code == 0, tokens.output
     token = tokens.output.strip().splitlines()[-1].strip()
     client.cookies.clear()
@@ -337,7 +337,7 @@ async def test_the_rest_page_s_requests_work_with_a_full_access_token(
 async def test_the_mcp_page_s_token_opens_the_door_and_the_tools_are_its_table(
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
-    minted = await run_cli(client, _command("integrate/mcp.md", "choregos tokens create"))
+    minted = await run_cli(client, _command("integrate/mcp.md", "tranibor tokens create"))
     assert minted.exit_code == 0, minted.output
     token = minted.output.strip().splitlines()[-1].strip()
     client.cookies.clear()

@@ -11,12 +11,12 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
-ON = ("choregos-websearch.enabled=true",)
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
+ON = ("tranibor-websearch.enabled=true",)
 RELAY = (
-    "choregos-websearch.relay.enabled=true",
-    "choregos-websearch.relay.secretName=relay-secrets",
-    "choregos-websearch.relay.organisation=acme",
+    "tranibor-websearch.relay.enabled=true",
+    "tranibor-websearch.relay.secretName=relay-secrets",
+    "tranibor-websearch.relay.organisation=acme",
 )
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -57,8 +57,8 @@ def test_search_only_without_relay() -> None:
 
 
 def test_relay_needs_secret_and_organisation() -> None:
-    assert "relay.secretName" in _render(*ON, "choregos-websearch.relay.enabled=true").stderr
-    bad = _render(*ON, "choregos-websearch.relay.enabled=true", "choregos-websearch.relay.secretName=s")
+    assert "relay.secretName" in _render(*ON, "tranibor-websearch.relay.enabled=true").stderr
+    bad = _render(*ON, "tranibor-websearch.relay.enabled=true", "tranibor-websearch.relay.secretName=s")
     assert bad.returncode != 0 and "relay.organisation" in bad.stderr
 
 
@@ -68,8 +68,8 @@ def test_relay_reads_its_tokens_from_the_secret() -> None:
     container = relay["spec"]["template"]["spec"]["containers"][0]
     assert container["command"] == ["python", "-m", "tranibor_api.relay", "serve"]
     refs = {e["name"]: e["valueFrom"]["secretKeyRef"] for e in container["env"] if "valueFrom" in e}
-    assert refs["CHOREGOS_RELAY_API_TOKEN"] == {"name": "relay-secrets", "key": "api-token"}
-    assert refs["CHOREGOS_RELAY_CLIENT_TOKEN"] == {"name": "relay-secrets", "key": "client-token"}
+    assert refs["TRANIBOR_RELAY_API_TOKEN"] == {"name": "relay-secrets", "key": "api-token"}
+    assert refs["TRANIBOR_RELAY_CLIENT_TOKEN"] == {"name": "relay-secrets", "key": "client-token"}
     config = next(d for d in docs if d["kind"] == "ConfigMap" and d["metadata"]["name"] == "c-searxng-config")
     assert "c-relay:3128" in config["data"]["settings.yml"]
     assert "relay-secrets" not in config["data"]["settings.yml"]
@@ -77,7 +77,7 @@ def test_relay_reads_its_tokens_from_the_secret() -> None:
 
 def test_names_are_adoptable() -> None:
     docs = _docs(
-        *ON, "choregos-websearch.names.firecrawl=firecrawl", "choregos-websearch.names.searxng=searxng"
+        *ON, "tranibor-websearch.names.firecrawl=firecrawl", "tranibor-websearch.names.searxng=searxng"
     )
     assert {"firecrawl", "searxng"} <= _names(docs, "Service")
     firecrawl = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "firecrawl")
@@ -119,10 +119,10 @@ def test_every_listed_engine_is_kept_loaded_and_enabled() -> None:
 
 def test_an_engine_entry_may_carry_its_own_settings() -> None:
     settings = _settings(
-        "choregos-websearch.searxng.engines[0]=bing",
-        "choregos-websearch.searxng.engines[1].name=mojeek",
-        "choregos-websearch.searxng.engines[1].timeout=8",
-        "choregos-websearch.searxng.engines[1].disabled=true",
+        "tranibor-websearch.searxng.engines[0]=bing",
+        "tranibor-websearch.searxng.engines[1].name=mojeek",
+        "tranibor-websearch.searxng.engines[1].timeout=8",
+        "tranibor-websearch.searxng.engines[1].disabled=true",
     )
     assert settings["use_default_settings"]["engines"]["keep_only"] == ["bing", "mojeek"]
     assert settings["engines"] == [
@@ -132,7 +132,7 @@ def test_an_engine_entry_may_carry_its_own_settings() -> None:
 
 
 def test_no_engine_or_a_nameless_one_is_refused() -> None:
-    empty = _render(*ON, "choregos-websearch.searxng.engines=null")
+    empty = _render(*ON, "tranibor-websearch.searxng.engines=null")
     assert empty.returncode != 0 and "searxng.engines is empty" in empty.stderr
-    nameless = _render(*ON, "choregos-websearch.searxng.engines[0].timeout=8")
+    nameless = _render(*ON, "tranibor-websearch.searxng.engines[0].timeout=8")
     assert nameless.returncode != 0 and "a map with its `name`" in nameless.stderr

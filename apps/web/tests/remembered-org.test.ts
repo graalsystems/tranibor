@@ -17,10 +17,17 @@ describe("the remembered organisation (S42-13)", () => {
 
   it("sets a cookie the server can read, and refuses to write anything that is not a slug", () => {
     rememberOrgCookie("acme-labs");
-    expect(document.cookie).toContain("choregos_org=acme-labs");
+    expect(document.cookie).toContain("tranibor_org=acme-labs");
     rememberOrgCookie("x; Path=/; admin=1");
     expect(document.cookie).not.toContain("admin");
-    expect(document.cookie).toContain("choregos_org=acme-labs");
+    expect(document.cookie).toContain("tranibor_org=acme-labs");
+  });
+
+  it("clears the cookie's former name when it writes the new one (ADR 0226)", () => {
+    document.cookie = "choregos_org=old-org; Path=/";
+    rememberOrgCookie("acme-labs");
+    expect(document.cookie).toContain("tranibor_org=acme-labs");
+    expect(document.cookie).not.toContain("choregos_org");
   });
 
   it("reads the choice kept in the browser, validated", () => {

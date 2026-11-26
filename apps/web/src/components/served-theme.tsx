@@ -92,7 +92,7 @@ export function OrganisationTheme() {
         document.documentElement.dataset.defaultTheme = theme.default_mode;
         apply(theme);
         // A person without a preference follows the theme's default mode (`ThemeProvider` listens).
-        window.dispatchEvent(new Event("choregos:theme"));
+        window.dispatchEvent(new Event("tranibor:theme"));
       } catch {
         // The theme shown stays.
       }
