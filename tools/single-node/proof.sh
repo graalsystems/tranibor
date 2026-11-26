@@ -285,7 +285,8 @@ token() {
 # <content>` fails unless the record holds that content.
 MEMORY_RECORD='
 import json, os, sys, urllib.request
-url, token = os.environ["CHOREGOS_MEMORY_URL"].rstrip("/"), os.environ["CHOREGOS_MEMORY_TOKEN"]
+env = lambda name: os.environ.get("TRANIBOR_" + name) or os.environ["CHOREGOS_" + name]
+url, token = env("MEMORY_URL").rstrip("/"), env("MEMORY_TOKEN")
 headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json", "X-Ecphoria-Tenant": "proof"}
 def ask(method, path, body=None):
     data = None if body is None else json.dumps(body).encode()

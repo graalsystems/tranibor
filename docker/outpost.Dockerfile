@@ -29,8 +29,8 @@ RUN mkdir -p apps/api/src apps/orchestrator/src \
 
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS runtime
 ENV PYTHONUNBUFFERED=1 PATH="/app/.venv/bin:$PATH" \
-    CHOREGOS_OUTPOST_POLICY=/etc/choregos-outpost/policy.yaml \
-    CHOREGOS_OUTPOST_STATE_DIR=/var/lib/choregos-outpost
+    TRANIBOR_OUTPOST_POLICY=/etc/choregos-outpost/policy.yaml \
+    TRANIBOR_OUTPOST_STATE_DIR=/var/lib/choregos-outpost
 # Debian's security fixes, applied at build time: the base image (a tag, rebuilt at its own pace)
 # can carry a package already fixed in `bookworm-security` — perl-base 5.36.0-7+deb12u3 and its
 # three CRITICALs stopped release 0.16.0 at the Trivy scan.

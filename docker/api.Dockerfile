@@ -186,7 +186,7 @@ COPY plugins/procurement/tests/fixtures/alderbrook-offer.pdf plugins/procurement
 # The source revision, read by `GET /edition` for the console's About panel (S42-12). Last, so a
 # new commit invalidates no layer above. Empty when the image is built by hand; the API then says so.
 ARG REVISION=""
-ENV CHOREGOS_BUILD_REVISION=$REVISION
+ENV TRANIBOR_BUILD_REVISION=$REVISION
 USER 1000
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
@@ -211,8 +211,8 @@ RUN --mount=type=bind,from=cli,target=/mnt/cli \
 USER 1000
 # SkillSpector (ADR 0095): the gate runs it on every version a person publishes.
 COPY --from=skillspector /opt/skillspector /opt/skillspector
-ENV CHOREGOS_SKILL_SCANNER=skillspector
-# The documentation, at the path `CHOREGOS_DOCS_DIR` defaults to (`config.py`): read only.
+ENV TRANIBOR_SKILL_SCANNER=skillspector
+# The documentation, at the path `TRANIBOR_DOCS_DIR` defaults to (`config.py`): read only.
 COPY --from=docs /out /opt/choregos/docs
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \

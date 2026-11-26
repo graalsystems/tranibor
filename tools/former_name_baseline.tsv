@@ -633,12 +633,12 @@
 1	dev/scripts/dev-down.sh
 9	dev/scripts/dev-up.sh
 2	dev/scripts/gvisor.sh
-17	docker/api.Dockerfile
+14	docker/api.Dockerfile
 2	docker/base.Dockerfile
-9	docker/outpost.Dockerfile
+7	docker/outpost.Dockerfile
 19	docker/runner.Dockerfile
 1	docker/shims/refuse.sh
-3	docker/tools.Dockerfile
+2	docker/tools.Dockerfile
 1	docker/web.Dockerfile
 2	docs/TRADEMARK.md
 7	docs/cli.md
@@ -1480,7 +1480,7 @@
 27	tools/rename_python_packages.py
 3	tools/rename_tenant_names.py
 2	tools/report_round_trips.py
-29	tools/single-node/proof.sh
+28	tools/single-node/proof.sh
 10	tools/single-node/restore.sh
 68	uv.lock
 3	website/scripts/import-docs.test.mjs
