@@ -19,6 +19,7 @@ from typing import Any
 from uuid import uuid4
 
 from tranibor_core.domain import GatewayModel, Spend, VirtualKey
+from tranibor_core.subscription_credentials import refuse as refuse_subscription
 
 
 class DirectGateway:
@@ -28,6 +29,9 @@ class DirectGateway:
     capabilities: frozenset[str] = frozenset()
 
     def __init__(self, key: str = "", *, models: list[str] | None = None) -> None:
+        # A person's subscription is never a gateway key, in any environment (ADR 0227): the platform would
+        # hold it in the run's Secret and in Temporal's payloads.
+        refuse_subscription(key, where="connector `gateway: direct`, its key")
         self.key = key
         self.models = list(models or [])
 

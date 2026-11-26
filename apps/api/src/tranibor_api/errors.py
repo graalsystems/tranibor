@@ -11,6 +11,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from tranibor_core import ChoregosError, ValidationError
+from tranibor_core.subscription_credentials import REFUSAL_CODE as SUBSCRIPTION_REFUSAL_CODE
+from tranibor_core.subscription_credentials import SubscriptionCredentialRefusedError
 
 PROBLEM_JSON = "application/problem+json"
 #: A client `X-Request-Id` is used only when it is a short token; anything else is replaced.
@@ -146,6 +148,20 @@ def install_error_handlers(app: FastAPI) -> None:
             media_type=PROBLEM_JSON,
             headers=headers,
         )
+
+    @app.exception_handler(SubscriptionCredentialRefusedError)
+    async def _subscription_credential(
+        request: Request, exc: SubscriptionCredentialRefusedError
+    ) -> JSONResponse:
+        # A person's model subscription reached a write of the platform (ADR 0227): named, never echoed.
+        problem = ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Subscription credential refused",
+            str(exc),
+            type_=f"https://choregos.dev/problems/{SUBSCRIPTION_REFUSAL_CODE}",
+        ).to_problem(str(request.url.path))
+        problem["code"] = SUBSCRIPTION_REFUSAL_CODE
+        return JSONResponse(problem, status_code=422, media_type=PROBLEM_JSON)
 
     @app.exception_handler(ValidationError)
     async def _core_validation(request: Request, exc: ValidationError) -> JSONResponse:

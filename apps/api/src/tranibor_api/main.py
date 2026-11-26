@@ -26,6 +26,7 @@ from tranibor_core.production import (
     refuse_demo_plugin_servers,
     refuse_fakes_in_production,
 )
+from tranibor_core.subscription_credentials import refuse_in_environment as refuse_subscription_in_environment
 from tranibor_core.temporal_connection import refuse_clear_payloads
 
 from . import __version__
@@ -130,6 +131,7 @@ from .services.plugin_defaults import check_configuration, reconcile_in_backgrou
 from .services.plugin_supply import warm_shipping
 from .services.skill_scanner import mirror_loop
 from .services.temporal_keys import install_organisation_data_keys
+from .subscription_ingress import install_subscription_ingress
 
 API_PREFIX = "/api/v1"
 logger = get_logger("choregos.api")
@@ -161,6 +163,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API starting", env=settings.env, fakes=settings.fakes)
     # The fakes are a bench's switch: in staging and prod, the API does not start on them (S80-03).
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="API")
+    # A person's model subscription is never a platform process's (ADR 0227).
+    refuse_subscription_in_environment("API")
     # Temporal's histories are encrypted in staging and prod, or the operator said otherwise (ADR 0220).
     if not settings.fakes:
         refuse_clear_payloads(environment=settings.env)
@@ -468,6 +472,9 @@ def create_app() -> FastAPI:
     # `/api/v1/internal`. Added first, so innermost: its 404 goes back through the same middlewares as
     # the router's own for an unknown path, and is logged with its request id.
     install_internal_api_guard(app)
+    # A body that carries a model subscription credential never reaches a route of the run's API
+    # (ADR 0227). After the guard, so outside it: a refused body is never read by anything else.
+    install_subscription_ingress(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_list,

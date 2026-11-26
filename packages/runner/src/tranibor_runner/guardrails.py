@@ -43,7 +43,18 @@ RTK_RENAMES: dict[str, tuple[str, ...]] = {
 #: nothing more: the policy's rules find `X` among its words.
 _RTK = re.compile(r"(^|[\s;&|(])(?:\S*/)?rtk\s+(\S+)")
 
-SECRET_FILE_PATTERNS = (".env", ".git-credentials", "id_rsa", ".npmrc", ".pypirc", ".netrc")
+#: Files an agent never reads or writes. The last two hold a person's model subscription: Claude Code's
+#: credentials file and gemini-cli's cached Google sign-in (ADR 0227).
+SECRET_FILE_PATTERNS = (
+    ".env",
+    ".git-credentials",
+    "id_rsa",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    ".credentials.json",
+    "oauth_creds.json",
+)
 
 
 @dataclass(slots=True)

@@ -41,6 +41,7 @@ from tranibor_core.secrets import (
     SecretNotFound,
     is_store_reference,
 )
+from tranibor_core.subscription_credentials import refuse as refuse_subscription
 
 from .db.models import OrgSecret
 from .schemas import ConnectorSecretState
@@ -273,6 +274,7 @@ class SealedDbSecretStore:
         if wrapper is None:
             raise SecretStoreUnavailable(NO_KEY_MESSAGE)
         check_name(name)
+        refuse_subscription(value, where=f"the secret {name}")
         row = await _row(session, org_id, name)
         now = utcnow()
         version = row.version + 1 if row is not None else 1
@@ -372,6 +374,7 @@ class FakeSecretStore:
         if not self._available:
             raise SecretStoreUnavailable(NO_KEY_MESSAGE)
         check_name(name)
+        refuse_subscription(value, where=f"the secret {name}")
         version = self.values[(org_id, name)][1] + 1 if (org_id, name) in self.values else 1
         now = utcnow()
         self.values[(org_id, name)] = (value, version, now, actor)

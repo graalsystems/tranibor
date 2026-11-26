@@ -21,6 +21,7 @@ from tranibor_contracts.policy import ToolScriptsMode
 from tranibor_core.argument_grants import constraint_error
 from tranibor_core.memory_bindings import Binding, binding_problems, effective_bindings
 from tranibor_core.network import validate_pattern
+from tranibor_core.subscription_credentials import refuse_in_values as refuse_subscription_in_values
 from tranibor_core.workspace import AgentWorkspace
 
 from .agent_social import AgentSocial
@@ -227,6 +228,7 @@ class CodeRuntime(Dto):
     def _no_empty_argument(cls, command: list[str]) -> list[str]:
         if any(not part or len(part) > 1024 for part in command):
             raise ValueError("every argument of the command is 1 to 1024 characters")
+        refuse_subscription_in_values(command, where="the agent's command")
         return command
 
 
@@ -436,6 +438,7 @@ class HostedRuntime(Dto):
             )
         if any(len(value) > 4096 for value in env.values()):
             raise ValueError("a variable's value is at most 4096 characters")
+        refuse_subscription_in_values(env, where="the agent's environment")
         return env
 
 

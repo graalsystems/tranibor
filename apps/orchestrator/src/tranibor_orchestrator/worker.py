@@ -173,6 +173,10 @@ async def run_worker(queues: list[str]) -> None:
     settings = get_settings()
     # Before anything connects: no fakes in staging and prod (S80-03).
     settings.refuse_fakes_in_production()
+    # A person's model subscription is never a platform process's (ADR 0227).
+    from tranibor_core.subscription_credentials import refuse_in_environment
+
+    refuse_in_environment("orchestrator's workers")
     # An organisation's payloads under its own data key, read through the deployment's key wrapper
     # (ADR 0225): installed before the converter is built, so every client of this process carries it.
     from tranibor_api.services.temporal_keys import install_organisation_data_keys

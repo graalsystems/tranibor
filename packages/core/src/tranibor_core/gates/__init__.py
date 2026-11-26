@@ -30,6 +30,7 @@ from tranibor_contracts import StageResult
 from tranibor_contracts.delivery import commits_of
 
 from ..errors import GateError
+from ..subscription_credentials import TOKEN_SHAPES as SUBSCRIPTION_TOKEN_SHAPES
 
 
 @dataclass(slots=True)
@@ -984,6 +985,8 @@ SECRET_PATTERNS: tuple[tuple[str, str], ...] = (
     ("OpenAI key", r"sk-(?:proj-)?[A-Za-z0-9]{32,}"),
     ("Slack token", r"xox[baprs]-[A-Za-z0-9-]{10,}"),
     ("JWT", r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    # A person's model subscription (ADR 0227): the Claude shapes are `sk-ant-` above, the Google ones here.
+    *SUBSCRIPTION_TOKEN_SHAPES[1:],
 )
 
 

@@ -44,6 +44,7 @@ from sqlalchemy import text
 from tranibor_adapters import load_extensions
 from tranibor_contracts.outpost import MAX_WAIT_S
 from tranibor_core.production import is_production, refuse_fakes_in_production
+from tranibor_core.subscription_credentials import refuse_in_environment as refuse_subscription_in_environment
 
 from .. import __version__
 from ..config import Settings, get_settings
@@ -91,6 +92,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.info("the outposts' door starts, served alone", env=settings.env)
     # The same rule as the API's start-up (S80-03): no fakes in staging and prod.
     refuse_fakes_in_production(environment=settings.env, fakes=settings.fakes, process="outposts' door")
+    refuse_subscription_in_environment("outposts' door")
     relay: PostgresRelay | None = None
     if not settings.is_sqlite:
         await _refuse_the_superuser(settings)

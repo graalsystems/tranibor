@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from tranibor_contracts import ProjectConfig
+from tranibor_core.subscription_credentials import refuse_in_values as refuse_subscription_in_values
 
 from .base import Dto, PageMeta
 
@@ -142,6 +143,14 @@ class ConnectorUpsert(Dto):
     #: Secret values typed in the console, field -> value. Write-only: sealed in the database and
     #: replaced by a derived `store:` reference; never returned (ADR 0058).
     secret_values: dict[str, str] = Field(default_factory=dict, repr=False)
+
+    @model_validator(mode="after")
+    def _no_subscription_credential(self) -> Self:
+        """A person's model subscription is never a connector's (ADR 0227), in a field or a secret."""
+        refuse_subscription_in_values(
+            [self.config, self.secret_refs, self.secret_values], where="this connector's configuration"
+        )
+        return self
 
 
 class ConnectorCheck(Dto):
@@ -285,6 +294,14 @@ class OrgConnectorCreate(Dto):
     #: without it a missing host is a 409 `egress_required`. Needs `tools:grant`.
     allow_egress: bool = False
 
+    @model_validator(mode="after")
+    def _no_subscription_credential(self) -> Self:
+        """A person's model subscription is never a connector's (ADR 0227), in a field or a secret."""
+        refuse_subscription_in_values(
+            [self.config, self.secret_refs, self.secret_values], where="this connector's configuration"
+        )
+        return self
+
 
 class OrgConnectorUpdate(Dto):
     """Edit a declared connector. Absent: unchanged. `secret_refs` and `secret_values` MERGE into
@@ -296,6 +313,14 @@ class OrgConnectorUpdate(Dto):
     #: the organisation's administrator only (ADR 0074)
     availability: Literal["all_projects", "selected_projects"] | None = None
     allow_egress: bool = False
+
+    @model_validator(mode="after")
+    def _no_subscription_credential(self) -> Self:
+        """A person's model subscription is never a connector's (ADR 0227), in a field or a secret."""
+        refuse_subscription_in_values(
+            [self.config, self.secret_refs, self.secret_values], where="this connector's configuration"
+        )
+        return self
 
 
 class OrgConnectorPage(Dto):
