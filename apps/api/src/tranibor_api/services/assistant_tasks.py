@@ -334,7 +334,7 @@ async def start_run(  # noqa: PLR0913 - one run: who, what, why, keyword-only
         if raced is None:
             raise
         return raced, False
-    await start_work_item(space, item)
+    await start_work_item(space, item, session)
     return item, True
 
 
