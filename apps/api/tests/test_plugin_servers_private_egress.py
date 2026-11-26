@@ -162,7 +162,7 @@ async def test_cilium_opens_the_address_by_cidr(
     from tranibor_api.services.plugin_servers import use_plugin_runtime
 
     await _install(client)
-    use_plugin_runtime(PluginServerRuntime(kube, "choregos-plugins", cilium=True))
+    use_plugin_runtime(PluginServerRuntime(kube, "tranibor-plugins", cilium=True))
     _set(
         settings_env,
         TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS=LISTED,

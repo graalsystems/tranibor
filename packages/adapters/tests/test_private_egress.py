@@ -16,18 +16,18 @@ from tranibor_adapters.private_egress import (
     system_resolver,
 )
 
-IMAGE = "registry.example/choregos-agents/hello-mcp@sha256:" + "a" * 64
+IMAGE = "registry.example/tranibor-agents/hello-mcp@sha256:" + "a" * 64
 
 
 def _server(**changes: object) -> ServerDeployment:
     base: dict[str, object] = {
         "name": "unifi-0123abcd",
-        "namespace": "choregos-plugins",
+        "namespace": "tranibor-plugins",
         "image": IMAGE,
         "port": 8080,
         "health_path": "/healthz",
         "env": {"TRANIBOR_SERVER_TOKEN": "t" * 43},
-        "labels": {"app.kubernetes.io/name": "choregos-plugin-server"},
+        "labels": {"app.kubernetes.io/name": "tranibor-plugin-server"},
         "egress": (("controller.lan.example", 8443), ("api.vendor.example", 443)),
         "private_egress": (("controller.lan.example", "10.20.1.5", 8443),),
     }
