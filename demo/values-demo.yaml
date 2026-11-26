@@ -57,7 +57,8 @@ choregos-orchestrator:
       # The agents talk to the cluster's repository in the clear: nothing secret here.
       GIT_TERMINAL_PROMPT: "0"
     envFromSecrets:
-      # Optional, and only in direct mode (DEMO_GATEWAY=direct): the `agent-creds` secret
-      # then carries CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY. With the gateway, the
-      # agent receives a PER-RUN key and needs nothing else.
-      - agent-creds
+      # Optional, and only in direct mode (DEMO_GATEWAY=direct): the `agent-provider-key`
+      # secret then carries ANTHROPIC_API_KEY, a provider key. Never a person's subscription,
+      # which no cluster holds (ADR 0227). With the gateway, the agent receives a PER-RUN key
+      # and needs nothing else.
+      - agent-provider-key

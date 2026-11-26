@@ -39,17 +39,20 @@ kubectl -n choregos create secret generic platform-llm-key --from-literal=api-ke
 kubectl -n choregos rollout restart deploy/choregos-litellm
 ```
 
-Without a provider key (a Claude Code subscription only), the bench runs in **direct**
-mode: the agent brings its own credentials, and **nothing is counted or capped** beyond
-turns and minutes. Say so when showing the dashboard.
+Without the embedded gateway, the bench runs in **direct** mode: the agents use a provider
+API key placed in their pods, and **nothing is counted or capped** beyond turns and minutes.
+Say so when showing the dashboard.
 
 ```bash
-kubectl -n choregos create secret generic agent-creds \
-  --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(jq -r .claudeAiOauth.accessToken ~/.claude/.credentials.json)"
+kubectl -n choregos create secret generic agent-provider-key --from-literal=ANTHROPIC_API_KEY=sk-ant-…
 helm upgrade choregos charts/choregos -n choregos -f charts/choregos/values/local.yaml \
   -f demo/values-demo.yaml --set global.gateway.embedded=false --reuse-values
 make demo-seed GATEWAY=direct
 ```
+
+A person's Claude subscription is never a cluster secret: the vendors' terms forbid a platform
+to hold or relay one, and every run of the bench would use it (ADR 0227). A subscription is used
+only by its owner's personal runner, on their own machine.
 
 In both cases the secret is mounted **by reference** in the pods, never copied into a
 specification.

@@ -23,8 +23,8 @@ ROOT = pathlib.Path(__file__).resolve().parent
 #   spend. The projects then name gateway ALIASES (`platform/standard`), and the resolver
 #   reads the real model behind them to check that `claude-code` really gets a Claude. It is
 #   the only mode where the cost ledger carries a figure.
-# - `direct`: the agent brings its own credentials (a Claude Code subscription in
-#   `agent-creds`). It talks to the provider DIRECTLY, so the name must be the model's
+# - `direct`: the agent brings its own credentials (a provider API key in
+#   `agent-provider-key`; never a person's subscription, ADR 0227). It talks to the provider DIRECTLY, so the name must be the model's
 #   identifier at the provider (`claude-sonnet-5`), not the prefixed form LiteLLM expects
 #   for routing. Nothing is counted, nothing is capped beyond turns and minutes.
 GATEWAY = os.environ.get("DEMO_GATEWAY", "litellm")
