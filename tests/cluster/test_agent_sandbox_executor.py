@@ -142,7 +142,8 @@ def _pushes(
 @pytest.mark.capability("agent_sandbox", "snapshot")
 def test_a_claim_adopts_a_warm_sandbox_that_holds_nothing_and_serves_one_run(ns: str) -> None:
     image = _runner_image()
-    kubectl_shared("create", "serviceaccount", "choregos-runner", "-n", ns)
+    for account in ("tranibor-runner", "choregos-runner"):  # both, as provisioning makes them (ADR 0226 R9b)
+        kubectl_shared("create", "serviceaccount", account, "-n", ns)
     kubectl_shared("-n", ns, "apply", "-f", "-", input_text=_render(ns, image))
     _wait(lambda: any(_ready(s) for s in _sandboxes(ns)), "a warm sandbox", timeout_s=420)
     (warm,) = [s["metadata"]["name"] for s in _sandboxes(ns)]
