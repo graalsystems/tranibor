@@ -920,7 +920,7 @@ DELETE /orgs/{org}/plugins/{plugin}/servers/{server}/instances/{name} → 204
   server's schema: its own configuration and sealed secrets (ADR 0058), its own `_server_token`, its own
   `ConnectorOperation` rows at the floor of the declaration (so policies, groups and prices are set per
   instance), its own egress hosts, and its own Deployment, Service, NetworkPolicy and Secret, named
-  `object_name(org_id, instance)` and labelled `choregos.dev/instance`. An agent's tools are
+  `object_name(org_id, instance)` and labelled `tranibor.dev/instance`. An agent's tools are
   `<instance>__<operation>`. The instance's page is the connector page: `PATCH /orgs/{org}/connectors/{name}`
   configures it.
 - **The default instance keeps the server's name**, so every install made before instances existed keeps its

@@ -50,7 +50,7 @@ def kube(tmp_path: Path) -> Iterator[FakeKubernetesApi]:
         )
     use_plugin_supply(OfflineDirectory(root))
     api = FakeKubernetesApi()
-    use_plugin_runtime(PluginServerRuntime(api, "choregos-plugins"))
+    use_plugin_runtime(PluginServerRuntime(api, "tranibor-plugins"))
     yield api
     use_plugin_runtime(None)
     use_plugin_transport(None)
@@ -161,11 +161,11 @@ async def test_an_instance_is_its_own_connector_with_its_own_objects(
         "no replica until configured"
     )
     assert (
-        _deployment(kube, default.plugin_server["object"])["metadata"]["labels"].get("choregos.dev/instance")
+        _deployment(kube, default.plugin_server["object"])["metadata"]["labels"].get("tranibor.dev/instance")
         is None
     )
     assert (
-        _deployment(kube, named.plugin_server["object"])["metadata"]["labels"]["choregos.dev/instance"]
+        _deployment(kube, named.plugin_server["object"])["metadata"]["labels"]["tranibor.dev/instance"]
         == "hello-b"
     )
     # Its own token, its own operations (so policies are set per instance).
