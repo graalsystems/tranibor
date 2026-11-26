@@ -35,7 +35,7 @@ def _builder() -> list[str]:
     """The builder stage's instructions up to its `uv sync`, continuation lines joined."""
     text = re.sub(r"\\\n\s*", " ", DOCKERFILE.read_text(encoding="utf-8"))
     lines = [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
-    sync = next(i for i, line in enumerate(lines) if line.startswith("RUN uv sync"))
+    sync = next(i for i, line in enumerate(lines) if line.startswith("RUN ") and "uv sync" in line)
     return lines[: sync + 1]
 
 
