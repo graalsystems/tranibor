@@ -2774,12 +2774,24 @@ that names `choregos-api` keeps working. Move them to `tranibor-api` within the 
 yours that names a renamed object (an Ingress or a monitoring rule that names `choregos-web`, a script
 that runs `kubectl logs deploy/choregos-api`) moves to the new name with the upgrade.
 
+**Bind the new ServiceAccounts before you upgrade.** The API runs as the ServiceAccount `tranibor-api`
+and the migration Job as `tranibor-migrations`; the chart no longer renders `choregos-api` nor
+`choregos-migrations`, and no value brings them back. A right granted outside the chart by the
+account's name follows only if you move it: the Vault role (`bound_service_account_names`, see
+[Connector secrets sealed under Vault Transit](#connector-secrets-sealed-under-vault-transit)), the Role you lay down for the plugin servers with
+`rbac: false`, a cloud workload identity, an admission policy's exception, a NetworkPolicy that selects
+the account. **Add `tranibor-api` and `tranibor-migrations` beside the former names before the upgrade**,
+and drop the former names after it: an upgrade with the binding left on `choregos-api` starts an API
+that cannot read its secrets nor deploy a plugin server, and a pod an admission exception no longer
+covers is refused. A binding by namespace rather than by name is not affected.
+
 **What keeps the former name, and why:**
 
 | Object | Kept because | Until |
 | :-- | :-- | :-- |
 | ServiceAccount `choregos-runner` | Rendered beside `tranibor-runner` (R9b): a project namespace provisioned before 0.30.0 has only it, and a Job or a suspended sandbox started there runs as it | 0.32.0 |
 | SandboxTemplate and SandboxWarmPool `choregos-runner` | Rendered beside `tranibor-runner`, the pool at size 0 (R9b): the template's claim template holds the workspaces of suspended sandboxes, and their claims name the pool | `runner.sandbox.formerPool: false` once no claim names it; 0.32.0 |
+| ServiceAccounts `choregos-api` and `choregos-migrations` | Not kept: the API and the migration Job run as `tranibor-api` and `tranibor-migrations`, a pod runs as one account. Bind the new names first (above) | Renamed in 0.30.0 |
 | ServiceAccount `choregos-orchestrator` | The workers still run as it: a project namespace provisioned before 0.30.0 binds the executor's Role to it alone (R9b binds `tranibor-orchestrator` beside it) | A later release, once every project is provisioned again |
 | Service `choregos-egress` | A second name of `tranibor-egress` on the same pods, in the release namespace and every project's (R9b): a namespace provisioned before 0.30.0 has only it, so the default `tranibor-orchestrator.runner.egressProxy` (`http://choregos-egress.{namespace}.svc:3128`) keeps naming it | 0.32.0 |
 | The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` values (`choregos-api`, `choregos`…) | A label has one value and your NetworkPolicies may select it; `global.labelValues: tranibor` moves them (R9b). The runners' pods keep `choregos-runner` (the code writes it), and a StatefulSet named after the release its selector | 0.32.0 |
