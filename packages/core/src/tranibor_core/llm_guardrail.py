@@ -63,6 +63,9 @@ KNOWN_SHAPES: tuple[str, ...] = (
     r"sk-(?:proj-)?[A-Za-z0-9]{32,}",
     r"xox[baprs]-[A-Za-z0-9-]{10,}",
     r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+    # A person's Google subscription tokens (ADR 0227); the Claude ones are `sk-ant-` above.
+    r"\bya29\.[A-Za-z0-9_-]{20,}",
+    r"(?<![A-Za-z0-9])1//0[A-Za-z0-9_-]{30,}",
 )
 _SHAPES = [re.compile(pattern) for pattern in KNOWN_SHAPES]
 
