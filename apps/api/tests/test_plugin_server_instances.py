@@ -152,6 +152,9 @@ async def test_an_instance_is_its_own_connector_with_its_own_objects(
         != default.plugin_server["object"]
     )
     assert named.plugin_server["url"].startswith("http://hello-b-")
+    # What the broker reads to resolve a profile entry to instances (S86-04): every instance carries it.
+    assert named.plugin_server["implements"] == default.plugin_server["implements"]
+    assert named.plugin_server["server"] == default.plugin_server["server"] == "hello"
     for resource in ("deployments", "services", "networkpolicies", "secrets"):
         assert _names(kube, resource) == {default.plugin_server["object"], named.plugin_server["object"]}
     assert _deployment(kube, named.plugin_server["object"])["spec"]["replicas"] == 0, (
