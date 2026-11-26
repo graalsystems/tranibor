@@ -694,9 +694,12 @@ def tool_parameters(tool: BrokerTool) -> dict[str, Any]:
 async def session_tools(session: AsyncSession, spec: AgentSpec, project: Project) -> dict[str, BrokerTool]:
     """The read tools the agent's `mcp_servers` grant in the project: a write or an approval is a
     governed action, which needs a work item, so a session is not offered one."""
-    from .broker import selection_of_spec, tools_of_selection
+    from .broker import profile_entries_of_spec, selection_of_spec, tools_of_selection
 
-    granted = await tools_of_selection(session, selection_of_spec(spec.model_dump(mode="json")), project)
+    stored = spec.model_dump(mode="json")
+    granted = await tools_of_selection(
+        session, selection_of_spec(stored), project, profiles=profile_entries_of_spec(stored)
+    )
     return {name: tool for name, tool in granted.items() if not tool.is_write and not tool.needs_approval}
 
 

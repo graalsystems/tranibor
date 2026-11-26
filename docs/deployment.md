@@ -947,6 +947,10 @@ tools:
 entry; `TRANIBOR_BROKER_RESULT_CEILING_BYTES` (1 MiB) bounds both, and an organisation's
 per-operation caps on its connectors too ([usage](usage.md), S40-17).
 
+`TRANIBOR_BROKER_PROFILE_TOOL_CAP` (16 by default, at least 1) bounds the tools one profile entry of an
+agent's `mcp_servers` offers over all the instances that implement the profile; the ones left out are named
+in the run's journal ([plugins](plugins.md#calling-a-profile), ADR 0224).
+
 ### How a tool reaches the agent
 
 An agent never calls a provider. It calls an MCP server that runs **in its own pod**, on

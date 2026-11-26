@@ -8,18 +8,38 @@ from tranibor_core.run_journal import (
     MEMORY_SKIPPED,
     PLATFORM_EVENTS,
     PLATFORM_PREFIXES,
+    PROFILE_CAPPED,
+    PROFILE_UNBOUND,
     platform_written,
 )
 
 
 def test_every_type_the_platform_writes_is_in_a_reserved_namespace() -> None:
-    assert {GATE_OUTCOME, MEMORY_SKIPPED} == PLATFORM_EVENTS
+    assert {GATE_OUTCOME, MEMORY_SKIPPED, PROFILE_UNBOUND, PROFILE_CAPPED} == PLATFORM_EVENTS
     assert all(platform_written(name) for name in PLATFORM_EVENTS)
     assert all(prefix.endswith(".") and prefix == prefix.lower() for prefix in PLATFORM_PREFIXES)
 
 
-RESERVED = ["gate.outcome", "gate.later", "memory.skipped", "  Gate.Outcome", "MEMORY.X"]
-OWN = ["session/update", "run.result", "gateway", "gated.release", "memoryless", "gate", "", "x.gate.outcome"]
+RESERVED = [
+    "gate.outcome",
+    "gate.later",
+    "memory.skipped",
+    "profile.unbound",
+    "PROFILE.capped",
+    "  Gate.Outcome",
+    "MEMORY.X",
+]
+OWN = [
+    "session/update",
+    "run.result",
+    "gateway",
+    "gated.release",
+    "profiles",
+    "memoryless",
+    "gate",
+    "",
+    "x.gate.outcome",
+]
 
 
 @pytest.mark.parametrize("name", RESERVED)

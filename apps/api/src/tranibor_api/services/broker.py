@@ -23,8 +23,8 @@ import asyncio
 import json
 import time
 import uuid
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from typing import Any, Literal
 
@@ -71,6 +71,8 @@ __all__ = [
     "ArgumentsOutsideGrant",
     "ArgumentsRefused",
     "BrokerTool",
+    "ProfileEntry",
+    "ProfileReport",
     "bounded_payload",
     "bounded_result",
     "broker_tools",
@@ -79,6 +81,7 @@ __all__ = [
     "check_arguments",
     "is_job_step",
     "output_refusal",
+    "profile_entries_of_spec",
     "propose_call",
     "proposer_of",
     "readable_text",
@@ -196,14 +199,121 @@ def selection_of_spec(spec: dict[str, Any] | None) -> Selection:
     return selection
 
 
-async def broker_tools(session: AsyncSession, run: Run, project: Project) -> dict[str, BrokerTool]:
-    return await tools_of_selection(session, await _selection_of_run(session, run), project)
+@dataclass(frozen=True)
+class ProfileEntry:
+    """An `mcp_servers` entry that names a profile instead of a connector (ADR 0224 §4)."""
+
+    profile: str
+    grants: tuple[Any, ...]
+
+
+@dataclass
+class ProfileReport:
+    """What resolving the profile entries left unsaid in the tools: the profiles that opened nothing, and
+    the tools the cap left out (`<instance>__<tool>`), by profile."""
+
+    unbound: dict[str, str] = field(default_factory=dict)
+    left_out: dict[str, list[str]] = field(default_factory=dict)
+
+
+def profile_entries_of_spec(spec: dict[str, Any] | None) -> list[ProfileEntry]:
+    """The profile entries a version's `mcp_servers` names (`selection_of_spec` has the connector ones)."""
+    return [
+        ProfileEntry(str(server["profile"]), tuple(server.get("tools") or []))
+        for server in (spec or {}).get("mcp_servers") or []
+        if isinstance(server, dict) and server.get("profile")
+    ]
+
+
+async def broker_tools(
+    session: AsyncSession, run: Run, project: Project, report: ProfileReport | None = None
+) -> dict[str, BrokerTool]:
+    selection = await _selection_of_run(session, run)
+    entries = [] if is_job_step(run) else await _profile_entries_of_run(session, run)
+    return await tools_of_selection(session, selection, project, profiles=entries, report=report)
+
+
+async def _profile_entries_of_run(session: AsyncSession, run: Run) -> list[ProfileEntry]:
+    if not run.agent_slug or not run.agent_version:
+        return []
+    from ..db.models import Agent
+
+    spec = (
+        await session.execute(
+            select(AgentVersion.spec)
+            .join(Agent, Agent.id == AgentVersion.agent_id)
+            .where(Agent.slug == run.agent_slug, AgentVersion.version == run.agent_version)
+        )
+    ).scalar_one_or_none()
+    return profile_entries_of_spec(spec)
 
 
 async def tools_of_selection(
-    session: AsyncSession, selection: Selection, project: Project
+    session: AsyncSession,
+    selection: Selection,
+    project: Project,
+    *,
+    profiles: Sequence[ProfileEntry] = (),
+    report: ProfileReport | None = None,
 ) -> dict[str, BrokerTool]:
-    """What a selection reaches in a project: the run's, or a session's agent's (S41-09)."""
+    """What a selection reaches in a project: the run's, or a session's agent's (S41-09). A profile entry
+    resolves to the instances that implement it, then goes through the same path as a named connector
+    (ADR 0224 §4); `report` collects what it left out."""
+    tools = await _tools_of_connectors(session, selection, project, None)
+    for entry in profiles:
+        for name, tool in (await _profile_tools(session, entry, project, report)).items():
+            tools.setdefault(name, tool)
+    return tools
+
+
+async def _profile_tools(
+    session: AsyncSession, entry: ProfileEntry, project: Project, report: ProfileReport | None
+) -> dict[str, BrokerTool]:
+    """The tools one profile entry offers: each instance's operations that are tools of the profile AND that
+    the entry lists, then the cap. The instance's policy, groups and approvals apply as for any connector."""
+    from ..config import get_settings
+    from .plugin_files import profile_tools
+
+    note = report if report is not None else ProfileReport()
+    profile = await profile_tools(session, project.org_id, entry.profile)
+    if profile is None:
+        note.unbound[entry.profile] = (
+            "the plugin that declares it is not installed, or declares no such profile"
+        )
+        return {}
+    instances = [
+        c.name
+        for c in (
+            await session.execute(select(OrgConnector).where(OrgConnector.org_id == project.org_id))
+        ).scalars()
+        if entry.profile in ((c.plugin_server or {}).get("implements") or [])
+    ]
+    if not instances:
+        note.unbound[entry.profile] = "no connector of the organisation implements it"
+        return {}
+    found = await _tools_of_connectors(
+        session, {name: list(entry.grants) for name in instances}, project, set(profile)
+    )
+    if not found:
+        note.unbound[entry.profile] = "no instance is usable by this project with the tools the entry lists"
+        return {}
+    # The profile's order, then the instance's name: the same run offers the same tools.
+    order = {tool: i for i, tool in enumerate(profile)}
+    ranked = sorted(found.values(), key=lambda t: (order[t.operation.name], t.connector.name))
+    cap = get_settings().broker_profile_tool_cap
+    if len(ranked) > cap:
+        note.left_out[entry.profile] = [t.name for t in ranked[cap:]]
+        ranked = ranked[:cap]
+    return {t.name: t for t in ranked}
+
+
+async def _tools_of_connectors(
+    session: AsyncSession,
+    selection: Selection,
+    project: Project,
+    only: set[str] | None,
+) -> dict[str, BrokerTool]:
+    """The tools of named connectors; `only` keeps the operations of that set (a profile's tools)."""
     if not selection:
         return {}
     groups = {str(g) for g in ((project.config or {}).get("groups") or [])}
@@ -226,6 +336,8 @@ async def tools_of_selection(
     enabled = await enabled_ids(session, project)
     tools: dict[str, BrokerTool] = {}
     for operation, connector in rows:
+        if only is not None and operation.name not in only:
+            continue
         # ADR 0074: an organisation connector restricted to selected projects reaches only those.
         if connector.availability == SELECTED_PROJECTS and connector.id not in enabled:
             continue

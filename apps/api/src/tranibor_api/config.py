@@ -268,6 +268,10 @@ class Settings(BaseSettings):
     #: text block that serializes its `structuredContent` is not counted again (#1374). The default is
     #: the bound the run's tool server shows the model (`tranibor_core.mcp.RESULT_MAX_BYTES`).
     broker_result_max_bytes: int = Field(default=RESULT_MAX_BYTES, ge=1024)
+    #: The most tools one profile entry of an agent's `mcp_servers` offers, over all the instances that
+    #: implement the profile (ADR 0224 §4): each instance brings its tools under its own name, and a model
+    #: given a hundred of them chooses worse. The ones left out are named in the run's journal.
+    broker_profile_tool_cap: int = Field(default=16, ge=1)
     #: The most an operation or a catalogue tool may raise its own cap to (S40-17): an organisation
     #: that needs one large answer opens it for that operation, never for the whole platform. The
     #: default is what the prompt loop lets through of one tool answer (`RESULT_CEILING_BYTES`).
