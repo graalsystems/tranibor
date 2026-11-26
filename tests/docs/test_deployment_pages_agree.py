@@ -18,7 +18,7 @@ def _read(path: str) -> str:
 
 
 def test_the_temporal_backup_runbook_covers_server_mode() -> None:
-    assert 'ne (toString ((index .Values "choregos-temporal"' in _read("charts/choregos/templates/guard.yaml")
+    assert 'ne (toString ((index .Values "temporal"' in _read("charts/tranibor/templates/guard.yaml")
     runbook = _read("docs/runbooks/temporal-backup.md")
     assert "`server` mode" in runbook and "temporal_visibility" in runbook
 
@@ -31,7 +31,7 @@ def test_the_site_does_not_say_every_embedded_dependency_is_refused() -> None:
 
 
 def test_the_quorum_runbook_says_the_charts_ecphoria_has_one_replica() -> None:
-    assert "replicas: 1" in _read("charts/choregos/charts/ecphoria/templates/deployment.yaml")
+    assert "replicas: 1" in _read("charts/tranibor/charts/ecphoria/templates/deployment.yaml")
     assert "one replica on one volume" in _read("docs/runbooks/ecphoria-quorum.md")
 
 

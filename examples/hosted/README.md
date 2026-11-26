@@ -2,7 +2,7 @@
 
 Each directory is the same agent, a ticket triager that reads the ticket through an MCP tool and
 answers `{"status": "done", "summary": ...}`, written on one framework and run as a **hosted agent**
-(ADR 0080, `docs/hosted-agents.md`). None of them imports anything from Choregos. Each one:
+(ADR 0080, `docs/hosted-agents.md`). None of them imports anything from Tranibor. Each one:
 
 - serves Foundry's hosted-agent contract with `responses_server.py` (`responses_server.mjs` in
   Node, `Program.cs` in .NET): `GET /readiness`, `POST /responses` (with server-sent events when the

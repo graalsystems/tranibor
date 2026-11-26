@@ -10,7 +10,7 @@ whatever their attributes. What works with the existing auth is a **frame token*
 1. the person signs in in a popup of the console (first party, the ordinary session cookie);
 2. the popup asks `POST /me/assistants/{org}/{slug}/embed-token` and hands the token to the frame that
    opened it (`postMessage`, same origin);
-3. the frame sends it as `X-Choregos-Embed` on its requests.
+3. the frame sends it as `X-Tranibor-Embed` on its requests (`X-Choregos-Embed` before ADR 0226).
 
 The token is a signed value (purpose `embed-frame`), valid for fifteen minutes, bound to one person, one
 browser session (ending that session ends the token), one organisation and one installation. It opens only
@@ -26,11 +26,15 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from tranibor_contracts.wire import header
+
 from .config import Settings
 from .security import read_session, sign_session
 
 PURPOSE = "embed-frame"
-HEADER = "x-choregos-embed"
+#: The header the frame sends its token in; the former `X-Choregos-Embed` is read too (ADR 0226).
+HEADER = header("Embed")
+HEADER_NAME = "Embed"
 TTL_S = 900
 _API = "/api/v1"
 _SEGMENT = r"[A-Za-z0-9_.:-]+"

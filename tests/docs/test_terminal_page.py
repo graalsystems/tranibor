@@ -1,7 +1,7 @@
-"""Every `choregos` command of `docs/site/use/terminal.md` parses against the real CLI (S67-13).
+"""Every `tranibor` command of `docs/site/use/terminal.md` parses against the real CLI (S67-13).
 
 `test_site.py` checks that a command's group and its options appear in the generated reference. That is
-loose: a misspelt sub-command (`choregos decide aprove ID`) passes it as a positional argument. This test
+loose: a misspelt sub-command (`tranibor decide aprove ID`) passes it as a positional argument. This test
 walks the real Typer application instead: each word that names a command must be one, each option must
 belong to the command it follows, and the arguments the command requires must be there. Nothing is
 executed and no network call is made: click parses the line (`make_context`) and stops.
@@ -28,7 +28,7 @@ REDIRECTS = {">", ">>", "2>", "2>&1", "<"}
 
 
 def _lines(text: str) -> list[list[str]]:
-    """The `choregos` commands of the page's bash blocks, as argument lists (`choregos` itself dropped)."""
+    """The `tranibor` commands of the page's bash blocks, as argument lists (`tranibor` itself dropped)."""
     found: list[list[str]] = []
     for block in BLOCK.findall(text):
         for raw in block.replace("\\\n", " ").splitlines():
@@ -37,7 +37,7 @@ def _lines(text: str) -> list[list[str]]:
                 words = shlex.split(segment)
                 while words and re.fullmatch(r"[A-Z_]+=\S*", words[0]):
                     words = words[1:]
-                if words[:1] != ["choregos"]:
+                if words[:1] != ["tranibor"]:
                     continue
                 for index, word in enumerate(words):
                     if word in REDIRECTS:
@@ -48,10 +48,10 @@ def _lines(text: str) -> list[list[str]]:
 
 
 def check(args: list[str]) -> None:
-    """Parse `choregos ARGS` against the real application; raise `UsageError` when it does not fit."""
+    """Parse `tranibor ARGS` against the real application; raise `UsageError` when it does not fit."""
     root = typer.main.get_command(app)
     command = root
-    name = "choregos"
+    name = "tranibor"
     rest = list(args)
     while True:
         if not isinstance(command, typer.core.TyperGroup):
@@ -101,7 +101,7 @@ def test_the_check_refuses_what_is_misspelt(args: list[str]) -> None:
 
 
 def test_a_misspelt_command_in_the_page_would_be_found() -> None:
-    text = PAGE.read_text(encoding="utf-8").replace("choregos decide approve ID", "choregos decide aprove ID")
+    text = PAGE.read_text(encoding="utf-8").replace("tranibor decide approve ID", "tranibor decide aprove ID")
     broken = []
     for args in _lines(text):
         try:

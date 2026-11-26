@@ -1,0 +1,130 @@
+{{- if and .Values.enabled .Values.ingress.enabled }}
+{{- if eq (.Values.ingress.kind | default "httproute") "ingress" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tranibor-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  # S87-16: the Ingress's TLS block, as written (`[{secretName, hosts}]`); the Gateway API carries it on
+  # the Gateway's listener instead.
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hostnames }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          {{- /* `/mcp`: the gateway for external MCP clients (ADR 0030), served by the API, and its
+               OAuth metadata (RFC 9728) that claude.ai reads before connecting. `/a2a`: the A2A door
+               (ADR 0078), last so that the paths before it keep their place. `/downloads` and the two
+               install scripts: the CLI served by the instance (S62-08); the scripts are exact paths,
+               so nothing else under `/cli` leaves the console. */}}
+          {{- range list "/api" "/mcp" "/healthz" "/readyz" "/.well-known/oauth-protected-resource" "/a2a" "/downloads" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service: { name: tranibor-api, port: { number: {{ $.Values.service.port }} } }
+          {{- end }}
+          {{- range list "/cli/install.sh" "/cli/install.ps1" }}
+          - path: {{ . }}
+            pathType: Exact
+            backend:
+              service: { name: tranibor-api, port: { number: {{ $.Values.service.port }} } }
+          {{- end }}
+    {{- end }}
+{{- else }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tranibor-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.ingress.gateway }}
+      namespace: {{ .Values.ingress.gatewayNamespace | default "gateway" }}
+  hostnames:
+    {{- range .Values.ingress.hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /api }
+        - path: { type: PathPrefix, value: /mcp }
+        - path: { type: PathPrefix, value: /healthz }
+        - path: { type: PathPrefix, value: /readyz }
+        - path: { type: PathPrefix, value: /.well-known/oauth-protected-resource }
+        - path: { type: PathPrefix, value: /a2a }
+        - path: { type: PathPrefix, value: /downloads }
+        - path: { type: Exact, value: /cli/install.sh }
+        - path: { type: Exact, value: /cli/install.ps1 }
+      backendRefs:
+        - name: tranibor-api
+          port: {{ .Values.service.port }}
+{{- end }}
+{{- /* The run door (ADR 0144): hostnames of their own for runs that call back from outside the
+     cluster, routed to the run's API and to nothing else. The route above is unchanged: the API's
+     guard, not a route, closes `/api/v1/internal` on the public hostnames (an Ingress cannot subtract
+     a sub-path portably, and the console's relay of `/api/v1` reaches the API as well). */}}
+{{- $door := .Values.runDoor | default dict }}
+{{- $doorHosts := compact ($door.hostnames | default list) }}
+{{- range $doorHosts }}
+{{- if has . ($.Values.ingress.hostnames | default list) }}
+{{- fail (printf "tranibor-api.runDoor.hostnames: %q is also in tranibor-api.ingress.hostnames; a run door is a hostname of its own, the public one would keep the run's API" .) }}
+{{- end }}
+{{- end }}
+{{- if $doorHosts }}
+---
+{{- if eq (.Values.ingress.kind | default "httproute") "ingress" }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tranibor-run-door
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+  {{- with $door.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    {{- range $doorHosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /api/v1/internal
+            pathType: Prefix
+            backend:
+              service: { name: tranibor-api, port: { number: {{ $.Values.service.port }} } }
+    {{- end }}
+{{- else }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tranibor-run-door
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.ingress.gateway }}
+      namespace: {{ .Values.ingress.gatewayNamespace | default "gateway" }}
+  hostnames:
+    {{- range $doorHosts }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /api/v1/internal }
+      backendRefs:
+        - name: tranibor-api
+          port: {{ .Values.service.port }}
+{{- end }}
+{{- end }}
+{{- end }}

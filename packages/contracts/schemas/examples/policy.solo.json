@@ -1,5 +1,5 @@
 {
-  "apiVersion": "choregos/v1",
+  "apiVersion": "tranibor/v1",
   "kind": "Policy",
   "metadata": { "name": "solo", "version": 1, "preset": "solo", "description": "Un développeur, budgets serrés, approbation sur la spec et la prod." },
   "budgets": {
@@ -22,7 +22,7 @@
     "scope_change": { "required": "by_size", "group": "product-owners", "sizes": ["L", "XL"] }
   },
   "attempts": { "default_max": 2, "by_role": { "implement": 3, "fix_ci": 3 }, "dod_iterations": 3 },
-  "scope": { "auto_grant_max_files": 3, "deny_paths": [".choregos/**", ".github/workflows/**"] },
+  "scope": { "auto_grant_max_files": 3, "deny_paths": [".tranibor/**", ".choregos/**", ".github/workflows/**"] },
   "sandbox": { "runtime": "default", "deny_commands": ["kubectl", "terraform apply", "git push --force", "sudo"],
     "network": { "allow_domains": ["github.com", "pypi.org", "files.pythonhosted.org", "githubusercontent.com", "registry.npmjs.org"], "deny_by_default": true },
     "llm_security_analyzer": false },

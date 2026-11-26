@@ -2,7 +2,7 @@
 # `dev-complex`, so an organisation adopts it from the catalogue without that template. Three human
 # decisions: the specification (product owners), the pull request (maintainers) and production (release
 # captains, through the train: ADR 0041).
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: dev-feature

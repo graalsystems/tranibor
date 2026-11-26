@@ -361,12 +361,21 @@ def _assertion(kind: str, assertion: dict[str, Any], observation: dict[str, Any]
         return f"no_tool_called: called {', '.join(called)}" if called else None
     if kind == "security_event":
         kind_of_event = str(assertion["type"])
+        wanted = _event_type(kind_of_event)
         found = sum(
-            1 for event in observation.get("security_events") or [] if event.get("type") == kind_of_event
+            1
+            for event in observation.get("security_events") or []
+            if _event_type(str(event.get("type"))) == wanted
         )
         bounds = assertion if {"count", "min", "max"} & set(assertion) else {**assertion, "min": 1}
         return _counted(bounds, found, f"security_event {kind_of_event}")
     return f"unknown assertion: {kind} (expected one of {', '.join(ASSERTION_KINDS)})"
+
+
+def _event_type(value: str) -> str:
+    """An event type under its new name: `choregos.security.…` (a case or an observation written before
+    ADR 0226, R9c) is `tranibor.security.…`. This package does not depend on the contracts' `wire`."""
+    return "tranibor." + value.removeprefix("choregos.") if value.startswith("choregos.") else value
 
 
 def judge(case: dict[str, Any], answer: str, observation: dict[str, Any]) -> dict[str, Any]:

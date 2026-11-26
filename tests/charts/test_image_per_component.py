@@ -17,7 +17,7 @@ import yaml
 from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 PRIVE = "harbor.example.com/choregos-ee"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
@@ -39,10 +39,10 @@ def _images(*surcharges: str) -> dict[str, list[str]]:
 
 
 EE = (
-    f"choregos-api.image.registry={PRIVE}",
-    "choregos-api.image.repository=choregos-api-ee",
-    f"choregos-orchestrator.image.registry={PRIVE}",
-    "choregos-orchestrator.image.repository=choregos-orchestrator-ee",
+    f"tranibor-api.image.registry={PRIVE}",
+    "tranibor-api.image.repository=choregos-api-ee",
+    f"tranibor-orchestrator.image.registry={PRIVE}",
+    "tranibor-orchestrator.image.repository=choregos-orchestrator-ee",
 )
 
 

@@ -14,9 +14,9 @@ For the person who operates the platform. Procedure `connector.ci.tekton`, versi
 
 ## At the cluster
 
-1. Label each `PipelineRun` the platform should follow with `choregos/sha=<commit>`; the connector
-   finds a commit's runs through that label. Runs that carry `choregos/project`, `choregos/work-item`
-   and `choregos/run-id` are also mapped back to their work item.
+1. Label each `PipelineRun` the platform should follow with `tranibor/sha=<commit>`; the connector
+   finds a commit's runs through that label (a run labelled `choregos/sha` is still found until 0.32.0). Runs that carry `tranibor/project`, `tranibor/work-item`
+   and `tranibor/run-id` (or the former `choregos/*` labels) are also mapped back to their work item.
 2. Point Tekton's CloudEvents sink at the platform:
    `<api_url>/api/v1/webhooks/tekton?token=<the shared webhook secret>`. Tekton's sink is configured by URL and
    cannot add a header, which is why the secret travels in the query string. The parameter is
@@ -40,7 +40,7 @@ and watch its state change on the work item.
 ## When it fails
 
 - `Forbidden` from the cluster: the API's service account lacks the `Role` above.
-- Status stays `unknown`: no `PipelineRun` carries the `choregos/sha` label of that commit.
+- Status stays `unknown`: no `PipelineRun` carries the `tranibor/sha` (or `choregos/sha`) label of that commit.
 - Tekton events refused with `401`: the secret in the sink URL differs from the platform's.
 - Events never arrive: the sink URL is unreachable from the cluster, or Tekton's `config-defaults` ConfigMap does
   not name it in `default-cloud-events-sink`.

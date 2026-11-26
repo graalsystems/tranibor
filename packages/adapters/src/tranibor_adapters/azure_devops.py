@@ -25,6 +25,8 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote, urlsplit
 
+from tranibor_contracts.wire import read_header
+
 from .errors import ConfigurationError, UpstreamError
 from .http import RestClient
 
@@ -224,10 +226,11 @@ def azure_boards_egress(config: Mapping[str, Any]) -> list[tuple[str, int]]:
 
 
 def shared_secret_of(headers: Mapping[str, str]) -> str:
-    """The secret a service hook delivery carries: `X-Choregos-Secret` (a custom HTTP header of the
-    subscription), else the password of its `Authorization: Basic` header (any user name). Empty when none."""
+    """The secret a service hook delivery carries: `X-Tranibor-Secret` (a custom HTTP header of the
+    subscription; `X-Choregos-Secret` for the window of ADR 0226), else the password of its
+    `Authorization: Basic` header (any user name). Empty when none."""
     lowered = {name.lower(): value for name, value in headers.items()}
-    header = lowered.get("x-choregos-secret", "")
+    header = read_header(lowered, "Secret")
     if header:
         return header
     scheme, _, token = lowered.get("authorization", "").partition(" ")

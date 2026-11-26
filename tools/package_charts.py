@@ -4,12 +4,13 @@
 
     uv run python tools/package_charts.py --version 1.2.3 --out dist/charts
 
-`charts/choregos` is published as `<image_prefix>`, `charts/choregos-outpost` as
+`charts/tranibor` is published as `<image_prefix>`, `charts/tranibor-outpost` as
 `<image_prefix>-outpost`: the names come from the publishing identity (ADR 0156), never from this
-file, and the directories keep their names. Each archive is a copy whose `Chart.yaml` says that name,
-and nothing else differs. The objects a chart renders do not take their names from the chart's name,
-so a deployment that vendored the chart under its former name, `choregos` (published beside the new
-one until 0.29.4, ADR 0176 R3 step (e)), renders the same objects under the new one
+file, and the directories carry them since ADR 0226 R6. Each archive is a copy whose `Chart.yaml`
+says that name, and nothing else differs. The objects a chart renders do not take their names from
+the chart's name, so a deployment that vendored the chart under its former name, `choregos`
+(published beside the new one until 0.29.4, ADR 0176 R3 step (e)), renders the same objects under
+the new one
 (`tests/charts/test_chart_names.py`).
 """
 

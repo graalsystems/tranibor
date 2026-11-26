@@ -31,7 +31,7 @@ from .auth import GROUP_ROLES, redirection_sure, terminer_la_connexion
 
 router = APIRouter(tags=["saml"])
 
-COOKIE = "choregos_saml"
+COOKIE = "tranibor_saml"  # formerly `choregos_saml`, read by `former_cookies` (ADR 0226)
 COOKIE_PURPOSE = "saml-request"
 DOMAIN = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 

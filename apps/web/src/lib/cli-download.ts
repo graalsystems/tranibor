@@ -73,11 +73,11 @@ export function formatSize(bytes: number): string {
 /** The first commands once it is installed: the profile, then a check that it answers. */
 export function firstCommands(os: CliOs, origin: string, org: string): string {
   const base = origin.replace(/\/+$/, "");
-  const login = `choregos login --api-url ${base} --token <full-access token> --org ${org}`;
+  const login = `tranibor login --api-url ${base} --token <full-access token> --org ${org}`;
   if (os === "windows") {
     return [
       login,
-      "choregos whoami",
+      "tranibor whoami",
       "",
       "# or, without a saved profile (a CI job, a container):",
       `$env:TRANIBOR_API_URL = "${base}"; $env:TRANIBOR_TOKEN = "<full-access token>"; $env:TRANIBOR_ORG = "${org}"`,
@@ -85,7 +85,7 @@ export function firstCommands(os: CliOs, origin: string, org: string): string {
   }
   return [
     login,
-    "choregos whoami",
+    "tranibor whoami",
     "",
     "# or, without a saved profile (a CI job, a container):",
     `export TRANIBOR_API_URL=${base} TRANIBOR_TOKEN=<full-access token> TRANIBOR_ORG=${org}`,

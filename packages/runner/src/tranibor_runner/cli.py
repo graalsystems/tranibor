@@ -97,7 +97,7 @@ def run(
 
 
 def _tell_the_agents_container(code: int) -> None:
-    """Where the platform ends a run only once every container has ended (a Container Apps job, ADR 0226
+    """Where the platform ends a run only once every container has ended (a Container Apps job, ADR 0227
     §2), the executor names a file in the exchange directory: the runner writes its exit code there and
     the agent's launcher, watching for it (`--until-file`), ends too."""
     import os
@@ -212,11 +212,13 @@ def backends() -> None:
 
 
 @app.command()
-def validate(path: Annotated[Path, typer.Argument()] = Path(".choregos/result.json")) -> None:
-    """Validate a `result.json` against the contract, with readable errors."""
+def validate(path: Annotated[Path | None, typer.Argument()] = None) -> None:
+    """Validate a `result.json` against the contract, with readable errors. Without a path: the
+    workspace's `.tranibor/result.json`, else the former `.choregos/result.json` (ADR 0226, R9a)."""
     from .result import load_result
+    from .run_dir import found
 
-    load = load_result(path)
+    load = load_result(path if path is not None else found(Path.cwd(), "result.json"))
     if load.ok and load.result is not None:
         typer.echo(f"valid — status={load.result.status}: {load.result.summary}")
         raise typer.Exit(0)

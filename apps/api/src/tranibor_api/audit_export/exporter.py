@@ -46,13 +46,13 @@ from .sinks import FakeSink, HttpJsonSink, Sink, SinkError, SyslogSink
 log = get_logger("choregos.audit.export")
 
 events_total = PromCounter(
-    "choregos_audit_export_events_total",
+    "tranibor_audit_export_events_total",
     "Audit entries a SIEM sink accepted (this process)",
     ["sink"],
     registry=registry,
 )
 failures_total = PromCounter(
-    "choregos_audit_export_failures_total",
+    "tranibor_audit_export_failures_total",
     "Batches a SIEM sink refused or could not be given (this process)",
     ["sink"],
     registry=registry,

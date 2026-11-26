@@ -314,7 +314,7 @@ async def test_the_first_denial_of_a_host_is_journaled_once_per_run(
     await client.post(url, headers=headers, json=_batch({**DENIED, "host": "other.example", "count": 1}))
     async with session_scope() as session:
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.network.denied")))
+            (await session.execute(select(Event).where(Event.type == "tranibor.network.denied")))
             .scalars()
             .all()
         )

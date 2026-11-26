@@ -26,7 +26,7 @@ time, send a person to confirm a write, and frame an assistant in your applicati
 
 ### The tools
 
-On `https://choregos.example.com/mcp`, three tools are announced only to people who are in the audience
+On `https://tranibor.example.com/mcp`, three tools are announced only to people who are in the audience
 of at least one ready assistant:
 
 | Tool | What it does |
@@ -38,7 +38,7 @@ of at least one ready assistant:
 Each installation is also its own connector, with its own address:
 
 ```text
-https://choregos.example.com/mcp/assistants/acme:billing
+https://tranibor.example.com/mcp/assistants/acme:billing
 ```
 
 There the tools are `ask` and `get_conversation`, and the assistant's own MCP prompts (a ready-made
@@ -89,7 +89,7 @@ person signs in to Tranibor, and the conversation is theirs.
 
 ```text
 <iframe title="Billing assistant" width="480" height="520"
-  src="https://choregos.example.com/embed/assistants/acme/billing?context=BASE64URL_JSON"></iframe>
+  src="https://tranibor.example.com/embed/assistants/acme/billing?context=BASE64URL_JSON"></iframe>
 ```
 
 3. Optionally pass a `context`: a JSON object, base64url-encoded, that tells the assistant what the
@@ -113,7 +113,9 @@ expires, the button shows again.
 ### Events
 
 The frame sends messages to your page with `postMessage`, only to the origin that framed it. Check
-`event.origin` (the console's) and `event.data.source === "choregos.assistant"`. Each message is
+`event.origin` (the console's) and `event.data.source === "tranibor.assistant"`. Until 0.32.0 each event is
+also posted a second time under the former source, for host pages written before 0.30.0: a page that checks
+`source` receives each event once. Each message is
 `{ source, type, org, installation, ...payload }`:
 
 | `type` | When | Payload |

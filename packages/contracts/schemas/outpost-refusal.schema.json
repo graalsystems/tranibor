@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/outpost-refusal.schema.json",
+  "$id": "https://tranibor.dev/schemas/outpost-refusal.schema.json",
   "title": "OutpostRefusal",
   "description": "Why an outpost did not execute a call it received: the body of the door's `refuse` verb. A code from a closed list and nothing else (ADR 0148 §9): it names a class of refusal and never the rule that produced it (ADR 0147 §10). Whatever the code, the endpoint's server did not receive the call.",
   "type": "object",

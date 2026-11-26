@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos binary-info` (hidden): what a native binary knows about itself (S62-07, S62-08).
+"""`tranibor binary-info` (hidden): what a native binary knows about itself (S62-07, S62-08).
 
 The smoke test of the native binaries (`tools/cli_binary/smoke.py`) reads it, inside the binary:
 - the version `--version` prints, and the one the `tranibor-cli` distribution metadata gives —
-  `choregos self update` and the version check against the instance (S62-08) read the latter,
+  `tranibor self update` and the version check against the instance (S62-08) read the latter,
   and say nothing, or download again forever, when a build leaves the metadata out;
 - the executable `self update` would replace. When S62-08's `self_update.running_binary` is in
   the CLI, that is what answers; otherwise the same rule, here: Nuitka defines `__compiled__` in

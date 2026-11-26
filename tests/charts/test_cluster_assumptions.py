@@ -27,7 +27,7 @@ import yaml
 from .conftest import MONITORING_APIS, OPERATOR_API
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts" / "choregos"
+CHART = ROOT / "charts" / "tranibor"
 VALUES = CHART / "values.yaml"
 DEPLOYMENT_DOC = ROOT / "docs" / "deployment.md"
 
@@ -41,11 +41,11 @@ EVERYTHING = (
     "global.egress.enabled=true",
 )
 DNS_POLICIES = {
-    "choregos-allow-platform",
-    "choregos-runner-egress",
-    "choregos-egress-net",
-    "choregos-outposts-door-net",
-    "choregos-buildkitd-net",
+    "tranibor-allow-platform",
+    "tranibor-runner-egress",
+    "tranibor-egress-net",
+    "tranibor-outposts-door-net",
+    "tranibor-buildkitd-net",
 }
 OPENSHIFT_DNS = [{"port": 5353, "protocol": "UDP"}, {"port": 5353, "protocol": "TCP"}]
 
@@ -55,7 +55,7 @@ pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absen
 def _render(*sets: str, apis: tuple[str, ...] | None = None, kube_version: str | None = None) -> Any:
     """`helm template` with `--set-json` for each `key=value` (JSON values, or a bare string). `apis`:
     the cluster's API versions, exactly; None: the conftest's (the operator's cluster)."""
-    command = ["helm", "template", "choregos", str(CHART), "-n", "choregos"]
+    command = ["helm", "template", "tranibor", str(CHART), "-n", "tranibor"]
     for item in sets:
         key, _, value = item.partition("=")
         try:
@@ -251,9 +251,9 @@ def test_an_install_on_a_cluster_without_the_operator_goes_through_and_says_so()
     as the API server would: the default monitoring no longer stops the install, and the notes say
     that nothing will be scraped. (The other CRD-backed defaults are switched to built-in kinds.)"""
     command = [
-        *("helm", "install", "choregos", str(CHART), "-n", "choregos", "--dry-run=client"),
+        *("helm", "install", "tranibor", str(CHART), "-n", "tranibor", "--dry-run=client"),
         *("--set", "global.externalSecrets.enabled=false", "--set", "global.runner.executor=k8s_job"),
-        *("--set", "choregos-api.ingress.kind=ingress", "--set", "choregos-web.ingress.kind=ingress"),
+        *("--set", "tranibor-api.ingress.kind=ingress", "--set", "tranibor-web.ingress.kind=ingress"),
     ]
     installed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=180)
     assert installed.returncode == 0, installed.stderr
@@ -265,9 +265,9 @@ def test_an_install_on_a_cluster_without_the_operator_goes_through_and_says_so()
 # 4. Ingress TLS ---------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("component", ["choregos-api", "choregos-web"])
+@pytest.mark.parametrize("component", ["tranibor-api", "tranibor-web"])
 def test_the_ingress_kind_carries_a_tls_block_when_given_one(component: str) -> None:
-    tls = [{"secretName": "choregos-tls", "hosts": ["api.example.com", "app.example.com"]}]
+    tls = [{"secretName": "tranibor-tls", "hosts": ["api.example.com", "app.example.com"]}]
     kind = f"{component}.ingress.kind=ingress"
     ingress = _named(_documents(kind, f"{component}.ingress.tls={json.dumps(tls)}"), "Ingress", component)
     assert ingress["spec"]["tls"] == tls
@@ -279,7 +279,7 @@ def test_the_ingress_kind_carries_a_tls_block_when_given_one(component: str) -> 
 DOOR_ON = (
     "global.outposts.enabled=true",
     'global.outposts.door.hostnames=["outposts.example.com"]',
-    "choregos-api.ingress.kind=ingress",
+    "tranibor-api.ingress.kind=ingress",
 )
 NGINX = {
     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
@@ -288,7 +288,7 @@ NGINX = {
 
 
 def _door_annotations(*sets: str) -> dict[str, str]:
-    door = _named(_documents(*DOOR_ON, *sets), "Ingress", "choregos-outposts-door")
+    door = _named(_documents(*DOOR_ON, *sets), "Ingress", "tranibor-outposts-door")
     return dict(door["metadata"].get("annotations") or {})
 
 
@@ -354,14 +354,14 @@ def _platform_egress_examples() -> list[dict[str, Any]]:
 
 def test_the_platform_egress_examples_render_into_the_platform_policy() -> None:
     """The examples a platform team adapts are rules the chart accepts as written: the API server on
-    443 and a managed PostgreSQL on 5432, in `choregos-allow-platform`."""
+    443 and a managed PostgreSQL on 5432, in `tranibor-allow-platform`."""
     examples = _platform_egress_examples()
     ports = {p["port"] for rule in examples for p in rule["ports"]}
     assert {443, 5432} <= ports
     policy = _named(
         _documents(f"networkPolicies.platformEgress={json.dumps(examples)}"),
         "NetworkPolicy",
-        "choregos-allow-platform",
+        "tranibor-allow-platform",
     )
     for rule in examples:
         assert rule in policy["spec"]["egress"]

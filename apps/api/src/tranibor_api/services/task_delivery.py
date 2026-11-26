@@ -11,10 +11,10 @@ second pass sends nothing twice and a failed channel is retried up to `MAX_ATTEM
   `policy_overrides.delivery.<channel>` describes (`{type, config}`); tests inject one with
   `set_notifier_factory`. A channel nobody configured is recorded as `not_configured`, never silent.
 - `webhook` posts the artifact as JSON to `policy_overrides.delivery.webhook.url`, through the organisation's
-  egress guard, signed like the A2A push notifications: `X-Choregos-Signature: t=<unix>,v1=<hex HMAC-SHA256
-  of "<t>.<body>">`, under a key derived from the deployment's session secret, the installation id and its
-  generation (`webhook_secret`; an owner is shown it once, `reveal_webhook_secret`), with `Idempotency-Key`
-  the artifact's id.
+  egress guard, signed like the A2A push notifications: `X-Tranibor-Signature` (and the former
+  `X-Choregos-Signature`, ADR 0226): `t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`, under a key derived from
+  the deployment's session secret, the installation id and its generation (`webhook_secret`; an owner is shown
+  it once, `reveal_webhook_secret`), with `Idempotency-Key` the artifact's id.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters import Notifier
+from tranibor_contracts.wire import both_headers, header
 from tranibor_core import utcnow
 from tranibor_core.domain import Message
 
@@ -48,7 +49,9 @@ MAX_ATTEMPTS = 5
 #: How many of the newest artifacts a pass looks at.
 BATCH = 500
 BODY_LIMIT = 4000
-SIGNATURE = "X-Choregos-Signature"
+#: Sent under both names for the window of ADR 0226 (`both_headers`): a receiver written before it
+#: checks `X-Choregos-Signature`; the value is the same under either name.
+SIGNATURE = header("Signature")
 TIMEOUT_S = 10.0
 CHANNELS = ("email", "teams", "webhook")
 
@@ -343,7 +346,7 @@ async def _send(
         secret = webhook_secret(row.id, row.webhook_secret_generation)
         headers = {
             "Content-Type": "application/json",
-            SIGNATURE: f"t={stamp},v1={sign(secret, stamp, body)}",
+            **both_headers("Signature", f"t={stamp},v1={sign(secret, stamp, body)}"),
             "Idempotency-Key": artifact.id,
         }
         await _post(session, organisation, url, body, headers)

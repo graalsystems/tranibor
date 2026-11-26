@@ -3,7 +3,7 @@
 
 `_trains` asked for a query named `status` — the train defines `status_query` — and read a `state`
 field the train does not return. The error was swallowed, so `choregos_train_frozen` and
-`choregos_train_status` never had a sample.
+`choregos_train_status` (`tranibor_*` since ADR 0226, R9b) never had a sample.
 """
 
 from __future__ import annotations
@@ -32,8 +32,9 @@ async def test_a_frozen_train_is_exported(client: AsyncClient, project: dict[str
     }
     await refresh()
     body = (await client.get("/metrics")).text
-    assert 'choregos_train_frozen{env="prod",project="billing-api"} 1.0' in body
-    assert 'choregos_train_status{env="prod",project="billing-api"} 2.0' in body
+    for prefix in ("tranibor", "choregos"):  # the former name too, until 0.32.0 (ADR 0226, R9b)
+        assert f'{prefix}_train_frozen{{env="prod",project="billing-api"}} 1.0' in body
+        assert f'{prefix}_train_status{{env="prod",project="billing-api"}} 2.0' in body
 
 
 def test_the_metrics_ask_a_query_the_train_defines() -> None:

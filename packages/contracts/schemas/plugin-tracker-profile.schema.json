@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/plugin-tracker-profile.schema.json",
+  "$id": "https://tranibor.dev/schemas/plugin-tracker-profile.schema.json",
   "title": "PluginTrackerCall",
   "description": "The tracker profile (plan S43 Decision 3, S43-07): one call of a plugin server that declares `implements: [tracker]`, its tool, the arguments the core sends and the JSON object (MCP `structuredContent`) the server answers. A server serves all eight tools and declares each in `operations` with the access below; the core's `tracker/plugin` adapter checks every answer against `$defs/<tool>_output`. Reads: `tracker_fetch_item`, `tracker_list_candidates`, `tracker_parse_event`; every other tool is a write.",
   "type": "object",

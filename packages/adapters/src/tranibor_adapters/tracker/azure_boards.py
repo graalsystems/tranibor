@@ -29,7 +29,7 @@ from datetime import datetime
 from typing import Any, Literal
 from urllib.parse import quote
 
-from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, StartRule
+from tranibor_contracts import InboundEvent, ProjectConfig, Risk, Size, StartRule, wire
 from tranibor_core.domain import Comment, NewItem, TrackerStateMapping, WorkItemData
 
 from ..azure_devops import (  # noqa: F401 - the client and the secret reader, re-exported for importers of this module
@@ -45,7 +45,8 @@ from .azure_html import html_to_text, markdown_to_html
 from .fields import COST, FORMER_NAMES, RISK, RUN, SIZE, current_name
 from .ticket_fields import TRACKER_FIELD, answers, person, tracker_block
 
-STATUS_COMMENT_MARKER = "[choregos:status]"
+#: `[tranibor:status]`; a comment written under the former `[choregos:status]` is found too.
+STATUS_COMMENT_MARKER = wire.marker("status", html=False)
 AGENT_READY_LABEL = "agent-ready"
 #: The comments endpoints exist only as a preview in 7.1.
 COMMENTS_API_VERSION = "7.1-preview.4"
@@ -148,7 +149,7 @@ class AzureBoardsTracker:
                     author=str((comment.get("createdBy") or {}).get("displayName", "")),
                     body=html_to_text(comment.get("text")),
                     marker=STATUS_COMMENT_MARKER
-                    if STATUS_COMMENT_MARKER in html_to_text(comment.get("text"))
+                    if wire.carries_marker(html_to_text(comment.get("text")), STATUS_COMMENT_MARKER)
                     else None,
                 )
                 for comment in await self._comments(key)
@@ -336,7 +337,7 @@ class AzureBoardsTracker:
         text = markdown_to_html(body)
         params = {"api-version": COMMENTS_API_VERSION}
         for comment in await self._comments(key):
-            if marker in html_to_text(comment.get("text")):
+            if wire.carries_marker(html_to_text(comment.get("text")), marker):
                 await self.client.request(
                     "PATCH",
                     f"{self._scope}/wit/workItems/{key}/comments/{comment['id']}",
@@ -436,7 +437,8 @@ class AzureBoardsTracker:
 
     def verify_webhook(self, headers: Mapping[str, str], body: bytes) -> bool:
         """A service hook does not sign its deliveries: it carries a secret, as the password of the
-        basic authentication the subscription sets, or in an `X-Choregos-Secret` header."""
+        basic authentication the subscription sets, or in an `X-Tranibor-Secret` header (formerly
+        `X-Choregos-Secret`)."""
         return bool(self.webhook_secret) and hmac.compare_digest(
             self.webhook_secret, shared_secret_of(headers)
         )

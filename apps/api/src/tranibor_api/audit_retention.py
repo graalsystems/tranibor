@@ -57,17 +57,17 @@ MIN_DAYS = 30
 MAX_BACKOFF_S = 3600.0
 
 pruned_total = PromCounter(
-    "choregos_audit_retention_pruned_entries_total",
+    "tranibor_audit_retention_pruned_entries_total",
     "Audit entries removed by the retention rule (this process)",
     registry=registry,
 )
 held_back_total = PromCounter(
-    "choregos_audit_retention_held_back_total",
+    "tranibor_audit_retention_held_back_total",
     "Prunes held below the cutoff because the SIEM sink had not been given the entries (this process)",
     registry=registry,
 )
 failures_total = PromCounter(
-    "choregos_audit_retention_failures_total",
+    "tranibor_audit_retention_failures_total",
     "Chains whose prune raised an error (this process)",
     registry=registry,
 )

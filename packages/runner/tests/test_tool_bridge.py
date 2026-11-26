@@ -108,7 +108,7 @@ async def test_a_script_reaches_its_tools_through_the_runner_s_server(
     assert all(c["response_bytes"] == len(client.tool_answer.content) for c in calls)
     assert all(isinstance(c["duration_ms"], int) and c["duration_ms"] >= 0 for c in calls)
     # The same lines in the run's transcript, which the journal writes as it records.
-    transcript = (settings.workspace / ".choregos" / "transcript.jsonl").read_text(encoding="utf-8")
+    transcript = (settings.workspace / ".tranibor" / "transcript.jsonl").read_text(encoding="utf-8")
     assert '"tools.script.call"' in transcript and DIGEST in transcript
 
     # No credential: the agent's process holds no run token, and none came back to it or went to the journal.

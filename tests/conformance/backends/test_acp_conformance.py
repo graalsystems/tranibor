@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from tranibor_contracts import StageInput
 from tranibor_contracts.delivery import Repository, StageDelivery
+from tranibor_runner import run_dir
 from tranibor_runner.acp import AcpClient, AgentUnreachableError
 from tranibor_runner.backends import BACKEND_BINARIES, get_backend, known_backends
 from tranibor_runner.result import load_result
@@ -172,7 +173,7 @@ async def run_suite(backend_name: str, stage_input: StageInput, workspace: Path)
             else:
                 result.failed["permission_denied"] = "the denied write happened anyway"
             # 5. valid result
-            load = load_result(workspace / ".choregos" / "result.json")
+            load = load_result(run_dir.found(workspace, "result.json"))
             if load.ok:
                 result.passed.append("result_valid")
             else:

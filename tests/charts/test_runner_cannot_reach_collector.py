@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 RUNNER = "choregos-runner"
 COLLECTOR_PORTS = {4317, 4318}
 
@@ -74,7 +74,7 @@ def test_no_runner_policy_opens_the_collector(overrides: tuple[str, ...]) -> Non
 
 
 def test_the_platform_pods_still_reach_the_collector() -> None:
-    platform = {p["metadata"]["name"]: p for p in _policies()}["choregos-allow-platform"]
+    platform = {p["metadata"]["name"]: p for p in _policies()}["tranibor-allow-platform"]
     assert any(_opens_collector(rule) for rule in platform["spec"]["egress"]), (
         "the API and the orchestrator lost the collector: their traces would be dropped"
     )

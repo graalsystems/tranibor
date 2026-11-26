@@ -78,7 +78,8 @@ def test_a_signed_assertion_is_accepted_and_its_groups_are_translated_for_this_o
 ) -> None:
     identity = verify(idp, signed_response(idp, groups=("Admins", "Unknown", "choregos:other:org-admins")))
     assert identity.email == "ann@globex.example"
-    assert identity.groups == ["choregos:northwind:org-admins"]  # raw and unmapped groups give nothing
+    # ADR 0226: the new prefix, and the former one beside it for an edition's mapper during the window.
+    assert identity.groups == ["choregos:northwind:org-admins", "tranibor:northwind:org-admins"]
     assert identity.assertion_id == "_assertion-1"
 
 
@@ -515,7 +516,7 @@ async def test_a_member_signs_in_through_the_provider(app: Any, configured: kit.
         done = await post(member, response_for(configured, request_id, groups=("Devs",)))
         assert done.status_code == 307, done.text
         assert done.headers["location"] == "/projects"
-        assert member.cookies.get("choregos_session")
+        assert member.cookies.get("tranibor_session")
         me = await member.get("/api/v1/me")
         assert me.status_code == 200 and me.json()["email"] == "ann@globex.example"
     finally:
@@ -594,7 +595,7 @@ async def test_the_provider_cannot_start_a_sign_in_by_itself(app: Any, configure
     try:
         refused_ = await post(member, response_for(configured, REQUEST))
         assert refused_.status_code == 401 and "provider-initiated" in refused_.text
-        assert not member.cookies.get("choregos_session")
+        assert not member.cookies.get("tranibor_session")
     finally:
         await member.aclose()
 
@@ -604,7 +605,7 @@ async def test_an_assertion_for_another_request_is_refused(app: Any, configured:
     try:
         await start(member)
         assert (await post(member, response_for(configured, "_not-ours"))).status_code == 401
-        assert not member.cookies.get("choregos_session")
+        assert not member.cookies.get("tranibor_session")
     finally:
         await member.aclose()
 
@@ -617,7 +618,7 @@ async def test_an_assertion_is_good_once(app: Any, configured: kit.Idp) -> None:
         assert (await post(member, encoded)).status_code == 307
         # The same request cookie again (a captured response replayed with a captured cookie).
         member.cookies.set(
-            "choregos_saml",
+            "tranibor_saml",
             sign_session(
                 {"id": request_id, "org": "northwind", "target": "/", "exp": int(time.time()) + 300},
                 purpose="saml-request",
@@ -639,16 +640,16 @@ async def test_the_request_cookie_of_another_organisation_or_purpose_is_refused(
         encoded = response_for(configured, REQUEST)
         soon = int(time.time()) + 300
         member.cookies.set(
-            "choregos_saml",
+            "tranibor_saml",
             sign_session({"id": REQUEST, "org": "other", "exp": soon}, purpose="saml-request"),
         )
         assert (await post(member, encoded)).status_code == 401
         member.cookies.set(
-            "choregos_saml", sign_session({"id": REQUEST, "org": "northwind", "exp": soon})
+            "tranibor_saml", sign_session({"id": REQUEST, "org": "northwind", "exp": soon})
         )  # a session-purpose tag
         assert (await post(member, encoded)).status_code == 401
         member.cookies.set(
-            "choregos_saml",
+            "tranibor_saml",
             sign_session({"id": REQUEST, "org": "northwind", "exp": 1}, purpose="saml-request"),
         )
         assert (await post(member, encoded)).status_code == 401  # expired
@@ -662,7 +663,7 @@ async def test_a_signature_by_another_key_opens_no_session(app: Any, configured:
         request_id = await start(member)
         forged = response_for(kit.Idp(), request_id, groups=("Admins",))
         assert (await post(member, forged)).status_code == 401
-        assert not member.cookies.get("choregos_session")
+        assert not member.cookies.get("tranibor_session")
     finally:
         await member.aclose()
     async with session_scope(orgs="*") as session:

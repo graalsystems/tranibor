@@ -34,6 +34,8 @@ async def test_without_a_provider_the_community_default_is_served(client: AsyncC
     assert body["id"] == "default" and body["product_name"] == "Tranibor"
     assert body["default_mode"] == "dark" and body["tokens"] == {"dark": {}, "light": {}}
     assert response.headers["x-choregos-theme"] == "default"
+    # ADR 0226: the new name, and the former one beside it for a console of the previous release.
+    assert response.headers["x-tranibor-theme"] == "default"
     assert response.headers["cache-control"] == "no-cache"
     jsonschema.validate(body, _schema())
 

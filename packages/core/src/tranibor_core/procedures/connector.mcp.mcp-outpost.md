@@ -17,7 +17,7 @@ fields:
 ## Before you start
 
 - The server lives in a network nothing outside may connect to. An **outpost** is installed there:
-  the daemon `choregos-outpost`, which only dials out to Tranibor and makes the calls it is handed.
+  the daemon `tranibor-outpost`, which only dials out to Tranibor and makes the calls it is handed.
 - An organisation administrator has created the outpost in Tranibor, and a person has approved an
   instance of it against the fingerprint the daemon printed. Without an approved instance that
   polls, the connector answers "offline".
@@ -38,7 +38,7 @@ outpost decides alone what that alias reaches.
    lets through (`tools`).
 2. `writes` is `deny` unless the file says `allow`: a tool the server does not declare read-only is
    refused by the outpost itself.
-3. Restart the daemon, then run `choregos-outpost doctor`: it checks the door, the policy file and
+3. Restart the daemon, then run `tranibor-outpost doctor`: it checks the door, the policy file and
    every alias.
 
 ## Permissions
@@ -88,7 +88,7 @@ the outpost is polling, that its policy file has the alias, and that the outpost
 - `409 outpost_offline`: no instance of the outpost that serves this alias polled lately, or none
   took the call in time. An instance announces the aliases of its policy file at every poll, so an
   alias the file does not hold, or no longer holds, is answered this way too. Check that the daemon
-  runs, that `choregos-outpost doctor` passes, and that the alias is the one in its file.
+  runs, that `tranibor-outpost doctor` passes, and that the alias is the one in its file.
 - `409 outpost_refused`: the outpost's own policy refused, and its `refusal` says which kind:
   `tool_not_allowed`, `write_denied`,
   `endpoint_unavailable` (the outpost cannot reach or open its server), `signature_refused` (the

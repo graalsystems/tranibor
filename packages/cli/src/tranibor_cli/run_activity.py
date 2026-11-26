@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos activity --run ID` (S67-03, ADR 0154 §2-3, §9): what one run did, read from its ACP journal.
+"""`tranibor activity --run ID` (S67-03, ADR 0154 §2-3, §9): what one run did, read from its ACP journal.
 
 The plan the agent declared, its tool calls (state, elapsed, title) and the latest breakdown of what fills the
-model's context, in the frame of `choregos activity`. Reads `GET /runs/{id}`, `GET /runs/{id}/events`
+model's context, in the frame of `tranibor activity`. Reads `GET /runs/{id}`, `GET /runs/{id}/events`
 (`after_seq`) and `GET /runs/{id}/context-breakdown`, and nothing else. Read-only.
 
 `--watch` follows it live by asking for what is after the last event number read, every `POLL_EVERY_S`, until

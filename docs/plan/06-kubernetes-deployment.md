@@ -50,7 +50,7 @@ Node pools:
 
 ## 6.2 Components and charts
 
-Umbrella `charts/choregos/Chart.yaml` :
+Umbrella `charts/tranibor/Chart.yaml` :
 
 ```yaml
 apiVersion: v2
@@ -88,7 +88,7 @@ choregos-infra/
 ├── bootstrap/                      # Argo CD app-of-apps: operators and tooling (sync-wave 0–2)
 │   ├── cert-manager/ external-secrets/ envoy-gateway/ cnpg/ tekton-operator/ argo-rollouts/ kyverno/ monitoring/ gvisor/
 ├── platform/                       # the choregos umbrella per environment (sync-wave 3)
-│   ├── base/ (Application → charts/choregos)  overlays/{dev,staging,prod}/values.yaml
+│   ├── base/ (Application → charts/tranibor)  overlays/{dev,staging,prod}/values.yaml
 ├── projects/                       # written by ProjectProvisioning; "git directory generator" ApplicationSet (sync-wave 4)
 │   └── <slug>/  namespaces.yaml  quotas.yaml  netpol.yaml  rbac.yaml  tekton/ (EventListener, Pipeline CI, Task agent-stage)  argocd/ (Applications dev/staging/prod)
 └── policies/                       # Kyverno: signed images, non-root, no latest, mandatory labels, quotas present
@@ -129,7 +129,7 @@ Runbooks (`docs/runbooks/`): Postgres restore, loss of an Ecphoria Raft node, Gi
 
 ## 6.7 Platform observability
 
-- **Metrics**: Prometheus (kube-prometheus-stack); `ServiceMonitor` for api, orchestrator (Temporal SDK metrics: activity latency, backlog per queue), Temporal server, LiteLLM, Ecphoria, Tekton, Argo. Grafana dashboards delivered in `charts/choregos/dashboards/`: *Platform*, *Projects & costs*, *Trains*, *Runners*, *Gateway*, *Memory*.
+- **Metrics**: Prometheus (kube-prometheus-stack); `ServiceMonitor` for api, orchestrator (Temporal SDK metrics: activity latency, backlog per queue), Temporal server, LiteLLM, Ecphoria, Tekton, Argo. Grafana dashboards delivered in `charts/tranibor/dashboards/`: *Platform*, *Projects & costs*, *Trains*, *Runners*, *Gateway*, *Memory*.
 - **Logs**: Loki via the OTel Collector (DaemonSet); the runners' logs are labelled `run_id`, `project`, `stage`.
 - **Traces**: Tempo; API → Temporal → runner traces (W3C propagation via `StageInput.trace_parent`); LiteLLM `otel` callback.
 - **Alerts** (Alertmanager → Slack): API 5xx > 1%, Temporal backlog > 100 for 10 min, `await_run` activity failing > 3, daily budget > 80%, train frozen > 2 h, Postgres replication lagging, Ecphoria quorum lost, certificate < 14 d, PipelineRun `Pending` > 15 min (autoscaling down).

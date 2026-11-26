@@ -1,6 +1,0 @@
-apiVersion: v2
-name: choregos-tools
-description: The choregos-tools image's settings; renders nothing since the Tekton executor's Task is inline (S87-05)
-type: application
-version: 0.29.5
-appVersion: "0.29.5"
