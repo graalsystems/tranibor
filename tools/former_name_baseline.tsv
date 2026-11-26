@@ -849,6 +849,7 @@
 2	packages/cli/src/tranibor_cli/a2a.py
 1	packages/cli/src/tranibor_cli/artifacts.py
 2	packages/cli/src/tranibor_cli/client.py
+1	packages/cli/src/tranibor_cli/cluster_check.py
 1	packages/cli/src/tranibor_cli/knowledge.py
 1	packages/cli/src/tranibor_cli/main.py
 2	packages/cli/src/tranibor_cli/outposts.py
