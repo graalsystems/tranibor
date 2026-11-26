@@ -913,6 +913,19 @@ the server's NetworkPolicy lets through DNS and public addresses on those hosts'
 cluster's, the node's or the metadata endpoint's addresses). Kubernetes cannot name a host: with
 `plugins.servers.egress: cilium` a `CiliumNetworkPolicy` narrows egress to those exact names.
 
+A deployment may let the servers reach a named private range (a controller on the customer's LAN;
+[ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md) §6a):
+the operator lists CIDRs (`plugins.servers.privateCidrs`, nothing by default) and, in a deployment with
+several organisations, binds each to the organisation that owns it (`privateCidrsByOrg`, by slug). When a
+host is typed, the API resolves it: a host inside a listed range is admitted for that organisation only,
+after the organisation's network bounds ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md));
+any other private, link-local, CGNAT or metadata address is a 422, and the metadata and link-local
+ranges (`169.254.0.0/16`, `fd00:ec2::/32`, `fe80::/10`, `100.100.100.200`, loopback) are refused whatever
+is listed. The server's policy then opens exactly that host's address and port (`ipBlock` `/32` or `/128`,
+or a `toCIDR` rule with Cilium), never the range. Limits: the address is the one resolved when the server
+is provisioned or reconciled, a name that moves is followed at the next reconcile; a host that does not
+resolve when typed is not judged (it reaches nothing until it does, and the policy then opens nothing).
+
 ### On its fake, for the eval matrix
 
 A server may declare how the platform runs it on its fake for the live eval matrix (#1372):

@@ -147,6 +147,15 @@ spec:
               value: {{ $servers.egress | default "networkpolicy" | quote }}
             - name: TRANIBOR_PLUGIN_SERVERS_API_NAMESPACE
               value: {{ .Release.Namespace | quote }}
+            {{- with ($servers.privateCidrs | default list) }}
+            # Private ranges the servers may reach (ADR 0224 §6a); the API checks them at start-up.
+            - name: TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with ($servers.privateCidrsByOrg | default dict) }}
+            - name: TRANIBOR_PLUGIN_SERVERS_EGRESS_PRIVATE_CIDRS_BY_ORG
+              value: {{ toJson . | quote }}
+            {{- end }}
             {{- with ($servers.imageMirrors | default dict) }}
             # Where the servers' pods pull their image from (S80-20): same digest, checks on the declared one.
             - name: TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS
