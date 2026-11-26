@@ -107,7 +107,7 @@ async def test_a_run_reads_prices_through_the_platform_metered_with_a_digest(
             await session.execute(select(CostLedger).where(CostLedger.run_id == "run-marketdata-1"))
         ).scalars()
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     assert (row.kind, row.provider, row.model) == ("tool", "mcp:cours", "cours__get_bars")
     (event,) = [e for e in events if e.subject == "run-marketdata-1"]

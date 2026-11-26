@@ -44,14 +44,14 @@ from there.
 ### From the command line
 
 ```bash
-choregos projects create billing-api --name "Billing API" --repo https://github.com/acme/billing-api --template github-software-delivery
-choregos projects provision billing-api --follow
+tranibor projects create billing-api --name "Billing API" --repo https://github.com/acme/billing-api --template github-software-delivery
+tranibor projects provision billing-api --follow
 ```
 
 A project without a repository files its requests in Tranibor itself:
 
 ```bash
-choregos projects create onboarding --name "Employee onboarding"
+tranibor projects create onboarding --name "Employee onboarding"
 ```
 
 Without a template, a project with a repository gets the `default-simple` workflow, which delivers code,
@@ -94,7 +94,7 @@ Tranibor (your identity provider, a vendor). The project's **Overview** shows th
 **Getting started** card until nothing is left to do.
 
 ```bash
-choregos projects readiness billing-api
+tranibor projects readiness billing-api
 ```
 
 The readiness list is read from what is stored: the last connector tests, the policy, the members, the
@@ -156,8 +156,8 @@ and keeps working when the person who created it leaves.
    system's secret store.
 
 ```bash
-choregos machines create billing-api invoicing-portal --display-name "Invoicing portal"
-choregos machines token billing-api invoicing-portal --name production --expires-in-days 90
+tranibor machines create billing-api invoicing-portal --display-name "Invoicing portal"
+tranibor machines token billing-api invoicing-portal --name production --expires-in-days 90
 ```
 
 An application's token opens the A2A door only, on that one project. It starts and follows work; it

@@ -1,15 +1,15 @@
-# The project label of `choregos-pod-security`, applied to Tekton's PipelineRun.
+# The project label of `tranibor-pod-security`, applied to Tekton's PipelineRun.
 #
 # A separate ClusterPolicy, outside the default set: Kyverno refuses a policy whose kinds the
-# cluster does not know, and Tekton is an optional executor. In `choregos-pod-security` this rule
+# cluster does not know, and Tekton is an optional executor. In `tranibor-pod-security` this rule
 # kept every pod rule off a cluster without Tekton (the dev cluster, Kyverno 1.12.5).
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: choregos-tekton-labels
+  name: tranibor-tekton-labels
   annotations:
     policies.kyverno.io/description: >-
-      Every PipelineRun of a project namespace carries the `choregos/project` label.
+      Every PipelineRun of a project namespace carries the `tranibor/project` or `choregos/project` label.
 spec:
   validationFailureAction: Enforce
   background: true
@@ -21,8 +21,13 @@ spec:
               kinds: [PipelineRun]
               namespaces: ["proj-*"]
       validate:
-        message: "every object of a project namespace carries the `choregos/project` label"
-        pattern:
-          metadata:
-            labels:
-              choregos/project: "?*"
+        message: "every object of a project namespace carries the `tranibor/project` label (or, until the end of ADR 0226's window, `choregos/project`)"
+        # Either name of the label for the window of ADR 0226: the platform writes `choregos/project` until
+        # R7 moves it to `tranibor/project`, and an object written before keeps the former one.
+        anyPattern:
+          - metadata:
+              labels:
+                tranibor/project: "?*"
+          - metadata:
+              labels:
+                choregos/project: "?*"

@@ -25,7 +25,7 @@ type ThemeState = {
 const ThemeContext = createContext<ThemeState | null>(null);
 
 /** A choice made in THIS tab: `storage` only warns the others. */
-const LOCAL_EVENT = "choregos:theme";
+const LOCAL_EVENT = "tranibor:theme";
 const LIGHT_QUERY = "(prefers-color-scheme: light)";
 
 function systemQuery(): MediaQueryList | null {

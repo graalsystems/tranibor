@@ -153,15 +153,35 @@ def reader(code: int, output: bytes) -> tuple[LocalDockerExecutor, list[list[str
 
 async def test_the_result_is_read_from_the_stopped_container_and_bad_json_gives_none() -> None:
     """`docker exec` needs a running container; the result is read once the run has ENDED."""
-    bon = json.dumps({"schema": "choregos/StageResult/v1", "status": "done", "summary": "ok"}).encode()
+    bon = json.dumps({"schema": "tranibor/StageResult/v1", "status": "done", "summary": "ok"}).encode()
     ex, calls = reader(0, _tar(bon))
     result = await ex.fetch_result(ExecRef(kind="local_docker", name="c"))
     assert result is not None and result.status == "done"
-    assert calls == [["cp", "c:/workspace/.choregos/result.json", "-"]]
+    assert calls == [["cp", "c:/workspace/.tranibor/result.json", "-"]]
     ex, _ = reader(0, _tar(b"{not json"))
     assert await ex.fetch_result(ExecRef(kind="local_docker", name="c")) is None
-    ex, _ = reader(1, b"")
+    ex, calls = reader(1, b"")
     assert await ex.fetch_result(ExecRef(kind="local_docker", name="c")) is None
+    assert [call[1] for call in calls] == [
+        "c:/workspace/.tranibor/result.json",
+        "c:/workspace/.choregos/result.json",
+    ]
+
+
+async def test_a_result_under_the_former_run_directory_is_read_too() -> None:
+    """A container of a runner before 0.30.0 left `.choregos/result.json` (ADR 0226, R9a)."""
+    former = json.dumps({"schema": "choregos/StageResult/v1", "status": "done", "summary": "ok"}).encode()
+    ex = LocalDockerExecutor(network="tranibor_net")
+    calls: list[str] = []
+
+    async def raw(*args: str, timeout: float = 120.0) -> tuple[int, bytes, str]:
+        calls.append(args[1])
+        return (0, _tar(former), "") if "/.choregos/" in args[1] else (1, b"", "no such file")
+
+    ex._run_raw = raw  # type: ignore[method-assign]
+    result = await ex.fetch_result(ExecRef(kind="local_docker", name="c"))
+    assert result is not None and result.schema_ == "choregos/StageResult/v1"
+    assert calls == ["c:/workspace/.tranibor/result.json", "c:/workspace/.choregos/result.json"]
 
 
 async def test_the_run_container_drops_capabilities_and_waits_for_the_image_pull() -> None:

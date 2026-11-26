@@ -181,7 +181,7 @@ def is_core_object(obj: Any, name: str | None, type_: str, reflected: bool, comp
     """Alembic's `include_object` filter: the core migrations describe only THEIR tables.
 
     An extension registers its models in the same `Base`, which is what puts them in `create_all()`,
-    and creates its tables through its own migration branch (`choregos.migrations`). Without this
+    and creates its tables through its own migration branch (`tranibor.migrations`). Without this
     filter, an autogeneration run with an extension installed would put its tables in a core
     migration, and the models/migrations comparison of the core would see them as missing. A table
     belongs to the core if its class is defined in `tranibor_api`; an extension's tables do not.

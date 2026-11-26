@@ -28,17 +28,22 @@ setup:  ## Install the dependencies (Python + web)
 ci: lint typecheck test-cov contracts-check procedures-check charts-lint  ## Everything that blocks a PR
 
 .PHONY: lint
-lint:  ## ruff check + format --check + no French in lines added since origin/main (ADR 0046) + the French ratchet (ADR 0098)
+lint:  ## ruff check + format --check + no French in lines added since origin/main (ADR 0046) + the French ratchet (ADR 0098) + the former name's ratchet (ADR 0226)
 	$(UV) run ruff check $(PY_PATHS)
 	$(UV) run ruff format --check $(PY_PATHS)
 	$(UV) run python tools/check_english.py
 	$(UV) run python tools/check_english.py --all
+	$(UV) run python tools/former_name.py
 	$(UV) run python -m tools.catalogues.build_mcp_catalogue --check
 	$(UV) run python -m tools.catalogues.build_skill_catalogue --check
 
 .PHONY: english-ratchet
 english-ratchet:  ## Every file at or below its French baseline (ADR 0098)
 	$(UV) run python tools/check_english.py --all
+
+.PHONY: former-name-ratchet
+former-name-ratchet:  ## Every file at or below its ceiling of the former name (ADR 0226)
+	$(UV) run python tools/former_name.py
 
 .PHONY: format
 format:  ## Format the Python code
@@ -185,15 +190,15 @@ vscode-ci: vscode-install  ## Editor extension CI: lint + typecheck + test (cove
 .PHONY: charts-lint
 charts-lint:  ## helm lint + kubeconform (skipped if helm is missing)
 	@command -v helm >/dev/null 2>&1 || { echo "helm is missing — step skipped"; exit 0; }
-	helm lint charts/choregos --set choregos-orchestrator.runner.skipOperatorCheck=true
+	helm lint charts/tranibor --set tranibor-orchestrator.runner.skipOperatorCheck=true
 	@command -v kubeconform >/dev/null 2>&1 \
-		&& helm template choregos charts/choregos --set choregos-orchestrator.runner.skipOperatorCheck=true | kubeconform -strict -ignore-missing-schemas -summary \
+		&& helm template tranibor charts/tranibor --set tranibor-orchestrator.runner.skipOperatorCheck=true | kubeconform -strict -ignore-missing-schemas -summary \
 		|| echo "kubeconform is missing — schema validation skipped"
 	@# The outpost's chart (S65-16), beside the platform's: it renders nothing without a policy, so it
 	@# is linted and validated on its complete example.
-	helm lint charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml
+	helm lint charts/tranibor-outpost -f charts/tranibor-outpost/values/example.yaml
 	@if command -v kubeconform >/dev/null 2>&1; then \
-	  helm template outpost charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml | kubeconform -strict -ignore-missing-schemas -summary; \
+	  helm template outpost charts/tranibor-outpost -f charts/tranibor-outpost/values/example.yaml | kubeconform -strict -ignore-missing-schemas -summary; \
 	else echo "kubeconform is missing — schema validation skipped"; fi
 
 .PHONY: charts-test
@@ -213,7 +218,7 @@ charts-test:  ## helm unittest
 	  echo "Meanwhile, tests/charts/ renders the chart and checks it in Python, without the plugin."; \
 	  exit 1; \
 	fi
-	helm unittest charts/choregos
+	helm unittest charts/tranibor
 
 .PHONY: policies-test
 policies-test:  ## The Kyverno engine judges infra/policies against infra/policies/tests
@@ -276,8 +281,8 @@ demo-up:  ## kind cluster (if missing), namespace, git repository, ConfigMaps, c
 	kind get clusters | grep -qx $(KIND_DEMO) || kind create cluster --config demo/kind.yaml
 	kubectl get ns $(DEMO_NS) >/dev/null 2>&1 || kubectl create ns $(DEMO_NS)
 	kubectl -n $(DEMO_NS) apply -k demo
-	helm upgrade --install choregos charts/choregos -n $(DEMO_NS) \
-	  -f charts/choregos/values/local.yaml -f demo/values-demo.yaml --wait --timeout 10m
+	helm upgrade --install choregos charts/tranibor -n $(DEMO_NS) \
+	  -f charts/tranibor/values/local.yaml -f demo/values-demo.yaml --wait --timeout 10m
 
 # `SERIE=b` suffixes the keys (`DEMO-1b`, `RH-1b`): a ticket has only one interpreter, so a
 # replay needs new tickets. `GATEWAY=direct` for a bench without a provider key.

@@ -36,7 +36,7 @@ async def test_the_commit_precedes_the_sending_of_the_response(
 
     monkeypatch.setattr(AsyncSession, "commit", commit)
     body = json.dumps({"name": "order", "expires_in_days": 1}).encode()
-    cookie = f"choregos_session={client.cookies.get('choregos_session')}".encode()
+    cookie = f"tranibor_session={client.cookies.get('tranibor_session')}".encode()
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},

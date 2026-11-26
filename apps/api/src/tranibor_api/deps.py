@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import HTTPConnection
 from tranibor_contracts import SIGNATURE_HEADER, Role
+from tranibor_contracts.wire import read_header
 from tranibor_core import utcnow
 from tranibor_core.run_closure import run_is_closed
 
@@ -151,7 +152,7 @@ async def _principal_from_user(session: AsyncSession, user: User, *, narrow: boo
         org_roles=org_roles,
         project_roles=project_roles,
         # The identity provider's claim, then the organisation's own groups as
-        # `choregos:<org>:<group>` (ADR 0160): one more query, in the platform scope set above.
+        # `tranibor:<org>:<group>` (ADR 0160): one more query, in the platform scope set above.
         groups=await groups_of(session, user),
     )
     # THIS request's session sees only the principal's organisations: this is where RLS arms,
@@ -245,7 +246,7 @@ async def current_principal(
         principal.credential = "api_token"
         return principal
 
-    frame = request.headers.get(embed_frame.HEADER)
+    frame = read_header(request.headers, embed_frame.HEADER_NAME)
     if frame:
         return await _frame_principal(request, session, settings, frame)
 
@@ -279,7 +280,7 @@ async def _surface_principal(
     payload = read_session(raw[len(SURFACE_PREFIX) :], settings, purpose=SURFACE_PURPOSE)
     sid = payload.get("sid") if payload else None
     if payload is None or not isinstance(sid, str):
-        raise unauthorized("unknown or expired session: run `choregos login`")
+        raise unauthorized("unknown or expired session: run `tranibor login`")
     user = await session.get(User, str(payload.get("sub", "")))
     if user is None:
         raise unauthorized("expired session")
@@ -544,15 +545,19 @@ async def report_claims(
     id: str,
     session: Db,
     authorization: Annotated[str | None, Header()] = None,
+    x_tranibor_egress_key: Annotated[str | None, Header()] = None,
     x_choregos_egress_key: Annotated[str | None, Header()] = None,
 ) -> RunClaims:
     """The proxy's report (ADR 0145): the run token, or the egress token WITH the proxy's own key.
 
     The agent inherits the egress token, not the key: without this, it could post its own run's
-    counters. A deployment that configured no key accepts the egress token alone, as before."""
+    counters. A deployment that configured no key accepts the egress token alone, as before. The key
+    comes in `X-Tranibor-Egress-Key`, or in the former `X-Choregos-Egress-Key` from a proxy of a release
+    before ADR 0226."""
     claims, egress = _network_token(id, authorization)
     key = get_settings().egress_report_key
-    if egress and key and not hmac.compare_digest((x_choregos_egress_key or "").encode(), key.encode()):
+    sent = x_tranibor_egress_key or x_choregos_egress_key or ""
+    if egress and key and not hmac.compare_digest(sent.encode(), key.encode()):
         raise forbidden("a report made with the egress token needs the egress proxy's key")
     bind(run_id=claims.run_id, project=claims.project_slug, work_item=claims.work_item_key)
     await limit_to_organisations(session, ALL_ORGS)

@@ -13,13 +13,13 @@ shape and a person always finds "when it fails" in the same place:
     ## When it fails / (## On this platform, added by the deployment)
 
 A deployment adds to them through a directory (`TRANIBOR_PROCEDURES_EXTRA`, a ConfigMap in the
-chart) or a `choregos.procedures` entry point: `<id>.site.md` appends "On this platform" to a
-procedure, `<new-id>.md` adds a procedure for a type the platform does not know (a plugin's).
+chart) or a `tranibor.procedures` entry point (or the former `choregos.procedures`): `<id>.site.md`
+appends "On this platform" to a procedure, `<new-id>.md` adds a procedure for a type the platform does not
+know (a plugin's).
 """
 
 from __future__ import annotations
 
-import importlib.metadata
 import os
 import pathlib
 import re
@@ -33,12 +33,14 @@ from urllib.parse import urlsplit
 import structlog
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from tranibor_contracts import wire
 
 from ..errors import ChoregosError
 
 log = structlog.get_logger(__name__)
 
-ENTRY_POINT_GROUP = "choregos.procedures"
+#: Read under the former `choregos.procedures` too until 0.32.0 (ADR 0226, R9c).
+ENTRY_POINT_GROUP = "tranibor.procedures"
 SHIPPED = pathlib.Path(__file__).resolve().parent
 
 #: The section keys, in the order a procedure must have them. `at` is "At <vendor>" whatever the vendor.
@@ -425,7 +427,7 @@ def _shipped() -> dict[str, Procedure]:
 def _directories(extra: str | os.PathLike[str] | None) -> Iterable[tuple[str, pathlib.Path]]:
     if extra:
         yield "extra", pathlib.Path(extra)
-    for point in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP):
+    for point in wire.entry_points(ENTRY_POINT_GROUP):
         value = point.load()
         if not isinstance(value, str | os.PathLike):
             log.warning("procedures.plugin.refused", plugin=point.name, reason="a path is expected")

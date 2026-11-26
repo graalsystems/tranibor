@@ -17,7 +17,7 @@ HISTORY = ("docs/adr/", "docs/plan/", "docs/site/node_modules/")
 
 #: The former variables a page may still spell, and why.
 FORMER_VARIABLES = {
-    "CHOREGOS_ENV": "what the chart renders; ADR 0176 R4's helper maps it",
+    "CHOREGOS_X": "the R9b upgrade notes: a former name a values file may still set in `extraEnv` (ADR 0226)",
     "CHOREGOS_SERVER_TOKEN": "the plugin-server token's fallback name (docs/plugins.md)",
     "CHOREGOS_MEMORY_SCOPED_BY_ID": "read under this name only: no TRANIBOR_ alias (builtins.py)",
 }

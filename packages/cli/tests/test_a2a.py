@@ -1,4 +1,4 @@
-"""`choregos a2a` (S62-03): start a workflow over the A2A door, hand it data and files, follow it.
+"""`tranibor a2a` (S62-03): start a workflow over the A2A door, hand it data and files, follow it.
 
 The door is mocked here with respx, call by call; `apps/api/tests/test_a2a_cli.py` drives the real one.
 """
@@ -20,8 +20,11 @@ from typer.testing import CliRunner
 API = "http://api.test"
 DOOR = f"{API}/a2a/orgs/acme"
 CARD = f"{DOOR}/.well-known/agent-card.json"
-CONSOLE = "https://choregos.example.com/p/billing-api/items/t-1"
-FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
+CONSOLE = "https://tranibor.example.com/p/billing-api/items/t-1"
+#: The card's skill-fields extension (ADR 0226 R7): the door announces it under its URI and, for the
+#: window, under the former one too; a door of an earlier release announces only the former one.
+FIELDS_EXTENSION = "https://tranibor.dev/a2a/extensions/skill-fields/v1"
+FORMER_FIELDS_EXTENSION = "https://choregos.dev/a2a/extensions/skill-fields/v1"
 
 
 @pytest.fixture(autouse=True)
@@ -116,8 +119,9 @@ def _door(**answers: list[Callable[[Any], Response]]) -> Door:
     return door
 
 
+@pytest.mark.parametrize("uri", [FIELDS_EXTENSION, FORMER_FIELDS_EXTENSION], ids=["tranibor", "former"])
 @respx.mock
-def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension() -> None:
+def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension(uri: str) -> None:
     card = {
         "skills": [
             {"id": "billing-api/ship-a-change", "description": "Ship it", "inputModes": ["application/json"]},
@@ -126,7 +130,7 @@ def test_skills_list_each_skill_with_the_fields_of_the_card_s_extension() -> Non
         "capabilities": {
             "extensions": [
                 {
-                    "uri": FIELDS_EXTENSION,
+                    "uri": uri,
                     "params": {
                         "skills": {
                             "billing-api/ship-a-change": {
@@ -342,7 +346,7 @@ def test_a_star_token_is_refused_and_the_cli_says_which_token_opens_the_door() -
     read = _cli("get", "t-1")
     assert read.exit_code == 1, read.output
     assert "HTTP 403" in read.stderr
-    assert "--scope a2a" in read.stderr and "choregos machines token" in read.stderr
+    assert "--scope a2a" in read.stderr and "tranibor machines token" in read.stderr
     # Without --token, the profile's token is sent.
     assert door.calls[0]["headers"]["authorization"] == "Bearer chg_profile"
 
@@ -390,3 +394,14 @@ def test_cancel_stops_the_task() -> None:
     assert stopped.exit_code == 0, stopped.output
     assert door.calls[0]["body"]["params"] == {"id": "t-1"}
     assert "stop sent to task t-1" in stopped.stdout
+
+
+@pytest.mark.parametrize("key", ["tranibor", "choregos"], ids=["new", "former"])
+def test_the_workflow_state_is_read_under_either_metadata_key(key: str) -> None:
+    """ADR 0226, R9c: the door of 0.30.0 writes `metadata.tranibor` (and the former key); one of 0.29 only
+    `metadata.choregos`. The CLI reads the block under either."""
+    from tranibor_cli.a2a import Printer
+
+    read = task("working", workflow_state="review")
+    read["metadata"] = {key: read["metadata"]["choregos"]}
+    assert Printer.mark(read) == ("working", "review", None)

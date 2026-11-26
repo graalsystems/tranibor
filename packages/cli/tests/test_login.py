@@ -1,4 +1,4 @@
-"""`choregos login` signs in as the person by the device flow (ADR 0154 §6, S67-05), against a fake API."""
+"""`tranibor login` signs in as the person by the device flow (ADR 0154 §6, S67-05), against a fake API."""
 
 from __future__ import annotations
 
@@ -294,7 +294,7 @@ def test_login_names_the_organisations_it_cannot_choose_between(
     assert result.exit_code == 0, result.output
     assert json.loads(profile.read_text())["org"] == "", "no organisation is picked for the person"
     said = " ".join(result.output.split())
-    assert "acme, globex" in said and "choregos login --org <slug>" in said
+    assert "acme, globex" in said and "tranibor login --org <slug>" in said
 
 
 @respx.mock

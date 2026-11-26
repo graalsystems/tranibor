@@ -1,7 +1,8 @@
 # 0185 — The documentation site is built here and published on GitHub Pages of graalsystems/tranibor
 
 - **Status**: accepted, 2026-11-18 (decided by the product owner on 2026-11-18: the products no longer
-  belong to or point at the Varga Foundation); S80-09 implements it
+  belong to or point at the Varga Foundation); S80-09 implements it; amended 2026-11-25 (published
+  from `main` only, not on a release: S84-08)
 - **Concerns**: `website/` (Docusaurus), `.github/workflows/docs-site.yml`, `docs/site/`, the
   publishing identity's `documentation`; amends [ADR 0150](0150-the-instance-serves-its-own-documentation-over-mcp.md)
   (the default documentation address) and [ADR 0156](0156-the-publishing-identity-is-one-file.md)
@@ -41,3 +42,12 @@ belongs to, and which is removing every reference to it.
 - The pages keep their relative paths, so the console's and the API's deep links only change base.
 - The first publication needs Pages enabled with the *GitHub Actions* source on the repository
   (`gh api -X POST repos/graalsystems/tranibor/pages -f build_type=workflow`).
+
+## Amendment — 2026-11-25: published from `main` only (S84-08)
+
+§2 published on a release too. It never worked: the release workflow publishes its release with
+`GITHUB_TOKEN`, which starts no workflow, and the one release published by hand (v0.29.4) built the
+site and failed to deploy it, because the `github-pages` environment deploys from `main` only. A build
+of the tag would also have lasted only until the next push to `main`. `docs-site.yml` now publishes on
+a push to `main` that touches the pages and on its daily run (ADR 0215), and its links point at the
+built commit; `tests/docs/test_docs_site_pipeline.py` refuses a `release` trigger.

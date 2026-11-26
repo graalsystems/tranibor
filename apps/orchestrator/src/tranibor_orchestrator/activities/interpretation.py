@@ -17,7 +17,7 @@ from temporalio.exceptions import ActivityError, ApplicationError
 from tranibor_api.db.models import Event, Run, WorkflowDef, WorkItem
 from tranibor_api.services import persist_event, work_item_workflow, workflow_model
 from tranibor_api.services.budgets import ticket_budget, ticket_spent
-from tranibor_contracts import EventType
+from tranibor_contracts import EventType, wire
 from tranibor_core import utcnow
 from tranibor_core.domain import TRIAL_STATE
 
@@ -241,7 +241,10 @@ async def record_migration(payload: dict[str, Any]) -> dict[str, Any]:
         # The key and the refusal are read under both spellings (S45-03), in the payload and in the
         # events already persisted; the event persists `key` since S45-39 (and still reads `cle`).
         key = str(require_key(payload, "key"))
-        types = (str(EventType.WORKITEM_MIGRATED), str(EventType.WORKITEM_MIGRATION_REFUSED))
+        types = (
+            *wire.event_type_twins(EventType.WORKITEM_MIGRATED),
+            *wire.event_type_twins(EventType.WORKITEM_MIGRATION_REFUSED),
+        )
         recorded = (
             await session.execute(select(Event).where(Event.work_item_id == item.id, Event.type.in_(types)))
         ).scalars()
@@ -296,7 +299,7 @@ async def escalation_context(payload: dict[str, Any]) -> dict[str, Any]:
                 select(Event)
                 .where(
                     Event.work_item_id == item.id,
-                    Event.type == str(EventType.WORKITEM_STATE_CHANGED),
+                    Event.type.in_(wire.event_type_twins(EventType.WORKITEM_STATE_CHANGED)),
                 )
                 .order_by(Event.ts.desc())
             )

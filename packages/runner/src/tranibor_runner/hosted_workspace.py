@@ -26,17 +26,20 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tranibor_contracts.wire import RUN_DIRECTORIES, run_paths, run_relative
 from tranibor_core.hosted import SHARED_WORKSPACE_AGENT
 
 from .guardrails import Decision, GuardRails
 from .workspace import Workspace
 
-#: What the runner writes for itself: never exported, never brought back.
+#: What the runner writes for itself: never exported, never brought back. Under both names of the run
+#: directory (ADR 0226, R9a).
 NOT_EXPORTED = frozenset(
-    {".choregos/transcript.jsonl", ".choregos/result.json", ".choregos/acp-session.json"}
+    path for name in ("transcript.jsonl", "result.json", "acp-session.json") for path in run_paths(name)
 )
-#: The one place under `.choregos/` a hosted container's files come back from: its deliverables.
-OUTPUTS = ".choregos/outputs/"
+#: The one place under the run directory a hosted container's files come back from: its deliverables,
+#: under `.tranibor/outputs/` or the former `.choregos/outputs/`.
+OUTPUTS = tuple(f"{folder}/" for folder in run_paths("outputs"))
 #: Group-writable, in the group the pod's `fsGroup` (and `--group-add` in docker) gives both
 #: containers: the container changes the files the runner copied. Directories keep the group.
 DIR_MODE = 0o2775
@@ -210,13 +213,13 @@ def _read_tree(dir_fd: int, rel: str, entries: dict[str, _Entry]) -> None:
         else:
             entries[path] = _Entry("other", refused="not a regular file")
     for path, entry in list(entries.items()):
-        if path.startswith(".choregos/") and not entry.refused and not _an_output(path, entry):
+        if run_relative(path) is not None and not entry.refused and not _an_output(path, entry):
             entries[path] = _Entry(
                 entry.kind,
                 entry.digest,
                 entry.executable,
                 entry.target,
-                refused="under `.choregos/`, only the files of `.choregos/outputs/` come back",
+                refused="under `.tranibor/`, only the files of `.tranibor/outputs/` come back",
             )
 
 
@@ -313,10 +316,11 @@ def _write(shared: Path, workspace: Path, path: str, entry: _Entry) -> None:
 
 
 def _tracked_tree(workspace: Path) -> Iterator[str]:
-    """The checkout's files and symlinks a deletion may concern: not `.git`, not `.choregos/`."""
+    """The checkout's files and symlinks a deletion may concern: not `.git`, not the run directory under
+    either name."""
     for current, dirs, files in os.walk(workspace):
         rel = Path(current).relative_to(workspace)
-        dirs[:] = [d for d in dirs if d != ".git" and not (rel == Path(".") and d == ".choregos")]
+        dirs[:] = [d for d in dirs if d != ".git" and not (rel == Path(".") and d in RUN_DIRECTORIES)]
         for name in files:
             yield str(rel / name) if rel != Path(".") else name
         for name in dirs:
@@ -328,7 +332,7 @@ async def _ignored(workspace: Workspace, paths: list[str]) -> set[str]:
     """The paths the checkout ignores (`.gitignore`, the runner's excludes): they are never
     committed, so they are neither judged nor copied — `__pycache__/` is not a refused write.
     The step's deliverables are ignored too and still come back."""
-    candidates = [path for path in paths if not path.startswith(".choregos/")]
+    candidates = [path for path in paths if run_relative(path) is None]
     ignored: set[str] = set()
     for start in range(0, len(candidates), 500):
         found = await workspace.git("check-ignore", "--", *candidates[start : start + 500])

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/ui-manifest.schema.json",
+  "$id": "https://tranibor.dev/schemas/ui-manifest.schema.json",
   "title": "AdminSection",
   "description": "An administration section declared by a plugin, as DATA: the console renders it with its own blocks, no plugin code runs there (ADR 0032). Paths are relative to /api/v1; `{org}` is the current organisation, `{id}` the row's identifier.",
   "type": "object",

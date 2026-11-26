@@ -203,7 +203,7 @@ async def test_an_effect_in_doubt_closes_the_action_in_doubt_and_compensates_not
     closing = [
         (kind, data) for kind, data in await _events(action_id) if kind.endswith((".failed", ".succeeded"))
     ]
-    assert [(kind, data["status"]) for kind, data in closing] == [("choregos.action.failed", "in_doubt")]
+    assert [(kind, data["status"]) for kind, data in closing] == [("tranibor.action.failed", "in_doubt")]
 
     # One attempt of the effect in doubt, and final: the workflow's policy did not retry it.
     started = [
@@ -313,7 +313,7 @@ async def test_the_activities_alone_compensate_nothing_and_close_in_doubt(
     assert action.status == "in_doubt"
     assert [row.status for row in effects] == ["done", "in_doubt"], "the done effect stays done"
     kinds = [(kind, data.get("status")) for kind, data in await _events(action_id)]
-    assert ("choregos.action.failed", "in_doubt") in kinds
+    assert ("tranibor.action.failed", "in_doubt") in kinds
     assert not [kind for kind, _ in kinds if kind.endswith("effect_compensated")]
 
 
@@ -345,7 +345,7 @@ async def test_an_action_that_failed_or_succeeded_closes_as_it_always_did(
         "status"
     ] == "failed"
     kinds = [(kind, data.get("status")) for kind, data in await _events(action_id)]
-    assert ("choregos.action.failed", "failed") in kinds
+    assert ("tranibor.action.failed", "failed") in kinds
     assert (await close_action({"action_id": action_id, "status": "succeeded"}))["status"] == "succeeded"
 
 

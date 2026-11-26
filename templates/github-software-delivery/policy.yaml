@@ -27,7 +27,7 @@ attempts:
   dod_iterations: 3
 scope:
   auto_grant_max_files: 3
-  deny_paths: [".choregos/**", ".github/workflows/**", "deploy/**"]
+  deny_paths: [".tranibor/**", ".choregos/**", ".github/workflows/**", "deploy/**"]
 sandbox:
   runtime: default
   deny_commands: [kubectl, terraform apply, git push --force, sudo]

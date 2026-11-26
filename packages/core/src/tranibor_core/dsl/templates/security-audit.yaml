@@ -2,7 +2,7 @@
 # the repository (vulnerabilities, SBOM, secrets, container and IaC misconfigurations) and interprets
 # them; the security reviewer audits the code (injection, authorization, data exposure); the compliance
 # review covers licences and personal data. The security team accepts the three reports together.
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: security-audit

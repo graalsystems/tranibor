@@ -117,7 +117,7 @@ async def test_the_event_carries_the_digest_of_the_request_and_the_response(
 
     async with session_scope() as session:
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     (event,) = [e for e in events if e.subject == run_id]
     assert event.payload["request_sha256"] == digest_of({"metier": "x", "a": 1})
@@ -155,7 +155,7 @@ async def test_the_event_carries_the_size_of_the_answer(
 
     async with session_scope() as session:
         events = (
-            (await session.execute(select(Event).where(Event.type == "choregos.tool.called"))).scalars().all()
+            (await session.execute(select(Event).where(Event.type == "tranibor.tool.called"))).scalars().all()
         )
     (event,) = [e for e in events if e.subject == run_id]
     assert event.payload["response_bytes"] == len(canonical)

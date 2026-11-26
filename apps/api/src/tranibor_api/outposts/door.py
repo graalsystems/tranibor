@@ -215,7 +215,7 @@ async def _conflict(session: AsyncSession, caller: auth.Caller, now: datetime) -
     The alert is an audit event of the organisation, `outpost.poll_conflict`, under the actor kind
     `outpost`: once in `ALERT_EVERY_S` for an instance, by a compare-and-set on its row, as a budget
     alert is raised once for its threshold. `/metrics` counts those events
-    (`choregos_outpost_poll_conflicts_total`), which is what an alert rule reads."""
+    (`tranibor_outpost_poll_conflicts_total`), which is what an alert rule reads."""
     raised = await session.execute(
         update(OutpostInstance)
         .where(

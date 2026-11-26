@@ -262,7 +262,7 @@ async def test_a_tenant_provider_cannot_sign_in_another_tenant_address(
     )
     assert done.status_code == 401
     assert "does not belong to organisation 'acme'" in done.text
-    assert client.cookies.get("choregos_session") is None
+    assert client.cookies.get("tranibor_session") is None
     async with session_scope(orgs="*") as session:
         assert (await session.execute(select(User).where(User.email == "eve@globex.example"))).first() is None
 

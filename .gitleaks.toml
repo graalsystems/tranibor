@@ -41,7 +41,7 @@ regexes = [
   # prove it never leaves the runner. `generic-api-key` reads it as a key; the CI scans the history, so
   # once merged it turned the `secrets` job red on every pull request (2026-11-05, #1382). This value only.
   '''rt-7f3c9a1e5b2d4c6f8a0b1c2d3e4f5a6b''',
-  # The rename to tranibor (ADR 0224 R6, branch of #2288) moves the internal API URL above to its new
+  # The rename to tranibor (ADR 0226 R6, branch of #2288) moves the internal API URL above to its new
   # service name: same URL, same reason.
   '''tranibor-api:8000/api/v1/internal''',
   # The chart's rename test (#2288) seeds a Secret of the former chart whose values are base64 of

@@ -31,7 +31,7 @@ from .test_agent_sandbox import _condition, _get, _wait, operator_installed
 
 pytestmark = pytest.mark.cluster
 
-CHART_SANDBOX = "charts/choregos-orchestrator/templates/sandbox.yaml"
+CHART_SANDBOX = "charts/orchestrator/templates/sandbox.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -59,14 +59,14 @@ def _render(ns: str, image: str) -> str:
     repository, _, tag = rest.rpartition(":")
     return subprocess.run(
         [
-            "helm", "template", "choregos", "charts/choregos", "--namespace", ns,
-            "--set", "choregos-orchestrator.runner.executor=agent_sandbox",
-            "--set", "choregos-orchestrator.runner.skipOperatorCheck=true",
-            "--set", f"choregos-orchestrator.runner.namespacePattern={ns}",
-            "--set", "choregos-orchestrator.runner.warmPool.size=1",
+            "helm", "template", "choregos", "charts/tranibor", "--namespace", ns,
+            "--set", "tranibor-orchestrator.runner.executor=agent_sandbox",
+            "--set", "tranibor-orchestrator.runner.skipOperatorCheck=true",
+            "--set", f"tranibor-orchestrator.runner.namespacePattern={ns}",
+            "--set", "tranibor-orchestrator.runner.warmPool.size=1",
             "--set", f"global.imageRegistry={registry}",
-            "--set", f"choregos-orchestrator.runner.image={repository}",
-            "--set", f"choregos-orchestrator.runner.tag={tag}",
+            "--set", f"tranibor-orchestrator.runner.image={repository}",
+            "--set", f"tranibor-orchestrator.runner.tag={tag}",
             "--show-only", CHART_SANDBOX,
         ],
         capture_output=True, text=True, check=True, timeout=120,
@@ -142,7 +142,8 @@ def _pushes(
 @pytest.mark.capability("agent_sandbox", "snapshot")
 def test_a_claim_adopts_a_warm_sandbox_that_holds_nothing_and_serves_one_run(ns: str) -> None:
     image = _runner_image()
-    kubectl_shared("create", "serviceaccount", "choregos-runner", "-n", ns)
+    for account in ("tranibor-runner", "choregos-runner"):  # both, as provisioning makes them (ADR 0226 R9b)
+        kubectl_shared("create", "serviceaccount", account, "-n", ns)
     kubectl_shared("-n", ns, "apply", "-f", "-", input_text=_render(ns, image))
     _wait(lambda: any(_ready(s) for s in _sandboxes(ns)), "a warm sandbox", timeout_s=420)
     (warm,) = [s["metadata"]["name"] for s in _sandboxes(ns)]
@@ -175,7 +176,7 @@ def test_a_claim_adopts_a_warm_sandbox_that_holds_nothing_and_serves_one_run(ns:
     public_key = key_from_log(kubectl_shared("-n", ns, "logs", bound))
     assert public_key, "the warm runner printed no key: nothing could be sealed to it"
     _, other_key = new_key()
-    # Another pod of the namespace cannot even reach the port: `choregos-runner-assignment`.
+    # Another pod of the namespace cannot even reach the port: `tranibor-runner-assignment`.
     assert _push(ns, ip, "run-z", public_key, labels={"app": "intruder"}) == "000", "the push got in"
     assert _push(ns, ip, "run-x", other_key) == "400", "sealed to another key: refused"
     first, second = _pushes(ns, ip, ["run-a", "run-b"], public_key)

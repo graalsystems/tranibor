@@ -232,7 +232,7 @@ def agent_script(script: dict[str, Any], stage_input: StageInput, workspace: Pat
 
 def valid_result(summary: str = "fix applied", **kwargs: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "schema": "choregos/StageResult/v1",
+        "schema": "tranibor/StageResult/v1",
         "status": "done",
         "summary": summary,
         "evidence": {"tests_passed": True, "tests_run": 3},

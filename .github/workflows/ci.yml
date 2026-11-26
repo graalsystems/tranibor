@@ -118,7 +118,7 @@ jobs:
               - 'examples/hosted/reference/**'
               - 'tests/build/**'
               - 'tests/conformance/hosted/**'
-              - 'charts/choregos/templates/buildkitd.yaml'
+              - 'charts/tranibor/templates/buildkitd.yaml'
               - '.github/workflows/ci.yml'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -127,13 +127,13 @@ jobs:
             hosted-cosign:
               - 'packages/adapters/src/tranibor_adapters/oci/**'
               - 'packages/adapters/tests/test_cosign*.py'
-              - 'charts/choregos/templates/hosted-images-policy*.yaml'
+              - 'charts/tranibor/templates/hosted-images-policy*.yaml'
               - 'tests/charts/test_hosted_images_policy.py'
               - 'docker/api.Dockerfile'
               - '.github/workflows/ci.yml'
             # The chart's hosted-images policy in a real Kyverno on a real cluster (S41-25).
             hosted-admission:
-              - 'charts/choregos/templates/hosted-images-policy*.yaml'
+              - 'charts/tranibor/templates/hosted-images-policy*.yaml'
               - 'tests/cluster/test_hosted_images_admission.py'
               - '.github/workflows/ci.yml'
             # A hosted agent inside gVisor (S41-17): the suite, the examples it runs, the policy that
@@ -209,7 +209,7 @@ jobs:
               - '.github/workflows/ci.yml'
             llm-guard:
               - 'packages/core/src/tranibor_core/llm_guardrail.py'
-              - 'charts/choregos/charts/litellm/**'
+              - 'charts/tranibor/charts/litellm/**'
               - 'tests/live/test_llm_guard_live.py'
               - 'tests/live/llm_guard_upstream.py'
               - '.github/workflows/ci.yml'
@@ -217,7 +217,7 @@ jobs:
             decisions-live:
               - 'docker/laya.Dockerfile'
               - 'docker/laya/**'
-              - 'charts/choregos/charts/litellm/**'
+              - 'charts/tranibor/charts/litellm/**'
               - 'tests/live/decisions/**'
               - 'tests/live/test_decisions_live.py'
               - '.github/workflows/ci.yml'
@@ -424,15 +424,15 @@ jobs:
         with: { version: v3.22.0 }
       # The default executor (agent_sandbox, ADR 0072) refuses to render without its operator in the
       # cluster's API versions: an offline rendering skips that check, nothing else.
-      - run: helm lint charts/choregos --set choregos-orchestrator.runner.skipOperatorCheck=true
+      - run: helm lint charts/tranibor --set tranibor-orchestrator.runner.skipOperatorCheck=true
       # The outpost's chart (S65-16) renders nothing without a policy: linted on its complete example.
-      - run: helm lint charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml
+      - run: helm lint charts/tranibor-outpost -f charts/tranibor-outpost/values/example.yaml
       - name: render the four environments (local = the bundled dependencies)
         run: |
           for env in local dev staging prod; do
-            helm template choregos charts/choregos -f charts/choregos/values/$env.yaml --set choregos-orchestrator.runner.skipOperatorCheck=true > /tmp/$env.yaml
+            helm template tranibor charts/tranibor -f charts/tranibor/values/$env.yaml --set tranibor-orchestrator.runner.skipOperatorCheck=true > /tmp/$env.yaml
           done
-          helm template outpost charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml > /tmp/outpost.yaml
+          helm template outpost charts/tranibor-outpost -f charts/tranibor-outpost/values/example.yaml > /tmp/outpost.yaml
       - name: kubeconform
         run: |
           curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
@@ -445,7 +445,7 @@ jobs:
           # fails. The earlier `|| true` swallowed that failure and turned it into
           # "unknown command "unittest"" two lines further down.
           helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.1.2
-          helm unittest charts/choregos
+          helm unittest charts/tranibor
       - name: kyverno test (the engine judges infra/policies against infra/policies/tests)
         run: |
           # Pinned and checksummed: 1.13.4 counted "want fail, got pass" as a pass.
@@ -556,7 +556,7 @@ jobs:
           # Run by the id of the image just built: nothing pulled, nothing named that could move.
           docker buildx build --builder default --load -f plugins/investment-research/Dockerfile \
             --build-arg "RUNNER_IMAGE=${RUNNER_IMAGE}" --iidfile /tmp/investment-research.iid .
-          docker run --rm --entrypoint choregos-quant "$(cat /tmp/investment-research.iid)" --help >/dev/null
+          for command in tranibor-quant choregos-quant; do docker run --rm --entrypoint "$command" "$(cat /tmp/investment-research.iid)" --help >/dev/null; done
       # The `procurement` job image, the same way (ADR 0202): FROM this runner, and its command reads a real
       # PDF inside the image, handed where a job step finds its inputs. `job.json` must say the file was read.
       - name: the procurement job image builds FROM this runner, and its command reads a PDF
@@ -568,13 +568,13 @@ jobs:
             --build-arg "RUNNER_IMAGE=${RUNNER_IMAGE}" --iidfile /tmp/procurement.iid .
           image="$(cat /tmp/procurement.iid)"
           workspace="$(mktemp -d)"
-          mkdir -p "${workspace}/.choregos/inputs"
-          cp plugins/procurement/tests/fixtures/alderbrook-offer.pdf "${workspace}/.choregos/inputs/"
+          mkdir -p "${workspace}/.tranibor/inputs"
+          cp plugins/procurement/tests/fixtures/alderbrook-offer.pdf "${workspace}/.tranibor/inputs/"
           chmod -R a+rwX "${workspace}"
           # Mounted, not baked in: the command runs as a job step does, as uid 1000, in /workspace.
           docker run --rm --entrypoint tranibor-procurement -e TRANIBOR_WORKSPACE=/workspace \
             -v "${workspace}:/workspace" "${image}" extract
-          python3 - "${workspace}/.choregos/job.json" <<'PY'
+          python3 - "${workspace}/.tranibor/job.json" <<'PY'
           import json
           import sys
 
@@ -645,7 +645,7 @@ jobs:
           # that runs the builder needs the same setting (docs/security.md, "The builder").
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           printf '[registry."localhost:5000"]\n  http = true\n  insecure = true\n' > "$RUNNER_TEMP/buildkitd.toml"
-          # The profile of charts/choregos/templates/buildkitd.yaml: uid 1000, every capability
+          # The profile of charts/tranibor/templates/buildkitd.yaml: uid 1000, every capability
           # dropped but SETUID/SETGID, seccomp and AppArmor unconfined, a read-only root.
           docker run -d --name buildkitd --network host \
             --user 1000:1000 --cap-drop ALL --cap-add SETUID --cap-add SETGID \
@@ -1115,7 +1115,7 @@ jobs:
         if: failure()
         with: { name: playwright-live-report, path: apps/web/test-results, retention-days: 7 }
   cli-binary:
-    # The `choregos` CLI as the release ships it (S62-07): the Linux x86_64 native binary, built with
+    # The `tranibor` CLI as the release ships it (S62-07): the Linux x86_64 native binary, built with
     # Nuitka in the manylinux_2_28 image exactly as `release.yml` builds it, then smoke-tested where no
     # Python is available — a bare environment, then `debian:bookworm-slim`. A change that breaks the
     # build (a dependency Nuitka cannot follow, a data file read at run time and left out) is seen on
@@ -1140,12 +1140,12 @@ jobs:
       - name: smoke test, where no Python is available
         run: |
           version="$(sed -n 's/^version = "\(.*\)"$/\1/p' packages/cli/pyproject.toml)"
-          python3 tools/cli_binary/smoke.py dist/cli/choregos-linux-x86_64 --expect-version "$version" \
+          python3 tools/cli_binary/smoke.py dist/cli/tranibor-linux-x86_64 --expect-version "$version" \
             --container debian:bookworm-slim
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: choregos-linux-x86_64
-          path: dist/cli/choregos-linux-x86_64
+          name: tranibor-linux-x86_64
+          path: dist/cli/tranibor-linux-x86_64
           retention-days: 3
 
   ci-ok:

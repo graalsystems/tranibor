@@ -37,7 +37,7 @@ tmp/
 # livrer une umbrella qui, sur un clone neuf, ne rendait que les dashboards et les NetworkPolicy —
 # sans que rien ne le signale, puisque `helm lint` et `helm template` réussissent sur ce qui reste.
 # Seuls les archives vendored et le verrou de dépendances sont ignorés.
-charts/choregos/charts/*.tgz
+charts/tranibor/charts/*.tgz
 charts/**/Chart.lock
 
 # Web

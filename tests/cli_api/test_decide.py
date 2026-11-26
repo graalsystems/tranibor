@@ -69,7 +69,7 @@ def test_a_pasted_token_lists_but_cannot_decide_and_is_told_to_sign_in(
 
     refused = signed_in.choregos("decide", "approve", request_id, profile="token", stdin="approve\n")
     assert refused.returncode == 1, refused.stdout
-    assert "choregos login" in refused.stdout + refused.stderr, refused.stdout + refused.stderr
+    assert "tranibor login" in refused.stdout + refused.stderr, refused.stdout + refused.stderr
     assert request_id in signed_in.choregos("decide", "list").stdout, (
         "still waiting: the token decided nothing"
     )

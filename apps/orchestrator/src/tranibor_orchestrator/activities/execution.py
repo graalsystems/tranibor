@@ -24,7 +24,7 @@ from tranibor_api.db.models import Run, RunEvent, WorkItem
 from tranibor_api.db.session import limit_to_organisations
 from tranibor_api.security import mint_run_token
 from tranibor_api.services import persist_event
-from tranibor_contracts import EventType, StageInput, StageResult, StageStatus
+from tranibor_contracts import EventType, StageInput, StageResult, StageStatus, wire
 from tranibor_contracts.open_lists import STORED
 from tranibor_core import ExecRef, ExecStatus, StageJobSpec, telemetry, utcnow
 from tranibor_core.agent_isolation import AGENT_ISOLATION_ACCEPT_ENV, NONE_ACCEPTED
@@ -281,11 +281,15 @@ async def start_run(payload: dict[str, Any]) -> dict[str, Any]:
             timeout_minutes=stage_input.budget.max_minutes + 10,
             runtime_class=runtime_class(settings, bundle.policy),
             env=runner_environment(settings, _runner_namespace(settings, bundle.slug)),
-            labels={
-                "choregos/project": bundle.slug,
-                "choregos/run-id": stage_input.run_id,
-                "choregos/work-item": stage_input.work_item.key.replace("/", "_").replace("#", "-"),
-            },
+            labels=wire.labels_with_former(
+                {
+                    wire.label("project", domain=False): bundle.slug,
+                    wire.label("run-id", domain=False): stage_input.run_id,
+                    wire.label("work-item", domain=False): stage_input.work_item.key.replace(
+                        "/", "_"
+                    ).replace("#", "-"),
+                }
+            ),
             # A hosted agent's container beside the runner (ADR 0080): loopback addresses only.
             agent_container=agent_container(stage_input),
             # Where the agent runs (ADR 0146): an executor that cannot start its container refuses.

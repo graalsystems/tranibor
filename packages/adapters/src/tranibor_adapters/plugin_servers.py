@@ -28,6 +28,9 @@ What runs:
   (`toFQDNs`) and DNS to the lookups of those names (an L7 `dns` rule), and the NetworkPolicy opens no
   egress at all: Cilium unions policies, and a plain port-53 allow beside the L7 rule would let the
   server resolve any name (a channel out, ADR 0096 §8 as amended by S80-20b).
+  Amended by ADR 0224 §6a: a host that resolves into a private range the deployment lists for the
+  organisation (`private_egress`) is opened by its exact address and port (an `ipBlock` /32 rule, or
+  `toCIDR` with Cilium), and leaves the public rule; the default exception list is unchanged.
 """
 
 from __future__ import annotations
@@ -57,8 +60,10 @@ APP_NAME = "choregos-plugin-server"
 #: The `app.kubernetes.io/name` of every pod that calls a plugin server (`PluginServerClient`): the API
 #: (the broker, discovery, the connector test, the webhook) and the orchestrator's workers of every queue
 #: (each activity builds the project's adapters, a `tracker/plugin` among them, and the `orchestrator`
-#: queue plays a governed action's `connector.call`). A runner (`choregos-runner`) is never one (#2192).
-CALLERS = ("choregos-api", "choregos-orchestrator")
+#: queue plays a governed action's `connector.call`). A runner (`*-runner`) is never one (#2192). Both values
+#: of each for the window of ADR 0226 (R9b): the chart's pods carry the former by default and the new under
+#: `global.labelValues: tranibor`, and a server's policy must admit its callers either way.
+CALLERS = ("tranibor-api", "choregos-api", "tranibor-orchestrator", "choregos-orchestrator")
 #: Addresses a server never reaches by the default NetworkPolicy: the cluster's, the node's, the
 #: cloud's metadata endpoint. Its egress is the internet, on the ports its configuration names.
 PRIVATE_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10")
@@ -88,6 +93,10 @@ class ServerDeployment:
     callers: tuple[str, ...] = CALLERS
     #: (host, port) the server may reach, derived from its configuration
     egress: tuple[tuple[str, int], ...] = ()
+    #: (host, address, port): the addresses of `egress` hosts inside a private range the deployment lists
+    #: for the organisation (ADR 0224 §6a), resolved when the server was provisioned. Opened exactly, one
+    #: address and one port each, beside the public internet; their hosts leave the public rule.
+    private_egress: tuple[tuple[str, str, int], ...] = ()
     egress_mode: EgressMode = "networkpolicy"
     #: Secrets of the namespace the kubelet pulls the image with (a private mirror)
     image_pull_secrets: tuple[str, ...] = ()
@@ -200,6 +209,25 @@ def _ports(egress: Iterable[tuple[str, int]]) -> list[dict[str, Any]]:
     return [{"protocol": "TCP", "port": p} for p in sorted({port for _, port in egress})]
 
 
+def _host_cidr(address: str) -> str:
+    return f"{address}/{128 if ':' in address else 32}"
+
+
+def _public(d: ServerDeployment) -> tuple[tuple[str, int], ...]:
+    """The hosts that stay on the public rule: a host admitted at a private address is not one (its port
+    would otherwise open to the internet too)."""
+    private_hosts = {host for host, _, _ in d.private_egress}
+    return tuple((h, p) for h, p in d.egress if h not in private_hosts)
+
+
+def _private_targets(d: ServerDeployment) -> dict[str, list[int]]:
+    """address -> its ports, sorted: one rule per address."""
+    found: dict[str, set[int]] = {}
+    for _, address, port in d.private_egress:
+        found.setdefault(address, set()).add(port)
+    return {a: sorted(found[a]) for a in sorted(found)}
+
+
 def _network_policy(d: ServerDeployment) -> dict[str, Any]:
     names = {"key": "app.kubernetes.io/name", "operator": "In", "values": list(d.callers)}
     source: dict[str, Any] = {"podSelector": {"matchExpressions": [names]}}
@@ -209,12 +237,21 @@ def _network_policy(d: ServerDeployment) -> dict[str, Any]:
     egress: list[dict[str, Any]] = []
     if d.egress and d.egress_mode == "networkpolicy":
         egress.append(_DNS)
-        egress.append(
-            {
-                "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
-                "ports": _ports(d.egress),
-            }
-        )
+        public = _public(d)
+        if public:
+            egress.append(
+                {
+                    "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE_RANGES)}}],
+                    "ports": _ports(public),
+                }
+            )
+        for address, ports in _private_targets(d).items():
+            egress.append(
+                {
+                    "to": [{"ipBlock": {"cidr": _host_cidr(address)}}],
+                    "ports": [{"protocol": "TCP", "port": p} for p in ports],
+                }
+            )
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",
@@ -228,7 +265,17 @@ def _network_policy(d: ServerDeployment) -> dict[str, Any]:
     }
 
 
+def _dns_names(d: ServerDeployment) -> list[str]:
+    """The names the pod may look up: the configured hosts, but not an address literal that is admitted
+    privately (it is opened as a CIDR and needs no lookup)."""
+    from .private_egress import is_literal
+
+    private_hosts = {host for host, _, _ in d.private_egress}
+    return sorted({h for h, _ in d.egress if not (h in private_hosts and is_literal(h))})
+
+
 def _cilium_policy(d: ServerDeployment) -> dict[str, Any]:
+    names = _dns_names(d)
     dns = {
         "toEndpoints": [
             {"matchLabels": {"k8s:io.kubernetes.pod.namespace": "kube-system", "k8s-app": "kube-dns"}}
@@ -236,21 +283,34 @@ def _cilium_policy(d: ServerDeployment) -> dict[str, Any]:
         "toPorts": [
             {
                 "ports": [{"port": "53", "protocol": "ANY"}],
-                "rules": {"dns": [{"matchName": host} for host in sorted({h for h, _ in d.egress})]},
+                "rules": {"dns": [{"matchName": host} for host in names]},
             }
         ],
     }
-    fqdns = {
-        "toFQDNs": [{"matchName": host} for host in sorted({h for h, _ in d.egress})],
-        "toPorts": [{"ports": [{"port": str(p["port"]), "protocol": "TCP"} for p in _ports(d.egress)]}],
-    }
+    rules: list[dict[str, Any]] = [dns] if names else []
+    public = _public(d)
+    if public:
+        rules.append(
+            {
+                "toFQDNs": [{"matchName": host} for host in sorted({h for h, _ in public})],
+                "toPorts": [{"ports": [{"port": str(p["port"]), "protocol": "TCP"} for p in _ports(public)]}],
+            }
+        )
+    # A name admitted at a private address is opened by its address: the exact CIDR and port, not a name.
+    for address, ports in _private_targets(d).items():
+        rules.append(
+            {
+                "toCIDR": [_host_cidr(address)],
+                "toPorts": [{"ports": [{"port": str(p), "protocol": "TCP"} for p in ports]}],
+            }
+        )
     return {
         "apiVersion": "cilium.io/v2",
         "kind": "CiliumNetworkPolicy",
         "metadata": _meta(d),
         "spec": {
             "endpointSelector": {"matchLabels": {"app.kubernetes.io/instance": d.name}},
-            "egress": [dns, fqdns] if d.egress else [],
+            "egress": rules,
         },
     }
 

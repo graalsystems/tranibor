@@ -13,6 +13,7 @@ from typing import Any
 
 from tranibor_contracts import ExecutorKind, StageResult
 from tranibor_contracts.env import with_legacy
+from tranibor_contracts.wire import run_paths
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import RUN_GATEWAY_KEY_ENV, RUN_REMOTE_TOKEN_ENV, ExecRef, ExecStatus, StageJobSpec
 from tranibor_core.hosted import SHARED_WORKSPACE_AGENT, SHARED_WORKSPACE_RUNNER
@@ -21,7 +22,11 @@ from ..errors import UpstreamError
 from . import separate_agent
 from .isolation import refuse_unless_separate
 
-RESULT_PATH = "/workspace/.choregos/result.json"
+#: Where the runner leaves the step's result: `.tranibor/result.json`, else the former
+#: `.choregos/result.json` (a container of a runner before 0.30.0, or an agent on an older SDK whose result
+#: the runner completed in place; ADR 0226, R9a).
+RESULT_PATHS = tuple(f"/workspace/{path}" for path in run_paths("result.json"))
+RESULT_PATH = RESULT_PATHS[0]
 PULL_TIMEOUT_S = 900.0
 #: How many finished run containers are kept for `docker logs` and the result (#439). The older
 #: ones are removed when a new run starts: by then the orchestrator has long read them.
@@ -277,8 +282,11 @@ class LocalDockerExecutor:
         `docker exec` (the first version) needs a running container, and this is only called once
         the run has ended: it always failed. `docker cp … -` reads a stopped one, as a tar stream.
         """
-        code, stdout, _ = await self._run_raw("cp", f"{ref.name}:{RESULT_PATH}", "-")
-        if code != 0:
+        for path in RESULT_PATHS:
+            code, stdout, _ = await self._run_raw("cp", f"{ref.name}:{path}", "-")
+            if code == 0:
+                break
+        else:
             return None
         try:
             with tarfile.open(fileobj=io.BytesIO(stdout)) as archive:

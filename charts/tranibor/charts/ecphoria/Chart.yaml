@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tranibor-ecphoria
+description: Agent memory (graalsystems/ecphoria, memory edition), single instance.
+type: application
+version: 0.29.5
+appVersion: "0.29.5"

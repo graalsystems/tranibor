@@ -45,7 +45,7 @@ def refusal(gesture: str) -> ApiError:
     return ApiError(
         403,
         "Forbidden",
-        f"{gesture} is the person's own gesture: it needs their session (the console, or `choregos login`), "
+        f"{gesture} is the person's own gesture: it needs their session (the console, or `tranibor login`), "
         f"not an API token (decision_requires_session)",
         extra={"code": CODE},
     )

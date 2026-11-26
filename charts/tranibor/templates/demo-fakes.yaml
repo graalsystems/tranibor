@@ -1,0 +1,92 @@
+{{- if .Values.demoFakes.enabled }}
+{{- /*
+The HR scenario fakes served by ONE process (S20-07). The API (two replicas) and
+the orchestrator are distinct processes: an in-memory fake would show them as many
+fleets, directories and badge readers as there are processes. A single replica is the whole
+point. For a demonstration: `guard.yaml` refuses it in staging and prod.
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tranibor-demo-fakes
+  labels:
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
+    app.kubernetes.io/component: demo-fakes
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: demo-fakes
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
+        app.kubernetes.io/component: demo-fakes
+    spec:
+      enableServiceLinks: false
+      {{- include "tranibor.imagePullSecrets" $ | nindent 6 }}
+      automountServiceAccountToken: false
+      securityContext: {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      containers:
+        - name: demo-fakes
+          # The API image carries the fakes and `uvicorn`: nothing more to build.
+          image: {{ include "tranibor.image" (dict "global" .Values.global "image" (index .Values "api" "image")) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext: {{- toYaml .Values.global.securityContext | nindent 12 }}
+          command: ["python", "-m", "tranibor_adapters.fakes.server"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.demoFakes.port }}
+          env:
+            - name: TRANIBOR_DEMO_PORT
+              value: {{ .Values.demoFakes.port | quote }}
+            # The deployment's environment, as the API and the workers have it: the installed extensions
+            # load here too (an enterprise image built against a core commit starts only in `dev`, #2145).
+            - name: TRANIBOR_ENV
+              value: {{ .Values.global.environment | quote }}
+            {{- with .Values.demoFakes.tokenSecret }}
+            # The MCP servers' token, and the fake Graph's application secret: by
+            # reference, like any secret; without it, the network policy is the only gate.
+            - name: CONNECTOR_DEMO_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .name }}, key: {{ .key }} } }
+            {{- end }}
+          # The server listens once the installed extensions' desks are loaded (`extension_desks`), which
+          # takes seconds of CPU: the liveness probe waits for this one (#2139).
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: {{ .Values.demoFakes.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.demoFakes.startupProbe.failureThreshold }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+          resources: {{- toYaml .Values.demoFakes.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tranibor-demo-fakes
+  labels:
+    app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "demo-fakes") }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: {{ include "tranibor.labelPrefix" $ }}
+    app.kubernetes.io/component: demo-fakes
+spec:
+  selector:
+    app.kubernetes.io/component: demo-fakes
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.demoFakes.port }}
+      targetPort: http
+{{- end }}

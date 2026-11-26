@@ -2,8 +2,8 @@
 # The `investment-research` job image (ADR 0181 O4-3, ADR 0056): the image the operator maps for the
 # plugin's job steps (`TRANIBOR_JOB_IMAGES`, chart `global.images.jobs.investment-research`). A job step
 # runs the runner, which runs the step's command: so the image is the SAME release's runner image plus
-# the plugin's `choregos-quant`, and the release builds it FROM the runner it has just published
-# (`.github/workflows/release.yml`, job `job-image`), so the runner inside always matches the platform.
+# the plugin's `tranibor-quant` (and the former `choregos-quant`), and the release builds it FROM the
+# runner it has just published (`.github/workflows/release.yml`, job `job-image`), so the runner inside always matches the platform.
 #
 #   docker build -f plugins/investment-research/Dockerfile \
 #     --build-arg RUNNER_IMAGE=<registry>/tranibor-runner@sha256:… .
@@ -21,12 +21,15 @@ USER root
 COPY --from=wheel /dist /tmp/dist
 # Without its dependencies: the command needs only the standard library (`quant/__init__.py`), and the
 # runner's environment is the release's own, untouched. The command must START here, and is linked by
-# name like the runner's own (#713): a job's argv says `choregos-quant`.
+# name like the runner's own (#713): a job's argv says `tranibor-quant`, or, in a workflow stored before
+# 0.30.0, the former `choregos-quant` (both installed until 0.32.0, ADR 0226 R9c).
 RUN set -eux; \
     uv pip install --python /app/.venv/bin/python --no-deps --no-cache /tmp/dist/*.whl; \
     rm -rf /tmp/dist; \
-    ln -sf /app/.venv/bin/choregos-quant /usr/local/bin/choregos-quant; \
-    cd /tmp && choregos-quant --help >/dev/null; \
+    for command in tranibor-quant choregos-quant; do \
+        ln -sf "/app/.venv/bin/${command}" "/usr/local/bin/${command}"; \
+        (cd /tmp && "${command}" --help >/dev/null); \
+    done; \
     choregos-runner --help >/dev/null
 WORKDIR /workspace
 USER 1000

@@ -1,0 +1,15 @@
+apiVersion: tranibor/v1
+kind: Plugin
+metadata:
+  name: notes
+  version: 1.0.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: A test plugin that declares one profile and no server.
+  homepage: https://github.com/graalsystems/tranibor
+  core: ">=0.20.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  profiles: [profiles/notes.yaml]

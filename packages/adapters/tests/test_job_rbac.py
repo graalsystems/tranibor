@@ -20,7 +20,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 EXECUTOR = ROOT / "packages/adapters/src/tranibor_adapters/executor/k8s_job.py"
-ROLE = ROOT / "charts/choregos/charts/orchestrator/templates/rbac-jobs.yaml"
+ROLE = ROOT / "charts/tranibor/charts/orchestrator/templates/rbac-jobs.yaml"
 
 #: What the HTTP verb requires as an RBAC verb. `GET` covers `get` and `list`; the
 #: more precise one, `get`, is required, because it is the one a named call consumes.
@@ -64,3 +64,11 @@ def test_the_role_grants_what_the_executor_uses(resource: str, verb: str) -> Non
         f"the executor does `{verb}` on `{resource}`, the Role does not grant it "
         f"(granted: {sorted(granted)}). The API will answer 403 and the ticket will die."
     )
+
+
+def test_the_role_lets_the_executor_ask_which_runner_account_the_namespace_has() -> None:
+    """ADR 0226 (R9b): `RunnerServiceAccount` reads `serviceaccounts/tranibor-runner` before it names one.
+    Refused, it falls back on the former account: the run still starts, but never moves to the new one."""
+    source = (ROOT / "packages/adapters/src/tranibor_adapters/executor/tekton.py").read_text(encoding="utf-8")
+    assert re.search(r'"GET", f"\{CORE_API\}/namespaces/\{namespace\}/serviceaccounts/', source)
+    assert "get" in _granted().get("serviceaccounts", set())

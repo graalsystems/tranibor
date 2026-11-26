@@ -495,7 +495,7 @@ class RunEventsBatch(Dto):
 
 
 class RunInputFile(Dto):
-    """A declared input of a run, as the runner mounts it in `.choregos/inputs/` (ADR 0049)."""
+    """A declared input of a run, as the runner mounts it in `.tranibor/inputs/` (ADR 0049)."""
 
     name: str
     version: int

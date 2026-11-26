@@ -272,22 +272,22 @@ async def test_a_session_cookie_signed_before_this_release_still_signs_you_in(
     """Through the real dependency: the same body, re-tagged the previous release's way."""
     from tranibor_api.config import get_settings
 
-    cookie = client.cookies.get("choregos_session", "")
+    cookie = client.cookies.get("tranibor_session", "")
     body, tag = cookie.rsplit(".", 1)
     assert len(tag) == 64, "a fresh sign-in is tagged in full"
     payload = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
     client.cookies.clear()
-    client.cookies.set("choregos_session", _legacy_cookie(get_settings().session_secret, payload))
+    client.cookies.set("tranibor_session", _legacy_cookie(get_settings().session_secret, payload))
     me = await client.get("/api/v1/me")
     assert me.status_code == 200, me.text
     assert me.json()["email"] == admin
 
 
 async def test_a_session_signed_with_a_forged_tag_is_refused(client: AsyncClient, admin: str) -> None:
-    cookie = client.cookies.get("choregos_session", "")
+    cookie = client.cookies.get("tranibor_session", "")
     body, _ = cookie.rsplit(".", 1)
     client.cookies.clear()
-    client.cookies.set("choregos_session", f"{body}.{'0' * 64}")
+    client.cookies.set("tranibor_session", f"{body}.{'0' * 64}")
     assert (await client.get("/api/v1/me")).status_code == 401
 
 
@@ -311,8 +311,8 @@ async def test_a_remote_oauth_handshake_is_bound_to_its_purposes(
     started = await client.post(f"{base}/rovo-oauth/authorize")
     assert started.status_code == 200, started.text
     state = parse_qs(urlsplit(started.json()["redirect_url"]).query)["state"][0]
-    handshake = client.cookies.get("choregos_remote_oauth", "")
-    session = client.cookies.get("choregos_session", "")
+    handshake = client.cookies.get("tranibor_remote_oauth", "")
+    session = client.cookies.get("tranibor_session", "")
     assert state and handshake and session
 
     purposes = ("session", "oidc-state", "oidc-handshake", "remote-oauth-state", "remote-oauth-handshake")

@@ -64,8 +64,8 @@ Audit**), under the same organisation isolation as the rest.
 
 On PostgreSQL the log is evidence, not just a table: each organisation's entries form a hash chain the
 database links at every insert, the API's own role can neither update nor truncate it, and an entry goes
-only with its organisation's deletion. `choregos-admin audit verify`, run in the API's pod, walks every
-chain and names the first entry that was altered, deleted or rewritten. `choregos-admin audit checkpoint`
+only with its organisation's deletion. `tranibor-admin audit verify`, run in the API's pod, walks every
+chain and names the first entry that was altered, deleted or rewritten. `tranibor-admin audit checkpoint`
 signs each chain's end with an Ed25519 key you keep outside the database and the pods; keep the lines it
 prints outside too, since they are what shows a rewrite of a whole chain. Entries written before the
 upgrade are chained from the upgrade on, not before. How to run both, and what the chain does not stop:

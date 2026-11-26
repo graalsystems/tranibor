@@ -30,7 +30,7 @@ from tranibor_core.mcp import RESULT_CEILING_BYTES
 from tranibor_core.prompt_loop import LoopOutcome, LoopRequest, LoopTool, run_loop
 from tranibor_tools_mcp.answer import MAX_NOTICES
 
-from . import safe_files
+from . import run_dir, safe_files
 from .budget import gateway_budget_refusal
 from .egress import step_policy
 from .guardrails import GuardRails
@@ -116,7 +116,7 @@ class PromptRun:
         self.guards = guards
         self.model_transport = model_transport
         self.mcp_transport = mcp_transport
-        self.result_path = self.workspace / ".choregos" / "result.json"
+        self.result_path = self.workspace / run_dir.path("result.json")
         self.submitted: StageResult | None = None
         self.last_error: str | None = None
         self.files = expected_files(stage_input)

@@ -36,13 +36,28 @@ describe("where the events go (S63-12)", () => {
   it("posts an enveloped event to each target, and nothing when not framed or nowhere to post", () => {
     const host = { postMessage: vi.fn() };
     createEmitter("northwind", "coach", ["https://app.northwind.test"], host)("action.confirmed", { action_id: "a1" });
-    expect(host.postMessage).toHaveBeenCalledExactlyOnceWith(
-      { source: "choregos.assistant", type: "action.confirmed", org: "northwind", installation: "coach", action_id: "a1" },
-      "https://app.northwind.test",
-    );
+    const event = { type: "action.confirmed", org: "northwind", installation: "coach", action_id: "a1" };
+    // Under the new source first, then, until 0.32.0, under the former one a host written before 0.30.0 checks.
+    expect(host.postMessage.mock.calls).toEqual([
+      [{ source: "tranibor.assistant", ...event }, "https://app.northwind.test"],
+      [{ source: "choregos.assistant", ...event }, "https://app.northwind.test"],
+    ]);
     createEmitter("northwind", "coach", [], host)("resize");
     createEmitter("northwind", "coach", ["https://app.northwind.test"], null)("resize");
-    expect(host.postMessage).toHaveBeenCalledOnce();
+    expect(host.postMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives a host that checks either source each event exactly once (ADR 0226, R9c)", () => {
+    const received: Record<string, unknown[]> = { "tranibor.assistant": [], "choregos.assistant": [] };
+    const host = {
+      postMessage: (message: unknown) => {
+        const source = (message as { source: string }).source;
+        for (const [checked, messages] of Object.entries(received)) if (source === checked) messages.push(message);
+      },
+    };
+    createEmitter("northwind", "coach", ["https://app.northwind.test"], host)("resize", { height: 10 });
+    expect(received["tranibor.assistant"]).toHaveLength(1);
+    expect(received["choregos.assistant"]).toHaveLength(1);
   });
 });
 

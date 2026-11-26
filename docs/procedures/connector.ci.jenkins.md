@@ -18,7 +18,7 @@ For a project owner. Procedure `connector.ci.jenkins`, version 1, reviewed 2026-
 2. Optional, to be told when a build starts and ends instead of polling: install the **Notification plugin** and
    add the endpoint `<api_url>/api/v1/webhooks/jenkins?token=<the shared webhook secret>` (format JSON, protocol HTTP,
    events Job Started and Job Completed). A pipeline can instead post `{"job", "build_number", "result",
-   "sha", "branch", "project", "work_item"}` to that URL with the `X-Choregos-Secret` header.
+   "sha", "branch", "project", "work_item"}` to that URL with the `X-Tranibor-Secret` header.
 3. Name the commit in the build so the platform can find a commit's build: a pipeline that checks out a
    revision records it (the SCM revision is read), or pass the commit as a build parameter.
 

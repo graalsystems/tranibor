@@ -5,7 +5,7 @@ A plugin packages agents and what they need, in one format the platform understa
 locally with the CLI, how a deployment declares the sources it fetches plugins from and how it trusts
 them, what installing one into an organisation does, and the plugins a deployment installs by default.
 
-"Plugin" here means this package. A Python wheel loaded through the `choregos.plugins` entry point is an
+"Plugin" here means this package. A Python wheel loaded through the `tranibor.plugins` entry point is an
 **extension**. A plugin is the one unit a trade ships: when its trade needs code inside the platform (a
 connector type, gates, effects), that code is the plugin's extension, under the plugin's name and
 version; the enterprise edition is an extension that is no plugin. The public page
@@ -37,7 +37,7 @@ workflows and eval suites, [Assistants](#assistants)). Anything else in the dire
 live beside its plugin without shipping in it.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Plugin
 metadata:
   name: hello                 # [a-z0-9-], unique within a source
@@ -64,7 +64,7 @@ contents:
 
 ## What is checked
 
-`choregos plugin validate` reports every problem it finds, each with its file:
+`tranibor plugin validate` reports every problem it finds, each with its file:
 
 - **Paths stay inside the plugin.** A path cannot be absolute or hold a `.` or `..` segment, and no
   declared path, nor anything under a declared directory, may be or pass through a symbolic link, even
@@ -119,7 +119,7 @@ contents:
 
 Validation also **warns**, without refusing: an agent that reads a knowledge base (`spec.knowledge`) that
 no template of the plugin ships runs only in an organisation that already has that base and serves it to
-the project — its runs stop otherwise. `choregos plugin validate` prints each warning after the digest
+the project — its runs stop otherwise. `tranibor plugin validate` prints each warning after the digest
 (`! agent `x` reads the knowledge base `y`, which no template of this plugin ships …`).
 
 ### Knowledge bases
@@ -231,7 +231,7 @@ business vocabulary: `test_assistant_genericity.py` runs the fixture below end t
 
 ```yaml
 # assistants/investment-assistant.yaml (tests/fixtures/plugins/investment-assistant)
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Assistant
 metadata: { name: investment-assistant, display_name: Investment assistant, description: "…" }
 agent: investment-analyst            # an agent of this plugin, runtime prompt or hosted
@@ -254,7 +254,7 @@ policy:
   data: { classification: sensitive, erasure: [by_user] }
 ```
 
-`choregos plugin validate` refuses, naming the file and the JSON path of the field:
+`tranibor plugin validate` refuses, naming the file and the JSON path of the field:
 
 1. an `agent` that is not an agent of the plugin, or whose runtime is not `prompt` or `hosted`;
 2. a `{{ config.<key> }}` of the agent's instructions that `config_schema` does not declare;
@@ -322,7 +322,7 @@ now with `POST …/run`. Nothing changes in the Temporal workflows: the schedule
   `{ kind: trigger, subscriber: /attendee/email, idempotency: /event/id }`: `subscriber` is the JSON pointer, in
   the event's payload, of the subscriber's EMAIL; `idempotency` (optional) the pointer of the event's identifier.
   A system posts the event to `POST /webhooks/assistants/{org}/{slug}/tasks/{task}/events` with
-  `X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>`; the key and the URL are shown to whoever manages the
+  `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>`; the key and the URL are shown to whoever manages the
   installation by `POST /orgs/{org}/assistants/{slug}/tasks/{task}/event-key` (derived from the installation's
   webhook key and the task: rotating the webhook key changes it, another task's key opens nothing). The person
   subscribes with `PUT …/tasks/{task}` `{ "kind": "trigger" }` (no cron). Routing never guesses: the pointer must
@@ -348,7 +348,7 @@ now with `POST …/run`. Nothing changes in the Temporal workflows: the schedule
 - **Reads journal**: every read of a task run's steps is a line with the work item's key (and the delegation's id
   under one), never the content.
 - **Delivery**: the run's artifacts are listed by `GET /me/inbox` (always). `email` and `teams` go through a
-  notifier, `webhook` is an HMAC-signed POST (`X-Choregos-Signature: t=…,v1=…`, as the A2A push notifications)
+  notifier, `webhook` is an HMAC-signed POST (`X-Tranibor-Signature: t=…,v1=…`, as the A2A push notifications)
   to the installation's `policy_overrides.delivery.webhook.url`; each is sent once per artifact revision and a
   channel nobody configured is recorded as `not_configured` in the work item. `email` goes through whichever
   notifier `policy_overrides.delivery.email` (`{type, config}`) names. `teams` (S63-25) posts an Adaptive Card to a
@@ -532,7 +532,7 @@ cases:
     rubric: [{ criterion: explains without recommending a purchase, threshold: 0.8 }]   # scored by the judge model
 ```
 
-`choregos plugin validate` holds the file to the schema and refuses a suite for another agent than the
+`tranibor plugin validate` holds the file to the schema and refuses a suite for another agent than the
 assistant's, a duplicate case name, and a tool (in an assertion, a condition or `tool_results`) that is not
 a `<need>__<operation>` of the assistant's tools. `tranibor_core.conversation_evals` evaluates a journal
 (`evaluate_case`, `evaluate_suite`) and plays a case through the prompt loop on a scripted model
@@ -568,7 +568,7 @@ setting `TRANIBOR_CONVERSATION_JUDGE_MODEL`; empty, it is `default_model_profile
 else `platform/standard`. Tests script it on `FakeModelServer` (`say_for("conversation_judge", ...)`).
 
 A task's workflow (`tasks[].workflow`) must be a valid workflow (the workflow schema and its static rules):
-`choregos plugin validate` refuses a stub, naming the file.
+`tranibor plugin validate` refuses a stub, naming the file.
 #### Writes in a conversation
 
 A write need with `approval: inline` is offered to the agent as `<need>__<operation>` (the agent's `mcp_servers`
@@ -614,7 +614,7 @@ launches:
     required: true           # default; an optional launch may stay unbound or be switched off
 ```
 
-`choregos plugin validate` refuses a launch name declared twice, an `input_schema` that is not a JSON Schema of
+`tranibor plugin validate` refuses a launch name declared twice, an `input_schema` that is not a JSON Schema of
 `type: object`, and a need called `launch` beside launches (their tools are `launch__<name>`).
 
 **Binding.** The installation binds each launch, by reference, to a team's project and the name of one of its
@@ -758,10 +758,10 @@ row-level policy.
 ## Pack and index
 
 ```
-choregos plugin validate hello/
-choregos plugin pack hello/ -o hello-1.0.0.tar.gz
-choregos plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/choregos-plugins
-choregos plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
+tranibor plugin validate hello/
+tranibor plugin pack hello/ -o hello-1.0.0.tar.gz
+tranibor plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/tranibor-plugins
+tranibor plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
     --git-commit <40-hex sha> --git-path plugins
 ```
 
@@ -770,7 +770,7 @@ declared files (nothing else is in the archive): entries sorted by path, regular
 files always give the same digest, whatever their times or permissions on disk, and `pack` writes the
 same bytes every time. An index (`plugin-index.schema.json`) records, for each version, its digest, its
 `core` range, where to fetch it — an OCI reference, or a git repository pinned to a commit — and the
-`agents` it ships (written by `choregos plugin index`): the workflow catalogue reads it to name the plugin
+`agents` it ships (written by `tranibor plugin index`): the workflow catalogue reads it to name the plugin
 of an agent a workflow needs and the organisation lacks, without fetching any plugin
 ([ADR 0111](adr/0111-a-workflow-catalogue.md)). A
 branch or a tag is not accepted in place of a commit.
@@ -913,6 +913,19 @@ the server's NetworkPolicy lets through DNS and public addresses on those hosts'
 cluster's, the node's or the metadata endpoint's addresses). Kubernetes cannot name a host: with
 `plugins.servers.egress: cilium` a `CiliumNetworkPolicy` narrows egress to those exact names.
 
+A deployment may let the servers reach a named private range (a controller on the customer's LAN;
+[ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md) §6a):
+the operator lists CIDRs (`plugins.servers.privateCidrs`, nothing by default) and, in a deployment with
+several organisations, binds each to the organisation that owns it (`privateCidrsByOrg`, by slug). When a
+host is typed, the API resolves it: a host inside a listed range is admitted for that organisation only,
+after the organisation's network bounds ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md));
+any other private, link-local, CGNAT or metadata address is a 422, and the metadata and link-local
+ranges (`169.254.0.0/16`, `fd00:ec2::/32`, `fe80::/10`, `100.100.100.200`, loopback) are refused whatever
+is listed. The server's policy then opens exactly that host's address and port (`ipBlock` `/32` or `/128`,
+or a `toCIDR` rule with Cilium), never the range. Limits: the address is the one resolved when the server
+is provisioned or reconciled, a name that moves is followed at the next reconcile; a host that does not
+resolve when typed is not judged (it reaches nothing until it does, and the policy then opens nothing).
+
 ### On its fake, for the eval matrix
 
 A server may declare how the platform runs it on its fake for the live eval matrix (#1372):
@@ -974,7 +987,7 @@ A server's image is pinned by digest (the contract), comes from a registry prefi
 `plugins.servers.registries`, and carries a trusted signature when `images.hostedCosign` is `enforce`
 (`warn` logs `plugin.server.signature_unverified`). A deployment without `plugins.servers.enabled`
 refuses a plugin that brings a server. In the cluster, the Kyverno policy
-`choregos-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
+`tranibor-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
 namespace whose image is not pinned or not from the allowed prefix.
 
 ## The tracker profile
@@ -1040,8 +1053,8 @@ approval).
   the tool, the key and the text): a Temporal retry replays the same key and the server answers the
   first write (`created: false`, `written: false`). The same comment twice on an item is written once.
   `tracker_upsert_status` adds a note only when the latest one with that `marker` differs (journals that
-  cannot be edited); Tranibor's markers (`<!-- choregos:status -->`) reach the server as their name
-  (`choregos:status`).
+  cannot be edited); Tranibor's markers (`<!-- tranibor:status -->`) reach the server under their former
+  bare name (`choregos:status`), which every note written before carries, until 0.32.0.
 - **Platform calls, audited, not governed.** The adapter calls the server through the platform's client
   of it (the Service URL the platform wrote, the server's bearer token, no redirect), not through an
   agent's tool selection nor a governed action — as the platform's writes to Jira or GitHub. The workflow
@@ -1078,11 +1091,9 @@ approval).
 
 ## Profiles a plugin declares
 
-> **Status (S86-01): the contracts only.** The schemas below exist and `make contracts` generates their
-> types, but nothing reads them yet: the loader does not pack `contents.profiles`, `tranibor plugin
-> validate` does not compare a server with a profile (S86-02), and a profile entry in an agent's
-> `mcp_servers` opens no tool (S86-04). A plugin that uses them is refused by a core older than this
-> contract, so it declares the first core release that has them in its `core` range.
+> **Status (S86-04): declared, checked and served.** A profile entry in an agent's `mcp_servers` opens the
+> instances that implement it (see [Calling a profile](#calling-a-profile)). What makes instances from one
+> server (S86-03) is not part of this.
 
 A plugin may declare **profiles** ([ADR 0224](adr/0224-a-plugin-server-implements-a-profile-a-plugin-declares-and-runs-as-named-instances.md)):
 named contracts of tools that several plugin servers, of that plugin or of others, may implement, and that an
@@ -1103,11 +1114,60 @@ a profile a plugin declares is a family beside it, and the core never reads what
   every instance valid under A is valid under B) is written in the schema's `description`.
 - **Implement** it with `implements: [<plugin>/<name>@<version>]` in a server file, beside or instead of
   `tracker`. The plugin that declares the profile must be among the implementing plugin's
-  `requires.plugins`; the server declares every tool with the same access, a governance never weaker
-  and compatible schemas (checked from S86-02).
+  `requires.plugins`, or be the same plugin; the server declares every tool with the same access, a
+  governance never weaker and compatible schemas (see [Checking a server against a
+  profile](#checking-a-server-against-a-profile)).
 - **Call** it with `mcp_servers: [{profile: <plugin>/<name>@<version>, tools: [...]}]` in an agent: the
   entry names a `connector` or a `profile`, never both, and a profile entry takes no `identity`. The
-  tools it lists are tools of the profile (resolved at run start from S86-04).
+  tools it lists are tools of the profile, resolved at run start (see [Calling a profile](#calling-a-profile)).
+
+### Calling a profile
+
+At run start (and wherever the agent's tools are listed: its access, a session, the conversation's needs)
+an entry `{profile, tools}` resolves to **every connector of the organisation whose plugin server
+`implements` the profile and that the project may use**, through the same path as a connector named in an
+entry: the connector's availability for the project, its operation policy and the project's tightening, the
+groups, approvals and argument constraints all apply to each instance, and an operation the server does not
+declare stays refused.
+
+- **Names.** Each instance brings its tools as `<instance>__<tool>`, so the model, the ledger
+  (`mcp:<instance>`) and the audit line (`connector`) name the instance that answered.
+- **Only the profile.** A server may serve more than the profile (`purge_notes` next to `list_notes`): only
+  the profile's tools that the entry lists (patterns, as for a connector) are offered.
+- **The cap.** One entry offers at most `TRANIBOR_BROKER_PROFILE_TOOL_CAP` tools (16 by default), in the
+  profile's tool order then the instance's name, so that the same run offers the same tools. The tools left
+  out are named in the run's journal (`profile.capped`) and in the agent's access (`refused`).
+- **Unbound.** A profile no instance serves for the project (not installed, no connector implements it, none
+  usable by the project) opens nothing; the run starts and its journal carries a `profile.unbound` line with
+  the reason. `profile.` joins `gate.` and `memory.` as a prefix only the platform writes.
+- **A tool of the same name** that an entry naming a connector already opens is kept as it is.
+
+### Checking a server against a profile
+
+`tranibor plugin validate <plugin> [--profiles-from <plugin or plugins folder>]...` loads a profile file
+against `plugin-profile.schema.json` (the subset, a `$ref` that resolves, no cycle, a tool and a profile
+declared once), then, for each server that `implements` a profile, proves:
+
+| Rule | Refused when |
+| --- | --- |
+| Tools | the server does not declare a tool of the profile, or declares it with another `access`. |
+| Governance | the profile says `human_approval: true` and the server does not; the server drops a `platform_arguments` entry of the profile. It may add either. |
+| Input | the profile's `input` is not accepted by the server's `input_schema`: a bound tighter on the server, a property the server refuses, a field it requires that the profile leaves optional. The arguments the platform fills (`platform_arguments`) are not counted on the server's side. |
+| Output | the server's `output_schema` is not accepted by the profile's `output`: a wider type, a missing required field, a looser bound or `format`. |
+| Requires | the plugin that declares the profile is neither this plugin nor in its `requires.plugins`. |
+
+The server's `input_schema` and `output_schema` are written in the same subset as the profile's, with
+their own `$defs` at the root; a keyword outside the subset, or a tool without a schema, fails the check
+rather than passes it (`output_schema` is new in `plugin-server.schema.json`, additive). The comparison
+is sound and not complete: it refuses what it cannot show to be inside, and the message names the tool,
+the direction and the path (`list_notes of notes/notes@1, input does not accept what the profile
+accepts: /limit: maximum is 100 for the server but 200 for the profile`).
+
+The profile of another plugin is a file: pass its plugin directory (or a folder of them) with
+`--profiles-from`. Without it the profile is not checked and validate says so. At install, the check runs
+again against the profiles stored with the **installed** version of the plugin that declares them, so a
+server proven against one version is refused if the organisation holds another that it does not keep. An
+upgrade of the declaring plugin does not re-check the servers installed earlier (not yet).
 
 ## Default plugins
 
@@ -1165,7 +1225,7 @@ workflow that names an agent resolve through the same view. Organisations that i
 agents before S43-09 had their provenance rewritten by a migration, and an `org_plugins` row recorded
 for each plugin they held agents of, so upgrades keep reaching them.
 
-The full reference of the commands is in [the CLI reference](cli.md#choregos-plugin).
+The full reference of the commands is in [the CLI reference](cli.md#tranibor-plugin).
 
 ## Sources and trust
 
@@ -1179,7 +1239,7 @@ sources:
     trust:                      # a keyless signer, regular expressions matched whole…
       identity: https://github\.com/graalsystems/tranibor-agents/\.github/workflows/publish\.yml@refs/heads/main
       issuer: https://token\.actions\.githubusercontent\.com
-      # key: /etc/choregos/plugins/tranibor.pub   # …or a public key cosign reads
+      # key: /etc/tranibor/plugins/tranibor.pub   # …or a public key cosign reads
       # tlog: false             # only for a key whose signatures never reached Rekor
     egress: [registry.acme.example]   # hosts beyond the index's own
 defaultPlugins:

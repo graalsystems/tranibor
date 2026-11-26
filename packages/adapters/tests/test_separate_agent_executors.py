@@ -13,6 +13,7 @@ from tranibor_adapters.errors import UnsupportedClusterError
 from tranibor_adapters.executor import separate_agent
 from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.local_docker import LocalDockerExecutor
+from tranibor_adapters.executor.tekton import FORMER_RUNNER_SERVICE_ACCOUNT
 from tranibor_core.agent_isolation import SEPARATE_AGENT
 from tranibor_core.domain import AgentContainer, StageJobSpec
 from tranibor_core.egress_gate import GATE_CONTAINER, EgressGate
@@ -68,10 +69,12 @@ class _Docker(LocalDockerExecutor):
 async def _render() -> dict[str, Any]:
     """The renderings the fixture holds, from the code as it is now, under `process`."""
     out: dict[str, Any] = {}
+    # In a namespace provisioned before 0.30.0, which has the former account only (ADR 0226, R9b).
+    former = FORMER_RUNNER_SERVICE_ACCOUNT
     for gated in (False, True):
         executor = _executor(gated=gated)
-        out[f"job-gate={gated}"] = executor._job(_spec(), "run-r-1")
-        out[f"job-hosted-gate={gated}"] = executor._job(_spec(agent_container=HOSTED), "run-r-1")
+        out[f"job-gate={gated}"] = executor._job(_spec(), "run-r-1", former)
+        out[f"job-hosted-gate={gated}"] = executor._job(_spec(agent_container=HOSTED), "run-r-1", former)
     docker = _Docker()
     for spec in (_spec(), _spec(run_id="r-2", agent_container=HOSTED)):
         await docker.start(spec)
@@ -79,10 +82,28 @@ async def _render() -> dict[str, Any]:
     return out
 
 
+def _without_the_new_label_family(value: Any) -> Any:
+    """The rendering as it was before ADR 0226: each `tranibor/*` label it now writes beside its former
+    `choregos/*` twin (same value, checked here) is set aside."""
+    if isinstance(value, dict):
+        kept = {}
+        for key, item in value.items():
+            if isinstance(key, str) and key.startswith("tranibor/"):
+                assert value.get("choregos/" + key.removeprefix("tranibor/")) == item, key
+                continue
+            kept[key] = _without_the_new_label_family(item)
+        return kept
+    if isinstance(value, list):
+        return [_without_the_new_label_family(item) for item in value]
+    return value
+
+
 async def test_process_renders_exactly_what_it_did_before() -> None:
     """The rollback: a deployment that sets `process` gets the Job and the containers of 0.27.15, but for
-    the pod's `choregos/sandbox` label (finding #2082: the run-pod policy holds a Job's pod in any mode)."""
-    assert json.loads(json.dumps(await _render())) == json.loads(BEFORE.read_text(encoding="utf-8"))
+    the pod's `choregos/sandbox` label (finding #2082: the run-pod policy holds a Job's pod in any mode)
+    and the `tranibor/*` labels written beside the `choregos/*` ones (ADR 0226)."""
+    rendered = json.loads(json.dumps(await _render()))
+    assert _without_the_new_label_family(rendered) == json.loads(BEFORE.read_text(encoding="utf-8"))
 
 
 def test_both_executors_declare_the_capability() -> None:

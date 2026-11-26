@@ -62,7 +62,7 @@ tranibor demo import acme/billing history.yaml      # or: POST /api/v1/projects/
 ```
 
 ```yaml
-schema: choregos/DemoHistory/v1
+schema: tranibor/DemoHistory/v1
 prices:                              # USD per million tokens; a run without `cost_usd` is costed with it
   anthropic/claude-sonnet-5: { input_usd_per_mtok: 3.0, output_usd_per_mtok: 15.0, cached_input_usd_per_mtok: 0.3 }
 work_items:
@@ -335,9 +335,9 @@ the API would have been sent (`apps/web/e2e/creation-inputs-and-task-form.spec.t
 ## Writing a workflow
 
 ```bash
-choregos workflow templates                    # the shipped templates
-choregos workflow validate .choregos/workflow.yaml
-choregos workflow show .choregos/workflow.yaml --mermaid
+tranibor workflow templates                    # the shipped templates
+tranibor workflow validate .tranibor/workflow.yaml
+tranibor workflow show .tranibor/workflow.yaml --mermaid
 ```
 
 Validation is **local and offline**: the same code as the orchestrator, so what you see is
@@ -346,10 +346,10 @@ what will apply. Errors carry a line and a column.
 ## Debugging a run
 
 ```bash
-choregos items list <project>
-choregos runs list <ticket-id>
-choregos runs tail <run-id>      # ACP journal, live
-choregos runs diff <run-id>      # annotated diff: out-of-scope changes are marked
+tranibor items list <project>
+tranibor runs list <ticket-id>
+tranibor runs tail <run-id>      # ACP journal, live
+tranibor runs diff <run-id>      # annotated diff: out-of-scope changes are marked
 ```
 
 In the front, a run's page shows its **guarantees** (each gate and its verdict), its
@@ -358,7 +358,7 @@ In the front, a run's page shows its **guarantees** (each gate and its verdict),
 ## Shipping a workflow template from outside this tree
 
 Set `TRANIBOR_WORKFLOW_TEMPLATES_DIR` to one or more directories (separated by `:`) holding
-`<name>.yaml` workflows. They appear in `template_names()`, in `choregos workflow templates`, and
+`<name>.yaml` workflows. They appear in `template_names()`, in `tranibor workflow templates`, and
 can be loaded by name like the shipped ones.
 
 A deployment template **wins over a shipped one of the same name**, which is how a shop adapts
@@ -632,7 +632,7 @@ test plugin's extension that declares one of each and checks each reader takes i
 
 Software delivery's values (the `scm.*`, `ci.*`, `cd.*` event types, the finding types `bug`, `perf`,
 `tech-debt`, `flaky-test`, the memory kinds `flaky_test` and `hotspot`, the connector kinds `scm`, `ci`,
-`cd` and the release train's `choregos.release.*`) are not the core's: only the `software-delivery`
+`cd` and the release train's `tranibor.release.*`) are not the core's: only the `software-delivery`
 extension declares them (`tranibor_software_delivery.lists`, its enumerations in `names.py`). The readers
 that load no extension, the runner and its tools in a job's image, read a value that matches a list's
 pattern and leave the platform to judge it; the interpreter reads a recorded result as a stored document,
@@ -643,14 +643,14 @@ GitLab and Azure DevOps webhooks deliver their issue events and no pull request 
 ## Shipping a connector from outside this tree
 
 A package installed next to Tranibor can register its own connectors — no fork, no patch to the
-core. Declare an entry point in the `choregos.plugins` group. A package loaded that way is an
+core. Declare an entry point in the `tranibor.plugins` group. A package loaded that way is an
 **extension**; "plugin" means the package of [ADR 0093](adr/0093-an-agent-ships-as-a-plugin.md), see
 [plugins.md](plugins.md). An extension that brings a trade's code is that trade's plugin's code half, with
 the plugin's name ([Plugins, extensions and editions](site/build/plugins-and-trades.md)):
 
 ```toml
 # pyproject.toml of your package
-[project.entry-points."choregos.plugins"]
+[project.entry-points."tranibor.plugins"]
 my-tracker = "my_package:register_extension"
 ```
 
@@ -816,7 +816,7 @@ RUN pip install --no-deps --no-index /tmp/choregos_ee-*.whl
 
 That obvious gesture is correct **only since the images set `PIP_PYTHON`**. The virtualenv in
 `/app/.venv` is created by uv and has no `pip`; the one on the `PATH` belongs to the system. On
-`choregos-api:0.8.3` and earlier the build succeeds, the wheel lands in `~/.local`, outside the
+`tranibor-api:0.8.3` and earlier the build succeeds, the wheel lands in `~/.local`, outside the
 virtualenv, and the platform runs as `community` without a word — only the start-up guard catches
 it, and only if `global.edition: enterprise` was set. On those images, write
 `pip --python /app/.venv/bin/python install …`. `tests/packaging/test_image_ee.py` builds a real
@@ -834,11 +834,11 @@ python -m tranibor_api.migrate downgrade <extension_label>@base
 
 The former name of the same command was removed in 0.24.0 (`docs/deployment.md`, "Upgrading to 0.24").
 
-An extension that needs tables declares a directory of Alembic revisions in the `choregos.migrations`
+An extension that needs tables declares a directory of Alembic revisions in the `tranibor.migrations`
 entry-point group; the value it points to is a path:
 
 ```toml
-[project.entry-points."choregos.migrations"]
+[project.entry-points."tranibor.migrations"]
 mine = "my_package:MIGRATIONS_PATH"   # pathlib.Path to a versions directory
 ```
 
@@ -998,7 +998,7 @@ table below is the rename record, and none of the former names resolves any more
 A `GestureRequest` also reads `geste` and `cible`, a `GestureRefused` reads `raison`, and a `Quota`
 reads `memoire`, under the same warning. Not renamed here: the DSL value `verifier` of an action
 (a workflow written with it keeps running), the persisted `greffon:` prefixes and the entry-point
-group `choregos.plugins`. `load_extensions` follows in S45-10.
+group `tranibor.plugins`. `load_extensions` follows in S45-10.
 
 The edition API (`tranibor_api.edition`) and the `Principal` followed in 0.21 (S45-12):
 

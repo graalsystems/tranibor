@@ -4,7 +4,7 @@ One run = one manually triggered ACA *job*, created by the orchestrator and remo
 resource's lifecycle. This folder documents what the executor creates, so that an Azure
 administrator can audit it or pre-provision it by hand.
 
-## What Choregos creates per run
+## What Tranibor creates per run
 
 ```jsonc
 // PUT /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.App/jobs/run-{run_id}
@@ -29,7 +29,7 @@ administrator can audit it or pre-provision it by hand.
 Then `POST .../jobs/run-{run_id}/start`. Both calls can be replayed: the `PUT` is idempotent,
 and the `start` only happens if the job has no execution yet.
 
-## What Choregos does not do
+## What Tranibor does not do
 
 - **No cloud credential in the runner.** The image is pulled by the job's managed identity;
   the container has neither a subscription key nor an ARM token.
