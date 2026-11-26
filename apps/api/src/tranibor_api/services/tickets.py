@@ -4,15 +4,17 @@ item; the storing of a stage's outputs."""
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
 from pydantic import ValidationError
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters.errors import AdapterError
-from tranibor_contracts import CHANGE_REQUEST, EventType
+from tranibor_contracts import CHANGE_REQUEST, EventType, Workflow
 from tranibor_contracts.open_lists import STORED
 from tranibor_core.domain import NewItem
 from tranibor_core.restricted import RESTRICTED_TITLE, WITHHELD, mark
@@ -29,12 +31,14 @@ from ..db.models import (
     Project,
     Release,
     Run,
+    WorkflowDef,
     WorkItem,
 )
 from ..errors import unprocessable, upstream
 from ..keyset import keyset_page
 from ..rbac import Principal
 from ..schemas import (
+    CostEstimate,
     DecisionDraft,
     HumanRequestAssignee,
     HumanRequestDto,
@@ -54,14 +58,14 @@ from ..schemas import (
 from ..schemas.tickets import LinkDto
 from ..secret_store import SecretStoreUnavailable, resolved_configuration
 from ..temporal import get_temporal, interpreter_id
-from .costs import estimate_cost
-from .definitions import work_item_workflow, workflow_model
+from .costs import estimate_costs
+from .definitions import work_item_workflow, work_item_workflows, workflow_model
 from .events import persist_event
 from .handed_files import refuse_start_without_files
 from .human_assignee import StepAssignee, actor_of_the_step, assignee_from_actor, assignee_of_row
 from .initiator import of_principal
 from .routing import WorkItemBirth, new_work_item, verify_birth
-from .work_item_repository import repository_view
+from .work_item_repository import repository_views
 
 if TYPE_CHECKING:  # `deps` imports the services
     from ..deps import Page
@@ -200,40 +204,99 @@ def human_request_dto(row: HumanRequest, assignee: StepAssignee | None = None) -
 async def work_item_dto(
     session: AsyncSession, item: WorkItem, project: Project, *, with_temporal: bool = False
 ) -> WorkItemDto:
+    """The work item as the API serves it: `work_item_dtos` of a page of one, so that a work item reads
+    the same alone and in a list (#2285)."""
+    (dto,) = await work_item_dtos(session, [item], project)
+    if with_temporal:
+        dto = dto.model_copy(update={"workflow_status": await _temporal_status(item)})
+    return dto
+
+
+async def work_item_dtos(
+    session: AsyncSession, items: Sequence[WorkItem], project: Project
+) -> list[WorkItemDto]:
+    """The DTOs of a page of the project's work items, in their order.
+
+    Each fact a DTO reads beyond its row (its workflow, its current run, its waiting request, its ledger,
+    its repository, its estimate) is read for the whole page in one query of its kind, never one per work
+    item: the board read 84 statements for 21 work items before (#2285)."""
+    if not items:
+        return []
+    ids = [item.id for item in items]
     # The workflow OF THE WORK ITEM: its pinned version, otherwise the project's default, and no
     # longer the `default-simple` template, which showed a workflow the project never had.
-    workflow_row = await work_item_workflow(session, item)
-    workflow = workflow_model(workflow_row)
-    state = workflow.states.get(item.state)
-    current = (
+    definitions = await work_item_workflows(session, items)
+    models: dict[str | None, Workflow] = {}
+    for row in definitions.values():
+        key = row.id if row is not None else None
+        if key not in models:
+            models[key] = workflow_model(row)
+    # The latest queued or running run and the latest undecided request: each work item's first, newest first.
+    current: dict[str, Run] = {}
+    for run in (
         await session.execute(
             select(Run)
-            .where(Run.work_item_id == item.id, Run.status.in_(["queued", "running"]))
-            .order_by(Run.created_at.desc())
-            .limit(1)
+            .where(Run.work_item_id.in_(ids), Run.status.in_(["queued", "running"]))
+            .order_by(Run.created_at.desc(), Run.id.desc())
         )
-    ).scalar_one_or_none()
-    pending = (
+    ).scalars():
+        current.setdefault(str(run.work_item_id), run)
+    pending: dict[str, HumanRequest] = {}
+    for request in (
         await session.execute(
             select(HumanRequest)
-            .where(HumanRequest.work_item_id == item.id, HumanRequest.decided_at.is_(None))
-            .order_by(HumanRequest.requested_at.desc())
-            .limit(1)
+            .where(HumanRequest.work_item_id.in_(ids), HumanRequest.decided_at.is_(None))
+            .order_by(HumanRequest.requested_at.desc(), HumanRequest.id.desc())
         )
-    ).scalar_one_or_none()
-    totals = totals_from(item.totals)
+    ).scalars():
+        pending.setdefault(str(request.work_item_id), request)
     # What the ticket has cost is the ledger's sum — models AND tools (S27-03): the counter kept on
     # the row adds model spend only. A ticket with no ledger line keeps its counter.
-    booked = (
-        await session.execute(
-            select(func.sum(CostLedger.cost_usd), func.sum(CostLedger.cost_eur)).where(
-                CostLedger.work_item_id == item.id
+    booked: dict[str, tuple[Any, Any]] = {
+        str(work_item_id): (usd, eur)
+        for work_item_id, usd, eur in await session.execute(
+            select(CostLedger.work_item_id, func.sum(CostLedger.cost_usd), func.sum(CostLedger.cost_eur))
+            .where(CostLedger.work_item_id.in_(ids))
+            .group_by(CostLedger.work_item_id)
+        )
+    }
+    repositories = await repository_views(session, project, items)
+    estimates = await estimate_costs(session, project.id, items)
+    dtos = []
+    for item in items:
+        row = definitions[item.id]
+        dtos.append(
+            _work_item_dto(
+                item,
+                project,
+                row,
+                models[row.id if row is not None else None],
+                current=current.get(item.id),
+                pending=pending.get(item.id),
+                booked=booked.get(item.id, (None, None)),
+                repository=repositories[item.id],
+                estimate=estimates[item.id],
             )
         )
-    ).one()
+    return dtos
+
+
+def _work_item_dto(  # noqa: PLR0913 - the facts of one work item, read for its whole page
+    item: WorkItem,
+    project: Project,
+    workflow_row: WorkflowDef | None,
+    workflow: Workflow,
+    *,
+    current: Run | None,
+    pending: HumanRequest | None,
+    booked: tuple[Any, Any],
+    repository: tuple[str | None, bool],
+    estimate: CostEstimate | None,
+) -> WorkItemDto:
+    state = workflow.states.get(item.state)
+    totals = totals_from(item.totals)
     if booked[0] is not None:
         totals = totals.model_copy(update={"cost_usd": float(booked[0]), "cost_eur": float(booked[1] or 0.0)})
-    repository, repository_fixed = await repository_view(session, project, item)
     return WorkItemDto(
         id=item.id,
         fields=dict(item.fields or {}),
@@ -250,7 +313,7 @@ async def work_item_dto(
         workflow_name=workflow_row.name if workflow_row else workflow.metadata.name,
         workflow_version=workflow_row.version if workflow_row else workflow.metadata.version,
         temporal_wf_id=item.temporal_wf_id,
-        workflow_status=await _temporal_status(item) if with_temporal else None,
+        workflow_status=None,
         failure=WorkflowFailure(**item.failure) if item.failure else None,
         paused=item.paused,
         current_run=run_summary(current) if current else None,
@@ -263,11 +326,11 @@ async def work_item_dto(
             else None
         ),
         links=[LinkDto(rel=CHANGE_REQUEST, url=item.pr_url)] if item.pr_url else [],
-        workspace=repository,
-        workspace_fixed=repository_fixed,
+        workspace=repository[0],
+        workspace_fixed=repository[1],
         totals=totals,
         budget_usd=item.budget_usd,
-        estimate=await estimate_cost(session, project.id, item),
+        estimate=estimate,
         initiated_by=item.initiated_by,
         reporter=item.reporter,
         restricted_knowledge=list(item.restricted_knowledge or []),
@@ -317,11 +380,16 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
     """Assigns `<PREFIX>-<n>` when the platform keeps the work items itself (`tracker: internal`).
 
     Counting in the database rather than keeping a counter avoids a second place where the state
-    lives; the race between two simultaneous creations is left to the uniqueness constraint
-    `(project_id, tracker_key)`. It served the orchestrator (findings); it also serves the API
-    since `POST /projects/{id}/work-items` exists.
+    lives. It serves the API (`POST /projects/{id}/work-items`, the MCP and A2A doors, triggers,
+    actions) and the orchestrator (findings, through `internal_ticket_key`), each in its own session.
 
-    `numerotee=False` returns the prefix alone: a schedule builds its own key on it (S38-11).
+    Two creations in flight on one project used to read the same `max + 1`, and the uniqueness
+    constraint `(project_id, tracker_key)` turned the second into an HTTP 500: 84 of 100 on a real
+    PostgreSQL with 10 at a time (#2284). The number is now minted under `lock_key_minting`, held
+    until the caller's transaction ends, so the next creation reads it once it is committed.
+
+    `numerotee=False` returns the prefix alone: a schedule or a trigger builds its own key on it
+    (S38-11), so nothing is minted and nothing is locked.
     """
     connector = (
         await session.execute(
@@ -332,6 +400,7 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
     prefix = str(configured or project.slug).upper()
     if not numerotee:
         return prefix
+    await lock_key_minting(session, project.id)
     existing = (
         (
             await session.execute(
@@ -347,6 +416,35 @@ async def internal_work_item_key(session: AsyncSession, project: Project, *, num
         int(suffix) for tracker_key in existing if (suffix := tracker_key.rsplit("-", 1)[-1]).isdigit()
     ]
     return f"{prefix}-{max(numbers, default=0) + 1}"
+
+
+def key_minting_lock_number(project_id: str) -> int:
+    """The project's `pg_advisory_xact_lock` number: a stable signed 64-bit hash, its own namespace."""
+    digest = hashlib.sha256(f"work-item-key:{project_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big", signed=True)
+
+
+async def lock_key_minting(session: AsyncSession, project_id: str) -> None:
+    """Serialises the minting of the project's keys until this transaction ends (#2284).
+
+    PostgreSQL: `pg_advisory_xact_lock`, taken BEFORE the keys are read and released only by the
+    commit or the rollback, never before: the next creation waits, then reads (under READ COMMITTED,
+    each statement takes a new snapshot) the number this one inserted. It is re-entrant within a
+    transaction, so a caller minting several keys of one project in one transaction does not wait on
+    itself. What a creation locks afterwards (its rows; the audit chain's head, when its audit row is
+    flushed) comes after this lock for every creation path: the route, the MCP and A2A doors,
+    triggers, actions and findings write their audit rows after they mint, so no two of them wait on
+    each other. The local install's seeding (`local_demo`, once at start) publishes a workflow, which
+    is audited, before it mints: were a creation on the same demo project to race it, PostgreSQL
+    would detect the deadlock (`deadlock_timeout`) and roll one of the two back whole.
+
+    SQLite (development, the unit tests): nothing. It writes one transaction at a time, and an
+    in-process lock would not be re-entrant.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    number = key_minting_lock_number(project_id)
+    await session.execute(text("SELECT pg_advisory_xact_lock(:n)"), {"n": number})
 
 
 async def tracker_is_internal(session: AsyncSession, project: Project) -> bool:

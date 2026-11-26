@@ -136,5 +136,9 @@ async def need_identities(session: AsyncSession, record: AgentSessionRecord) -> 
 async def identities_of(session: AsyncSession, record: AgentSessionRecord, spec: AgentSpec) -> dict[str, str]:
     """connector name -> identity for a conversation's tool calls: what the agent version's entries pick, and
     over it what the bindings of the installation's needs say."""
-    picked = {server.connector: server.identity for server in spec.mcp_servers if server.identity}
+    picked = {
+        server.connector: server.identity
+        for server in spec.mcp_servers
+        if server.identity and server.connector
+    }
     return {**picked, **await need_identities(session, record)}
