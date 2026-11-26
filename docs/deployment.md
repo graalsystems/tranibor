@@ -2915,12 +2915,24 @@ that names `choregos-api` keeps working. Move them to `tranibor-api` within the 
 yours that names a renamed object (an Ingress or a monitoring rule that names `choregos-web`, a script
 that runs `kubectl logs deploy/choregos-api`) moves to the new name with the upgrade.
 
+**Bind the new ServiceAccounts before you upgrade.** The API runs as the ServiceAccount `tranibor-api`
+and the migration Job as `tranibor-migrations`; the chart no longer renders `choregos-api` nor
+`choregos-migrations`, and no value brings them back. A right granted outside the chart by the
+account's name follows only if you move it: the Vault role (`bound_service_account_names`, see
+[Connector secrets sealed under Vault Transit](#connector-secrets-sealed-under-vault-transit)), the Role you lay down for the plugin servers with
+`rbac: false`, a cloud workload identity, an admission policy's exception, a NetworkPolicy that selects
+the account. **Add `tranibor-api` and `tranibor-migrations` beside the former names before the upgrade**,
+and drop the former names after it: an upgrade with the binding left on `choregos-api` starts an API
+that cannot read its secrets nor deploy a plugin server, and a pod an admission exception no longer
+covers is refused. A binding by namespace rather than by name is not affected.
+
 **What keeps the former name, and why:**
 
 | Object | Kept because | Until |
 | :-- | :-- | :-- |
 | ServiceAccount `choregos-runner` | Rendered beside `tranibor-runner` (R9b): a project namespace provisioned before 0.30.0 has only it, and a Job or a suspended sandbox started there runs as it | 0.32.0 |
 | SandboxTemplate and SandboxWarmPool `choregos-runner` | Rendered beside `tranibor-runner`, the pool at size 0 (R9b): the template's claim template holds the workspaces of suspended sandboxes, and their claims name the pool | `runner.sandbox.formerPool: false` once no claim names it; 0.32.0 |
+| ServiceAccounts `choregos-api` and `choregos-migrations` | Not kept: the API and the migration Job run as `tranibor-api` and `tranibor-migrations`, a pod runs as one account. Bind the new names first (above) | Renamed in 0.30.0 |
 | ServiceAccount `choregos-orchestrator` | The workers still run as it: a project namespace provisioned before 0.30.0 binds the executor's Role to it alone (R9b binds `tranibor-orchestrator` beside it) | A later release, once every project is provisioned again |
 | Service `choregos-egress` | A second name of `tranibor-egress` on the same pods, in the release namespace and every project's (R9b): a namespace provisioned before 0.30.0 has only it, so the default `tranibor-orchestrator.runner.egressProxy` (`http://choregos-egress.{namespace}.svc:3128`) keeps naming it | 0.32.0 |
 | The pods' `app.kubernetes.io/name` and `app.kubernetes.io/part-of` values (`choregos-api`, `choregos`…) | A label has one value and your NetworkPolicies may select it; `global.labelValues: tranibor` moves them (R9b). The runners' pods keep `choregos-runner` (the code writes it), and a StatefulSet named after the release its selector | 0.32.0 |
@@ -3755,7 +3767,7 @@ What the chart does for a multi-node installation, and the knobs behind it:
 | The database must not be exhausted under load | a **bounded** connection pool per process: at most `size + maxOverflow` connections, a short wait beyond. Size PostgreSQL's `max_connections` as (API replicas + workers) × (size + maxOverflow), plus room for migrations and an operator | `global.database.pool.{size,maxOverflow,timeoutSeconds}` |
 | A serious environment must not run on bench dependencies | the chart **refuses to render** in `staging` and `prod` when any `embedded` dependency, `devSecrets`, `devLogin`, `demoFakes`, the fakes (`global.fakes`) or fakes handed to every run (`tranibor-orchestrator.runner.env.TRANIBOR_FAKES`) is on, and names the value; the API, the outposts' door, the workers and the runner refuse to start on `TRANIBOR_FAKES` there too (S80-03) | `templates/guard.yaml`, `tranibor_core/production.py` |
 | A worker must not stay attached to a dead node | tolerations of 20 s instead of Kubernetes' 300 s | `tranibor-orchestrator.unreachableTolerationSeconds` |
-| A worker pod's load is bounded, and the bound is yours to set | the Temporal worker's slots, as `TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES` / `_WORKFLOW_TASKS` / `_LOCAL_ACTIVITIES` and `TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS`. Defaults 20 / 100 / 100 / 1000, the values the worker always had. An executor activity holds a run's stage for its whole length, so `activities` × executor replicas bounds the simultaneous runs (20 × 2 = 40 by default) | `tranibor-orchestrator.concurrency.{activities,workflowTasks,localActivities,cachedWorkflows}`, overridden per queue by `queues[].concurrency` |
+| A worker pod's load is bounded, and the bound is yours to set | the Temporal worker's slots, as `TRANIBOR_WORKER_MAX_CONCURRENT_ACTIVITIES` / `_WORKFLOW_TASKS` / `_LOCAL_ACTIVITIES` and `TRANIBOR_WORKER_MAX_CACHED_WORKFLOWS`. Defaults 20 / 100 / 100 / 1000, the values the worker always had. An executor activity holds a run's stage for its whole length, so `activities` × executor replicas bounds the simultaneous runs (20 × 2 = 40 by default). A pod's activities share its database pool (`global.database.pool`, 10 + 5): when they outnumber it, they wait up to `TRANIBOR_WORKER_DB_POOL_TIMEOUT_S` (120 s, bounded by each activity's own deadline) for a connection, where they used to fail after the API's 10 s (#2331), and the pod's start logs `worker.activities_outnumber_connections` with both numbers | `tranibor-orchestrator.concurrency.{activities,workflowTasks,localActivities,cachedWorkflows}`, overridden per queue by `queues[].concurrency` |
 | An agent must not reach the Internet except where the policy says | in **per-project runner namespaces** the provisioning deploys a **Squid proxy per project** with the policy's `allow_domains` (project-level, host-level, no per-agent wall), and every agent pod gets `HTTPS_PROXY` pointing to it. No allowed domain, no proxy, no door. In the **release namespace** (the `agent_sandbox` executor) the chart's **`choregos-egress`** proxy is per run: it knows which run is calling, applies the agent ∩ project ∩ organisation network, and reports every decision ([ADR 0070](adr/0070-network-access-is-bounded-and-enforced-per-run.md)) | `policy.sandbox.network.allow_domains`, `tranibor-orchestrator.runner.egressProxy` (empty on a bench), `runner.egressImage` to pin by digest; `global.egress.*` for `choregos-egress` |
 | Temporal must be restorable | it holds the position of every ticket in flight; `docs/runbooks/temporal-backup.md` says what to copy and how to reconcile afterwards | — |
 
