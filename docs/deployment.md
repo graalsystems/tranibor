@@ -2783,7 +2783,7 @@ byte. What changes:
   renders the same annotations; one that removed the two (`key: null`) for another controller now sets
   `ingressController: ""`, or carries them again, unread by its controller.
 
-## Upgrading past 0.29.4: a deployment on Tekton runs its agent steps isolated
+## Upgrading past 0.29.5: a deployment on Tekton runs its agent steps isolated
 
 A deployment on `tekton` with `global.runner.agentIsolation: container` (the default) had every run refused
 (`agent_isolation_unavailable`): Tekton could not start the agent's container. The agent stage's Task now carries
