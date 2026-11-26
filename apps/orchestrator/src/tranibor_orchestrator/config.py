@@ -172,6 +172,13 @@ class OrchestratorSettings(BaseSettings):
     worker_max_concurrent_local_activities: int = Field(default=100, ge=1)
     #: Workflows kept in the worker's sticky cache; `0` turns the cache off.
     worker_max_cached_workflows: int = Field(default=1000, ge=0)
+    #: How long an activity waits for one of the process's pooled database connections (#2331). A
+    #: worker runs more activities at once (`worker_max_concurrent_activities` on each of its queues)
+    #: than its pool has connections (`TRANIBOR_DB_POOL_SIZE` + `TRANIBOR_DB_MAX_OVERFLOW`, sized for
+    #: PostgreSQL's `max_connections`): when the database slows down they queue for one. The API's own
+    #: wait (`TRANIBOR_DB_POOL_TIMEOUT_S`, 10 s) failed them there, each to be retried from its start.
+    #: The activity's `start_to_close_timeout` still bounds the wait.
+    worker_db_pool_timeout_s: int = Field(default=120, ge=1)
 
 
 @lru_cache(maxsize=1)
