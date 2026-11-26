@@ -57,6 +57,6 @@ record of it. Three things followed:
 - Not covered: idle expiry (a session holds its eight hours whatever its activity), a cap on the number
   of sessions, an administrator's view of another person's sessions, and the purge of expired rows.
 
-## Amendment, 2026-11-26: ending a session silences its devices (ADR 0194)
+## Extension, 2026-11-26: ending a session silences its devices (ADR 0194)
 
 Ending a session also deletes, in the same transaction, the push subscriptions that session registered or last confirmed. This covers signing out (`POST /auth/logout`), `DELETE /me/sessions/{id}`, `POST /me/sessions/end-others` and `revoke_user_sessions` (`browser_sessions.py`). A device that is signed out is told nothing more (ADR 0194 §6). Held by `apps/api/tests/test_push_subscriptions.py`.

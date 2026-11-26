@@ -61,7 +61,7 @@ Everything here is community edition. Nothing reads, needs or changes the enterp
 | Topic | Decision |
 |:--|:--|
 | Order | Scenario 1 first, then 2, then 3 |
-| Accepted records | Amended for this scope only: ADR 0154 §1 and 0155 §1, ADR 0147 (§1 and its refused personal device), ADR 0149 §12, ADR 0107 §6-7, ADR 0004, ADR 0047 and plan decision D6 for subscription runs, ADR 0222's opt-out. ADR 0061 §3 is kept |
+| Records amended | For this scope only: ADR 0154 §1 and 0155 §1, ADR 0147 (§1 and its refused personal device), ADR 0149 §12, ADR 0107 §6-7, ADR 0004, ADR 0047 and plan decision D6 for subscription runs, ADR 0222's opt-out. ADR 0061 §3 is kept |
 | Phone | Through a relay hosted by GraalSystems; the installation dials out |
 | Desktop app | Tauri |
 | Execution on the laptop | Docker by default; native as an explicit opt-in, recorded on every run |
