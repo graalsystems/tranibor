@@ -173,7 +173,8 @@ asked again at its next poll.
 | 100 | 105 (125) | 155 (191) | 30 (56) | 21 (41) | 10 (25) | 736 | 432 |
 
 The API process held about 720 MiB from the first step, against 224 to 257 MiB for the 0.29.4 image:
-the image is a different build of more recent code, and the difference was not investigated.
+the image is a different build of more recent code. It did not come back: the third and fourth runs'
+API held 229 to 282 MiB ([fourth run](#after-the-interpreter-fix-fourth-run-0300)).
 
 ### The inbox batched (third run, same day)
 
@@ -205,7 +206,41 @@ rerun). Raw results:
   `needs_human` (the budget note). PostgreSQL is the busiest container (143 to 180 % CPU from 20 users
   on), the API process at one core (96 to 99 %); **one API process is now the limit**.
 * The API process held 235 to 282 MiB, against about 720 MiB in the rerun with the code before; the
-  difference was not investigated.
+  fourth run held as little (below), so the 720 MiB was the rerun's build, not the code.
+
+### After the interpreter fix (fourth run, 0.30.0)
+
+The same workload once more, on a fresh install, with **all three images built here from `d5a6307f3`**
+(`main`, version 0.30.0: the inbox batched, #2323, and the interpreter started after the commit,
+#2327), the SkillSpector stage again from the published 0.29.4 image. Raw results:
+[`tools/load/results/2026-11-26-single-node-0.30.0.json`](../tools/load/results/2026-11-26-single-node-0.30.0.json).
+
+| Users | Reads/s (inbox batched → 0.30.0) | Inbox p95 ms | Board p95 ms | Slowest read p95 ms | Reads failed |
+|--:|:--|:--|:--|:--|:--|
+| 1 | 3.4 → 3.4 | 60 → 62 | 101 → 62 | 101 → 62 | 0 → 0 of 409 |
+| 5 | 16.4 → 16.4 | 98 → 77 | 114 → 98 | 114 → 98 | 0 → 0 of 1,975 |
+| 10 | 28.6 → 30.5 | 188 → 167 | 236 → 176 | 236 → 176 | 0 → 0 of 3,665 |
+| 20 | 35.4 → 44.5 | 604 → 506 | 850 → 538 | 850 → 538 | 0 → 0 of 5,340 |
+| 50 | 38.1 → 41.5 | 1692 → 1480 | 1991 → 1815 | 1991 → 1815 | 0 → 0 of 4,975 |
+| 100 | 36.1 → 39.4 | 4478 → 3613 | 4557 → 3653 | 4557 → 3653 | 0 → 0 of 4,724 |
+
+* **No "unknown work item" any more.** The worker logged none over the steps' 676 creations and the
+  bursts below (__BURST_CREATED__ more), where the first run logged 118 (#2291). The work item relay
+  logged nothing either: no start was lost, so it had nothing to make again.
+* **Throughput a little higher again**, about 40 to 44 reads per second from 20 users on, with no read
+  and no creation failed in any step; at 20 users every read is under 0.55 s at p95. One run on a
+  shared machine: the gain over the third run is within what a rerun can move, and is not claimed
+  for #2327.
+* **Memory: about 720 MiB was that one build's.** The API process held 229 to 263 MiB (202 MiB idle
+  before the run), as in the third run (235 to 282 MiB) and the first (224 to 257 MiB). Only the
+  rerun's image held about 720 MiB; it was not kept, so why stays unexplained, but it did not come back.
+* **The worker's pool is the next failure.** The worker logged 20 `QueuePool limit of size 10 overflow
+  5 reached` during the steps (the API none): the worker runs more activities at once than its pool has
+  connections ([bottleneck 3](#bottlenecks-seen)). The activities were retried; no work item was lost
+  to it (628 `approved`, 86 `awaiting_approval`, 28 `needs_human` after the drain).
+* The approver's 41 refused decisions are its own 409, as in the rerun.
+
+__BURSTS__
 
 ### Bursts (rerun)
 
@@ -409,7 +444,8 @@ interval) starts again, idempotently, the interpreter of a new work item on whic
 the start that followed its commit was lost. `apps/api/tests/test_interpreter_after_commit.py` proves
 that at the moment of the start another session finds the row, that a rolled-back creation starts
 nothing, and that a start refused by a Temporal that is down is made by the relay (red on the code
-before, on SQLite and on PostgreSQL). The load test was not run again for it.
+before, on SQLite and on PostgreSQL). Measured in [the fourth run](#after-the-interpreter-fix-fourth-run-0300):
+the worker logged no "unknown work item".
 
 **5. Not a performance failure: `needs_human` on a budget refusal.** Under a burst of 100, 41
 work items ended in `needs_human` with this event: "the stage `plan` did not start: 0.00 $ left
