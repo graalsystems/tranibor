@@ -859,8 +859,10 @@ orchestrator:
     # Skip the render-time check that the agent-sandbox operator is installed, for an offline
     # rendering (CI, a preview). Never needed under Argo CD or `helm install`.
     skipOperatorCheck: false
-    # `agent_sandbox` only (ADR 0072): the executor that runs a step naming its own image, since a
-    # warm pool is made from one image. Add it to `global.runner.allowedExecutors` too. Empty: refused.
+    # The second executor (ADR 0072, S87-02). On `agent_sandbox`: it runs a step naming its own image,
+    # since a warm pool is made from one image. On `tekton` with `global.runner.agentIsolation: container`:
+    # it would run an agent step Tekton cannot isolate (S87-02); since S87-05 Tekton isolates every one
+    # itself, so it takes none. Add it to `global.runner.allowedExecutors` too. Empty: such a step is refused.
     customImageExecutor: k8s_job
     # What each agent pod receives in addition. `env` carries plain values (never a
     # secret); `envFromSecrets` lists the namespace's Secrets, mounted by reference —

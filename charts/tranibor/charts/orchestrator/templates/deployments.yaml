@@ -196,14 +196,19 @@ spec:
               value: "tranibor-runner"
             - name: TRANIBOR_SANDBOX_ASSIGNMENT_PORT
               value: {{ (($root.Values.runner.sandbox | default dict).assignmentPort | default 8765) | quote }}
-            # A step that names its own image cannot run in a pool made from one image (ADR 0072):
-            # it goes to this executor. Empty keeps the sandbox executor's refusal.
-            - name: TRANIBOR_CUSTOM_IMAGE_EXECUTOR
-              value: {{ $root.Values.runner.customImageExecutor | default "" | quote }}
             # How long a finished sandbox keeps its workspace volume before the controller
             # deletes it: every second of it counts against the namespace's storage quota.
             - name: TRANIBOR_SANDBOX_TTL_SECONDS
               value: {{ (($root.Values.runner.sandbox | default dict).ttlSecondsAfterFinished | default 300) | quote }}
+            {{- end }}
+            {{- $kind := include "tranibor.executorKind" $root }}
+            {{- if or (eq $kind "agent_sandbox") (and (eq $kind "tekton") (eq (include "tranibor.agentIsolation" $root) "container")) }}
+            # The second executor (ADR 0072, S87-02). On `agent_sandbox`, a step that names its own image
+            # cannot run in a pool made from one image, and goes to it. On `tekton` under `container`, an
+            # agent step Tekton cannot isolate goes to it; a `job` step stays on Tekton. Empty keeps the
+            # refusal.
+            - name: TRANIBOR_CUSTOM_IMAGE_EXECUTOR
+              value: {{ $root.Values.runner.customImageExecutor | default "" | quote }}
             {{- end }}
             # The kill switch for context reduction (ADR 0055): "off" refuses rtk and headroom
             # to every run, whatever a project's policy asks.
