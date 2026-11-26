@@ -32,7 +32,24 @@ async def test_a_created_rule_is_created_once_per_action() -> None:
     assert (first["created"], again["created"], other["created"]) == (True, False, True)
     assert again["tracker"] == first["tracker"] != other["tracker"]
     assert fake.writes == 2 and len(fake.rules) == 5
-    assert first["rule"]["descr"].startswith("LAN to the admin port [choregos:")
+    assert first["rule"]["descr"].startswith("LAN to the admin port [tranibor:")
+
+
+async def test_a_replay_finds_the_rule_it_wrote_under_the_former_marker() -> None:
+    """ADR 0226 and ADR 0008: a rule an action wrote before the rename carries `[choregos:<hash>]`; the
+    action replayed after it finds that rule and creates no second one."""
+    from tranibor_adapters.netops.pfsense import marker
+
+    fake = FakePfSense()
+    firewall = _firewall(fake)
+    tag = marker("action-old")
+    assert tag.startswith("[tranibor:")
+    former = {**RULE, "descr": f"LAN to the admin port {tag.replace('tranibor:', 'choregos:')}"}
+    written = await firewall._data("POST", "/firewall/rule", json={**former, "apply": True})
+    writes = fake.writes
+    again = await firewall.create_firewall_rule(RULE, action_key="action-old")
+    assert again["created"] is False and again["tracker"] == written["tracker"]
+    assert fake.writes == writes, "no second rule"
 
 
 async def test_an_update_returns_the_previous_rule_and_a_replay_says_it_no_longer_knows_it() -> None:

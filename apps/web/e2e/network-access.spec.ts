@@ -86,7 +86,7 @@ test("an agent's page says its network", async ({ page }) => {
 
 for (const theme of ["dark", "light"] as const) {
   test(`the builder's network section has no accessibility violation (${theme})`, async ({ page }) => {
-    await page.addInitScript((choice) => window.localStorage.setItem("choregos.theme", choice), theme);
+    await page.addInitScript((choice) => window.localStorage.setItem("tranibor.theme", choice), theme);
     const builder = await toTheBuilder(page);
     await builder.getByText("Network access", { exact: true }).click();
     await builder.getByLabel("Only these hosts").check();

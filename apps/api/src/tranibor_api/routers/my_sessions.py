@@ -35,7 +35,7 @@ async def list_my_sessions(
 ) -> BrowserSessionPage:
     """The caller's sessions that still hold, the most recently active first, one page at a time (ADR 0206).
 
-    `current` keeps the session this request came with (`true`: `choregos logout` finds the one to end) or
+    `current` keeps the session this request came with (`true`: `tranibor logout` finds the one to end) or
     all the others (`false`).
     """
     query = active_sessions_query(principal.user_id)

@@ -107,7 +107,7 @@ describe("the embedded assistant (S63-12)", () => {
     expect(open?.body).toEqual({ context });
     await waitFor(() =>
       expect(host.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ source: "choregos.assistant", type: "conversation.started", conversation_id: "c1" }),
+        expect.objectContaining({ source: "tranibor.assistant", type: "conversation.started", conversation_id: "c1" }),
         ORIGIN,
       ),
     );
@@ -266,6 +266,18 @@ describe("the embedded assistant (S63-12)", () => {
     await waitFor(() => expect(calls.filter((c) => c.path === "/me" && c.token === "old")).toHaveLength(1));
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("takes the token a popup of the previous release hands over, under the former message (ADR 0226, R9c)", async () => {
+    expect(SIGNED_IN_MESSAGE).toBe("tranibor.embed.signed-in");
+    const calls = fakeApi({ needsToken: true, expired: true });
+    vi.stubGlobal("location", { ...window.location, assign: vi.fn(), pathname: "/embed/assistants/northwind/coach", search: "" });
+    mount({ signinRequired: true });
+    await screen.findByRole("button", { name: "Sign in" });
+    window.dispatchEvent(
+      new MessageEvent("message", { origin: window.location.origin, data: { type: "choregos.embed.signed-in", token: "former", expires_in: 900 } }),
+    );
+    await waitFor(() => expect(calls.filter((c) => c.path === "/me" && c.token === "former")).toHaveLength(1));
   });
 
   it("does not go round the identity provider twice when the frame cannot keep the cookie", async () => {

@@ -55,7 +55,7 @@ VALUES = {
     "": [],
     "-outpost": [
         "-f",
-        str(ROOT / "charts/choregos-outpost/values/example.yaml"),
+        str(ROOT / "charts/tranibor-outpost/values/example.yaml"),
         "--set",
         "fullnameOverride=",
     ],

@@ -7,6 +7,7 @@ import { SchemaForm, missingFields, defaultValues, type JsonSchema } from "@/com
 import { Badge, Button, Card, Empty, ErrorNote, Input, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { shortDate } from "@/lib/format";
+import { storedName } from "@/lib/stored-names";
 import type { AdminAction, AdminForm, AdminSecretOnce, AdminSection, AdminTable } from "@/lib/types";
 
 /**
@@ -166,7 +167,7 @@ function Cellule({ valeur, format }: { valeur: unknown; format?: string }) {
  * navigation, so the React state — what the administrator typed — is gone when the page comes back.
  * The tab's storage only, and only for a while: an old intent is not replayed.
  */
-export const PENDING_ACTION_KEY = "choregos.admin.pending-action";
+export const PENDING_ACTION_KEY = storedName("admin.pending-action");
 const PENDING_ACTION_TTL_MS = 15 * 60 * 1000;
 
 type PendingAction = { method: string; path: string; values: Record<string, unknown>; at: number };

@@ -26,7 +26,7 @@ def parse_threshold(text: str) -> Decimal:
 
 
 def tier(root: Path, committee_from: Decimal) -> tuple[str, dict[str, Any], dict[str, Any]]:
-    """Returns (summary, facts, outputs) for the award basis under `.choregos/inputs/`."""
+    """Returns (summary, facts, outputs) for the award basis under `.tranibor/inputs/`."""
     basis = read_json(job.inputs_dir(root), AWARD_BASIS)
     if not isinstance(basis, dict) or basis.get("highest_total") is None:
         raise job.ContractError(f"{AWARD_BASIS} has no highest_total: there is nothing to tier")

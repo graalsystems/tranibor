@@ -6,7 +6,7 @@ run was prepared. The files come from the internal API; the runner recomputes th
 before writing anything, and a wrong digest stops the run: a skill modified between
 preparation and execution is not the one the agent's version carried.
 
-A backend that does not read skills (`skills_dir = None`) gets them under `.choregos/skills`, with
+A backend that does not read skills (`skills_dir = None`) gets them under `.tranibor/skills`, with
 an index in its prompt. In every case, these files stay out of the diff.
 """
 
@@ -18,10 +18,11 @@ from typing import Any
 
 import yaml
 from tranibor_contracts import SkillRef, is_inert_binary_path, skill_digest, skill_file_bytes
+from tranibor_contracts.wire import run_path
 
 from . import safe_files
 
-FALLBACK_DIR = ".choregos/skills"
+FALLBACK_DIR = run_path("skills")
 
 
 class InvalidSkill(RuntimeError):  # noqa: N818 - a reasoned refusal, which stops the run

@@ -11,9 +11,10 @@ nor declared is refused.
 
 Software delivery's values of the first four lists (`scm.*`, `ci.*`, `cd.*`, `bug`, `perf`, `tech-debt`,
 `flaky-test`, `flaky_test`, `hotspot`, the kinds `scm`, `ci`, `cd`) and the release train's
-`choregos.release.*` left the core's lists with their enumeration members (ADR 0181, windows C2, D-train
-and D, closed on 2026-11-23): only the `software-delivery` plugin's extension declares them, under the
-same strings. A document the platform stored reads them whether or not it is installed (`STORED`).
+`tranibor.release.*` (formerly `choregos.release.*`) left the core's lists with their enumeration members
+(ADR 0181, windows C2, D-train and D, closed on 2026-11-23): only the `software-delivery` plugin's extension
+declares them, under the same strings. A document the platform stored reads them whether or not it is
+installed (`STORED`).
 
 A core value is returned as its enumeration's member (`InboundEventType.ITEM_CREATED`), so code that
 compares by identity keeps working; a declared value is returned as a string.
@@ -22,12 +23,13 @@ compares by identity keeps working; a declared value is returned as a string.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from enum import StrEnum
 from typing import Any
 
 from pydantic import ValidationInfo
 
+from . import wire
 from .enums import ConnectorKind, EventType, FindingType, InboundEventType, MemoryKind, StageRole
 
 #: The validation context of a document read back from the platform's own storage (`{STORED: True}`).
@@ -43,8 +45,12 @@ class OpenList:
         pattern: str,
         core: Iterable[str],
         enum: type[StrEnum] | None = None,
+        spelling: Callable[[str], str] | None = None,
     ) -> None:
         self.what = what
+        #: How a value written under a former name reads (ADR 0226): `choregos.run.finished` is the event
+        #: type `tranibor.run.finished`. Applied to every value checked, declared or looked up.
+        self._spelling = spelling or (lambda value: value)
         self.pattern = pattern
         self.core: frozenset[str] = frozenset(core)
         self._enum = enum
@@ -58,6 +64,7 @@ class OpenList:
         """Declare a value for `plugin`. A value of the core may be declared too (a plugin that takes
         it over), and declaring again for the same plugin changes nothing; a value another plugin
         declared is refused, naming it: two plugins cannot mean two things by one name."""
+        value = self._spelling(value)
         if not self._compiled.fullmatch(value):
             raise ValueError(f"the {self.what} `{value}` of the plugin `{plugin}` must match {self.pattern}")
         owner = self._declared.get(value)
@@ -74,7 +81,7 @@ class OpenList:
 
     def plugin_of(self, value: str) -> str | None:
         """The plugin that declared `value`; `None` for a value the core owns, or nobody's."""
-        return self._declared.get(value)
+        return self._declared.get(self._spelling(value))
 
     def forget(self, plugin: str) -> None:
         """Drop what `plugin` declared: what a test does after installing an extension."""
@@ -94,7 +101,7 @@ class OpenList:
         §4, readers accept). A stored workflow that names a plugin's step effect keeps parsing after
         the plugin is gone, and its Temporal history keeps replaying; the effect itself is then refused
         when it is reached, naming it."""
-        text = str(value)
+        text = self._spelling(str(value))
         if text in self.core:
             return self._enum(text) if self._enum is not None else text
         if text in self._declared:
@@ -112,9 +119,10 @@ INBOUND_EVENT_TYPE_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 FINDING_TYPE_PATTERN = r"^[a-z][a-z0-9-]{0,31}$"
 MEMORY_KIND_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
 CONNECTOR_KIND_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
-#: `choregos.<object>.<event>`: an internal event's type (CloudEvents `type`). Open since round D, when the
-#: release train's types became the `software-delivery` plugin's.
-EVENT_TYPE_PATTERN = r"^choregos(\.[a-z][a-z0-9_]*)+$"
+#: `tranibor.<object>.<event>`: an internal event's type (CloudEvents `type`). Open since round D, when the
+#: release train's types became the `software-delivery` plugin's. The former `choregos.` prefix is accepted
+#: and read as the new one until 0.32.0 (ADR 0226, R9c).
+EVENT_TYPE_PATTERN = r"^(?:tranibor|choregos)(\.[a-z][a-z0-9_]*)+$"
 #: The pattern of an agent's `role` in the workflow schema.
 STAGE_ROLE_PATTERN = r"^[a-z][a-z0-9_]{1,31}$"
 
@@ -147,5 +155,6 @@ EVENT_TYPES = OpenList(
     EVENT_TYPE_PATTERN,
     (v.value for v in EventType),
     EventType,
+    wire.event_type,
 )
 STAGE_ROLES = OpenList("stage role", STAGE_ROLE_PATTERN, (v.value for v in StageRole), StageRole)

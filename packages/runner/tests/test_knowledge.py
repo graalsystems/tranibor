@@ -151,7 +151,7 @@ async def test_a_fake_run_greps_the_corpus(stage_input: StageInput, runner_setti
         {
             "turns": [
                 {
-                    "greps": [{"pattern": "TLS 1.3", "path": ".choregos/knowledge"}],
+                    "greps": [{"pattern": "TLS 1.3", "path": ".tranibor/knowledge"}],
                     "result": valid_result(summary="applied: {grep}"),
                 }
             ]
@@ -166,11 +166,11 @@ async def test_a_fake_run_greps_the_corpus(stage_input: StageInput, runner_setti
     assert outcome.exit_code is Exit.OK, outcome.detail
     assert client.results, "a result was posted"
     summary = client.results[0].summary
-    assert ".choregos/knowledge/architecture/encryption.md:5:TLS 1.3 everywhere." in summary
+    assert ".tranibor/knowledge/architecture/encryption.md:5:TLS 1.3 everywhere." in summary
     prompt = runner._prompt(with_kb, Path(runner_settings.workspace))
-    assert "## Knowledge bases" in prompt and ".choregos/knowledge/architecture/" in prompt
+    assert "## Knowledge bases" in prompt and ".tranibor/knowledge/architecture/" in prompt
     exclusions = (git_dir_for(Path(runner_settings.workspace)) / "info" / "exclude").read_text()
-    assert ".choregos/knowledge/architecture/encryption.md" in exclusions, "the corpus stays out of the diff"
+    assert ".tranibor/knowledge/architecture/encryption.md" in exclusions, "the corpus stays out of the diff"
 
 
 async def test_a_changed_base_stops_the_run_before_the_agent(

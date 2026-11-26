@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos decide` and the workspace's decisions pane (S67-10, ADR 0154 §7).
+"""`tranibor decide` and the workspace's decisions pane (S67-10, ADR 0154 §7).
 
 The API is faked with respx; every payload the fake serves and every body the CLI sends is validated against
 `openapi.yaml` (`contract`). The fake mirrors the rule of S67-06 (a pasted `chg_` token is refused on a
@@ -25,7 +25,7 @@ CID = "conv-7"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 REFUSED = (
     "confirming a write is the person's own gesture: it needs their session (the console, or "
-    "`choregos login`), not an API token (decision_requires_session)"
+    "`tranibor login`), not an API token (decision_requires_session)"
 )
 
 
@@ -262,7 +262,7 @@ def test_a_confirmation_sent_with_a_pasted_token_is_refused_and_says_how_to_sign
     assert result.exit_code == 1
     text = _plain(result)
     assert "decision_requires_session" in text and "needs their session" in text, "the API's own message"
-    assert "sign in as yourself with `choregos login`" in text, "and how to sign in"
+    assert "sign in as yourself with `tranibor login`" in text, "and how to sign in"
     assert platform.sent == []
 
 
@@ -392,7 +392,7 @@ def test_step_up_required_leads_to_login_fresh(platform: Platform) -> None:
     platform.step_up = True
     result = _run("approve", "gov-1", stdin="approve\n")
     text = _plain(result)
-    assert result.exit_code == 1 and "choregos login --fresh" in text
+    assert result.exit_code == 1 and "tranibor login --fresh" in text
     assert "less than 15 min old" in text, "the API's own message too"
     assert platform.sent == []
 
@@ -519,7 +519,7 @@ async def test_the_pane_with_a_pasted_token_shows_the_apis_message_and_how_to_si
         await _open(pilot, "Create the ticket")
         await pilot.press("a")
         await _until(pilot, lambda: bool(app.outcome), "the refusal")
-    assert "needs their session" in app.outcome and "sign in as yourself with `choregos login`" in app.outcome
+    assert "needs their session" in app.outcome and "sign in as yourself with `tranibor login`" in app.outcome
     assert platform.sent == []
 
 

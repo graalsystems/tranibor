@@ -40,7 +40,7 @@ python3 -c "import os,base64;print('k1:'+base64.b64encode(os.urandom(32)).decode
   typing a secret answers `409`.
 
 ```shell
-kubectl -n choregos create secret generic choregos-api-secrets \
+kubectl -n tranibor create secret generic choregos-api-secrets \
   --from-literal=session-secret="$SESSION_SECRET" \
   --from-file=run-token-private-key=run-token.pem \
   --from-literal=secrets-keks="$KEKS"
@@ -55,7 +55,7 @@ With External Secrets, put the same properties under `choregos/api` in your vaul
 loses every sealed value**, and a database backup alone reveals none of them. Keep it in your vault,
 backed up.
 
-To rotate it: put the new key first (`k2:…,k1:…`), redeploy, run `choregos admin secrets rewrap` as
+To rotate it: put the new key first (`k2:…,k1:…`), redeploy, run `tranibor admin secrets rewrap` as
 the platform administrator, and remove the old key only once no database backup older than the rewrap
 can still be restored.
 

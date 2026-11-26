@@ -10,12 +10,17 @@ from __future__ import annotations
 
 from typing import Literal
 
+from tranibor_contracts.wire import FORMER_RUN_DIRECTORY, RUN_DIRECTORY
+
 AgentWorkspace = Literal["none", "read", "write"]
 
 #: The write scope of a `read` run. An EMPTY scope would mean "no scope declared: write allowed" to
 #: the runner's guards (`GuardRails.check_write`, `check_scope`), so the scope is a pattern that
 #: matches no repository file: the step's deliverables (ADR 0049), which are never committed.
-READ_ONLY_WRITE_PATHS: tuple[str, ...] = (".choregos/outputs/**",)
+READ_ONLY_WRITE_PATHS: tuple[str, ...] = (f"{RUN_DIRECTORY}/outputs/**",)
+#: The same scope under the run directory's former name (ADR 0226, R9a): what a run started before
+#: 0.30.0 recorded, still recognised as read-only until 0.32.0.
+FORMER_READ_ONLY_WRITE_PATHS: tuple[str, ...] = (f"{FORMER_RUN_DIRECTORY}/outputs/**",)
 
 
 def write_paths_for(workspace: str, allowed: list[str]) -> list[str]:
@@ -27,5 +32,6 @@ def write_paths_for(workspace: str, allowed: list[str]) -> list[str]:
 
 
 def is_read_only_scope(paths: list[str] | None) -> bool:
-    """Whether a run's recorded scope is the one a `read` workspace gets: such a run never widens it."""
-    return list(paths or []) == list(READ_ONLY_WRITE_PATHS)
+    """Whether a run's recorded scope is the one a `read` workspace gets: such a run never widens it. A
+    run recorded before 0.30.0 holds the former form (ADR 0226, R9a)."""
+    return list(paths or []) in (list(READ_ONLY_WRITE_PATHS), list(FORMER_READ_ONLY_WRITE_PATHS))

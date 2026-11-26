@@ -40,7 +40,7 @@ Open a workflow. It has four tabs:
 The same plain-words reading, from a file on your machine:
 
 ```bash
-choregos workflow show --process .choregos/workflow.yaml
+tranibor workflow show --process .tranibor/workflow.yaml
 ```
 
 ## Who acts at each step
@@ -100,7 +100,7 @@ Here is a small development workflow: an agent fixes, another tests, the platfor
 request, a maintainer approves it, the platform merges it when the checks are green.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: fix-with-review
@@ -183,14 +183,14 @@ What to notice:
 Validate it before you publish. Validation is local and needs no instance:
 
 ```bash
-choregos workflow validate fix-with-review.yaml
+tranibor workflow validate fix-with-review.yaml
 ```
 
 Then publish it as the next version of that workflow in the project, and list the result:
 
 ```bash
-choregos workflow push billing-api fix-with-review.yaml
-choregos workflow list billing-api
+tranibor workflow push billing-api fix-with-review.yaml
+tranibor workflow list billing-api
 ```
 
 The validator refuses more than syntax: a state no transition reaches, a retry that could loop forever,

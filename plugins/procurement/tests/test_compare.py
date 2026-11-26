@@ -34,7 +34,7 @@ def _supplier(
 
 
 def _put(root: Path, name: str, doc: Any) -> None:
-    (root / ".choregos" / "inputs" / input_filename(name)).write_text(json.dumps(doc), encoding="utf-8")
+    (root / ".tranibor" / "inputs" / input_filename(name)).write_text(json.dumps(doc), encoding="utf-8")
 
 
 def _run(
@@ -48,9 +48,9 @@ def _run(
     _put(root, "offers_structured", {"suppliers": suppliers, "unassigned_files": unassigned or []})
     _put(root, "offers_text", {"files": [{"name": n} for n in files]})
     if fields is not None:
-        (root / ".choregos" / "fields.json").write_text(json.dumps(fields), encoding="utf-8")
+        (root / ".tranibor" / "fields.json").write_text(json.dumps(fields), encoding="utf-8")
     assert main(["compare"]) == 0
-    doc: dict[str, Any] = json.loads((root / ".choregos" / "job.json").read_text(encoding="utf-8"))
+    doc: dict[str, Any] = json.loads((root / ".tranibor" / "job.json").read_text(encoding="utf-8"))
     return doc
 
 

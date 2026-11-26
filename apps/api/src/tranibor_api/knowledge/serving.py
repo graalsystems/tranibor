@@ -5,7 +5,7 @@ When the run is prepared, `pin()` resolves each base its agent names — it must
 the run's project and, when restricted, be readable by the person the run acts for (ADR 0097) — and
 pins its ready documents by id, with the digest of the files they make.
 The runner then fetches exactly those documents (`GET /internal/runs/{id}/knowledge`), recomputes
-the digest, and lays them read-only under `.choregos/knowledge/<slug>/`, with an `index.md`.
+the digest, and lays them read-only under `.tranibor/knowledge/<slug>/`, with an `index.md`.
 
 Each file is served with its OKF header (ADR 0174): the folder is an Open Knowledge Format bundle. A
 document that declares itself `deprecated` is not pinned.

@@ -331,8 +331,13 @@ async def test_the_routes_without_a_principal_are_limited(
 
 
 async def test_a_github_webhook_without_a_secret_is_refused_in_production(
+    app: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # `app` lays the database and its schema: the handler reads the App a platform administrator
+    # registered from a manifest before it looks for a secret (ADR 0167). Without it the test passed
+    # only after another test had laid the schema in the same worker, and failed alone (500).
+    del app
     from tranibor_api.config import reset_settings_cache
     from tranibor_api.main import create_app
 

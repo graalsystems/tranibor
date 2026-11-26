@@ -9,7 +9,7 @@ import subprocess
 import pytest
 import yaml
 
-CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "choregos"
+CHART = pathlib.Path(__file__).resolve().parents[2] / "charts" / "tranibor"
 
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm absent")
 
@@ -25,7 +25,7 @@ def _gateway_types(*overrides: str) -> set[str]:
             continue
         for container in doc["spec"]["template"]["spec"]["containers"]:
             for env in container.get("env", []):
-                if env["name"] == "CHOREGOS_GATEWAY_TYPE":
+                if env["name"] == "TRANIBOR_GATEWAY_TYPE":
                     found.add(env["value"])
     return found
 

@@ -14,6 +14,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Header, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from tranibor_contracts.wire import read_header
 
 from ..audit import record
 from ..db.models import TaskEvent
@@ -241,20 +242,19 @@ async def task_event(
     request: Request,
     session: PlatformDb,
     idempotency_key: Annotated[str, Header()] = "",
-    x_choregos_signature: Annotated[str, Header()] = "",
 ) -> TaskEventAck | JSONResponse:
     """A system posts an event for one person: the task's `trigger` names, by a JSON pointer, the email of the
-    subscriber, and the task starts in their personal space. 404: no such task, or none with a `trigger`;
-    401: a wrong or missing `X-Choregos-Signature` (HMAC-SHA256 of the body under the key of
-    `.../tasks/{task}/event-key`); 413: a body over 256 KiB; 422: not a JSON object, or an event that names no
-    subscriber, several, or one nobody matches; 409: the subscriber's budget, delegation or audience
-    refuses it. Refused events are journaled. A replayed event (the trigger's `idempotency` pointer, else
-    `Idempotency-Key`, else the body's digest) answers `duplicate` and starts nothing."""
+    subscriber, and the task starts in their personal space. 404: no such task, or none with a `trigger`; 401:
+    a wrong or missing `X-Tranibor-Signature` (formerly `X-Choregos-Signature`; HMAC-SHA256 of the body under
+    the key of `.../tasks/{task}/event-key`); 413: a body over 256 KiB; 422: not a JSON object, or an event
+    that names no subscriber, several, or one nobody matches; 409: the subscriber's budget, delegation or
+    audience refuses it. Refused events are journaled. A replayed event (the trigger's `idempotency` pointer,
+    else `Idempotency-Key`, else the body's digest) answers `duplicate` and starts nothing."""
     organisation, row, _, trigger = await _event_task(session, org, slug, task)
     body = await request.body()
     key = task_events.event_key(row.id, row.webhook_secret_generation, task)
-    if not task_events.verify_signature(key, body, x_choregos_signature):
-        raise unauthorized("invalid or missing X-Choregos-Signature")
+    if not task_events.verify_signature(key, body, read_header(request.headers, "Signature")):
+        raise unauthorized("invalid or missing X-Tranibor-Signature")
     if len(body) > MAX_EVENT_BODY:
         return JSONResponse(
             {"type": "about:blank", "title": "Payload too large", "status": 413},

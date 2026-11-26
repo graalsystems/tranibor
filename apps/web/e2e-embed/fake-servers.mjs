@@ -7,7 +7,7 @@
 //   host      127.0.0.1:3200   NOT an allowed origin
 //
 // A frame under another site holds no console cookie: like the real API, the fake opens the component's routes
-// only to the frame token (`X-Choregos-Embed`) that `POST .../embed-token` mints for a signed-in browser (the
+// only to the frame token (`X-Tranibor-Embed`) that `POST .../embed-token` mints for a signed-in browser (the
 // header `X-Fake-Session: ada` stands for the first-party cookie the sign-in popup carries). Every call is
 // recorded with the token it carried.
 //
@@ -44,7 +44,7 @@ createServer(async (req, res) => {
   const path = url.pathname.replace("/api/v1", "");
   const payload = req.method === "POST" ? await body(req) : null;
   if (path === "/__calls") return json(res, 200, calls);
-  const token = req.headers["x-choregos-embed"];
+  const token = req.headers["x-tranibor-embed"] ?? req.headers["x-choregos-embed"];
   calls.push({ method: req.method, path, body: payload, token: token ?? null });
   if (path === "/public/assistants/northwind/coach/embed") return json(res, 200, { embed_origins: ["http://localhost:3100"] });
   if (path === "/me/assistants/northwind/coach/embed-token" && req.method === "POST") {

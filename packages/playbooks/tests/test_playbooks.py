@@ -44,8 +44,8 @@ def test_the_playbook_evals_pass(path) -> None:
 
 
 def test_the_invariants_do_not_contradict_each_other_on_result_json() -> None:
-    """The first invariant REQUIRES writing `.choregos/result.json`; the last one used to forbid
-    touching `.choregos/**`.
+    """The first invariant REQUIRES writing `.tranibor/result.json`; the last one used to forbid
+    touching `.tranibor/**`.
 
     A model then has to arbitrate between two orders, and a small model obeys the last one. On the
     dev tenant, on 2026-09-27, the agent ran, called the model, and wrote nothing: the stage died
@@ -55,11 +55,11 @@ def test_the_invariants_do_not_contradict_each_other_on_result_json() -> None:
     """
     from tranibor_playbooks import INVARIANTS
 
-    lines = [line for line in INVARIANTS.splitlines() if ".choregos/**" in line]
-    assert lines, "the invariant on `.choregos/**` is gone"
+    lines = [line for line in INVARIANTS.splitlines() if ".tranibor/**" in line]
+    assert lines, "the invariant on `.tranibor/**` is gone"
     for line in lines:
         assert "other" in line.lower() or "except" in line or "result.json" in line, (
-            f"this invariant forbids `.choregos/**` without excepting result.json, "
+            f"this invariant forbids `.tranibor/**` without excepting result.json, "
             f"which the first invariant requires: {line}"
         )
 

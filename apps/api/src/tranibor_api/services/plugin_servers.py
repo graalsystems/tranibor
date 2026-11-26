@@ -59,6 +59,8 @@ from tranibor_adapters.plugin_servers import (
     mirrored,
 )
 from tranibor_adapters.registry import FAKE_SCENE_FIELD, fakes_enabled
+from tranibor_contracts import wire
+from tranibor_contracts.wire import both_headers, header
 from tranibor_core.egress import host_port_of
 from tranibor_core.plugins import Plugin, configuration_variables
 
@@ -625,13 +627,17 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
-        labels={
-            "app.kubernetes.io/name": "choregos-plugin-server",
-            "app.kubernetes.io/managed-by": "choregos-api",
-            "choregos.dev/plugin": str(server["plugin"]),
-            "choregos.dev/server": str(server["server"]),
-            "choregos.dev/org": instance.org_id,
-        },
+        # `tranibor.dev/*`, and the former `choregos.dev/*` beside them for the window (ADR 0226): a
+        # policy or a selector written for the former family still matches.
+        labels=wire.labels_with_former(
+            {
+                "app.kubernetes.io/name": "choregos-plugin-server",
+                "app.kubernetes.io/managed-by": "choregos-api",
+                wire.label("plugin"): str(server["plugin"]),
+                wire.label("server"): str(server["server"]),
+                wire.label("org"): instance.org_id,
+            }
+        ),
         replicas=0 if problems else 1,
         runtime_class=settings.plugin_servers_runtime_class or None,
         cpu=settings.plugin_servers_cpu,
@@ -662,14 +668,16 @@ def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: S
         port=int(server["port"]),
         health_path=str(server["paths"]["health"]),
         env=env,
-        labels={
-            "app.kubernetes.io/name": "choregos-plugin-server",
-            "app.kubernetes.io/managed-by": "choregos-api",
-            "choregos.dev/plugin": str(server["plugin"]),
-            "choregos.dev/server": str(server["server"]),
-            "choregos.dev/org": org_id,
-            "choregos.dev/fake": "true",
-        },
+        labels=wire.labels_with_former(
+            {
+                "app.kubernetes.io/name": "choregos-plugin-server",
+                "app.kubernetes.io/managed-by": "choregos-api",
+                wire.label("plugin"): str(server["plugin"]),
+                wire.label("server"): str(server["server"]),
+                wire.label("org"): org_id,
+                wire.label("fake"): "true",
+            }
+        ),
         replicas=1,
         runtime_class=settings.plugin_servers_runtime_class or None,
         cpu=settings.plugin_servers_cpu,
@@ -761,7 +769,9 @@ async def _start_in_process(server: dict[str, Any], token: str, settings: Settin
         raise unprocessable(str(exc)) from exc
 
 
-USER_TOKEN_HEADER = "X-Choregos-User-Token"  # noqa: S105 - a header name
+#: The header of the person's `user_consent` token. A plugin server is outside the repository and may
+#: read the former name (`X-Choregos-User-Token`): both are sent for the window of ADR 0226.
+USER_TOKEN_HEADER = header("User-Token")
 
 
 async def plugin_client(
@@ -774,8 +784,9 @@ async def plugin_client(
     """The client of a plugin's server, with its bearer token; `None` for any other connector.
 
     `bearer`: the person's exchanged token for one call (ADR 0135), which replaces the server's own.
-    `user_token`: the person's `user_consent` token for one call, sent in `X-Choregos-User-Token` NEXT TO
-    the platform's token, which still authenticates Tranibor to the server."""
+    `user_token`: the person's `user_consent` token for one call, sent in `X-Tranibor-User-Token` (and the
+    former `X-Choregos-User-Token`) NEXT TO the platform's token, which still authenticates Tranibor to the
+    server."""
     if bearer is not None and instance.plugin_server is not None:
         url = str(
             instance.plugin_server["fake_url"] if bound_fake(instance) else instance.plugin_server["url"]
@@ -784,7 +795,7 @@ async def plugin_client(
     endpoint = await server_endpoint(session, instance)
     if endpoint is None:
         return None
-    headers = {USER_TOKEN_HEADER: user_token} if user_token else None
+    headers = both_headers("User-Token", user_token) if user_token else None
     return PluginServerClient(endpoint[0], token=endpoint[1], transport=transport(), headers=headers)
 
 

@@ -1,0 +1,505 @@
+{{- if .Values.enabled }}
+{{- $canary := .Values.global.canary | default dict }}
+{{- if $canary.enabled }}
+# Platform canary: Argo Rollouts replaces the Deployment. The pod is the same — it is the
+# way of getting there that changes. Without Rollouts installed, leave `global.canary.enabled: false`.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+{{- else }}
+apiVersion: apps/v1
+kind: Deployment
+{{- end }}
+metadata:
+  name: tranibor-api
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if $canary.enabled }}
+  strategy:
+    canary:
+      # The steps and their duration come from the values: a cautious environment lengthens the
+      # pause, it does not rewrite the chart.
+      steps:
+        {{- range $canary.steps }}
+        - setWeight: {{ .weight }}
+        {{- if .pause }}
+        - pause: { duration: {{ .pause }} }
+        {{- else }}
+        - pause: {}
+        {{- end }}
+        {{- end }}
+      {{- with $canary.analysis }}
+      analysis:
+        templates:
+          - templateName: {{ . }}
+        startingStep: 1
+      {{- end }}
+  {{- end }}
+  # Its component, not its name (ADR 0226, R9b): `global.labelValues` changes the name and recreates nothing.
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tranibor.podName" (dict "root" $ "name" "api") }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: api
+      annotations:
+        # A secret rotation redeploys the pods: otherwise the key rotates to no effect.
+        {{- /* Outposts switched off are no part of this pod: nothing of `global.outposts` is rendered
+             here, so it is left out of what the checksum covers, and a change to a door nobody runs
+             restarts no API. Switched on, the whole block counts like any other value. */}}
+        {{- $hashed := .Values }}
+        {{- if not (include "tranibor.outpostsEnabled" .) }}
+        {{- $hashed = set (deepCopy .Values) "global" (omit .Values.global "outposts") }}
+        {{- end }}
+        {{- /* ADR 0208: the all-in-one keys, when off (their defaults), are no part of what the checksum covers:
+             adding them restarts no API of an install that does not use them. */}}
+        {{- if not (include "tranibor.allInOne" .) }}
+        {{- $g := deepCopy $hashed.global }}
+        {{- $oidc := omit $g.oidc "embedded" "generateSecret" }}
+        {{- $store := $g.objectStore }}
+        {{- if not $store.embedded }}{{ $store = omit $store "embedded" "generateSecret" "serviceName" }}{{ end }}
+        {{- if $g.oidc.embedded }}{{ $oidc = $g.oidc }}{{ end }}
+        {{- $hashed = set (deepCopy $hashed) "global" (set (omit $g "allInOne") "oidc" $oidc) }}
+        {{- $_ := set $hashed.global "objectStore" $store }}
+        {{- end }}
+        checksum/config: {{ toJson $hashed | sha256sum }}
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: tranibor-api
+      {{- include "tranibor.imagePullSecrets" $ | nindent 6 }}
+      {{- include "tranibor.antiAffinity" (dict "global" .Values.global "labels" (dict "app.kubernetes.io/component" "api" "app.kubernetes.io/instance" .Release.Name)) | nindent 6 }}
+      {{- with .Values.hostAliases }}
+      # An OIDC provider whose name does not resolve from inside the cluster (split-horizon):
+      # pinned here rather than resolved — a network policy by FQDN would never see
+      # this traffic, it only sees what goes through DNS.
+      hostAliases: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.global.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "tranibor.image" (dict "global" .Values.global "image" .Values.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext: {{- toYaml .Values.global.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          {{- with .Values.global.toolCatalog.credentialsSecret }}
+          # The catalog providers' keys. As a block and BY REFERENCE: a key
+          # copied into the deployment spec would be readable by whoever can read a pod.
+          envFrom:
+            - secretRef: { name: {{ . }} }
+          {{- end }}
+          env:
+            {{- with .Values.global.toolCatalog.configMap }}
+            - name: TRANIBOR_TOOL_CATALOG
+              value: {{ printf "%s/%s" $.Values.global.toolCatalog.mountPath $.Values.global.toolCatalog.fileName | quote }}
+            {{- end }}
+            {{- with .Values.global.workflowTemplates.configMap }}
+            - name: TRANIBOR_WORKFLOW_TEMPLATES_DIR
+              value: {{ $.Values.global.workflowTemplates.mountPath | quote }}
+            {{- end }}
+            {{- with .Values.global.playbooks.configMap }}
+            # The API validates a workflow, so it must see the playbooks: without them it
+            # warns `role.playbook_not_found` about roles the deployment does provide,
+            # and the warning teaches people to ignore warnings.
+            - name: TRANIBOR_PLAYBOOKS_DIR
+              value: {{ $.Values.global.playbooks.mountPath | quote }}
+            {{- end }}
+            {{- with .Values.proceduresExtra }}
+            # Site notes and extra setup procedures, one Markdown file each (ADR 0067).
+            - name: TRANIBOR_PROCEDURES_EXTRA
+              value: /etc/tranibor/procedures
+            {{- end }}
+            {{- with (.Values.global.plugins | default dict) }}
+            {{- if or .sources .defaultPlugins .offline }}
+            # Plugin sources, default plugins, offline directory (ADR 0093): the ConfigMap `tranibor-plugins`.
+            - name: TRANIBOR_PLUGINS_CONFIG
+              value: /etc/tranibor/plugins/plugins.yaml
+            {{- end }}
+            {{- end }}
+            {{- $hostedCosign := ne ((.Values.global.images | default dict).hostedCosign | default "off") "off" }}
+            {{- if or $hostedCosign (.Values.global.plugins | default dict).sources }}
+            # Cosign's trust root cache (Sigstore's TUF metadata), for a hosted image's signature or a
+            # plugin source's: the root filesystem is read-only, and without it every check fails on
+            # `mkdir ~/.sigstore` (choregos#1327).
+            - name: TUF_ROOT
+              value: /tmp/sigstore
+            {{- end }}
+            {{- $servers := ((.Values.global.plugins | default dict).servers | default dict) }}
+            {{- if $servers.enabled }}
+            # Plugin servers (ADR 0096): run by the API in their namespace, through its Role there.
+            - name: TRANIBOR_PLUGIN_SERVERS
+              value: kubernetes
+            - name: TRANIBOR_PLUGIN_SERVERS_NAMESPACE
+              value: {{ ($servers.namespace | default dict).name | default "choregos-plugins" | quote }}
+            - name: TRANIBOR_PLUGIN_SERVERS_REGISTRIES
+              value: {{ toJson ($servers.registries | default list) | quote }}
+            - name: TRANIBOR_PLUGIN_SERVERS_RUNTIME_CLASS
+              value: {{ $servers.runtimeClass | default ((.Values.global.runner | default dict).runtimeClass | default "") | quote }}
+            - name: TRANIBOR_PLUGIN_SERVERS_EGRESS
+              value: {{ $servers.egress | default "networkpolicy" | quote }}
+            - name: TRANIBOR_PLUGIN_SERVERS_API_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            {{- with ($servers.imageMirrors | default dict) }}
+            # Where the servers' pods pull their image from (S80-20): same digest, checks on the declared one.
+            - name: TRANIBOR_PLUGIN_SERVERS_IMAGE_MIRRORS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with (hasKey $servers "imagePullSecrets" | ternary $servers.imagePullSecrets .Values.global.imagePullSecrets) }}
+            - name: TRANIBOR_PLUGIN_SERVERS_IMAGE_PULL_SECRETS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with (($servers.resources | default dict).limits | default dict) }}
+            - name: TRANIBOR_PLUGIN_SERVERS_CPU
+              value: {{ .cpu | default "500m" | quote }}
+            - name: TRANIBOR_PLUGIN_SERVERS_MEMORY
+              value: {{ .memory | default "512Mi" | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.global.agents }}
+            {{- if .defaultBackend }}
+            # The backend and the profiles a new project inherits (#245).
+            - name: TRANIBOR_DEFAULT_AGENT_BACKEND
+              value: {{ .defaultBackend | quote }}
+            {{- end }}
+            {{- with .allowedBackends }}
+            - name: TRANIBOR_ALLOWED_AGENT_BACKENDS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with .modelProfiles }}
+            - name: TRANIBOR_DEFAULT_MODEL_PROFILES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.egressHosts }}
+            # The hosts the API may reach, for the MCP catalogue's egress hint (ADR 0065).
+            - name: TRANIBOR_API_EGRESS_HOSTS
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- if .Values.mcpCatalogueExtra }}
+            - name: TRANIBOR_MCP_CATALOGUE_EXTRA
+              value: /etc/tranibor/mcp-catalogue/catalogue.yaml
+            {{- end }}
+            {{- with $.Values.global.images }}
+            # The images an operator names for job steps and agents written in code (ADR 0056,
+            # ADR 0063): name -> reference. The API validates a version against the names, the
+            # orchestrator resolves them; a workflow or an agent never writes a reference.
+            {{- with .jobs }}
+            - name: TRANIBOR_JOB_IMAGES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            {{- with .agents }}
+            - name: TRANIBOR_AGENT_IMAGES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            - name: TRANIBOR_REQUIRE_IMAGE_DIGEST
+              value: {{ .requireDigest | default false | quote }}
+            {{- with .hostedRegistries }}
+            - name: TRANIBOR_HOSTED_REGISTRIES
+              value: {{ toJson . | quote }}
+            {{- end }}
+            - name: TRANIBOR_HOSTED_COSIGN
+              value: {{ .hostedCosign | default "off" | quote }}
+            {{- if and .hostedCosignKeySecret (or .hostedCosignIdentity .hostedCosignIssuer) }}
+            {{- fail "global.images: hostedCosignKeySecret or hostedCosignIdentity and hostedCosignIssuer, not both: one signer, or the API would trust neither" }}
+            {{- end }}
+            {{- if .hostedCosignKeySecret }}
+            # The operator's public key, from its Secret (S41-14): cosign verifies a hosted image with it.
+            - name: TRANIBOR_HOSTED_COSIGN_KEY
+              value: /etc/tranibor/cosign/cosign.pub
+            {{- end }}
+            {{- with .hostedCosignIdentity }}
+            - name: TRANIBOR_HOSTED_COSIGN_IDENTITY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .hostedCosignIssuer }}
+            - name: TRANIBOR_HOSTED_COSIGN_ISSUER
+              value: {{ . | quote }}
+            {{- end }}
+            - name: TRANIBOR_HOSTED_COSIGN_TLOG
+              value: {{ ne (toString .hostedCosignTlog) "false" | quote }}
+            {{- end }}
+            # The cluster's version: a hosted version is refused at publication below 1.29 (S41-16).
+            - name: TRANIBOR_CLUSTER_VERSION
+              value: {{ $.Values.global.kubernetesVersion | default $.Capabilities.KubeVersion.Version | quote }}
+            {{- with (dig "mcp" "oauth" dict .Values.global) }}
+            {{- if .enabled }}
+            {{- range ($.Values.global.extraEnv | default list) }}
+            {{- if hasPrefix "TRANIBOR_MCP_OAUTH_" (include "tranibor.envName" .name) }}
+            {{- fail (printf "global.extraEnv: %s is set by global.mcp.oauth; two values for the same name, Kubernetes would keep the last one without saying anything" (include "tranibor.envNameSaid" .name)) }}
+            {{- end }}
+            {{- end }}
+            # The MCP gateway accepts the IdP's tokens (ADR 0030): Claude connects to it through
+            # single sign-on; the Integrations page says with which client.
+            - name: TRANIBOR_MCP_OAUTH_ENABLED
+              value: "true"
+            {{- with .issuer }}
+            - name: TRANIBOR_MCP_OAUTH_ISSUER
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .audience }}
+            - name: TRANIBOR_MCP_OAUTH_AUDIENCE
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .clients }}
+            {{- $clients := dict }}
+            {{- range $nom, $client := . }}
+            {{- $_ := set $clients $nom (dict "client_id" $client.clientId "callback_port" $client.callbackPort) }}
+            {{- end }}
+            - name: TRANIBOR_MCP_OAUTH_CLIENTS
+              value: {{ toJson $clients | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- /* A name this chart sets for the API must not also come from global.extraEnv.
+                   S47-02/03/04 add their names to this dict. */}}
+            {{- $apiOwned := dict "TRANIBOR_SESSION_SECRET_PREVIOUS" "the session-secret-previous key of global.apiSecretRef" "TRANIBOR_EGRESS_REPORT_KEY" "the egress-report-key key of global.apiSecretRef" "TRANIBOR_TRUSTED_PROXY_CIDRS" "tranibor-api.trustedProxyCidrs" "TRANIBOR_TRUSTED_PROXY_HOPS" "tranibor-api.trustedProxyHops" "TRANIBOR_CORS_ORIGINS" "tranibor-api.corsOrigins (a list)" "TRANIBOR_OIDC_AUTHORIZATION_ENDPOINT" "tranibor-api.oidcEndpoints.authorization" "TRANIBOR_OIDC_TOKEN_ENDPOINT" "tranibor-api.oidcEndpoints.token" "TRANIBOR_OIDC_USERINFO_ENDPOINT" "tranibor-api.oidcEndpoints.userinfo" "TRANIBOR_OIDC_REQUIRE_EMAIL_VERIFIED" "tranibor-api.oidcRequireEmailVerified" "TRANIBOR_OIDC_RELINK_UNTIL" "tranibor-api.oidcRelinkUntil" "TRANIBOR_OIDC_RELINK_VERIFIED_EMAIL" "tranibor-api.oidcRelinkUntil (a date: ADR 0164 replaced the switch)" "TRANIBOR_INTERNAL_API_GUARD" "tranibor-api.internalApiGuard" "TRANIBOR_RUN_DOOR_HOSTS" "tranibor-api.runDoor.hostnames" "TRANIBOR_PUBLIC_HOSTS" "tranibor-api.publicHostnames (and global.customHosts.hosts)" }}
+            {{- if include "tranibor.outpostsEnabled" . }}
+            {{- range $name := splitList " " (include "tranibor.outpostsOwnedEnv" "all") }}
+            {{- $_ := set $apiOwned $name "global.outposts (its switch, its quotas, the door's url, signingKey, announcedKeys and ratePerMinute)" }}
+            {{- end }}
+            {{- end }}
+            {{- if (.Values.global.auditExport | default dict).enabled }}
+            {{- range $name := splitList " " (include "tranibor.auditExportOwnedEnv" .) }}
+            {{- $_ := set $apiOwned $name "global.auditExport (the SIEM export of the audit log)" }}
+            {{- end }}
+            {{- end }}
+            {{- range ($.Values.global.extraEnv | default list) }}
+            {{- $name := include "tranibor.envName" .name }}
+            {{- if hasKey $apiOwned $name }}
+            {{- fail (printf "global.extraEnv: %s is set by the tranibor-api chart; use %s instead (two values for one name: Kubernetes keeps the last one without saying so)" (include "tranibor.envNameSaid" .name) (get $apiOwned $name)) }}
+            {{- end }}
+            {{- end }}
+            {{- include "tranibor.commonEnv" . | nindent 12 }}
+            {{- include "tranibor.temporalSecurityEnv" . | nindent 12 }}
+            {{- with (.Values.global.egress | default dict).denyDomains }}
+            # Hosts no run of this deployment may reach (ADR 0070): the effective network of a run
+            # always carries them, so the console and the egress proxy agree.
+            - name: TRANIBOR_NETWORK_INSTANCE_DENY
+              value: {{ join "," . | quote }}
+            {{- end }}
+            - name: TRANIBOR_CORS_ORIGINS
+              value: {{ if .Values.corsOrigins }}{{ join "," .Values.corsOrigins | quote }}{{ else }}{{ .Values.global.publicUrl | default (printf "https://app.%s" .Values.global.domain) | quote }}{{ end }}
+            - name: TRANIBOR_OIDC_ISSUER
+              value: {{ include "tranibor.oidcIssuer" . | quote }}
+            - name: TRANIBOR_OIDC_CLIENT_ID
+              value: {{ .Values.global.oidc.clientId | quote }}
+            - name: TRANIBOR_OIDC_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.oidc.secretRef }}, key: client-secret } }
+            - name: TRANIBOR_OIDC_DEFAULT_ORG
+              value: {{ .Values.global.oidc.defaultOrg | default "" | quote }}
+            - name: TRANIBOR_OIDC_REQUIRE_EMAIL_VERIFIED
+              value: {{ ternary "true" "false" (.Values.oidcRequireEmailVerified | toString | eq "true") | quote }}
+            {{- if (.Values.oidcRelinkVerifiedEmail | toString | eq "true") }}
+            {{- fail "tranibor-api.oidcRelinkVerifiedEmail is replaced by tranibor-api.oidcRelinkUntil, the end of a re-link window (an ISO 8601 instant, at most 31 days ahead; ADR 0164): a switch without an end stays open" }}
+            {{- end }}
+            {{- with .Values.oidcRelinkUntil }}
+            - name: TRANIBOR_OIDC_RELINK_UNTIL
+              value: {{ . | toString | quote }}
+            {{- end }}
+            {{- $oidcEndpoints := .Values.oidcEndpoints | default dict }}
+            {{- $oidcSet := compact (list $oidcEndpoints.authorization $oidcEndpoints.token $oidcEndpoints.userinfo) }}
+            {{- if and $oidcSet (ne (len $oidcSet) 3) }}
+            {{- fail "tranibor-api.oidcEndpoints: set authorization, token and userinfo together, or none" }}
+            {{- end }}
+            {{- if $oidcSet }}
+            - name: TRANIBOR_OIDC_AUTHORIZATION_ENDPOINT
+              value: {{ $oidcEndpoints.authorization | quote }}
+            - name: TRANIBOR_OIDC_TOKEN_ENDPOINT
+              value: {{ $oidcEndpoints.token | quote }}
+            - name: TRANIBOR_OIDC_USERINFO_ENDPOINT
+              value: {{ $oidcEndpoints.userinfo | quote }}
+            {{- end }}
+            # Always set, even to `false`: a missing value would leave the code's default
+            # to decide, and that is precisely what left the API open in production.
+            - name: TRANIBOR_BOOTSTRAP_ORG
+              value: {{ .Values.global.bootstrap.org | default "" | quote }}
+            - name: TRANIBOR_BOOTSTRAP_ORG_NAME
+              value: {{ .Values.global.bootstrap.orgName | default "" | quote }}
+            - name: TRANIBOR_BOOTSTRAP_ADMINS
+              value: {{ .Values.global.bootstrap.admins | default "" | quote }}
+            - name: TRANIBOR_DEV_LOGIN_ENABLED
+              value: {{ .Values.global.devLogin.enabled | default false | quote }}
+            - name: TRANIBOR_DEV_ADMIN_EMAILS
+              value: {{ .Values.global.devLogin.adminEmails | default "" | quote }}
+            # The proxies whose X-Forwarded-For entries the sign-in and webhook rate limit believes.
+            - name: TRANIBOR_TRUSTED_PROXY_CIDRS
+              value: {{ toJson (.Values.trustedProxyCidrs | default list) | quote }}
+            - name: TRANIBOR_TRUSTED_PROXY_HOPS
+              value: {{ .Values.trustedProxyHops | default 0 | quote }}
+            # The run's API answers only where runs are (ADR 0144): what the API does with a request for
+            # `/api/v1/internal` that arrives under a public hostname, which names are public beyond the
+            # two URLs and the CORS origins, which are run doors, and where runs are told to call back
+            # (the workers' own value: the guard never refuses that address).
+            {{- $guard := .Values.internalApiGuard | default "warn" | toString }}
+            {{- if not (has $guard (list "off" "warn" "enforce")) }}
+            {{- fail (printf "tranibor-api.internalApiGuard: %q is not off, warn or enforce" $guard) }}
+            {{- end }}
+            {{- $door := .Values.runDoor | default dict }}
+            - name: TRANIBOR_INTERNAL_API_GUARD
+              value: {{ $guard | quote }}
+            - name: TRANIBOR_RUN_DOOR_HOSTS
+              value: {{ toJson (compact ($door.hostnames | default list)) | quote }}
+            - name: TRANIBOR_PUBLIC_HOSTS
+              value: {{ toJson (compact (concat (ternary (.Values.ingress.hostnames | default list) list (.Values.ingress.enabled | default false)) (.Values.publicHostnames | default list) ((.Values.global.customHosts | default dict).hosts | default list))) | quote }}
+            - name: TRANIBOR_INTERNAL_API_URL
+              value: {{ .Values.global.internalApiUrl | default "http://tranibor-api:8000" | quote }}
+            {{- if include "tranibor.outpostsEnabled" . }}
+            # The outposts' door (ADR 0148): its public origin, the key it signs every call with, the
+            # keys announced for a rotation and the rate per instance. The API serves the door unless
+            # `global.outposts.door.dedicated` splits it out, and in both layouts it shows the keys to
+            # pin and the origin with an outpost and its enrolment token. The switch and the quotas of
+            # calls in flight come with `choregos.commonEnv`: the workers read them too.
+            {{- include "tranibor.outpostsDoorEnv" . | nindent 12 }}
+            {{- end }}
+            {{- if (.Values.global.auditExport | default dict).enabled }}
+            # The SIEM export of the audit log (ADR 0207): every replica runs the loop; the token is read
+            # from a Secret by reference.
+            {{- include "tranibor.auditExportEnv" . | nindent 12 }}
+            {{- end }}
+            # STRUCTURAL, never optional: an API that starts without a session
+            # secret signs cookies with an empty value, and a missing run-token key
+            # sends every process back to an ephemeral pair — the agent then receives
+            # "Signature verification failed", a message that blames the token.
+            # The other keys of this secret are optional: their absence is a
+            # feature switched off, not a broken deployment. The dev tenant paid for it on
+            # 2026-09-26: `generic-webhook-secret` missing from the InfisicalSecret template, and
+            # the WHOLE API in CreateContainerConfigError.
+            - name: TRANIBOR_SESSION_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: session-secret } }
+            - name: TRANIBOR_SESSION_SECRET_PREVIOUS
+              # Optional: the previous key during a rotation, for verification only; absent, no rotation.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: session-secret-previous, optional: true } }
+            - name: TRANIBOR_RUN_TOKEN_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: run-token-private-key } }
+            - name: TRANIBOR_RUN_TOKEN_PUBLIC_KEY
+              # Optional: it is DERIVED from the private one (`public_from_private`).
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: run-token-public-key, optional: true } }
+            - name: TRANIBOR_EGRESS_REPORT_KEY
+              # Optional: the egress proxy's own key (ADR 0145), which the proxy receives too. Absent,
+              # an agent can rewrite its run's network counters, and the API says so at start-up.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: egress-report-key, optional: true } }
+            - name: TRANIBOR_GITHUB_WEBHOOK_SECRET
+              # Optional: no GitHub, no secret — and when empty, the API refuses in staging/prod.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: github-webhook-secret, optional: true } }
+            - name: TRANIBOR_GENERIC_WEBHOOK_SECRET
+              # Optional: when empty, `verify_shared_secret` returns False: Jira, GitLab and the generic webhook refuse.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: generic-webhook-secret, optional: true } }
+            - name: TRANIBOR_GITHUB_APP_ID
+              # Optional: a tenant without a GitHub App has none.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: github-app-id, optional: true } }
+            - name: TRANIBOR_GITHUB_APP_PRIVATE_KEY
+              # Optional: a tenant without a GitHub App has none.
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: github-app-private-key, optional: true } }
+            # The App's OAuth client (ADR 0073): only needed to claim an installation when the
+            # instance has several organisations. Optional.
+            - name: TRANIBOR_GITHUB_APP_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: github-app-client-id, optional: true } }
+            - name: TRANIBOR_GITHUB_APP_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.apiSecretRef }}, key: github-app-client-secret, optional: true } }
+            # The key that seals the connector secrets typed in the console (ADR 0058). Optional: a
+            # deployment without it keeps `env:` references and answers 409 when a value is typed.
+            - name: TRANIBOR_SECRETS_KEKS
+              valueFrom: { secretKeyRef: { name: {{ .Values.global.secrets.keksSecretRef | default .Values.global.apiSecretRef }}, key: {{ .Values.global.secrets.keksKey | default "secrets-keks" }}, optional: true } }
+            - name: TRANIBOR_GATEWAY_MASTER_KEY
+              valueFrom: { secretKeyRef: { name: {{ include "tranibor.gatewaySecret" . }}, key: master-key } }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- include "tranibor.temporalSecurityMounts" . | nindent 12 }}
+            {{- with .Values.global.toolCatalog.configMap }}
+            {{- include "tranibor.etcMount" (dict "name" "catalogue" "path" $.Values.global.toolCatalog.mountPath) | nindent 12 }}
+            {{- end }}
+            {{- with .Values.global.workflowTemplates.configMap }}
+            {{- include "tranibor.etcMount" (dict "name" "workflow-templates" "path" $.Values.global.workflowTemplates.mountPath) | nindent 12 }}
+            {{- end }}
+            {{- with .Values.global.playbooks.configMap }}
+            {{- include "tranibor.etcMount" (dict "name" "playbooks" "path" $.Values.global.playbooks.mountPath) | nindent 12 }}
+            {{- end }}
+            {{- with .Values.proceduresExtra }}
+            {{- include "tranibor.etcMount" (dict "name" "procedures-extra" "path" "/etc/tranibor/procedures") | nindent 12 }}
+            {{- end }}
+            {{- with (.Values.global.plugins | default dict) }}
+            {{- if or .sources .defaultPlugins .offline }}
+            {{- include "tranibor.etcMount" (dict "name" "plugins-config" "path" "/etc/tranibor/plugins") | nindent 12 }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.mcpCatalogueExtra }}
+            {{- include "tranibor.etcMount" (dict "name" "mcp-catalogue" "path" "/etc/tranibor/mcp-catalogue") | nindent 12 }}
+            {{- end }}
+            {{- if (.Values.global.images | default dict).hostedCosignKeySecret }}
+            {{- include "tranibor.etcMount" (dict "name" "cosign" "path" "/etc/tranibor/cosign") | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- include "tranibor.temporalSecurityVolumes" . | nindent 8 }}
+        {{- with .Values.global.toolCatalog.configMap }}
+        - name: catalogue
+          configMap: { name: {{ . }} }
+        {{- end }}
+        {{- with .Values.global.workflowTemplates.configMap }}
+        - name: workflow-templates
+          configMap: { name: {{ . }} }
+        {{- end }}
+        {{- with .Values.global.playbooks.configMap }}
+        - name: playbooks
+          configMap: { name: {{ . }} }
+        {{- end }}
+        {{- with .Values.proceduresExtra }}
+        - name: procedures-extra
+          configMap: { name: {{ . }} }
+        {{- end }}
+        {{- with (.Values.global.plugins | default dict) }}
+        {{- if or .sources .defaultPlugins .offline }}
+        - name: plugins-config
+          configMap: { name: tranibor-plugins }
+        {{- end }}
+        {{- end }}
+        {{- /* Volumes the chart owns: a name of `extraVolumes` that collides with one of them would
+             give an invalid pod, or worse, silently replace a mount. */}}
+        {{- $owned := list "tmp" "catalogue" "workflow-templates" "playbooks" "mcp-catalogue" "procedures-extra" "cosign" "plugins-config" }}
+        {{- range (.Values.extraVolumes | default list) }}
+        {{- if has .name $owned }}
+        {{- fail (printf "extraVolumes: %q is a volume of the chart; pick another name" .name) }}
+        {{- end }}
+        {{- end }}
+        {{- with (.Values.global.images | default dict).hostedCosignKeySecret }}
+        - name: cosign
+          secret: { secretName: {{ . }}, items: [{ key: cosign.pub, path: cosign.pub }] }
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.mcpCatalogueExtra }}
+        - name: mcp-catalogue
+          configMap: { name: {{ .Values.mcpCatalogueExtra }} }
+        {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+              app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

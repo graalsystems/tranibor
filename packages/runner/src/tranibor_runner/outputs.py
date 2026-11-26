@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Binary deliverables: what an agent writes in `.choregos/outputs/` (S31-05, ADR 0049).
+"""Binary deliverables: what an agent writes in `.tranibor/outputs/` (S31-05, ADR 0049).
 
 An agent that produces a slide deck, a spreadsheet, a document, an image or a video writes it in
-`.choregos/outputs/`. The runner hands each file to the internal API, which hashes it, stores it in
+`.tranibor/outputs/`. An agent built on an older SDK, or a job image, may still write the former
+`.choregos/outputs/` until 0.32.0 (ADR 0226, R9a): both folders are collected, and a file name found in
+both is taken from the new one. The runner hands each file to the internal API, which hashes it, stores it in
 the object store and records it as a typed artifact; the runner then lists what was stored in the
 result's `artifacts.files` — itself, never the agent.
 
@@ -26,10 +28,13 @@ from tranibor_contracts import (
     artifact_digest,
     type_of_filename,
 )
+from tranibor_contracts.wire import run_path, run_paths
 
 from . import safe_files
 
-OUTPUTS_DIR = ".choregos/outputs"
+OUTPUTS_DIR = run_path("outputs")
+#: Both folders, the new one first: a file name in both is the new folder's.
+OUTPUTS_DIRS = run_paths("outputs")
 _NAME = re.compile(ARTIFACT_NAME_PATTERN)
 
 
@@ -43,10 +48,12 @@ def expected_files(stage_input: StageInput) -> dict[str, str]:
 
 
 def missing_files(outputs_dir: Path, expected: dict[str, str]) -> list[str]:
+    """The expected file names found in neither folder; `outputs_dir` is `<workspace>/.tranibor/outputs`."""
+    workspace = outputs_dir.parent.parent
     return [
         filename
         for filename in expected.values()
-        if not safe_files.is_regular(outputs_dir.parent.parent, Path(".choregos") / "outputs" / filename)
+        if not any(safe_files.is_regular(workspace, Path(folder) / filename) for folder in OUTPUTS_DIRS)
     ]
 
 
@@ -55,19 +62,37 @@ def collect(workspace: Path, stage_input: StageInput) -> tuple[list[tuple[str, s
 
     A declared output keeps its declared name and type; any other file is stored under its own file
     name, typed by its extension. Only regular files directly in the folder: a symbolic link could
-    point anywhere in the pod, a sub-folder has no artifact name."""
-    folder = workspace / OUTPUTS_DIR
-    if not folder.is_dir():
-        return [], []
+    point anywhere in the pod, a sub-folder has no artifact name. Both folders are read, the new one
+    first; a name already taken from it is not read again from the former."""
     declared = {filename: name for name, filename in expected_files(stage_input).items()}
     kept: list[tuple[str, str, Path]] = []
     refused: list[str] = []
-    try:
-        regular, other = safe_files.regular_files(workspace, OUTPUTS_DIR)
-    except OSError:
-        return [], [f"{OUTPUTS_DIR}: is a link, or sits behind one"]
-    refused.extend(f"{name}: not a regular file" for name in other)
-    for path in (folder / name for name in regular):
+    seen: set[str] = set()
+    for outputs in OUTPUTS_DIRS:
+        folder = workspace / outputs
+        if not folder.is_dir():
+            continue
+        try:
+            regular, other = safe_files.regular_files(workspace, outputs)
+        except OSError:
+            refused.append(f"{outputs}: is a link, or sits behind one")
+            continue
+        refused.extend(f"{name}: not a regular file" for name in other if name not in seen)
+        _classify(
+            [folder / name for name in regular if name not in seen], declared, stage_input, kept, refused
+        )
+        seen.update(regular, other)
+    return kept, refused
+
+
+def _classify(
+    paths: list[Path],
+    declared: dict[str, str],
+    stage_input: StageInput,
+    kept: list[tuple[str, str, Path]],
+    refused: list[str],
+) -> None:
+    for path in paths:
         if path.name in declared:
             name = declared[path.name]
             kept.append((name, stage_input.transition.output_types[name], path))
@@ -77,7 +102,6 @@ def collect(workspace: Path, stage_input: StageInput) -> tuple[list[tuple[str, s
             kept.append((path.name, type_of_filename(path.name), path))
         else:
             refused.append(f"{path.name}: not a valid artifact name")
-    return kept, refused
 
 
 async def store_outputs(
@@ -109,7 +133,7 @@ async def store_outputs(
 
 
 def outputs_markdown(stage_input: StageInput) -> str:
-    """The section of `.choregos/task.md` that says which files to write, and where."""
+    """The section of `.tranibor/task.md` that says which files to write, and where."""
     expected = expected_files(stage_input)
     if not expected:
         return ""
@@ -119,7 +143,7 @@ def outputs_markdown(stage_input: StageInput) -> str:
             [
                 "",
                 "## Files to deliver",
-                "Write each of these files in `.choregos/outputs/` before you finish; a missing one "
+                "Write each of these files in `.tranibor/outputs/` before you finish; a missing one "
                 "fails the step. Produce office files with your skills, images and video with the "
                 "models or tools you are given — then write the file there:",
                 *[f"- `{OUTPUTS_DIR}/{filename}` ({types[name]})" for name, filename in expected.items()],

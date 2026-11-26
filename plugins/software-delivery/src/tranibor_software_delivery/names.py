@@ -87,17 +87,18 @@ class ReleaseStatus(StrEnum):
 
 
 class ReleaseEvent(StrEnum):
-    """The release train's event types, declared in the contracts' `EVENT_TYPES` (round D). The strings are
-    the ones subscribers and the `events` rows key on: they never change (ADR 0176 §6)."""
+    """The release train's event types, declared in the contracts' `EVENT_TYPES` (round D):
+    `tranibor.release.*` since 0.30.0 (ADR 0226, R9c). An `events` row or a subscriber's filter under the
+    former `choregos.release.*` reads as its twin (`EVENT_TYPES.check`, `wire.event_type`) until 0.32.0."""
 
-    COLLECTED = "choregos.release.collected"
-    DEPARTED = "choregos.release.departed"
-    STAGED = "choregos.release.staged"
-    APPROVAL_REQUESTED = "choregos.release.approval_requested"
-    PROMOTED = "choregos.release.promoted"
-    VERIFIED = "choregos.release.verified"
-    ROLLED_BACK = "choregos.release.rolled_back"
-    FROZEN = "choregos.release.frozen"
+    COLLECTED = "tranibor.release.collected"
+    DEPARTED = "tranibor.release.departed"
+    STAGED = "tranibor.release.staged"
+    APPROVAL_REQUESTED = "tranibor.release.approval_requested"
+    PROMOTED = "tranibor.release.promoted"
+    VERIFIED = "tranibor.release.verified"
+    ROLLED_BACK = "tranibor.release.rolled_back"
+    FROZEN = "tranibor.release.frozen"
 
 
 #: The deployment events that interrupt a train (`cd.*`, the plugin's inbound event types since round C2).

@@ -82,7 +82,7 @@ describe("an organisation's own theme replaces the instance's after hydration (S
 
   it("before the session knows the organisations, asks for the remembered one (the sign-in page)", async () => {
     session = { org: "default", orgs: [] };
-    window.localStorage.setItem("choregos.org", "acme-labs");
+    window.localStorage.setItem("tranibor.org", "acme-labs");
     const fetcher = vi.fn(async (_url: string) => new Response(JSON.stringify(SAMPLE_THEME), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
     page();
@@ -94,7 +94,7 @@ describe("an organisation's own theme replaces the instance's after hydration (S
     session = { org: "default", orgs: [] };
     const fetcher = vi.fn(async () => new Response(JSON.stringify(SAMPLE_THEME), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
-    window.localStorage.setItem("choregos.org", "../../etc?x=1");
+    window.localStorage.setItem("tranibor.org", "../../etc?x=1");
     page();
     await new Promise((r) => setTimeout(r, 20));
     expect(fetcher).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe("on a host an organisation owns, the host's look is not swapped (ADR 01
   it("asks for nothing after hydration: the server drew the host's organisation", async () => {
     const fetcher = vi.fn(async (_url: string) => new Response(JSON.stringify(SAMPLE_THEME), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
-    window.localStorage.setItem("choregos.org", "other");
+    window.localStorage.setItem("tranibor.org", "other");
     render(
       <ServedThemeProvider initial={DEFAULT_SERVED_THEME} hostOrg="acme">
         <OrganisationTheme />

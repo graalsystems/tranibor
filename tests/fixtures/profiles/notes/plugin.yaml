@@ -1,4 +1,4 @@
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Plugin
 metadata:
   name: notes

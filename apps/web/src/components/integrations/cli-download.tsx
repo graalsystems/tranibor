@@ -43,7 +43,7 @@ function useBrowserPlatform(): BrowserPlatform {
 }
 
 /**
- * Integrations › CLI: the `choregos` CLI from THIS instance (S62-08), in the version it runs, through
+ * Integrations › CLI: the `tranibor` CLI from THIS instance (S62-08), in the version it runs, through
  * the console's own host. The one-line install for the browser's system first, every file with its
  * checksum after, then the first commands. A build without binaries says so and links the release.
  */
@@ -67,7 +67,7 @@ export function CliDownload({ origin, version, org }: { origin: string; version?
       <Card title="Install the CLI">
         <div data-testid="cli-not-bundled">
         <Alert tone="warn" title="This build bundles no CLI">
-          This instance was built without the <Code>choregos</Code> binaries.{" "}
+          This instance was built without the <Code>tranibor</Code> binaries.{" "}
           {version ? (
             <>
               Download version {version}, the one it runs, from its{" "}
@@ -90,7 +90,7 @@ export function CliDownload({ origin, version, org }: { origin: string; version?
     <Card title="Install the CLI">
       <div className="space-y-4 text-sm">
         <p>
-          <Code data-testid="cli-version">choregos {bundle.version}</Code>, the version this instance runs, served by
+          <Code data-testid="cli-version">tranibor {bundle.version}</Code>, the version this instance runs, served by
           the instance itself: no Python, no access to GitHub needed.
         </p>
         <div className="space-y-2">
@@ -112,7 +112,7 @@ export function CliDownload({ origin, version, org }: { origin: string; version?
           </label>
           <p className="text-xs text-ink-muted">
             {os === "windows"
-              ? "In PowerShell: installs into %LOCALAPPDATA%\\Programs\\choregos and adds it to your PATH."
+              ? "In PowerShell: installs into %LOCALAPPDATA%\\Programs\\tranibor and adds it to your PATH."
               : "In a terminal: installs into ~/.local/bin, no sudo; the script checks the sha256 before installing."}
           </p>
           <CopyBlock code={installCommand(os, origin)} testId="cli-install-command" />
@@ -154,7 +154,7 @@ export function CliDownload({ origin, version, org }: { origin: string; version?
         <div className="space-y-2">
           <p>
             Then sign in with a full-access token (My account › Access tokens), and keep it in step later with{" "}
-            <Code>choregos self update</Code>:
+            <Code>tranibor self update</Code>:
           </p>
           <CopyBlock code={firstCommands(os, origin, org)} testId="cli-first-commands" />
         </div>

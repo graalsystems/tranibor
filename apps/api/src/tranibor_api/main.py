@@ -335,7 +335,7 @@ def _check_the_edition(settings: Any) -> None:
 
     The refusal is at startup and it names what is missing. The reverse is not refused: a
     deployment that announces nothing and loads the enterprise extension is simply a deployment
-    that forgot to say so, and denying it startup would help nobody; the `choregos_edition_info`
+    that forgot to say so, and denying it startup would help nobody; the `tranibor_edition_info`
     metric and `GET /edition` tell the truth in both cases.
     """
     from .edition import ENTERPRISE, current
@@ -344,7 +344,7 @@ def _check_the_edition(settings: Any) -> None:
         raise RuntimeError(
             "global.edition=enterprise but no enterprise edition extension declared itself. "
             "The image is the community edition's, or the `choregos-ee` package is not "
-            "installed, or its `choregos.plugins` entry point does not call `declare`. "
+            "installed, or its `tranibor.plugins` entry point does not call `declare`. "
             "Fix the image, or set global.edition=community again."
         )
 
@@ -488,6 +488,11 @@ def create_app() -> FastAPI:
     # After the limiter and before the logging middleware: logging stays outermost, so a refusal is
     # logged with its request id.
     install_origin_guard(app)
+    from .former_cookies import FormerCookiesMiddleware
+
+    # Outside the origin guard and every route: a cookie set under its former name (`choregos_*`) is
+    # read under its new one, then cleared (ADR 0226).
+    app.add_middleware(FormerCookiesMiddleware)
 
     @app.middleware("http")
     async def logging_middleware(

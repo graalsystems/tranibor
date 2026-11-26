@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { api, ApiError, DEFAULT_ORG, IS_MOCK, orgSlug, setCurrentOrg } from "./api";
-import { pickOrg, rememberOrgCookie, rememberedOrg } from "./remembered-org";
+import { ORG_STORAGE_KEY, pickOrg, rememberOrgCookie, rememberedOrg } from "./remembered-org";
 import type { MeDto, Org } from "./types";
 
 type Session = {
@@ -24,7 +24,7 @@ type Session = {
 };
 
 const SessionContext = createContext<Session | null>(null);
-const ORG_KEY = "choregos.org";
+const ORG_KEY = ORG_STORAGE_KEY;
 const ORG_PAGE = 50;
 
 /**

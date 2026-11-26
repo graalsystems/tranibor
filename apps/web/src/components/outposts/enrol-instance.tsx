@@ -53,7 +53,7 @@ export function EnrolInstance({
     <Card title="Enrol an instance" data-testid="outpost-enrol">
       <div className="space-y-3 text-sm">
         <p className="text-ink-muted">
-          An instance is one copy of the program <Code>choregos-outpost</Code>, with keys it makes on its own machine. It
+          An instance is one copy of the program <Code>tranibor-outpost</Code>, with keys it makes on its own machine. It
           enrols with a token that works once and lives 15 minutes, and is handed nothing until you approve it against its
           fingerprint.
         </p>

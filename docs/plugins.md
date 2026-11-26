@@ -5,7 +5,7 @@ A plugin packages agents and what they need, in one format the platform understa
 locally with the CLI, how a deployment declares the sources it fetches plugins from and how it trusts
 them, what installing one into an organisation does, and the plugins a deployment installs by default.
 
-"Plugin" here means this package. A Python wheel loaded through the `choregos.plugins` entry point is an
+"Plugin" here means this package. A Python wheel loaded through the `tranibor.plugins` entry point is an
 **extension**. A plugin is the one unit a trade ships: when its trade needs code inside the platform (a
 connector type, gates, effects), that code is the plugin's extension, under the plugin's name and
 version; the enterprise edition is an extension that is no plugin. The public page
@@ -37,7 +37,7 @@ workflows and eval suites, [Assistants](#assistants)). Anything else in the dire
 live beside its plugin without shipping in it.
 
 ```yaml
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Plugin
 metadata:
   name: hello                 # [a-z0-9-], unique within a source
@@ -64,7 +64,7 @@ contents:
 
 ## What is checked
 
-`choregos plugin validate` reports every problem it finds, each with its file:
+`tranibor plugin validate` reports every problem it finds, each with its file:
 
 - **Paths stay inside the plugin.** A path cannot be absolute or hold a `.` or `..` segment, and no
   declared path, nor anything under a declared directory, may be or pass through a symbolic link, even
@@ -119,7 +119,7 @@ contents:
 
 Validation also **warns**, without refusing: an agent that reads a knowledge base (`spec.knowledge`) that
 no template of the plugin ships runs only in an organisation that already has that base and serves it to
-the project — its runs stop otherwise. `choregos plugin validate` prints each warning after the digest
+the project — its runs stop otherwise. `tranibor plugin validate` prints each warning after the digest
 (`! agent `x` reads the knowledge base `y`, which no template of this plugin ships …`).
 
 ### Knowledge bases
@@ -231,7 +231,7 @@ business vocabulary: `test_assistant_genericity.py` runs the fixture below end t
 
 ```yaml
 # assistants/investment-assistant.yaml (tests/fixtures/plugins/investment-assistant)
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Assistant
 metadata: { name: investment-assistant, display_name: Investment assistant, description: "…" }
 agent: investment-analyst            # an agent of this plugin, runtime prompt or hosted
@@ -254,7 +254,7 @@ policy:
   data: { classification: sensitive, erasure: [by_user] }
 ```
 
-`choregos plugin validate` refuses, naming the file and the JSON path of the field:
+`tranibor plugin validate` refuses, naming the file and the JSON path of the field:
 
 1. an `agent` that is not an agent of the plugin, or whose runtime is not `prompt` or `hosted`;
 2. a `{{ config.<key> }}` of the agent's instructions that `config_schema` does not declare;
@@ -322,7 +322,7 @@ now with `POST …/run`. Nothing changes in the Temporal workflows: the schedule
   `{ kind: trigger, subscriber: /attendee/email, idempotency: /event/id }`: `subscriber` is the JSON pointer, in
   the event's payload, of the subscriber's EMAIL; `idempotency` (optional) the pointer of the event's identifier.
   A system posts the event to `POST /webhooks/assistants/{org}/{slug}/tasks/{task}/events` with
-  `X-Choregos-Signature: sha256=<HMAC-SHA256 of the body>`; the key and the URL are shown to whoever manages the
+  `X-Tranibor-Signature: sha256=<HMAC-SHA256 of the body>`; the key and the URL are shown to whoever manages the
   installation by `POST /orgs/{org}/assistants/{slug}/tasks/{task}/event-key` (derived from the installation's
   webhook key and the task: rotating the webhook key changes it, another task's key opens nothing). The person
   subscribes with `PUT …/tasks/{task}` `{ "kind": "trigger" }` (no cron). Routing never guesses: the pointer must
@@ -348,7 +348,7 @@ now with `POST …/run`. Nothing changes in the Temporal workflows: the schedule
 - **Reads journal**: every read of a task run's steps is a line with the work item's key (and the delegation's id
   under one), never the content.
 - **Delivery**: the run's artifacts are listed by `GET /me/inbox` (always). `email` and `teams` go through a
-  notifier, `webhook` is an HMAC-signed POST (`X-Choregos-Signature: t=…,v1=…`, as the A2A push notifications)
+  notifier, `webhook` is an HMAC-signed POST (`X-Tranibor-Signature: t=…,v1=…`, as the A2A push notifications)
   to the installation's `policy_overrides.delivery.webhook.url`; each is sent once per artifact revision and a
   channel nobody configured is recorded as `not_configured` in the work item. `email` goes through whichever
   notifier `policy_overrides.delivery.email` (`{type, config}`) names. `teams` (S63-25) posts an Adaptive Card to a
@@ -532,7 +532,7 @@ cases:
     rubric: [{ criterion: explains without recommending a purchase, threshold: 0.8 }]   # scored by the judge model
 ```
 
-`choregos plugin validate` holds the file to the schema and refuses a suite for another agent than the
+`tranibor plugin validate` holds the file to the schema and refuses a suite for another agent than the
 assistant's, a duplicate case name, and a tool (in an assertion, a condition or `tool_results`) that is not
 a `<need>__<operation>` of the assistant's tools. `tranibor_core.conversation_evals` evaluates a journal
 (`evaluate_case`, `evaluate_suite`) and plays a case through the prompt loop on a scripted model
@@ -568,7 +568,7 @@ setting `TRANIBOR_CONVERSATION_JUDGE_MODEL`; empty, it is `default_model_profile
 else `platform/standard`. Tests script it on `FakeModelServer` (`say_for("conversation_judge", ...)`).
 
 A task's workflow (`tasks[].workflow`) must be a valid workflow (the workflow schema and its static rules):
-`choregos plugin validate` refuses a stub, naming the file.
+`tranibor plugin validate` refuses a stub, naming the file.
 #### Writes in a conversation
 
 A write need with `approval: inline` is offered to the agent as `<need>__<operation>` (the agent's `mcp_servers`
@@ -614,7 +614,7 @@ launches:
     required: true           # default; an optional launch may stay unbound or be switched off
 ```
 
-`choregos plugin validate` refuses a launch name declared twice, an `input_schema` that is not a JSON Schema of
+`tranibor plugin validate` refuses a launch name declared twice, an `input_schema` that is not a JSON Schema of
 `type: object`, and a need called `launch` beside launches (their tools are `launch__<name>`).
 
 **Binding.** The installation binds each launch, by reference, to a team's project and the name of one of its
@@ -758,10 +758,10 @@ row-level policy.
 ## Pack and index
 
 ```
-choregos plugin validate hello/
-choregos plugin pack hello/ -o hello-1.0.0.tar.gz
-choregos plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/choregos-plugins
-choregos plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
+tranibor plugin validate hello/
+tranibor plugin pack hello/ -o hello-1.0.0.tar.gz
+tranibor plugin index plugins/ -o index.yaml --oci-repository ghcr.io/acme/tranibor-plugins
+tranibor plugin index plugins/ -o index.yaml --git-url https://github.com/acme/agents \
     --git-commit <40-hex sha> --git-path plugins
 ```
 
@@ -770,7 +770,7 @@ declared files (nothing else is in the archive): entries sorted by path, regular
 files always give the same digest, whatever their times or permissions on disk, and `pack` writes the
 same bytes every time. An index (`plugin-index.schema.json`) records, for each version, its digest, its
 `core` range, where to fetch it — an OCI reference, or a git repository pinned to a commit — and the
-`agents` it ships (written by `choregos plugin index`): the workflow catalogue reads it to name the plugin
+`agents` it ships (written by `tranibor plugin index`): the workflow catalogue reads it to name the plugin
 of an agent a workflow needs and the organisation lacks, without fetching any plugin
 ([ADR 0111](adr/0111-a-workflow-catalogue.md)). A
 branch or a tag is not accepted in place of a commit.
@@ -974,7 +974,7 @@ A server's image is pinned by digest (the contract), comes from a registry prefi
 `plugins.servers.registries`, and carries a trusted signature when `images.hostedCosign` is `enforce`
 (`warn` logs `plugin.server.signature_unverified`). A deployment without `plugins.servers.enabled`
 refuses a plugin that brings a server. In the cluster, the Kyverno policy
-`choregos-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
+`tranibor-plugin-server-images` (`infra/policies/plugin-servers.yaml`) refuses a pod of the plugins
 namespace whose image is not pinned or not from the allowed prefix.
 
 ## The tracker profile
@@ -1040,8 +1040,8 @@ approval).
   the tool, the key and the text): a Temporal retry replays the same key and the server answers the
   first write (`created: false`, `written: false`). The same comment twice on an item is written once.
   `tracker_upsert_status` adds a note only when the latest one with that `marker` differs (journals that
-  cannot be edited); Tranibor's markers (`<!-- choregos:status -->`) reach the server as their name
-  (`choregos:status`).
+  cannot be edited); Tranibor's markers (`<!-- tranibor:status -->`) reach the server under their former
+  bare name (`choregos:status`), which every note written before carries, until 0.32.0.
 - **Platform calls, audited, not governed.** The adapter calls the server through the platform's client
   of it (the Service URL the platform wrote, the server's bearer token, no redirect), not through an
   agent's tool selection nor a governed action — as the platform's writes to Jira or GitHub. The workflow
@@ -1191,7 +1191,7 @@ workflow that names an agent resolve through the same view. Organisations that i
 agents before S43-09 had their provenance rewritten by a migration, and an `org_plugins` row recorded
 for each plugin they held agents of, so upgrades keep reaching them.
 
-The full reference of the commands is in [the CLI reference](cli.md#choregos-plugin).
+The full reference of the commands is in [the CLI reference](cli.md#tranibor-plugin).
 
 ## Sources and trust
 
@@ -1205,7 +1205,7 @@ sources:
     trust:                      # a keyless signer, regular expressions matched whole…
       identity: https://github\.com/graalsystems/tranibor-agents/\.github/workflows/publish\.yml@refs/heads/main
       issuer: https://token\.actions\.githubusercontent\.com
-      # key: /etc/choregos/plugins/tranibor.pub   # …or a public key cosign reads
+      # key: /etc/tranibor/plugins/tranibor.pub   # …or a public key cosign reads
       # tlog: false             # only for a key whose signatures never reached Rekor
     egress: [registry.acme.example]   # hosts beyond the index's own
 defaultPlugins:

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tranibor playbooks: one prompt per role, rendered with Jinja2, versioned and evaluated.
 
-Invariants shared by every role (docs/plan/02 §2.5): write `.choregos/result.json`,
+Invariants shared by every role (docs/plan/02 §2.5): write `.tranibor/result.json`,
 never widen the scope without `request_scope_change`, report with `report_finding`,
 stop and `ask_human` rather than guess.
 """
@@ -272,7 +272,7 @@ def invariants_in(language: str | None = None) -> str:
         "  you produce, your questions, your findings — even when the work item, its fields or its names\n"
         "  are in another language. What a machine reads stays as specified: the keys, the identifiers,\n"
         "  the enum values of the result contract (`status`, `type`, `severity`) and the shape of\n"
-        "  `.choregos/result.json`."
+        "  `.tranibor/result.json`."
     )
     return INVARIANTS.replace(_ENGLISH_OUTPUT, line)
 
@@ -287,24 +287,24 @@ def _template_name(path: Path, role: str) -> str:
     return f"{role}/prompt.md"
 
 
-INVARIANTS = """- Write `.choregos/result.json`, conforming to the contract, before you finish.
+INVARIANTS = """- Write `.tranibor/result.json`, conforming to the contract, before you finish.
 - Write in English everything a person will read — the summary, the documents you produce, your
   questions, your findings — even when the work item, its fields or its names are in another language.
 - Never widen the scope yourself: call `request_scope_change(paths, justification)`.
 - A problem out of scope is reported with `report_finding(...)`; it is not fixed.
 - Prefer `ask_human(question)` to an assumption that commits the product.
 - Conventional commits (`fix(orders): …`), one commit per intent.
-- Touch no OTHER file under `.choregos/**`: `result.json` is the only output there that
+- Touch no OTHER file under `.tranibor/**`: `result.json` is the only output there that
   belongs to you; the rest is the run's configuration.
 - Check `search_memory(query)` before any architecture decision."""
 
-OUTPUT_CONTRACT = """Write `.choregos/result.json` — exactly this shape (the runner validates it against
-`choregos/StageResult/v1`; a malformed result is sent back to you for repair, and the
+OUTPUT_CONTRACT = """Write `.tranibor/result.json` — exactly this shape (the runner validates it against
+`tranibor/StageResult/v1`; a malformed result is sent back to you for repair, and the
 `validate_result` tool tells you BEFORE you finish whether yours passes):
 
 ```json
 {
-  "schema": "choregos/StageResult/v1",
+  "schema": "tranibor/StageResult/v1",
   "status": "done | blocked | needs_human | failed",
   "summary": "one sentence that says what was done",
   "outputs": { "<output name declared by the transition>": "text (Markdown)" },

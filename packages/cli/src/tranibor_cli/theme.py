@@ -19,7 +19,7 @@ from typing import TextIO
 from rich.console import Console
 from rich.text import Text
 
-#: Set by `choregos --no-color`: every console the commands make after it is monochrome.
+#: Set by `tranibor --no-color`: every console the commands make after it is monochrome.
 MONOCHROME = False
 
 
@@ -53,7 +53,7 @@ STATUSES: dict[str, Status] = {
     "timed_out": Status("✗", "x", "timed out", "red"),
     "cancelled": Status("■", "#", "cancelled", "bright_black"),
     "waiting": WAITING,
-    # A tool call's and a plan task's states, as ACP names them (`choregos activity --run`).
+    # A tool call's and a plan task's states, as ACP names them (`tranibor activity --run`).
     "pending": QUEUED,
     "in_progress": RUNNING,
 }

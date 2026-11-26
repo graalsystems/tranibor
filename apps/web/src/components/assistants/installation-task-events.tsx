@@ -71,7 +71,7 @@ export function TaskEventKeyCard({ org, slug }: Ref) {
             <Copyable label="URL" value={shown.url} />
             <Copyable label="Key" value={shown.secret} />
             <p className="text-xs text-ink-muted">
-              Task {shown.task}, generation {shown.generation}. Sign each body with HMAC-SHA256 in <code>X-Choregos-Signature</code>.
+              Task {shown.task}, generation {shown.generation}. Sign each body with HMAC-SHA256 in <code>X-Tranibor-Signature</code>.
             </p>
           </div>
         )}

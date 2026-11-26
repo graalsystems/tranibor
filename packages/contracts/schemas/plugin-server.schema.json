@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://choregos.dev/schemas/plugin-server.schema.json",
+  "$id": "https://tranibor.dev/schemas/plugin-server.schema.json",
   "title": "PluginServer",
   "description": "An MCP server a plugin brings, run and governed by the platform (ADR 0093, ADR 0096, plan S43 Decision 2).",
   "type": "object",
