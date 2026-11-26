@@ -37,7 +37,7 @@ from .conftest import require
 
 pytestmark = pytest.mark.live
 
-#: The runner image; S87-08 needs one carrying `launcher --until-file` (0.29.6 and later, or a build of this
+#: The runner image; S87-08 needs one carrying `launcher --until-file` (after 0.30.0, or a build of this
 #: tree pushed to a registry the subscription can read: `TRANIBOR_LIVE_AZURE_REGISTRY_*`).
 IMAGE = os.environ.get("TRANIBOR_LIVE_AZURE_RUNNER_IMAGE", PUBLISHING.image_name("runner") + ":0.29.4")
 LAUNCHER = "/app/.venv/bin/choregos-runner"
