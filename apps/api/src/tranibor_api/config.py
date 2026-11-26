@@ -403,12 +403,22 @@ class Settings(BaseSettings):
     #: other private or plain-http gateway address is refused when the setting is written.
     mcp_gateway_internal_hosts: list[str] = Field(default_factory=list)
     memory_url: str = "http://localhost:8432"
+    #: The store's protocol (S87-17): `s3` (AWS and S3-compatible servers), `azure-blob` or `gcs`.
+    object_store_kind: Literal["s3", "azure-blob", "gcs"] = "s3"
+    #: `s3://bucket/prefix`, `azblob://container/prefix` or `gs://bucket/prefix` (`memory://` is the fake).
     object_store_url: str = "s3://choregos"
-    #: The S3 endpoint (RustFS in development: `http://localhost:9000`); empty means AWS.
+    #: The S3 endpoint (RustFS in development: `http://localhost:9000`), empty for AWS; the account's blob
+    #: endpoint for `azure-blob` (`https://<account>.blob.core.windows.net`); empty for Google's, for `gcs`.
     object_store_endpoint: str = ""
     object_store_region: str = "us-east-1"
+    #: Static S3 keys; without them the pod's AWS identity is used (EKS IRSA or Pod Identity).
     object_store_access_key: str = ""
     object_store_secret_key: str = ""
+    #: The session token of temporary static S3 keys, sent signed as `x-amz-security-token`.
+    object_store_session_token: str = ""
+    #: `azure-blob`: the account's key or a SAS token; without either, the pod's Azure Workload Identity.
+    object_store_account_key: str = ""
+    object_store_sas_token: str = ""
     #: The largest file artifact the internal API accepts from a runner, in bytes (ADR 0049).
     artifact_max_bytes: int = 200 * 1024 * 1024
 

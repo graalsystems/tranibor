@@ -565,12 +565,23 @@ global:
     # Secret (key `token`) of a memory that requires an API key. Empty: no header.
     tokenSecret: ""
   objectStore:
+    # The store's protocol (S87-17), as `TRANIBOR_OBJECT_STORE_KIND`:
+    #   s3          AWS S3 and S3-compatible servers (RustFS, MinIO, Ceph); `url: s3://bucket/prefix`.
+    #   azure-blob  Azure Blob Storage (no S3 API); `url: azblob://container/prefix`, `endpoint` required.
+    #   gcs         Google Cloud Storage, JSON API; `url: gs://bucket/prefix`; GKE Workload Identity only.
+    # Without `secretRef`, the API and the workers use their pod's cloud identity: EKS IRSA or Pod Identity
+    # for `s3`, Azure Workload Identity for `azure-blob` (the chart then labels their pods
+    # `azure.workload.identity/use: "true"`), GKE Workload Identity for `gcs`. Bind the identity through
+    # `global.serviceAccount.annotations` (docs/deployment.md, "The object store and the pod's identity").
+    kind: s3
     url: s3://choregos
-    # The S3 endpoint of an S3-compatible store (RustFS, MinIO, Ceph); empty means AWS (ADR 0049).
+    # `s3`: the endpoint of an S3-compatible store; empty means AWS (ADR 0049). `azure-blob`: the account's
+    # blob endpoint, `https://<account>.blob.core.windows.net`. `gcs`: empty means Google's.
     endpoint: ""
     region: us-east-1
-    # Secret with the keys `access-key` and `secret-key`. Only the API reads and writes the
-    # store; a runner never receives these keys. Empty: no signature (an open or IAM-bound store).
+    # `s3`: a Secret with the keys `access-key` and `secret-key`. `azure-blob`: with `account-key` or
+    # `sas-token` (either may be absent). `gcs`: refused. Only the API reads and writes the store; a runner
+    # never receives these keys. Empty: the pod's cloud identity, or no signature (an open store).
     secretRef: ""
     # ADR 0208. `true`: the chart deploys one S3-compatible server (RustFS), its volume and the Job that
     # makes the bucket, and `endpoint` may stay empty (it is then the embedded server's Service).

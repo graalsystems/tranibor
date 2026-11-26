@@ -239,9 +239,12 @@ The checks on a list of extra variables (`global.extraEnv`, `global.outposts.doo
 
 {{/* Common environment variables: 12-factor configuration, secrets by reference. */}}
 {{- define "tranibor.commonEnv" -}}
-{{- $poses := list "TRANIBOR_ENV" "TRANIBOR_EDITION" "TRANIBOR_LOG_LEVEL" "TRANIBOR_FAKES" "TRANIBOR_EGRESS_MODE" "TRANIBOR_EGRESS_CEILING" "TRANIBOR_EGRESS_PLATFORM_CHANGE" "TRANIBOR_TEMPORAL_ADDRESS" "TRANIBOR_TEMPORAL_NAMESPACE" "TRANIBOR_GATEWAY_URL" "TRANIBOR_MEMORY_URL" "TRANIBOR_MEMORY_TOKEN" "TRANIBOR_OBJECT_STORE_URL" "TRANIBOR_OBJECT_STORE_ENDPOINT" "TRANIBOR_OBJECT_STORE_REGION" "TRANIBOR_OBJECT_STORE_ACCESS_KEY" "TRANIBOR_OBJECT_STORE_SECRET_KEY" "TRANIBOR_PUBLIC_URL" "TRANIBOR_API_URL" "TRANIBOR_DB_POOL_SIZE" "TRANIBOR_DB_MAX_OVERFLOW" "TRANIBOR_DB_POOL_TIMEOUT_S" "TRANIBOR_DATABASE_PASSWORD" "TRANIBOR_DATABASE_URL" "TRANIBOR_SECRET_ENV_PATTERN" "TRANIBOR_EXECUTOR_KIND" "TRANIBOR_RUNNER_RUNTIME_CLASS" "TRANIBOR_EXECUTORS_ALLOWED" "TRANIBOR_RUNNER_AGENT_ISOLATION" }}
+{{- $poses := list "TRANIBOR_ENV" "TRANIBOR_EDITION" "TRANIBOR_LOG_LEVEL" "TRANIBOR_FAKES" "TRANIBOR_EGRESS_MODE" "TRANIBOR_EGRESS_CEILING" "TRANIBOR_EGRESS_PLATFORM_CHANGE" "TRANIBOR_TEMPORAL_ADDRESS" "TRANIBOR_TEMPORAL_NAMESPACE" "TRANIBOR_GATEWAY_URL" "TRANIBOR_MEMORY_URL" "TRANIBOR_MEMORY_TOKEN" "TRANIBOR_OBJECT_STORE_KIND" "TRANIBOR_OBJECT_STORE_URL" "TRANIBOR_OBJECT_STORE_ENDPOINT" "TRANIBOR_OBJECT_STORE_REGION" "TRANIBOR_OBJECT_STORE_ACCESS_KEY" "TRANIBOR_OBJECT_STORE_SECRET_KEY" "TRANIBOR_PUBLIC_URL" "TRANIBOR_API_URL" "TRANIBOR_DB_POOL_SIZE" "TRANIBOR_DB_MAX_OVERFLOW" "TRANIBOR_DB_POOL_TIMEOUT_S" "TRANIBOR_DATABASE_PASSWORD" "TRANIBOR_DATABASE_URL" "TRANIBOR_SECRET_ENV_PATTERN" "TRANIBOR_EXECUTOR_KIND" "TRANIBOR_RUNNER_RUNTIME_CLASS" "TRANIBOR_EXECUTORS_ALLOWED" "TRANIBOR_RUNNER_AGENT_ISOLATION" }}
 {{- if include "tranibor.unisolatedAgentAccepted" . }}
 {{- $poses = append $poses "TRANIBOR_AGENT_ISOLATION" }}
+{{- end }}
+{{- if and (eq (include "tranibor.objectStoreKind" .) "azure-blob") .Values.global.objectStore.secretRef }}
+{{- $poses = concat $poses (list "TRANIBOR_OBJECT_STORE_ACCOUNT_KEY" "TRANIBOR_OBJECT_STORE_SAS_TOKEN") }}
 {{- end }}
 {{- /* Before S40-20b the endpoint went through `extraEnv`: still accepted, unless the chart sets it. */}}
 {{- if (.Values.global.tracing | default dict).otlpEndpoint }}
@@ -329,12 +332,32 @@ The checks on a list of extra variables (`global.extraEnv`, `global.outposts.doo
       name: {{ . }}
       key: token
 {{- end }}
+{{- $storeKind := include "tranibor.objectStoreKind" . }}
+- name: TRANIBOR_OBJECT_STORE_KIND
+  value: {{ $storeKind | quote }}
 - name: TRANIBOR_OBJECT_STORE_URL
   value: {{ .Values.global.objectStore.url | quote }}
 - name: TRANIBOR_OBJECT_STORE_ENDPOINT
   value: {{ include "tranibor.objectStoreEndpoint" . | quote }}
 - name: TRANIBOR_OBJECT_STORE_REGION
   value: {{ .Values.global.objectStore.region | default "us-east-1" | quote }}
+{{- if eq $storeKind "azure-blob" }}
+{{- with .Values.global.objectStore.secretRef }}
+# Azure Blob with a key (a bench): the account key or a SAS token, whichever the Secret holds.
+- name: TRANIBOR_OBJECT_STORE_ACCOUNT_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: account-key
+      optional: true
+- name: TRANIBOR_OBJECT_STORE_SAS_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: sas-token
+      optional: true
+{{- end }}
+{{- else }}
 {{- with .Values.global.objectStore.secretRef }}
 - name: TRANIBOR_OBJECT_STORE_ACCESS_KEY
   valueFrom:
@@ -346,6 +369,7 @@ The checks on a list of extra variables (`global.extraEnv`, `global.outposts.doo
     secretKeyRef:
       name: {{ . }}
       key: secret-key
+{{- end }}
 {{- end }}
 - name: TRANIBOR_PUBLIC_URL
   value: {{ .Values.global.publicUrl | default (printf "https://app.%s" .Values.global.domain) | quote }}
@@ -1025,6 +1049,42 @@ own `embedded` and each one overridable by the setting that names the site's own
 {{/* The bucket the object store URL names: `s3://bucket/prefix` gives `bucket`. */}}
 {{- define "tranibor.objectStoreBucket" -}}
 {{- regexReplaceAll "/.*" (trimPrefix "s3://" (.Values.global.objectStore.url | default "")) "" -}}
+{{- end -}}
+
+{{/*
+The object store's protocol (S87-17): `s3` (default), `azure-blob` or `gcs`, checked against the
+URL's scheme and what each one needs. A `memory://` URL (the fake) goes with any kind.
+*/}}
+{{- define "tranibor.objectStoreKind" -}}
+{{- $store := .Values.global.objectStore -}}
+{{- $kind := $store.kind | default "s3" -}}
+{{- $schemes := dict "s3" "s3://" "azure-blob" "azblob://" "gcs" "gs://" -}}
+{{- if not (hasKey $schemes $kind) -}}
+{{- fail (printf "global.objectStore.kind=%s unknown: `s3`, `azure-blob` or `gcs`." $kind) -}}
+{{- end -}}
+{{- $url := $store.url | default "" -}}
+{{- $memory := hasPrefix "memory://" $url -}}
+{{- if not (or (hasPrefix (get $schemes $kind) $url) $memory) -}}
+{{- fail (printf "global.objectStore.kind=%s takes a url that starts with %s, not `%s`." $kind (get $schemes $kind) $url) -}}
+{{- end -}}
+{{- if and $store.embedded (ne $kind "s3") -}}
+{{- fail (printf "global.objectStore.embedded=true deploys an S3 server: it goes with kind `s3`, not `%s`." $kind) -}}
+{{- end -}}
+{{- if and (eq $kind "azure-blob") (not $store.endpoint) (not $memory) -}}
+{{- fail "global.objectStore.kind=azure-blob needs global.objectStore.endpoint, the account's blob endpoint (https://<account>.blob.core.windows.net)." -}}
+{{- end -}}
+{{- if and (eq $kind "gcs") $store.secretRef -}}
+{{- fail "global.objectStore.kind=gcs takes no secretRef: the API uses its pod's GKE Workload Identity. For HMAC keys, use kind `s3` with endpoint https://storage.googleapis.com." -}}
+{{- end -}}
+{{- $kind -}}
+{{- end -}}
+
+{{/* The pod labels the object store's identity needs: Azure Workload Identity injects its token only
+     into a pod labelled `azure.workload.identity/use: "true"`. Empty for every other kind. */}}
+{{- define "tranibor.objectStorePodLabels" -}}
+{{- if and (eq (include "tranibor.objectStoreKind" .) "azure-blob") (not .Values.global.objectStore.secretRef) -}}
+azure.workload.identity/use: "true"
+{{- end -}}
 {{- end -}}
 
 {{/* The endpoint the API, the backup and the bucket Job use: the site's, else the embedded server's. */}}

@@ -28,6 +28,9 @@ spec:
         app.kubernetes.io/component: orchestrator
         tranibor/queue: {{ .name }}
         choregos/queue: {{ .name }}
+        {{- with include "tranibor.objectStorePodLabels" $root }}
+        {{- . | nindent 8 }}
+        {{- end }}
     spec:
       enableServiceLinks: false
       serviceAccountName: choregos-orchestrator
