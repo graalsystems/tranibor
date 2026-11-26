@@ -10,7 +10,7 @@ and the first stage that touches git refuses an unknown name (the orchestrator's
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from pydantic import ValidationError
@@ -55,22 +55,44 @@ def birth_fields(project: Project, fields: Mapping[str, Any], labels: Iterable[s
     return dict(fields)
 
 
-async def _cloned(session: AsyncSession, item: WorkItem) -> bool:
-    """Whether one of the work item's runs cloned a repository (its recorded `StageInput.delivery.repo`)."""
-    inputs = (await session.execute(select(Run.stage_input).where(Run.work_item_id == item.id))).scalars()
-    return any(
-        isinstance(recorded, dict) and (recorded.get("delivery") or {}).get("repo") for recorded in inputs
+async def _cloned(session: AsyncSession, items: Sequence[WorkItem]) -> set[str]:
+    """The ids of the work items one of whose runs cloned a repository (its recorded
+    `StageInput.delivery.repo`): one query for all of them, none for none."""
+    if not items:
+        return set()
+    rows = await session.execute(
+        select(Run.work_item_id, Run.stage_input).where(Run.work_item_id.in_([item.id for item in items]))
     )
+    return {
+        str(work_item_id)
+        for work_item_id, recorded in rows
+        if isinstance(recorded, dict) and (recorded.get("delivery") or {}).get("repo")
+    }
+
+
+def _asks_the_runs(config: ProjectConfig, item: WorkItem) -> bool:
+    """Whether only the work item's runs can still say it is fixed: nothing else said it, the project
+    has a choice of repositories and no pull request names one."""
+    return (
+        fixed(item.documents) is None
+        and config.delivery_section.has_repo
+        and bool(config.delivery_section.repositories)
+        and not item.pr_url
+    )
+
+
+def _fixed_with(config: ProjectConfig, item: WorkItem, *, cloned: bool) -> str | None:
+    if (kept := fixed(item.documents)) is not None or not config.delivery_section.has_repo:
+        return kept
+    return fixed_name(config, item.fields, item.documents, has_pull_request=bool(item.pr_url), cloned=cloned)
 
 
 async def fixed_repository(session: AsyncSession, config: ProjectConfig, item: WorkItem) -> str | None:
     """The repository the work item can no longer leave (ADR 0124 §3), `None` while it may change."""
-    if (kept := fixed(item.documents)) is not None or not config.delivery_section.has_repo:
-        return kept
     # A run that cloned before its project held a second repository fixes it too; asked only where a
     # choice exists and nothing else said it.
-    cloned = bool(config.delivery_section.repositories) and not item.pr_url and await _cloned(session, item)
-    return fixed_name(config, item.fields, item.documents, has_pull_request=bool(item.pr_url), cloned=cloned)
+    cloned = _asks_the_runs(config, item) and item.id in await _cloned(session, [item])
+    return _fixed_with(config, item, cloned=cloned)
 
 
 async def refuse_repository_change(
@@ -95,11 +117,25 @@ async def refuse_repository_change(
 
 async def repository_view(session: AsyncSession, project: Project, item: WorkItem) -> tuple[str | None, bool]:
     """What the work item's page says: the repository it works on, and whether that is fixed."""
+    return (await repository_views(session, project, [item]))[item.id]
+
+
+async def repository_views(
+    session: AsyncSession, project: Project, items: Sequence[WorkItem]
+) -> dict[str, tuple[str | None, bool]]:
+    """`repository_view` of each work item of the project, by id: at most one query for a page (#2285)."""
     config = config_of(project)
     if config is None or not config.delivery_section.has_repo:
-        return None, False
-    kept = await fixed_repository(session, config, item)
-    return kept or asked(item.fields) or config.delivery_section.primary_name, kept is not None
+        return {item.id: (None, False) for item in items}
+    cloned = await _cloned(session, [item for item in items if _asks_the_runs(config, item)])
+    views: dict[str, tuple[str | None, bool]] = {}
+    for item in items:
+        kept = _fixed_with(config, item, cloned=item.id in cloned)
+        views[item.id] = (
+            kept or asked(item.fields) or config.delivery_section.primary_name,
+            kept is not None,
+        )
+    return views
 
 
 __all__ = [
@@ -109,4 +145,5 @@ __all__ = [
     "refuse_repository_change",
     "refuse_unknown_repository",
     "repository_view",
+    "repository_views",
 ]

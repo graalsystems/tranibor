@@ -103,9 +103,18 @@ def grant_name(tool: str | AgentToolGrant | dict[str, Any]) -> str:
     return tool.name
 
 
+#: A profile a plugin declares, as an agent names it: `<plugin>/<name>@<version>` (ADR 0224,
+#: `plugin-profile.schema.json`). Opaque to the core: it is matched against what a server `implements`.
+PROFILE_NAME = r"^[a-z0-9][a-z0-9-]{0,62}/[a-z][a-z0-9-]{0,31}@[1-9][0-9]{0,8}$"
+
+
 class AgentMcpServer(Dto):
-    #: The `mcp` connector of the project or of the organisation (ADR 0034).
-    connector: str
+    #: The `mcp` connector of the project or of the organisation (ADR 0034). Exactly one of `connector`
+    #: and `profile` is set.
+    connector: str | None = None
+    #: Every organisation connector whose plugin server implements this profile and that the project
+    #: may use (ADR 0224 §4), instead of one connector by name. The tools are then tools of the profile.
+    profile: str | None = Field(default=None, pattern=PROFILE_NAME)
     #: The tools the agent may call: names, or `prefix_*` patterns — or, to bind the call's arguments,
     #: `{name, arguments}` (S60-06, ADR 0128).
     tools: list[str | AgentToolGrant] = Field(default_factory=list)
@@ -114,11 +123,20 @@ class AgentMcpServer(Dto):
     #: the entry out of the version's digest, so versions published before the field keep theirs.
     identity: Literal["service", "user_exchange", "user_consent"] | None = None
 
+    @model_validator(mode="after")
+    def _a_connector_or_a_profile(self) -> AgentMcpServer:
+        if (self.connector is None) == (self.profile is None):
+            raise ValueError("an entry names a `connector` or a `profile`, never both and never neither")
+        if self.profile is not None and self.identity is not None:
+            raise ValueError("an `identity` is a connector's: a profile entry takes none")
+        return self
+
     @model_serializer(mode="wrap")
-    def _leave_out_absent_identity(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+    def _leave_out_absent_fields(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         data: dict[str, object] = handler(self)
-        if data.get("identity") is None:
-            data.pop("identity", None)
+        for key in ("identity", "connector", "profile"):
+            if data.get(key) is None:
+                data.pop(key, None)
         return data
 
 
