@@ -4,6 +4,10 @@
 The platform administrator configures the provider (its domains commit the instance); the members sign in
 through `GET /saml/{org}/login` and the provider answers `POST /saml/{org}/acs`. The verification rules are
 in `services/saml.py`; the session is opened by `terminer_la_connexion(org=...)`, as for any tenant provider.
+
+A personal installation has no identity provider (ADR 0228 §4): there the metadata, the sign-in and the
+assertion consumer service answer 404, as the OIDC routes do (`no_identity_provider_here`), even for an
+organisation whose provider is configured.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import time
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Form, Query, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import delete, select
 from tranibor_core.production import is_production
@@ -28,7 +32,7 @@ from ..security import read_session, sign_session
 from ..services import saml as saml_service
 from ..services.organisations import organisation_by_slug
 from ..tenant_sign_in import SignInHint, resolve_extension
-from .auth import GROUP_ROLES, redirection_sure, terminer_la_connexion
+from .auth import GROUP_ROLES, no_identity_provider_here, redirection_sure, terminer_la_connexion
 
 router = APIRouter(tags=["saml"])
 
@@ -151,7 +155,11 @@ async def delete_saml(org: str, session: PlatformDb, principal: Me) -> Response:
     return Response(status_code=204)
 
 
-@router.get("/saml/{org}/metadata", operation_id="samlMetadata")
+#: What a personal installation does not serve: an identity provider's way in (ADR 0228 §4).
+NO_IDENTITY_PROVIDER_HERE = [Depends(no_identity_provider_here)]
+
+
+@router.get("/saml/{org}/metadata", operation_id="samlMetadata", dependencies=NO_IDENTITY_PROVIDER_HERE)
 async def metadata(org: str, session: PlatformDb) -> Response:
     await _provider(session, org)
     entity = saml_service.sp_entity_id(org)
@@ -168,7 +176,7 @@ async def metadata(org: str, session: PlatformDb) -> Response:
     return Response(content=xml, media_type="application/samlmetadata+xml")
 
 
-@router.get("/saml/{org}/login", operation_id="samlLogin")
+@router.get("/saml/{org}/login", operation_id="samlLogin", dependencies=NO_IDENTITY_PROVIDER_HERE)
 async def login(
     org: str,
     session: PlatformDb,
@@ -203,7 +211,7 @@ async def login(
     return response
 
 
-@router.post("/saml/{org}/acs", operation_id="samlAcs")
+@router.post("/saml/{org}/acs", operation_id="samlAcs", dependencies=NO_IDENTITY_PROVIDER_HERE)
 async def consume(
     org: str,
     request: Request,

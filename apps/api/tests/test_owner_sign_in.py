@@ -347,11 +347,43 @@ async def test_the_methods_follow_the_door(client: AsyncClient, personal: bytes)
     assert relay == {"posture": "personal", "door": "relay", "methods": []}
 
 
-async def test_no_identity_provider_in_the_personal_posture(client: AsyncClient, personal: bytes) -> None:
-    """The OIDC routes answer 404, the development sign-in with them (refused in production, S87-09)."""
+async def _saml_provider_of(org: str) -> None:
+    """A SAML provider configured for `org`, as `PUT /orgs/{org}/saml` writes it."""
+    from sqlalchemy import select
+    from tranibor_api.db.models import Organization, OrgSamlIdp
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope(orgs="*") as session:
+        org_id = (await session.execute(select(Organization.id).where(Organization.slug == org))).scalar_one()
+        session.add(
+            OrgSamlIdp(
+                org_id=org_id,
+                idp_entity_id="https://idp.home.test",
+                sso_url="https://idp.home.test/sso",
+                certificate_pem="-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+                domains=["home.test"],
+            )
+        )
+
+
+async def test_no_identity_provider_in_the_personal_posture(
+    client: AsyncClient, org: str, personal: bytes
+) -> None:
+    """The OIDC routes answer 404, the development sign-in with them (refused in production, S87-09), and
+    so do SAML's, even for an organisation that holds a provider: a provider's metadata, its sign-in and
+    its assertion consumer service are an identity provider's way in."""
     for params in ({}, {"as": "admin@northwind.dev"}):
         assert (await client.get("/api/v1/auth/login", params=params, headers=LOOPBACK)).status_code == 404
     assert (await client.get("/api/v1/auth/callback?state=x", headers=LOOPBACK)).status_code == 404
+    await _saml_provider_of(org)
+    saml = f"/api/v1/saml/{org}"
+    for door in (LOOPBACK, RELAY):
+        metadata = await client.get(f"{saml}/metadata", headers=door)
+        started = await client.get(f"{saml}/login", params={"redirect_to": "/"}, headers=door)
+        consumed = await client.post(f"{saml}/acs", data={"SAMLResponse": "PHNhbWw+"}, headers=door)
+        answers = (metadata, started, consumed)
+        assert [answer.status_code for answer in answers] == [404] * 3, [answer.text for answer in answers]
+        assert [answer.json() for answer in answers] == [{"detail": "Not Found"}] * 3
 
 
 async def test_an_unreadable_owner_key_stops_the_start_up(

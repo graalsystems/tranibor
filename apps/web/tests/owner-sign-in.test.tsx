@@ -83,11 +83,31 @@ describe("the owner's sign-in page", () => {
     expect(api.signInAsOwner).not.toHaveBeenCalled();
   });
 
+  it("goes home when next hides another host in what the URL parser strips", async () => {
+    const { replace } = at(`/auth/owner?next=/%09/evil.example#${TICKET}`);
+    render(<OwnerSignInPage />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("http://127.0.0.1:7878/"));
+  });
+
   it("goes nowhere but a path of the console", () => {
     expect(nextPath("?next=/p/demo")).toBe("/p/demo");
     expect(nextPath("?next=//evil.example")).toBe("/");
     expect(nextPath("?next=https://evil.example")).toBe("/");
     expect(nextPath("")).toBe("/");
+    const origin = "http://127.0.0.1:7878";
+    // The URL parser strips a tab, a line feed and a carriage return: each leaves `//x`, another host.
+    for (const next of ["/%09/x", "/%0a/x", "/%0d/x", "/\t/x", "/%5C/x", "/\\x"]) {
+      expect(nextPath(`?next=${next}`, origin), JSON.stringify(next)).toBe("/");
+      expect(nextPath(`?next=${next}`), JSON.stringify(next)).toBe("/");
+    }
+    // A path that resolves to `//x` here would name a host once the page resolves it again.
+    for (const next of ["/.//x", "/%2e//x", "/a/..//x"]) {
+      expect(nextPath(`?next=${next}`, origin), JSON.stringify(next)).toBe("/");
+    }
+    expect(nextPath("?next=javascript:alert(1)", origin)).toBe("/");
+    // What lands on this origin keeps its path, query and fragment.
+    expect(nextPath("?next=/inbox%3Fq%3D1%23top", origin)).toBe("/inbox?q=1#top");
+    expect(nextPath(`?next=${encodeURIComponent(`${origin}/p/demo`)}`, origin)).toBe("/p/demo");
     expect(ticketIn(`#${TICKET}`)).toBe(TICKET);
     expect(ticketIn("#a.b")).toBe("");
     expect(ticketIn("")).toBe("");
