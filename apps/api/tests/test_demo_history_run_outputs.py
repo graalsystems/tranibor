@@ -106,6 +106,7 @@ async def test_a_document_imported_before_outputs_existed_is_still_the_same_docu
 
     used = {run.model: DOCUMENT["prices"][run.model] for run in item.runs if run.model in DOCUMENT["prices"]}
     dumped.pop("pending", None)
+    dumped.pop("actions", None)
     former = {"item": dumped, "workflow": "invoices", "prices": used}
     expected = hashlib.sha256(json.dumps(former, sort_keys=True, default=str).encode()).hexdigest()
     assert digest_of(item, "invoices", DemoHistory.model_validate(DOCUMENT).prices) == expected

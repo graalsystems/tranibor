@@ -97,6 +97,8 @@ work_items:
     history: [{ state: inbox, at: 2026-11-05T09:00:00Z }, { state: in_progress, at: 2026-11-05T09:30:00Z }]
     pending:                         # still waits for a person: the inbox lists it (not on an ended work item)
       { id: spec-review, kind: approval, summary: "Approve the localised reminders?", requested_at: 2026-11-05T09:40:00Z }
+    actions:                         # a transition's governed action, proposed by the product; deciding it plays nothing
+      - { transition: t-notify-customers, at: 2026-11-05T09:45:00Z }   # `pending`; `succeeded` names decided_by/_at
 ```
 
 The contract is `packages/contracts/schemas/demo-history.schema.json`. The whole document is checked before
