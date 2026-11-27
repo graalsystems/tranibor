@@ -656,6 +656,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
         private_egress=await admitted_targets(session, instance.org_id, hosts, settings),
         egress_mode=settings.plugin_servers_egress,
         image_pull_secrets=tuple(settings.plugin_servers_image_pull_secrets),
+        dns=settings.dns_policy,
     )
     await _apply(found.apply(d), instance)
     await _reconcile_fake(found, instance, server, token, settings)
@@ -696,6 +697,7 @@ def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: S
         egress=(),
         egress_mode=settings.plugin_servers_egress,
         image_pull_secrets=tuple(settings.plugin_servers_image_pull_secrets),
+        dns=settings.dns_policy,
     )
 
 

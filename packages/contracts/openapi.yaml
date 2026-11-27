@@ -8217,6 +8217,7 @@ components:
         project_slug: { type: [string, "null"] }
         created_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
+        imported: { type: boolean, description: "Proposed by a demonstration history import (ADR 0216, point 14): deciding it records the decision and plays nothing; its effects, when it is `succeeded`, were never played." }
         journal: { type: array, items: { $ref: "#/components/schemas/ActionEffect" } }
         settlement: { oneOf: [{ $ref: "#/components/schemas/ActionSettlement" }, { type: "null" }], description: "what a person recorded once the action was in doubt (`settleAction`): the same record as on the effect it concerns. Null for an action that was never settled" }
     ActionSettlementRequest:
@@ -14105,6 +14106,7 @@ components:
         decisions: { type: integer }
         findings: { type: integer }
         pending: { type: integer, description: "Requests that wait for a person (`pending`)." }
+        actions: { type: integer, description: "Governed actions its transitions proposed (`actions`), pending or done." }
     DemoHistoryRemoval:
       type: object
       description: What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported.
@@ -14116,6 +14118,7 @@ components:
         findings: { type: integer }
         cost_lines: { type: integer }
         cost_usd: { type: number, description: "The declared cost of the removed cost lines, in USD." }
+        actions: { type: integer, description: "Governed actions an import proposed (`imported`), with their effects' log." }
     InboundEvent: { $ref: "./schemas/inbound-event.schema.json" }
     ChoregosEvent: { $ref: "./schemas/event.schema.json" }
     HumanDecision: { $ref: "./schemas/human-decision.schema.json" }

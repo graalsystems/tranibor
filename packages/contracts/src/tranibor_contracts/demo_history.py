@@ -48,6 +48,14 @@ class DemoTokens(Strict):
         return self
 
 
+class DemoGate(Strict):
+    """A gate's verdict on the run, as the live step's journal records it (`gate.outcome`)."""
+
+    name: str = Field(min_length=1, max_length=64)
+    passed: bool
+    detail: str | None = Field(default=None, max_length=2000)
+
+
 class DemoRun(Strict):
     id: ExternalId
     stage: str = Field(min_length=1, max_length=32)
@@ -60,6 +68,12 @@ class DemoRun(Strict):
     tokens: DemoTokens | None = None
     cost_usd: float | None = Field(default=None, ge=0)
     summary: str | None = Field(default=None, max_length=2000)
+    #: What the step returned (`StageResult.outputs`): its declared outputs, a report, cited sources.
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    #: What the step proved (`StageResult.evidence`): facts, tests run.
+    evidence: dict[str, Any] | None = None
+    #: The verdicts of the step's gates, in order.
+    gates: list[DemoGate] = Field(default_factory=list, max_length=50)
 
 
 class DemoDecision(Strict):
@@ -91,6 +105,31 @@ class DemoPending(Strict):
     def _due_after_asked(self) -> DemoPending:
         if self.due_at is not None and self.due_at <= self.requested_at:
             raise ValueError("`due_at` comes after `requested_at`")
+        return self
+
+
+class DemoAction(Strict):
+    """The governed action a transition of the workflow proposes (ADR 0035), proposed for the work item by the
+    product's own service: its title, parameters and approvers rendered from the work item's fields.
+
+    `pending`: it waits for its approvers; deciding it records the decision and plays nothing, since no
+    workflow runs an imported work item. `succeeded`: it was approved by `decided_by` and its effects are
+    recorded as imported, never played."""
+
+    transition: str = Field(min_length=1, max_length=64)
+    status: Literal["pending", "succeeded"] = "pending"
+    at: datetime
+    decided_by: str | None = Field(default=None, max_length=200)
+    decided_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _decided_when_succeeded(self) -> DemoAction:
+        if self.status == "succeeded" and (self.decided_by is None or self.decided_at is None):
+            raise ValueError("a `succeeded` action names `decided_by` and `decided_at`")
+        if self.status == "pending" and (self.decided_by is not None or self.decided_at is not None):
+            raise ValueError("a `pending` action is not decided yet: no `decided_by` nor `decided_at`")
+        if self.decided_at is not None and self.decided_at < self.at:
+            raise ValueError("`decided_at` comes after `at`")
         return self
 
 
@@ -126,6 +165,8 @@ class DemoWorkItem(Strict):
     findings: list[DemoFinding] = Field(default_factory=list, max_length=100)
     #: What the work item waits for now, if a person must decide: at most one, as a live ticket.
     pending: DemoPending | None = None
+    #: The governed actions its transitions proposed (ADR 0035), at most one per transition.
+    actions: list[DemoAction] = Field(default_factory=list, max_length=10)
 
 
 class DemoHistory(Strict):

@@ -22,6 +22,7 @@ from .connectors import cd_of
 
 async def write_project_manifests(params: dict[str, Any], bundle: Any, settings: Any) -> str:
     """Write the project manifests into the GitOps repository: Argo CD applies, not the API."""
+    from tranibor_core.dns_policy import UPSTREAM
     from tranibor_core.quotas import quota_for
     from tranibor_orchestrator.activities.base import db
     from tranibor_orchestrator.gitops import EGRESS_IMAGE, PLATFORM_NAMESPACE, render_project_manifests
@@ -41,6 +42,7 @@ async def write_project_manifests(params: dict[str, Any], bundle: Any, settings:
         quota=await quota_for(bundle.org_slug, bundle.slug),
         org_allow_domains=org_hosts,
         platform_namespace=str(getattr(settings, "platform_namespace", "") or PLATFORM_NAMESPACE),
+        dns=getattr(settings, "dns_policy", None) or UPSTREAM,
     )
     writer = getattr(cd_of(bundle.adapters), "write_files", None)
     if writer is not None:

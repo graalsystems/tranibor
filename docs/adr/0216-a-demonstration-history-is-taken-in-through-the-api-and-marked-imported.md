@@ -1,11 +1,11 @@
 # 0216 — A demonstration history is taken in through the API, and marked imported
 
-- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (point 12)
+- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (points 12 to 14)
 - **Concerns**: `apps/api` (`routers/demo_history.py`, `services/demo_history.py`, `rbac.py`, `services/budgets.py`,
   `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`, `metrics.py`,
   `services/projects.py`), `apps/web`
   (`components/imported-badge.tsx`), `packages/contracts` (`demo-history.schema.json`, `DemoHistory`,
-  `openapi.yaml`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
+  `openapi.yaml`, `DemoGate`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
   remove`); follows
   [ADR 0212](0212-the-api-can-run-the-workers-inline-for-a-demonstration.md) and
   [ADR 0213](0213-the-demonstration-mcp-server-is-the-fakes-with-tools-declared-in-a-file.md)
@@ -97,9 +97,33 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     column stays last). Member spend reads the lines that name a person (`user_id`), which an import
     never writes: nothing to exclude. The project card's month cost (`ProjectStats.cost_month_eur`) sums the
     measured lines only. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
+13. **A run's outputs, evidence and gates** (2026-11-27, a `contract-change`): a run of the document may
+    carry `outputs` (what the step returned: its declared outputs, a report, cited sources), `evidence`
+    (what it proved: facts, tests run) and `gates` (`{name, passed, detail}`, in order). The import puts
+    the first two in the run's stage result and judges that result by the stage result's own contract
+    (`StageResult`), refusing a document whose run does not fit it (422 naming the run, nothing
+    written); it writes each gate's verdict in the run's journal as `gate.outcome`, as the orchestrator
+    does for a live step, so the run page's guarantees panel reads it. Rows go with the run (a removal's
+    cascade). A run without them keeps the digest it had before they existed: a document imported then is
+    still the same document now. Proven by `apps/api/tests/test_demo_history_run_outputs.py`.
+14. **A work item's governed actions** (2026-11-27, a `contract-change` and a migration): a work item of the
+    document may name the transitions whose governed actions (ADR 0035) were proposed, each `pending` or
+    `succeeded` (`DemoAction {transition, status, at, decided_by, decided_at}`). The import proposes each
+    with the product's own service (`propose_for_transition`: title, parameters and approvers rendered
+    from the work item's fields, the project's policy read) and marks it `imported` (`actions.imported`).
+    A `pending` one waits for its approvers, in the project's actions and the organisation's inbox; a
+    policy that approves it on proposal is a 422 (it never waits: declare it `succeeded`). **Deciding an
+    imported action records the decision, audited, and plays nothing**: `actions.decide` starts no
+    `ActionWorkflow` and signals no interpreter for it, and the actions' relay never starts one, so nothing
+    it would write outside the platform is ever sent. A `succeeded` one carries the approver the document
+    names and an effects' log whose every entry says `{"imported": true, "played": false}`. The removal
+    deletes them. The console shows the **Imported** badge on them (the actions list, the action's page,
+    the inbox). Proven by `apps/api/tests/test_demo_history_actions.py` and `apps/web/tests/inbox-view.test.tsx`.
 
 ## Not done
 
 - A finding imported as `pending` can still be turned into a live work item ("Create the ticket"), which runs
   as any live one: that is a person's choice, not the import's.
-- No version of the document beyond `v1`; a run's tool calls, artifacts and transcripts are not importable.
+- No version of the document beyond `v1`; a run's tool calls, artifacts (files) and transcripts are not
+  importable (its outputs, evidence and gates are, point 13).
+- A release train (the `software-delivery` plugin's) is not importable; a governed action is (point 14).

@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from tranibor_core.dns_policy import UPSTREAM, DnsPolicy
 from tranibor_core.images import check_image_map
 from tranibor_core.production import FAKES_VARIABLE, refuse_fakes_in_production
 from tranibor_core.publishing import PUBLISHING
@@ -69,6 +70,10 @@ class OrchestratorSettings(BaseSettings):
     #: The namespace the platform runs in, which provisioning opens to the runners and binds the executor
     #: Role to (`gitops.py`). The chart sets its release namespace; the default is `infra/platform`'s.
     platform_namespace: str = "choregos-system"
+    #: The cluster's resolver, which a project namespace's policies open (`gitops.py`, #2277): the chart's
+    #: `networkPolicies.dns`, as JSON in `TRANIBOR_DNS_POLICY`, the same value the API reads. Unset:
+    #: `kube-system`, UDP 53.
+    dns_policy: DnsPolicy = UPSTREAM
     # The proxy an agent pod goes out through (`HTTP_PROXY`/`HTTPS_PROXY`), with `{namespace}` for
     # the runners' one: provisioning deploys a Squid there whose allowlist is the project policy's.
     # Empty: no proxy, as on the local bench, whose namespace has neither NetworkPolicy nor proxy.

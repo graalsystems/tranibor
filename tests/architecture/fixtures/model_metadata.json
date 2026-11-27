@@ -356,155 +356,164 @@
   ]
  },
  "actions": {
-  "checks": [],
   "columns": [
    {
-    "default": null,
     "name": "org_id",
+    "type": "String(length=36)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=36)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "project_id",
+    "type": "String(length=36)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=36)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "work_item_id",
+    "type": "String(length=36)",
     "nullable": true,
-    "server_default": null,
-    "type": "String(length=36)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "run_id",
+    "type": "String(length=64)",
     "nullable": true,
-    "server_default": null,
-    "type": "String(length=64)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "origin",
+    "type": "String(length=16)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=16)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "kind",
+    "type": "String(length=128)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=128)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "title",
+    "type": "String(length=300)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=300)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "justification",
+    "type": "Text()",
     "nullable": true,
-    "server_default": null,
-    "type": "Text()"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": "<function dict>",
     "name": "params",
+    "type": "Json()",
     "nullable": false,
-    "server_default": null,
-    "type": "Json()"
+    "default": "<function dict>",
+    "server_default": null
    },
    {
-    "default": "<function list>",
     "name": "effects",
+    "type": "Json()",
     "nullable": false,
-    "server_default": null,
-    "type": "Json()"
-   },
-   {
-    "default": "<function dict>",
-    "name": "proposed_by",
-    "nullable": false,
-    "server_default": null,
-    "type": "Json()"
-   },
-   {
-    "default": "<function dict>",
-    "name": "approval",
-    "nullable": false,
-    "server_default": null,
-    "type": "Json()"
-   },
-   {
     "default": "<function list>",
+    "server_default": null
+   },
+   {
+    "name": "proposed_by",
+    "type": "Json()",
+    "nullable": false,
+    "default": "<function dict>",
+    "server_default": null
+   },
+   {
+    "name": "approval",
+    "type": "Json()",
+    "nullable": false,
+    "default": "<function dict>",
+    "server_default": null
+   },
+   {
     "name": "decisions",
+    "type": "Json()",
     "nullable": false,
-    "server_default": null,
-    "type": "Json()"
+    "default": "<function list>",
+    "server_default": null
    },
    {
-    "default": "'pending_approval'",
     "name": "status",
+    "type": "String(length=24)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=24)"
+    "default": "'pending_approval'",
+    "server_default": null
    },
    {
-    "default": null,
     "name": "result",
+    "type": "Json()",
     "nullable": true,
-    "server_default": null,
-    "type": "Json()"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "error",
+    "type": "Text()",
     "nullable": true,
-    "server_default": null,
-    "type": "Text()"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": null,
     "name": "temporal_wf_id",
+    "type": "String(length=128)",
     "nullable": true,
-    "server_default": null,
-    "type": "String(length=128)"
-   },
-   {
     "default": null,
+    "server_default": null
+   },
+   {
     "name": "finished_at",
+    "type": "DateTime(timezone=True)",
     "nullable": true,
-    "server_default": null,
-    "type": "DateTime(timezone=True)"
+    "default": null,
+    "server_default": null
    },
    {
-    "default": "<function uuid7>",
+    "name": "imported",
+    "type": "Boolean()",
+    "nullable": false,
+    "default": "False",
+    "server_default": "<sqlalchemy.sql.elements.False_ object>"
+   },
+   {
     "name": "id",
+    "type": "String(length=36)",
     "nullable": false,
-    "server_default": null,
-    "type": "String(length=36)"
+    "default": "<function uuid7>",
+    "server_default": null
    },
    {
-    "default": "<function utcnow>",
     "name": "created_at",
+    "type": "DateTime(timezone=True)",
     "nullable": false,
-    "server_default": "<sqlalchemy.sql.functions.now; now>",
-    "type": "DateTime(timezone=True)"
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
    },
    {
-    "default": "<function utcnow>",
     "name": "updated_at",
+    "type": "DateTime(timezone=True)",
     "nullable": false,
-    "server_default": "<sqlalchemy.sql.functions.now; now>",
-    "type": "DateTime(timezone=True)"
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
    }
+  ],
+  "primary_key": [
+   "id"
   ],
   "foreign_keys": [
    [
@@ -541,6 +550,8 @@
     "fk_actions_work_item_id_work_items"
    ]
   ],
+  "uniques": [],
+  "checks": [],
   "indexes": [
    [
     "ix_actions_org_id",
@@ -571,11 +582,7 @@
     ],
     false
    ]
-  ],
-  "primary_key": [
-   "id"
-  ],
-  "uniques": []
+  ]
  },
  "agent_backends": {
   "checks": [],

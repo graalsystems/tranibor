@@ -49,8 +49,10 @@ from .artifact import (
 )
 from .decision import ROUTING_QUESTION, ROUTING_STEP, DecisionOutcome, DecisionRecord, DecisionSource
 from .demo_history import (
+    DemoAction,
     DemoDecision,
     DemoFinding,
+    DemoGate,
     DemoHistory,
     DemoPending,
     DemoPrice,
@@ -442,8 +444,10 @@ __all__ = [
     "DecisionRecord",
     "DecisionSource",
     "DeclaredCost",
+    "DemoAction",
     "DemoDecision",
     "DemoFinding",
+    "DemoGate",
     "DemoHistory",
     "DemoPending",
     "DemoPrice",

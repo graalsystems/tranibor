@@ -21,7 +21,7 @@ from temporalio.exceptions import ApplicationError
 from tranibor_adapters.errors import ConfigurationError, RuntimeClassRefusedError
 from tranibor_adapters.executor.log_archive import archive_run_logs
 from tranibor_api.db.models import Run, RunEvent, WorkItem
-from tranibor_api.db.session import limit_to_organisations
+from tranibor_api.db.session import limit_to_organisations, release_connection
 from tranibor_api.security import mint_run_token
 from tranibor_api.services import persist_event
 from tranibor_contracts import EventType, StageInput, StageResult, StageStatus, wire
@@ -313,6 +313,11 @@ async def start_run(payload: dict[str, Any]) -> dict[str, Any]:
             environment=settings.env,
             agent_isolation_accepted=settings.agent_isolation == NONE_ACCEPTED,
         )
+        # The executor's call is external (Kubernetes, Tekton, a cloud, a token exchange): the session holds
+        # no pooled connection across it (#2311, as #1354 did for the API's tool calls). What was written
+        # so far (the run's key and its row) is committed; a retry finds it (`mint_run_key`). The
+        # statements after the call begin a new transaction in the same scope.
+        await release_connection(session)
         try:
             ref = await bundle.adapters.executor.start(spec)
         except ConfigurationError as refusal:
