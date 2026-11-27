@@ -47,7 +47,8 @@ or external: the external aliases' window closed with 0.23.0 and S45-49 removed 
 - Policies: `make policies-test` (`kyverno test infra/policies/tests`, Kyverno CLI **1.19.1**,
   refused otherwise); the `charts` CI job runs it. `infra/policies/tekton` is opt-in (clusters with Tekton).
 - Generated files to commit: `make contracts` (types from the schemas), `make docs-cli`
-  (`docs/cli.md` from the CLI). A test refuses any divergence.
+  (`docs/cli.md` from the CLI), `make docs-support` (the support matrix of `docs/deployment.md` from
+  `docs/support/clusters.yaml`). A test refuses any divergence.
 - Beyond CI: `docker compose up` (local install, S28; proven by the `local-install` job),
   `make demo` (end to end, in memory), `make dev-up` / `make dev-down`,
   `make e2e`, `make test-cluster` (real cluster), `make test-live` (real services),

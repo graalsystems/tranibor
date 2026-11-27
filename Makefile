@@ -89,6 +89,10 @@ plugins-lock:  ## A maintainer, WITH network and cosign v3 (COSIGN=<path>): refr
 plugins-check:  ## No network: the archives of plugins/offline/ are what plugins.lock says
 	$(UV) run python -m tools.plugins.update_lock --check
 
+.PHONY: docs-support
+docs-support:  ## Regenerate the support matrix of docs/deployment.md from docs/support/clusters.yaml (to commit)
+	$(UV) run python tools/support_matrix.py
+
 .PHONY: docs-cli
 docs-cli:  ## Regenerate docs/cli.md and docs/site/cli/reference.md from the CLI (to commit)
 	$(UV) run python tools/gen_cli_reference.py
