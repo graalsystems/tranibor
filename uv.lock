@@ -32,6 +32,7 @@ members = [
     "tranibor-playbooks",
     "tranibor-procurement",
     "tranibor-runner",
+    "tranibor-sni-relay",
     "tranibor-software-delivery",
     "tranibor-testkit",
     "tranibor-tools-mcp",
@@ -493,6 +494,7 @@ dependencies = [
     { name = "tranibor-playbooks" },
     { name = "tranibor-procurement" },
     { name = "tranibor-runner" },
+    { name = "tranibor-sni-relay" },
     { name = "tranibor-software-delivery" },
     { name = "tranibor-tools-mcp" },
     { name = "tranibor-vault-transit" },
@@ -544,6 +546,7 @@ requires-dist = [
     { name = "tranibor-playbooks", editable = "packages/playbooks" },
     { name = "tranibor-procurement", editable = "plugins/procurement" },
     { name = "tranibor-runner", editable = "packages/runner" },
+    { name = "tranibor-sni-relay", editable = "packages/sni-relay" },
     { name = "tranibor-software-delivery", editable = "plugins/software-delivery" },
     { name = "tranibor-tools-mcp", editable = "packages/tools-mcp" },
     { name = "tranibor-vault-transit", editable = "plugins/vault-transit" },
@@ -2542,6 +2545,31 @@ requires-dist = [
     { name = "typer", specifier = ">=0.15" },
     { name = "uvicorn", specifier = ">=0.32" },
     { name = "websockets", specifier = ">=13" },
+]
+
+[[package]]
+name = "tranibor-sni-relay"
+version = "0.29.5"
+source = { editable = "packages/sni-relay" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "pydantic" },
+    { name = "pyjwt" },
+    { name = "tranibor-contracts" },
+    { name = "websockets" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=43.0" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyjwt", specifier = ">=2.9" },
+    { name = "tranibor-contracts", editable = "packages/contracts" },
+    { name = "websockets", specifier = ">=13.0" },
 ]
 
 [[package]]

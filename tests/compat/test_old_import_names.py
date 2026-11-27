@@ -40,6 +40,12 @@ PACKAGES = [
     ("orchestrator", "orchestrator", "apps/orchestrator"),
 ]
 
+#: Packages born after the rename: they never had a `choregos_*` name, so there is nothing to alias.
+BORN_AFTER_THE_RENAME = {
+    # The SNI relay and its agent (ADR 0230, S87-42).
+    "sni_relay",
+}
+
 #: Modules that do something when imported (they start a server, read argv) or that are not code.
 NOT_IMPORTED = ("__main__", ".tests.", ".migrations.versions.", ".migrations.env")
 
@@ -236,7 +242,12 @@ def test_every_package_has_its_shim_distribution() -> None:
         for src in [*(ROOT / "packages").glob("*/src"), *(ROOT / "apps").glob("*/src")]
         for p in src.glob("tranibor_*")
     }
-    assert discovered == {module for _, module, _ in PACKAGES}, "a package is missing from this test's table"
+    assert discovered - BORN_AFTER_THE_RENAME == {module for _, module, _ in PACKAGES}, (
+        "a package is missing from this test's table"
+    )
+    assert discovered >= BORN_AFTER_THE_RENAME, "a package said to be born after the rename does not exist"
+    for module in BORN_AFTER_THE_RENAME:
+        assert not (ROOT / "compat" / f"choregos-{module.replace('_', '-')}").exists()
     for dist, module, directory in PACKAGES:
         shim = ROOT / "compat" / f"choregos-{dist}"
         project = tomllib.loads((shim / "pyproject.toml").read_text())

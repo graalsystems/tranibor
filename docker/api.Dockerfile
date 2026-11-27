@@ -69,14 +69,16 @@ COPY tests/fixtures/repos tests/fixtures/repos
 # workers run: it stays out of the image. Nor is the outpost daemon (ADR 0147): it is the program an
 # outpost's operator runs in their own network, with an image of its own (`outpost.Dockerfile`), and
 # the platform serves its door without ever importing it.
-# The shims of those two stay out as well (ADR 0176 R2).
+# The shims of those two stay out as well (ADR 0176 R2). Nor is the SNI relay (ADR 0230 §1): a program its
+# operator runs elsewhere, which nothing of the core imports.
 # The procurement plugin's command (ADR 0202) runs in its own job image: not installed here either. Nor
 # is the test kit, which only the suites import.
 ARG SHIMS_OUT="--no-install-package choregos-agent-sdk --no-install-package choregos-outpost" # compat-ok
 RUN --mount=type=bind,from=build-ca,target=/mnt/build-ca --mount=type=bind,source=docker/build-ca.sh,target=/mnt/build-ca.sh \
     . /mnt/build-ca.sh && uv sync --frozen --no-dev --all-packages \
     --no-install-package tranibor-agent-sdk --no-install-package tranibor-outpost \
-    --no-install-package tranibor-procurement --no-install-package tranibor-testkit $SHIMS_OUT
+    --no-install-package tranibor-procurement --no-install-package tranibor-testkit \
+    --no-install-package tranibor-sni-relay $SHIMS_OUT
 
 # SkillSpector, the skill gate's second scanner (ADR 0095), in an environment of its own: its
 # dependencies (LangGraph, YARA…) are not the platform's, and the API runs it as a child process,
