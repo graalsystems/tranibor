@@ -74,7 +74,11 @@ def _hosted_job(runtime_class: str | None) -> dict[str, Any]:
 
 
 @pytest.mark.skipif(shutil.which("kyverno") is None, reason="no kyverno CLI on the path")
-@pytest.mark.parametrize(("runtime_class", "admitted"), [(None, False), ("runc", False), ("gvisor", True)])
+@pytest.mark.parametrize(
+    ("runtime_class", "admitted"),
+    # `runsc` is a gVisor class too (#2349): a deployment that names it gives it to the run's pods.
+    [(None, False), ("runc", False), ("kata-vm-isolation", False), ("gvisor", True), ("runsc", True)],
+)
 def test_the_policy_refuses_a_hosted_job_without_gvisor(
     tmp_path: Path, runtime_class: str | None, admitted: bool
 ) -> None:

@@ -211,3 +211,33 @@ async def test_a_cluster_older_than_1_29_refuses_the_pod_without_a_retry(setup: 
     setup.adapters.executor.server_version = "v1.29.0"
     pod = await pod_activities.start_session_pod({"session_id": session_id})
     assert pod["state"] == "running", "the same session starts once the cluster is upgraded"
+
+
+async def test_a_gvisor_policy_on_a_kata_deployment_refuses_the_pod_without_a_retry(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Finding #2349: the session's pod names the run's RuntimeClass too; on AKS (Kata) a `gvisor` policy
+    is refused before anything is started, never a pod the cluster does not admit."""
+    from tranibor_orchestrator.config import get_settings
+
+    real = pod_activities.project_bundle
+
+    async def bundle_asking_gvisor(session: Any, project_id: str) -> Any:
+        bundle = await real(session, project_id)
+        sandbox = bundle.policy.sandbox.model_copy(update={"runtime": "gvisor"})
+        bundle.policy = bundle.policy.model_copy(update={"sandbox": sandbox})
+        return bundle
+
+    monkeypatch.setattr(pod_activities, "project_bundle", bundle_asking_gvisor)
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "kata-vm-isolation")
+    get_settings.cache_clear()
+    await _agent(setup, _hosted())
+    session_id = await _session(setup)
+    try:
+        with pytest.raises(ApplicationError) as raised:
+            await pod_activities.start_session_pod({"session_id": session_id})
+    finally:
+        get_settings.cache_clear()
+    assert raised.value.type == pod_activities.POD_REFUSED and raised.value.non_retryable
+    assert "sandbox.runtime: gvisor" in str(raised.value) and "`kata-vm-isolation`" in str(raised.value)
+    assert setup.adapters.executor.started == []

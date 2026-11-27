@@ -251,3 +251,92 @@ async def test_a_word_other_than_the_opt_out_is_refused_at_start(monkeypatch: py
     monkeypatch.setenv("TRANIBOR_AGENT_ISOLATION", "none")
     with pytest.raises(ValidationError, match="none-accepted"):
         OrchestratorSettings()
+
+
+def _asking(monkeypatch: pytest.MonkeyPatch, runtime: str) -> None:
+    """The project's policy asks for `sandbox.runtime: runtime` (the fixture's asks for none)."""
+    from tranibor_orchestrator.activities import execution
+
+    real = execution.project_bundle
+
+    async def bundle_asking(session: Any, project_id: str) -> Any:
+        bundle = await real(session, project_id)
+        bundle.policy = bundle.policy.model_copy(
+            update={"sandbox": bundle.policy.sandbox.model_copy(update={"runtime": runtime})}
+        )
+        return bundle
+
+    monkeypatch.setattr(execution, "project_bundle", bundle_asking)
+
+
+@pytest.mark.parametrize("deployment", ["kata-vm-isolation", "runc"])
+async def test_a_gvisor_policy_on_a_deployment_without_gvisor_is_refused_at_its_start(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch, deployment: str
+) -> None:
+    """Finding #2349: under `k8s_job` the pod named `gvisor` on AKS (Kata) or EKS (runc) and was never
+    admitted; the run waited for its timeout. It is now refused before anything reaches the cluster, as a
+    configuration refusal the workflow escalates, the reason on the run."""
+    from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
+    from tranibor_api.db.models import Run
+    from tranibor_api.db.session import session_scope
+    from tranibor_orchestrator.activities.execution import START_REFUSED
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", deployment)
+    get_settings.cache_clear()
+    cluster = _Cluster()
+    try:
+        setup.adapters.executor = KubernetesJobExecutor(client=cluster)  # type: ignore[arg-type]
+        plan = await _prepare(setup)
+        _asking(monkeypatch, "gvisor")
+        with pytest.raises(ApplicationError) as raised:
+            await _start(setup, plan)
+    finally:
+        get_settings.cache_clear()
+    assert raised.value.non_retryable is True and raised.value.type == START_REFUSED
+    assert "sandbox.runtime: gvisor" in str(raised.value) and f"`{deployment}`" in str(raised.value)
+    assert cluster.calls == [], "nothing reached the cluster"
+    async with session_scope() as session:
+        run = await session.get(Run, str(plan["run_id"]))
+        assert run is not None and run.status == "failed"
+        assert run.result is not None and "sandbox.runtime: gvisor" in run.result["summary"]
+
+
+@pytest.mark.parametrize(("deployment", "named"), [("gvisor", "gvisor"), ("", "gvisor")])
+async def test_a_gvisor_policy_on_a_gvisor_deployment_starts_under_gvisor(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch, deployment: str, named: str
+) -> None:
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", deployment)
+    get_settings.cache_clear()
+    try:
+        executor = FakeExecutor()
+        setup.adapters.executor = executor
+        plan = await _prepare(setup)
+        _asking(monkeypatch, "gvisor")
+        await _start(setup, plan)
+    finally:
+        get_settings.cache_clear()
+    (spec,) = executor.started
+    assert spec.runtime_class == named
+
+
+async def test_a_kata_policy_on_aks_runs_under_kata_vm_isolation(
+    setup: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before #2349 a `kata` policy ran under the deployment's class whatever it was, runc included."""
+    from tranibor_orchestrator.config import get_settings
+
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "kata-vm-isolation")
+    get_settings.cache_clear()
+    try:
+        executor = FakeExecutor()
+        setup.adapters.executor = executor
+        plan = await _prepare(setup)
+        _asking(monkeypatch, "kata")
+        await _start(setup, plan)
+    finally:
+        get_settings.cache_clear()
+    (spec,) = executor.started
+    assert spec.runtime_class == "kata-vm-isolation"

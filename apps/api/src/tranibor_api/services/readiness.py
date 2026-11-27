@@ -95,12 +95,16 @@ class ObjectStoreFact:
 
 @dataclass(frozen=True)
 class RuntimeFact:
-    """The project's policy asks for a RuntimeClass and the deployment's warm pool is known.
+    """The project's policy asks for a sandboxed runtime and the deployment's RuntimeClass is known.
 
-    `refusal` is the executor's own message (`runtime_class_refusal`), None when the pool runs it."""
+    `refusal` is the message a run would be refused with (`runtime_class_refusal` for the warm pool,
+    `policy_runtime_refusal` for every executor), None when the run gets it. `executor` is the project's
+    executor; `pod_class` the class its pods name, when the item says it."""
 
     asked: str
     refusal: str | None = None
+    executor: str = "agent_sandbox"
+    pod_class: str | None = None
 
 
 @dataclass(frozen=True)
@@ -662,23 +666,25 @@ def item_object_store(f: Facts) -> list[ReadinessItem]:
 def item_runtime_class(f: Facts) -> list[ReadinessItem]:
     if f.runtime is None:
         return []
-    title = "Warm pool runs the policy's runtime"
+    pool = f.runtime.executor == "agent_sandbox"
+    title = "Warm pool runs the policy's runtime" if pool else "Agent pods run the policy's runtime"
     fix = ReadinessFix(href=None, by="platform_operator")
     if f.runtime.refusal is None:
-        return [
-            _item("runtime-class", "connections", title, "done", f"the pool runs `{f.runtime.asked}`.", fix)
-        ]
-    return [
-        _item(
-            "runtime-class",
-            "connections",
-            title,
-            "todo",
-            f"the policy asks for `sandbox.runtime: {f.runtime.asked}` and every run would be refused: "
-            f"{f.runtime.refusal}.",
-            fix,
+        done = (
+            f"the pool runs `{f.runtime.asked}`."
+            if pool
+            else f"the `{f.runtime.executor}` executor names RuntimeClass `{f.runtime.pod_class}`, a "
+            f"`{f.runtime.asked}` class, on every agent pod."
         )
-    ]
+        return [_item("runtime-class", "connections", title, "done", done, fix)]
+    detail = (
+        f"the policy asks for `sandbox.runtime: {f.runtime.asked}` and every run would be refused: "
+        f"{f.runtime.refusal}."
+        if pool
+        else f"every run on the `{f.runtime.executor}` executor would be refused at its start: "
+        f"{f.runtime.refusal}."
+    )
+    return [_item("runtime-class", "connections", title, "todo", detail, fix)]
 
 
 def item_agent_isolation(f: Facts) -> list[ReadinessItem]:
@@ -991,30 +997,51 @@ async def probe_object_store() -> ObjectStoreFact:
 
 
 def runtime_fact(connectors: dict[str, ConnectorFact], policy: Any) -> RuntimeFact | None:
-    """Does the warm pool run the RuntimeClass the policy asks for? Judged only when it can be.
+    """Does a run get the sandboxed runtime the policy asks for? Judged only when it can be.
 
-    No judgment (None) when the policy asks for no gVisor (the orchestrator then gives a run the
-    pool's own class), when the executor in use is not the warm pool (a Job sets `runtimeClassName`
-    per run), under fakes, or when the deployment never told the API its pool's class
-    (`TRANIBOR_RUNNER_RUNTIME_CLASS` unset; an empty value means "the cluster default")."""
+    One comparison with the run's start (`tranibor_core.runtime_class`, finding #2349): a `gvisor` or
+    `kata` policy on a deployment whose RuntimeClass (`TRANIBOR_RUNNER_RUNTIME_CLASS`) is not of that
+    family is refused, whatever the executor; under `agent_sandbox` the warm pool must also run the
+    class the run names (`runtime_class_refusal`). `k8s_job` and `tekton` set `runtimeClassName` per
+    run: with the deployment's class named, the item says which; with none named (empty), the pod names
+    the family itself and only the cluster knows whether it has it, so nothing is judged.
+
+    No judgment (None) when the policy asks for no sandboxed runtime, under fakes, for another
+    executor, or when the deployment never told the API its class (`TRANIBOR_RUNNER_RUNTIME_CLASS`
+    unset; an empty value means "the cluster default")."""
     import os
 
     from tranibor_adapters import fakes_enabled
     from tranibor_adapters.executor.agent_sandbox import runtime_class_refusal, warm_pool_of
     from tranibor_adapters.registry import default_executor_kind
+    from tranibor_core.runtime_class import RUNTIME_CLASS_ENV, pod_runtime_class, policy_runtime_refusal
 
-    # `runtime_class` (orchestrator): a `gvisor` policy is never bypassed, nothing else is asked.
-    if policy.sandbox.runtime != "gvisor" or fakes_enabled():
+    asked = str(policy.sandbox.runtime)
+    if asked not in ("gvisor", "kata") or fakes_enabled():
         return None
     runtime = connectors.get("runtime")
-    if (runtime.type if runtime else default_executor_kind()) != "agent_sandbox":
+    kind = runtime.type if runtime else default_executor_kind()
+    deployment = os.environ.get(RUNTIME_CLASS_ENV)
+    if kind in ("k8s_job", "tekton"):
+        if deployment is None:
+            return None
+        refusal = policy_runtime_refusal(asked, deployment)
+        if refusal is None and not deployment:
+            return None
+        return RuntimeFact(asked, refusal, executor=kind, pod_class=deployment or None)
+    if kind != "agent_sandbox":
         return None
     config = runtime.config if runtime else {}
-    pool = config.get("runtime_class", os.environ.get("TRANIBOR_RUNNER_RUNTIME_CLASS"))
+    pool = config.get("runtime_class", deployment)
     if pool is None:
         return None
+    refusal = policy_runtime_refusal(asked, deployment)
+    if refusal is not None:
+        return RuntimeFact(asked, refusal)
     warm_pool = warm_pool_of(config.get("warm_pool"), os.environ.get("TRANIBOR_SANDBOX_WARM_POOL"))
-    return RuntimeFact("gvisor", runtime_class_refusal("gvisor", str(pool), str(warm_pool)))
+    return RuntimeFact(
+        asked, runtime_class_refusal(pod_runtime_class(asked, deployment), str(pool), str(warm_pool))
+    )
 
 
 def isolation_fact(connectors: dict[str, ConnectorFact]) -> IsolationFact | None:

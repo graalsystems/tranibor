@@ -82,9 +82,10 @@ class OrchestratorSettings(BaseSettings):
     # This proxy's image; empty: the one `gitops.py` knows. To pin by digest where Kyverno
     # requires it.
     egress_image: str = ""
-    # The `RuntimeClass` of EVERY agent pod when the project policy imposes none
-    # (`sandbox.runtime: gvisor` wins). Empty: the cluster's default runtime. A cluster that has
-    # gVisor or Kata says so here once, rather than project by project.
+    # The `RuntimeClass` of EVERY agent pod: what the cluster offers. Empty: the cluster's default
+    # runtime. A cluster that has gVisor or Kata says so here once, rather than project by project. A
+    # policy's `sandbox.runtime: gvisor` or `kata` runs under it only when it is of that family, and is
+    # refused at the run's start otherwise (`tranibor_core.runtime_class`, #2349).
     runner_runtime_class: str = ""
     #: Where every run's agent runs (ADR 0146, `tranibor_core.agent_isolation`), the chart's
     #: `global.runner.agentIsolation`: `process`, the runner's child, or `container`, a container of its

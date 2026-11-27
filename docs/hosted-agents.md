@@ -167,10 +167,12 @@ platform refuses it twice, with the error `hosted_unsupported_cluster`:
   hold a sidecar refuse a hosted step whatever the version.
 
 **Under gVisor (S41-17).** A project whose policy sets `sandbox.runtime: gvisor` runs its steps,
-hosted ones included, under the `gvisor` RuntimeClass: `runtimeClassName` is set on the pod, so the
-runner and the agent's sidecar share one sandbox and its loopback. The project's Kyverno `Policy`
-`require-gvisor` (in `runtimeclass.yaml`, which the project's `kustomization.yaml` now lists: Argo CD
-applied the directory without it) refuses any pod of `proj-<slug>-runners` without it, and the Jobs
+hosted ones included, under the `gvisor` RuntimeClass (the deployment's own gVisor class, `gvisor` or `runsc`,
+when `global.runner.runtimeClass` names one; refused at start when it names another runtime, #2349):
+`runtimeClassName` is set on the pod, so the runner and the agent's sidecar share one sandbox and its
+loopback. The project's Kyverno `Policy` `require-gvisor` (in `runtimeclass.yaml`, which the project's
+`kustomization.yaml` now lists: Argo CD applied the directory without it) refuses any pod of
+`proj-<slug>-runners` that names no gVisor class (`gvisor | runsc`), and the Jobs
 the executor creates through autogen. What it proves:
 
 - `tests/conformance/hosted/test_hosted_under_gvisor.py` (marker `gvisor`, `TRANIBOR_TEST_RUNSC`)

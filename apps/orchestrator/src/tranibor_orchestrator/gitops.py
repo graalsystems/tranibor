@@ -12,6 +12,10 @@ from typing import Any
 import yaml
 from tranibor_contracts import Policy, ProjectConfig, wire
 from tranibor_core.quotas import DEFAULT, Quota
+from tranibor_core.runtime_class import GVISOR_CLASSES
+
+#: Kyverno's OR of every gVisor RuntimeClass (`gvisor | runsc`), which a `gvisor` project's pods must name.
+GVISOR_PATTERN = " | ".join(sorted(GVISOR_CLASSES))
 
 
 def _dump(documents: list[dict[str, Any]]) -> str:
@@ -551,7 +555,9 @@ def render_project_manifests(
                                 "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
                                 "validate": {
                                     "message": "this project's runners must use gVisor",
-                                    "pattern": {"spec": {"runtimeClassName": "gvisor"}},
+                                    # Every gVisor class (`tranibor_core.runtime_class`): a deployment
+                                    # whose class is `runsc` names it on the pods (#2349).
+                                    "pattern": {"spec": {"runtimeClassName": GVISOR_PATTERN}},
                                 },
                             }
                         ],
