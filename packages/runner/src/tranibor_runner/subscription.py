@@ -11,6 +11,11 @@ The daemon of a personal outpost starts the runner for a run it claimed with
 - its agent gets no model listener and none of the gateway's variables (`GATEWAY_VARIABLES`): an API key
   outranks a subscription in Claude Code (the S87-07 fixture, `fixtures/subscription/from_source.json`), and
   the run was placed for the subscription;
+- its agent, the vendor's CLI, gets the token by name (`vendor_environment`), the provider's own model id
+  and a configuration directory of the runner's (`Backend.subscription_model`, `Backend.subscription_env`);
+  nothing else the runner starts gets it (`config.agent_base_environment`), nor a gateway run's agent;
+- its CLI signed out (ACP `auth_required`, "Please run /login") ends it `subscription_login_required`, before
+  its first prompt or after the turn that said so, and its person is told how to sign in again (`SIGN_IN`);
 - the runner's one client to the platform (`platform_client`) scrubs every URL and body it sends by the
   token's exact value and by the subscription shapes (`Scrubber`), and the run journals how many it took out
   (`subscription.token_redacted`), never what;
@@ -37,7 +42,7 @@ from urllib.parse import quote, quote_plus
 
 import httpx
 from tranibor_contracts.enums import SubscriptionProvider
-from tranibor_core.subscription_credentials import SCRUBBED, scrub, shapes_in
+from tranibor_core.subscription_credentials import SCRUBBED, SUBSCRIPTION_VARIABLES, scrub, shapes_in
 
 from .client import InternalClient
 from .config import RunnerSettings
@@ -52,6 +57,9 @@ TOKEN_VARIABLES: Mapping[SubscriptionProvider, tuple[str, ...]] = MappingProxyTy
         SubscriptionProvider.GOOGLE: (),
     }
 )
+#: Every variable that holds a person's subscription token: the providers' and the platform's list
+#: (`SUBSCRIPTION_VARIABLES`). A gateway run's agent never gets one, wherever it would come from.
+ALL_TOKEN_VARIABLES = frozenset(chain(*TOKEN_VARIABLES.values())) | SUBSCRIPTION_VARIABLES
 #: What the agent of a subscription run never gets, whatever the runner's own environment or the step holds:
 #: the gateway's key and address under each backend's names. `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`
 #: would silently take precedence over the subscription (S87-07); the others name another credential or
@@ -81,6 +89,11 @@ OUTPUT_REFUSED_REASON = "subscription_credential_in_output"
 #: The journal's event for such a deliverable: its file, the reason, whether the exact value was there and the
 #: shapes' labels, never a value.
 OUTPUT_REFUSED_EVENT = "outputs.refused"
+#: What its person does when a subscription run's vendor CLI is signed out (`subscription_login_required`): on
+#: their own machine, since no page of the platform takes a token (ADR 0227 §4).
+SIGN_IN: Mapping[SubscriptionProvider, str] = MappingProxyType(
+    {SubscriptionProvider.ANTHROPIC: "`claude setup-token`, then `choregos-outpost personal login claude`"}
+)
 #: The shortest value scrubbed by its exact value. A token is far longer; replacing a short value everywhere
 #: would only wreck what the runner sends, and hide nothing.
 MIN_EXACT_VALUE = 16
@@ -91,6 +104,16 @@ def at_an_outpost(place: str) -> bool:
     return place.startswith(OUTPOST_PLACE) and bool(place[len(OUTPOST_PLACE) :].strip())
 
 
+def signed_out_summary(said: str, provider: SubscriptionProvider | None) -> str:
+    """What a `subscription_login_required` result tells its person: their CLI is signed out (what said so,
+    the CLI's words or ACP's error), and how they sign in again on their own runner."""
+    how = SIGN_IN.get(provider) if provider else None
+    return (
+        f"the vendor's CLI is signed out of your subscription ({said[:200]}): sign in again on your runner"
+        + (f", with {how}" if how else "")
+    )
+
+
 def token_values(
     provider: SubscriptionProvider | None, environ: Mapping[str, str] | None = None
 ) -> list[str]:
@@ -98,6 +121,17 @@ def token_values(
     names = TOKEN_VARIABLES.get(provider, ()) if provider else tuple(chain(*TOKEN_VARIABLES.values()))
     values = os.environ if environ is None else environ
     return [value for name in names if (value := values.get(name, "").strip())]
+
+
+def vendor_environment(
+    provider: SubscriptionProvider | None, environ: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    """The token of `provider` under its own variable, as the vendor's CLI reads it (ADR 0227 §4): what the
+    runner hands, by name, to the agent of a subscription run and to nothing else. `agent_base_environment`
+    leaves it out of everything the runner starts; empty without a provider or a token."""
+    values = os.environ if environ is None else environ
+    names = TOKEN_VARIABLES.get(provider, ()) if provider else ()
+    return {name: value for name in names if (value := values.get(name, "").strip())}
 
 
 class Scrubber:

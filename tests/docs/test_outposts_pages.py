@@ -209,25 +209,42 @@ def _declared() -> set[tuple[str, str]]:
 
 
 def _fault(words: list[str]) -> str | None:
-    """Why the daemon's command line would not take these words, or None when it declares them all."""
-    group = _declaration()
-    known, command = _options(group), ""
+    """Why the daemon's command line would not take these words, or None when it declares them all. A
+    group of commands (`personal`) takes one of its commands; a command takes the arguments it declares,
+    one of its choices each (`personal login claude`), and nothing else."""
+    current: Any = _declaration()
+    known, path, arguments = _options(current), [], []
     rest = list(words)
     while rest:
         word = rest.pop(0)
+        command = " ".join(path)
         if word.startswith("-"):
             name, valued, _value = word.partition("=")
             if name not in known:
                 return f"{f'`{command}`' if command else 'the daemon'} has no option `{name}`"
             if known[name] and not valued and rest and not rest[0].startswith("-"):
                 rest.pop(0)
-        elif not command:
-            if word not in group.commands:
-                return f"the daemon has no command `{word}`"
-            command, known = word, _options(group.commands[word])
+        elif _is_group(current):
+            if word not in current.commands:
+                return f"{f'`{command}`' if command else 'the daemon'} has no command `{word}`"
+            current = current.commands[word]
+            path.append(word)
+            known = _options(current)
+            arguments = [parameter for parameter in current.params if parameter.param_type_name == "argument"]
+        elif arguments:
+            choices = getattr(arguments.pop(0).type, "choices", None)
+            if choices is not None and word not in choices:
+                return f"`{command}` takes one of {sorted(choices)}, and is given `{word}`"
         else:
             return f"`{command}` takes no argument, and is given `{word}`"
+    if path and _is_group(current):
+        return f"`{' '.join(path)}` is a group: it takes one of its commands"
     return None
+
+
+def _is_group(command: Any) -> bool:
+    """Whether a command of the daemon is a group of commands (Typer's own Click is not `click`'s)."""
+    return isinstance(getattr(command, "commands", None), dict)
 
 
 def _shown_commands(page: Path) -> list[tuple[str, list[str]]]:
@@ -287,8 +304,15 @@ def test_the_guide_shows_commands_to_check() -> None:
     """Without this guard, a page whose fences changed would leave the check below green and empty."""
     shown = [words for _where, words in _shown_commands(GUIDE)]
     assert len(shown) >= 8
-    for command in _declaration().commands:
-        assert [command] in shown, f"the guide never shows `{DAEMON} {command}`"
+    for name, command in _declaration().commands.items():
+        if _is_group(command):
+            # A group's commands each, with what they take (`personal login claude`).
+            for inner in command.commands:
+                assert any(words[:2] == [name, inner] for words in shown), (
+                    f"the guide never shows `{DAEMON} {name} {inner}`"
+                )
+        else:
+            assert [name] in shown, f"the guide never shows `{DAEMON} {name}`"
     assert any("--" in " ".join(words) for words in shown), "no command of the guide carries an option"
     assert any(where.startswith("kubectl") for where, _words in _shown_commands(GUIDE))
 
@@ -312,6 +336,12 @@ def test_the_command_check_refuses_what_the_daemon_does_not_have() -> None:
     assert "no option `--json`" in str(_fault(["run", "--json"]))
     assert "no option `--grace`" in str(_fault(["--grace", "5", "run"]))
     assert "takes no argument" in str(_fault(["run", "now"]))
+    # A group takes one of its commands, and a command the arguments it declares, of their choices.
+    assert _fault(["personal", "login", "claude"]) is None
+    assert "no command `signin`" in str(_fault(["personal", "signin", "claude"]))
+    assert "takes one of ['claude']" in str(_fault(["personal", "login", "gemini"]))
+    assert "takes no argument" in str(_fault(["personal", "logout", "claude", "now"]))
+    assert "is a group" in str(_fault(["personal"]))
 
 
 def test_every_flag_the_guide_names_is_one_of_the_daemon_s() -> None:

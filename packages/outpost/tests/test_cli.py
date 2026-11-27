@@ -196,7 +196,17 @@ def test_doctor_prints_one_line_per_check_and_fails_when_one_does(machine: Machi
     lines = {
         line.split()[1]: line for line in result.output.splitlines() if line.startswith(("ok", "skipped"))
     }
-    assert set(lines) == {"policy", "identity", "records", "dns", "proxy", "tls", "door", "clock"}
+    assert set(lines) == {
+        "policy",
+        "identity",
+        "subscription",
+        "records",
+        "dns",
+        "proxy",
+        "tls",
+        "door",
+        "clock",
+    }
     assert (
         lines["policy"].startswith("ok")
         and lines["door"].startswith("ok")

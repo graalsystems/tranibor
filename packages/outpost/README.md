@@ -28,6 +28,8 @@ This page is the package's own. The guide for whoever runs an outpost is a separ
 choregos-outpost enrol    # make the keys, present an enrolment token, print the fingerprint to compare
 choregos-outpost run      # poll the door and make the calls the policy file allows
 choregos-outpost doctor   # check the policy, the path to the door, the clock and each endpoint
+choregos-outpost personal login claude    # a person's own runner: keep their Claude sign-in (stdin only)
+choregos-outpost personal logout claude   # forget it
 ```
 
 Options come before the command, or from the environment:
@@ -84,6 +86,7 @@ never from the call. A tool the server does not list is a write.
 | `<state dir>/journal/sequence` | 0600 | the last request sequence number signed |
 | `<state dir>/journal/lock` | 0600 | held while the daemon runs: one instance, one journal |
 | `audit.file` of the policy | 0640 | the audit log, one JSON line per event |
+| `<state dir>/secrets/anthropic.token` | 0600 | a person's Claude sign-in, when the machine has no OS keychain (`secrets.py`) |
 
 The directories are created 0700 (the audit log's 0750). The private keys never leave the machine,
 are never sent and never logged. A key file that others can read, or that the group can write, is
@@ -147,6 +150,7 @@ One line per check, `ok`, `skipped` or `FAILED` with what to do; exit code 1 whe
 |:--|:--|
 | `policy` | the file is not valid, an entry of `door_keys` that does not parse as a key included |
 | `identity` | a key is missing, or open to others (skipped before the first `enrol`) |
+| `subscription anthropic` | a kept vendor sign-in is open to others or not of the vendor's shape (skipped when there is none); it says where it is kept, never what it is |
 | `records` | the audit log or the journal cannot be written |
 | `dns` | the name the daemon dials does not resolve (the proxy's, when there is one) |
 | `proxy` | the outbound proxy is not there, or refuses a tunnel to the door |

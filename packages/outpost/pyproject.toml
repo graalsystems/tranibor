@@ -21,6 +21,11 @@ dependencies = [
     "typer>=0.15",
 ]
 
+[project.optional-dependencies]
+# The OS keychain (macOS Keychain, Secret Service) for a person's vendor token (ADR 0227 §4). Without it,
+# or without a backend on the machine, the token is kept in a file only the daemon reads (`secrets.py`).
+keychain = ["keyring>=25.0"]
+
 [project.scripts]
 choregos-outpost = "tranibor_outpost.cli:main"
 

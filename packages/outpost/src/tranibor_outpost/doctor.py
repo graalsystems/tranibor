@@ -5,6 +5,8 @@ One check each, and each says what to do when it fails:
 
 - `policy`: the policy file is valid, `door_keys` included (each entry parses as a key);
 - `identity`: the instance's keys are there and are the daemon's alone;
+- `subscription <provider>`: a person's own runner holds a usable vendor sign-in, and where (the OS keychain
+  or a file only its owner reads): whether it is there, never what it is (ADR 0227 §4, `secrets.py`);
 - `records`: the audit log and the journal can be written (the daemon does not serve without them);
 - `dns`: the name the daemon dials resolves, the outbound proxy's when there is one;
 - `proxy`: the outbound proxy opens a tunnel to the door;
@@ -40,6 +42,7 @@ from tranibor_contracts.outpost import IAT_WINDOW_S, OUTPOST_DOOR_PREFIX, Outpos
 
 from . import identity as identities
 from . import policy as policies
+from . import secrets as vendor_secrets
 from . import uplink
 from .audit import AuditLog, AuditWriteError
 from .settings import Settings, SettingsError, without_credentials
@@ -103,6 +106,27 @@ def identity_check(directory: Path) -> Check:
         return _ok("identity", f"{identity.fingerprint}, not enrolled yet")
     where = f"{enrolment.organisation}/{enrolment.outpost}"
     return _ok("identity", f"{identity.fingerprint}, instance {enrolment.instance_id} of {where}")
+
+
+def subscription_checks(state_dir: Path) -> list[Check]:
+    """One check per provider a person may sign in to: present and usable, absent (skipped: an outpost of
+    an organisation has none), or there and unusable. The detail says where it is kept, never its value."""
+    secrets = vendor_secrets.VendorSecrets.at(state_dir)
+    checks: list[Check] = []
+    for vendor, provider in vendor_secrets.VENDORS.items():
+        name = f"subscription {provider.value}"
+        login = f"`choregos-outpost personal login {vendor}`"
+        presence = secrets.presence(provider)
+        if presence.where is None:
+            made_by = vendor_secrets.MADE_BY[provider]
+            checks.append(_skipped(name, f"no {vendor} sign-in on this runner: {made_by}, then {login}"))
+        elif presence.problem is not None:
+            checks.append(_failed(name, presence.problem, f"sign in again: {login}"))
+        else:
+            checks.append(
+                _ok(name, f"a {vendor} sign-in is kept in {presence.where}; `{provider.value}` is announced")
+            )
+    return checks
 
 
 def _writable(directory: Path) -> None:
@@ -338,7 +362,7 @@ async def diagnose(
 ) -> list[Check]:
     """Every check, in the order a call would meet what they look at."""
     first, policy = policy_check(settings.policy)
-    checks = [first, identity_check(settings.identity_dir)]
+    checks = [first, identity_check(settings.identity_dir), *subscription_checks(settings.state_dir)]
     if policy is None:
         unknown = "no valid policy: the door and the endpoints are unknown"
         return [
@@ -382,4 +406,4 @@ def as_json(checks: list[Check]) -> str:
     )
 
 
-__all__ = ["Check", "as_json", "diagnose", "render"]
+__all__ = ["Check", "as_json", "diagnose", "render", "subscription_checks"]

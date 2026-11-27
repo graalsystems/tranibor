@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`choregos-outpost enrol | run | doctor`: the program an outpost's operator installs.
+"""`choregos-outpost enrol | run | doctor | personal`: the program an outpost's operator installs.
 
 - `enrol` makes the instance's keys if it has none, presents an enrolment token to the door, and
   prints the fingerprint a person compares in the console before approving the instance.
 - `run` polls the door and makes the calls its policy file allows. It does not start on an invalid
   policy, nor without an enrolled identity, nor when it cannot write its journal or its audit log.
 - `doctor` checks what stands between this machine and a working outpost, one line per check.
+- `personal login claude` keeps the token `claude setup-token` printed, read from standard input only, for
+  the person's own subscription runs; `personal logout claude` forgets it (`secrets.py`, ADR 0227 §4).
 
 Exit codes of `run`: 0 stopped on request; 2 it could not start (the policy, the identity, the
 files); 3 the door no longer serves this daemon's protocol (upgrade it); 4 the instance or its
-outpost was revoked; 5 the disk refused the journal or the audit log.
+outpost was revoked; 5 the disk refused the journal or the audit log. `personal login` exits 2 on
+anything but one token of the vendor's shape on standard input, and keeps nothing then.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ import socket
 import sys
 import time
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -29,6 +33,7 @@ import typer
 from tranibor_contracts.outpost import OutpostEnrolmentAnswer, OutpostPolicy
 
 from . import PROTOCOL, __version__, doctor, identity, logs, policy, uplink
+from . import secrets as vendor_secrets
 from .audit import AuditLog, AuditWriteError
 from .daemon import Daemon, Exit
 from .journal import Journal, JournalError
@@ -305,6 +310,61 @@ def doctor_command(
     _say(doctor.as_json(checks) if as_json else doctor.render(checks))
     if any(check.failed for check in checks):
         raise typer.Exit(1)
+
+
+personal = typer.Typer(
+    no_args_is_help=True,
+    help="A person's own runner: the vendor sign-in its subscription runs use, kept on this machine only.",
+)
+app.add_typer(personal, name="personal")
+
+
+class Vendor(StrEnum):
+    """The vendors a person signs in to here (ADR 0227 §12: Claude only)."""
+
+    CLAUDE = "claude"
+
+
+#: Anything after the vendor: a token typed there would stay in the shell's history and the process list.
+_EXTRA = {"allow_extra_args": True, "ignore_unknown_options": True}
+
+
+@personal.command("login", context_settings=_EXTRA)
+def personal_login(
+    context: typer.Context,
+    vendor: Annotated[Vendor, typer.Argument(help="The vendor whose CLI the subscription runs use.")],
+) -> None:
+    """Keep the token `claude setup-token` printed, read from standard input only."""
+    settings: Settings = context.obj
+    provider = vendor_secrets.VENDORS[vendor.value]
+    if context.args:
+        raise _fail(
+            "the token is read from standard input only, never from an argument or an option: those stay in "
+            f"the shell's history and the process list. Run `choregos-outpost personal login {vendor.value}` "
+            "and paste it when asked, or pipe it in.",
+            2,
+        )
+    secrets = vendor_secrets.VendorSecrets.at(settings.state_dir)
+    try:
+        where = secrets.store(provider, vendor_secrets.read_token(sys.stdin, sys.stderr, provider))
+    except vendor_secrets.SecretError as error:
+        raise _fail(f"nothing was kept: {error}", 2) from error
+    except OSError as error:
+        raise _fail(f"nothing was kept: {error.strerror or error}", CANNOT_START) from error
+    _say(f"Signed in to {vendor.value}: the token is kept in {where}, and nowhere else.")
+    _say(f"This runner announces `{provider.value}` to the platform while it is there, by name only.")
+
+
+@personal.command("logout")
+def personal_logout(
+    context: typer.Context,
+    vendor: Annotated[Vendor, typer.Argument(help="The vendor to sign out of.")],
+) -> None:
+    """Forget the vendor's token: this runner no longer announces its subscription."""
+    settings: Settings = context.obj
+    provider = vendor_secrets.VENDORS[vendor.value]
+    removed = vendor_secrets.VendorSecrets.at(settings.state_dir).remove(provider)
+    _say(f"Signed out of {vendor.value}." if removed else f"No {vendor.value} token was kept here.")
 
 
 def main() -> None:

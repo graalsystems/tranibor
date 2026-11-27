@@ -60,6 +60,7 @@ async def test_every_check_passes_behind_a_private_authority_the_operator_gave(t
     assert list(found) == [
         "policy",
         "identity",
+        "subscription anthropic",
         "records",
         "dns",
         "proxy",
@@ -71,6 +72,7 @@ async def test_every_check_passes_behind_a_private_authority_the_operator_gave(t
     assert {name: check.status for name, check in found.items()} == {
         "policy": "ok",
         "identity": "ok",
+        "subscription anthropic": "skipped",
         "records": "ok",
         "dns": "ok",
         "proxy": "skipped",

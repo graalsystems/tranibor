@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from tranibor_contracts import ApiFormat, ModelRef, StageInput
+from tranibor_contracts.enums import SubscriptionProvider
 from tranibor_core.models import BACKEND_MODEL_CONSTRAINT_REASONS
 
 
@@ -71,12 +72,26 @@ class Backend:
     #: it serves the OpenAI, Anthropic and Gemini shapes, so a backend that speaks another keeps the
     #: run's key in its container, and the run says so.
     loopback_model: ClassVar[bool] = True
+    #: The providers whose subscription the backend's agent is the vendor's own CLI for (ADR 0227 §5): Claude
+    #: Code's `anthropic`, and no other backend's. Placement offers a subscription run to no other backend.
+    subscriptions: ClassVar[frozenset[SubscriptionProvider]] = frozenset()
 
     def launch_plan(self, stage_input: StageInput, workspace: Path) -> LaunchPlan:
         raise NotImplementedError
 
     def model_env(self, model: ModelRef, key: str | None) -> dict[str, str]:
         raise NotImplementedError
+
+    def subscription_model(self, model: ModelRef) -> ModelRef:
+        """The run's model as the backend's vendor knows it, for a run on its person's own subscription
+        (ADR 0227 §3): the model the launch plan and `model_env` then pin. As it is for a backend that is no
+        vendor's CLI (`subscriptions` is empty)."""
+        return model
+
+    def subscription_env(self, home: Path) -> dict[str, str]:
+        """What the vendor's CLI of a subscription run reads besides its model and its token, given the run's
+        own `$HOME`: nothing for a backend that is no vendor's CLI."""
+        return {}
 
     # ───────────────────────── shared tools ─────────────────────────
 

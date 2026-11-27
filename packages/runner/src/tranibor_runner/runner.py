@@ -33,7 +33,7 @@ from tranibor_contracts import (
     is_inert_binary_path,
 )
 from tranibor_contracts.delivery import ResultDelivery, branch_of, commits_of, repository_of, without_commands
-from tranibor_contracts.enums import RunCredential
+from tranibor_contracts.enums import RunCredential, SubscriptionProvider
 from tranibor_contracts.env import with_legacy
 from tranibor_core import telemetry
 from tranibor_core.agent_isolation import (
@@ -54,7 +54,12 @@ from .acp import AcpClient, AgentDidNotStartError, AgentExitedError, AgentProtoc
 from .acp.client import PromptOutcome, WriteGuard, started_session
 from .acp.guard import TurnGuard
 from .backends import Backend, LaunchPlan, get_backend
-from .budget import BUDGET_REASON, gateway_budget_refusal
+from .budget import (
+    BUDGET_REASON,
+    SUBSCRIPTION_LOGIN_REQUIRED,
+    gateway_budget_refusal,
+    subscription_signed_out,
+)
 from .client import InternalApiError, InternalClient
 from .config import RunnerSettings, agent_base_environment, get_settings
 from .dod import CheckOutcome, DodReport, run_checks
@@ -91,6 +96,7 @@ from .result import complete_result, fallback_result, load_result, repair_prompt
 from .scope import check_scope
 from .skills import InvalidSkill, place_skills
 from .subscription import (
+    ALL_TOKEN_VARIABLES,
     GATEWAY_VARIABLES,
     OFF_RUNNER_REASON,
     OUTPUT_REFUSED_EVENT,
@@ -101,7 +107,9 @@ from .subscription import (
     Scrubber,
     at_an_outpost,
     platform_client,
+    signed_out_summary,
     token_values,
+    vendor_environment,
 )
 from .workspace import Workspace, agent_git_env, agent_home, git_dir_for, inline_outputs, workspace_env
 
@@ -542,8 +550,10 @@ class Runner:
                 await self._record_tool_instructions(journal, prompt)
                 budget_seconds = stage_input.budget.max_minutes * 60
                 # A key the gateway refuses for budget refuses every further turn too: no DoD
-                # retry, no reminder, no repair — each would only be refused again (S27-01).
-                refused = await _turn(agent, prompt, budget_seconds, probe)
+                # retry, no reminder, no repair — each would only be refused again (S27-01). So does a
+                # vendor's CLI signed out of its person's subscription (ADR 0227 §8).
+                signed_in = self.settings.run_provider if self.subscription else None
+                refused = await _turn(agent, prompt, budget_seconds, probe, subscription=signed_in)
 
                 # 8. boucle DoD
                 max_iterations = max(0, stage_input.permissions.dod_iterations)
@@ -564,7 +574,11 @@ class Runner:
                         {"iteration": dod_iterations, "failures": [c.name for c in report.failures()]},
                     )
                     refused = await _turn(
-                        agent, report.prompt_for_repair(), self._remaining(budget_seconds), probe
+                        agent,
+                        report.prompt_for_repair(),
+                        self._remaining(budget_seconds),
+                        probe,
+                        subscription=signed_in,
                     )
                     report = await self._checks(stage_input, workspace.path)
 
@@ -575,7 +589,11 @@ class Runner:
                 if scope_result.reverted and not refused and agent.outcome.guard is None:
                     await journal.record("scope.reverted", {"paths": scope_result.reverted})
                     refused = await _turn(
-                        agent, scope_result.prompt(), self._remaining(budget_seconds), probe
+                        agent,
+                        scope_result.prompt(),
+                        self._remaining(budget_seconds),
+                        probe,
+                        subscription=signed_in,
                     )
                     scope_result = await check_scope(
                         workspace, start_ref, guards.allowed_paths, denied_paths=guards.permissions.deny_paths
@@ -598,6 +616,7 @@ class Runner:
                         repair_prompt(load, workspace.result_path()),
                         self._remaining(budget_seconds),
                         probe,
+                        subscription=signed_in,
                     )
                     load = load_result(
                         workspace.result_path(), inline_outputs(stage_input), _files(stage_input), displays
@@ -611,7 +630,7 @@ class Runner:
                     # The gateway refused the key (S27-01): the agent met its budget, it did not crash,
                     # even when it had written its result before the refused call.
                     agent_exit="limit"
-                    if refused
+                    if refused is not None and refused.reason == BUDGET_REASON
                     else _agent_exit(agent.outcome.stop_reason, agent.outcome.cancelled),
                     dod_iterations=dod_iterations,
                     result_repairs=repairs,
@@ -664,20 +683,26 @@ class Runner:
         session — the run also says where and why: before, a refused `session/new` left
         `Runner.execute` as an exception (no result, a traceback) and the other cases posted no
         result. It journals `run.failed` with the phase, a named reason, the exit code and the agent's
-        last error lines, and posts a failed result that says the same."""
+        last error lines, and posts a failed result that says the same. On its person's subscription, a CLI
+        that said it is signed out in this pre-flight ends it `subscription_login_required` (ADR 0227 §8)."""
         if not isinstance(exc, AgentDidNotStartError):
             await journal.record("agent.unreachable", {"error": str(exc)[:500]})
             await journal.flush()
             return RunOutcome(Exit.AGENT_UNREACHABLE, detail=str(exc))
         acp, phase, cause = exc.client, exc.phase, exc.cause
         code = acp.process.returncode if acp.process is not None else None
-        if isinstance(cause, AgentProtocolError):
+        detail = str(cause)[:500]
+        signed_out = _signed_out(acp, detail) if self.subscription else None
+        exit_code, summary = Exit.AGENT_UNREACHABLE, f"the agent did not start ({phase}): {detail}"
+        if signed_out is not None:
+            reason, exit_code = SUBSCRIPTION_LOGIN_REQUIRED, Exit.SUBSCRIPTION_SIGNED_OUT
+            summary = signed_out_summary(signed_out, self.settings.run_provider)
+        elif isinstance(cause, AgentProtocolError):
             reason = "agent_session_refused"
         elif isinstance(cause, AgentExitedError) or (phase != "start" and code is not None):
             reason = "agent_exited"
         else:
             reason = "agent_unreachable"
-        detail = str(cause)[:500]
         event: dict[str, Any] = {"phase": phase, "reason": reason, "error": detail}
         if code is not None:
             event["exit_code"] = code
@@ -686,7 +711,7 @@ class Runner:
         await journal.record("run.failed", event)
         base, start_ref = refs
         result = complete_result(
-            fallback_result(reason, f"the agent did not start ({phase}): {detail}"),
+            fallback_result(reason, summary),
             measured=Evidence(),
             artifacts=Artifacts(delivery=_work_branch(stage_input)),
             diagnostics=Diagnostics(
@@ -694,7 +719,7 @@ class Runner:
             ),
         )
         final = await self._publish(client, journal, workspace, stage_input, result, base, start_ref)
-        return RunOutcome(Exit.AGENT_UNREACHABLE, final, transcript_path=journal.path, detail=detail)
+        return RunOutcome(exit_code, final, transcript_path=journal.path, detail=detail)
 
     async def _compress(self, stage_input: StageInput, journal: Any) -> RunOutcome | None:
         """Says which context reduction the run was given, then starts headroom when it asks for it
@@ -897,8 +922,9 @@ class Runner:
 
     def _agent_unset(self) -> frozenset[str]:
         """What the agent never gets: for a subscription run, the gateway's variables (ADR 0227 §5), which
-        would choose another credential than the one the run was placed for. Nothing for a gateway run."""
-        return GATEWAY_VARIABLES if self.subscription else frozenset()
+        would choose another credential than the one the run was placed for; for a gateway run, every
+        subscription token, from the runner's environment or the step's launch environment alike (§4)."""
+        return GATEWAY_VARIABLES if self.subscription else ALL_TOKEN_VARIABLES
 
     async def _refuse_off_an_outpost(self, journal: EventJournal) -> RunOutcome | None:
         """ADR 0227 §2: a subscription is used at one place, its person's own outpost, whose daemon starts
@@ -1082,7 +1108,9 @@ class Runner:
         """The agent's launch plan and environment, from the step as the agent may see it. Under
         `container` (ADR 0146 §7) that is a copy with the loopback addresses and the loopback key, never
         the run's gateway key nor an MCP server's headers (the runner's own copy keeps them), and the
-        proxy variables name the loopback CONNECT proxy."""
+        proxy variables name the loopback CONNECT proxy. On its person's subscription (ADR 0227 §3-5) the
+        vendor's CLI runs on the provider's own model id, under a configuration directory of the runner's
+        inside the run's home, with its person's token, handed by name here and nowhere else."""
         self.agent_proxy_env = {}
         agent_input = stage_input
         if self.launcher is not None:
@@ -1093,6 +1121,10 @@ class Runner:
                 model=backend.loopback_model,
                 credential=self.settings.run_credential,
             )
+        if self.subscription:
+            agent_input = agent_input.model_copy(
+                update={"model": backend.subscription_model(agent_input.model)}
+            )
         plan = backend.launch_plan(agent_input, workspace.path)
         env = {
             **plan.env,
@@ -1100,6 +1132,11 @@ class Runner:
             **workspace_env(stage_input),
             **self.agent_proxy_env,
         }
+        if self.subscription:
+            # The token is the runner's to hand: none the step names, only its person's, last.
+            env = {name: value for name, value in env.items() if name not in ALL_TOKEN_VARIABLES}
+            env.update(backend.subscription_env(agent_home(stage_input)))
+            env.update(vendor_environment(self.settings.run_provider))
         return plan, env
 
     async def _checks(self, stage_input: StageInput, workspace: Path) -> DodReport:
@@ -1899,16 +1936,38 @@ def _diagnosis_without_result(
     return "invalid_result", (error or "unreadable result") + told
 
 
+@dataclass(frozen=True, slots=True)
+class _Refusal:
+    """What refuses every further turn of a run, and how the run then ends: the gateway's budget refusal
+    (S27-01), or the vendor's CLI signed out of its person's subscription (ADR 0227 §8)."""
+
+    reason: str
+    exit_code: Exit
+    detail: str
+
+
 async def _turn(
-    agent: Any, text: str, timeout: float, probe: Callable[[], Awaitable[str | None]] | None = None
-) -> str | None:
+    agent: Any,
+    text: str,
+    timeout: float,
+    probe: Callable[[], Awaitable[str | None]] | None = None,
+    *,
+    subscription: SubscriptionProvider | None = None,
+) -> _Refusal | None:
     """One prompt turn; then the gateway's budget refusal, if the agent met one (S27-01). A turn that
-    ended in an error naming none asks the gateway itself (S65-35): an agent may drop the refusal."""
+    ended in an error naming none asks the gateway itself (S65-35): an agent may drop the refusal. On its
+    person's `subscription` the CLI signed out comes first: the run has no gateway (ADR 0227 §3, §8)."""
     await agent.prompt(text, timeout=timeout)
+    if subscription is not None and (said := _signed_out(agent)) is not None:
+        return _Refusal(
+            SUBSCRIPTION_LOGIN_REQUIRED, Exit.SUBSCRIPTION_SIGNED_OUT, signed_out_summary(said, subscription)
+        )
     refused = _budget_refusal(agent)
     if refused is None and probe is not None and agent.outcome.stop_reason == "error":
         refused = await probe()
-    return refused
+    if refused is None:
+        return None
+    return _Refusal(BUDGET_REASON, Exit.BUDGET_EXCEEDED, f"the gateway refused the run's key: {refused}")
 
 
 def _budget_refusal(agent: Any) -> str | None:
@@ -1917,9 +1976,21 @@ def _budget_refusal(agent: Any) -> str | None:
     return gateway_budget_refusal(outcome.errors, agent.stderr_tail[-20:], outcome.said)
 
 
+def _signed_out(agent: Any, *more: str) -> str | None:
+    """What says a subscription run's vendor CLI is signed out (ADR 0227 §8, the S87-07 fixture): ACP's
+    `auth_required`, or its "Please run /login" in an error (`more`, the pre-flight's), a prompt's error, its
+    error output or, when it called no tool (signed out, it never reached its model), what it said."""
+    outcome: PromptOutcome = agent.outcome
+    if getattr(agent, "auth_required", False):
+        evidence = [*more, *outcome.errors]
+        return evidence[-1] if evidence else "ACP auth_required"
+    said = outcome.said if outcome.tool_calls == 0 else []
+    return subscription_signed_out(more, outcome.errors, agent.stderr_tail[-20:], said)
+
+
 def _stop(
     agent: Any,
-    refused: str | None,
+    refused: _Refusal | None,
     result: StageResult | None,
     error: str | None,
     result_path: Path,
@@ -1928,10 +1999,11 @@ def _stop(
 ) -> tuple[Exit, str, str] | None:
     """Why the run ends without the agent's own result — `(exit code, reason, detail)` — or `None`.
 
-    A budget refusal comes first: the agent's silence, or its failure, is then the gateway's doing,
-    and `reason="budget"` is what keeps the workflow from retrying it with a fresh key."""
-    if refused and (result is None or result.status is StageStatus.FAILED):
-        return Exit.BUDGET_EXCEEDED, BUDGET_REASON, f"the gateway refused the run's key: {refused}"
+    A refusal comes first: the agent's silence, or its failure, is then the gateway's doing, and
+    `reason="budget"` is what keeps the workflow from retrying it with a fresh key; or its CLI is signed out
+    of its person's subscription, `subscription_login_required` (ADR 0227 §8)."""
+    if refused is not None and (result is None or result.status is StageStatus.FAILED):
+        return refused.exit_code, refused.reason, refused.detail
     if result is None:
         reason, detail = _diagnosis_without_result(agent, error, result_path, gateway)
         return Exit.INVALID_RESULT, reason, detail

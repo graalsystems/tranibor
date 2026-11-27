@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from tranibor_contracts import ModelRef, StageInput
+from tranibor_contracts.enums import SubscriptionProvider
 
 from ..guardrails import SECRET_FILE_PATTERNS
 from ..tool_scripts import offered_script_directory
@@ -30,6 +31,15 @@ CLAUDE_CODE_QUIET_ENV: dict[str, str] = {
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_AUTOUPDATER": "1",
 }
+#: The variable Claude Code reads its configuration directory from, else `~/.claude` (the S87-07 fixture).
+CONFIG_DIR_VARIABLE = "CLAUDE_CONFIG_DIR"
+#: That directory on a run on its person's subscription: the runner's, under the run's own `$HOME`
+#: (`workspace.agent_home`), never its person's `~/.claude`, whose MCP servers, hooks, plugins and `CLAUDE.md`
+#: would join a governed run (ADR 0227 §5).
+CONFIG_DIR = ".claude-runner"
+#: LiteLLM's route before an Anthropic model's id, as the gateway's catalogue names it
+#: (`anthropic/claude-sonnet-4-5-…`): the provider itself knows the id without it.
+PROVIDER_ROUTE = "anthropic/"
 
 
 class ClaudeCodeBackend(Backend):
@@ -38,6 +48,7 @@ class ClaudeCodeBackend(Backend):
     shell_filters: ClassVar[frozenset[str]] = frozenset({"rtk"})
     capabilities: ClassVar[frozenset[str]] = frozenset({"acp", "mcp", "agents_md", "structured_output"})
     model_constraint: ClassVar[tuple[str, ...]] = ("claude", "anthropic")
+    subscriptions: ClassVar[frozenset[SubscriptionProvider]] = frozenset({SubscriptionProvider.ANTHROPIC})
 
     def launch_plan(self, stage_input: StageInput, workspace: Path) -> LaunchPlan:
         # `@agentclientprotocol/claude-agent-acp` installs the `claude-agent-acp` binary (#436). The
@@ -121,6 +132,19 @@ class ClaudeCodeBackend(Backend):
             "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "16000",
             **CLAUDE_CODE_QUIET_ENV,
         }
+
+    def subscription_model(self, model: ModelRef) -> ModelRef:
+        """The provider's own id for the run's model (ADR 0227 §3): a gateway alias (`platform/standard`)
+        means nothing to Anthropic. The model the gateway's catalogue resolved it to (`provider_model`, which
+        the subscription map of the profiles fills for a subscription run, S87-18) without LiteLLM's route;
+        else the run's name as it is. Every alias Claude Code may pick is then pinned to it (`model_env`), and
+        so is the settings file's `model`."""
+        provider_id = (model.provider_model or model.litellm_model).removeprefix(PROVIDER_ROUTE)
+        return model.model_copy(update={"litellm_model": provider_id, "provider_model": provider_id})
+
+    def subscription_env(self, home: Path) -> dict[str, str]:
+        """The runner's own configuration directory, inside the run's `$HOME` (ADR 0227 §5)."""
+        return {CONFIG_DIR_VARIABLE: str(home / CONFIG_DIR)}
 
 
 def _rtk_config(stage_input: StageInput) -> str:

@@ -31,6 +31,9 @@ class Exit(IntEnum):
     #: A run on its person's own subscription reached a runner its person's outpost did not start
     #: (`TRANIBOR_RUN_PLACE` is not `outpost:<id>`): refused before anything of it starts (ADR 0227 §2).
     SUBSCRIPTION_OFF_RUNNER = 75
+    #: The vendor's CLI of a run on its person's own subscription is signed out (ACP `auth_required`, or its
+    #: "Please run /login"): the result is posted, `subscription_login_required` (ADR 0227 §8, S87-22).
+    SUBSCRIPTION_SIGNED_OUT = 76
     #: The context reduction the run requires did not start, and the policy says `fail` (ADR 0055).
     CONTEXT_UNAVAILABLE = 80
     #: The kernel cannot confine the agent and the deployment says `enforce` (ADR 0094).
@@ -61,6 +64,7 @@ class Exit(IntEnum):
             Exit.KNOWLEDGE_INVALID: "knowledge base missing, or its digest does not match",
             Exit.BUDGET_EXCEEDED: "the gateway refused the run's key: its budget is spent",
             Exit.SUBSCRIPTION_OFF_RUNNER: "a subscription run runs only at its person's own outpost",
+            Exit.SUBSCRIPTION_SIGNED_OUT: "the vendor's CLI is signed out of its person's subscription",
             Exit.CONTEXT_UNAVAILABLE: "the context reduction the policy requires did not start",
             Exit.CONFINEMENT_UNAVAILABLE: "confinement required, the kernel cannot confine the agent",
             Exit.AGENT_ISOLATION_UNAVAILABLE: "the agent's own container is required and has no launcher",

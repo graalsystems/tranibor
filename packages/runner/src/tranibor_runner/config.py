@@ -13,6 +13,7 @@ from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from tranibor_contracts.enums import RunCredential, SubscriptionProvider
 from tranibor_core.publishing import PUBLISHING
+from tranibor_core.subscription_credentials import SUBSCRIPTION_VARIABLES
 
 #: The prefix of the run's own variables: `TRANIBOR_RUN_TOKEN`, `TRANIBOR_RUN_REMOTE_TOKEN` and
 #: `TRANIBOR_RUN_GATEWAY_KEY`, which `k8s_job`, ACA, local Docker and Tekton put in the runner's
@@ -36,7 +37,9 @@ def agent_base_environment(environ: Mapping[str, str] | None = None) -> dict[str
     output comes back to it) and the runner's git all start from here. The runner keeps the
     credentials in its settings, read before anything starts, and hands one on by name only where
     it means to: a job's run token (ADR 0056), the gateway key under the backend's own variable
-    (`Backend.model_env`). `os.environ` is left as it is: the settings may be read again
+    (`Backend.model_env`), and its person's subscription token (`SUBSCRIPTION_VARIABLES`), which the daemon of
+    a personal outpost put here for the vendor's CLI of a subscription run alone (ADR 0227 §4: the runner
+    hands it to that agent by name). `os.environ` is left as it is: the settings may be read again
     (`reset_settings_cache`), and removing a variable would not erase it from
     `/proc/<runner>/environ`, which the confinement keeps out of the agent's reach (ADR 0094).
     """
@@ -44,8 +47,11 @@ def agent_base_environment(environ: Mapping[str, str] | None = None) -> dict[str
     return {
         name: value
         for name, value in base.items()
-        if not name.startswith((RUN_VARIABLE_PREFIX, LEGACY_RUN_VARIABLE_PREFIX))
-        or name in INHERITABLE_RUN_VARIABLES
+        if (
+            not name.startswith((RUN_VARIABLE_PREFIX, LEGACY_RUN_VARIABLE_PREFIX))
+            or name in INHERITABLE_RUN_VARIABLES
+        )
+        and name not in SUBSCRIPTION_VARIABLES
     }
 
 

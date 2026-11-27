@@ -1192,6 +1192,26 @@ personal outpost's daemon started with `TRANIBOR_RUN_CREDENTIAL=subscription`, t
   replace refs, and so does this read. The work stays in the runner's local commits and the result fails with
   `subscription_credential_in_diff`.
 
+- **Kept on the runner, handed to the vendor's CLI only** (S87-22). The person gives what `claude setup-token`
+  printed to `choregos-outpost personal login claude`, which reads it from standard input only (an argument
+  or an option is refused, an environment variable is not read), checks its shape and keeps it in the OS
+  keychain (through the optional `keyring`) or in `<state dir>/secrets/anthropic.token`, mode 0600; a file
+  open to others is not used (`packages/outpost/src/tranibor_outpost/secrets.py`). `doctor` reports its
+  presence and where it is kept, never its value; the daemon's log masks it. The daemon announces `anthropic`
+  only while a usable token is there, and the environment it builds for a run's runner carries
+  `CLAUDE_CODE_OAUTH_TOKEN` only for a run whose credential is `subscription` with the provider `anthropic`;
+  neither the offer's environment nor the daemon's own can put it there. In the runner, nothing it starts
+  inherits the token (`agent_base_environment`: not the project's checks, not its own version control, not a
+  gateway run's agent, whatever the step's launch environment says); only the agent of a subscription run
+  gets it, by name. Claude Code then runs on the provider's own model id (`ModelRef.provider_model` without
+  LiteLLM's `anthropic/` route, else the run's name), never a gateway alias, under a `CLAUDE_CONFIG_DIR` of
+  the runner's inside the run's home, so that its person's `~/.claude` is never read.
+- **Signed out, stopped for its person.** ACP's `auth_required` (-32000) before the first prompt or in a turn,
+  or the CLI's "Please run /login" in an error, on its error output or in what it said without calling a
+  tool, ends a subscription run `subscription_login_required` (exit code 76, `SUBSCRIPTION_SIGNED_OUT`), after
+  one prompt at most, its result saying how to sign in again; the runner never sends ACP `authenticate`. A
+  gateway run that meets the same error keeps its own reasons. Not retrying it is the orchestrator's (S87-23).
+
 Not covered: a copy of the token that is split, encoded or compressed passes both the exact value and the
 shapes; the runner's local transcript, on the person's own machine, is not scrubbed; a tool server run as a
 sidecar, or an MCP server the agent reaches itself (its process is the runner's child, and the server needs no

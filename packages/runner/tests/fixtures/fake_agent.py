@@ -80,9 +80,11 @@ def _load(message: dict[str, Any], script: dict[str, Any]) -> None:
 
 
 def _initialize(message_id: Any, script: dict[str, Any]) -> bool:
-    """Answer `initialize`; False when the script asks the agent to fail it."""
-    if script.get("fail_initialize"):
-        send({"jsonrpc": "2.0", "id": message_id, "error": {"code": -32000, "message": "broken"}})
+    """Answer `initialize`; False when the script asks the agent to fail it. `fail_initialize` may be the
+    error itself (`{"code": …, "message": …}`): a signed-out CLI's, replayed from a fixture (S87-22)."""
+    if failure := script.get("fail_initialize"):
+        error = failure if isinstance(failure, dict) else {"code": -32000, "message": "broken"}
+        send({"jsonrpc": "2.0", "id": message_id, "error": error})
         return False
     send(
         {
@@ -261,8 +263,12 @@ def _exit_at_start(script: dict[str, Any]) -> None:
 
 
 def _new_session(message_id: Any, script: dict[str, Any]) -> None:
-    """`fail_session_new`: opencode 1.18.31 when the port rule refused its own server (#1986)."""
-    if script.get("fail_session_new"):
+    """`fail_session_new`: opencode 1.18.31 when the port rule refused its own server (#1986), or the error
+    itself (`{"code": …, "message": …}`), as Claude Code's adapter refuses a session signed out (S87-22)."""
+    if isinstance(failure := script.get("fail_session_new"), dict):
+        send({"jsonrpc": "2.0", "id": message_id, "error": failure})
+        return
+    if failure:
         sys.stderr.write("service=directory error=connection refused\n")
         sys.stderr.flush()
         error = {"code": -32603, "message": "Internal error", "data": {"service": "directory"}}
@@ -631,12 +637,14 @@ def _grep(plan: dict[str, Any], workspace: Path) -> str:
 
 def _end_turn(plan: dict[str, Any], message_id: Any) -> None:
     """Ends the prompt turn: its stop reason — or an error, as an agent does when its provider
-    refuses the call (`error`). `stderr` lines are written first, as a provider's message would be."""
+    refuses the call (`error`, with the JSON-RPC `error_code`, -32603 unless said: ACP's `auth_required`
+    is -32000). `stderr` lines are written first, as a provider's message would be."""
     for line in plan.get("stderr", []):
         sys.stderr.write(line + "\n")
         sys.stderr.flush()
     if "error" in plan:
-        send({"jsonrpc": "2.0", "id": message_id, "error": {"code": -32603, "message": plan["error"]}})
+        error = {"code": int(plan.get("error_code", -32603)), "message": plan["error"]}
+        send({"jsonrpc": "2.0", "id": message_id, "error": error})
         return
     send(
         {

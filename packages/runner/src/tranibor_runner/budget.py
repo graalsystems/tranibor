@@ -10,6 +10,13 @@ the budget doing its job, and the stage stops with `reason="budget"`.
 
 An agent that relays none of the three (opencode, finding #1742) is caught by asking the gateway
 itself: `gateway_probe` (S65-35).
+
+A run on its person's own subscription has no gateway (ADR 0227 §3, §8): what stops it is its vendor's CLI
+signed out, read here beside the gateway's words from the signatures the S87-07 spike took from the pinned
+packages' source (`tests/fixtures/subscription/from_source.json`), and for a subscription run only. ACP's
+`auth_required` is read by the ACP client (`AcpClient.auth_required`); the CLI's own words, "Please run
+/login", by `subscription_signed_out`. The run then ends `subscription_login_required`, which S87-23 sends to
+its person and never retries (`subscription_limit` is S87-23's).
 """
 
 from __future__ import annotations
@@ -29,6 +36,13 @@ GATEWAY_SIGNATURES = re.compile(
 #: The reason a stage result carries when the gateway refused its key for budget.
 BUDGET_REASON = "budget"
 
+#: What Claude Code says when it is signed out, in the result it fails a turn with ("Not logged in · Please
+#: run /login", "Session expired. Please run /login to sign in again."): the CLI's words, not a model's.
+SIGNED_OUT_MARKER = "Please run /login"
+#: The reason a subscription run's result carries when its vendor's CLI is signed out: its person signs in
+#: again on their runner, nothing else can (ADR 0227 §8). Never retried once S87-23 wires it.
+SUBSCRIPTION_LOGIN_REQUIRED = "subscription_login_required"
+
 
 def gateway_budget_refusal(*sources: Iterable[str]) -> str | None:
     """The first line that carries a gateway budget refusal, or `None`.
@@ -39,5 +53,17 @@ def gateway_budget_refusal(*sources: Iterable[str]) -> str | None:
     for source in sources:
         for line in source:
             if line and GATEWAY_SIGNATURES.search(line):
+                return line.strip()[:300]
+    return None
+
+
+def subscription_signed_out(*sources: Iterable[str]) -> str | None:
+    """The first line where the vendor's CLI says it is signed out (`SIGNED_OUT_MARKER`), or `None`.
+
+    `sources` are read as `gateway_budget_refusal` reads its own, the most reliable first. The caller reads
+    them for a subscription run only: a gateway run's agent has no sign-in of its person to lose."""
+    for source in sources:
+        for line in source:
+            if line and SIGNED_OUT_MARKER in line:
                 return line.strip()[:300]
     return None

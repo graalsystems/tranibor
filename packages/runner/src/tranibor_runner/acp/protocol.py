@@ -102,6 +102,10 @@ def error_response(request_id: int, code: int, message: str) -> Response:
 
 
 # JSON-RPC error codes used by the runner.
+#: ACP's `auth_required` ("Authentication required"): the agent's CLI is not signed in. Claude Code's adapter
+#: answers it to a request of a CLI signed out of its subscription (the S87-07 fixture,
+#: `tests/fixtures/subscription/from_source.json`: `@agentclientprotocol/sdk` `RequestError.authRequired`).
+AUTH_REQUIRED = -32000
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 PERMISSION_DENIED = -32003

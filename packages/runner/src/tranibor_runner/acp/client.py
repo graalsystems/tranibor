@@ -17,6 +17,7 @@ from ..launcher import Launcher, LauncherError, RemoteProcess
 from .guard import TurnGuard
 from .protocol import (
     ACP_VERSION,
+    AUTH_REQUIRED,
     FS_READ_TEXT_FILE,
     FS_WRITE_TEXT_FILE,
     INITIALIZE,
@@ -186,6 +187,10 @@ class AcpClient:
         self.process: asyncio.subprocess.Process | RemoteProcess | None = None
         self.session_id: str | None = None
         self.capabilities: dict[str, Any] = {}
+        #: Whether the agent answered a request with ACP's `auth_required` (-32000): `initialize` or the
+        #: session before the first prompt (the pre-flight), or a prompt. A subscription run reads it as its
+        #: vendor's CLI signed out (ADR 0227 §8); the runner never answers it with `authenticate`.
+        self.auth_required = False
         self._next_id = 0
         self._pending: dict[int, asyncio.Future[Response]] = {}
         self._reader_task: asyncio.Task[None] | None = None
@@ -259,6 +264,10 @@ class AcpClient:
     # ───────────────────────── protocole ─────────────────────────
 
     async def initialize(self, client_capabilities: dict[str, Any] | None = None) -> dict[str, Any]:
+        """The pre-flight's first request. It declares no terminal authentication, so Claude Code's adapter
+        offers no sign-in method (the S87-07 fixture), and the runner sends no `authenticate`: a CLI that
+        answers `auth_required`, here or later, is signed out (`auth_required`), and that is reported to its
+        person, never repaired (ADR 0227 §5)."""
         response = await self.request(
             INITIALIZE,
             {
@@ -408,7 +417,10 @@ class AcpClient:
             waiting: set[asyncio.Future[Any]] = {future, ended}
             done, _ = await asyncio.wait(waiting, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
             if future in done:
-                return future.result()
+                response = future.result()
+                if (response.error or {}).get("code") == AUTH_REQUIRED:
+                    self.auth_required = True
+                return response
             if ended in done:
                 raise self._exited(method)
             alive = self.process is not None and self.process.returncode is None

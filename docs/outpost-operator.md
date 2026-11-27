@@ -323,13 +323,15 @@ What else to know:
 
 ## Running the daemon
 
-Three commands. The program's own options come before the command, a command's options after it,
-and most can come from the environment instead:
+Three commands, and two more on a person's own runner. The program's own options come before the
+command, a command's options after it, and most can come from the environment instead:
 
 ```bash
 choregos-outpost enrol     # make the keys, present an enrolment token, print the fingerprint to compare
 choregos-outpost run       # poll the door and make the calls the policy file allows, until told to stop
 choregos-outpost doctor    # check the policy, the path to the door, the clock and each endpoint
+choregos-outpost personal login claude    # keep the token `claude setup-token` printed (standard input only)
+choregos-outpost personal logout claude   # forget it
 ```
 
 | Option | Environment | Default | What |
@@ -353,6 +355,7 @@ choregos-outpost doctor    # check the policy, the path to the door, the clock a
 | :-- | :-- | :-- |
 | the identity directory | the two private keys (mode 0600) and what the door answered at enrolment | the instance is gone: enrol a new one and have it approved |
 | `journal` under the state directory | one line per step of a call (ids, names, digests, never arguments or results), a call's sealed answer until its deadline, the last sequence number signed, a lock | **the protection against a second execution of a write is gone.** Do not delete the journal while you keep the keys |
+| the OS keychain, else `secrets/anthropic.token` under the state directory (mode 0600, in a directory 0700) | a person's own runner only: the Claude sign-in its subscription runs use | the runner stops announcing `anthropic`; sign in again |
 | `audit.file` | the audit log (mode 0640) | your own record of what was asked |
 
 A key file that others can read, or that its group can write, is refused at start. One daemon holds
@@ -397,6 +400,7 @@ listing.
 | :-- | :-- | :-- |
 | `policy` | the file is valid, and each entry of `door_keys` parses as a key | the daemon does not start on this file; the faults are named by their field. Every check below it except `identity` is skipped |
 | `identity` | the keys are there and are the daemon's alone; it shows the fingerprint and the instance | a key is missing, or open to others. Skipped before the first `enrol` |
+| `subscription anthropic` | a person's own runner holds a usable vendor sign-in; it says where it is kept (the OS keychain, or the file), never what it is. Skipped when there is none, as on an organisation's outpost | the file is open to others, or what is kept is not a token of the vendor's shape: sign in again |
 | `records` | the audit log and the journal can be written | the daemon executes nothing it cannot record: free the disk, fix the rights |
 | `dns` | the name the daemon dials resolves: the proxy's when there is one, the door's otherwise | check the resolver this machine uses, and the name |
 | `proxy` | the outbound proxy opens a tunnel to the door. Skipped without a proxy, and for a proxy whose URL is not `http://` | the proxy must let this machine open a tunnel to the door's hostname, port 443; a 407 means it wants credentials, in its URL |
@@ -407,6 +411,29 @@ listing.
 
 What `doctor` does not tell you: whether the instance is approved, whether the keys you pinned are
 the ones the door signs with, and whether anything enforces the limits of your network.
+
+### A person's own runner: the vendor sign-in
+
+On a person's own runner ([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md)), the runs
+placed on the person's subscription use the vendor's own CLI, signed in by that person
+([ADR 0227](adr/0227-a-person-s-own-subscription-is-used-only-by-the-vendor-cli-on-that-person-s-runner.md)):
+
+```bash
+claude setup-token                          # on this machine, signed in to your own Claude account
+choregos-outpost personal login claude      # paste what it printed, then Enter (it is not shown)
+```
+
+`personal login claude` reads the token from standard input only: given as an argument or an option it is
+refused, since the shell's history and the process list keep both, and an environment variable is not
+read. It checks the token's shape (an API key is refused: it belongs to a deployment's model gateway) and
+keeps it in the OS keychain when the machine has one (macOS Keychain, a Secret Service; install the package
+with its `keychain` extra, which brings `keyring`), otherwise in `secrets/anthropic.token` under the state
+directory, mode 0600. A file that its group or others may read is not used. Nothing else holds it: `doctor`
+says whether it is there and where, the daemon's log masks it, its journal never receives it, and the
+platform never sees it. The runner announces `anthropic` to the door only while a usable token is there,
+and puts it only in the environment of a run whose credential is `subscription` with that provider. A run
+whose CLI turns out to be signed out ends `subscription_login_required`: sign in again here.
+`personal logout claude` forgets the token, wherever it was kept.
 
 ### Exit codes
 

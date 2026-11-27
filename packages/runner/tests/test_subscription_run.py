@@ -737,17 +737,18 @@ async def test_a_gateway_run_is_unchanged(
 ) -> None:
     """No place, no credential: the run is a gateway run, as every run before ADR 0227. It is not refused, its
     agent keeps the gateway's variables, its client sends what it is given, and neither its push nor its
-    deliverables are read."""
+    deliverables are read. Its agent never gets the subscription token the runner's environment holds
+    (S87-22): what it says and writes here is the value as a run could carry it otherwise, in its own text."""
     monkeypatch.setenv(TOKEN_VARIABLE, CANARY)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "runner-own-key")
     agent_script(
         {
             "turns": [
                 {
-                    "messages": [f"said {ECHO}"],
+                    "messages": [f"said {CANARY}"],
                     "writes": [
-                        {"path": "src/orders.py", "content": f"TOKEN = '{ECHO}'\n"},
-                        {"path": ".choregos/outputs/notes.md", "content": f"said {ECHO}\n"},
+                        {"path": "src/orders.py", "content": f"TOKEN = '{CANARY}'\n"},
+                        {"path": ".choregos/outputs/notes.md", "content": f"said {CANARY}\n"},
                     ],
                     "result": valid_result(),
                 }
@@ -763,6 +764,7 @@ async def test_a_gateway_run_is_unchanged(
     assert outcome.exit_code is Exit.OK, outcome.detail
     [env] = seen
     assert env["OPENAI_API_KEY"] == stage_input.gateway_key and env["ANTHROPIC_API_KEY"] == "runner-own-key"
+    assert TOKEN_VARIABLE not in env, "S87-22: a subscription token is never a gateway run's agent's"
     assert _leaks(platform.sent, CANARY), "a gateway run's client is not the subscription's"
     assert not _events(platform.events, "subscription.token_redacted")
     assert platform.outputs == [("notes.md", f"said {CANARY}\n".encode())]
