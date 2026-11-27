@@ -1,11 +1,11 @@
 # 0216 — A demonstration history is taken in through the API, and marked imported
 
-- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (point 12)
+- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (points 12 and 13)
 - **Concerns**: `apps/api` (`routers/demo_history.py`, `services/demo_history.py`, `rbac.py`, `services/budgets.py`,
   `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`, `metrics.py`,
   `services/projects.py`), `apps/web`
   (`components/imported-badge.tsx`), `packages/contracts` (`demo-history.schema.json`, `DemoHistory`,
-  `openapi.yaml`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
+  `openapi.yaml`, `DemoGate`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
   remove`); follows
   [ADR 0212](0212-the-api-can-run-the-workers-inline-for-a-demonstration.md) and
   [ADR 0213](0213-the-demonstration-mcp-server-is-the-fakes-with-tools-declared-in-a-file.md)
@@ -95,12 +95,23 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     ledger's sum in `cout_usd` and adds a ninth column, `imported_usd`, what an import put in that line, as
     the JSON report already did (the eight columns before it keep their position; the declared currency's
     column stays last). Member spend reads the lines that name a person (`user_id`), which an import
-    never writes: nothing to exclude. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
+    never writes: nothing to exclude. The project card's month cost (`ProjectStats.cost_month_eur`) sums the
+    measured lines only. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
+13. **A run's outputs, evidence and gates** (2026-11-27, a `contract-change`): a run of the document may
+    carry `outputs` (what the step returned: its declared outputs, a report, cited sources), `evidence`
+    (what it proved: facts, tests run) and `gates` (`{name, passed, detail}`, in order). The import puts
+    the first two in the run's stage result and judges that result by the stage result's own contract
+    (`StageResult`), refusing a document whose run does not fit it (422 naming the run, nothing
+    written); it writes each gate's verdict in the run's journal as `gate.outcome`, as the orchestrator
+    does for a live step, so the run page's guarantees panel reads it. Rows go with the run (a removal's
+    cascade). A run without them keeps the digest it had before they existed: a document imported then is
+    still the same document now. Proven by `apps/api/tests/test_demo_history_run_outputs.py`.
 
 ## Not done
 
-- The project card's month cost (`ProjectStats.cost_month_eur`) still sums imported cost lines, as the cost
-  reports' totals do (which show them apart, `imported_usd`); the card has no such field.
 - A finding imported as `pending` can still be turned into a live work item ("Create the ticket"), which runs
   as any live one: that is a person's choice, not the import's.
-- No version of the document beyond `v1`; a run's tool calls, artifacts and transcripts are not importable.
+- No version of the document beyond `v1`; a run's tool calls, artifacts (files) and transcripts are not
+  importable (its outputs, evidence and gates are, point 13).
+- A governed action waiting for approval, and a release train (the `software-delivery` plugin's), are not
+  importable.

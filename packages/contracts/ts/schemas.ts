@@ -341,6 +341,22 @@ export type DemoHistoryRun = {
   cost_usd?: number;
   /** The run's result summary. */
   summary?: string;
+  /** What the step returned (`StageResult.outputs`): its declared outputs, a report, cited sources. Judged by the stage result's contract. */
+  outputs?: {
+    [key: string]: unknown;
+  };
+  /** What the step proved (`StageResult.evidence`): facts, tests run. Judged by the stage result's contract. */
+  evidence?: {
+    [key: string]: unknown;
+  };
+  /** The verdicts of the step's gates, in order, written as the live step's journal writes them (`gate.outcome`). */
+  gates?: Array<DemoHistoryGate>;
+};
+
+export type DemoHistoryGate = {
+  name: string;
+  passed: boolean;
+  detail?: string;
 };
 
 export type DemoHistoryDecision = {
