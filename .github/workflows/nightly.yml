@@ -345,10 +345,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # servicenow 0.2.20 as the agents repository published it (publish.yml), by its registry digest
+      # servicenow 0.2.22 as the agents repository published it (publish.yml), by its registry digest
       # (tests/architecture/test_supply_chain_pinned.py), and the commit it was built from.
-      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.20@sha256:dcab7a83d439d15c12a4aaf4da02d1600ac94188ccbc61931f46406562461b44
-      AGENTS_REF: da68712c4409286a2106dd5f519081565b10b4c0
+      SERVICENOW_IMAGE: ghcr.io/graalsystems/tranibor-agents/servicenow-mcp:0.2.22@sha256:7c92039585542231604ddbf882c4362be55cc09e161eb9770695ea475f72947b
+      AGENTS_REF: fe9e75ae88cfa9b9a30f0d15386250d06431f5fa
       # Both suites file in a group no deployment watches: the dev deployment's triage project watches the
       # instance's Service Desk, opened the suites' incidents as work items and reopened them one second after
       # their resolve (graalsystems/tranibor-agents#66). One member, so that a change's group approval waits.

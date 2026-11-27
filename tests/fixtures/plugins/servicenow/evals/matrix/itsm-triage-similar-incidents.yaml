@@ -15,7 +15,7 @@ task: >
   Triage INC0012345: find similar past incidents and how they were resolved, cite the knowledge base, add a
   work note with your findings, and propose a reply to the caller.
 tools_cells: [mcp, scripts]
-#: The plugin's server on its fake instance (`SERVICENOW_FAKE=1`, server/src/choregos_servicenow/fake.py):
+#: The plugin's server on its fake instance (`SERVICENOW_FAKE=1`, server/src/tranibor_servicenow/fake.py):
 #: `plugin:<plugin>/<server>`, as a template names a plugin's server. The core's door player and live
 #: seeding resolve scene kinds only (`tranibor_adapters.fakes.scenes`), not this one, yet (#1372).
 connectors:
