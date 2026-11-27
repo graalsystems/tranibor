@@ -7097,7 +7097,7 @@ paths:
                     pattern: "^https?://"
                     description: >-
                       the user documentation's base URL, without a trailing slash (`CHOREGOS_DOCS_URL`,
-                      `https://graalsystems.github.io/tranibor` by default): the console's help and
+                      `https://graal.systems/en/docs/agentic-platform` by default): the console's help and
                       "Learn more" links append a page's slug to it (S62-11)
   /theme:
     get:

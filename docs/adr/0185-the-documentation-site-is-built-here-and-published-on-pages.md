@@ -2,7 +2,9 @@
 
 - **Status**: accepted, 2026-11-18 (decided by the product owner on 2026-11-18: the products no longer
   belong to or point at the Varga Foundation); S80-09 implements it; amended 2026-11-25 (published
-  from `main` only, not on a release: S84-08)
+  from `main` only, not on a release: S84-08); **its publication on GitHub Pages (§2) is superseded by
+  [ADR 0228](0228-the-documentation-is-published-on-graal-systems-beside-the-other-products.md)**
+  (2026-11-27: the documentation is published on graal.systems only)
 - **Concerns**: `website/` (Docusaurus), `.github/workflows/docs-site.yml`, `docs/site/`, the
   publishing identity's `documentation`; amends [ADR 0150](0150-the-instance-serves-its-own-documentation-over-mcp.md)
   (the default documentation address) and [ADR 0156](0156-the-publishing-identity-is-one-file.md)
