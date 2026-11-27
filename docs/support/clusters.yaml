@@ -80,11 +80,12 @@ clusters:
     network_policy: none
     executors: [aca]
     proof:
-      date: null
-      version: null
-      what: six live tests against a real subscription (create, trigger, terminal state, replayed start, token absent from ARM, cancel, 404, logs)
+      date: 2026-11-25
+      version: 0.29.4 (runner image with `launcher --until-file`, built from this tree)
+      what: the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S87-07, S87-08); the six earlier live tests of S13-05
       evidence:
-        - docs/plan/status/S13.md
+        - docs/plan/status/S87.md
+        - tests/live/test_aca_two_containers_live.py
         - docs/runbooks/aca-live.md
   - id: eks
     provider: Amazon EKS
@@ -105,11 +106,17 @@ clusters:
   - id: aks
     provider: Azure AKS
     names: [AKS, Azure Kubernetes Service]
-    distribution: null
-    runtime: null
-    network_policy: null
-    executors: []
-    proof: null
+    distribution: AKS 1.35.9, Azure Linux 3.0 nodes (2 x Standard_D4s_v3)
+    runtime: Kata (`kata-vm-isolation`, AKS pod sandboxing)
+    network_policy: Cilium (Azure CNI powered by Cilium, overlay)
+    executors: [k8s_job]
+    proof:
+      date: 2026-11-25
+      version: chart 0.29.4 with S87 (values/all-in-one.yaml + values/aks.yaml)
+      what: tools/cluster-proof/proof.sh from a clean install - the preflight, the chart, an agent pod's reach, the egress gate's first packets under Kata, the agent's own container under Kata, one work item to approved (S87-13)
+      evidence:
+        - docs/support/evidence/2026-11-25-aks.md
+        - docs/plan/status/S87.md
   - id: openshift
     provider: Red Hat OpenShift
     names: [OpenShift]
