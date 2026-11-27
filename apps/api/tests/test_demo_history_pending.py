@@ -171,6 +171,7 @@ async def test_a_pending_request_is_imported_and_waits_in_the_inbox(
         "decisions": 1,
         "findings": 1,
         "pending": 1,
+        "actions": 0,
     }
     item = await _waiting_item(client, project)
     assert item["imported"] is True and item["state"] == "in_progress"
@@ -326,6 +327,9 @@ def test_a_work_item_without_a_pending_request_keeps_the_digest_it_had_before() 
     item = document.work_items[0]
     before = item.model_dump(mode="json")
     before.pop("pending")
+    before.pop("actions")  # nor its governed actions (ADR 0216, point 14)
+    for run in before["runs"]:  # nor did its runs carry outputs, evidence or gates (ADR 0216, point 13)
+        del run["outputs"], run["evidence"], run["gates"]
     expected = hashlib.sha256(
         json.dumps({"item": before, "workflow": "w", "prices": {}}, sort_keys=True, default=str).encode()
     ).hexdigest()
@@ -383,6 +387,7 @@ async def test_removing_the_history_deletes_the_imported_rows_and_nothing_else(
         "findings": 1,
         "cost_lines": 1,
         "cost_usd": 0.5,
+        "actions": 0,
     }
     assert await _count(WorkItem, WorkItem.imported.is_(True)) == 0
     assert await _count(Run) == 0 and await _count(HumanRequest) == 0

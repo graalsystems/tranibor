@@ -70,6 +70,7 @@ spec:
           env:
             {{- include "tranibor.commonEnv" $root | nindent 12 }}
             {{- include "tranibor.temporalSecurityEnv" $root | nindent 12 }}
+            {{- include "tranibor.dnsPolicyEnv" $root | nindent 12 }}
             - name: TRANIBOR_RUNNER_IMAGE
               # The runner tag follows the deployment's when it is not pinned: pinned,
               # it pointed at `1.0.0` in a 0.1.0 installation — a missing image, and an

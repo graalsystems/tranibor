@@ -89,3 +89,33 @@ async def test_the_applications_are_synced_or_the_step_fails() -> None:
     adapters.cd.set_health("billing-api", "Degraded")
     with pytest.raises(RuntimeError, match="billing-api is not synced: Degraded"):
         await _execute("argocd.wait_synced", {"apps": ["billing-api"]}, _bundle(adapters), None, {})
+
+
+async def test_the_written_manifests_open_the_resolver_the_workers_read() -> None:
+    """#2277: the step hands the workers' `dns_policy` (`TRANIBOR_DNS_POLICY`) to the renderer."""
+    from tranibor_core.dns_policy import DnsPolicy
+    from tranibor_orchestrator.activities.provisioning import _execute
+
+    written: dict[str, dict[str, str]] = {}
+
+    async def write_files(path: str, files: dict[str, str]) -> None:
+        written[path] = files
+
+    adapters = AdapterSet.fakes()
+    adapters.extra["cd"] = SimpleNamespace(write_files=write_files)
+    dns = DnsPolicy.model_validate(
+        {"namespace": "openshift-dns", "ports": [{"port": 5353, "protocol": "UDP"}]}
+    )
+    await _execute(
+        "gitops.write_project_manifests", {}, _bundle(adapters), SimpleNamespace(dns_policy=dns), {}
+    )
+    [files] = written.values()
+    [policy] = [
+        d
+        for d in yaml.safe_load_all(files["netpol.yaml"])
+        if d and d["metadata"]["name"] == "allow-platform-egress"
+    ]
+    assert policy["spec"]["egress"][-1] == {
+        "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "openshift-dns"}}}],
+        "ports": [{"protocol": "UDP", "port": 5353}],
+    }

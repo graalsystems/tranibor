@@ -48,7 +48,10 @@ async def start_approved_actions(*, grace: timedelta = GRACE, batch: int = BATCH
                 await session.execute(
                     select(Action.id, Action.result, Action.org_id)
                     .where(
-                        Action.status == ActionStatus.APPROVED.value, Action.updated_at <= utcnow() - grace
+                        Action.status == ActionStatus.APPROVED.value,
+                        Action.updated_at <= utcnow() - grace,
+                        # An imported action's approval plays nothing (ADR 0216, point 14).
+                        Action.imported.is_(False),
                     )
                     .order_by(Action.updated_at)
                     .limit(batch)

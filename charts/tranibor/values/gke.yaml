@@ -1,0 +1,65 @@
+# GKE profile (S87-10, ADR 0227): what differs on Google Kubernetes Engine (Standard), and nothing else.
+# Layer it after the base profile and before the site's own file:
+#
+#   helm install tranibor charts/tranibor -n tranibor --create-namespace \
+#     -f charts/tranibor/values/all-in-one.yaml -f charts/tranibor/values/gke.yaml -f my-site.yaml
+#
+# Written from Google's documentation; NO GKE cluster ran it (S87-11 is that proof, and
+# docs/support/clusters.yaml says GKE is unknown until it is green). What it relies on, on the cluster
+# side:
+#   - A NetworkPolicy engine: GKE Dataplane V2, `gcloud container clusters create … --enable-dataplane-v2`.
+#     Without one, the egress gate holds every agent pod forever, by design.
+#   - NodeLocal DNSCache: `--addons NodeLocalDNS` (or `clusters update --update-addons NodeLocalDNS=ENABLED`).
+#     The pods then resolve through 169.254.20.10 on their node, an address no namespace holds:
+#     `networkPolicies.dns.cidrs` below opens it beside kube-dns.
+#   - The Gateway API: `--gateway-api=standard`. The API and the console share one host, and GKE's own
+#     Ingress controller gives each Ingress its own load balancer ("combining multiple Ingress resources
+#     into a single Google Cloud load balancer is not supported"): two Ingresses for one host cannot
+#     work, two HTTPRoutes on one Gateway can.
+#   - GKE Sandbox: a node pool made with `gcloud container node-pools create … --sandbox type=gvisor
+#     --image-type cos_containerd` (Container-Optimized OS only; not the default node pool, and a
+#     non-sandbox node pool must keep at least one node for the platform's own pods). It gives the
+#     RuntimeClass `gvisor`, whose pods GKE schedules on the sandbox nodes.
+#   - The default StorageClass (`standard-rwo`, Persistent Disk, ReadWriteOnce): nothing to set.
+#
+# Open questions S87-11 answers, from the same documentation: "seccomp, AppArmor, SELinux … aren't
+# supported in sandboxed Pods", and the agent pods set `seccompProfile: RuntimeDefault` (refused or
+# ignored is not said); a GKE Gateway health-checks `/` of each backend unless a HealthCheckPolicy says
+# otherwise (the API answers on `/healthz`; the chart renders no HealthCheckPolicy); Keycloak's
+# readiness probe is on its management port, so GKE's Ingress cannot infer its health check from it.
+global:
+  runner:
+    # Every agent pod (the runner and the agent's own container) under gVisor, GKE Sandbox's runtime:
+    # the node pool's `--sandbox type=gvisor`. Landlock does not exist under gVisor (ADR 0094): the
+    # agent's own container (`agentIsolation: container`, the default, untouched here) is the separation.
+    runtimeClass: gvisor
+
+# The API and the console as HTTPRoutes on one Gateway (`--gateway-api=standard`). The Gateway is the
+# operator's, as for the chart's other `httproute` installs: the one `tranibor-api.ingress.gateway` and
+# `.gatewayNamespace` name (the chart's defaults, or the site's own), with the class
+# `gke-l7-global-external-managed`, a listener for the site's host, and `allowedRoutes` admitting the
+# release's namespace. TLS is the Gateway's listener's.
+tranibor-api:
+  ingress:
+    kind: httproute
+
+tranibor-web:
+  ingress:
+    kind: httproute
+
+# Keycloak has its own host (`auth.<global.domain>`) and only an Ingress: GKE's Ingress controller,
+# which reads the annotation and ignores `ingressClassName` (GKE "continues to rely exclusively on the
+# `kubernetes.io/ingress.class` annotation"). `gce`: an external Application Load Balancer, the
+# HTTP load balancing add-on (on by default).
+tranibor-keycloak:
+  ingress:
+    className: ""
+    annotations:
+      kubernetes.io/ingress.class: gce
+
+networkPolicies:
+  dns:
+    # kube-dns stays open (its namespace, the chart's default) and NodeLocal DNSCache's link-local
+    # address is added (`--addons NodeLocalDNS`). Every policy of the chart that opens DNS opens both.
+    namespace: kube-system
+    cidrs: ["169.254.20.10/32"]

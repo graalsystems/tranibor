@@ -291,6 +291,7 @@ spec:
             {{- end }}
             {{- include "tranibor.commonEnv" . | nindent 12 }}
             {{- include "tranibor.temporalSecurityEnv" . | nindent 12 }}
+            {{- include "tranibor.dnsPolicyEnv" . | nindent 12 }}
             {{- with (.Values.global.egress | default dict).denyDomains }}
             # Hosts no run of this deployment may reach (ADR 0070): the effective network of a run
             # always carries them, so the console and the egress proxy agree.

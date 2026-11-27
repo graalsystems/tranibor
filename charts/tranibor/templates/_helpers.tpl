@@ -239,7 +239,7 @@ The checks on a list of extra variables (`global.extraEnv`, `global.outposts.doo
 
 {{/* Common environment variables: 12-factor configuration, secrets by reference. */}}
 {{- define "tranibor.commonEnv" -}}
-{{- $poses := list "TRANIBOR_ENV" "TRANIBOR_EDITION" "TRANIBOR_LOG_LEVEL" "TRANIBOR_FAKES" "TRANIBOR_EGRESS_MODE" "TRANIBOR_EGRESS_CEILING" "TRANIBOR_EGRESS_PLATFORM_CHANGE" "TRANIBOR_TEMPORAL_ADDRESS" "TRANIBOR_TEMPORAL_NAMESPACE" "TRANIBOR_GATEWAY_URL" "TRANIBOR_MEMORY_URL" "TRANIBOR_MEMORY_TOKEN" "TRANIBOR_OBJECT_STORE_KIND" "TRANIBOR_OBJECT_STORE_URL" "TRANIBOR_OBJECT_STORE_ENDPOINT" "TRANIBOR_OBJECT_STORE_REGION" "TRANIBOR_OBJECT_STORE_ACCESS_KEY" "TRANIBOR_OBJECT_STORE_SECRET_KEY" "TRANIBOR_PUBLIC_URL" "TRANIBOR_API_URL" "TRANIBOR_DB_POOL_SIZE" "TRANIBOR_DB_MAX_OVERFLOW" "TRANIBOR_DB_POOL_TIMEOUT_S" "TRANIBOR_DATABASE_PASSWORD" "TRANIBOR_DATABASE_URL" "TRANIBOR_SECRET_ENV_PATTERN" "TRANIBOR_EXECUTOR_KIND" "TRANIBOR_RUNNER_RUNTIME_CLASS" "TRANIBOR_EXECUTORS_ALLOWED" "TRANIBOR_RUNNER_AGENT_ISOLATION" }}
+{{- $poses := list "TRANIBOR_ENV" "TRANIBOR_EDITION" "TRANIBOR_LOG_LEVEL" "TRANIBOR_FAKES" "TRANIBOR_EGRESS_MODE" "TRANIBOR_EGRESS_CEILING" "TRANIBOR_EGRESS_PLATFORM_CHANGE" "TRANIBOR_TEMPORAL_ADDRESS" "TRANIBOR_TEMPORAL_NAMESPACE" "TRANIBOR_GATEWAY_URL" "TRANIBOR_MEMORY_URL" "TRANIBOR_MEMORY_TOKEN" "TRANIBOR_OBJECT_STORE_KIND" "TRANIBOR_OBJECT_STORE_URL" "TRANIBOR_OBJECT_STORE_ENDPOINT" "TRANIBOR_OBJECT_STORE_REGION" "TRANIBOR_OBJECT_STORE_ACCESS_KEY" "TRANIBOR_OBJECT_STORE_SECRET_KEY" "TRANIBOR_PUBLIC_URL" "TRANIBOR_API_URL" "TRANIBOR_DB_POOL_SIZE" "TRANIBOR_DB_MAX_OVERFLOW" "TRANIBOR_DB_POOL_TIMEOUT_S" "TRANIBOR_DATABASE_PASSWORD" "TRANIBOR_DATABASE_URL" "TRANIBOR_SECRET_ENV_PATTERN" "TRANIBOR_EXECUTOR_KIND" "TRANIBOR_RUNNER_RUNTIME_CLASS" "TRANIBOR_EXECUTORS_ALLOWED" "TRANIBOR_RUNNER_AGENT_ISOLATION" "TRANIBOR_DNS_POLICY" }}
 {{- if include "tranibor.unisolatedAgentAccepted" . }}
 {{- $poses = append $poses "TRANIBOR_AGENT_ISOLATION" }}
 {{- end }}
@@ -1127,33 +1127,64 @@ what the chart always rendered.
 {{- end -}}
 
 {{/*
-The DNS rule of every egress policy of this chart (S87-16), from `networkPolicies.dns`. A cluster's
-resolver is not always `kube-system`:53: OpenShift serves it from `openshift-dns` on 5353 (a policy
-is matched after the Service's port is translated), and GKE's NodeLocal DNSCache answers at a
-link-local address no namespace holds. `.tcp`: whether this policy's default ports include TCP 53
-beside UDP 53, as each policy did before the setting existed; `dns.ports`, when set, replaces both.
-The defaults render the rule each policy always rendered, byte for byte.
+`networkPolicies.dns`, checked and written out (#2277): `{"namespace", "podLabels", "cidrs", "ports"}` as
+JSON, the namespace defaulted to `kube-system` when the key is absent, the labels and addresses as
+strings, `ports` as given (empty: each policy's own). The chart's policies render their DNS rule from it
+(`tranibor.dnsEgress`), and the API and the workers read it as `TRANIBOR_DNS_POLICY` (the ConfigMap
+`tranibor-dns-policy`), so that the policies written by code (a plugin server's, a project namespace's)
+open the same resolver as the chart's (`tranibor_core.dns_policy`).
 */}}
-{{- define "tranibor.dnsEgress" -}}
-{{- $dns := .root.Values.networkPolicies.dns | default dict -}}
+{{- define "tranibor.dnsSetting" -}}
+{{- $dns := .Values.networkPolicies.dns | default dict -}}
 {{- $namespace := $dns.namespace | default "" | toString -}}
 {{- if not (hasKey $dns "namespace") }}{{ $namespace = "kube-system" }}{{ end -}}
-{{- $cidrs := $dns.cidrs | default list -}}
+{{- $cidrs := list -}}
+{{- range ($dns.cidrs | default list) }}{{ $cidrs = append $cidrs (toString .) }}{{ end -}}
 {{- if and (not $namespace) (not $cidrs) -}}
 {{- fail "networkPolicies.dns: neither a namespace nor cidrs: no pod could resolve a name. Give the resolver's namespace (kube-system, openshift-dns), its addresses (cidrs), or both." -}}
 {{- end -}}
 {{- if and $dns.podLabels (not $namespace) -}}
 {{- fail "networkPolicies.dns.podLabels selects the resolver's pods in networkPolicies.dns.namespace, which is empty." -}}
 {{- end -}}
-{{- $ports := $dns.ports | default list -}}
-{{- if not $ports -}}
-{{- $ports = list (dict "protocol" "UDP" "port" 53) -}}
-{{- if .tcp }}{{ $ports = append $ports (dict "protocol" "TCP" "port" 53) }}{{ end -}}
-{{- end -}}
-{{- range $ports -}}
+{{- $labels := dict -}}
+{{- range $key, $value := ($dns.podLabels | default dict) }}{{ $_ := set $labels $key (toString $value) }}{{ end -}}
+{{- $ports := list -}}
+{{- range ($dns.ports | default list) -}}
 {{- if not (and .port (has (toString .protocol) (list "UDP" "TCP"))) -}}
 {{- fail (printf "networkPolicies.dns.ports: %v needs a port and a protocol (UDP or TCP)." .) -}}
 {{- end -}}
+{{- $ports = append $ports (dict "port" (int .port) "protocol" (toString .protocol)) -}}
+{{- end -}}
+{{- toJson (dict "namespace" $namespace "podLabels" $labels "cidrs" $cidrs "ports" $ports) -}}
+{{- end -}}
+
+{{/*
+`TRANIBOR_DNS_POLICY` for the API and the workers, from the ConfigMap `tranibor-dns-policy` (#2277): the
+setting lives in the parent chart, which a subchart's values cannot read. `global.extraEnv` may not set it
+(`tranibor.commonEnv`).
+*/}}
+{{- define "tranibor.dnsPolicyEnv" -}}
+# The cluster's resolver (`networkPolicies.dns`) for the policies this process writes (#2277).
+- name: TRANIBOR_DNS_POLICY
+  valueFrom: { configMapKeyRef: { name: tranibor-dns-policy, key: policy.json } }
+{{- end -}}
+
+{{/*
+The DNS rule of every egress policy of this chart (S87-16), from `networkPolicies.dns`. A cluster's
+resolver is not always `kube-system`:53: OpenShift serves it from `openshift-dns` on 5353 (a policy
+is matched after the Service's port is translated), and GKE's NodeLocal DNSCache answers at a
+link-local address no namespace holds. `.tcp`: whether this policy's default ports include TCP 53
+beside UDP 53, as each policy did before the setting existed; `dns.ports`, when set, replaces both.
+The defaults render the rule each policy always rendered, byte for byte. The code builds the same rule
+from the same setting (`tranibor_core.dns_policy.network_policy_rule`).
+*/}}
+{{- define "tranibor.dnsEgress" -}}
+{{- $dns := include "tranibor.dnsSetting" .root | fromJson -}}
+{{- $namespace := $dns.namespace -}}
+{{- $ports := $dns.ports -}}
+{{- if not $ports -}}
+{{- $ports = list (dict "protocol" "UDP" "port" 53) -}}
+{{- if .tcp }}{{ $ports = append $ports (dict "protocol" "TCP" "port" 53) }}{{ end -}}
 {{- end -}}
 {{- $peers := list -}}
 {{- if $namespace -}}
@@ -1165,7 +1196,7 @@ The defaults render the rule each policy always rendered, byte for byte.
 {{- end -}}
 {{- $peers = append $peers $peer -}}
 {{- end -}}
-{{- range $cidrs }}{{ $peers = append $peers (printf "{ ipBlock: { cidr: %s } }" (toString . | quote)) }}{{ end -}}
+{{- range $dns.cidrs }}{{ $peers = append $peers (printf "{ ipBlock: { cidr: %s } }" (toString . | quote)) }}{{ end -}}
 {{- $rendered := list -}}
 {{- range $ports }}{{ $rendered = append $rendered (printf "{ protocol: %s, port: %d }" (toString .protocol) (int .port)) }}{{ end -}}
 - to: [{{ join ", " $peers }}]

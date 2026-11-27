@@ -11,6 +11,7 @@ from typing import Any
 
 import yaml
 from tranibor_contracts import Policy, ProjectConfig, wire
+from tranibor_core.dns_policy import UPSTREAM, DnsPolicy, network_policy_rule
 from tranibor_core.quotas import DEFAULT, Quota
 
 
@@ -89,12 +90,17 @@ def squid_config(allowed_domains: list[str]) -> str:
 
 
 def render_egress_proxy(
-    namespace: str, slug: str, allowed_domains: list[str], image: str = EGRESS_IMAGE
+    namespace: str,
+    slug: str,
+    allowed_domains: list[str],
+    image: str = EGRESS_IMAGE,
+    *,
+    dns: DnsPolicy = UPSTREAM,
 ) -> str:
     """The egress proxy of the runners' namespace: ConfigMap, Deployment, Service, and the
     NetworkPolicy that opens the Internet to IT ALONE. The namespace's `default-deny-egress` also
     applies to the proxy; this policy lifts it only for its pod, to the public web ports, never to
-    the cluster's private ranges.
+    the cluster's private ranges, and to the cluster's resolver (`dns`, #2277).
     """
     # The pods keep the former value of `app.kubernetes.io/name` for the window, as the chart's own do by
     # default (`global.labelValues`, ADR 0226 R9b): a label has one value, and an operator's policy in the
@@ -198,10 +204,7 @@ def render_egress_proxy(
                             ],
                             "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 80}],
                         },
-                        {
-                            "to": [{"namespaceSelector": {"matchLabels": {KUBE_NS: "kube-system"}}}],
-                            "ports": [{"protocol": "UDP", "port": 53}],
-                        },
+                        network_policy_rule(dns, tcp=False),
                     ],
                 },
             },
@@ -218,6 +221,7 @@ def render_project_manifests(
     quota: Quota = DEFAULT,
     org_allow_domains: list[str] | None = None,
     platform_namespace: str = PLATFORM_NAMESPACE,
+    dns: DnsPolicy = UPSTREAM,
 ) -> dict[str, str]:
     """Render a project's files: namespaces, quotas, netpol, RBAC, egress, Tekton, Argo.
 
@@ -227,6 +231,9 @@ def render_project_manifests(
     `platform_namespace`: where the API and the orchestrator run, which the runners reach and whose
     orchestrator service account the executor Role is bound to. It was written `choregos-system` here
     whatever the deployment's namespace; the chart now says it (`TRANIBOR_PLATFORM_NAMESPACE`).
+
+    `dns`: the cluster's resolver, which the runners and the proxy reach: the chart's `networkPolicies.dns`
+    (`TRANIBOR_DNS_POLICY`, #2277). It was written `kube-system:53` here whatever the cluster.
 
     `quota` comes from `tranibor_core.quotas`: an extension sets it per organisation; it used to be fixed.
     """
@@ -359,18 +366,7 @@ def render_project_manifests(
                         )
                     ]
                     + proxy_egress
-                    + [
-                        {
-                            "to": [
-                                {
-                                    "namespaceSelector": {
-                                        "matchLabels": {"kubernetes.io/metadata.name": "kube-system"}
-                                    }
-                                }
-                            ],
-                            "ports": [{"protocol": "UDP", "port": 53}],
-                        }
-                    ],
+                    + [network_policy_rule(dns, tcp=False)],
                 },
             },
         ]
@@ -535,7 +531,9 @@ def render_project_manifests(
         "kustomization.yaml": kustomization,
     }
     if allowed_domains:
-        files["egress.yaml"] = render_egress_proxy(runners, slug, allowed_domains, image=egress_image)
+        files["egress.yaml"] = render_egress_proxy(
+            runners, slug, allowed_domains, image=egress_image, dns=dns
+        )
     if gvisor:
         files["runtimeclass.yaml"] = _dump(
             [
