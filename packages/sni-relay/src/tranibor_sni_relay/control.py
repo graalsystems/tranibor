@@ -9,8 +9,9 @@ opens the id's one session, and a live one is sent `close` `replaced`. From then
 one `open_stream` per phone connection, and the agent sends nothing.
 
 The WebSocket is driven by websockets' Sans-I/O protocol over the relay's own connection, since the
-same host also serves an upgrade no WebSocket server hands over (`x-data`). Its logger is silenced:
-the relay logs nothing but its metadata lines (ADR 0230 §7).
+same host also serves an upgrade no WebSocket server hands over (`x-data`). Its logger is the relay's,
+pinned and out of any logging configuration's reach (`metadata.library_logger`): the relay logs nothing
+but its metadata lines (ADR 0230 §7).
 """
 
 from __future__ import annotations
@@ -19,7 +20,6 @@ import asyncio
 import contextlib
 import hmac
 import json
-import logging
 import secrets
 from collections import deque
 from collections.abc import Callable
@@ -44,15 +44,14 @@ from websockets.http11 import Request
 from websockets.server import ServerProtocol
 
 from .limits import SlidingWindow
+from .metadata import library_logger
 from .pairing import Installation, RelayRegistry
 from .signing import SignatureError, verified
 from .wire import CHUNK, RequestHead, iso, problem, response
 
-#: The relay's WebSocket logs nothing: not a frame, not a close (ADR 0230 §7).
-_SILENT: Final = logging.getLogger("tranibor_sni_relay.websocket")
-_SILENT.addHandler(logging.NullHandler())
-_SILENT.propagate = False
-_SILENT.disabled = True
+#: The relay's WebSocket logs nothing: not a frame, not a close (ADR 0230 §7), whatever the process's
+#: logging configuration (`library_logger`).
+_SILENT: Final = library_logger("tranibor_sni_relay.websocket")
 #: How long a closing session waits for the agent's close frame before it drops the connection.
 CLOSE_TIMEOUT_S: Final = 2.0
 #: The frames the relay reads: a little above the largest message, so that a larger one is refused

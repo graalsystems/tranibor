@@ -8,22 +8,46 @@ no server name, no ALPN, no cipher list, no byte of a stream. The relay logs not
 
 The retention is the operator's, and the relay refuses to start without one; `prune` deletes the
 lines older than it.
+
+A library the relay drives logs through a logger the relay hands it (`library_logger`), never through
+its own: that is how nothing else is written, whatever the process's logging configuration.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import tranibor_contracts as contracts
 from jsonschema import Draft202012Validator
 from tranibor_contracts.relay import RelayMetadataLine
+
+#: The level of every logger the relay hands to a library (`library_logger`).
+LIBRARY_LOG_LEVEL: Final = logging.WARNING
+
+
+def library_logger(name: str) -> logging.Logger:
+    """The logger the relay hands to a library it drives (websockets): it writes nothing (ADR 0230 §7).
+
+    Its level is pinned at `LIBRARY_LOG_LEVEL`, so the library does not even format a frame for it, at
+    whatever level the process's root logger is; its one handler is a `NullHandler`, and it does not
+    propagate. It is made outside the `logging` module's registry on purpose: every process-wide
+    configuration walks that registry. `dictConfig` and `fileConfig` enable each logger they find again
+    (`disable_existing_loggers=False`, as alembic's `env.py` and uvicorn call them) and reset the level of
+    the children of a logger they name; a test runner hands its capture handler to each logger that does
+    not propagate. A logger silenced in place (`disabled`) was enabled again by the first of these, and
+    the websockets library then logged every control frame at DEBUG. None of them reaches this one."""
+    logger = logging.Logger(name, LIBRARY_LOG_LEVEL)
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False
+    return logger
 
 
 class RelayConfigError(ValueError):

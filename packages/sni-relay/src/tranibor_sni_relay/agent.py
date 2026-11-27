@@ -47,8 +47,14 @@ from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed
 
 from . import __version__
+from .metadata import library_logger
 from .signing import encode_public, sign
 from .wire import MAX_HEAD_BYTES, close_quietly, splice
+
+#: The control session's WebSocket logs nothing either: its frames are the signed hello and the orders,
+#: each with a phone's address (`library_logger`). Left to websockets' own logger, a process at DEBUG
+#: would write them all.
+_SILENT: Final = library_logger("tranibor_sni_relay.agent.websocket")
 
 #: The PROXY protocol v2 signature (HAProxy's specification, §2.2).
 PROXY_V2_SIGNATURE: Final = b"\r\n\r\n\x00\r\nQUIT\n"
@@ -150,7 +156,9 @@ class RelayAgent:
 
     async def run(self, relay_id: str) -> RelayClose | None:
         """Holds the control session until the relay closes it; the `close` it sent, if any."""
-        async with connect(self.control_url, ssl=self._ssl, proxy=None, open_timeout=10) as socket:
+        async with connect(
+            self.control_url, ssl=self._ssl, proxy=None, open_timeout=10, logger=_SILENT
+        ) as socket:
             challenge = RelayChallenge.model_validate_json(await socket.recv())
             claims = hello_signature_claims(
                 url=self.control_url,

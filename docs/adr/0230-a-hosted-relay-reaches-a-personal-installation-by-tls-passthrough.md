@@ -87,8 +87,10 @@ also needs a public address: Teams and Notion deliver webhooks; Slack's Socket M
    untouched. The relay speaks TCP only, so the edge's relay listener announces no HTTP/3. Held by
    `packages/sni-relay/tests/test_passthrough.py` (a TLS client through an in-process relay sees a certificate
    with the test installation's public key; the relay process holds no private key for the name; every refused
-   case is closed) and `packages/sni-relay/tests/test_sni.py` (the parser fuzzed with hypothesis: no exception
-   escapes, no read beyond its bound).
+   case is closed) and `packages/sni-relay/tests/test_sni.py` (the parser fuzzed by a parametrised test over a
+   seeded generator, 25 seeds under three bounds: random bytes, TLS-shaped records, and real ClientHellos with bits
+   flipped, truncated, lengths rewritten and garbage inserted; no exception escapes, no read beyond its bound.
+   `hypothesis` is not a dependency of the workspace).
 5. **TLS ends at the installation's edge, which gets its certificate through the passthrough.** Caddy's relay
    listener obtains `<id>.<relay-domain>` by ACME TLS-ALPN-01: the CA's validation connection carries that SNI
    and the ALPN `acme-tls/1`, the relay routes it like any other, and the edge answers it. The ACME account key
@@ -235,3 +237,9 @@ Recorded, and not prevented:
 No relay has run. Untried: Caddy's TLS-ALPN-01 behind a passthrough on a real CA (Pebble only in CI), current
 Let's Encrypt limits and Public Suffix List delays, the latency a dial-back adds on a mobile network, and iOS
 Safari and Android browsers through the relay on real phones.
+
+## Amended, 2026-11-27: how the parser is fuzzed (S87-42)
+
+- 2026-11-27: §4 said the ClientHello parser is fuzzed with hypothesis. It is fuzzed by a parametrised test over
+  a seeded generator (`packages/sni-relay/tests/test_sni.py`), `hypothesis` not being a dependency of the
+  workspace; §4 now says so.

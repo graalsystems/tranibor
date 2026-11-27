@@ -165,6 +165,74 @@ async def test_a_tls_client_through_the_relay_sees_the_installation_s_certificat
     assert not [record for record in caplog.records if name in record.getMessage()], "nothing logs the name"
 
 
+@pytest.fixture(
+    params=[
+        pytest.param({}, id="every-logger-enabled-again"),
+        pytest.param({"loggers": {"tranibor_sni_relay": {"level": "DEBUG"}}}, id="the-relay-named-at-debug"),
+    ]
+)
+def logging_reconfigured(request: pytest.FixtureRequest) -> Iterator[None]:
+    """What a process may do to logging once the relay is imported: `dictConfig` with
+    `disable_existing_loggers=False`, as alembic's `env.py` and uvicorn call it, which enables every existing
+    logger again; or the same naming the relay's own namespace at DEBUG. Undone afterwards, for the tests that
+    follow."""
+    import logging.config
+
+    loggers = logging.getLogger().manager.loggerDict
+    before = {
+        name: (logger.level, logger.disabled, logger.propagate, list(logger.handlers))
+        for name, logger in loggers.items()
+        if isinstance(logger, logging.Logger)
+    }
+    logging.config.dictConfig({"version": 1, "disable_existing_loggers": False, **request.param})
+    try:
+        yield
+    finally:
+        for name, logger in list(loggers.items()):
+            if not isinstance(logger, logging.Logger):
+                continue
+            level, disabled, propagate, handlers = before.get(name, (logging.NOTSET, False, True, []))
+            logger.setLevel(level)
+            logger.disabled, logger.propagate, logger.handlers = disabled, propagate, handlers
+
+
+async def test_the_relay_logs_nothing_but_its_metadata_lines_whatever_the_logging_configuration(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, logging_reconfigured: None
+) -> None:
+    """ADR 0230 §7, with the root logger at DEBUG and every logger enabled again: a control session, a
+    phone's TLS session through the relay and its end leave the metadata line and no log record, neither
+    the relay's nor the websockets library's, and nothing names the installation. A logger the relay merely
+    silenced in place was enabled again by such a configuration, and websockets logged every frame."""
+    caplog.set_level(logging.DEBUG)
+    logging.getLogger("tranibor_sni_relay").debug("canary")
+    assert "canary" in [record.getMessage() for record in caplog.records], "the capture sees DEBUG records"
+    caplog.clear()
+    async with bench(tmp_path) as kit:
+        agent = kit.agent()
+        relay_id = await kit.pair(agent)
+        edge, _ = await kit.installation(relay_id)
+        agent.target = ("127.0.0.1", edge.port)
+        await kit.connect(agent, relay_id)
+        name = f"{relay_id}.{DOMAIN}"
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(
+                "127.0.0.1", kit.relay.sni_port, ssl=kit.phone_context, server_hostname=name
+            ),
+            10,
+        )
+        writer.write(SECRET)
+        await writer.drain()
+        assert await asyncio.wait_for(reader.readexactly(len(SECRET) + 5), 5) == b"edge:" + SECRET
+        writer.close()
+        await _settled(kit)
+        await edge.stop()
+    [line] = kit.lines()
+    assert line["install_id"] == relay_id and line["close_reason"] == "client_closed"
+    libraries = ("tranibor_sni_relay", "websockets")
+    assert not [record.name for record in caplog.records if record.name.startswith(libraries)]
+    assert not [record for record in caplog.records if relay_id in record.getMessage()], "nothing names it"
+
+
 def _reachable(root: object) -> Iterator[object]:
     """Every object the relay holds through its own objects and plain containers. It stops at what is
     not the relay's (the event loop, a server, a task), whose state is not the relay's to hold."""
