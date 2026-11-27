@@ -393,6 +393,56 @@ def test_a_sandbox_connector_with_its_own_runtime_class_is_judged_on_it(
     assert fact == RuntimeFact("gvisor", None)
 
 
+@pytest.mark.parametrize("executor", ["k8s_job", "tekton"])
+@pytest.mark.parametrize("deployment", ["kata-vm-isolation", "runc"])
+def test_a_gvisor_policy_on_a_job_executor_without_gvisor_is_to_do(
+    real_deployment: pytest.MonkeyPatch, executor: str, deployment: str
+) -> None:
+    """Finding #2349: a Job or a PipelineRun names the class per run, and a `gvisor` policy on AKS (Kata) or
+    EKS (runc) is refused at the run's start; the readiness says it before the first run."""
+    real_deployment.setenv("TRANIBOR_EXECUTOR_KIND", executor)
+    real_deployment.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", deployment)
+    fact = runtime_fact({}, _policy("gvisor"))
+    assert fact is not None and fact.refusal is not None and fact.executor == executor
+    (item,) = item_runtime_class(facts(runtime=fact))
+    assert item.state == "todo" and item.fix.by == "platform_operator"
+    assert item.title == "Agent pods run the policy's runtime"
+    for wanted in (
+        f"`{executor}`",
+        "sandbox.runtime: gvisor",
+        f"`{deployment}`",
+        "global.runner.runtimeClass",
+    ):
+        assert wanted in item.detail, item.detail
+    assert evaluate(facts(runtime=fact)).ready is False
+    connector_runtime = runtime_fact({"runtime": connector("runtime", executor)}, _policy("gvisor"))
+    assert connector_runtime == fact, "the project's own runtime connector is judged the same way"
+
+
+@pytest.mark.parametrize("executor", ["k8s_job", "tekton"])
+def test_a_policy_its_job_executor_can_honour_is_done_naming_the_class(
+    real_deployment: pytest.MonkeyPatch, executor: str
+) -> None:
+    real_deployment.setenv("TRANIBOR_EXECUTOR_KIND", executor)
+    real_deployment.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "kata-vm-isolation")
+    (item,) = item_runtime_class(facts(runtime=runtime_fact({}, _policy("kata"))))
+    assert item.state == "done" and "`kata-vm-isolation`" in item.detail
+    real_deployment.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "gvisor")
+    (item,) = item_runtime_class(facts(runtime=runtime_fact({}, _policy("gvisor"))))
+    assert item.state == "done" and "`gvisor`" in item.detail
+    fact = runtime_fact({}, _policy("kata"))
+    assert fact is not None and fact.refusal is not None and "sandbox.runtime: kata" in fact.refusal
+
+
+def test_a_kata_policy_on_a_warm_pool_of_the_cluster_default_is_to_do(
+    real_deployment: pytest.MonkeyPatch,
+) -> None:
+    """The run names `kata` (#2349) and a sandbox cannot change runtime once made."""
+    real_deployment.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "")
+    fact = runtime_fact({}, _policy("kata"))
+    assert fact is not None and fact.refusal is not None and "`kata`" in fact.refusal
+
+
 def _campaign(stored: str, shipped: str) -> TemplateWorkflowFact:
     return TemplateWorkflowFact("campaign", 1, stored, shipped, "./workflows/campaign.yaml")
 

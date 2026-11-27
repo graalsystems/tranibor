@@ -63,3 +63,10 @@ class AgentIsolationRefusedError(ConfigurationError):
     start one: refused before anything reaches its backend, never run with the agent beside the runner."""
 
     code = AGENT_ISOLATION_UNAVAILABLE
+
+
+class RuntimeClassRefusedError(ConfigurationError):
+    """The project policy asks for a sandboxed runtime (`sandbox.runtime`) that the deployment's RuntimeClass
+    is not (finding #2349): refused at the run's start, never a pod naming a class the cluster lacks. No
+    code of its own: it reaches the workflow as `executor_configuration_refused`, as the warm pool's
+    RuntimeClass refusal does, and the work item escalates with the sentence (S38-13e)."""

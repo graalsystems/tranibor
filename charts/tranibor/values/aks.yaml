@@ -17,7 +17,9 @@
 global:
   runner:
     # Every agent pod (the runner and the agent's own container) in a Kata VM. Landlock still applies
-    # inside the VM's kernel, unlike under gVisor (ADR 0094).
+    # inside the VM's kernel, unlike under gVisor (ADR 0094). A project whose policy says
+    # `sandbox.runtime: kata` runs under this class; one that says `gvisor` is refused at each run's
+    # start, and its /readiness says so (#2349): AKS has no gVisor class.
     runtimeClass: kata-vm-isolation
 
 tranibor-api:

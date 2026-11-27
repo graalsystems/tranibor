@@ -94,7 +94,17 @@ async def test_readiness_says_a_gvisor_policy_the_warm_pool_cannot_run(
     monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "gvisor")
     item = next(i for i in (await _readiness(client, project["id"]))["items"] if i["id"] == "runtime-class")
     assert item["state"] == "done"
+    # A Job names the class per run (#2349): done when the deployment's class is a gVisor class, to do
+    # when it is not (AKS's Kata), and not judged when the deployment names none (the pod names `gvisor`).
     monkeypatch.setenv("TRANIBOR_EXECUTOR_KIND", "k8s_job")
+    item = next(i for i in (await _readiness(client, project["id"]))["items"] if i["id"] == "runtime-class")
+    assert item["state"] == "done" and "`gvisor`" in item["detail"]
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "kata-vm-isolation")
+    item = next(i for i in (await _readiness(client, project["id"]))["items"] if i["id"] == "runtime-class")
+    assert (
+        item["state"] == "todo" and "`k8s_job`" in item["detail"] and "`kata-vm-isolation`" in item["detail"]
+    )
+    monkeypatch.setenv("TRANIBOR_RUNNER_RUNTIME_CLASS", "")
     assert "runtime-class" not in {i["id"] for i in (await _readiness(client, project["id"]))["items"]}
 
 

@@ -18,7 +18,7 @@ import structlog
 from sqlalchemy import select
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
-from tranibor_adapters.errors import ConfigurationError
+from tranibor_adapters.errors import ConfigurationError, RuntimeClassRefusedError
 from tranibor_adapters.executor.log_archive import archive_run_logs
 from tranibor_api.db.models import Run, RunEvent, WorkItem
 from tranibor_api.db.session import limit_to_organisations, release_connection
@@ -32,6 +32,7 @@ from tranibor_core.hosted import agent_container
 from tranibor_core.production import ENVIRONMENT_VARIABLE
 from tranibor_core.redaction import REDACTED
 from tranibor_core.run_closure import close_run, status_of
+from tranibor_core.runtime_class import pod_runtime_class
 
 from ..config import get_settings
 from ..gitops import PRIVATE_RANGES
@@ -120,11 +121,15 @@ def runner_environment(settings: Any, namespace: str) -> dict[str, str]:
 
 
 def runtime_class(settings: Any, policy: Any) -> str | None:
-    """The `RuntimeClass` of an agent pod: the one the policy requires, else the deployment's,
-    else none. A `gvisor` policy is not bypassed by the value."""
-    if policy.sandbox.runtime == "gvisor":
-        return "gvisor"
-    return str(getattr(settings, "runner_runtime_class", "") or "") or None
+    """The `RuntimeClass` of an agent pod (`tranibor_core.runtime_class`): the deployment's when the
+    policy's `sandbox.runtime` is of its family, the family's own name when the deployment names none,
+    else none. A policy the deployment's class cannot honour (`gvisor` on `kata-vm-isolation` or on runc)
+    raises `RuntimeClassRefusedError` (finding #2349): never a pod naming a class the cluster lacks."""
+    deployment = str(getattr(settings, "runner_runtime_class", "") or "")
+    try:
+        return pod_runtime_class(str(policy.sandbox.runtime), deployment)
+    except ValueError as refusal:
+        raise RuntimeClassRefusedError(str(refusal)) from refusal
 
 
 #: How long a run may wait for a slot before being abandoned: six hours, a peak night, not
@@ -236,6 +241,15 @@ async def start_run(payload: dict[str, Any]) -> dict[str, Any]:
                 "reused": True,
                 "capabilities": capabilities,
             }
+        try:
+            # Before any token is minted or anything is sent to the executor: a policy whose runtime the
+            # deployment cannot give is refused like the executor's own refusals (finding #2349).
+            pod_runtime = runtime_class(settings, bundle.policy)
+        except ConfigurationError as refusal:
+            await _fail_run_on_configuration(session, bundle, run, payload, stage_input.run_id, refusal)
+            raise ApplicationError(
+                str(refusal), type=getattr(refusal, "code", START_REFUSED), non_retryable=True
+            ) from refusal
         # The run token lives in the run's Secret only (#519): minted here, never stored, never
         # carried by a Temporal payload. A payload of an older history may still bring one.
         run_token = stage_input.callbacks.run_token
@@ -279,7 +293,7 @@ async def start_run(payload: dict[str, Any]) -> dict[str, Any]:
             remote_token=remote_token,
             stage_input=stage_input.model_copy(update={"gateway_key": None}),
             timeout_minutes=stage_input.budget.max_minutes + 10,
-            runtime_class=runtime_class(settings, bundle.policy),
+            runtime_class=pod_runtime,
             env=runner_environment(settings, _runner_namespace(settings, bundle.slug)),
             labels=wire.labels_with_former(
                 {

@@ -130,6 +130,10 @@ async def start_session_pod(payload: dict[str, Any]) -> dict[str, Any]:
         record.stage_input = stage_input.model_dump(mode="json", by_alias=True)
         keys = await get_secret_store().get_many(session, record.org_id, [secret_name(session_id)])
         namespace = _runner_namespace(settings, bundle.slug)
+        try:
+            pod_runtime = runtime_class(settings, bundle.policy)
+        except ConfigurationError as refusal:  # finding #2349: the policy's runtime is not the deployment's
+            raise _refused(str(refusal), getattr(refusal, "code", POD_REFUSED)) from refusal
         spec = StageJobSpec(
             run_id=run_id,
             project_slug=bundle.slug,
@@ -145,7 +149,7 @@ async def start_session_pod(payload: dict[str, Any]) -> dict[str, Any]:
             gateway_key=keys.get(secret_name(session_id)) or None,
             stage_input=stage_input,
             timeout_minutes=minutes + 10,
-            runtime_class=runtime_class(settings, bundle.policy),
+            runtime_class=pod_runtime,
             env=runner_environment(settings, namespace),
             labels=wire.labels_with_former(
                 {
