@@ -1,0 +1,21 @@
+{{- $persistence := .Values.persistence }}
+{{- if and $persistence.enabled (not $persistence.existingClaim) }}
+{{- /*
+The metadata lines (ADR 0230 §7): one per phone connection, kept for the retention the operator fixed
+and pruned by the relay itself. The claim outlives the pod, so that a restart neither loses a line
+before its time nor keeps one past it.
+*/ -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "choregos-relay.fullname" . }}-metadata
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+spec:
+  accessModes: {{- toYaml $persistence.accessModes | nindent 4 }}
+  {{- with $persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $persistence.size }}
+{{- end }}

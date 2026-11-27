@@ -94,6 +94,7 @@ DERIVED: tuple[str, ...] = (
     "charts/choregos-outpost/Chart.yaml",
     "charts/choregos-outpost/README.md",
     "charts/choregos-outpost/values.yaml",
+    "charts/choregos-relay/Chart.yaml",
     "charts/choregos/Chart.yaml",
     "charts/choregos/charts/ecphoria/Chart.yaml",
     "charts/choregos/charts/ecphoria/values.yaml",

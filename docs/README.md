@@ -24,6 +24,7 @@ it through a workflow you declare, and every step is bounded, evidenced and audi
 | [Integrations](integrations.md) | Connecting Claude Code, Claude Desktop, Cursor, VS Code or any MCP client through the MCP door; the A2A door's reference |
 | [Outposts](outposts.md) | Tools in a network the platform cannot reach: when to want an outpost, and when an organisation's own MCP gateway serves better; what it gives and what it does not |
 | [Running an outpost](outpost-operator.md) | For whoever runs one in their own network: what the daemon does and cannot do, the firewall rule, the policy file, the audit log, upgrades, who answers for what |
+| [Running a relay](relay.md) | For whoever runs the relay a personal installation dials out to: what it sees and keeps, that it never terminates TLS, how to run one, how an installation pairs, what is not built yet |
 | [CLI reference](cli.md) | Every command, generated from the CLI itself |
 | [Contributing](CONTRIBUTING.md) | One story, one PR; the contract before the code; what CI checks |
 | [ADRs](adr/README.md) | The structural decisions |

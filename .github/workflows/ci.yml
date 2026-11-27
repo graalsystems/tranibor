@@ -427,17 +427,21 @@ jobs:
       - run: helm lint charts/choregos --set choregos-orchestrator.runner.skipOperatorCheck=true
       # The outpost's chart (S65-16) renders nothing without a policy: linted on its complete example.
       - run: helm lint charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml
+      # The relay's chart (S87-44) refuses to render without a domain, a retention, a Secret and an
+      # image: linted on its complete example.
+      - run: helm lint charts/choregos-relay -f charts/choregos-relay/values/example.yaml
       - name: render the four environments (local = the bundled dependencies)
         run: |
           for env in local dev staging prod; do
             helm template choregos charts/choregos -f charts/choregos/values/$env.yaml --set choregos-orchestrator.runner.skipOperatorCheck=true > /tmp/$env.yaml
           done
           helm template outpost charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml > /tmp/outpost.yaml
+          helm template relay charts/choregos-relay -f charts/choregos-relay/values/example.yaml > /tmp/relay.yaml
       - name: kubeconform
         run: |
           curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
           tar xf kubeconform.tar.gz
-          ./kubeconform -strict -ignore-missing-schemas -summary /tmp/prod.yaml /tmp/outpost.yaml
+          ./kubeconform -strict -ignore-missing-schemas -summary /tmp/prod.yaml /tmp/outpost.yaml /tmp/relay.yaml
       - name: helm unittest
         run: |
           # Pinned version: the plugin tracks Helm closely — `platformHooks` in its
@@ -501,6 +505,10 @@ jobs:
           # The daemon an outpost's operator runs in their own network (ADR 0147, S65-15).
           - image: outpost
             file: docker/outpost.Dockerfile
+          # The relay a personal installation dials out to (ADR 0230, S87-44): built and scanned here;
+          # no release publishes it yet.
+          - image: relay
+            file: docker/relay.Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

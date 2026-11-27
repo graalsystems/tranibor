@@ -1,0 +1,39 @@
+{{- if .Values.own.ingress.enabled }}
+{{- include "choregos-relay.validate" . }}
+{{- $fullname := include "choregos-relay.fullname" . }}
+{{- $ingress := .Values.own.ingress }}
+{{- $host := include "choregos-relay.ownHost" . }}
+{{- /*
+The relay's own host behind an Ingress: its paths only (`/relay/v1`), its name only. An installation's
+name (`<id>.<relay-domain>`) never reaches an Ingress: it goes to the passthrough Service, and no
+certificate for it exists outside the installation's edge.
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-own
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+  {{- with $ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $ingress.tls.secretName }}
+  tls:
+    - hosts: [{{ $host | quote }}]
+      secretName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /relay/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-own
+                port: { name: own }
+{{- end }}

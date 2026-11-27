@@ -7,7 +7,13 @@ platform: it imports no code of the API, the orchestrator or the runner, and not
 imports it.
 
 This page is the package's own. What the relay sees and keeps, and how to run one, is the operator's
-page (`docs/relay.md`, with the relay's chart).
+page (`docs/relay.md`); the operator's procedures are `docs/runbooks/relay-operations.md`.
+
+## Running it
+
+`choregos-relay serve` runs the relay on the configuration its environment gives (`TRANIBOR_RELAY_*`,
+listed in `server.py`), until SIGTERM; `choregos-relay check` says what it would serve. Its image is
+`docker/relay.Dockerfile`, its chart `charts/choregos-relay` (S87-44).
 
 ## What the relay does
 
@@ -36,7 +42,8 @@ page (`docs/relay.md`, with the relay's chart).
 - The full agent, its configuration and its certificate by TLS-ALPN-01, and `choregos local relay`
   (S87-43). `agent.py` holds the part of the agent the relay is proven against.
 - A persistent registry: `RelayRegistry` keeps accounts' installations and pairings in memory.
-- A command or an image to run the relay, and its chart (S87-44).
+- An account page and an approval door: nothing serves the verification URI yet.
+- An operator interface to suspend, resume or remove an id (`Relay.suspend` is a call in the process).
 
 ## Tests
 
@@ -44,3 +51,5 @@ page (`docs/relay.md`, with the relay's chart).
   in-process agent and sees that server's certificate; the relay holds no private key for the name;
   every refused case is closed; tickets, hellos, pairing, limits, suspension and the metadata lines.
 - `tests/test_sni.py`: the parser never raises on arbitrary bytes and never reads past its bound.
+- `tests/test_server.py`: the command reads the environment the chart writes, refuses what the relay
+  would refuse, serves until SIGTERM and writes nothing about a connection.

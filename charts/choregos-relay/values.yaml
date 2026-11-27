@@ -1,0 +1,166 @@
+# The values of one relay (ADR 0230 §12): the program `choregos-relay`, run by whoever operates a
+# relay. It is not part of a platform's chart and shares nothing with it: a personal installation's
+# relay agent dials this relay, and nothing of the platform depends on it.
+#
+# What the relay sees and keeps, how to run one, and how an installation pairs: `docs/relay.md`.
+# A complete example: `values/example.yaml`. The operator's runbook: `docs/runbooks/relay-operations.md`.
+#
+# No value below holds a secret. The relay's own material comes from a Secret you create
+# (`existingSecret`), and the chart renders no Secret.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # REQUIRED. No release publishes the relay's image yet: build `docker/relay.Dockerfile` and push it
+  # to your registry (`docs/relay.md`, "Run your own relay").
+  registry: ""
+  repository: ""
+  # Empty: this chart's appVersion.
+  tag: ""
+  # `sha256:…`: the image is then pulled by this digest and the tag is not read. Pin it.
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+relay:
+  # REQUIRED. `<relay-domain>`, in lower case: an installation's name is `<id>.<relay-domain>`, an id
+  # being 12 characters the relay draws. A wildcard DNS record `*.<relay-domain>` points at the
+  # passthrough Service's address.
+  domain: ""
+  # The relay's own host, which agents dial for the pairing, the control channel and the dial-backs.
+  # Empty: the domain itself (its own DNS record, beside the wildcard). Never `<12 characters>.<domain>`,
+  # a name an id could take.
+  hostname: ""
+  # REQUIRED. How long a metadata line is kept, in whole days: the relay refuses to start without one
+  # and deletes older lines (ADR 0230 §7). State it in your terms and notice.
+  retentionDays: 0
+  # Where an owner enters the user code their installation shows. Empty: `https://<own host>/pair`,
+  # which this release of the relay does not serve (`docs/relay.md`, "What is not built yet").
+  verificationUri: ""
+  # A spliced connection across which nothing crossed this long is closed.
+  idleTimeoutSeconds: 900
+  # Per installation and per client address (ADR 0230 §8). Past one, the connection is closed and its
+  # metadata line says which.
+  limits:
+    concurrentStreams: 32
+    streamsPerMinute: 240
+    bytesPerMonth: 107374182400
+    clientConnectionsPerMinute: 120
+    hellosPerMinute: 12
+    pairingsPerMinute: 12
+
+# REQUIRED. The name of a Secret you created in the release's namespace, which holds the relay's own
+# material under the keys below. The chart never creates it and never reads it: the pod does.
+#
+#   kubectl -n relay create secret generic relay-own \
+#     --from-literal=database-url='postgresql://…' --from-file=signing-key=./signing-key.pem
+#
+# This release of the relay reads neither key: its registry of accounts and installations is in
+# memory, and it signs nothing of its own. The pod still needs both, so that the release that reads
+# them needs no new value.
+existingSecret: ""
+secretKeys:
+  # The relay's database of accounts and installations.
+  databaseUrl: database-url
+  # The relay's own signing key (Ed25519, PKCS#8 PEM): mounted as a file, readable by the relay alone.
+  signingKey: signing-key
+
+# The ports inside the pod. Both are above 1024: the relay runs without any capability.
+ports:
+  sni: 9443
+  own: 8443
+
+# The SNI listener's Service: 443, TCP, and nothing in front of the relay terminates or rewrites the
+# stream. An annotation that would (a certificate, a TLS or HTTP protocol, a PROXY header) fails the
+# render. Its port is not a value: phones dial `https://<id>.<relay-domain>`, on 443.
+passthrough:
+  type: LoadBalancer
+  # `Local` keeps the client's address as the connection's peer: the address the metadata line holds
+  # and the per-address limit counts. Under `Cluster`, every phone has a node's address.
+  externalTrafficPolicy: Local
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  # Placement only: `service.beta.kubernetes.io/aws-load-balancer-type: nlb`,
+  # `external-dns.alpha.kubernetes.io/hostname: "*.relay.example.com"`, and the like.
+  annotations: {}
+
+# The relay's own host: the pairing, the control channel and the dial-backs, under `/relay/v1`. It has
+# a certificate of its own, never one for an installation's name. One of two places terminates its TLS:
+#
+# - an Ingress (`own.ingress`), whose controller then holds that certificate. The relay sees the
+#   controller's address for every agent: the per-address limits on hellos and pairings count it
+#   (raise `relay.limits.pairingsPerMinute`), and the controller must keep long-lived connections open
+#   (the control channel lives for days; a dial-back carries a phone's session);
+# - the relay itself (`own.tls.secretName`), behind a Service of type LoadBalancer: agents keep their
+#   address. A renewed certificate is read when the relay restarts, and a restart forgets every
+#   pairing in this release (`docs/runbooks/relay-operations.md`, "Rotating keys and certificates").
+own:
+  service:
+    # `LoadBalancer` requires `own.tls.secretName`: agents dial https and wss.
+    type: ClusterIP
+    port: 443
+    externalTrafficPolicy: Local
+    annotations: {}
+  tls:
+    # A `kubernetes.io/tls` Secret (`tls.crt`, `tls.key`) for the own host: the relay terminates that
+    # TLS itself. Empty: something in front of it does.
+    secretName: ""
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    tls:
+      # The own host's certificate, held by the Ingress controller.
+      secretName: ""
+  # The port agents dial the own host on, which their signatures bind. Empty: 443 behind an Ingress,
+  # else `own.service.port`.
+  publicPort: ""
+
+# The metadata lines: a volume that outlives the pod, so that a line is kept for the retention and no
+# longer. Disabled, the lines live in the pod's own scratch volume and go with it.
+persistence:
+  enabled: true
+  size: 2Gi
+  # Empty: the cluster's default StorageClass.
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+  # A claim you created; the chart then creates none.
+  existingClaim: ""
+
+# One process holds the control sessions and the registry: a second replica would close every phone
+# whose installation dialled the other, so this is not a value. A restart forgets every pairing in
+# this release; the budget below stops a drain at the relay until you move it on purpose. Give
+# `maxUnavailable: 1`, which takes the place of `minAvailable`, to let drains through.
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  maxUnavailable: null
+
+# What may reach the relay, and where it may go. Ingress: the two listeners, from anywhere unless
+# narrowed (`sniFrom`, `ownFrom`: NetworkPolicy peers, an Ingress controller's namespace for the own
+# host). Egress: DNS, and what you add. The relay dials nothing: every connection it serves is
+# accepted. A network plugin that does not enforce NetworkPolicies ignores this without a word.
+networkPolicy:
+  enabled: true
+  sniFrom: []
+  ownFrom: []
+  dns:
+    namespace: kube-system
+  extraEgress: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+terminationGracePeriodSeconds: 30
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""
+runtimeClassName: ""

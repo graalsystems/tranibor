@@ -1,0 +1,160 @@
+{{- include "choregos-relay.validate" . }}
+{{- $fullname := include "choregos-relay.fullname" . }}
+{{- $relay := .Values.relay }}
+{{- $metadata := include "choregos-relay.metadataDir" . }}
+{{- $secretDir := include "choregos-relay.secretDir" . }}
+{{- $ownTls := include "choregos-relay.ownTlsDir" . }}
+{{- /*
+One relay process (ADR 0230 §3-4): the SNI listener and the relay's own host, in one pod.
+
+One replica, and not a value: the process holds every installation's control session and, in this
+release, the registry of installations in memory. A second replica would close every phone whose
+installation dialled the other one. `Recreate`: the metadata lines' claim is written by one process at
+a time.
+
+The relay's own material (its database's URL, its signing key) comes from the operator's Secret,
+named in `existingSecret`: the URL as a variable from a key of it, the key as a file only the relay's
+user reads. This release of the relay reads neither (`docs/relay.md`, "What is not built yet").
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {{- include "choregos-relay.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "choregos-relay.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ $fullname }}
+      # Locked down as a plugin server's pod is (ADR 0096 §2): no token of the cluster, not root, a
+      # read-only root filesystem, no capability, the default seccomp profile. No service links: they
+      # would hand the relay `<SERVICE>_PORT=tcp://…` variables, some under its own prefix.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ int .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: relay
+          image: {{ include "choregos-relay.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+          ports:
+            # Opened without TLS: the relay reads the ClientHello's server name and splices the rest.
+            - { name: sni, containerPort: {{ int .Values.ports.sni }}, protocol: TCP }
+            # The pairing, the control channel and the dial-backs, under /relay/v1.
+            - { name: own, containerPort: {{ int .Values.ports.own }}, protocol: TCP }
+          env:
+            - { name: TRANIBOR_RELAY_DOMAIN, value: {{ $relay.domain | quote }} }
+            {{- with $relay.hostname }}
+            - { name: TRANIBOR_RELAY_OWN_HOST, value: {{ . | quote }} }
+            {{- end }}
+            - { name: TRANIBOR_RELAY_RETENTION_DAYS, value: {{ int64 $relay.retentionDays | toString | quote }} }
+            - { name: TRANIBOR_RELAY_METADATA_PATH, value: {{ printf "%s/metadata.jsonl" $metadata | quote }} }
+            - { name: TRANIBOR_RELAY_SNI_PORT, value: {{ int .Values.ports.sni | toString | quote }} }
+            - { name: TRANIBOR_RELAY_OWN_PORT, value: {{ int .Values.ports.own | toString | quote }} }
+            - { name: TRANIBOR_RELAY_OWN_PUBLIC_PORT, value: {{ include "choregos-relay.ownPublicPort" . | quote }} }
+            {{- with $relay.verificationUri }}
+            - { name: TRANIBOR_RELAY_VERIFICATION_URI, value: {{ . | quote }} }
+            {{- end }}
+            - { name: TRANIBOR_RELAY_IDLE_TIMEOUT_S, value: {{ $relay.idleTimeoutSeconds | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_CONCURRENT_STREAMS, value: {{ int64 $relay.limits.concurrentStreams | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_STREAMS_PER_MINUTE, value: {{ int64 $relay.limits.streamsPerMinute | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_BYTES_PER_MONTH, value: {{ int64 $relay.limits.bytesPerMonth | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_CLIENT_CONNECTIONS_PER_MINUTE, value: {{ int64 $relay.limits.clientConnectionsPerMinute | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_HELLOS_PER_MINUTE, value: {{ int64 $relay.limits.hellosPerMinute | toString | quote }} }
+            - { name: TRANIBOR_RELAY_LIMIT_PAIRINGS_PER_MINUTE, value: {{ int64 $relay.limits.pairingsPerMinute | toString | quote }} }
+            {{- if .Values.own.tls.secretName }}
+            - { name: TRANIBOR_RELAY_OWN_TLS_CERT_FILE, value: {{ printf "%s/tls.crt" $ownTls | quote }} }
+            - { name: TRANIBOR_RELAY_OWN_TLS_KEY_FILE, value: {{ printf "%s/tls.key" $ownTls | quote }} }
+            {{- end }}
+            # The relay's own material, from the operator's Secret: never a value of this chart.
+            - name: TRANIBOR_RELAY_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret | quote }}
+                  key: {{ .Values.secretKeys.databaseUrl | quote }}
+            - { name: TRANIBOR_RELAY_SIGNING_KEY_FILE, value: {{ printf "%s/%s" $secretDir .Values.secretKeys.signingKey | quote }} }
+          # The own host only: a probe of the SNI listener would be a metadata line every time.
+          readinessProbe:
+            tcpSocket: { port: own }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: own }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: metadata, mountPath: {{ $metadata }} }
+            - { name: tmp, mountPath: /tmp }
+            - { name: secret, mountPath: {{ $secretDir }}, readOnly: true }
+            {{- if .Values.own.tls.secretName }}
+            - { name: own-tls, mountPath: {{ $ownTls }}, readOnly: true }
+            {{- end }}
+      volumes:
+        - name: metadata
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-metadata" $fullname) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: { sizeLimit: 16Mi }
+        - name: secret
+          secret:
+            secretName: {{ .Values.existingSecret | quote }}
+            defaultMode: 0440
+            items:
+              - { key: {{ .Values.secretKeys.signingKey | quote }}, path: {{ .Values.secretKeys.signingKey | quote }} }
+        {{- if .Values.own.tls.secretName }}
+        - name: own-tls
+          secret:
+            secretName: {{ .Values.own.tls.secretName | quote }}
+            defaultMode: 0440
+            items:
+              - { key: tls.crt, path: tls.crt }
+              - { key: tls.key, path: tls.key }
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

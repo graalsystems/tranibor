@@ -1,0 +1,20 @@
+The relay {{ include "choregos-relay.fullname" . }} is installed in the namespace {{ .Release.Namespace }}: installations are reached at
+<id>.{{ .Values.relay.domain }}, and agents dial its own host at https://{{ include "choregos-relay.ownHost" . }}{{ if ne (include "choregos-relay.ownPublicPort" .) "443" }}:{{ include "choregos-relay.ownPublicPort" . }}{{ end }}.
+
+1. DNS. Two records:
+
+     *.{{ .Values.relay.domain }}   the address of the passthrough Service (443, nothing terminates it):
+       kubectl -n {{ .Release.Namespace }} get service {{ include "choregos-relay.fullname" . }}-sni
+     {{ include "choregos-relay.ownHost" . }}   {{ if .Values.own.ingress.enabled }}the Ingress {{ include "choregos-relay.fullname" . }}-own{{ else }}the Service {{ include "choregos-relay.fullname" . }}-own{{ end }}
+
+2. The Secret {{ .Values.existingSecret }} must exist, with the keys {{ .Values.secretKeys.databaseUrl }} and {{ .Values.secretKeys.signingKey }}:
+   the pod does not start without it. This release of the relay reads neither key.
+
+3. Check what it serves (the relay writes it once, at start, and nothing about a connection):
+
+     kubectl -n {{ .Release.Namespace }} logs deployment/{{ include "choregos-relay.fullname" . }}
+
+The relay keeps one metadata line per connection, for {{ int64 .Values.relay.retentionDays }} days, and nothing else. State that
+retention in your terms and notice. A restart forgets every pairing in this release: the disruption
+budget stops a drain at the relay{{ if not .Values.podDisruptionBudget.enabled }} (switched OFF in these values){{ end }}. What to do on an abuse report, a key
+rotation or an incident: docs/runbooks/relay-operations.md.

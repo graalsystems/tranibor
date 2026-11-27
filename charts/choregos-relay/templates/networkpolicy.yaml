@@ -1,0 +1,31 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy }}
+{{- /*
+What may reach the relay, and where it may go.
+
+Ingress: the SNI listener and the own host, each from the peers given (`sniFrom`, `ownFrom`), from
+anywhere when none is: phones and agents come from the internet. Egress: DNS, and what the operator
+adds. The relay dials nothing: every connection it serves, a phone's or an agent's dial-back, is one
+it accepted.
+*/ -}}
+{{- $sni := dict "ports" (list (dict "protocol" "TCP" "port" "sni")) }}
+{{- with $np.sniFrom }}{{- $_ := set $sni "from" . }}{{- end }}
+{{- $own := dict "ports" (list (dict "protocol" "TCP" "port" "own")) }}
+{{- with $np.ownFrom }}{{- $_ := set $own "from" . }}{{- end }}
+{{- $dns := list (dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" ($np.dns.namespace | default "kube-system")))) }}
+{{- $egress := list (dict "to" $dns "ports" (list (dict "protocol" "UDP" "port" 53) (dict "protocol" "TCP" "port" 53))) }}
+{{- range ($np.extraEgress | default list) }}
+{{- $egress = append $egress . }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "choregos-relay.fullname" . }}
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "choregos-relay.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Ingress", "Egress"]
+  ingress: {{- toYaml (list $sni $own) | nindent 4 }}
+  egress: {{- toYaml $egress | nindent 4 }}
+{{- end }}

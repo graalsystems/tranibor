@@ -1,0 +1,40 @@
+# A complete relay: the image you built, your domain, the retention you state in your terms, your
+# Secret, and the own host behind an Ingress. `helm lint` and `make charts-lint` render this file.
+image:
+  registry: registry.example.com
+  repository: choregos-relay
+  # Pin the image you built and verified.
+  digest: ""
+
+relay:
+  domain: relay.example.com
+  retentionDays: 30
+
+# Created beforehand: database-url and signing-key (`docs/relay.md`, "Run your own relay").
+existingSecret: relay-own
+
+passthrough:
+  annotations:
+    # A network load balancer that passes TCP through and keeps the client's address.
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    external-dns.alpha.kubernetes.io/hostname: "*.relay.example.com"
+
+own:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      # The control channel lives for days and a dial-back carries a phone's session: no timeout cuts
+      # them before the relay's own idle time.
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      cert-manager.io/cluster-issuer: letsencrypt
+    tls:
+      secretName: relay-own-host-tls
+
+networkPolicy:
+  # The own host is reached through the Ingress controller only.
+  ownFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx

@@ -195,6 +195,12 @@ charts-lint:  ## helm lint + kubeconform (skipped if helm is missing)
 	@if command -v kubeconform >/dev/null 2>&1; then \
 	  helm template outpost charts/choregos-outpost -f charts/choregos-outpost/values/example.yaml | kubeconform -strict -ignore-missing-schemas -summary; \
 	else echo "kubeconform is missing — schema validation skipped"; fi
+	@# The relay's chart (S87-44, ADR 0230 §12): it refuses to render without a domain, a retention, a
+	@# Secret and an image, so it is linted and validated on its complete example.
+	helm lint charts/choregos-relay -f charts/choregos-relay/values/example.yaml
+	@if command -v kubeconform >/dev/null 2>&1; then \
+	  helm template relay charts/choregos-relay -f charts/choregos-relay/values/example.yaml | kubeconform -strict -ignore-missing-schemas -summary; \
+	else echo "kubeconform is missing — schema validation skipped"; fi
 
 .PHONY: charts-test
 charts-test:  ## helm unittest

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: choregos-relay
+description: >-
+  The relay a personal installation dials out to (ADR 0230): it routes a phone's TLS by SNI to the
+  installation and never terminates it. Anyone may run one; this chart runs one.
+type: application
+version: 0.29.5
+appVersion: "0.29.5"
+home: https://github.com/graalsystems/tranibor
+sources:
+  - https://github.com/graalsystems/tranibor
+maintainers:
+  - name: GRAAL.SYSTEMS SAS
+keywords: [relay, sni, tls-passthrough]

@@ -1,0 +1,61 @@
+{{- include "choregos-relay.validate" . }}
+{{- $fullname := include "choregos-relay.fullname" . }}
+{{- $passthrough := .Values.passthrough }}
+{{- /*
+The passthrough Service: 443, TCP, to the SNI listener. The wildcard record `*.<relay-domain>` points
+at its address. Nothing in front of the relay terminates or rewrites the stream (ADR 0230 §4): an
+annotation that would fails the render (`choregos-relay.passthroughAnnotations`), and the port carries
+no application protocol, which some proxies read as leave to parse it.
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-sni
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+  {{- with $passthrough.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $passthrough.type }}
+  {{- if ne $passthrough.type "ClusterIP" }}
+  externalTrafficPolicy: {{ $passthrough.externalTrafficPolicy }}
+  {{- end }}
+  {{- with $passthrough.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with $passthrough.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector: {{- include "choregos-relay.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: sni
+      port: 443
+      targetPort: sni
+      protocol: TCP
+---
+{{- /*
+The relay's own host: the pairing, the control channel and the dial-backs. Behind an Ingress (ClusterIP)
+or published by a load balancer, the relay then terminating its own host's TLS (`own.tls`).
+*/}}
+{{- $own := .Values.own.service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-own
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+  {{- with $own.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $own.type }}
+  {{- if ne $own.type "ClusterIP" }}
+  externalTrafficPolicy: {{ $own.externalTrafficPolicy }}
+  {{- end }}
+  selector: {{- include "choregos-relay.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: own
+      port: {{ int $own.port }}
+      targetPort: own
+      protocol: TCP

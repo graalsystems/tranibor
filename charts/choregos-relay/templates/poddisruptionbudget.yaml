@@ -1,0 +1,22 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $budget := .Values.podDisruptionBudget }}
+{{- /*
+One relay process, whose restart drops every phone's connection, makes every agent dial again and, in
+this release, forgets every pairing (the registry is in memory). By default a drain stops at the relay
+(`minAvailable: 1`) until its operator moves it on purpose (`docs/runbooks/relay-operations.md`).
+`maxUnavailable`, when given, takes its place.
+*/ -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "choregos-relay.fullname" . }}
+  labels: {{- include "choregos-relay.labels" . | nindent 4 }}
+spec:
+  {{- if not (kindIs "invalid" $budget.maxUnavailable) }}
+  maxUnavailable: {{ $budget.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ $budget.minAvailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "choregos-relay.selectorLabels" . | nindent 6 }}
+{{- end }}

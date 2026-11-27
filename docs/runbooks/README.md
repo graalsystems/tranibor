@@ -30,3 +30,4 @@ removed in 0.24.0 (S45-49).
 | `purchasing-live.md` | the nightly proof of the purchasing server against a real Odoo is red |
 | `servicenow-nightly.md` | the ServiceNow nightly on a deployment is red, or its instance hibernated |
 | `single-node-restore.md` | a single-node installation (ADR 0184) is lost, or must go back to last night's backup |
+| `relay-operations.md` | a relay you operate (ADR 0230): an abuse report, a suspension, a key or certificate to rotate, certificate limits, an incident, a personal-data request |
