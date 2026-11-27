@@ -878,7 +878,9 @@ jobs:
           grep -c passed pytest.out
           # Tekton's agent stage under gVisor (S87-06): the isolation probe, then one agent run. `-s` prints
           # the run's journal, whose text may say "skipped": pytest's own skip lines and summary are read.
+          # Calico enforces NetworkPolicies, so the egress gate runs as the stage's first step (#2278).
           TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context) TRANIBOR_TEKTON_RUNTIME_CLASS=gvisor \
+            TRANIBOR_TEKTON_EGRESS_GATE=1 \
             TRANIBOR_TEKTON_RUNNER_IMAGE="$TRANIBOR_HOSTED_RUNNER_IMAGE" uv run pytest \
             tests/cluster/test_tekton_isolation.py tests/cluster/test_tekton_agent_run.py -m cluster -rs -s | tee tekton.out
           ! grep -qE '^SKIPPED|[0-9]+ skipped' tekton.out
