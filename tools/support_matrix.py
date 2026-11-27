@@ -104,15 +104,19 @@ def _entry(raw: Any, today: datetime.date) -> Entry:
     )
 
 
-def as_of(text: str | None = None) -> datetime.date:
-    """The day the record was last brought up to date: the date every word is computed against."""
+def as_of(text: str | None = None, today: datetime.date | None = None) -> datetime.date:
+    """The day the record was last brought up to date: the date every word is computed against.
+
+    `today` is the calendar day the record is checked against (the machine's date by default): a test
+    names it, so that a run crossing midnight does not move it under the test.
+    """
     document = yaml.safe_load(RECORD.read_text(encoding="utf-8") if text is None else text) or {}
     value = document.get("as_of")
     if not isinstance(value, datetime.date):
         raise RecordError(
             "the record has no `as_of` date (YYYY-MM-DD): the words would have nothing to count from"
         )
-    if value > datetime.date.today():
+    if value > (today or datetime.date.today()):
         raise RecordError(f"`as_of` is {value}, after today")
     return value
 

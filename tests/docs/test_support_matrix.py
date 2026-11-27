@@ -129,10 +129,13 @@ def test_the_word_counts_from_the_records_as_of_not_from_the_day_the_test_runs()
 
 
 def test_a_record_without_as_of_or_with_one_in_the_future_is_refused() -> None:
+    # The calendar day is named, not read twice: `TODAY` is read when the module is collected, and a
+    # run that crosses midnight made "tomorrow" today (CI, 2026-11-27 00:14 UTC).
     with pytest.raises(sm.RecordError, match="as_of"):
-        sm.as_of("clusters: []")
+        sm.as_of("clusters: []", today=TODAY)
     with pytest.raises(sm.RecordError, match="after today"):
-        sm.as_of(_record(as_of=TODAY + datetime.timedelta(days=1)))
+        sm.as_of(_record(as_of=TODAY + datetime.timedelta(days=1)), today=TODAY)
+    assert sm.as_of(_record(as_of=TODAY), today=TODAY) == TODAY
 
 
 CLOUDS = _record(
