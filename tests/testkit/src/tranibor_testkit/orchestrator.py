@@ -168,6 +168,13 @@ async def temporal_env() -> AsyncIterator[Any]:
         await env.shutdown()
 
 
+#: The window the orchestrator suite's workers give a workflow activation before Temporal calls it
+#: deadlocked (TMPRL1101). The SDK's 2 s failed four tests on runners shared by 14 CI runs, each time on
+#: a history replayed for a query or a resumed run, never on a loop (issue #2307). A real deadlock
+#: still fails, 10 s later; the replay suite (`tests/replay`) keeps the SDK's 2 s.
+SUITE_DEADLOCK_SECONDS = 10.0
+
+
 @pytest.fixture
 def worker_factory(temporal_env: Any) -> Any:
     """The test's workers, **one per queue**, as the chart deploys one per queue.
@@ -177,11 +184,15 @@ def worker_factory(temporal_env: Any) -> Any:
     (`workflows.scheduling`), and that is exactly what must be exercised. On 2026-09-27, on the
     dev tenant, `start_run` ran on `orchestrator` while the network policy opened the Kubernetes API
     to `executor` only: the Job was never created.
+
+    Their workflow activations get `SUITE_DEADLOCK_SECONDS` before Temporal calls them deadlocked, not
+    the SDK's 2 s (issue #2307).
     """
     from tranibor_orchestrator.extension_parts import all_activities, all_workflows
     from tranibor_orchestrator.testing import workers_by_queue
 
     def factory(task_queue: str = "test", **kwargs: Any) -> Any:
+        kwargs.setdefault("deadlock_seconds", SUITE_DEADLOCK_SECONDS)
         return workers_by_queue(
             temporal_env.client,
             activities=all_activities(),
@@ -231,6 +242,7 @@ def refine_result(summary: str = "spec written", **kwargs: Any) -> Any:
 __all__ = [
     "ON_POSTGRES",
     "PG_URL",
+    "SUITE_DEADLOCK_SECONDS",
     "Fixture",
     "recording_history",
     "refine_result",
