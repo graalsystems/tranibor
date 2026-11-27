@@ -5685,6 +5685,21 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
+  /orgs/{org}/plugin-profiles:
+    parameters:
+      - { $ref: "#/components/parameters/Org" }
+    get:
+      tags: [agents]
+      operationId: listPluginProfiles
+      description: >-
+        The profiles the installed plugins declare (ADR 0224), each with its contract of tools and the servers that
+        say they implement it, with the instances the organisation runs of each. Read only and from what is
+        installed: the profile documents of the installed versions and the servers' `implements` as installed. A
+        profile no installed server implements has an empty `implementations`. Any member of the organisation reads it.
+      responses:
+        "200": { description: The profiles, content: { application/json: { schema: { $ref: "#/components/schemas/PluginProfileList" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /orgs/{org}/plugin-approvals:
     parameters: [{ $ref: "#/components/parameters/Org" }]
     get:
@@ -11470,6 +11485,40 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/PluginServerInstance" } }
+    PluginProfileTool:
+      type: object
+      additionalProperties: false
+      required: [name, access]
+      properties:
+        name: { type: string }
+        access: { type: string, enum: [read, write, admin] }
+        description: { type: [string, "null"] }
+    PluginProfileImplementation:
+      type: object
+      additionalProperties: false
+      required: [plugin, server, instances]
+      properties:
+        plugin: { type: string, description: "the plugin whose server implements the profile" }
+        server: { type: string }
+        instances: { type: array, items: { $ref: "#/components/schemas/PluginServerInstance" }, description: "the default instance first, then the named ones" }
+    PluginProfile:
+      type: object
+      additionalProperties: false
+      required: [name, plugin, profile, version, description, tools, implementations]
+      properties:
+        name: { type: string }
+        plugin: { type: string, description: "the plugin that declares the profile" }
+        profile: { type: string, description: "`<plugin>/<name>@<version>`, as `implements` and an agent's `profile` entry write it" }
+        version: { type: integer }
+        description: { type: string }
+        tools: { type: array, items: { $ref: "#/components/schemas/PluginProfileTool" } }
+        implementations: { type: array, items: { $ref: "#/components/schemas/PluginProfileImplementation" } }
+    PluginProfileList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PluginProfile" } }
     PluginUpgrade:
       type: object
       additionalProperties: false

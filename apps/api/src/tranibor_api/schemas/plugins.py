@@ -118,3 +118,33 @@ class PluginServerInstance(Dto):
 
 class PluginServerInstanceList(Dto):
     items: list[PluginServerInstance]
+
+
+class PluginProfileTool(Dto):
+    name: str
+    access: str
+    description: str | None = None
+
+
+class PluginProfileImplementation(Dto):
+    """A server that says it implements the profile, with the instances the organisation runs of it."""
+
+    plugin: str
+    server: str
+    instances: list[PluginServerInstance]
+
+
+class PluginProfile(Dto):
+    """A profile an installed plugin declares (ADR 0224): its contract of tools and who implements it."""
+
+    name: str
+    plugin: str
+    profile: str
+    version: int
+    description: str
+    tools: list[PluginProfileTool]
+    implementations: list[PluginProfileImplementation]
+
+
+class PluginProfileList(Dto):
+    items: list[PluginProfile]

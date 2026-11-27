@@ -33,6 +33,10 @@ from ..schemas.plugins import (
     PluginInstallPending,
     PluginKept,
     PluginList,
+    PluginProfile,
+    PluginProfileImplementation,
+    PluginProfileList,
+    PluginProfileTool,
     PluginServerInstance,
     PluginServerInstanceCreate,
     PluginServerInstanceList,
@@ -42,7 +46,7 @@ from ..schemas.plugins import (
 )
 from ..services import plugin_approvals as approvals
 from ..services import plugin_installer as installer
-from ..services import plugin_servers
+from ..services import plugin_profile_view, plugin_servers
 from ..services.catalogue_rights import CatalogueAction, decide
 from ..services.plugin_sources import assess_plugin
 from ..services.plugin_supply import (
@@ -194,6 +198,32 @@ async def uninstall_plugin(
         version=version,
         removed=PluginKept.model_validate(outcome["removed"]),
         kept=PluginKept.model_validate(outcome["kept"]),
+    )
+
+
+@router.get(
+    "/orgs/{org}/plugin-profiles", response_model=PluginProfileList, operation_id="listPluginProfiles"
+)
+async def list_plugin_profiles(org: str, session: Db, principal: Me) -> PluginProfileList:
+    """The profiles the installed plugins declare, with their implementations and instances (ADR 0224)."""
+    _may_see(principal, org)
+    org_id = await installer.org_id_of(session, org)
+    return PluginProfileList(
+        items=[
+            PluginProfile(
+                **{k: v for k, v in p.items() if k not in ("tools", "implementations")},
+                tools=[PluginProfileTool(**t) for t in p["tools"]],
+                implementations=[
+                    PluginProfileImplementation(
+                        plugin=i["plugin"],
+                        server=i["server"],
+                        instances=[_instance_dto(c) for c in i["instances"]],
+                    )
+                    for i in p["implementations"]
+                ],
+            )
+            for p in await plugin_profile_view.profiles_of(session, org_id)
+        ]
     )
 
 

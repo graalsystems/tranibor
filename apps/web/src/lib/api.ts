@@ -30,6 +30,10 @@ import type {
   PluginInstall,
   PluginInstallPending,
   PluginList,
+  PluginProfileList,
+  PluginServerInstance,
+  PluginServerInstanceCreate,
+  PluginServerInstanceList,
   PluginSources,
   PluginUninstallResult,
   PluginUpgrade,
@@ -513,6 +517,11 @@ async function cliManifest(): Promise<CliManifest | null> {
 export type PageParams = { q?: string; cursor?: string; limit?: number };
 
 /** The query string of a paged list: its paging, its `q`, and the route's own filters in `extra`. */
+/** The instances of a plugin's server (ADR 0224 §3). */
+function instancesPath(org: string, plugin: string, server: string): string {
+  return `/orgs/${org}/plugins/${encodeURIComponent(plugin)}/servers/${encodeURIComponent(server)}/instances`;
+}
+
 function pageQuery(page: PageParams, extra: Record<string, string | undefined> = {}): string {
   return query(compact({ ...extra, q: page.q, cursor: page.cursor, limit: page.limit?.toString() }));
 }
@@ -1268,6 +1277,20 @@ export const api = {
   /** Uninstalls a plugin; the answer says what was removed and what stayed as the organisation's own. */
   uninstallPlugin: (org: string, name: string) =>
     request<PluginUninstallResult>(`/orgs/${org}/plugins/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  /** The profiles the installed plugins declare, each with its implementations and their instances (ADR 0224). */
+  pluginProfiles: (org: string) => request<PluginProfileList>(`/orgs/${org}/plugin-profiles`),
+  /** The instances of one server of an installed plugin: the default one, then the named ones (ADR 0224 §3). */
+  pluginServerInstances: (org: string, plugin: string, server: string) =>
+    request<PluginServerInstanceList>(instancesPath(org, plugin, server)),
+  /** Adds a named instance (an organisation administrator): 201 with it, 409 when a connector has that name. */
+  createPluginServerInstance: (org: string, plugin: string, server: string, body: PluginServerInstanceCreate) =>
+    request<PluginServerInstance>(instancesPath(org, plugin, server), { method: "POST", body: JSON.stringify(body) }),
+  /** Removes a named instance; the default one goes only with its plugin (409). */
+  deletePluginServerInstance: (org: string, plugin: string, server: string, instance: string) =>
+    request<void>(
+      `/orgs/${org}/plugins/${encodeURIComponent(plugin)}/servers/${encodeURIComponent(server)}/instances/${encodeURIComponent(instance)}`,
+      { method: "DELETE" },
+    ),
   /** The installs and upgrades that wait, or waited, for a second administrator. */
   pluginApprovals: (org: string) => request<PluginApprovalList>(`/orgs/${org}/plugin-approvals`),
   /** Another administrator than the one who asked approves: 403 for the same one. */

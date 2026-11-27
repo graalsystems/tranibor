@@ -902,6 +902,24 @@ Until the configuration satisfies the whole schema the Deployment has no replica
 says `unconfigured`; then `deployed`. The connector routes answer the server's plugin, version, `config_schema` and
 `secret_fields` under `server` (null for any other connector), so the console draws the server's own form.
 
+The form is drawn from `config_schema` by the console's schema form. Two optional keywords of a property
+(`x-help`, `x-link`; S86-05) tell the person what to put in it:
+
+```yaml
+config_schema:
+  type: object
+  properties:
+    base_url:
+      type: string
+      format: uri
+      x-help: The address you open in your browser, without a path.
+      x-link: { href: https://docs.example.com/instance-url, label: Where to find it }
+```
+
+`x-help` is one line under the field. `x-link` is a documentation link, `https:` only (a plain string reads
+"Documentation"; any other scheme is not drawn, because a schema is a plugin's text). Both are for the person
+filling the form: the API ignores them like any keyword it does not validate with.
+
 ### Named instances of a server
 
 The connector the install creates is the server's **default instance**. An administrator of the organisation
@@ -937,6 +955,14 @@ Each pod receives its instance name as `TRANIBOR_INSTANCE_NAME` (the default ins
 name), so a profile's `get_provider` can answer `{instance: ...}`. It is a reserved platform variable like
 `TRANIBOR_SERVER_TOKEN`: a server's `config_schema` or `x-env` cannot set it (any `TRANIBOR_*` name is refused at
 install). The eval fake and the in-process demo server get it too.
+
+In the console, Library → Plugins shows each installed plugin's servers with their instances and state
+(`unconfigured`, `starting`, `ready`, `failing`). **Add instance** asks for a name (checked against the pattern
+above before the API is asked, which stays the judge), creates the instance and opens its connector page to
+configure it; **Delete** is offered on a named instance only, after a confirmation. Both are an organisation
+administrator's; a member reads. `GET /orgs/{org}/plugin-profiles` (S86-05) lists the profiles the installed
+plugins declare with the servers that implement each and their instances; a profile's page
+(`/library/plugins/profile?name=<plugin>/<name>@<version>`) shows them.
 
 ### Network
 

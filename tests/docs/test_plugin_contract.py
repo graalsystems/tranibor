@@ -205,6 +205,7 @@ def test_the_plugin_operations_and_their_routes() -> None:
         ): "deletePluginServerInstance",
         ("/orgs/{org}/plugins/{name}", "delete"): "uninstallPlugin",
         ("/orgs/{org}/plugins/{name}/assistants", "get"): "listPluginAssistants",
+        ("/orgs/{org}/plugin-profiles", "get"): "listPluginProfiles",
         ("/orgs/{org}/plugin-approvals", "get"): "listPluginApprovals",
         ("/orgs/{org}/plugin-approvals/{approval_id}/approve", "post"): "approvePluginInstall",
         ("/webhooks/plugins/{org}/{plugin}/{server}", "post"): "pluginWebhook",

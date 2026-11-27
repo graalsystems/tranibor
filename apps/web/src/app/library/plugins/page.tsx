@@ -4,9 +4,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, BookOpen, Bot, ScrollText, ServerCog, Workflow, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Confirmation } from "@/components/confirmed-gesture";
-import { Alert, Badge, Button, Card, Code, Empty, ErrorNote, ReadState, Select } from "@/components/ui";
+import { Alert, Badge, Button, Card, Code, Empty, ErrorNote, Input, ReadState, Select } from "@/components/ui";
 import { OrgPageHeader } from "@/components/org-page-header";
 import { ProcedurePanel } from "@/components/procedures/procedure-panel";
 import { api } from "@/lib/api";
@@ -14,22 +15,27 @@ import {
   admissibleVersions,
   configureHref,
   CONTENT_KINDS,
+  implementedBy,
   installedOf,
+  INSTANCE_NAME,
+  INSTANCE_NAME_HINT,
+  instanceState,
   isOrgAdmin,
   isPending,
   NOT_ADMIN,
-  serverConnector,
-  serverState,
+  profileHref,
+  profilesOf,
   shortDigest,
   trustLabel,
 } from "@/lib/plugins";
 import { useSession } from "@/lib/session";
 import type {
   InstalledPlugin,
-  OrgConnector,
   PluginApproval,
   PluginContents,
   PluginInstallPending,
+  PluginProfile,
+  PluginServerInstance,
   PluginSource,
   PluginSourceEntry,
   PluginUninstallResult,
@@ -69,11 +75,12 @@ export default function PluginsPage() {
   const installed = useQuery({ queryKey: ["plugins", org], queryFn: () => api.plugins(org) });
   const sources = useQuery({ queryKey: ["plugin-sources", org], queryFn: () => api.pluginSources(org) });
   const approvals = useQuery({ queryKey: ["plugin-approvals", org], queryFn: () => api.pluginApprovals(org) });
+  const profiles = useQuery({ queryKey: ["plugin-profiles", org], queryFn: () => api.pluginProfiles(org) });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   async function refresh() {
     await Promise.all(
-      ["plugins", "plugin-sources", "plugin-approvals", "org-connectors"].map((key) =>
+      ["plugins", "plugin-sources", "plugin-approvals", "plugin-profiles", "plugin-instances", "org-connectors"].map((key) =>
         client.invalidateQueries({ queryKey: [key, org] }),
       ),
     );
@@ -116,6 +123,7 @@ export default function PluginsPage() {
                 org={org}
                 plugin={plugin}
                 admin={admin}
+                profiles={profiles.data?.items}
                 onDone={done}
               />
             ))
@@ -266,25 +274,17 @@ function Gesture({
   );
 }
 
-/** A plugin's server and its connector, found by the server's name (ADR 0206): never by filtering a partial list. */
-function ServerConnector({ org, server, admin }: { org: string; server: string; admin: boolean }) {
-  const found = useQuery({
-    queryKey: ["org-connectors", org, "server", server],
-    queryFn: () => api.orgConnectors(org, { q: server, kind: "mcp", limit: 200 }),
-    select: (page) => serverConnector(page.items, server),
-  });
-  return <ServerLine server={server} admin={admin} connector={found.data} />;
-}
-
 function InstalledCard({
   org,
   plugin,
   admin,
+  profiles,
   onDone,
 }: {
   org: string;
   plugin: InstalledPlugin;
   admin: boolean;
+  profiles: PluginProfile[] | undefined;
   onDone: (outcome: Outcome) => Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -346,10 +346,18 @@ function InstalledCard({
           </dd>
         </dl>
         <Contents contents={plugin.contents} />
+        <ProfileLinks profiles={profilesOf(profiles, plugin.name)} />
         {plugin.contents.servers.length > 0 && (
-          <ul className="space-y-1" aria-label={`Servers of ${plugin.name}`}>
+          <ul className="space-y-3" aria-label={`Servers of ${plugin.name}`}>
             {plugin.contents.servers.map((server) => (
-              <ServerConnector key={server} org={org} server={server} admin={admin} />
+              <ServerBlock
+                key={server}
+                org={org}
+                plugin={plugin.name}
+                server={server}
+                admin={admin}
+                implemented={implementedBy(profiles, plugin.name, server)}
+              />
             ))}
           </ul>
         )}
@@ -424,26 +432,226 @@ function Contents({ contents }: { contents: PluginContents }) {
   );
 }
 
-function ServerLine({ server, admin, connector }: { server: string; admin: boolean; connector: OrgConnector | undefined }) {
-  const state = serverState(connector);
+/** The profiles a plugin declares (ADR 0224), each opening its own page with what implements it. */
+function ProfileLinks({ profiles }: { profiles: PluginProfile[] }) {
+  if (profiles.length === 0) return null;
   return (
-    <li className="flex flex-wrap items-center gap-2" data-testid={`server-${server}`}>
-      <ServerCog aria-hidden className="h-4 w-4 text-ink-muted" />
+    <ul className="space-y-1" aria-label="Profiles it declares" data-testid="profiles-declared">
+      {profiles.map((profile) => (
+        <li key={profile.profile} className="flex flex-wrap items-center gap-2" data-testid={`profile-${profile.profile}`}>
+          <ScrollText aria-hidden className="h-4 w-4 text-ink-muted" />
+          <span>
+            Profile{" "}
+            <Link href={profileHref(profile.profile)} className="font-semibold underline" data-verbatim>
+              {profile.profile}
+            </Link>
+          </span>
+          <span className="text-xs text-ink-muted">
+            {profile.tools.length} tool{profile.tools.length === 1 ? "" : "s"},{" "}
+            {profile.implementations.reduce((n, i) => n + i.instances.length, 0)} instance
+            {profile.implementations.reduce((n, i) => n + i.instances.length, 0) === 1 ? "" : "s"}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * A plugin's server and its instances (ADR 0224 §3): the default one, named after the server, then the named
+ * ones, each an organisation connector with its own settings and secrets. An administrator adds an instance
+ * by its name and lands on that instance's connector page to configure it; a named instance can be deleted,
+ * the default one goes only with its plugin.
+ */
+function ServerBlock({
+  org,
+  plugin,
+  server,
+  admin,
+  implemented,
+}: {
+  org: string;
+  plugin: string;
+  server: string;
+  admin: boolean;
+  implemented: string[];
+}) {
+  const client = useQueryClient();
+  const instances = useQuery({
+    queryKey: ["plugin-instances", org, plugin, server],
+    queryFn: () => api.pluginServerInstances(org, plugin, server),
+  });
+  const [removing, setRemoving] = useState<string | null>(null);
+  async function refresh() {
+    await Promise.all(
+      ["plugin-instances", "plugin-profiles", "org-connectors"].map((key) => client.invalidateQueries({ queryKey: [key, org] })),
+    );
+  }
+  return (
+    <li className="space-y-1" data-testid={`server-${server}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <ServerCog aria-hidden className="h-4 w-4 text-ink-muted" />
+        <span>
+          Server <strong data-verbatim>{server}</strong>
+        </span>
+        {implemented.length > 0 && (
+          <span className="text-xs text-ink-muted" data-testid={`implements-${server}`}>
+            implements{" "}
+            {implemented.map((profile, at) => (
+              <span key={profile}>
+                {at > 0 && ", "}
+                <Link href={profileHref(profile)} className="underline" data-verbatim>
+                  {profile}
+                </Link>
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+      <ReadState lecture={instances} quoi={`the instances of ${server}`} />
+      <ul className="space-y-1 pl-6" aria-label={`Instances of ${server}`}>
+        {(instances.data?.items ?? []).map((instance) => (
+          <InstanceLine
+            key={instance.name}
+            instance={instance}
+            admin={admin}
+            onRemove={() => setRemoving(instance.name)}
+          />
+        ))}
+      </ul>
+      {removing && (
+        <Confirmation
+          question={
+            <>
+              Delete the instance <strong data-verbatim>{removing}</strong>? Its connector, settings, secrets and
+              Deployment are removed; agents that name it directly lose its tools.
+            </>
+          }
+          confirmer="Delete"
+          action={async () => {
+            await api.deletePluginServerInstance(org, plugin, server, removing);
+            setRemoving(null);
+            await refresh();
+          }}
+          onAnnuler={() => setRemoving(null)}
+        />
+      )}
+      <AddInstance org={org} plugin={plugin} server={server} admin={admin} taken={(instances.data?.items ?? []).map((i) => i.name)} onAdded={refresh} />
+    </li>
+  );
+}
+
+function InstanceLine({
+  instance,
+  admin,
+  onRemove,
+}: {
+  instance: PluginServerInstance;
+  admin: boolean;
+  onRemove: () => void;
+}) {
+  const state = instanceState(instance);
+  return (
+    <li className="flex flex-wrap items-center gap-2" data-testid={`instance-${instance.name}`}>
       <span>
-        Server <strong data-verbatim>{server}</strong>, connector <Code>{server}</Code>
+        Instance <Code>{instance.name}</Code>
       </span>
+      {instance.default && <Badge tone="accent">Default</Badge>}
       <Badge tone={state.tone}>{state.label}</Badge>
       {state.label === "unconfigured" && <span className="text-xs text-ink-muted">no replica until its settings are complete</span>}
-      {admin ? (
-        <Link href={configureHref(server)} className="text-xs underline">
-          Configure
-        </Link>
-      ) : (
-        <Link href={configureHref(server)} className="text-xs underline" aria-describedby="plugins-not-admin">
-          View its connector
-        </Link>
+      {instance.state === "failing" && instance.last_error && (
+        <span className="text-xs text-danger" data-verbatim>
+          {instance.last_error}
+        </span>
+      )}
+      <Link
+        href={configureHref(instance.name)}
+        className="text-xs underline"
+        aria-describedby={admin ? undefined : "plugins-not-admin"}
+      >
+        {admin ? "Configure" : "View its connector"}
+      </Link>
+      {!instance.default && (
+        <Gesture admin={admin} tone="danger" onClick={onRemove}>
+          Delete
+        </Gesture>
       )}
     </li>
+  );
+}
+
+/** Add an instance: its name first, then the instance's own connector page, where its settings are filled. */
+function AddInstance({
+  org,
+  plugin,
+  server,
+  admin,
+  taken,
+  onAdded,
+}: {
+  org: string;
+  plugin: string;
+  server: string;
+  admin: boolean;
+  taken: string[];
+  onAdded: () => Promise<void>;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = INSTANCE_NAME.test(name);
+  const duplicate = taken.includes(name);
+  async function add() {
+    setError(null);
+    setBusy(true);
+    try {
+      const created = await api.createPluginServerInstance(org, plugin, server, { name });
+      await onAdded();
+      router.push(configureHref(created.name));
+    } catch (cause) {
+      setError(why(cause));
+      setBusy(false);
+    }
+  }
+  if (!open) {
+    return (
+      <div className="pl-6">
+        <Gesture admin={admin} onClick={() => setOpen(true)}>
+          Add instance
+        </Gesture>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="space-y-1 pl-6"
+      data-testid={`add-instance-${server}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid && !duplicate && !busy) void add();
+      }}
+    >
+      <label className="block space-y-1">
+        <span className="text-xs text-ink-muted">Name of the new instance of {server}</span>
+        <Input value={name} onChange={(event) => setName(event.target.value)} aria-describedby={`add-instance-${server}-hint`} />
+      </label>
+      <p id={`add-instance-${server}-hint`} className="text-xs text-ink-muted">
+        {INSTANCE_NAME_HINT} It becomes the connector&apos;s name, and its tools are named <Code>{name || "name"}__tool</Code>.
+        {name !== "" && !valid && " This name is not valid."}
+        {duplicate && " This instance already exists."}
+      </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" tone="primary" type="submit" disabled={!admin || !valid || duplicate || busy}>
+          {busy ? "Adding…" : "Add and configure"}
+        </Button>
+        <Button size="sm" type="button" onClick={() => { setOpen(false); setName(""); setError(null); }}>
+          Cancel
+        </Button>
+      </div>
+      {error && <ErrorNote>{error}</ErrorNote>}
+    </form>
   );
 }
 

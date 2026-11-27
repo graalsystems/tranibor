@@ -4322,6 +4322,36 @@ export type PluginServerInstanceList = {
   items: Array<PluginServerInstance>;
 };
 
+export type PluginProfileTool = {
+  name: string;
+  access: "read" | "write" | "admin";
+  description?: string | null;
+};
+
+export type PluginProfileImplementation = {
+  /** the plugin whose server implements the profile */
+  plugin: string;
+  server: string;
+  /** the default instance first, then the named ones */
+  instances: Array<PluginServerInstance>;
+};
+
+export type PluginProfile = {
+  name: string;
+  /** the plugin that declares the profile */
+  plugin: string;
+  /** `<plugin>/<name>@<version>`, as `implements` and an agent's `profile` entry write it */
+  profile: string;
+  version: number;
+  description: string;
+  tools: Array<PluginProfileTool>;
+  implementations: Array<PluginProfileImplementation>;
+};
+
+export type PluginProfileList = {
+  items: Array<PluginProfile>;
+};
+
 export type PluginUpgrade = {
   /** an exact version or a range; absent, the newest admissible */
   version?: string;
@@ -7292,6 +7322,7 @@ export interface Operations {
   listPlatformModels: { method: "GET"; path: "/platform/models"; body: never; response: GatewayModelPage };
   listPluginApprovals: { method: "GET"; path: "/orgs/{org}/plugin-approvals"; body: never; response: PluginApprovalList };
   listPluginAssistants: { method: "GET"; path: "/orgs/{org}/plugins/{name}/assistants"; body: never; response: PluginAssistantList };
+  listPluginProfiles: { method: "GET"; path: "/orgs/{org}/plugin-profiles"; body: never; response: PluginProfileList };
   listPluginServerInstances: { method: "GET"; path: "/orgs/{org}/plugins/{name}/servers/{server}/instances"; body: never; response: PluginServerInstanceList };
   listPluginSources: { method: "GET"; path: "/orgs/{org}/plugin-sources"; body: never; response: PluginSources };
   listPlugins: { method: "GET"; path: "/orgs/{org}/plugins"; body: never; response: PluginList };

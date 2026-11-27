@@ -6,6 +6,8 @@ import type {
   OrgConnector,
   PluginContents,
   PluginInstallPending,
+  PluginProfile,
+  PluginServerInstance,
   PluginSourceEntry,
   PluginTrust,
 } from "./types";
@@ -72,4 +74,34 @@ export function configureHref(server: string): string {
 /** The installed plugin of that name, if any. */
 export function installedOf(installed: InstalledPlugin[] | undefined, name: string): InstalledPlugin | undefined {
   return (installed ?? []).find((p) => p.name === name);
+}
+
+/** A server's instance name: what the API accepts (ADR 0224 §3, `^[a-z][a-z0-9-]{1,47}$`), said before it asks. */
+export const INSTANCE_NAME = /^[a-z][a-z0-9-]{1,47}$/;
+
+export const INSTANCE_NAME_HINT = "2 to 48 characters: lower-case letters, digits and hyphens, starting with a letter.";
+
+/** An instance's state in words and tone: `unconfigured`, `starting`, `ready` or `failing`. */
+export function instanceState(instance: PluginServerInstance): { label: string; tone: "ok" | "warn" | "danger" | "neutral" } {
+  if (instance.state === "ready") return { label: "ready", tone: "ok" };
+  if (instance.state === "failing") return { label: "failing", tone: "danger" };
+  if (instance.state === "starting") return { label: "starting", tone: "neutral" };
+  return { label: "unconfigured", tone: "warn" };
+}
+
+/** The profiles a plugin declares, by the profile's own plugin. */
+export function profilesOf(profiles: PluginProfile[] | undefined, plugin: string): PluginProfile[] {
+  return (profiles ?? []).filter((p) => p.plugin === plugin);
+}
+
+/** The profiles a server says it implements (what the organisation's profile list shows of it). */
+export function implementedBy(profiles: PluginProfile[] | undefined, plugin: string, server: string): string[] {
+  return (profiles ?? [])
+    .filter((p) => p.implementations.some((i) => i.plugin === plugin && i.server === server))
+    .map((p) => p.profile);
+}
+
+/** Where a profile's page is: `<plugin>/<name>@<version>` in the query, so that no path segment carries the `@`. */
+export function profileHref(profile: string): string {
+  return `/library/plugins/profile?name=${encodeURIComponent(profile)}`;
 }
