@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from tranibor_core.dns_policy import UPSTREAM, DnsPolicy
 from tranibor_core.images import check_image_map
 from tranibor_core.mcp import RESULT_CEILING_BYTES, RESULT_MAX_BYTES
 from tranibor_core.publishing import PUBLISHING
@@ -345,6 +346,10 @@ class Settings(BaseSettings):
     plugin_servers_egress_private_cidrs_by_org: dict[str, list[str]] = Field(default_factory=dict)
     #: The namespace of the API's pods, the only ones a server admits; empty: any namespace.
     plugin_servers_api_namespace: str = ""
+    #: The cluster's resolver, which a server's NetworkPolicy opens (#2277): the chart's
+    #: `networkPolicies.dns`, as JSON in `TRANIBOR_DNS_POLICY` (`{"namespace": …, "podLabels": …,
+    #: "cidrs": …, "ports": …}`), the same value the workers read. Unset: `kube-system`, UDP and TCP 53.
+    dns_policy: DnsPolicy = UPSTREAM
     plugin_servers_cpu: str = "500m"
     plugin_servers_memory: str = "512Mi"
     #: Where the pods pull a server's image from (S80-20): a registry or repository prefix mapped to
