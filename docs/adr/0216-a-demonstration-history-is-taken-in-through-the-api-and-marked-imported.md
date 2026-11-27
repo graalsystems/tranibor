@@ -92,8 +92,9 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     packs), no imported cost line (cost by project, stage and model; today's cost) and no imported work item
     (lead time); the first-pass rate (`first_pass_merge_rate`, a gauge and the project card's
     `first_pass_acceptance_rate`) leaves imported work items out. The cost reports' CSV export keeps the
-    ledger's sum in `cout_usd` and adds a last column, `imported_usd`, what an import put in that line, as
-    the JSON report already did. Member spend reads the lines that name a person (`user_id`), which an import
+    ledger's sum in `cout_usd` and adds a ninth column, `imported_usd`, what an import put in that line, as
+    the JSON report already did (the eight columns before it keep their position; the declared currency's
+    column stays last). Member spend reads the lines that name a person (`user_id`), which an import
     never writes: nothing to exclude. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
 
 ## Not done

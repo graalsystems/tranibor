@@ -215,7 +215,7 @@ async def test_the_csv_follows_the_filters(
         )
         assert response.status_code == 200, response.text
         lines = response.text.lstrip("﻿").splitlines()
-        assert "agent-b;10.000000;5.000000;1000;100;300;2;0" in lines, lines
+        assert "agent-b;10.000000;5.000000;1000;100;300;2;0;0.000000" in lines, lines
         assert not any(line.startswith("agent-a;") for line in lines), lines
 
 
@@ -270,7 +270,7 @@ async def test_the_csv_names_runs_too(
     response = await client.get(_url("org", project, csv=True), params={"group_by": "run"})
     lines = response.text.lstrip("﻿").splitlines()
     assert lines[0].startswith("run;cout_usd;"), lines[0]
-    assert "A-1 · implement #2;4.000000;2.000000;400;40;10;1;0" in lines, lines
+    assert "A-1 · implement #2;4.000000;2.000000;400;40;10;1;0;0.000000" in lines, lines
 
 
 # ───────────────────────── the assistant: its filter and its grouping ─────────────────────────
@@ -328,9 +328,9 @@ async def test_the_csv_follows_the_assistant_filter_and_grouping(
         assert response.status_code == 200, response.text
         lines = response.text.lstrip("﻿").splitlines()
         assert lines[0].startswith("assistant;cout_usd;"), lines[0]
-        assert "support;128.000000;64.000000;12800;1280;5000;1;0" in lines, lines
+        assert "support;128.000000;64.000000;12800;1280;5000;1;0;0.000000" in lines, lines
         assert not any(line.startswith(("investor;", "—;")) for line in lines), lines
-        assert "total;128.000000;64.000000;12800;1280;5000;;0" in lines, lines
+        assert "total;128.000000;64.000000;12800;1280;5000;;0;0.000000" in lines, lines
 
 
 @pytest.mark.parametrize("scope", SCOPES)
@@ -394,4 +394,4 @@ async def test_the_csv_writes_the_tokens_of_the_total(
     for scope in SCOPES:
         response = await client.get(_url(scope, project, csv=True), params={"group_by": "run"})
         lines = response.text.lstrip("﻿").splitlines()
-        assert "total;31.000000;15.500000;3100;310;350;;0" in lines, lines
+        assert "total;31.000000;15.500000;3100;310;350;;0;0.000000" in lines, lines

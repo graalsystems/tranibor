@@ -69,6 +69,7 @@ async def test_the_csv_carries_cache_writes_last_so_that_columns_keep_their_posi
         "tokens_caches",
         "runs",
         "tokens_cache_write",
+        "imported_usd",
     ]
     by_key = {line[0]: line for line in lines[1:] if line[0] in {"a", "b", "total"}}
     # The first seven cells are the ones a consumer already reads by position; the write is the eighth.

@@ -4030,7 +4030,9 @@ its work item's key and stage (`PAY-12 · review #2` for a second attempt). `ass
 installation's id) narrows it to that assistant's conversation turns and tasks, and `group_by=assistant`
 names each installation by its slug, `—` for what no assistant spent. The report's `total` carries
 `tokens_in`, `tokens_out`, `tokens_cached` (cache reads) and `tokens_cache_write` next to the money; the CSV
-export carries the write count as its last column.
+export carries the write count as its eighth column, then `imported_usd` (what an imported demonstration
+history put in the line, already inside `cout_usd`; ADR 0216), then the declared currency's column when
+there is one.
 
 ```bash
 curl "$API/orgs/acme/costs?agent=developer&group_by=model"

@@ -97,7 +97,7 @@ async def test_the_csv_export_says_what_an_import_put_in_each_line(
     assert response.status_code == 200, response.text
     lines = [line.lstrip("﻿").split(";") for line in response.text.splitlines() if line]
     header = lines[0]
-    assert header[-1] == "imported_usd"
+    assert header[8] == "imported_usd", "after the eight columns that were there, which keep their position"
     column = header.index("imported_usd")
     by_key = {line[0]: line for line in lines[1:] if line and line[0]}
     assert float(by_key["implement"][column]) == pytest.approx(0.7035)
