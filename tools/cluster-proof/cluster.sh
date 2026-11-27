@@ -90,8 +90,14 @@ dns() {
     kc -n kube-system create configmap coredns-custom --from-file=proof.server="$WORK/proof.server" \
       --dry-run=client -o yaml | kc apply -f - >/dev/null
   fi
+  # The rollout is done before the old pods are gone: until they are, the Service still sends some
+  # queries to a server without the block (measured on kind: the first lookup from a pod failed).
+  local old
+  old=$(kc -n kube-system get pods -l k8s-app=kube-dns -o name)
   kc -n kube-system rollout restart deploy/coredns >/dev/null
   kc -n kube-system rollout status deploy/coredns --timeout=180s
+  # shellcheck disable=SC2086 # a list of pod names
+  kc -n kube-system wait --for=delete $old --timeout=180s
 }
 
 up() {
