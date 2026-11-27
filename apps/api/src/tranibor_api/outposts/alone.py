@@ -8,7 +8,9 @@ requests take no worker and no pooled connection from the console and the runs
 
 What it holds, and nothing else:
 
-- the door's four verbs (`door.router`), under the same checks at start-up as the API's (`check_the_door`);
+- the door's four verbs (`door.router`), under the same checks at start-up as the API's (`check_the_door`),
+  each in a session marked as the door's (`door.door_session`, `mark_the_door`), as in the API: a person's
+  runner's rows exist for the door, never for a session that merely names no person (ADR 0226 §1);
 - two probes, `/healthz` and `/readyz` (the database answers): they are this process's, not the
   door's, and no route outside the cluster leads to them;
 - the wake-up channel of the relay's `LISTEN` connection, and that channel only: no platform event is

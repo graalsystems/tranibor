@@ -14,9 +14,11 @@ a second, RESTRICTIVE policy copied from `projects_personal_owner`, so it narrow
 `<table>_org_isolation` allows instead of widening it. A row of a personal outpost is seen and written:
 
 - under the platform scope (`*`);
-- by a session that names no person: the door, which names the one outpost its caller's signature
-  resolves to (ADR 0148 §6) and works for an instance, never for a person. Every request of a person names
-  that person (`deps`, `name_the_user`);
+- by the door, which names the one outpost its caller's signature resolves to (ADR 0148 §6) and works for
+  an instance, never for a person. It is known by a marker its own code sets in each of its sessions,
+  `app.current_door = 'outposts'` (`db.session.mark_the_door`, `outposts/door.py`, served by the API or
+  alone), and never by the absence of a person: a session that names no person and is not the door sees
+  none of these rows;
 - by a session of its owner (`app.current_user`);
 
 and by no other person, whatever their role and the outpost they name. The outpost is looked up under
@@ -53,7 +55,7 @@ def _owner_only(table: str) -> str:
     CREATE POLICY {table}_personal_owner ON {table} AS RESTRICTIVE
     USING (
       '*' = ANY(choregos_current_orgs())
-      OR choregos_utilisateur_courant() IS NULL
+      OR current_setting('app.current_door', true) = 'outposts'
       OR EXISTS (
         SELECT 1 FROM outposts
         WHERE outposts.id = {table}.outpost_id

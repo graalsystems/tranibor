@@ -90,6 +90,8 @@ from ..db.session import (
     ALL_ORGS,
     get_sessionmaker,
     in_outpost_scope,
+    in_platform_scope,
+    mark_the_door,
     run_after_commit,
     run_after_end,
     session_scope,
@@ -240,15 +242,20 @@ class Scope:
 
 
 @contextlib.asynccontextmanager
-async def in_scope(outpost_id: str) -> AsyncIterator[Scope | None]:
+async def in_scope(outpost_id: str, *, door: bool = False) -> AsyncIterator[Scope | None]:
     """A transaction of its own under the scope of one outpost of one organisation, committed when
     the block ends; `None` when there is no such outpost. Whoever waits for something takes one per
     look and holds no connection in between (ADR 0148 §7).
 
     The scope is S65-11's (`scope_to_outpost`): the outpost is named first, its organisation read
-    from it, and the session narrowed to that organisation before anything else runs."""
+    from it, and the session narrowed to that organisation before anything else runs. It names no
+    person, which does not make it the door: a person's runner's rows are hidden from it
+    (`<table>_personal_owner`, ADR 0226 §1) unless the door takes it, `door=True`, which marks the
+    session as the door's (`mark_the_door`)."""
     async with get_sessionmaker()() as session:
         try:
+            if door:
+                await mark_the_door(session)
             found = await service.scope_to_outpost(session, outpost_id)
             yield Scope(session, found[0], found[1]) if found is not None else None
             await session.commit()
@@ -1156,7 +1163,9 @@ async def sweep(now: datetime | None = None) -> int:
     The polls and the placements already do it for the outposts that are polled or called; this is
     for the others: an outpost that went away with calls in flight. It runs as the platform. Under
     that scope no outpost's row exists until an outpost is named (ADR 0148 §6), so the registry is
-    listed first and each outpost is named in turn, in a transaction of its own."""
+    listed first and each outpost is named in turn, in a transaction of its own. Each stays under the
+    platform's scope: a person's runner's rows are hidden from a session that names no person and is not
+    the door (`<table>_personal_owner`, ADR 0226 §1), and the sweep is neither."""
     async with session_scope(orgs=ALL_ORGS) as session:
         outposts = list((await session.execute(select(Outpost.id))).scalars())
     moved = 0
@@ -1164,18 +1173,19 @@ async def sweep(now: datetime | None = None) -> int:
         async with in_scope(outpost_id) as scope:
             if scope is None:
                 continue
-            at = now or utcnow()
-            moved += await _close(scope.session, outpost_id, at)
-            await scope.session.execute(
-                update(OutpostCall)
-                .where(
-                    OutpostCall.outpost_id == outpost_id,
-                    OutpostCall.answer_sealed.is_not(None),
-                    OutpostCall.finished_at <= at - timedelta(seconds=ANSWER_KEPT_S),
+            async with in_platform_scope(scope.session):
+                at = now or utcnow()
+                moved += await _close(scope.session, outpost_id, at)
+                await scope.session.execute(
+                    update(OutpostCall)
+                    .where(
+                        OutpostCall.outpost_id == outpost_id,
+                        OutpostCall.answer_sealed.is_not(None),
+                        OutpostCall.finished_at <= at - timedelta(seconds=ANSWER_KEPT_S),
+                    )
+                    .values(answer_sealed=None, **_NO_ANSWER_KEY)
+                    .execution_options(synchronize_session=False)
                 )
-                .values(answer_sealed=None, **_NO_ANSWER_KEY)
-                .execution_options(synchronize_session=False)
-            )
     return moved
 
 

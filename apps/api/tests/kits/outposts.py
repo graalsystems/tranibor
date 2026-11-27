@@ -116,13 +116,14 @@ def enrolment_request(token: str, **changes: Any) -> OutpostEnrolmentRequest:
 
 
 async def enrol(token: str, **changes: Any) -> Any:
-    """Enrol as the door will: a session of its own that has no scope yet, committed when it worked
-    and rolled back when it was refused."""
-    from tranibor_api.db.session import get_sessionmaker
+    """Enrol as the door will: a session of its own, marked as the door's and with no scope yet,
+    committed when it worked and rolled back when it was refused."""
+    from tranibor_api.db.session import get_sessionmaker, mark_the_door
     from tranibor_api.services import outposts as service
 
     async with get_sessionmaker()() as session:
         try:
+            await mark_the_door(session)
             enrolled = await service.enrol(session, enrolment_request(token, **changes))
             await session.commit()
         except Exception:

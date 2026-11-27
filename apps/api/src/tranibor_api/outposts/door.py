@@ -27,9 +27,9 @@ import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import (
@@ -50,7 +50,7 @@ from tranibor_core import utcnow
 from ..audit import record
 from ..config import Settings
 from ..db.models import OutpostInstance
-from ..db.session import release_connection
+from ..db.session import mark_the_door, release_connection
 from ..deps import Config, Db
 from ..logging import get_logger
 from ..services import outposts as service
@@ -75,6 +75,21 @@ _ENROLMENT_REFUSALS: Final = {
     OutpostDoorCode.KEY_ALREADY_ENROLLED: "this signing key is already an instance: a key enrols again "
     "only while it is still pending at the same outpost",
 }
+
+
+async def door_session(session: Db) -> AsyncSession:
+    """The request's session, marked as the door's before the verb reads anything (`mark_the_door`).
+
+    A person's runner's rows exist for the door and for no session that merely names no person
+    (`<table>_personal_owner`, ADR 0226 §1): the door says what it is, in each of its sessions, whether
+    the API serves it or it is served alone (`alone.py` serves this router). The short transactions a
+    poll takes for its looks are marked too (`rendezvous.in_scope(..., door=True)`)."""
+    await mark_the_door(session)
+    return session
+
+
+#: The session each verb of the door works in.
+DoorDb = Annotated[AsyncSession, Depends(door_session)]
 
 
 def _runs_not_served(capabilities: list[str]) -> None:
@@ -113,7 +128,7 @@ async def _served(request: Request, settings: Settings, verb: Awaitable[Response
 
 
 @router.post("/outposts/v1/enrol")
-async def enrol(request: Request, session: Db, settings: Config) -> Response:
+async def enrol(request: Request, session: DoorDb, settings: Config) -> Response:
     """An enrolment token and the instance's public keys; answers a pending instance (ADR 0147 §4)."""
     return await _served(request, settings, _enrol(request, session, settings))
 
@@ -160,7 +175,7 @@ async def _enrol(request: Request, session: AsyncSession, settings: Settings) ->
 
 
 @router.post("/outposts/v1/poll")
-async def poll(request: Request, session: Db, settings: Config) -> Response:
+async def poll(request: Request, session: DoorDb, settings: Config) -> Response:
     """Wait for calls to make; learn the cancellations, the door's time and the protocol window."""
     return await _served(request, settings, _poll(request, session, settings))
 
@@ -214,7 +229,7 @@ async def _take_the_slot(
 
 async def _give_the_slot_back(outpost_id: str, instance_id: str, holder: str) -> None:
     """Empty the slot if it is still this poll's. A transaction of its own: the poll's request holds none."""
-    async with rendezvous.in_scope(outpost_id) as scope:
+    async with rendezvous.in_scope(outpost_id, door=True) as scope:
         if scope is None:
             return
         await scope.session.execute(
@@ -287,7 +302,7 @@ async def _conflict(session: AsyncSession, caller: auth.Caller, now: datetime) -
 async def _look(caller: auth.Caller, body: OutpostPollRequest, holder: str, first: bool) -> _Look:
     """One look, in a short transaction of its own under the outpost's scope: is the instance still
     this poll's to serve, is there a call to claim for it, is one of those it holds awaited no more."""
-    async with rendezvous.in_scope(caller.outpost.id) as scope:
+    async with rendezvous.in_scope(caller.outpost.id, door=True) as scope:
         if scope is None:
             return _Look(revoked=True)
         session, outpost = scope.session, scope.outpost
@@ -398,7 +413,7 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
 
 
 @router.post("/outposts/v1/calls/{id}/answer")
-async def answer(id: str, request: Request, session: Db, settings: Config) -> Response:
+async def answer(id: str, request: Request, session: DoorDb, settings: Config) -> Response:
     """The sealed answer of a call the instance claimed; recorded once. The door does not open it."""
 
     def sent(raw: bytes) -> dict[str, Any]:
@@ -408,7 +423,7 @@ async def answer(id: str, request: Request, session: Db, settings: Config) -> Re
 
 
 @router.post("/outposts/v1/calls/{id}/refuse")
-async def refuse(id: str, request: Request, session: Db, settings: Config) -> Response:
+async def refuse(id: str, request: Request, session: DoorDb, settings: Config) -> Response:
     """A refusal code from the contract's closed list; recorded once. It names a class, never a rule."""
 
     def sent(raw: bytes) -> dict[str, Any]:

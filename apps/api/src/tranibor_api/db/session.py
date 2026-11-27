@@ -153,9 +153,9 @@ def _executed(state: Any) -> None:
 _RELEASABLE = "choregos.releasable"
 #: The transaction-local settings the session's next transaction starts with (`release_connection`).
 _RESUME = "choregos.resume_settings"
-#: The settings `release_connection` carries to the next transaction: the RLS scope, the user it names
-#: and the outpost it names (ADR 0148 §6).
-_CARRIED = ("app.current_orgs", "app.current_user", "app.current_outpost")
+#: The settings `release_connection` carries to the next transaction: the RLS scope, the user it names,
+#: the outpost it names (ADR 0148 §6) and the door it is (`mark_the_door`).
+_CARRIED = ("app.current_orgs", "app.current_user", "app.current_outpost", "app.current_door")
 
 
 def allow_release_during_calls(session: AsyncSession) -> None:
@@ -327,6 +327,27 @@ async def name_the_outpost(session: AsyncSession, outpost_id: str | None) -> Non
     await session.execute(
         text("SELECT set_config('app.current_outpost', :outpost, true)"), {"outpost": outpost_id or ""}
     )
+
+
+#: What `app.current_door` holds in a session of the outposts' door (`mark_the_door`).
+OUTPOSTS_DOOR = "outposts"
+
+
+async def mark_the_door(session: AsyncSession) -> None:
+    """Set `app.current_door` to `outposts`: the session is the outposts' door's, for THE current
+    transaction only (`release_connection` carries it to the next).
+
+    A person's runner is an outpost one person owns (ADR 0226 §1). Its own rows (instances, enrolment
+    tokens, calls) are under a restrictive policy, `<table>_personal_owner`: they exist under the platform
+    scope, for a session of their owner, and for the door, which works for an instance and never for a
+    person. The policy knows the door by this marker, which the door's own code sets in each of its
+    sessions (`outposts/door.py`, whether the API serves it or `python -m tranibor_api.outposts` serves
+    it alone), and never by the absence of a person: a session that forgot to name its user is not the
+    door. The marker widens nothing else: the session still sees one outpost's rows, the one it names,
+    inside an organisation scope that holds it."""
+    if get_settings().is_sqlite:
+        return
+    await session.execute(text("SELECT set_config('app.current_door', :door, true)"), {"door": OUTPOSTS_DOOR})
 
 
 @asynccontextmanager

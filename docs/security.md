@@ -1006,8 +1006,11 @@ answered for the first check that fails, in the contract's order (`apps/api/src/
 - *Another person's runner.* A person's runner is an outpost one person owns
   ([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md) §1-2). Its instances, enrolment
   tokens and calls are under a second, restrictive policy: they exist for its owner's sessions, for the
-  door (a session that names the outpost and no person) and under the platform scope, and for no other
-  person, its organisation's administrators included (`apps/api/tests/test_personal_outposts_postgres.py`).
+  door and under the platform scope, and for no other person, its organisation's administrators included
+  (`apps/api/tests/test_personal_outposts_postgres.py`). The door is known by a marker its own code sets in
+  each of its sessions, `app.current_door = 'outposts'` (`mark_the_door`, `outposts/door.py`, whether the API
+  serves it or it is served alone), never by the absence of a person: a session that names the outpost and
+  neither a person nor the door sees none of those rows.
   Only its owner enrols and approves its machines (`/me/runners`); every administrator route that reaches
   its instances, tokens or calls answers 403 `personal_outpost`, since an administrator's machine enrolled
   there would receive that person's runs (`apps/api/tests/test_personal_outposts.py`).
