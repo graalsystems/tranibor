@@ -101,9 +101,10 @@ async def mint_run_key(session: Any, bundle: Any, run: Run, stage_input: StageIn
     """Mints the run's key, for the run's Secret only; the reservation row becomes its row.
 
     Called by `start_run` only when the run has not started (no executor ref): a retried
-    `start_run` whose first attempt was rolled back mints again, and the executor rewrites the
-    run's Secret with the new key — the key of the rolled-back attempt is known to no row and
-    dies at its TTL.
+    `start_run` mints again, and the executor rewrites the run's Secret with the new key. The first
+    attempt's key was committed with its row before the executor was called (#2311): that row is the
+    run's (`run.gateway_key_id`) and becomes the new key's, so the run holds one reservation, never two,
+    and the first key is revoked at the gateway (best effort: otherwise it dies at its TTL).
     """
     budget = stage_input.budget
     key = await mint_key(
@@ -123,6 +124,11 @@ async def mint_run_key(session: Any, bundle: Any, run: Run, stage_input: StageIn
     )
     # The key id can be deterministic (the direct gateway's): a row may already carry it.
     row = await _key_row(session, key.key_id) or await _key_row(session, reservation_id(run.id))
+    if row is None and run.gateway_key_id:
+        # A retried start: the first attempt's key and its row were committed before the executor failed.
+        row = await _key_row(session, run.gateway_key_id)
+        if row is not None and row.key_id != key.key_id and not row.key_id.startswith(RESERVED_PREFIX):
+            await revoke(bundle, row.key_id)
     if row is None:
         session.add(
             GatewayKeyRow(
