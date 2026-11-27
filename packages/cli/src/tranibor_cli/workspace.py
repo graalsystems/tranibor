@@ -658,8 +658,19 @@ class Workspace(App[None]):
         "live": "#live-view",  # the pane takes it once it is mounted (`open_live`)
     }
 
+    @property
+    def screens_gone(self) -> bool:
+        """The app is closing: its screen stack is empty, and `self.screen` would raise `ScreenStackError`.
+
+        A message queued before the exit (a highlight, a resize, a read that lands) is still handled after
+        the last screen went (#2306): what draws or refreshes the bindings then has nothing to draw on.
+        """
+        return not self.screen_stack
+
     def on_resize(self, event: Any) -> None:
         """Below `CONTEXT_MIN` columns the context pane folds away: the main view takes the width."""
+        if self.screens_gone:
+            return
         self.screen.set_class(event.size.width < CONTEXT_MIN, "-narrow")
         self._tab_gap = 2 if event.size.width < 90 else 4
         self.draw_tabs()
@@ -939,6 +950,8 @@ class Workspace(App[None]):
         self.draw_context()
 
     def redraw(self) -> None:
+        if self.screens_gone:  # a read that lands while the workspace closes
+            return
         self.draw_header()
         self.draw_tabs()
         self.draw_tree()
@@ -1482,6 +1495,8 @@ class Workspace(App[None]):
     @on(OptionList.OptionHighlighted)
     @on(Tree.NodeHighlighted)
     def selection_moved(self, event: Any) -> None:
+        if self.screens_gone:  # a highlight still queued as the workspace closes (#2306)
+            return
         self.draw_context()
         self.refresh_bindings()  # `r` is in the footer only on what can be relaunched
 
