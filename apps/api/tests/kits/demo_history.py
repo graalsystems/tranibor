@@ -13,7 +13,7 @@ from httpx import AsyncClient
 #: The workflow the document's history moves through: the test's own, so that the history holds with or
 #: without the software-delivery plugin, whose workflow a project otherwise starts with.
 INVOICES = """
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: invoices
@@ -32,7 +32,7 @@ transitions:
 """
 
 DOCUMENT: dict[str, Any] = {
-    "schema": "choregos/DemoHistory/v1",
+    "schema": "tranibor/DemoHistory/v1",
     "workflow": "invoices",
     "prices": {
         "anthropic/claude-sonnet-5": {

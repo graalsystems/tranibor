@@ -163,6 +163,34 @@ are that controller's: for example NGINX Inc.'s `nginx.org/proxy-read-timeout: "
 `nginx.org/proxy-buffering: "false"`, or OpenShift's router `haproxy.router.openshift.io/timeout: 60s`
 (from their documentation, not run).
 
+### Provider profiles
+
+`charts/tranibor/values/{gke,eks,aks}.yaml` hold what differs per provider and nothing else, each value
+commented with the cluster setting it relies on. A profile is layered on the all-in-one profile and before
+the site's own file:
+
+```bash
+helm install tranibor charts/tranibor -n tranibor --create-namespace \
+  -f charts/tranibor/values/all-in-one.yaml -f charts/tranibor/values/<gke|eks|aks>.yaml -f my-site.yaml
+```
+
+| Profile | Agent pods' RuntimeClass (`global.runner.runtimeClass`) | Routes | DNS, volumes | What the cluster needs | Proved |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| `gke.yaml` | `gvisor` (GKE Sandbox) | the API and the console as HTTPRoutes on the operator's Gateway (class `gke-l7-global-external-managed`); Keycloak through GKE's Ingress (annotation `kubernetes.io/ingress.class: gce`) | NodeLocal DNSCache's `169.254.20.10/32` beside kube-dns; the default `standard-rwo` | `--enable-dataplane-v2`, `--addons NodeLocalDNS`, `--gateway-api=standard`, a node pool with `--sandbox type=gvisor --image-type cos_containerd` beside a non-sandbox one | the render only |
+| `eks.yaml` | `""`: runc, the cluster's default (EKS has no managed sandboxed runtime); the agent is separated by its own container | one ALB (`alb`, `target-type: ip`, one `group.name`) for the API, the console and Keycloak | the defaults; `gp2` for every volume (a cluster made on 1.30 or later has no default StorageClass) | the VPC CNI add-on with `{"enableNetworkPolicy": "true"}`, the AWS Load Balancer Controller, the EBS CSI driver add-on | the render only |
+| `aks.yaml` | `kata-vm-isolation` (AKS pod sandboxing) | the application routing add-on's class, `webapprouting.kubernetes.azure.com` | the defaults; the default `managed-csi` | `--os-sku AzureLinux --workload-runtime KataVmIsolation`, `--network-dataplane cilium`, `az aks approuting enable` | the render, and installed on AKS 1.35 (S87-13) |
+
+**What the tests prove** (`tests/charts/test_provider_profiles.py`): each profile renders on the all-in-one
+profile and kubeconform accepts every object, strictly, with no schema skipped (the HTTPRoutes against a
+pinned CRD catalogue); a profile that names a RuntimeClass puts it on the warm pool's template (the runner's
+container and the agent's own container, one pod) and hands it to the API and every worker, from which a
+`k8s_job` Job's pod takes it; and no profile changes `global.runner.agentIsolation` (`container`), its opt-out,
+the executor or the egress gate. **What they do not prove**: that a GKE or EKS cluster runs the profile; no such
+cluster ran it, and the support matrix above says so. The questions a run there answers first (S87-11, S87-12):
+whether GKE Sandbox refuses or ignores the agent pods' `seccompProfile: RuntimeDefault`, the GKE Gateway's
+health check of the API (`/` unless a HealthCheckPolicy says otherwise), Keycloak's behind GKE's Ingress, and
+the VPC CNI's timing on a new agent pod's policy (the egress gate stays on).
+
 ## Dependencies: embedded or external
 
 Each dependency has an `embedded` switch, in the spirit of the Bitnami charts. **The default

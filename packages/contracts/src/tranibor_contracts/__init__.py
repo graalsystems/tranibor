@@ -51,6 +51,7 @@ from .decision import ROUTING_QUESTION, ROUTING_STEP, DecisionOutcome, DecisionR
 from .demo_history import (
     DemoDecision,
     DemoFinding,
+    DemoGate,
     DemoHistory,
     DemoPending,
     DemoPrice,
@@ -444,6 +445,7 @@ __all__ = [
     "DeclaredCost",
     "DemoDecision",
     "DemoFinding",
+    "DemoGate",
     "DemoHistory",
     "DemoPending",
     "DemoPrice",

@@ -104,3 +104,35 @@ async def test_the_csv_export_says_what_an_import_put_in_each_line(
     assert float(by_key["verify"][column]) == pytest.approx(0.25)
     assert float(by_key["total"][column]) == pytest.approx(0.9535)
     assert float(by_key["total"][1]) == pytest.approx(0.9535), "the cost column keeps the ledger's sum"
+
+
+async def test_the_project_card_s_month_cost_is_what_was_measured(
+    client: AsyncClient, project: dict[str, Any]
+) -> None:
+    from tranibor_api.db.models import CostLedger
+    from tranibor_api.db.session import session_scope
+    from tranibor_core import utcnow
+
+    document, earliest = _recent()
+    if earliest.month != utcnow().month:  # the document's hour straddles the first of the month
+        pytest.skip("the history's hour is in last month: nothing to show on this month's card")
+    assert (await client.post(URL.format(id=project["id"]), json=document)).status_code == 200
+
+    card = (await client.get(f"/api/v1/projects/{project['id']}")).json()["stats"]
+    assert card["cost_month_eur"] == 0.0, "an imported history counted in the project's month"
+
+    async with session_scope() as session:
+        session.add(
+            CostLedger(
+                project_id=project["id"],
+                provider="anthropic",
+                model="platform/standard",
+                stage_role="implement",
+                cost_usd=0.5,
+                cost_eur=0.46,
+                fx_rate=0.92,
+                ts=utcnow(),
+            )
+        )
+    card = (await client.get(f"/api/v1/projects/{project['id']}")).json()["stats"]
+    assert card["cost_month_eur"] == pytest.approx(0.46)

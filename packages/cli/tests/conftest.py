@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,28 @@ def _no_real_profile(
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
     monkeypatch.setenv("XDG_CACHE_HOME", str(home / ".cache"))
     monkeypatch.delenv("TRANIBOR_CONFIG", raising=False)
+
+
+#: The width every CLI test's output is drawn at, whatever the terminal that runs the suite (#2280).
+TEST_COLUMNS = "200"
+
+
+@pytest.fixture(autouse=True)
+def _a_terminal_width_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Rich wraps at the terminal's width: `COLUMNS` when it is set, else the size of the process's terminal.
+    # A console built with no width reads `COLUMNS` at each print, so the suite sets it, and a test that
+    # wants a narrow terminal sets its own. A console built while `COLUMNS` was set (the CLI's module-level
+    # ones, at import, under `COLUMNS=60 pytest` or inside an earlier test) keeps that width for good:
+    # each test gives it back the width of the environment.
+    from rich.console import Console
+
+    monkeypatch.setenv("COLUMNS", TEST_COLUMNS)
+    for name, module in list(sys.modules.items()):
+        if not (name == "tranibor_cli" or name.startswith("tranibor_cli.")):
+            continue
+        for value in list(vars(module).values()):
+            if isinstance(value, Console):
+                monkeypatch.setattr(value, "_width", None)
 
 
 @pytest.fixture(autouse=True)

@@ -72,8 +72,9 @@ async def project_stats(session: AsyncSession, project: Project) -> ProjectStats
     ).scalar_one()
     cost = (
         await session.execute(
+            # What was spent: a demonstration history's lines were never measured (ADR 0216, point 12).
             select(func.coalesce(func.sum(CostLedger.cost_eur), 0.0)).where(
-                CostLedger.project_id == project.id, CostLedger.ts >= since
+                CostLedger.project_id == project.id, CostLedger.ts >= since, CostLedger.imported.is_(False)
             )
         )
     ).scalar_one()
