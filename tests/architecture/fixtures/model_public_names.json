@@ -115,6 +115,7 @@
  "OutpostCall",
  "OutpostEnrolment",
  "OutpostInstance",
+ "OutpostRun",
  "OrgSamlIdp",
  "SamlConsumedAssertion",
  "AuditChainHead",

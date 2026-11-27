@@ -16,7 +16,11 @@ What it holds, and nothing else:
 - the wake-up channel of the relay's `LISTEN` connection, and that channel only: no platform event is
   heard here, since nobody in this process would be woken by one;
 - the extensions an edition installs, because the key wrapper a call's arguments wait under may be
-  one of theirs (ADR 0103).
+  one of theirs (ADR 0103);
+- where personal runners are on, the run-token key the API verifies run tokens with: the door mints the
+  token of each run a person's machine claims (ADR 0226 §4), and a door served alone with a key of its own
+  would mint tokens no API accepts. Refused at start-up in staging, prod and the personal posture without
+  it (`runs.check_the_runs_lane`).
 
 What it leaves to the API, on purpose. **The sweep** (`rendezvous.sweep_loop`) closes what ran out of
 time at outposts nobody polls or calls any more. It lists every outpost under the platform's scope,
@@ -57,6 +61,7 @@ from ..logging import bind, clear, configure_logging, get_logger
 from . import rendezvous
 from .auth import check_the_door
 from .door import SLOT_MARGIN_S, router
+from .runs import check_the_runs_lane
 
 logger = get_logger("choregos.outposts.alone")
 
@@ -140,6 +145,7 @@ def create_app() -> FastAPI:
     # not load stops the start-up.
     load_extensions()
     check_the_door(settings)
+    check_the_runs_lane(settings)
     # No document, and so no explorer of one: the door's contract is `packages/contracts/outpost-door.yaml`.
     app = FastAPI(
         title="Tranibor, the outposts' door", version=__version__, lifespan=lifespan, openapi_url=None

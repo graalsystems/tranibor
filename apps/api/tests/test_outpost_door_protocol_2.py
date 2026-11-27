@@ -1,12 +1,14 @@
-"""The outposts' door speaks protocol 2 and does not serve its runs lane yet (S87-08, ADR 0226 §3).
+"""The outposts' door speaks protocol 2, and an organisation's outpost takes no runs lane (S87-08, S87-16,
+ADR 0226 §1, §3).
 
 Protocol 2 adds the runs lane inside the poll, with no verb: `runs` announced with `runner`,
 `runs_running` and `runs_ended` in a poll, and `runs` and `cancel_runs` in its answer
 (`packages/contracts/outpost-door.yaml`). The door's window is now protocol 2 down to protocol 1: a
-daemon of either protocol is served as before. Until the lane is served (S87-16), an enrolment or a
-poll that announces `runs` is refused with the contract's 422, whichever the outpost, so that an
-instance waiting for an offer is told now instead of waiting for nothing; a poll of protocol 2 that
-does not announce it is served like any other.
+daemon of either protocol is served as before. The lane is served to an instance of a person's own
+outpost only (`test_outpost_door_runs.py`): at an organisation's outpost, which announces `tools` and
+nothing else, an enrolment or a poll that announces `runs` is refused with the contract's 422, so that an
+instance waiting there for an offer is told now instead of waiting for nothing; a poll of protocol 2 that
+does not announce it is served like any other, and answered as protocol 1 answered it.
 """
 
 from __future__ import annotations
@@ -45,7 +47,7 @@ async def daemon(client: AsyncClient, admin: str) -> Daemon:
 
 
 def _runs_not_served(problem: dict[str, Any], where: tuple[str, ...]) -> None:
-    assert "runs lane" in problem["detail"] and "S87-16" in problem["detail"], problem
+    assert "runs lane" in problem["detail"] and "organisation's outpost" in problem["detail"], problem
     assert where in {tuple(error["loc"]) for error in problem["errors"]}, problem
 
 
@@ -64,7 +66,8 @@ async def test_a_poll_of_protocol_2_that_announces_no_runs_is_served(
     client: AsyncClient, daemon: Daemon, door: kit.Door
 ) -> None:
     """A daemon of protocol 2 that announces `tools` is handed its calls as before; what it says of the
-    runs lane (nothing it runs, a run it ended) is taken and changes nothing yet."""
+    runs lane (nothing it runs, a run it ended) is taken and changes nothing at an organisation's
+    outpost."""
     placed = await daemon_kit.place()
     response = await daemon.poll(
         client,
@@ -79,7 +82,7 @@ async def test_a_poll_of_protocol_2_that_announces_no_runs_is_served(
     assert answered["protocol"] == {"current": 2, "minimum": 1}
     assert [call["id"] for call in answered["calls"]] == [placed.id]
     assert daemon.verifies(answered["calls"][0], [door.signing_public])
-    # The door hands no offer and cancels no run: the lane is not served yet.
+    # The door hands no offer and cancels no run: an organisation's outpost takes no runs lane.
     assert "runs" not in answered and "cancel_runs" not in answered
     assert response.headers[NONCE_HEADER]
     row = await daemon_kit.instance_row(str(daemon.instance_id))
@@ -96,7 +99,7 @@ async def test_a_poll_of_protocol_1_is_still_served(client: AsyncClient, daemon:
 
 
 @pytest.mark.parametrize("capabilities", [["runs"], ["tools", "runs"]], ids=["runs-alone", "tools-and-runs"])
-async def test_a_poll_of_protocol_2_that_announces_runs_is_refused_until_the_lane_is_served(
+async def test_a_poll_of_protocol_2_that_announces_runs_is_refused_at_an_organisation_s_outpost(
     client: AsyncClient, daemon: Daemon, capabilities: list[str]
 ) -> None:
     """A body the contract takes, which this door refuses as the verb's own refusal: a 422 that names
@@ -125,7 +128,7 @@ async def test_a_poll_of_protocol_1_that_announces_runs_is_refused_by_the_schema
     """No message of protocol 1 carries `runs`: the contract's model refuses it, where it says it."""
     problem = refused(await daemon.poll(client, capabilities=["runs"], runner=RUNNER), "invalid_request", 422)
     assert ("capabilities",) in {tuple(error["loc"]) for error in problem["errors"]}
-    assert "S87-16" not in problem["detail"], "the schema refused it before the door had to"
+    assert "organisation" not in problem["detail"], "the schema refused it before the door had to"
 
 
 async def test_an_enrolment_that_announces_runs_is_refused_and_keeps_the_token(

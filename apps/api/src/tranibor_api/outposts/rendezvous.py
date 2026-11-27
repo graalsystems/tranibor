@@ -80,7 +80,13 @@ from tranibor_contracts import (
 
 # `MAX_SEALED_CALL_BYTES`: the most one element of a poll's `calls` weighs as carried (its id, its
 # envelope and its signature together); a call that would weigh more is not handed over.
-from tranibor_contracts.outpost import ENDPOINT_ALIAS_PATTERN, MAX_SEALED_CALL_BYTES, OUTPOST_ID_PATTERN
+from tranibor_contracts.outpost import (
+    ENDPOINT_ALIAS_PATTERN,
+    MAX_SEALED_CALL_BYTES,
+    OUTPOST_ID_PATTERN,
+    run_signature_claims,
+    run_signature_header,
+)
 from tranibor_core import utcnow
 
 from ..config import ed25519_public_key, get_settings
@@ -106,6 +112,7 @@ from ..secret_store import (
     open_sealed,
     seal,
 )
+from ..services import outpost_runs
 from ..services import outposts as service
 from ..services.budgets import lock_budget_scopes
 
@@ -292,6 +299,18 @@ def sign_call(private_pem: str, *, call_id: str, instance_id: str, sealed: str) 
         _door_key(private_pem),
         algorithm=SIGNATURE_ALGORITHM,
         headers=call_signature_header(ed25519_public_key(private_pem)),
+    )
+
+
+def sign_run(private_pem: str, *, run_id: str, instance_id: str, sealed: str) -> str:
+    """The door's signature of an offer of the runs lane it hands over (`x-run-signature`, ADR 0226 §4): a
+    call's, under the same key, with the run's `typ` and first claim, so that neither passes for the other.
+    A personal outpost starts only an offer signed this way by a key its policy file pins."""
+    return jwt.encode(
+        run_signature_claims(run_id=run_id, instance_id=instance_id, sealed=sealed),
+        _door_key(private_pem),
+        algorithm=SIGNATURE_ALGORITHM,
+        headers=run_signature_header(ed25519_public_key(private_pem)),
     )
 
 
@@ -1165,7 +1184,12 @@ async def sweep(now: datetime | None = None) -> int:
     that scope no outpost's row exists until an outpost is named (ADR 0148 §6), so the registry is
     listed first and each outpost is named in turn, in a transaction of its own. Each stays under the
     platform's scope: a person's runner's rows are hidden from a session that names no person and is not
-    the door (`<table>_personal_owner`, ADR 0226 §1), and the sweep is neither."""
+    the door (`<table>_personal_owner`, ADR 0226 §1), and the sweep is neither.
+
+    At a person's runner it does the same for the runs lane (`outpost_runs.sweep_outpost`): an offer whose
+    lease lapsed is lost, one nobody claimed in time expired, and the run of a lost offer is closed through
+    ADR 0143's closure, which only a scope that sees the run's row can do: the door marks an offer lost, the
+    sweep closes its run. Returns how many calls and offers moved."""
     async with session_scope(orgs=ALL_ORGS) as session:
         outposts = list((await session.execute(select(Outpost.id))).scalars())
     moved = 0
@@ -1176,6 +1200,7 @@ async def sweep(now: datetime | None = None) -> int:
             async with in_platform_scope(scope.session):
                 at = now or utcnow()
                 moved += await _close(scope.session, outpost_id, at)
+                moved += await outpost_runs.sweep_outpost(scope.session, outpost_id, at)
                 await scope.session.execute(
                     update(OutpostCall)
                     .where(
@@ -1241,6 +1266,7 @@ __all__ = [
     "read",
     "record",
     "sign_call",
+    "sign_run",
     "sweep",
     "sweep_loop",
     "wait",

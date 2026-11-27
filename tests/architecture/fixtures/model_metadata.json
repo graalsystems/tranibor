@@ -14453,6 +14453,281 @@
    ]
   ]
  },
+ "outpost_runs": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "String(length=128)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "org_id",
+    "type": "String(length=36)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "outpost_id",
+    "type": "String(length=36)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "project_id",
+    "type": "String(length=36)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "kind",
+    "type": "String(length=32)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "state",
+    "type": "String(length=16)",
+    "nullable": false,
+    "default": "'offered'",
+    "server_default": "'offered'"
+   },
+   {
+    "name": "credential",
+    "type": "String(length=16)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "provider",
+    "type": "String(length=16)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "isolation",
+    "type": "String(length=16)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "env",
+    "type": "Json()",
+    "nullable": false,
+    "default": "<function dict>",
+    "server_default": null
+   },
+   {
+    "name": "api_url",
+    "type": "String(length=2000)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "token_subject",
+    "type": "String(length=200)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "project_slug",
+    "type": "String(length=200)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "work_item_key",
+    "type": "String(length=512)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "conversation_id",
+    "type": "String(length=128)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "max_minutes",
+    "type": "Integer()",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "lease_s",
+    "type": "Integer()",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "instance_id",
+    "type": "String(length=64)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "epoch",
+    "type": "Integer()",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "claimed_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "lease_until",
+    "type": "DateTime(timezone=True)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "finished_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "exit_code",
+    "type": "Integer()",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "cancel_told_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": true,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "expires_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": null,
+    "server_default": null
+   },
+   {
+    "name": "created_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   },
+   {
+    "name": "updated_at",
+    "type": "DateTime(timezone=True)",
+    "nullable": false,
+    "default": "<function utcnow>",
+    "server_default": "<sqlalchemy.sql.functions.now; now>"
+   }
+  ],
+  "primary_key": [
+   "id"
+  ],
+  "foreign_keys": [
+   [
+    [
+     "instance_id"
+    ],
+    [
+     "outpost_instances.id"
+    ],
+    "SET NULL",
+    null,
+    "fk_outpost_runs_instance_id_outpost_instances"
+   ],
+   [
+    [
+     "org_id"
+    ],
+    [
+     "organizations.id"
+    ],
+    "CASCADE",
+    null,
+    "fk_outpost_runs_org_id_organizations"
+   ],
+   [
+    [
+     "outpost_id"
+    ],
+    [
+     "outposts.id"
+    ],
+    "CASCADE",
+    null,
+    "fk_outpost_runs_outpost_id_outposts"
+   ],
+   [
+    [
+     "project_id"
+    ],
+    [
+     "projects.id"
+    ],
+    "SET NULL",
+    null,
+    "fk_outpost_runs_project_id_projects"
+   ]
+  ],
+  "uniques": [],
+  "checks": [],
+  "indexes": [
+   [
+    "ix_outpost_runs_instance_id",
+    [
+     "outpost_runs.instance_id"
+    ],
+    false
+   ],
+   [
+    "ix_outpost_runs_org_id",
+    [
+     "outpost_runs.org_id"
+    ],
+    false
+   ],
+   [
+    "ix_outpost_runs_outpost_state",
+    [
+     "outpost_runs.outpost_id",
+     "outpost_runs.state"
+    ],
+    false
+   ],
+   [
+    "ix_outpost_runs_project_id",
+    [
+     "outpost_runs.project_id"
+    ],
+    false
+   ]
+  ]
+ },
  "outposts": {
   "checks": [],
   "columns": [

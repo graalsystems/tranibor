@@ -1016,6 +1016,21 @@ answered for the first check that fails, in the contract's order (`apps/api/src/
   Only its owner enrols and approves its machines (`/me/runners`); every administrator route that reaches
   its instances, tokens or calls answers 403 `personal_outpost`, since an administrator's machine enrolled
   there would receive that person's runs (`apps/api/tests/test_personal_outposts.py`).
+- *A run offered to a person's runner* (door protocol 2,
+  [ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md) §3-5). An offer is a row of
+  `outpost_runs`, under the same two policies as the runner's other rows. It is claimed once, by one machine,
+  with `FOR UPDATE SKIP LOCKED` and a compare-and-set on a row no machine ever claimed, and never handed over
+  again; only then does the door mint the run token (valid the run's maximum minutes plus 15), seal it with
+  the assignment to the claiming machine's key under the run's id and sign the envelope with its own key
+  (`x-run-signature`): the row never holds the token. An offer carries no secret: a subscription credential
+  or a visible secret in its environment is refused where it is placed, and in phase A it is a subscription
+  run, never a gateway one. A lease that lapses, or a revocation, loses the offer; the platform then closes
+  the run through [ADR 0143](adr/0143-a-run-that-ended-stays-ended.md)'s closure (its sweep, the executor's
+  status read, or the revocation itself), and the run's API answers the late process 409 `run_closed`. The
+  door marks an offer lost and does not close the run: it cannot see a personal space's run, and the window
+  between the two is the sweep's interval at most. Where personal runners are on, the door holds the
+  run-token key; a door served alone without it does not start in staging, prod or the personal posture.
+  An organisation's outpost still announces no `runs` (`apps/api/tests/test_outpost_door_runs.py`).
 
 **What is at rest.** A call's row holds references and digests. Its arguments wait for their claim
 sealed under the deployment's key wrapper (`TRANIBOR_SECRETS_KEKS`, ADR 0103), with the private half of

@@ -15,6 +15,11 @@ connection, on the model of the hosted sessions' `turns/next`: each look is a sh
 its own. It is woken through the relay every replica already runs, and looks again every 5 to 10
 seconds whatever it heard. The slot is given back when the poll answers and when its client goes
 away: a daemon that restarts must not meet its own dead poll.
+
+The runs lane (door protocol 2, ADR 0226 §3-5) rides in the same poll, for an instance of a person's own
+outpost only (`runs.serves`): what the instance holds is reported at the first look, offers are claimed and
+cancellations computed at each, and the answer carries `runs` and `cancel_runs`. An organisation's outpost
+announces `tools` and nothing else: an enrolment or a poll that announces `runs` there is refused.
 """
 
 from __future__ import annotations
@@ -49,12 +54,12 @@ from tranibor_core import utcnow
 
 from ..audit import record
 from ..config import Settings
-from ..db.models import OutpostInstance
+from ..db.models import Outpost, OutpostInstance
 from ..db.session import mark_the_door, release_connection
 from ..deps import Config, Db
 from ..logging import get_logger
 from ..services import outposts as service
-from . import auth, rendezvous
+from . import auth, rendezvous, runs
 
 router = APIRouter(include_in_schema=False)
 logger = get_logger("choregos.outposts.door")
@@ -92,19 +97,25 @@ async def door_session(session: Db) -> AsyncSession:
 DoorDb = Annotated[AsyncSession, Depends(door_session)]
 
 
-def _runs_not_served(capabilities: list[str]) -> None:
-    """Refuse an instance that announces `runs`, whichever its outpost. Protocol 2 lets a personal
-    outpost's instance announce it (ADR 0226 §3), and this door does not serve the runs lane yet: it
-    hands no offer, so an instance that waits for one is told now, by a 422 `invalid_request` that says
-    where, rather than left to wait (`outpost-door.yaml`, `x-protocol`, `capabilities`). The lane is
-    S87-16's."""
+def _runs_only_at_a_personal_outpost(outpost: Outpost, capabilities: list[str]) -> None:
+    """Refuse an instance of an organisation's outpost that announces `runs`. Protocol 2 lets a personal
+    outpost's instance announce it, and no other (ADR 0226 §1, §3): an organisation's outpost announces
+    `tools` and nothing else, so an instance that would wait there for an offer is told now, by a 422
+    `invalid_request` that says where, rather than left to wait (`outpost-door.yaml`, `x-protocol`,
+    `capabilities`)."""
+    if service.is_personal(outpost):
+        return
     announced = [index for index, capability in enumerate(capabilities) if capability == "runs"]
     if announced:
         raise auth.Refused(
             OutpostDoorCode.INVALID_REQUEST,
-            "this door does not serve the runs lane yet (S87-16): an instance announces `tools` only",
+            "an organisation's outpost does not take the runs lane: `runs` is announced by an instance of a "
+            "person's own outpost only, and an organisation's outpost announces `tools`",
             errors=[
-                {"loc": ["capabilities", str(index)], "msg": "`runs` is not served by this door yet"}
+                {
+                    "loc": ["capabilities", str(index)],
+                    "msg": "`runs` is announced at a person's own outpost only",
+                }
                 for index in announced
             ],
         )
@@ -152,7 +163,7 @@ async def _enrol(request: Request, session: AsyncSession, settings: Settings) ->
         auth.speaks(document)
         body = auth.shaped(OutpostEnrolmentRequest, raw)
         # What the verb itself refuses comes after the schema, as the contract orders the checks.
-        _runs_not_served(list(body.capabilities))
+        _runs_only_at_a_personal_outpost(admitted.outpost, list(body.capabilities))
         enrolled = await service.enrol(session, body)
     except service.EnrolmentRefused as refused:
         raise auth.Refused(refused.code, _ENROLMENT_REFUSALS[refused.code]) from None
@@ -187,6 +198,9 @@ class _Look:
     stop: bool = False
     calls: list[dict[str, str]] = field(default_factory=list)
     cancel: list[str] = field(default_factory=list)
+    #: The runs lane (protocol 2, a person's own outpost): offers claimed, runs to stop.
+    runs: list[dict[str, str]] = field(default_factory=list)
+    cancel_runs: list[str] = field(default_factory=list)
     #: The instance or its outpost was revoked since the poll began, or is gone.
     revoked: bool = False
     #: The slot is another poll's: this one overstayed it.
@@ -194,7 +208,7 @@ class _Look:
 
     @property
     def final(self) -> bool:
-        return bool(self.calls or self.cancel or self.revoked or self.lost)
+        return bool(self.calls or self.cancel or self.runs or self.cancel_runs or self.revoked or self.lost)
 
 
 async def _take_the_slot(
@@ -301,7 +315,9 @@ async def _conflict(session: AsyncSession, caller: auth.Caller, now: datetime) -
 
 async def _look(caller: auth.Caller, body: OutpostPollRequest, holder: str, first: bool) -> _Look:
     """One look, in a short transaction of its own under the outpost's scope: is the instance still
-    this poll's to serve, is there a call to claim for it, is one of those it holds awaited no more."""
+    this poll's to serve, is there a call to claim for it, is one of those it holds awaited no more. At a
+    person's own outpost polled with protocol 2, the same for its runs lane (`runs`): what the instance
+    holds is reported at the first look only, offers are claimed and cancellations read at each."""
     async with rendezvous.in_scope(caller.outpost.id, door=True) as scope:
         if scope is None:
             return _Look(revoked=True)
@@ -337,7 +353,15 @@ async def _look(caller: auth.Caller, body: OutpostPollRequest, holder: str, firs
             now=now,
         )
         cancel = await rendezvous.no_longer_awaited(session, outpost, instance, list(body.running), now)
-        return _Look(stop=stop, calls=calls, cancel=cancel[:MAX_CANCEL])
+        found = _Look(stop=stop, calls=calls, cancel=cancel[:MAX_CANCEL])
+        if runs.serves(outpost, body):
+            if first:
+                await runs.report(session, outpost, instance, body, now)
+            found.runs = await runs.claim(session, outpost, instance, body.runner, now)
+            found.cancel_runs = await runs.no_longer_awaited(
+                session, outpost, instance, list(body.runs_running), now
+            )
+        return found
 
 
 async def _gone(request: Request) -> None:
@@ -362,7 +386,7 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
     caller = await auth.authenticate(request, session, settings, raw)
     auth.speaks(auth.document_of(raw))
     body = auth.shaped(OutpostPollRequest, raw)
-    _runs_not_served(list(body.capabilities))
+    _runs_only_at_a_personal_outpost(caller.outpost, list(body.capabilities))
     holder = secrets.token_hex(16)
     now = utcnow()
     if not await _take_the_slot(session, caller, body, holder, now):
@@ -397,16 +421,17 @@ async def _poll(request: Request, session: AsyncSession, settings: Settings) -> 
             await asyncio.shield(_give_the_slot_back(caller.outpost.id, caller.instance.id, holder))
     if found.revoked:
         raise auth.Refused(OutpostDoorCode.INSTANCE_REVOKED, "this instance, or its outpost, was revoked")
-    return auth.answer(
-        settings,
-        {
-            "protocol": auth.window(),
-            "server_time": auth.server_time(),
-            "stop": found.stop,
-            "calls": found.calls,
-            "cancel": found.cancel,
-        },
-    )
+    answered: dict[str, Any] = {
+        "protocol": auth.window(),
+        "server_time": auth.server_time(),
+        "stop": found.stop,
+        "calls": found.calls,
+        "cancel": found.cancel,
+    }
+    if runs.serves(caller.outpost, body):
+        # Protocol 2 at a person's own outpost: the lane's two fields, which protocol 1 never carries.
+        answered |= {"runs": found.runs, "cancel_runs": found.cancel_runs}
+    return auth.answer(settings, answered)
 
 
 # ───────────────────────── answer, refuse ─────────────────────────

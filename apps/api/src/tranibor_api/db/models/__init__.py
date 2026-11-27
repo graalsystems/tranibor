@@ -96,7 +96,7 @@ from .knowledge import (
     MemoryStore,
 )
 from .offered_knowledge import KnowledgeSeedTombstone
-from .outposts import Outpost, OutpostCall, OutpostEnrolment, OutpostInstance
+from .outposts import Outpost, OutpostCall, OutpostEnrolment, OutpostInstance, OutpostRun
 from .plugins import OrgPlugin, OrgPluginApproval, OrgPluginFile
 from .projects import Connector, ModelProfileRow, OrgWorkflow, PolicyDef, Project, Template, WorkflowDef
 from .releases import Deployment, Release
@@ -292,6 +292,7 @@ __all__ = [
     "OutpostCall",
     "OutpostEnrolment",
     "OutpostInstance",
+    "OutpostRun",
     "OwnerTicket",
     "PkMixin",
     "PolicyDef",

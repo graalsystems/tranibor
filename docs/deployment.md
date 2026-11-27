@@ -1419,9 +1419,16 @@ same name, a disruption budget, and the route then leads there.
   database credential in a pod that faces other parties' machines is new, and it is all it holds: not
   the session secret, the run-token key, the gateway's key, the object store's or the identity
   provider's. It mounts no service account token.
+- **Personal runners need the run-token key at the door.** Where `TRANIBOR_PERSONAL_RUNNERS` is on, the
+  door mints the run token of each run a person's machine claims ([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md)
+  §4) with `TRANIBOR_RUN_TOKEN_PRIVATE_KEY`, the key the API verifies it with. Served alone without it,
+  the door does not start in staging, prod or the personal posture. The chart does not give the door's
+  own Deployment that key yet: run a deployment with personal runners on with `dedicated: false`, or pass
+  the key through `extraEnv`.
 - **The sweep stays in the API.** What ran out of time at an outpost nobody polls any more is closed
   by a loop that lists every outpost under the platform's scope, which the door never takes. The API
-  runs it in both layouts, and the door's own process never does: keep the API running.
+  runs it in both layouts, and the door's own process never does: keep the API running. At a person's
+  runner it also loses an offer whose lease lapsed and closes its run (409 `run_closed` from then on).
 - **The API still mounts the door**, in both layouts: `TRANIBOR_OUTPOSTS` is one switch. With the door
   split out no route leads to the API's copy from outside the cluster.
 - **Network policies** (`networkPolicies.enabled`): the door's pods get a policy of their own,

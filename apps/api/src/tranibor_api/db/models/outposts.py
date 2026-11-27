@@ -240,3 +240,65 @@ class OutpostCall(Base, TimestampMixin):
     answer_key_kek_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     #: The answer as it crossed the door, still sealed: the door stores it and does not open it.
     answer_sealed: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class OutpostRun(Base, TimestampMixin):
+    """An offer of the door's runs lane: a run, or a conversation's turn, placed on a person's runner
+    (ADR 0226 §4). The primary key is the run's id, or the turn's: one offer per run, and a retried
+    placement meets the first row.
+
+    It is claimed once, by one instance, with `FOR UPDATE SKIP LOCKED` and a compare-and-set on a row no
+    instance ever claimed (`claimed_at` is null), and never handed over again. The run token is minted at
+    that claim and travels in the sealed envelope only: the row holds what the token names (`token_subject`,
+    `project_slug`, `work_item_key`), because the door cannot read the run's row in a personal space, and
+    never the token. `env` is the runner's environment beyond its id, address and token, never a secret.
+
+    `state` is one of `offered`, `claimed`, `ended`, `lost`, `cancelled`, `expired`
+    (`services.outpost_runs.OutpostRunState`). The rows of a personal outpost are under its restrictive
+    policy (`20261127_1400_s87_16_outpost_runs`)."""
+
+    __tablename__ = "outpost_runs"
+    __table_args__ = (Index("ix_outpost_runs_outpost_state", "outpost_id", "state"),)
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    outpost_id: Mapped[str] = mapped_column(ForeignKey("outposts.id", ondelete="CASCADE"))
+    #: The project the run belongs to: the owner's personal space in phase A (ADR 0226 §8).
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    #: An `OfferKind`: `stage_run` or `conversation_turn`.
+    kind: Mapped[str] = mapped_column(String(32))
+    state: Mapped[str] = mapped_column(String(16), default="offered", server_default="offered")
+    #: A `RunCredential`, and for a subscription the `SubscriptionProvider` the claiming instance holds.
+    credential: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    #: The isolation placement chose (`container` for the docker mode, `process` for the native one).
+    isolation: Mapped[str] = mapped_column(String(16))
+    env: Mapped[dict[str, str]] = mapped_column(Json, default=dict)
+    #: Where the runner calls the run's API: a run door (ADR 0226 §12).
+    api_url: Mapped[str] = mapped_column(String(2000))
+    #: What the run token minted at the claim names: its subject (the run's id, or `turn-…`), its project
+    #: and its work item.
+    token_subject: Mapped[str] = mapped_column(String(200))
+    project_slug: Mapped[str] = mapped_column(String(200))
+    work_item_key: Mapped[str] = mapped_column(String(512))
+    #: A turn's conversation.
+    conversation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    max_minutes: Mapped[int] = mapped_column(Integer)
+    #: The lease a poll that lists the run renews, in seconds.
+    lease_s: Mapped[int] = mapped_column(Integer)
+    #: The instance that claimed it, the outpost's epoch then, when, and until when its lease runs.
+    instance_id: Mapped[str | None] = mapped_column(
+        ForeignKey("outpost_instances.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    epoch: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: When it left `offered` or `claimed`, and the exit code its instance reported.
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: When a poll of the claiming instance carried it in `cancel_runs` after it was lost or withdrawn.
+    cancel_told_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Unclaimed by then, it is `expired`: the run's queue bound.
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

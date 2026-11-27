@@ -95,6 +95,7 @@ from ..secret_store import (
     open_sealed,
     seal,
 )
+from . import outpost_runs
 
 if TYPE_CHECKING:  # `deps` imports the services
     from ..deps import Page
@@ -660,7 +661,10 @@ async def resume_outpost(session: AsyncSession, outpost: Outpost, side: str = AD
 
 async def revoke_outpost(session: AsyncSession, outpost: Outpost, principal: Principal) -> bool:
     """Revoke the outpost and every instance of it, and move its epoch (ADR 0147 §5). Final. Whether
-    it changed anything: revoking a revoked outpost does not, and does not move the epoch again."""
+    it changed anything: revoking a revoked outpost does not, and does not move the epoch again.
+
+    At a person's runner, the offers its machines held are lost at once, and their runs closed through
+    ADR 0143's closure (ADR 0226 §5): a revoked machine's late process meets 409 `run_closed`."""
     await _locked(session, outpost)
     if outpost.status == _REVOKED:
         return False
@@ -671,12 +675,16 @@ async def revoke_outpost(session: AsyncSession, outpost: Outpost, principal: Pri
         in_platform_scope(session) if is_personal(outpost) else nullcontext()
     )
     async with in_outpost_scope(session, outpost.id), personal:
+        now = utcnow()
         await session.execute(
             update(OutpostInstance)
             .where(OutpostInstance.outpost_id == outpost.id, OutpostInstance.status != _REVOKED)
-            .values(status=_REVOKED, revoked_by=principal.email, revoked_at=utcnow())
+            .values(status=_REVOKED, revoked_by=principal.email, revoked_at=now)
             .execution_options(synchronize_session=False)
         )
+        if is_personal(outpost):
+            await outpost_runs.lose_held(session, outpost.id, now=now)
+            await outpost_runs.close_lost(session, outpost.id, now)
     outpost.status = _REVOKED
     outpost.paused_by = None
     await _move_epoch(session, outpost)
@@ -857,6 +865,12 @@ async def revoke_instance(
             instance.revoked_by = principal.email
             instance.revoked_at = utcnow()
             await session.flush()
+            # The offers it held are lost at once (ADR 0226 §5); their runs close where this session sees
+            # them, and at the platform's next sweep otherwise.
+            await outpost_runs.lose_held(
+                session, outpost.id, instance_id=instance.id, now=instance.revoked_at
+            )
+            await outpost_runs.close_lost(session, outpost.id, instance.revoked_at)
         shown = await _one_instance_view(session, outpost, instance)
     if changed:
         await _move_epoch(session, outpost)

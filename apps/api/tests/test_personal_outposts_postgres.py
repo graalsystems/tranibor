@@ -343,9 +343,9 @@ async def test_the_door_serves_a_personal_runner_s_machine_whether_the_api_serve
         approval = f"{ME}/instances/{daemon.instance_id}/approval"
         approved = await client.post(approval, json={"fingerprint": instance["fingerprint"]})
         assert approved.status_code == 200, approved.text
-        # A runner is handed no tool call (it announces `runs`, a lane the door does not serve yet): what
-        # the poll shows is that each of its looks read the instance, and that its slot was given back, or
-        # the second poll would meet the first's.
+        # A runner is handed no tool call (it takes `runs` only, `test_outpost_door_runs.py`): what the poll
+        # shows is that each of its looks read the instance, and that its slot was given back, or the second
+        # poll would meet the first's.
         for _ in range(2):
             polled = await daemon.poll(door)
             assert polled.status_code == 200, polled.text

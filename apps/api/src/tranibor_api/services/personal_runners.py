@@ -15,9 +15,9 @@ up among the caller's own, and its instances, enrolment tokens and calls are und
 row-level policy that shows them to no other person (`20261127_1200_s87_15_personal_outposts`). The
 organisation's administrators reach the outpost itself and nothing of it (`refuse_personal`).
 
-What a runner announces of its runs lane (its modes, the providers whose sign-in it holds, its capacity,
-the offers it runs and those that wait for it) is recorded from door protocol 2 (S87-16): until then each
-reads empty.
+What waits for a runner and what each of its machines runs are counted from its offers
+(`services.outpost_runs`, door protocol 2, S87-16). What a machine announces of the lane (its modes, the
+providers whose sign-in it holds, its capacity) is said in each poll and not kept: it reads empty.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from ..db.session import in_outpost_scope
 from ..errors import ApiError, not_found
 from ..rbac import Principal
 from ..schemas.outposts import OutpostInstanceDto, PersonalRunnerDto, PersonalRunnerInstanceDto
+from . import outpost_runs
 from . import outposts as service
 
 
@@ -161,19 +162,19 @@ async def ensure_runner(
     return outpost, True
 
 
-def instance_view(instance: OutpostInstanceDto) -> PersonalRunnerInstanceDto:
-    """One of the owner's machines, as `/me/runners` shows it."""
+def instance_view(instance: OutpostInstanceDto, runs_running: int = 0) -> PersonalRunnerInstanceDto:
+    """One of the owner's machines, as `/me/runners` shows it, with the offers it runs."""
     return PersonalRunnerInstanceDto(
         id=instance.id,
         status=instance.status,
         fingerprint=instance.fingerprint,
         daemon_version=instance.daemon_version,
         protocol=instance.protocol,
-        # Announced in a poll of door protocol 2, which is S87-16's: nothing to read before it.
+        # Announced in each poll of door protocol 2 and not kept: nothing to read here.
         modes=[],
         providers=[],
         capacity=0,
-        runs_running=0,
+        runs_running=runs_running,
         facts=dict(instance.facts),
         enrolled_at=instance.enrolled_at,
         approval_step_up_minutes=instance.approval_step_up_minutes,
@@ -186,6 +187,7 @@ def instance_view(instance: OutpostInstanceDto) -> PersonalRunnerInstanceDto:
 async def view(session: AsyncSession, outpost: Outpost, org: str, owner: str) -> PersonalRunnerDto:
     """The runner as its owner sees it, with its instances, pending ones first."""
     instances = await service.list_instances(session, outpost)
+    offers = await outpost_runs.load(session, outpost.id)
     seen = [i.last_seen_at for i in instances if i.last_seen_at is not None]
     return PersonalRunnerDto(
         org=org,
@@ -195,9 +197,8 @@ async def view(session: AsyncSession, outpost: Outpost, org: str, owner: str) ->
         paused_by=service.paused_by(outpost),
         online=any(i.online for i in instances),
         last_seen_at=max(seen) if seen else None,
-        instances=[instance_view(i) for i in instances],
-        # The offers that wait for it are S87-16's table; none exists before it.
-        runs_waiting=0,
+        instances=[instance_view(i, offers.running.get(i.id, 0)) for i in instances],
+        runs_waiting=offers.waiting,
         created_at=_aware(outpost.created_at),
     )
 

@@ -231,8 +231,30 @@ only ([Deployment](deployment.md#outposts-adrs-0147-0149)).
   `/me/runners`; an administrator's pause is lifted by an administrator only, and takes over the owner's.
   Either side may revoke it, which is final.
 
-The runs lane itself (what a runner announces, the offers it claims) is not served yet: the door still
-refuses an instance that announces `runs`, and a runner's modes, providers and waiting runs read empty.
+**The runs lane** (door protocol 2, [ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md)
+§3-5) is served to a runner's machines, and to no organisation's outpost:
+
+- **An offer is claimed once.** A run placed on a person's runner is an offer (`outpost_runs`). A poll of
+  protocol 2 from one of its machines, which announces `runs` and says what it takes (`runner`: its modes,
+  the providers whose sign-in it holds, the offer kinds it knows, its capacity), is handed offers it can
+  run, the oldest first, at most its `run_capacity`. Of two machines one wins, and a claimed offer is never
+  handed over again, to any machine. A daemon of protocol 1 is handed nothing of the lane.
+- **The run token is minted at the claim**, never before: valid the run's maximum minutes plus 15, sealed
+  with the assignment (`outpost-run.schema.json`) to the claiming machine's key under the run's id, and
+  signed by the door (`x-run-signature`). The offer's row never holds it.
+- **The lease.** A poll that lists the run in `runs_running` sets its lease to the offer's `lease_s` from
+  that poll, never past the claim plus the run's maximum minutes; `runs_ended` records the exit code. A run
+  the poll omits keeps the lease it had, and when that lapses (the lid closed, the machine offline) the offer
+  is lost, the machine's next poll carries it in `cancel_runs`, and the platform closes the run through
+  [ADR 0143](adr/0143-a-run-that-ended-stays-ended.md): the platform's sweep within its interval, the outpost
+  executor when it reads the offer, a revocation at once. The run's API then answers 409 `run_closed`.
+- **A withdrawn offer** (the platform stopped waiting) is carried in `cancel_runs` to the machine that runs
+  it. An organisation's outpost announcing `runs` is refused (422 `invalid_request`).
+
+`services/outpost_runs.py` places, reads and withdraws an offer (`offer_run`, `status`, `withdraw`); the
+outpost executor that calls them is S87-17's, and until it lands no run is placed on a runner.
+`/me/runners` counts the offers that wait for a runner and those each machine runs; what a machine announces
+(its modes, providers and capacity) is said in each poll and not kept, so it reads empty there.
 
 ## Rotating the door's key
 
@@ -249,11 +271,11 @@ gives the operator's.
 
 - **Runs at an outpost.** A whole run executing at an organisation's outpost is not decided:
   [ADR 0149](adr/0149-a-tool-may-live-at-an-outpost.md) §12 lists what would have to be true first.
-  A person's own machine running that person's runs is decided (ADR 0226): door protocol 2 describes
-  its runs lane inside the poll (`runs`, announced by a personal outpost's instance only), and the door
-  serves protocol 2 and still protocol 1. Until the lane is served, the door refuses an enrolment or a
-  poll that announces `runs` (422 `invalid_request`): `tools` is the only capability an instance
-  announces today.
+  A person's own machine running that person's runs is decided (ADR 0226): door protocol 2 carries its
+  runs lane inside the poll (`runs`, announced by a personal outpost's instance only), served as
+  [A person's own runner](#a-persons-own-runner) says; the door serves protocol 2 and still protocol 1. At an
+  organisation's outpost the door refuses an enrolment or a poll that announces `runs` (422
+  `invalid_request`): `tools` is the only capability its instances announce.
 - **A person's identity.** A call reaches the server under the credential the outpost holds for the
   alias. A need that must be called as the person cannot be bound to such a connector.
 - **Two details of the deployment**, said in [Deployment](deployment.md#outposts-adrs-0147-0149):
