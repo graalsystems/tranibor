@@ -23,12 +23,21 @@ the installation itself, and its posture.
 - **The bootstrap records too** (`record_the_first_start`): `choregos-admin orgs bootstrap` runs it
   without the API's start-up, so it records the posture before its first membership, in the same
   transaction. A database the API never started is governed by the record from its first member on.
+- **The sole member decides alone** (ADR 0228 §3, S87-11): `sole_member` is true only when the row says
+  `personal` and exactly one person holds a membership. That person, in their own session
+  (`decides_alone`), meets what a rule asks of other people: separation of duties, an approver group, a
+  human step addressed to a group, an exclusion of ADR 0196 §2 and an approver count above one. Never
+  without a fresh authentication (`require_fresh_alone`: the rule's `step_up_minutes`, or 10 minutes when
+  it names none), and the decision entry and its audit row say so (`decided_alone`: `sole_member: true`
+  and what the rule asked).
 
 Outside the personal posture nothing changes: the row says `organisation`, the trigger lets every
-membership through, and the start-up only records it.
+membership through, the start-up only records it, and nobody decides alone.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from fastapi import status
 from sqlalchemy import func, select
@@ -40,9 +49,12 @@ from tranibor_core.production import ENVIRONMENT_VARIABLE, is_personal
 from .config import Settings
 from .db.models import Membership, User
 from .db.models.installation import ORGANISATION, PERSONAL, SOLE_MEMBER_MARK, Installation
-from .db.session import session_scope
+from .db.session import in_platform_scope, session_scope
+from .decision_session import holds_a_person_session
 from .errors import ApiError
+from .freshness import require_fresh_authentication
 from .logging import get_logger
+from .rbac import Principal
 
 logger = get_logger("choregos.personal_installation")
 
@@ -198,6 +210,86 @@ def one_person_refusal() -> ApiError:
     )
 
 
+# ───────────────────────── the sole member decides alone (ADR 0228 §3) ─────────────────────────
+
+#: The decision entry's and the audit row's mark of a decision the sole member took alone.
+SOLE_MEMBER = "sole_member"
+#: Beside it, what the rule asked of other people: `separation_of_duties`, `group:<name>`, `excluded`,
+#: `approvers:<n>` (an action) or `approvals:<n>` (a release).
+RULE_ASKED = "rule_asked"
+#: How fresh the sole member's authentication must be when the rule names no `step_up_minutes`.
+STEP_UP_MINUTES = 10
+#: Where a session keeps the posture it has read (`Session.info`).
+_POSTURE_READ = "choregos.installation_posture"
+
+
+async def the_sole_member(session: AsyncSession, org_id: str) -> str | None:
+    """The user id of the installation's one person when they decide alone in organisation `org_id`.
+
+    `None` unless the `installation` row says `personal`, exactly one person (not a machine account, ADR
+    0131) holds a membership across the installation, and that person holds one in `org_id`. The persons
+    are counted in the platform's scope, whatever scope the session is in, and the scope is restored.
+
+    The posture is written once and never changes: it is read once per session, which a list that weighs
+    hundreds of requests (`GET /me/pending`) asks about one by one."""
+    posture = session.info.get(_POSTURE_READ)
+    if posture is None:
+        posture = await recorded_posture(session)
+        if posture is not None:
+            session.info[_POSTURE_READ] = posture
+    if posture != PERSONAL:
+        return None
+    async with in_platform_scope(session):
+        rows = (
+            await session.execute(
+                select(Membership.user_id, Membership.org_id)
+                .join(User, User.id == Membership.user_id)
+                .where(User.is_service.is_(False))
+            )
+        ).all()
+    persons = {str(user_id) for user_id, _ in rows}
+    if len(persons) != 1:
+        return None
+    if org_id not in {str(org) for _, org in rows}:
+        return None
+    return persons.pop()
+
+
+async def sole_member(session: AsyncSession, org_id: str) -> bool:
+    """Whether organisation `org_id` is decided by one person alone: the recorded posture is `personal` and
+    exactly one person holds a membership (ADR 0228 §3)."""
+    return await the_sole_member(session, org_id) is not None
+
+
+async def decides_alone(session: AsyncSession, org_id: str, principal: Principal) -> bool:
+    """Whether `principal` is the sole member of `org_id`, deciding in their own session.
+
+    A decision is still the person's gesture (ADR 0029 §5, ADR 0154 §7): an API token, an MCP client, a
+    machine account or a run never decides alone, whatever the posture."""
+    if not holds_a_person_session(principal) or principal.authenticated_at is None:
+        return False
+    return await the_sole_member(session, org_id) == principal.user_id
+
+
+def require_fresh_alone(principal: Principal, step_up_minutes: int | None, *, gesture: str) -> int:
+    """The age of the sole member's authentication, or the usual 401 `step_up_required`.
+
+    Freshness is what stands in for the second person: the rule's `step_up_minutes`, or 10 minutes when it
+    names none, whatever the decision and even where the rule would have asked nothing of another person."""
+    minutes = STEP_UP_MINUTES if step_up_minutes is None else step_up_minutes
+    return require_fresh_authentication(
+        principal, minutes, gesture=f"{gesture}, alone as this installation's one person (ADR 0228),"
+    )
+
+
+def decided_alone(rule_asked: list[str]) -> dict[str, Any]:
+    """What a decision entry and its audit row carry when the sole member met `rule_asked` alone; nothing
+    when no rule asked another person for anything."""
+    if not rule_asked:
+        return {}
+    return {SOLE_MEMBER: True, RULE_ASKED: list(rule_asked)}
+
+
 def bootstrap_refusal() -> InstallationRefusedError:
     """The bootstrap's own words for the same refusal: its addresses would be a second person."""
     return InstallationRefusedError(
@@ -212,10 +304,15 @@ __all__ = [
     "ONE_PERSON_DETAIL",
     "ORGANISATION",
     "PERSONAL",
+    "RULE_ASKED",
+    "SOLE_MEMBER",
     "SOLE_MEMBER_MARK",
+    "STEP_UP_MINUTES",
     "InstallationRefusedError",
     "bootstrap_refusal",
     "check_the_installation",
+    "decided_alone",
+    "decides_alone",
     "is_sole_member_refusal",
     "one_person_refusal",
     "persons_holding_a_membership",
@@ -224,4 +321,7 @@ __all__ = [
     "record_the_first_start",
     "recorded_posture",
     "refuse_what_the_settings_forbid",
+    "require_fresh_alone",
+    "sole_member",
+    "the_sole_member",
 ]

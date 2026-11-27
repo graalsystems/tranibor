@@ -25,6 +25,7 @@ from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
 from ..extensions import GestureRequest, check_gesture
 from ..freshness import authentication_age, require_fresh_authentication
 from ..keyset import keyset_page
+from ..personal_installation import decided_alone, decides_alone
 from ..rbac import Permission, Principal
 from ..schemas import (
     AgentChannelStats,
@@ -759,7 +760,12 @@ async def decide_release(
 
     The rules are those of a governed action's decision (ADR 0035): a person in a session, a fresh sign-in
     to approve, neither the requester nor the revision's author when `separation_of_duties`, never twice,
-    and a compare-and-set on the pointer that production moves from."""
+    and a compare-and-set on the pointer that production moves from.
+
+    A personal installation's one person (ADR 0228 §3) approves alone what they asked for or wrote, and
+    their approval is the count when the policy asks for more than one. The fresh sign-in is the policy's
+    `step_up_minutes`, asked of anyone before separation of duties, so of them too; the vote and its audit
+    row carry `sole_member: true` and what the policy asked."""
     policy = policy_of(agent)
     gates = policy.stable
     row = (
@@ -778,6 +784,8 @@ async def decide_release(
     me = principal.email.lower()
     now = utcnow()
     decisions = list(row.decisions or [])
+    required = row.approvals_required
+    met_alone: list[str] = []
     if body.decision == "cancel":
         if (row.requested_by or "").lower() != me and not is_admin(principal, organisation.slug):
             raise forbidden("only the requester or an org_admin cancels a release request")
@@ -797,10 +805,16 @@ async def decide_release(
                 )
             ).scalar_one_or_none()
             if me in {(row.requested_by or "").lower(), (author or "").lower()}:
-                raise unprocessable(
-                    "separation of duties: neither the person who asked for this release nor the author "
-                    "of the revision approves it"
-                )
+                if not await decides_alone(session, agent.org_id, principal):
+                    raise unprocessable(
+                        "separation of duties: neither the person who asked for this release nor the author "
+                        "of the revision approves it"
+                    )
+                met_alone.append("separation_of_duties")
+        if required > 1 and await decides_alone(session, agent.org_id, principal):
+            # Nobody else will ever approve (ADR 0228 §3): the one person's approval is the count.
+            met_alone.append(f"approvals:{required}")
+            required = 1
         if any(d.get("by", "").lower() == me and d.get("decision") == "approve" for d in decisions):
             raise conflict("you have already approved this release")
         await check_gesture(
@@ -818,16 +832,15 @@ async def decide_release(
                 },
             ),
         )
-    decisions.append(
-        AgentReleaseVote(
-            by=principal.email, decision=body.decision, reason=body.reason, at=now, auth_age_seconds=age
-        ).model_dump(mode="json")
-    )
+    vote = AgentReleaseVote(
+        by=principal.email, decision=body.decision, reason=body.reason, at=now, auth_age_seconds=age
+    ).model_dump(mode="json", exclude={"sole_member", "rule_asked"})
+    decisions.append({**vote, **decided_alone(met_alone)})
     row.decisions = decisions
     approved = {d["by"].lower() for d in decisions if d.get("decision") == "approve"}
     if body.decision != "approve":
         row.status = "rejected" if body.decision == "reject" else "cancelled"
-    elif len(approved) >= row.approvals_required:
+    elif len(approved) >= required:
         await _apply(session, agent, row, principal, now)
     await session.flush()
     await record(
@@ -842,6 +855,7 @@ async def decide_release(
         reason=body.reason,
         status=row.status,
         auth_age_seconds=age,
+        **decided_alone(met_alone),
     )
     return row
 

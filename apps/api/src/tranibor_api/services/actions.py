@@ -10,6 +10,11 @@ the API before the slightest effect. The decision is guarded four ways:
   the owner of the agent that proposed it;
 - CONCURRENCY: the row is re-read locked, and the move to `approved` is a compare-and-set; of two
   simultaneous approvals, only one starts the action.
+
+A personal installation's one person (ADR 0228 §3, `personal_installation.decides_alone`) meets alone what
+the rule asks of other people: the separation of duties, the rule's group, an exclusion (ADR 0196 §2) and a
+count above one; never the rank. Always with a fresh authentication (`require_fresh_alone`), and the
+decision entry and its audit row carry `sole_member: true` and what the rule asked.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from ..db.models import Action, ActionEffect, Agent, Project, User, WorkItem
 from ..decision_session import holds_a_person_session, refusal
 from ..errors import ApiError, conflict, forbidden, unprocessable
 from ..freshness import authentication_age, require_fresh_authentication
+from ..personal_installation import decided_alone, decides_alone, require_fresh_alone
 from ..rbac import rank_of
 from ..schemas.actions import ActionCreate, ActionDto, ActionEffectDto, ActionSettlementBody, ApprovalSpec
 from .events import persist_event
@@ -354,18 +360,34 @@ async def _one_of_its_approvers(
     principal: Any,
     gesture: str,
     verb: str,
-) -> None:
+) -> list[str]:
     """The rank, the groups and the separation of duties of the action's rule: who may approve it, and
-    who may settle it once it is in doubt (S65-26). `gesture` and `verb` name the refusal."""
+    who may settle it once it is in doubt (S65-26). `gesture` and `verb` name the refusal.
+
+    Returns what the rule asked of other people that the installation's sole member met alone (ADR 0228
+    §3): `excluded`, `group:<name>`, `separation_of_duties`. Empty for anyone else, and whenever the
+    person met the rule as written; when it is not, the caller demands a fresh authentication and records
+    it."""
     approval = action.approval or {}
     approvers = approval.get("approvers") or [{"role": "project_owner", "min": 1}]
+    met_alone: list[str] = []
+    alone: list[bool] = []
+
+    async def by_themself() -> bool:
+        """Read once, and only where the rule would refuse: outside the posture, one row's read."""
+        if not alone:
+            alone.append(await decides_alone(session, project.org_id, principal))
+        return alone[0]
+
     # Named by the action itself (ADR 0196): the person it concerns, who asked for it. Before the
-    # rank, so an organisation administrator is no exception.
+    # rank, so an organisation administrator is no exception; the sole member is (ADR 0228 §3).
     if principal.email.lower() in {str(e).strip().lower() for e in approval.get("excluded") or []}:
-        raise forbidden(
-            f"{gesture} this action is not yours: it names you among those who may not decide it "
-            "(the person it concerns, or who asked for it)"
-        )
+        if not await by_themself():
+            raise forbidden(
+                f"{gesture} this action is not yours: it names you among those who may not decide it "
+                "(the person it concerns, or who asked for it)"
+            )
+        met_alone.append("excluded")
     my_rank = rank(principal, org_slug, project.slug)
     high_enough = [a for a in approvers if my_rank >= _rank_asked(a)]
     if not high_enough:
@@ -382,19 +404,25 @@ async def _one_of_its_approvers(
 
     if not any(not a.get("group") or group_of(a) in my_groups for a in high_enough):
         groups = sorted({group_of(a) for a in high_enough if a.get("group")})
-        raise forbidden(
-            f"{gesture} this action needs membership of the group {' or '.join(groups)} "
-            "(identity-provider groups, as of your last sign-in)"
-        )
+        if not await by_themself():
+            raise forbidden(
+                f"{gesture} this action needs membership of the group {' or '.join(groups)} "
+                "(identity-provider groups, as of your last sign-in)"
+            )
+        met_alone.append(f"group:{' or '.join(groups)}")
     if approval.get("separation_of_duties", True):
         proposed_by = action.proposed_by or {}
         me = principal.email.lower()
         if (proposed_by.get("kind") == "user" and str(proposed_by.get("id", "")).lower() == me) or (
             await _agent_owner(session, proposed_by, project.org_id)
         ) == me:
-            raise unprocessable(
-                f"separation of duties: whoever proposes (or owns the agent that proposes) does not {verb}"
-            )
+            if not await by_themself():
+                raise unprocessable(
+                    "separation of duties: whoever proposes (or owns the agent that proposes) "
+                    f"does not {verb}"
+                )
+            met_alone.append("separation_of_duties")
+    return met_alone
 
 
 async def decide(
@@ -422,27 +450,38 @@ async def decide(
         raise conflict(f"the action is already {action.status}")
     approval = action.approval or {}
     approvers = approval.get("approvers") or [{"role": "project_owner", "min": 1}]
-    await _one_of_its_approvers(session, project, org_slug, action, principal, "deciding", "decide")
+    met_alone = await _one_of_its_approvers(
+        session, project, org_slug, action, principal, "deciding", "decide"
+    )
     if any(d.get("by", "").lower() == principal.email.lower() for d in action.decisions or []):
         raise conflict("you have already decided this action")
+    minimum = max(int(a.get("min", 1)) for a in approvers)
+    if decision == "approve" and minimum > 1 and await decides_alone(session, project.org_id, principal):
+        # Nobody else will ever approve (ADR 0228 §3): the one person's approval is the count.
+        met_alone.append(f"approvers:{minimum}")
+        minimum = 1
     # `step_up_minutes` absent (`None`): the rule demands no recent authentication, which an
-    # extension's policy can say; an action proposed by the API always has one.
+    # extension's policy can say; an action proposed by the API always has one. The sole member deciding
+    # alone always needs one, whatever the decision.
     freshness = approval.get("step_up_minutes", 10)
-    age = (
-        require_fresh_authentication(principal, int(freshness))
-        if decision == "approve" and freshness is not None
-        else authentication_age(principal)
-    )
+    if met_alone:
+        age: int | None = require_fresh_alone(
+            principal, None if freshness is None else int(freshness), gesture="deciding this action"
+        )
+    elif decision == "approve" and freshness is not None:
+        age = require_fresh_authentication(principal, int(freshness))
+    else:
+        age = authentication_age(principal)
     entry = {
         "by": principal.email,
         "decision": decision,
         "reason": reason,
         "at": utcnow().isoformat(),
         "auth_age_seconds": age,
+        **decided_alone(met_alone),
     }
     decisions = [*(action.decisions or []), entry]
     approved = {d["by"].lower() for d in decisions if d.get("decision") == "approve"}
-    minimum = max(int(a.get("min", 1)) for a in approvers)
     new_status = (
         ActionStatus.REJECTED.value
         if decision == "reject"
@@ -471,6 +510,7 @@ async def decide(
         decision=decision,
         status=new_status,
         auth_age_seconds=age,
+        **decided_alone(met_alone),
     )
     await persist_event(
         session,
@@ -562,13 +602,18 @@ async def settle(
     if action is None:
         raise ApiError(404, "Action not found", action_id)
     # Guarded before anything is said of the action's state: a second request is guarded as the first.
-    await _one_of_its_approvers(session, project, org_slug, action, principal, "settling", "settle")
-    freshness = (action.approval or {}).get("step_up_minutes", 10)
-    age = (
-        require_fresh_authentication(principal, int(freshness))
-        if freshness is not None
-        else authentication_age(principal)
+    met_alone = await _one_of_its_approvers(
+        session, project, org_slug, action, principal, "settling", "settle"
     )
+    freshness = (action.approval or {}).get("step_up_minutes", 10)
+    if met_alone:
+        age: int | None = require_fresh_alone(
+            principal, None if freshness is None else int(freshness), gesture="settling this action"
+        )
+    elif freshness is not None:
+        age = require_fresh_authentication(principal, int(freshness))
+    else:
+        age = authentication_age(principal)
     effects = list(
         (
             await session.execute(
@@ -603,6 +648,7 @@ async def settle(
         "result": body.result if outcome is SettlementOutcome.MADE else None,
         "auth_age_seconds": age,
         "in_doubt": list((doubted.result or {}).get("in_doubt") or []),
+        **decided_alone(met_alone),
     }
     doubted.settlement = record_of_it
     doubted.finished_at = now
@@ -631,6 +677,7 @@ async def settle(
         outcome=outcome.value,
         position=doubted.position,
         auth_age_seconds=age,
+        **decided_alone(met_alone),
     )
     await persist_event(
         session,

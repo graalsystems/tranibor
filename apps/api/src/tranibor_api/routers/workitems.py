@@ -24,6 +24,7 @@ from ..keyset import keyset_page
 from ..knowledge.marked import listed_only, readable_ids, require_readable
 from ..logging import get_logger
 from ..object_store import object_store
+from ..personal_installation import decided_alone, require_fresh_alone
 from ..rbac import Permission
 from ..schemas import (
     ArtifactPage,
@@ -77,9 +78,9 @@ from ..services.handed_files import (
 from ..services.human_assignee import (
     StepAssignee,
     assignee_of_the_request,
-    decider_verdict,
     refusal,
     sla_passed,
+    step_verdict,
     users_known_in,
 )
 from ..services.receipts import work_item_handoffs
@@ -429,11 +430,17 @@ async def post_decision(
     # A step addressed to a group is answered by a member of it (ADR 0044, ADR 0052), one addressed to
     # a person by that person, the group joining once the SLA has passed (ADR 0153): the rank above is
     # necessary, not sufficient. An organisation administrator may override — audited, never silent.
+    # A personal installation's one person answers a group's step as its member, freshly signed in, and
+    # the decision says so (ADR 0228 §3).
     assignee = await assignee_of_the_request(session, item, request_row)
     after_sla = sla_passed(request_row)
-    verdict = decider_verdict(principal, org_slug, assignee, after_sla=after_sla)
+    verdict, met_alone = await step_verdict(
+        session, principal, org_slug, project.org_id, assignee, after_sla=after_sla
+    )
     if verdict == "refused" and assignee is not None:
         raise forbidden(refusal(assignee, after_sla=after_sla))
+    if met_alone:
+        require_fresh_alone(principal, None, gesture="answering this step")
     if verdict == "override" and assignee is not None:
         await record(
             session,
@@ -496,7 +503,8 @@ async def post_decision(
     )
     request_row.decided_at = utcnow()
     request_row.decided_by = principal.email
-    request_row.decision = decision.model_dump(mode="json")
+    # The interpreter receives the decision as the contract writes it; the row keeps the mark beside it.
+    request_row.decision = {**decision.model_dump(mode="json"), **decided_alone(met_alone)}
 
     # A work item a demonstration history imported has no workflow (ADR 0216): its decision is recorded
     # and audited, and passed to nothing — no interpreter is signalled, so no agent runs and nothing is
@@ -534,6 +542,7 @@ async def post_decision(
         kind=body.kind,
         **({"draft": drafted} if drafted else {}),
         **imported,
+        **decided_alone(met_alone),
     )
     return human_request_dto(request_row)
 

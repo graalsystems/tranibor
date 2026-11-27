@@ -30,7 +30,7 @@ from tranibor_core import utcnow
 from ..db.models import HumanRequest, Organization, Project, WorkItem
 from ..knowledge.marked import readable
 from ..rbac import Permission, Principal
-from .human_assignee import assignee_of_the_request, decider_verdict, sla_passed
+from .human_assignee import assignee_of_the_request, sla_passed, step_verdict
 from .personal_spaces import listed
 
 #: What a draft may propose, by the request's kind (the decision route's own rules, `post_decision`).
@@ -62,11 +62,15 @@ async def may_answer(
     session: AsyncSession, principal: Principal, item: WorkItem, project: Project, org: str, row: HumanRequest
 ) -> str:
     """`ok` (the person answers it themselves), `override` (an organisation administrator the step is not
-    addressed to) or `refused` — the decision route's verdict, rank included."""
+    addressed to) or `refused` — the decision route's verdict, rank included. A personal installation's one
+    person answers a step addressed to a group themselves (ADR 0228 §3)."""
     if not principal.can(Permission.ITEM_DECIDE, org, project.slug):
         return "refused"
     assignee = await assignee_of_the_request(session, item, row)
-    return decider_verdict(principal, org, assignee, after_sla=sla_passed(row))
+    verdict, _ = await step_verdict(
+        session, principal, org, project.org_id, assignee, after_sla=sla_passed(row)
+    )
+    return verdict
 
 
 async def own_requests(

@@ -9,7 +9,10 @@ person answers, on top of the rank (`ITEM_DECIDE`):
 - **both**: the person is asked first; once the request's SLA has passed (its `due_at`), a member of
   the group may answer too, and the person still may;
 - **an organisation administrator may always answer**, audited as `workitem.decision.group_override`
-  with what it bypassed, so that a step addressed to someone who left never waits forever.
+  with what it bypassed, so that a step addressed to someone who left never waits forever;
+- **a personal installation's one person** (ADR 0228 §3) answers a step addressed to a group as its
+  member (`step_verdict`): the step is theirs, listed by `GET /me/pending`, answered with a fresh
+  authentication and recorded `sole_member: true`.
 
 An organisation administrator may also **reassign** a waiting request: the new assignee is kept on
 the request row (`human_requests.assignee`) and replaces the workflow's actor for that request only.
@@ -29,6 +32,7 @@ from tranibor_core import utcnow
 from tranibor_core.dsl.groups import group_for
 
 from ..db.models import HumanRequest, Membership, Project, User, WorkItem
+from ..personal_installation import decides_alone
 from ..rbac import Principal
 from .definitions import work_item_workflow, workflow_model
 from .human_groups import groups_for_org
@@ -110,19 +114,50 @@ def sla_passed(row: HumanRequest, now: datetime | None = None) -> bool:
 
 
 def decider_verdict(
-    principal: Principal, org_slug: str, assignee: StepAssignee | None, *, after_sla: bool
+    principal: Principal,
+    org_slug: str,
+    assignee: StepAssignee | None,
+    *,
+    after_sla: bool,
+    sole_member: bool = False,
 ) -> Verdict:
-    """`ok`, `override` (an organisation administrator the step is not addressed to) or `refused`."""
+    """`ok`, `override` (an organisation administrator the step is not addressed to) or `refused`.
+
+    `sole_member`: the person is a personal installation's one person (ADR 0228 §3), who meets a group's
+    condition alone wherever the group may answer; the caller has established it (`step_verdict`)."""
     if assignee is None:
         return "ok"
     if assignee.user and (principal.email or "").strip().lower() == assignee.user:
         return "ok"
     group_may_answer = assignee.group is not None and (assignee.user is None or after_sla)
-    if group_may_answer and assignee.group in groups_for_org(principal.groups, org_slug):
+    if group_may_answer and (sole_member or assignee.group in groups_for_org(principal.groups, org_slug)):
         return "ok"
     if principal.org_roles.get(org_slug) == Role.ORG_ADMIN:
         return "override"
     return "refused"
+
+
+async def step_verdict(
+    session: AsyncSession,
+    principal: Principal,
+    org_slug: str,
+    org_id: str,
+    assignee: StepAssignee | None,
+    *,
+    after_sla: bool,
+) -> tuple[Verdict, list[str]]:
+    """`decider_verdict`, and what the step asked of other people that a personal installation's one person
+    met alone (ADR 0228 §3): `["group:<name>"]` when the step is addressed to a group they are outside of,
+    which no identity provider gives them; empty otherwise. When it is not empty the verdict is `ok`, and
+    the caller asks for a fresh authentication and records it (`personal_installation.decided_alone`)."""
+    verdict = decider_verdict(principal, org_slug, assignee, after_sla=after_sla)
+    if verdict == "ok" or assignee is None:
+        return verdict, []
+    if decider_verdict(principal, org_slug, assignee, after_sla=after_sla, sole_member=True) != "ok":
+        return verdict, []
+    if not await decides_alone(session, org_id, principal):
+        return verdict, []
+    return "ok", [f"group:{assignee.group}"]
 
 
 def refusal(assignee: StepAssignee, *, after_sla: bool) -> str:

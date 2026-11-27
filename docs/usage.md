@@ -2335,7 +2335,10 @@ no `done_at`, and production stays where it was. Other people decide with
 `POST …/releases/{id}/decision {"decision": "approve"}`; each needs the right to release the agent, a
 human session with a sign-in younger than `step_up_minutes`, and — unless `separation_of_duties` is
 switched off — to be neither the requester nor the author of the revision (`422`). Nobody approves
-twice (`409`); with `approvals: 2`, two different people. The last approval re-checks the revision and
+twice (`409`); with `approvals: 2`, two different people. A personal installation's one person (ADR 0228
+§3) approves alone, the request they made and the revision they wrote included, and their approval is
+the count; the sign-in rule stands, and the vote says `sole_member: true` with what the policy asked
+(`rule_asked`). The last approval re-checks the revision and
 moves production; if production moved meanwhile (a rollback, say) the request is `superseded` and the
 approval gets `409`. `reject` needs a `reason`; the requester or an `org_admin` can `cancel`. A rollback
 never waits. An agent with `on_publish: stable` and approvals saves the revision and opens the same

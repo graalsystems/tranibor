@@ -781,6 +781,10 @@ class AgentReleaseVote(Dto):
     at: datetime
     #: How old the person's sign-in was, in seconds, when they decided.
     auth_age_seconds: int | None = None
+    #: A personal installation's one person approved alone (ADR 0228 §3), meeting what `rule_asked` asked of
+    #: other people (`separation_of_duties`, `approvals:<n>`).
+    sole_member: bool = False
+    rule_asked: list[str] = Field(default_factory=list)
 
 
 class AgentReleaseDecision(Dto):

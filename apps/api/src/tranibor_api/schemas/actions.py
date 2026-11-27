@@ -76,6 +76,10 @@ class ActionSettlementDto(Dto):
     auth_age_seconds: int | None = None
     #: What was sent and never answered, as the effect in doubt held it.
     in_doubt: list[dict[str, Any]] = Field(default_factory=list)
+    #: A personal installation's one person settled it alone (ADR 0228 §3), meeting what `rule_asked` asked
+    #: of other people (`separation_of_duties`, `group:<name>`, `excluded`).
+    sole_member: bool = False
+    rule_asked: list[str] = Field(default_factory=list)
 
 
 class ActionEffectDto(Dto):
