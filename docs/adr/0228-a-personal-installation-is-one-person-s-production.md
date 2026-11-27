@@ -7,10 +7,11 @@
   ([00-index.md](../plan/00-index.md), their rows amended in the same pull request), each for the personal
   posture only and quoted under "Amended, for this posture only")
 - **Concerns**: `tranibor_core.production` (`PERSONAL_ENVIRONMENT`, `is_production`, `is_personal`) and every
-  module that spelled `{"staging", "prod"}`; a new `apps/api/src/tranibor_api/installation.py` (not
-  `services/installation.py`, which installs a template's agents: the `installation` table, the trigger
-  `choregos_sole_member()`, `sole_member`, the start-up check) and `bootstrap.py`; the decision paths
-  `services/actions.py` (`_one_of_its_approvers`, `decide`), `services/agent_releases.py`,
+  module that spelled `{"staging", "prod"}`; a new `apps/api/src/tranibor_api/personal_installation.py` (not
+  `services/installation.py`, which installs a template's agents: the posture recorded, `sole_member`, the
+  start-up check), the `installation` table and its SQLite triggers (`db/models/installation.py`), the trigger
+  `choregos_sole_member()` (migration `20261127_1000_s87_10_sole_member.py`) and `bootstrap.py`; the decision
+  paths `services/actions.py` (`_one_of_its_approvers`, `decide`), `services/agent_releases.py`,
   `services/human_assignee.py` (`decider_verdict`) and `freshness.py`; new `owner_sign_in.py` and `passkeys.py`,
   `routers/auth.py` (`redirection_sure`), `routers/device_sign_in.py`, `origin_guard.py`, `browser_sessions.py`;
   a new `deploy/personal/` (`compose.yaml`, `Caddyfile`); `charts/choregos/templates/guard.yaml`;
@@ -77,13 +78,18 @@ rank". A person alone, whose agents propose everything, could approve nothing. A
    (`routers/auth.py`), a project's creation (`routers/projects.py`), `bootstrap.py` or a raw `INSERT`. A
    machine account (a user with `is_service`, ADR 0131) is not a person and is accepted. The API refuses to
    start when `TRANIBOR_ENV` and the recorded posture differ, either way; when more than one person holds a
-   membership; when `TRANIBOR_BOOTSTRAP_ADMINS` names more than one address; and on SQLite, which keeps no
-   trigger. Held by `apps/api/tests/test_personal_single_member_postgres.py`, on PostgreSQL under the
-   application role: a second member refused through the route with a message naming this record, a raw `INSERT`
-   refused by the trigger, a machine account accepted, each start-up refusal.
+   membership; when `TRANIBOR_BOOTSTRAP_ADMINS` names more than one address; and on SQLite. The suite's and a
+   developer's SQLite database carries the rule too, as triggers `create_all()` lays the way the migration lays
+   them (`db/models/installation.py`), but SQLite is a development database that no migration follows: a
+   personal installation's database is PostgreSQL (`refuse_what_the_settings_forbid`,
+   `apps/api/src/tranibor_api/personal_installation.py`). Held by
+   `apps/api/tests/test_personal_single_member_postgres.py`, on PostgreSQL under the application role: a second
+   member refused through the route with a message naming this record, a raw `INSERT` refused by the trigger, a
+   machine account accepted, each start-up refusal; and by `apps/api/tests/test_personal_single_member.py`
+   (SQLite's triggers compared with the migration's; the posture refused on SQLite).
 3. **The sole member decides alone, always freshly signed in, and it is recorded.**
-   `sole_member(session, org_id)` (`tranibor_api/installation.py`) is true only when the installation row says
-   `personal` and exactly one person holds a membership. Then that person meets what a rule asks of other
+   `sole_member(session, org_id)` (`tranibor_api/personal_installation.py`) is true only when the installation
+   row says `personal` and exactly one person holds a membership. Then that person meets what a rule asks of other
    people: separation of duties (`_one_of_its_approvers`, the release approval of `services/agent_releases.py`),
    an approver group, a human step addressed to a group (`decider_verdict` answers `ok`, so the step is listed
    by `GET /me/pending`), an exclusion of ADR 0196 §2, and an approver count above one. Never without a fresh
@@ -174,7 +180,7 @@ rank". A person alone, whose agents propose everything, could approve nothing. A
 | Case | Answer | Where |
 |:--|:--|:--|
 | A second person's membership, on any path | refused | `choregos_sole_member()`; the start-up check |
-| A posture mismatch, two persons, two bootstrap addresses, SQLite in the posture | the API refuses to start | `tranibor_api/installation.py` |
+| A posture mismatch, two persons, two bootstrap addresses, SQLite in the posture | the API refuses to start | `tranibor_api/personal_installation.py` |
 | The development sign-in, the fakes, `direct`, a superuser, clear payloads, an unisolated agent | refused, as in prod | `production.py` and its callers |
 | An owner ticket replayed, expired, signed by another key, or on the relay door | refused (401; 404 on the relay door) | `POST /auth/owner` |
 | A pairing created on the relay door or with a stale sign-in; exchanged twice, late, or on the loopback door | refused | `/me/device-pairings`, `/auth/device/session` |
@@ -265,3 +271,14 @@ Recorded, and not prevented:
 No personal installation has run. Untried: how WebKit and WebView2 treat a cookie on `http://127.0.0.1`; Caddy's
 per-listener routing behind the relay; the bundle's memory at rest under Docker Desktop's default limits; a
 Temporal upgrade on an unattended personal installation.
+
+## Amended, 2026-11-27: the module's name, and SQLite (S87-10)
+
+- 2026-11-27: the posture's module is `apps/api/src/tranibor_api/personal_installation.py`, where this record
+  first said `tranibor_api/installation.py` (the header, §2, §3 and the table of refusals): the name sets it apart
+  from `services/installation.py`, which installs a template's agents. The `installation` table and its SQLite
+  triggers are in `db/models/installation.py`.
+- 2026-11-27: §2 said SQLite "keeps no trigger". The suite's SQLite database does keep the rule, as triggers
+  `create_all()` lays (`apps/api/tests/test_personal_single_member.py` compares them with the migration's); what
+  stands is that the API refuses to start a personal installation on SQLite, a development database that no
+  migration follows.

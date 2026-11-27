@@ -278,7 +278,7 @@ Acceptance:
 
 - An installation row records the posture; a trigger on memberships refuses a second person on every path; machine accounts are accepted; the API refuses to start on a mismatch
 
-Where: `apps/api/src/tranibor_api/installation.py`, `apps/api/src/tranibor_api/bootstrap.py`.
+Where: `apps/api/src/tranibor_api/personal_installation.py` (not `services/installation.py`), `apps/api/src/tranibor_api/db/models/installation.py`, `apps/api/src/tranibor_api/bootstrap.py`.
 
 The test that fails without it: `apps/api/tests/test_personal_single_member_postgres.py`.
 
@@ -292,7 +292,7 @@ Acceptance:
 
 - In the personal posture the only person passes separation of duties, group-addressed steps and ADR 0196 excluded, always with a fresh authentication, and the decision records sole_member: true; the same case stays refused in prod
 
-Where: `apps/api/src/tranibor_api/services/actions.py`, `apps/api/src/tranibor_api/services/human_assignee.py`.
+Where: `apps/api/src/tranibor_api/personal_installation.py` (`sole_member`), `apps/api/src/tranibor_api/services/actions.py`, `apps/api/src/tranibor_api/services/human_assignee.py`.
 
 The test that fails without it: `apps/api/tests/test_sole_member_decides.py`.
 
