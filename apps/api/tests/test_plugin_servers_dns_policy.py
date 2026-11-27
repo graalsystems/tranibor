@@ -16,8 +16,8 @@ from httpx import AsyncClient
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_adapters.fakes.resolver import FakeResolver
 
+from .kits.private_egress import dns  # noqa: F401 - fixture
 from .test_plugin_servers import ORG, _install, _only, _set, kube, settings_env  # noqa: F401 - fixtures
-from .test_plugin_servers_private_egress import dns  # noqa: F401 - fixture
 
 OPENSHIFT = json.dumps(
     {

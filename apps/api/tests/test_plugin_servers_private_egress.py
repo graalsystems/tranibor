@@ -19,30 +19,11 @@ from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_adapters.fakes.resolver import FakeResolver
 from tranibor_adapters.plugin_servers import PRIVATE_RANGES
 
+from .kits.private_egress import dns  # noqa: F401 - fixture
 from .test_plugin_servers import ORG, _install, _only, _set, kube, settings_env  # noqa: F401 - fixtures
 
 LAN = "https://controller.lan.example:8443"
 LISTED = json.dumps(["10.20.0.0/16"])
-
-
-@pytest.fixture
-def dns() -> Iterator[FakeResolver]:
-    """No DNS in a test: names answer from a table."""
-    from tranibor_api.services.private_egress import use_resolver
-
-    resolver = FakeResolver(
-        {
-            "controller.lan.example": ["10.20.1.5"],
-            "elsewhere.lan.example": ["10.30.1.5"],
-            "metadata.lan.example": ["169.254.169.254"],
-            "v6metadata.lan.example": ["fd00:ec2::254"],
-            "mixed.lan.example": ["10.20.1.5", "169.254.169.254"],
-            "api.vendor.example": ["93.184.216.34"],
-        }
-    )
-    use_resolver(resolver)
-    yield resolver
-    use_resolver(None)
 
 
 @pytest.fixture
