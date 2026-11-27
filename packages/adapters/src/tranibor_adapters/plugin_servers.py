@@ -22,12 +22,13 @@ What runs:
 - a **NetworkPolicy**: ingress, on the server's port, from the pods of the platform's processes that call
   a server (`CALLERS`): the API, and the orchestrator's workers, which build a project's adapters (a
   `tracker/plugin` reads and writes through the server, #2192) and play a governed action's
-  `connector.call` effect; never a runner. Egress to DNS and, by
-  default, to public addresses on the ports of the hosts its configuration names. Kubernetes cannot
-  name a host: with `egress="cilium"` a `CiliumNetworkPolicy` narrows egress to those exact names
-  (`toFQDNs`) and DNS to the lookups of those names (an L7 `dns` rule), and the NetworkPolicy opens no
-  egress at all: Cilium unions policies, and a plain port-53 allow beside the L7 rule would let the
-  server resolve any name (a channel out, ADR 0096 §8 as amended by S80-20b).
+  `connector.call` effect; never a runner. Egress to DNS (the cluster's resolver, the chart's
+  `networkPolicies.dns` as `TRANIBOR_DNS_POLICY`, #2277) and, by default, to public addresses on the
+  ports of the hosts its configuration names. Kubernetes cannot name a host: with `egress="cilium"` a
+  `CiliumNetworkPolicy` narrows egress to those exact names (`toFQDNs`) and DNS to the lookups of those
+  names (an L7 `dns` rule), and the NetworkPolicy opens no egress at all: Cilium unions policies, and a
+  plain DNS allow beside the L7 rule would let the server resolve any name (a channel out, ADR 0096 §8
+  as amended by S80-20b).
   Amended by ADR 0224 §6a: a host that resolves into a private range the deployment lists for the
   organisation (`private_egress`) is opened by its exact address and port (an `ipBlock` /32 rule, or
   `toCIDR` with Cilium), and leaves the public rule; the default exception list is unchanged.
@@ -44,6 +45,7 @@ from typing import Any, Literal
 
 import httpx
 from tranibor_contracts.env import with_legacy
+from tranibor_core.dns_policy import UPSTREAM, DnsPolicy, cilium_rules, network_policy_rule
 
 from .executor.tekton import CORE_API, KubernetesClient
 from .mcp.client import McpClient
@@ -100,6 +102,8 @@ class ServerDeployment:
     egress_mode: EgressMode = "networkpolicy"
     #: Secrets of the namespace the kubelet pulls the image with (a private mirror)
     image_pull_secrets: tuple[str, ...] = ()
+    #: The cluster's resolver, the chart's `networkPolicies.dns` (`TRANIBOR_DNS_POLICY`, #2277)
+    dns: DnsPolicy = UPSTREAM
 
     @property
     def config_digest(self) -> str:
@@ -199,12 +203,6 @@ def _service(d: ServerDeployment) -> dict[str, Any]:
     }
 
 
-_DNS = {
-    "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}],
-    "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
-}
-
-
 def _ports(egress: Iterable[tuple[str, int]]) -> list[dict[str, Any]]:
     return [{"protocol": "TCP", "port": p} for p in sorted({port for _, port in egress})]
 
@@ -236,7 +234,7 @@ def _network_policy(d: ServerDeployment) -> dict[str, Any]:
     )
     egress: list[dict[str, Any]] = []
     if d.egress and d.egress_mode == "networkpolicy":
-        egress.append(_DNS)
+        egress.append(network_policy_rule(d.dns, tcp=True))
         public = _public(d)
         if public:
             egress.append(
@@ -276,18 +274,7 @@ def _dns_names(d: ServerDeployment) -> list[str]:
 
 def _cilium_policy(d: ServerDeployment) -> dict[str, Any]:
     names = _dns_names(d)
-    dns = {
-        "toEndpoints": [
-            {"matchLabels": {"k8s:io.kubernetes.pod.namespace": "kube-system", "k8s-app": "kube-dns"}}
-        ],
-        "toPorts": [
-            {
-                "ports": [{"port": "53", "protocol": "ANY"}],
-                "rules": {"dns": [{"matchName": host} for host in names]},
-            }
-        ],
-    }
-    rules: list[dict[str, Any]] = [dns] if names else []
+    rules: list[dict[str, Any]] = cilium_rules(d.dns, names) if names else []
     public = _public(d)
     if public:
         rules.append(

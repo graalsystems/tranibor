@@ -1,0 +1,86 @@
+# EKS profile (S87-10, ADR 0227): what differs on Amazon Elastic Kubernetes Service, and nothing else.
+# Layer it after the base profile and before the site's own file:
+#
+#   helm install tranibor charts/tranibor -n tranibor --create-namespace \
+#     -f charts/tranibor/values/all-in-one.yaml -f charts/tranibor/values/eks.yaml -f my-site.yaml
+#
+# Written from AWS's documentation; NO EKS cluster ran it (S87-12 is that proof, and
+# docs/support/clusters.yaml says EKS is unknown until it is green). What it relies on, on the cluster
+# side:
+#   - A NetworkPolicy engine: the Amazon VPC CNI's own (1.14 and later), turned on in the add-on's
+#     configuration, `aws eks create-addon --addon-name vpc-cni --configuration-values
+#     '{"enableNetworkPolicy": "true"}'` (it starts the policy agent with `--enable-network-policy=true`).
+#     Without it, nothing enforces the chart's NetworkPolicies and the egress gate holds every agent pod
+#     forever, by design. The gate stays on (`tranibor-orchestrator.runner.egressGate`, from the base
+#     profile): the VPC CNI applies a new pod's policy after the pod starts unless its strict mode is on.
+#   - The AWS Load Balancer Controller (its Helm chart, `eks/aws-load-balancer-controller`), which
+#     creates the IngressClass `alb`, with its IAM role (IRSA or Pod Identity).
+#   - The EBS CSI driver add-on (`aws-ebs-csi-driver`) with its IAM role: the volumes below are Amazon
+#     EBS. A cluster made on Kubernetes 1.30 or later has NO default StorageClass (the `gp2` class
+#     exists, not annotated as the default): the profile names `gp2` for every volume. A site with its
+#     own class (`gp3`) names it in its file.
+global:
+  runner:
+    # runc: EKS offers no managed sandboxed runtime (none was found in its user guide). Every agent pod
+    # runs under the node's own runtime, and the agent is separated from the runner by its OWN
+    # container, another uid, without the runner's secrets (`agentIsolation: container`, the default,
+    # untouched here). Set, and empty, on purpose: the API and the workers are told the cluster's default
+    # (`TRANIBOR_RUNNER_RUNTIME_CLASS=""`), and under the `agent_sandbox` executor `/readiness` tells a
+    # project whose policy asks `sandbox.runtime: gvisor` that the pool does not run it. A policy that
+    # asks it still names `gvisor` on its pods, which this cluster then never admits: keep such a policy
+    # off EKS. A self-managed node group with gVisor (`runsc` and a RuntimeClass
+    # `gvisor`, as `infra/bootstrap/gvisor.yaml` lays down on k3s) takes `runtimeClass: gvisor` instead:
+    # a second, optional run of S87-12.
+    runtimeClass: ""
+
+# One Application Load Balancer for the API, the console and Keycloak (`group.name`), the API's rules
+# before the console's catch-all (`group.order`). `target-type: ip`: the ALB sends to the pods' VPC
+# addresses, the Services stay ClusterIP. `internet-facing`: the controller's default is `internal`.
+# TLS: the site adds `alb.ingress.kubernetes.io/certificate-arn` and
+# `alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'` in its own file.
+tranibor-api:
+  ingress:
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: tranibor
+      alb.ingress.kubernetes.io/group.order: "10"
+      # The target group's health check: `/` is the console's, not the API's.
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+
+tranibor-web:
+  ingress:
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: tranibor
+      alb.ingress.kubernetes.io/group.order: "20"
+
+tranibor-keycloak:
+  ingress:
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: tranibor
+      alb.ingress.kubernetes.io/group.order: "30"
+      # Keycloak answers `/` with a redirect, and its readiness endpoint is on its management port.
+      alb.ingress.kubernetes.io/success-codes: "200-399"
+
+backup:
+  target:
+    volume: { storageClass: gp2 }
+
+tranibor-postgresql:
+  persistence: { storageClass: gp2 }
+
+tranibor-temporal:
+  persistence: { storageClass: gp2 }
+
+tranibor-ecphoria:
+  persistence: { storageClass: gp2 }
+
+tranibor-objectstore:
+  persistence: { storageClass: gp2 }

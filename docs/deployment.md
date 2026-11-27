@@ -50,8 +50,8 @@ off, no endpoint) says `not applicable` and why. The command exits 1 when any ch
 reach the API server.
 
 The last three checks need pods, so the command creates one namespace of its own
-(`tranibor-preflight-…`), a NetworkPolicy that mirrors `tranibor-runner-egress` (DNS to `kube-system`,
-nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
+(`tranibor-preflight-…`), a NetworkPolicy that mirrors `tranibor-runner-egress` (DNS to the resolver `networkPolicies.dns`
+names in the values files given with `-f`, `kube-system` by default; nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
 under no policy (the baseline: without it, "denied" could mean "down"), and a probe with the runner pods'
 labels, which runs the egress gate's own loop (three failed attempts in a row, one-second connection
 timeouts, 0.25 s apart) against the gate's target, then against the server. The namespace is deleted at the
@@ -120,7 +120,7 @@ run on each provider proves them; the support matrix says which have one.
 | What | The setting | Default |
 | :-- | :-- | :-- |
 | The Kubernetes version | `kubeVersion: ">=1.29.0-0"` in `Chart.yaml`: Helm and Argo CD refuse an older cluster before anything is applied. `-0` admits the providers' suffixed versions (`v1.29.4-eks-…`, `v1.30.5-gke.…`) | — |
-| The cluster's resolver | `networkPolicies.dns`: `namespace`, `podLabels` (its pods, as `matchLabels`), `cidrs` (addresses no namespace holds), `ports` (`[{port, protocol}]`, for every policy at once). An empty `namespace` with no `cidrs` fails the render | `kube-system`, every pod, no address; UDP 53 for the platform's own pods, UDP and TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder (what each policy always opened) |
+| The cluster's resolver | `networkPolicies.dns`: `namespace`, `podLabels` (its pods, as `matchLabels`), `cidrs` (addresses no namespace holds), `ports` (`[{port, protocol}]`, for every policy at once). An empty `namespace` with no `cidrs` fails the render. The policies the platform writes itself follow it too (#2277): the chart renders it into the ConfigMap `tranibor-dns-policy`, which the API and every worker read as `TRANIBOR_DNS_POLICY`, so a plugin server's NetworkPolicy (and its CiliumNetworkPolicy's `dns` rule) and a project namespace's `allow-platform-egress` and `tranibor-egress-out` open the same resolver. It is rendered whether or not `networkPolicies.enabled` is, and `global.extraEnv` may not set it | `kube-system`, every pod, no address; UDP 53 for the platform's own pods, UDP and TCP 53 for the runner pods, the egress proxy, the outposts' door and the builder (what each policy always opened). Written by code: UDP and TCP 53 for a plugin server, UDP 53 for a project namespace, and with Cilium CoreDNS's pods (`k8s-app: kube-dns`) on 53, as before |
 | The Prometheus Operator's types | `monitoring.skipCrdCheck`: rendered when the cluster serves them, or when this says so for an offline render ([Verifying an installation](#verifying-an-installation)) | `false` |
 | TLS on an Ingress | `tranibor-api.ingress.tls`, `tranibor-web.ingress.tls` (`kind: ingress`): the Ingress's `spec.tls`, as written | `[]` |
 | The outposts door's timeouts | `global.outposts.door.ingressController` (`ingress-nginx` or `""`) and `global.outposts.door.annotations`, verbatim ([Outposts](#outposts-adrs-0147-0149)) | `ingress-nginx` |
@@ -162,6 +162,34 @@ Under another Ingress controller, the door's equivalents of ingress-nginx's read
 are that controller's: for example NGINX Inc.'s `nginx.org/proxy-read-timeout: "60s"` and
 `nginx.org/proxy-buffering: "false"`, or OpenShift's router `haproxy.router.openshift.io/timeout: 60s`
 (from their documentation, not run).
+
+### Provider profiles
+
+`charts/tranibor/values/{gke,eks,aks}.yaml` hold what differs per provider and nothing else, each value
+commented with the cluster setting it relies on. A profile is layered on the all-in-one profile and before
+the site's own file:
+
+```bash
+helm install tranibor charts/tranibor -n tranibor --create-namespace \
+  -f charts/tranibor/values/all-in-one.yaml -f charts/tranibor/values/<gke|eks|aks>.yaml -f my-site.yaml
+```
+
+| Profile | Agent pods' RuntimeClass (`global.runner.runtimeClass`) | Routes | DNS, volumes | What the cluster needs | Proved |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| `gke.yaml` | `gvisor` (GKE Sandbox) | the API and the console as HTTPRoutes on the operator's Gateway (class `gke-l7-global-external-managed`); Keycloak through GKE's Ingress (annotation `kubernetes.io/ingress.class: gce`) | NodeLocal DNSCache's `169.254.20.10/32` beside kube-dns; the default `standard-rwo` | `--enable-dataplane-v2`, `--addons NodeLocalDNS`, `--gateway-api=standard`, a node pool with `--sandbox type=gvisor --image-type cos_containerd` beside a non-sandbox one | the render only |
+| `eks.yaml` | `""`: runc, the cluster's default (EKS has no managed sandboxed runtime); the agent is separated by its own container | one ALB (`alb`, `target-type: ip`, one `group.name`) for the API, the console and Keycloak | the defaults; `gp2` for every volume (a cluster made on 1.30 or later has no default StorageClass) | the VPC CNI add-on with `{"enableNetworkPolicy": "true"}`, the AWS Load Balancer Controller, the EBS CSI driver add-on | the render only |
+| `aks.yaml` | `kata-vm-isolation` (AKS pod sandboxing) | the application routing add-on's class, `webapprouting.kubernetes.azure.com` | the defaults; the default `managed-csi` | `--os-sku AzureLinux --workload-runtime KataVmIsolation`, `--network-dataplane cilium`, `az aks approuting enable` | the render, and installed on AKS 1.35 (S87-13) |
+
+**What the tests prove** (`tests/charts/test_provider_profiles.py`): each profile renders on the all-in-one
+profile and kubeconform accepts every object, strictly, with no schema skipped (the HTTPRoutes against a
+pinned CRD catalogue); a profile that names a RuntimeClass puts it on the warm pool's template (the runner's
+container and the agent's own container, one pod) and hands it to the API and every worker, from which a
+`k8s_job` Job's pod takes it; and no profile changes `global.runner.agentIsolation` (`container`), its opt-out,
+the executor or the egress gate. **What they do not prove**: that a GKE or EKS cluster runs the profile; no such
+cluster ran it, and the support matrix above says so. The questions a run there answers first (S87-11, S87-12):
+whether GKE Sandbox refuses or ignores the agent pods' `seccompProfile: RuntimeDefault`, the GKE Gateway's
+health check of the API (`/` unless a HealthCheckPolicy says otherwise), Keycloak's behind GKE's Ingress, and
+the VPC CNI's timing on a new agent pod's policy (the egress gate stays on).
 
 ## Dependencies: embedded or external
 

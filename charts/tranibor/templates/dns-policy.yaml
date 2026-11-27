@@ -1,0 +1,14 @@
+{{- /*
+The cluster's DNS resolver, `networkPolicies.dns`, for the policies the platform writes itself (#2277):
+a plugin server's (the API) and a project namespace's (the workers' provisioning). Both read it as
+`TRANIBOR_DNS_POLICY` from this ConfigMap, so that they open the resolver the chart's own policies open
+(`tranibor.dnsEgress`), not `kube-system:53` whatever the cluster. Rendered whether or not the chart's
+own policies are: the code writes its policies either way.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tranibor-dns-policy
+  labels: {{- include "tranibor.labels" . | nindent 4 }}
+data:
+  policy.json: {{ include "tranibor.dnsSetting" . | quote }}
