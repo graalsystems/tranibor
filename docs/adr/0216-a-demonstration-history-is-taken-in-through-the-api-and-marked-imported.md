@@ -95,12 +95,11 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     ledger's sum in `cout_usd` and adds a ninth column, `imported_usd`, what an import put in that line, as
     the JSON report already did (the eight columns before it keep their position; the declared currency's
     column stays last). Member spend reads the lines that name a person (`user_id`), which an import
-    never writes: nothing to exclude. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
+    never writes: nothing to exclude. The project card's month cost (`ProjectStats.cost_month_eur`) sums the
+    measured lines only. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
 
 ## Not done
 
-- The project card's month cost (`ProjectStats.cost_month_eur`) still sums imported cost lines, as the cost
-  reports' totals do (which show them apart, `imported_usd`); the card has no such field.
 - A finding imported as `pending` can still be turned into a live work item ("Create the ticket"), which runs
   as any live one: that is a person's choice, not the import's.
 - No version of the document beyond `v1`; a run's tool calls, artifacts and transcripts are not importable.
