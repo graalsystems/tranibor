@@ -240,7 +240,7 @@ The same workload once more, on a fresh install, with **all three images built h
   to it (628 `approved`, 86 `awaiting_approval`, 28 `needs_human` after the drain). Not a leak: sampled
   every 2 s at 20 users, the worker held at most 10 connections, none idle in a transaction for more
   than a second. **Changed since (#2331)**: the worker's activities wait up to 120 s for a connection
-  instead of failing after 10 s (not measured under load again).
+  instead of failing after 10 s: none timed out in [the fifth run](#the-worker-waits-for-a-connection-fifth-run-2026-11-27).
 * The approver's 41 refused decisions are its own 409, as in the rerun.
 
 Then the rerun's two bursts on another fresh install, with nothing else running:
@@ -254,6 +254,39 @@ The same picture as the rerun: every creation holds, and the work items that did
 were parked by the daily budget (all 61 with "the stage `plan` did not start: 0.00 $ left (bound by
 project_day ...)", [the budget note](#bursts-rerun)). The worker logged no "unknown work item" and 39
 pool timeouts.
+
+### The worker waits for a connection (fifth run, 2026-11-27)
+
+The same workload on a fresh install, with **all three images built here from `fe49d492f`** (`main` after
+#2334: a worker's activities wait up to 120 s for one of its pooled connections instead of failing after
+the API's 10 s), the SkillSpector stage again from the published 0.29.4 image, nothing else running on the
+machine. Then the two bursts on another fresh install. Raw results:
+[`tools/load/results/2026-11-27-single-node-worker-pool.json`](../tools/load/results/2026-11-27-single-node-worker-pool.json).
+The worker's start logged `worker.activities_outnumber_connections activities=80 connections=15 wait_s=120`.
+
+| Users | Reads/s (fourth → fifth run) | Inbox p95 ms | Board p95 ms | Slowest read p95 ms | Reads failed |
+|--:|:--|:--|:--|:--|:--|
+| 1 | 3.4 → 3.2 | 62 → 335 | 62 → 99 | 62 → 335 | 0 → 0 of 385 |
+| 5 | 16.4 → 15.7 | 77 → 111 | 98 → 134 | 98 → 134 | 0 → 0 of 1,879 |
+| 10 | 30.5 → 27.4 | 167 → 261 | 176 → 299 | 176 → 299 | 0 → 0 of 3,294 |
+| 20 | 44.5 → 34.4 | 506 → 611 | 538 → 841 | 538 → 841 | 0 → 0 of 4,128 |
+| 50 | 41.5 → 39.6 | 1480 → 1703 | 1815 → 1909 | 1815 → 1909 | 0 → 0 of 4,757 |
+| 100 | 39.4 → 34.6 | 3613 → 4267 | 3653 → 4711 | 3653 → 4711 | 0 → 0 of 4,156 |
+
+| Burst | Created | Decided within 300 s | After both bursts |
+|:--|:--|:--|:--|
+| 40 work items, 4 at a time | 40 of 40 in 2.5 s | 27 | |
+| 100 work items, 10 at a time (same install) | 100 of 100 in 6.3 s | 40 | 80 `approved`, 73 `needs_human` (all the budget refusal), 1 `received` |
+
+* **No pool timeout in the worker any more**: 0 in the steps (20 in the fourth run) and 0 in the bursts
+  (39), and none in the API. No "unknown work item" either, and no read and no creation failed.
+* **Throughput did not rise with it**: 34 to 40 reads per second from 20 users on, against 39 to 44 in the
+  fourth run; at 20 users the slowest read's p95 is 0.84 s (0.54 s). The images differ by every merge in
+  between (S86, S87, #2334, #2343), and this is one run on a shared machine: the gap is not attributed to
+  #2334, nor ruled out. A first attempt, made while test suites ran on the same machine, read 20 to 30 reads
+  per second and five API pool timeouts at 100 users; it was discarded and is not in the table.
+* The 73 `needs_human` all carry the budget refusal ([the budget note](#bursts-rerun)); the approver's 409
+  are its own, as in every run.
 
 ### Bursts (rerun)
 
@@ -426,7 +459,8 @@ runs `worker_max_concurrent_activities` activities on each of its queues (80 for
 four) against its 15 connections, so its activities now wait for a connection up to
 `TRANIBOR_WORKER_DB_POOL_TIMEOUT_S` (120 s, bounded by each activity's deadline) instead of failing
 after the API's 10 s and being retried from their start, and its start logs
-`worker.activities_outnumber_connections`. The API keeps its 10 s: a person waits on a request.
+`worker.activities_outnumber_connections`. Measured in [the fifth run](#the-worker-waits-for-a-connection-fifth-run-2026-11-27):
+no pool timeout in the worker, steps or bursts. The API keeps its 10 s: a person waits on a request.
 
 **4. Concurrent creations on one project failed with HTTP 500 (found here, fixed since, #2284).**
 `internal_work_item_key` read `max(n) + 1` over the project's keys and the unique constraint
@@ -491,7 +525,7 @@ read, so "how many work items a project runs at once in fakes mode" stays unmeas
   console, built from `main`, relays to the API, but the generator called the API directly); neither
   were SSE streams (`/events/stream`), uploads, or the MCP and A2A doors.
 * **Every line of the image.** The rerun's images are built from `026bc3561`, the fourth run's from
-  `d5a6307f3`, each except the SkillSpector stage, taken from the published 0.29.4 image (the sandbox
+  `d5a6307f3`, the fifth run's from `fe49d492f`, each except the SkillSpector stage, taken from the published 0.29.4 image (the sandbox
   refuses its download); no measured route runs it.
 * **Other mixes.** A different ratio of reads and writes, other routes (audit export, costs,
   knowledge), other organisation sizes, or many organisations at once.

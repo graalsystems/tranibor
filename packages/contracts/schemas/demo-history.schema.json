@@ -81,7 +81,20 @@
         "model": { "type": "string", "maxLength": 200 },
         "tokens": { "$ref": "#/$defs/tokens" },
         "cost_usd": { "type": "number", "minimum": 0, "description": "The cost as declared; absent: the tokens at the price of `model` in `prices`." },
-        "summary": { "type": "string", "maxLength": 2000, "description": "The run's result summary." }
+        "summary": { "type": "string", "maxLength": 2000, "description": "The run's result summary." },
+        "outputs": { "type": "object", "description": "What the step returned (`StageResult.outputs`): its declared outputs, a report, cited sources. Judged by the stage result's contract." },
+        "evidence": { "type": "object", "description": "What the step proved (`StageResult.evidence`): facts, tests run. Judged by the stage result's contract." },
+        "gates": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/gate" }, "description": "The verdicts of the step's gates, in order, written as the live step's journal writes them (`gate.outcome`)." }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "required": ["name", "passed"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "passed": { "type": "boolean" },
+        "detail": { "type": "string", "maxLength": 2000 }
       }
     },
     "decision": {

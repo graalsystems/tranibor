@@ -1,0 +1,2358 @@
+[
+ {
+  "final_states": {
+   "awaiting_approval": 54,
+   "approved": 567,
+   "needs_human": 26
+  },
+  "errors": {
+   "approve -> 409": 67
+  }
+ },
+ {
+  "users": 1,
+  "duration_s": 120,
+  "created": 10,
+  "approved": 46,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 108,
+    "rps": 0.9,
+    "error_pct": 0.0,
+    "p50_ms": 62.6,
+    "p95_ms": 99.0,
+    "p99_ms": 131.2
+   },
+   {
+    "route": "work_item_get",
+    "count": 68,
+    "rps": 0.57,
+    "error_pct": 0.0,
+    "p50_ms": 31.0,
+    "p95_ms": 59.6,
+    "p99_ms": 86.2
+   },
+   {
+    "route": "inbox_pending",
+    "count": 81,
+    "rps": 0.68,
+    "error_pct": 0.0,
+    "p50_ms": 57.1,
+    "p95_ms": 334.6,
+    "p99_ms": 565.1
+   },
+   {
+    "route": "runs_list",
+    "count": 75,
+    "rps": 0.62,
+    "error_pct": 0.0,
+    "p50_ms": 23.0,
+    "p95_ms": 42.3,
+    "p99_ms": 77.8
+   },
+   {
+    "route": "findings_list",
+    "count": 53,
+    "rps": 0.44,
+    "error_pct": 0.0,
+    "p50_ms": 30.8,
+    "p95_ms": 62.5,
+    "p99_ms": 72.9
+   },
+   {
+    "route": "work_item_create",
+    "count": 10,
+    "rps": 0.08,
+    "error_pct": 0.0,
+    "p50_ms": 67.8,
+    "p95_ms": 144.2,
+    "p99_ms": 144.2
+   },
+   {
+    "route": "approve",
+    "count": 100,
+    "rps": 0.83,
+    "error_pct": 54.0,
+    "p50_ms": 32.7,
+    "p95_ms": 86.7,
+    "p99_ms": 123.8
+   },
+   {
+    "route": "approver_poll",
+    "count": 57,
+    "rps": 0.47,
+    "error_pct": 0.0,
+    "p50_ms": 28.1,
+    "p95_ms": 64.8,
+    "p99_ms": 111.0
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 44,
+    "rps": 0.37,
+    "error_pct": 0.0,
+    "p50_ms": 51737.1,
+    "p95_ms": 56150.5,
+    "p99_ms": 57042.8
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     9.75,
+     208.1
+    ],
+    "choregos-litellm-1": [
+     0.2,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.66,
+     87.37
+    ],
+    "choregos-postgres-1": [
+     33.25,
+     278.2
+    ],
+    "choregos-temporal-1": [
+     2.49,
+     101.6
+    ],
+    "choregos-web-1": [
+     0.0,
+     61.03
+    ],
+    "choregos-worker-1": [
+     0.0,
+     187.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     7.88,
+     208.9
+    ],
+    "choregos-litellm-1": [
+     0.89,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.17,
+     87.3
+    ],
+    "choregos-postgres-1": [
+     11.66,
+     283.7
+    ],
+    "choregos-temporal-1": [
+     7.73,
+     102.1
+    ],
+    "choregos-web-1": [
+     0.01,
+     64.59
+    ],
+    "choregos-worker-1": [
+     11.26,
+     189.0
+    ]
+   },
+   {
+    "choregos-api-1": [
+     20.92,
+     219.9
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.3
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     86.81
+    ],
+    "choregos-postgres-1": [
+     44.45,
+     286.8
+    ],
+    "choregos-temporal-1": [
+     48.66,
+     106.5
+    ],
+    "choregos-web-1": [
+     21.38,
+     65.73
+    ],
+    "choregos-worker-1": [
+     82.12,
+     191.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     37.93,
+     219.3
+    ],
+    "choregos-litellm-1": [
+     10.88,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     86.81
+    ],
+    "choregos-postgres-1": [
+     102.28,
+     275.1
+    ],
+    "choregos-temporal-1": [
+     92.6,
+     115.1
+    ],
+    "choregos-web-1": [
+     0.02,
+     65.88
+    ],
+    "choregos-worker-1": [
+     84.49,
+     192.7
+    ]
+   },
+   {
+    "choregos-api-1": [
+     36.49,
+     210.3
+    ],
+    "choregos-litellm-1": [
+     0.61,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     91.13
+    ],
+    "choregos-postgres-1": [
+     16.65,
+     278.0
+    ],
+    "choregos-temporal-1": [
+     8.85,
+     116.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     72.75
+    ],
+    "choregos-worker-1": [
+     0.09,
+     192.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     39.48,
+     210.9
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     91.07
+    ],
+    "choregos-postgres-1": [
+     10.96,
+     278.1
+    ],
+    "choregos-temporal-1": [
+     8.83,
+     116.7
+    ],
+    "choregos-web-1": [
+     0.01,
+     74.02
+    ],
+    "choregos-worker-1": [
+     0.0,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     38.69,
+     211.2
+    ],
+    "choregos-litellm-1": [
+     10.69,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.17,
+     91.33
+    ],
+    "choregos-postgres-1": [
+     9.14,
+     279.4
+    ],
+    "choregos-temporal-1": [
+     2.33,
+     116.6
+    ],
+    "choregos-web-1": [
+     21.47,
+     74.2
+    ],
+    "choregos-worker-1": [
+     0.0,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     38.81,
+     211.4
+    ],
+    "choregos-litellm-1": [
+     0.84,
+     607.5
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     90.83
+    ],
+    "choregos-postgres-1": [
+     18.87,
+     280.6
+    ],
+    "choregos-temporal-1": [
+     18.48,
+     116.8
+    ],
+    "choregos-web-1": [
+     10.23,
+     89.74
+    ],
+    "choregos-worker-1": [
+     11.89,
+     194.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     8.4,
+     211.6
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.23,
+     89.82
+    ],
+    "choregos-postgres-1": [
+     3.22,
+     283.8
+    ],
+    "choregos-temporal-1": [
+     4.49,
+     117.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     74.49
+    ],
+    "choregos-worker-1": [
+     0.0,
+     195.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     7.63,
+     212.2
+    ],
+    "choregos-litellm-1": [
+     0.61,
+     607.4
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     88.83
+    ],
+    "choregos-postgres-1": [
+     26.77,
+     284.6
+    ],
+    "choregos-temporal-1": [
+     28.66,
+     117.4
+    ],
+    "choregos-web-1": [
+     0.0,
+     75.58
+    ],
+    "choregos-worker-1": [
+     0.0,
+     194.9
+    ]
+   }
+  ]
+ },
+ {
+  "users": 5,
+  "duration_s": 120,
+  "created": 53,
+  "approved": 53,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 568,
+    "rps": 4.73,
+    "error_pct": 0.0,
+    "p50_ms": 79.2,
+    "p95_ms": 134.4,
+    "p99_ms": 206.1
+   },
+   {
+    "route": "work_item_get",
+    "count": 383,
+    "rps": 3.19,
+    "error_pct": 0.0,
+    "p50_ms": 37.7,
+    "p95_ms": 81.3,
+    "p99_ms": 119.9
+   },
+   {
+    "route": "inbox_pending",
+    "count": 374,
+    "rps": 3.12,
+    "error_pct": 0.0,
+    "p50_ms": 67.9,
+    "p95_ms": 110.8,
+    "p99_ms": 179.5
+   },
+   {
+    "route": "runs_list",
+    "count": 273,
+    "rps": 2.27,
+    "error_pct": 0.0,
+    "p50_ms": 27.7,
+    "p95_ms": 54.8,
+    "p99_ms": 70.6
+   },
+   {
+    "route": "findings_list",
+    "count": 281,
+    "rps": 2.34,
+    "error_pct": 0.0,
+    "p50_ms": 31.4,
+    "p95_ms": 62.5,
+    "p99_ms": 80.4
+   },
+   {
+    "route": "work_item_create",
+    "count": 53,
+    "rps": 0.44,
+    "error_pct": 0.0,
+    "p50_ms": 81.7,
+    "p95_ms": 123.3,
+    "p99_ms": 135.6
+   },
+   {
+    "route": "approve",
+    "count": 56,
+    "rps": 0.47,
+    "error_pct": 5.36,
+    "p50_ms": 52.4,
+    "p95_ms": 87.5,
+    "p99_ms": 137.9
+   },
+   {
+    "route": "approver_poll",
+    "count": 58,
+    "rps": 0.48,
+    "error_pct": 0.0,
+    "p50_ms": 37.4,
+    "p95_ms": 88.9,
+    "p99_ms": 94.2
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 53,
+    "rps": 0.44,
+    "error_pct": 0.0,
+    "p50_ms": 1895.5,
+    "p95_ms": 2813.4,
+    "p99_ms": 2871.4
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     63.84,
+     213.0
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.27
+    ],
+    "choregos-postgres-1": [
+     29.27,
+     284.9
+    ],
+    "choregos-temporal-1": [
+     9.04,
+     117.3
+    ],
+    "choregos-web-1": [
+     0.0,
+     77.31
+    ],
+    "choregos-worker-1": [
+     4.49,
+     195.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     62.45,
+     213.3
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.17,
+     89.1
+    ],
+    "choregos-postgres-1": [
+     35.86,
+     286.8
+    ],
+    "choregos-temporal-1": [
+     10.43,
+     117.2
+    ],
+    "choregos-web-1": [
+     0.01,
+     78.74
+    ],
+    "choregos-worker-1": [
+     0.0,
+     184.1
+    ]
+   },
+   {
+    "choregos-api-1": [
+     58.14,
+     213.5
+    ],
+    "choregos-litellm-1": [
+     0.25,
+     607.4
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.33
+    ],
+    "choregos-postgres-1": [
+     47.84,
+     289.3
+    ],
+    "choregos-temporal-1": [
+     19.91,
+     117.5
+    ],
+    "choregos-web-1": [
+     4.09,
+     78.8
+    ],
+    "choregos-worker-1": [
+     31.34,
+     191.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     31.35,
+     213.7
+    ],
+    "choregos-litellm-1": [
+     0.17,
+     608.2
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     90.85
+    ],
+    "choregos-postgres-1": [
+     32.14,
+     292.2
+    ],
+    "choregos-temporal-1": [
+     4.58,
+     117.5
+    ],
+    "choregos-web-1": [
+     21.56,
+     81.27
+    ],
+    "choregos-worker-1": [
+     0.01,
+     193.7
+    ]
+   },
+   {
+    "choregos-api-1": [
+     34.92,
+     214.2
+    ],
+    "choregos-litellm-1": [
+     0.83,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     91.34
+    ],
+    "choregos-postgres-1": [
+     38.84,
+     293.9
+    ],
+    "choregos-temporal-1": [
+     3.18,
+     120.7
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.67
+    ],
+    "choregos-worker-1": [
+     0.0,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     42.56,
+     214.8
+    ],
+    "choregos-litellm-1": [
+     11.75,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     90.85
+    ],
+    "choregos-postgres-1": [
+     77.15,
+     297.7
+    ],
+    "choregos-temporal-1": [
+     56.87,
+     121.6
+    ],
+    "choregos-web-1": [
+     0.01,
+     82.49
+    ],
+    "choregos-worker-1": [
+     25.67,
+     192.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     34.87,
+     215.5
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     91.1
+    ],
+    "choregos-postgres-1": [
+     35.32,
+     298.4
+    ],
+    "choregos-temporal-1": [
+     2.84,
+     121.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.89
+    ],
+    "choregos-worker-1": [
+     26.53,
+     195.0
+    ]
+   },
+   {
+    "choregos-api-1": [
+     69.09,
+     215.3
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.4
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.35
+    ],
+    "choregos-postgres-1": [
+     58.93,
+     301.2
+    ],
+    "choregos-temporal-1": [
+     22.13,
+     123.6
+    ],
+    "choregos-web-1": [
+     19.52,
+     82.8
+    ],
+    "choregos-worker-1": [
+     21.16,
+     192.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     32.57,
+     215.3
+    ],
+    "choregos-litellm-1": [
+     11.08,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.21,
+     91.59
+    ],
+    "choregos-postgres-1": [
+     47.19,
+     302.0
+    ],
+    "choregos-temporal-1": [
+     11.94,
+     124.6
+    ],
+    "choregos-web-1": [
+     0.0,
+     83.14
+    ],
+    "choregos-worker-1": [
+     0.0,
+     193.5
+    ]
+   },
+   {
+    "choregos-api-1": [
+     37.39,
+     215.9
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     90.84
+    ],
+    "choregos-postgres-1": [
+     68.58,
+     305.3
+    ],
+    "choregos-temporal-1": [
+     49.49,
+     125.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     83.02
+    ],
+    "choregos-worker-1": [
+     0.57,
+     194.0
+    ]
+   }
+  ]
+ },
+ {
+  "users": 10,
+  "duration_s": 120,
+  "created": 99,
+  "approved": 97,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 975,
+    "rps": 8.12,
+    "error_pct": 0.0,
+    "p50_ms": 112.1,
+    "p95_ms": 299.4,
+    "p99_ms": 521.7
+   },
+   {
+    "route": "work_item_get",
+    "count": 660,
+    "rps": 5.5,
+    "error_pct": 0.0,
+    "p50_ms": 57.6,
+    "p95_ms": 142.7,
+    "p99_ms": 356.3
+   },
+   {
+    "route": "inbox_pending",
+    "count": 666,
+    "rps": 5.55,
+    "error_pct": 0.0,
+    "p50_ms": 107.7,
+    "p95_ms": 260.9,
+    "p99_ms": 430.2
+   },
+   {
+    "route": "runs_list",
+    "count": 524,
+    "rps": 4.37,
+    "error_pct": 0.0,
+    "p50_ms": 44.9,
+    "p95_ms": 124.6,
+    "p99_ms": 280.7
+   },
+   {
+    "route": "findings_list",
+    "count": 469,
+    "rps": 3.91,
+    "error_pct": 0.0,
+    "p50_ms": 48.2,
+    "p95_ms": 144.7,
+    "p99_ms": 291.2
+   },
+   {
+    "route": "work_item_create",
+    "count": 99,
+    "rps": 0.82,
+    "error_pct": 0.0,
+    "p50_ms": 141.1,
+    "p95_ms": 332.8,
+    "p99_ms": 631.6
+   },
+   {
+    "route": "approve",
+    "count": 99,
+    "rps": 0.82,
+    "error_pct": 2.02,
+    "p50_ms": 83.8,
+    "p95_ms": 183.9,
+    "p99_ms": 220.5
+   },
+   {
+    "route": "approver_poll",
+    "count": 53,
+    "rps": 0.44,
+    "error_pct": 0.0,
+    "p50_ms": 59.2,
+    "p95_ms": 375.9,
+    "p99_ms": 472.3
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 97,
+    "rps": 0.81,
+    "error_pct": 0.0,
+    "p50_ms": 2218.3,
+    "p95_ms": 3419.0,
+    "p99_ms": 3961.5
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     62.87,
+     217.7
+    ],
+    "choregos-litellm-1": [
+     0.33,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     90.84
+    ],
+    "choregos-postgres-1": [
+     107.01,
+     322.6
+    ],
+    "choregos-temporal-1": [
+     39.15,
+     125.3
+    ],
+    "choregos-web-1": [
+     2.29,
+     82.25
+    ],
+    "choregos-worker-1": [
+     0.79,
+     195.0
+    ]
+   },
+   {
+    "choregos-api-1": [
+     63.31,
+     219.6
+    ],
+    "choregos-litellm-1": [
+     14.21,
+     608.2
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     114.07,
+     331.3
+    ],
+    "choregos-temporal-1": [
+     48.12,
+     128.9
+    ],
+    "choregos-web-1": [
+     9.84,
+     94.15
+    ],
+    "choregos-worker-1": [
+     21.92,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     57.41,
+     220.3
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     88.84
+    ],
+    "choregos-postgres-1": [
+     105.73,
+     335.5
+    ],
+    "choregos-temporal-1": [
+     29.73,
+     129.2
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.17
+    ],
+    "choregos-worker-1": [
+     32.13,
+     196.1
+    ]
+   },
+   {
+    "choregos-api-1": [
+     96.95,
+     218.2
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.55
+    ],
+    "choregos-postgres-1": [
+     91.71,
+     336.6
+    ],
+    "choregos-temporal-1": [
+     45.73,
+     130.9
+    ],
+    "choregos-web-1": [
+     18.81,
+     82.69
+    ],
+    "choregos-worker-1": [
+     3.43,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     55.79,
+     218.7
+    ],
+    "choregos-litellm-1": [
+     11.41,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     89.34
+    ],
+    "choregos-postgres-1": [
+     83.01,
+     338.2
+    ],
+    "choregos-temporal-1": [
+     57.29,
+     134.5
+    ],
+    "choregos-web-1": [
+     25.67,
+     82.45
+    ],
+    "choregos-worker-1": [
+     45.29,
+     197.0
+    ]
+   },
+   {
+    "choregos-api-1": [
+     61.79,
+     219.9
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     607.5
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     72.93,
+     340.5
+    ],
+    "choregos-temporal-1": [
+     37.22,
+     136.4
+    ],
+    "choregos-web-1": [
+     0.01,
+     83.05
+    ],
+    "choregos-worker-1": [
+     38.16,
+     194.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     61.5,
+     220.6
+    ],
+    "choregos-litellm-1": [
+     0.17,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.06,
+     88.84
+    ],
+    "choregos-postgres-1": [
+     98.43,
+     341.4
+    ],
+    "choregos-temporal-1": [
+     19.68,
+     136.8
+    ],
+    "choregos-web-1": [
+     0.01,
+     82.87
+    ],
+    "choregos-worker-1": [
+     14.29,
+     194.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     72.49,
+     221.2
+    ],
+    "choregos-litellm-1": [
+     1.75,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.22,
+     89.46
+    ],
+    "choregos-postgres-1": [
+     96.57,
+     344.3
+    ],
+    "choregos-temporal-1": [
+     31.22,
+     138.1
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.69
+    ],
+    "choregos-worker-1": [
+     42.02,
+     194.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     70.92,
+     221.3
+    ],
+    "choregos-litellm-1": [
+     0.21,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     87.21
+    ],
+    "choregos-postgres-1": [
+     115.63,
+     347.8
+    ],
+    "choregos-temporal-1": [
+     39.96,
+     143.2
+    ],
+    "choregos-web-1": [
+     23.88,
+     83.06
+    ],
+    "choregos-worker-1": [
+     34.26,
+     194.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     74.39,
+     233.0
+    ],
+    "choregos-litellm-1": [
+     1.15,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.21,
+     87.45
+    ],
+    "choregos-postgres-1": [
+     138.58,
+     353.7
+    ],
+    "choregos-temporal-1": [
+     60.5,
+     145.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.68
+    ],
+    "choregos-worker-1": [
+     69.16,
+     194.3
+    ]
+   }
+  ]
+ },
+ {
+  "users": 20,
+  "duration_s": 120,
+  "created": 137,
+  "approved": 136,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 1246,
+    "rps": 10.38,
+    "error_pct": 0.0,
+    "p50_ms": 382.1,
+    "p95_ms": 841.0,
+    "p99_ms": 1124.7
+   },
+   {
+    "route": "work_item_get",
+    "count": 822,
+    "rps": 6.85,
+    "error_pct": 0.0,
+    "p50_ms": 196.3,
+    "p95_ms": 551.2,
+    "p99_ms": 764.7
+   },
+   {
+    "route": "inbox_pending",
+    "count": 856,
+    "rps": 7.13,
+    "error_pct": 0.0,
+    "p50_ms": 298.8,
+    "p95_ms": 611.3,
+    "p99_ms": 762.4
+   },
+   {
+    "route": "runs_list",
+    "count": 606,
+    "rps": 5.05,
+    "error_pct": 0.0,
+    "p50_ms": 149.4,
+    "p95_ms": 456.2,
+    "p99_ms": 650.7
+   },
+   {
+    "route": "findings_list",
+    "count": 598,
+    "rps": 4.98,
+    "error_pct": 0.0,
+    "p50_ms": 158.5,
+    "p95_ms": 560.9,
+    "p99_ms": 743.4
+   },
+   {
+    "route": "work_item_create",
+    "count": 137,
+    "rps": 1.14,
+    "error_pct": 0.0,
+    "p50_ms": 554.7,
+    "p95_ms": 1018.1,
+    "p99_ms": 1280.8
+   },
+   {
+    "route": "approve",
+    "count": 144,
+    "rps": 1.2,
+    "error_pct": 5.56,
+    "p50_ms": 232.5,
+    "p95_ms": 478.4,
+    "p99_ms": 651.4
+   },
+   {
+    "route": "approver_poll",
+    "count": 38,
+    "rps": 0.32,
+    "error_pct": 0.0,
+    "p50_ms": 218.0,
+    "p95_ms": 652.8,
+    "p99_ms": 716.0
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 137,
+    "rps": 1.14,
+    "error_pct": 0.0,
+    "p50_ms": 3440.6,
+    "p95_ms": 7119.2,
+    "p99_ms": 11743.3
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     111.1,
+     223.9
+    ],
+    "choregos-litellm-1": [
+     1.27,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     86.96
+    ],
+    "choregos-postgres-1": [
+     156.29,
+     357.8
+    ],
+    "choregos-temporal-1": [
+     41.06,
+     148.4
+    ],
+    "choregos-web-1": [
+     0.0,
+     82.97
+    ],
+    "choregos-worker-1": [
+     29.74,
+     197.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     86.02,
+     235.3
+    ],
+    "choregos-litellm-1": [
+     14.9,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     86.96
+    ],
+    "choregos-postgres-1": [
+     206.59,
+     341.6
+    ],
+    "choregos-temporal-1": [
+     41.32,
+     149.7
+    ],
+    "choregos-web-1": [
+     0.0,
+     83.09
+    ],
+    "choregos-worker-1": [
+     33.22,
+     197.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     80.71,
+     225.9
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.34
+    ],
+    "choregos-postgres-1": [
+     167.02,
+     339.1
+    ],
+    "choregos-temporal-1": [
+     58.86,
+     150.5
+    ],
+    "choregos-web-1": [
+     18.77,
+     83.2
+    ],
+    "choregos-worker-1": [
+     52.35,
+     199.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     75.29,
+     226.6
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.5
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     91.54
+    ],
+    "choregos-postgres-1": [
+     146.07,
+     327.9
+    ],
+    "choregos-temporal-1": [
+     50.29,
+     154.9
+    ],
+    "choregos-web-1": [
+     0.01,
+     83.26
+    ],
+    "choregos-worker-1": [
+     27.48,
+     199.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     83.78,
+     226.8
+    ],
+    "choregos-litellm-1": [
+     0.23,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     91.29
+    ],
+    "choregos-postgres-1": [
+     150.2,
+     353.9
+    ],
+    "choregos-temporal-1": [
+     59.11,
+     158.7
+    ],
+    "choregos-web-1": [
+     0.0,
+     83.31
+    ],
+    "choregos-worker-1": [
+     45.77,
+     202.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     82.38,
+     226.8
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     91.79
+    ],
+    "choregos-postgres-1": [
+     119.58,
+     360.2
+    ],
+    "choregos-temporal-1": [
+     52.36,
+     158.3
+    ],
+    "choregos-web-1": [
+     21.33,
+     83.27
+    ],
+    "choregos-worker-1": [
+     26.74,
+     201.5
+    ]
+   },
+   {
+    "choregos-api-1": [
+     95.81,
+     227.6
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.29
+    ],
+    "choregos-postgres-1": [
+     163.28,
+     344.8
+    ],
+    "choregos-temporal-1": [
+     34.1,
+     159.1
+    ],
+    "choregos-web-1": [
+     0.0,
+     83.22
+    ],
+    "choregos-worker-1": [
+     20.0,
+     204.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     110.04,
+     228.3
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     93.79
+    ],
+    "choregos-postgres-1": [
+     165.6,
+     358.8
+    ],
+    "choregos-temporal-1": [
+     48.46,
+     158.8
+    ],
+    "choregos-web-1": [
+     0.01,
+     84.56
+    ],
+    "choregos-worker-1": [
+     45.69,
+     198.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     94.4,
+     238.9
+    ],
+    "choregos-litellm-1": [
+     0.21,
+     607.5
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     93.55
+    ],
+    "choregos-postgres-1": [
+     136.94,
+     360.1
+    ],
+    "choregos-temporal-1": [
+     51.82,
+     160.9
+    ],
+    "choregos-web-1": [
+     25.19,
+     84.73
+    ],
+    "choregos-worker-1": [
+     25.23,
+     202.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     80.89,
+     229.0
+    ],
+    "choregos-litellm-1": [
+     0.28,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     93.3
+    ],
+    "choregos-postgres-1": [
+     179.16,
+     369.8
+    ],
+    "choregos-temporal-1": [
+     63.38,
+     161.0
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.0
+    ],
+    "choregos-worker-1": [
+     41.48,
+     206.1
+    ]
+   }
+  ]
+ },
+ {
+  "users": 50,
+  "duration_s": 120,
+  "created": 141,
+  "approved": 132,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 1412,
+    "rps": 11.77,
+    "error_pct": 0.0,
+    "p50_ms": 1137.2,
+    "p95_ms": 1909.3,
+    "p99_ms": 2381.0
+   },
+   {
+    "route": "work_item_get",
+    "count": 937,
+    "rps": 7.81,
+    "error_pct": 0.0,
+    "p50_ms": 810.7,
+    "p95_ms": 1470.4,
+    "p99_ms": 1894.2
+   },
+   {
+    "route": "inbox_pending",
+    "count": 950,
+    "rps": 7.92,
+    "error_pct": 0.0,
+    "p50_ms": 953.8,
+    "p95_ms": 1702.7,
+    "p99_ms": 2021.0
+   },
+   {
+    "route": "runs_list",
+    "count": 731,
+    "rps": 6.09,
+    "error_pct": 0.0,
+    "p50_ms": 756.2,
+    "p95_ms": 1415.2,
+    "p99_ms": 1780.2
+   },
+   {
+    "route": "findings_list",
+    "count": 727,
+    "rps": 6.06,
+    "error_pct": 0.0,
+    "p50_ms": 774.2,
+    "p95_ms": 1410.5,
+    "p99_ms": 1746.7
+   },
+   {
+    "route": "work_item_create",
+    "count": 141,
+    "rps": 1.18,
+    "error_pct": 0.0,
+    "p50_ms": 1463.2,
+    "p95_ms": 2683.0,
+    "p99_ms": 2896.2
+   },
+   {
+    "route": "approve",
+    "count": 132,
+    "rps": 1.1,
+    "error_pct": 0.0,
+    "p50_ms": 725.5,
+    "p95_ms": 1663.0,
+    "p99_ms": 2306.5
+   },
+   {
+    "route": "approver_poll",
+    "count": 9,
+    "rps": 0.07,
+    "error_pct": 0.0,
+    "p50_ms": 1185.3,
+    "p95_ms": 1546.8,
+    "p99_ms": 1546.8
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 131,
+    "rps": 1.09,
+    "error_pct": 0.0,
+    "p50_ms": 17089.9,
+    "p95_ms": 39210.7,
+    "p99_ms": 42238.8
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     115.69,
+     232.4
+    ],
+    "choregos-litellm-1": [
+     12.98,
+     608.1
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     94.04
+    ],
+    "choregos-postgres-1": [
+     163.24,
+     375.0
+    ],
+    "choregos-temporal-1": [
+     32.5,
+     161.8
+    ],
+    "choregos-web-1": [
+     0.0,
+     84.69
+    ],
+    "choregos-worker-1": [
+     24.14,
+     207.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     94.87,
+     246.3
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     93.3
+    ],
+    "choregos-postgres-1": [
+     158.48,
+     386.4
+    ],
+    "choregos-temporal-1": [
+     58.37,
+     161.9
+    ],
+    "choregos-web-1": [
+     16.19,
+     112.9
+    ],
+    "choregos-worker-1": [
+     47.61,
+     204.7
+    ]
+   },
+   {
+    "choregos-api-1": [
+     96.76,
+     235.2
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.6
+    ],
+    "choregos-objectstore-1": [
+     0.05,
+     91.79
+    ],
+    "choregos-postgres-1": [
+     167.58,
+     391.3
+    ],
+    "choregos-temporal-1": [
+     19.3,
+     161.8
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.19
+    ],
+    "choregos-worker-1": [
+     26.03,
+     204.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     109.76,
+     236.3
+    ],
+    "choregos-litellm-1": [
+     9.34,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.55
+    ],
+    "choregos-postgres-1": [
+     152.48,
+     394.2
+    ],
+    "choregos-temporal-1": [
+     51.04,
+     162.0
+    ],
+    "choregos-web-1": [
+     0.0,
+     84.95
+    ],
+    "choregos-worker-1": [
+     19.88,
+     211.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     82.89,
+     237.7
+    ],
+    "choregos-litellm-1": [
+     0.25,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.55
+    ],
+    "choregos-postgres-1": [
+     134.56,
+     398.9
+    ],
+    "choregos-temporal-1": [
+     54.66,
+     161.8
+    ],
+    "choregos-web-1": [
+     17.63,
+     85.4
+    ],
+    "choregos-worker-1": [
+     53.22,
+     210.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     116.45,
+     236.4
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.55
+    ],
+    "choregos-postgres-1": [
+     194.69,
+     400.4
+    ],
+    "choregos-temporal-1": [
+     29.93,
+     161.7
+    ],
+    "choregos-web-1": [
+     0.01,
+     85.05
+    ],
+    "choregos-worker-1": [
+     32.83,
+     210.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     81.68,
+     238.7
+    ],
+    "choregos-litellm-1": [
+     13.1,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     91.54
+    ],
+    "choregos-postgres-1": [
+     168.74,
+     404.9
+    ],
+    "choregos-temporal-1": [
+     55.88,
+     161.8
+    ],
+    "choregos-web-1": [
+     0.1,
+     85.14
+    ],
+    "choregos-worker-1": [
+     62.64,
+     212.9
+    ]
+   },
+   {
+    "choregos-api-1": [
+     98.25,
+     253.1
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     608.1
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     91.55
+    ],
+    "choregos-postgres-1": [
+     147.46,
+     408.6
+    ],
+    "choregos-temporal-1": [
+     46.97,
+     161.8
+    ],
+    "choregos-web-1": [
+     19.28,
+     85.57
+    ],
+    "choregos-worker-1": [
+     52.72,
+     208.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     89.28,
+     239.8
+    ],
+    "choregos-litellm-1": [
+     0.17,
+     607.9
+    ],
+    "choregos-objectstore-1": [
+     0.14,
+     91.53
+    ],
+    "choregos-postgres-1": [
+     180.68,
+     409.2
+    ],
+    "choregos-temporal-1": [
+     47.09,
+     163.6
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.17
+    ],
+    "choregos-worker-1": [
+     56.28,
+     216.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     99.3,
+     241.7
+    ],
+    "choregos-litellm-1": [
+     12.11,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.51
+    ],
+    "choregos-postgres-1": [
+     155.17,
+     411.1
+    ],
+    "choregos-temporal-1": [
+     41.71,
+     163.7
+    ],
+    "choregos-web-1": [
+     17.6,
+     85.43
+    ],
+    "choregos-worker-1": [
+     55.59,
+     215.4
+    ]
+   }
+  ]
+ },
+ {
+  "users": 100,
+  "duration_s": 120,
+  "created": 137,
+  "approved": 95,
+  "routes": [
+   {
+    "route": "work_items_list",
+    "count": 1247,
+    "rps": 10.39,
+    "error_pct": 0.0,
+    "p50_ms": 2894.5,
+    "p95_ms": 4711.2,
+    "p99_ms": 5711.2
+   },
+   {
+    "route": "work_item_get",
+    "count": 867,
+    "rps": 7.22,
+    "error_pct": 0.0,
+    "p50_ms": 2390.9,
+    "p95_ms": 4104.9,
+    "p99_ms": 5079.6
+   },
+   {
+    "route": "inbox_pending",
+    "count": 827,
+    "rps": 6.89,
+    "error_pct": 0.0,
+    "p50_ms": 2655.3,
+    "p95_ms": 4266.7,
+    "p99_ms": 5407.6
+   },
+   {
+    "route": "runs_list",
+    "count": 635,
+    "rps": 5.29,
+    "error_pct": 0.0,
+    "p50_ms": 2343.3,
+    "p95_ms": 4257.3,
+    "p99_ms": 5057.3
+   },
+   {
+    "route": "findings_list",
+    "count": 580,
+    "rps": 4.83,
+    "error_pct": 0.0,
+    "p50_ms": 2330.3,
+    "p95_ms": 3688.9,
+    "p99_ms": 5385.6
+   },
+   {
+    "route": "work_item_create",
+    "count": 137,
+    "rps": 1.14,
+    "error_pct": 0.0,
+    "p50_ms": 3159.0,
+    "p95_ms": 4845.8,
+    "p99_ms": 6151.7
+   },
+   {
+    "route": "approve",
+    "count": 95,
+    "rps": 0.79,
+    "error_pct": 0.0,
+    "p50_ms": 168.3,
+    "p95_ms": 3367.5,
+    "p99_ms": 4482.0
+   },
+   {
+    "route": "approver_poll",
+    "count": 3,
+    "rps": 0.03,
+    "error_pct": 0.0,
+    "p50_ms": 2533.7,
+    "p95_ms": 2562.2,
+    "p99_ms": 2562.2
+   },
+   {
+    "route": "e2e_created_to_awaiting_approval",
+    "count": 95,
+    "rps": 0.79,
+    "error_pct": 0.0,
+    "p50_ms": 37863.2,
+    "p95_ms": 94230.4,
+    "p99_ms": 108151.5
+   }
+  ],
+  "stats": [
+   {
+    "choregos-api-1": [
+     127.48,
+     245.0
+    ],
+    "choregos-litellm-1": [
+     0.2,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     89.56
+    ],
+    "choregos-postgres-1": [
+     127.84,
+     382.0
+    ],
+    "choregos-temporal-1": [
+     10.98,
+     165.5
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.46
+    ],
+    "choregos-worker-1": [
+     2.45,
+     221.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     84.19,
+     246.1
+    ],
+    "choregos-litellm-1": [
+     10.07,
+     608.1
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     88.84
+    ],
+    "choregos-postgres-1": [
+     180.89,
+     401.3
+    ],
+    "choregos-temporal-1": [
+     25.39,
+     167.4
+    ],
+    "choregos-web-1": [
+     10.95,
+     85.11
+    ],
+    "choregos-worker-1": [
+     24.32,
+     216.2
+    ]
+   },
+   {
+    "choregos-api-1": [
+     86.12,
+     258.0
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     159.03,
+     408.8
+    ],
+    "choregos-temporal-1": [
+     34.79,
+     167.2
+    ],
+    "choregos-web-1": [
+     17.8,
+     85.58
+    ],
+    "choregos-worker-1": [
+     36.01,
+     216.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     91.25,
+     263.0
+    ],
+    "choregos-litellm-1": [
+     0.22,
+     607.7
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     193.18,
+     413.3
+    ],
+    "choregos-temporal-1": [
+     49.65,
+     167.0
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.46
+    ],
+    "choregos-worker-1": [
+     51.35,
+     214.6
+    ]
+   },
+   {
+    "choregos-api-1": [
+     78.08,
+     249.4
+    ],
+    "choregos-litellm-1": [
+     13.23,
+     608.0
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     189.97,
+     417.9
+    ],
+    "choregos-temporal-1": [
+     35.25,
+     167.1
+    ],
+    "choregos-web-1": [
+     18.22,
+     85.46
+    ],
+    "choregos-worker-1": [
+     47.42,
+     219.3
+    ]
+   },
+   {
+    "choregos-api-1": [
+     87.3,
+     248.1
+    ],
+    "choregos-litellm-1": [
+     0.18,
+     608.2
+    ],
+    "choregos-objectstore-1": [
+     0.03,
+     89.07
+    ],
+    "choregos-postgres-1": [
+     193.82,
+     418.9
+    ],
+    "choregos-temporal-1": [
+     58.59,
+     168.1
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.41
+    ],
+    "choregos-worker-1": [
+     48.59,
+     222.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     88.56,
+     250.4
+    ],
+    "choregos-litellm-1": [
+     0.19,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     209.19,
+     420.9
+    ],
+    "choregos-temporal-1": [
+     33.53,
+     167.8
+    ],
+    "choregos-web-1": [
+     0.0,
+     85.44
+    ],
+    "choregos-worker-1": [
+     21.73,
+     222.8
+    ]
+   },
+   {
+    "choregos-api-1": [
+     107.92,
+     251.4
+    ],
+    "choregos-litellm-1": [
+     10.69,
+     608.1
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     141.91,
+     422.7
+    ],
+    "choregos-temporal-1": [
+     40.09,
+     168.0
+    ],
+    "choregos-web-1": [
+     18.35,
+     85.55
+    ],
+    "choregos-worker-1": [
+     45.79,
+     229.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     86.2,
+     261.7
+    ],
+    "choregos-litellm-1": [
+     0.2,
+     607.8
+    ],
+    "choregos-objectstore-1": [
+     0.04,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     212.29,
+     426.7
+    ],
+    "choregos-temporal-1": [
+     41.92,
+     168.0
+    ],
+    "choregos-web-1": [
+     0.01,
+     85.69
+    ],
+    "choregos-worker-1": [
+     37.54,
+     228.4
+    ]
+   },
+   {
+    "choregos-api-1": [
+     74.51,
+     254.9
+    ],
+    "choregos-litellm-1": [
+     0.17,
+     608.4
+    ],
+    "choregos-objectstore-1": [
+     0.02,
+     89.09
+    ],
+    "choregos-postgres-1": [
+     231.59,
+     424.8
+    ],
+    "choregos-temporal-1": [
+     34.74,
+     168.1
+    ],
+    "choregos-web-1": [
+     0.01,
+     85.75
+    ],
+    "choregos-worker-1": [
+     21.89,
+     234.2
+    ]
+   }
+  ]
+ }
+]
