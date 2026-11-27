@@ -16,12 +16,40 @@ vi.mock("@/lib/api", async (importOriginal) => {
         meta: { has_more: false },
       }),
       workItems,
-      orgActions: vi.fn().mockResolvedValue({ items: [
-        { id: "a1", title: "Open a billing account", project_slug: "billing-api", status: "pending_approval", proposed_by: "agent:x" },
-        { id: "a2", title: "Order a checkout laptop", project_slug: "checkout-web", status: "pending_approval", proposed_by: "agent:x" },
-      ], meta: { has_more: false, next_cursor: null } }),
-      budgetAlerts: vi.fn().mockResolvedValue({ items: [], meta: { has_more: false, next_cursor: null } }),
-      orgEgress: vi.fn().mockResolvedValue({ mode: "enforce", ceiling: {}, rules: [], requests: [], can_decide: false }),
+      orgActions: vi.fn().mockResolvedValue({
+        items: [
+          {
+            id: "a1",
+            title: "Open a billing account",
+            project_slug: "billing-api",
+            status: "pending_approval",
+            proposed_by: "agent:x",
+          },
+          {
+            id: "a2",
+            title: "Order a checkout laptop",
+            project_slug: "checkout-web",
+            status: "pending_approval",
+            proposed_by: "agent:x",
+          },
+        ],
+        meta: { has_more: false, next_cursor: null },
+      }),
+      budgetAlerts: vi
+        .fn()
+        .mockResolvedValue({
+          items: [],
+          meta: { has_more: false, next_cursor: null },
+        }),
+      orgEgress: vi
+        .fn()
+        .mockResolvedValue({
+          mode: "enforce",
+          ceiling: {},
+          rules: [],
+          requests: [],
+          can_decide: false,
+        }),
     },
   };
 });
@@ -38,9 +66,13 @@ function view(project?: string) {
 describe("the project's inbox (S39-04)", () => {
   it("lists the project's action and not another project's, and links to the organisation's inbox", async () => {
     view("billing-api");
-    expect(await screen.findByText("Open a billing account")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Open a billing account"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Order a checkout laptop")).toBeNull();
-    expect(screen.getByRole("link", { name: /whole organisation/ })).toHaveAttribute("href", "/inbox");
+    expect(
+      screen.getByRole("link", { name: /whole organisation/ }),
+    ).toHaveAttribute("href", "/inbox");
   });
 
   it("reads the tickets of that project only", async () => {
@@ -52,9 +84,13 @@ describe("the project's inbox (S39-04)", () => {
 
   it("without a project, lists everything and has no link to itself", async () => {
     view();
-    expect(await screen.findByText("Order a checkout laptop")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Order a checkout laptop"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Open a billing account")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /whole organisation/ })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /whole organisation/ }),
+    ).toBeNull();
   });
 });
 
@@ -87,7 +123,45 @@ describe("an imported request in the inbox (ADR 0216)", () => {
     );
     const row = await screen.findByTestId("waiting-w9");
     expect(row).toHaveTextContent("Imported");
-    expect(screen.getByTestId("imported-decision-w9")).toHaveTextContent("nothing follows from it");
-    expect(screen.getByTestId("imported-badge")).toHaveAttribute("title", expect.stringContaining("demonstration history"));
+    expect(screen.getByTestId("imported-decision-w9")).toHaveTextContent(
+      "nothing follows from it",
+    );
+    expect(screen.getByTestId("imported-badge")).toHaveAttribute(
+      "title",
+      expect.stringContaining("demonstration history"),
+    );
+  });
+});
+
+describe("an imported governed action in the inbox (ADR 0216, point 14)", () => {
+  it("carries the badge beside its status, and a live one does not", async () => {
+    const { api } = await import("@/lib/api");
+    vi.mocked(api.orgActions).mockResolvedValueOnce({
+      items: [
+        {
+          id: "a7",
+          title: "Record the warranty decision",
+          project_slug: "billing-api",
+          status: "pending_approval",
+          proposed_by: {},
+          imported: true,
+        },
+        {
+          id: "a8",
+          title: "Open a billing account",
+          project_slug: "billing-api",
+          status: "pending_approval",
+          proposed_by: {},
+        },
+      ],
+      meta: { has_more: false, next_cursor: null },
+    } as never);
+    view("billing-api");
+    const imported = (
+      await screen.findByText("Record the warranty decision")
+    ).closest("li");
+    const live = screen.getByText("Open a billing account").closest("li");
+    expect(imported).toHaveTextContent("Imported");
+    expect(live).not.toHaveTextContent("Imported");
   });
 });
