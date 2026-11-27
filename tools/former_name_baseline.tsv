@@ -575,7 +575,7 @@
 2	charts/tranibor/templates/guard.yaml
 2	charts/tranibor/templates/hosted-images-policy.yaml
 3	charts/tranibor/templates/monitoring.yaml
-30	charts/tranibor/templates/networkpolicies.yaml
+31	charts/tranibor/templates/networkpolicies.yaml
 3	charts/tranibor/templates/outposts-door.yaml
 1	charts/tranibor/templates/plugin-servers-rbac.yaml
 1	charts/tranibor/templates/values/keys/merged/first.yaml

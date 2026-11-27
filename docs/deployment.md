@@ -82,7 +82,7 @@ this page when it differs from the record, and any page that calls a provider su
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
 | The first operator's dev cluster (bare metal) | k3s 1.31 | gVisor (`gvisor` RuntimeClass) | Cilium 1.16 | `agent_sandbox`, `k8s_job` | 2026-11-21, 0.27.17: real agent runs on both executors, the agent's own container under gVisor, the egress gate, the operator's suspension and resumption (`docs/plan/status/S65.md`, `docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md`) | **supported** |
 | The first operator's production cluster (bare metal) | k3s 1.31 | gVisor (`gvisor` RuntimeClass) | Cilium 1.16 | `agent_sandbox`, `k8s_job` | 2026-11-20, 0.27.16: real agent runs on the warm pool and on k8s_job, the agent's own container under gVisor (`docs/plan/status/S65.md`, `docs/adr/0146-the-runner-and-the-agent-do-not-share-a-container.md`) | **supported** |
-| kind (CI and development) | kind, Kubernetes 1.34.0 | runc | Calico 3.28.2 | `k8s_job` | 2026-11-12: the outposts end to end (the chart's door, the real daemon) on kind-tranibor; the hosted pods on k8s_job (S41-24, undated) (`docs/plan/status/S65.md`, `docs/plan/status/S41.md`) | **supported** |
+| kind (CI and development) | kind, Kubernetes 1.34.0 | runc | Calico 3.28.2 | `k8s_job` | 2026-11-27, chart 0.30.0 with S87-09, images built from that tree: tools/cluster-proof/proof.sh from a clean install - the preflight, the all-in-one chart (with tools/cluster-proof/small-node.yaml), an agent pod's reach, the object store, the egress gate's first packets, the agent's own container, one work item to approved (S87-09); before it, the outposts end to end and the hosted pods on k8s_job (S41-24) (`docs/plan/status/S87.md`, `docs/plan/status/S65.md`, `docs/plan/status/S41.md`) | **supported** |
 | One k3s node (the single-node profile) | k3s v1.35.5 in k3d 5.9.0 | runc | k3s's embedded kube-router | `k8s_job` | 2026-11-18, main at c8cb64fdc: install, a work item to approved, backup, the node destroyed, restore (`tools/single-node/proof.sh`) (`docs/plan/status/S80.md`, [run](https://github.com/graalsystems/tranibor/actions/runs/44275902560)) | **supported** |
 | Azure Container Apps, the ACA executor alone (no installation of the platform on Azure) | Container Apps jobs, Consumption environment | Container Apps | none | `aca` | 2026-11-25, 0.29.4 (runner image with `launcher --until-file`, built from this tree): the executor's own two-container job on a real subscription (francecentral), the agent's container out of the runner's secrets, the execution ending with the runner (S87-07, S87-08); the six earlier live tests of S13-05 (`docs/plan/status/S87.md`, `tests/live/test_aca_two_containers_live.py`, `docs/runbooks/aca-live.md`) | **supported** |
 | Amazon EKS | — | — | — | — | never run | **unknown** |
@@ -93,6 +93,21 @@ this page when it differs from the record, and any page that calls a provider su
 | OVHcloud Managed Kubernetes | — | — | — | — | never run | **unknown** |
 
 <!-- support-matrix:end -->
+
+**The install proof.** `tools/cluster-proof/proof.sh`, given a kube context and the site's domain, runs the
+preflight above, installs the chart (`values/all-in-one.yaml`, then a provider profile and the files you
+give), checks from a pod with an agent's labels that the API, the gateway, the memory and the egress proxy
+open and PostgreSQL, Temporal and the object store do not, writes, reads back and deletes an object through
+the API's own object store settings, checks that an agent pod's first packet out is refused (the egress
+gate), runs the agent-isolation probe under the deployment's RuntimeClass, and carries one work item to
+`approved` (its agent simulated). Whatever the outcome it removes the release and its namespace
+(`PROOF_KEEP=1` keeps them), keeps the evidence (and, on a failure, every pod's description and logs), and
+archives it as `<PROOF_EVIDENCE>.tar.gz`. `tools/cluster-proof/cluster.sh up kind|k3d <name> <domain>` makes
+a throwaway local cluster what a managed one gives (Calico on kind, k3s's own engine on k3d; a default
+IngressClass; the site's names resolving from the pods to the ingress controller) and loads the images
+of a commit (`PROOF_LOAD_IMAGES`, with `PROOF_IMAGE_TAG`). The profile is sized for 8 vCPU: on a 4 vCPU
+node, add `tools/cluster-proof/small-node.yaml`, which lowers only the platform's CPU requests so that an
+agent pod is scheduled beside it. The `cluster-proof` CI job runs both, on kind and on k3d.
 
 ## Install
 

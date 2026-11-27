@@ -13,7 +13,7 @@
 # its date. `names` are what a page may call the provider (the scan of tests/docs/test_support_matrix.py).
 # The day this record was last brought up to date: every word is computed against it, never against the
 # day a test happens to run. Move it forward when you record a proof.
-as_of: 2026-11-25
+as_of: 2026-11-27
 clusters:
   - id: operator-dev
     provider: The first operator's dev cluster (bare metal)
@@ -52,10 +52,11 @@ clusters:
     network_policy: Calico 3.28.2
     executors: [k8s_job]
     proof:
-      date: 2026-11-12
-      version: null
-      what: the outposts end to end (the chart's door, the real daemon) on kind-tranibor; the hosted pods on k8s_job (S41-24, undated)
+      date: 2026-11-27
+      version: chart 0.30.0 with S87-09, images built from that tree
+      what: tools/cluster-proof/proof.sh from a clean install - the preflight, the all-in-one chart (with tools/cluster-proof/small-node.yaml), an agent pod's reach, the object store, the egress gate's first packets, the agent's own container, one work item to approved (S87-09); before it, the outposts end to end and the hosted pods on k8s_job (S41-24)
       evidence:
+        - docs/plan/status/S87.md
         - docs/plan/status/S65.md
         - docs/plan/status/S41.md
   - id: k3s-single-node
