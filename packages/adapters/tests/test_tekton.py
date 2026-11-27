@@ -77,6 +77,16 @@ def test_a_project_with_a_repository_clones_it_first_with_the_catalogue_task() -
     assert stage["runAfter"] == ["clone"] and "taskSpec" in stage
 
 
+@pytest.mark.parametrize("isolation", ["process", "container"])
+def test_the_run_pod_takes_the_deployments_runtime_class(isolation: str) -> None:
+    """`global.runner.runtimeClass` (gVisor, Kata): every task's pod, the agent's sidecar included, runs
+    under it (S87-06); without one the pod takes the cluster's default."""
+    template = _run(agent_isolation=isolation)["spec"]["taskRunTemplate"]["podTemplate"]
+    assert template["runtimeClassName"] == "gvisor"
+    template = _run(agent_isolation=isolation, runtime_class=None)["spec"]["taskRunTemplate"]["podTemplate"]
+    assert "runtimeClassName" not in template
+
+
 def test_under_process_the_agent_stage_has_no_sidecar_and_the_runner_holds_the_run() -> None:
     task = _stage(_run())
     assert "sidecars" not in task and "volumes" not in task
