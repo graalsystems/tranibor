@@ -22,8 +22,8 @@ runner's step. What only Tekton's controller can say, run here:
 
 The PipelineRun is the executor's own (`TektonExecutor._pipeline_run`); only the runner step's command is
 replaced by the probe's runner side (`tests/live/aca_two_containers.py`, the same probe as on Container
-Apps), and the node selector the runner nodes carry in production is dropped. Run on a cluster with
-Tekton Pipelines and the runner image:
+Apps), and the node selector the runner nodes carry in production is kept only where the cluster has
+runner nodes. Run on a cluster with Tekton Pipelines and the runner image:
 
     TRANIBOR_CLUSTER_CONTEXT=kind-s87-tekton TRANIBOR_CLUSTER_ALLOW_SHARED=kind-s87-tekton \\
         uv run pytest tests/cluster/test_tekton_isolation.py -m cluster -s
@@ -72,6 +72,21 @@ def _tekton_installed() -> None:
         pytest.skip("Tekton Pipelines is not installed on this cluster")
 
 
+def _place_on_runner_nodes(template: dict[str, Any]) -> None:
+    """Keep the executor's runner-node selector where the cluster has runner nodes, drop it elsewhere.
+
+    On a cluster with `role=runners` nodes (the `hosted-cluster` job's kind, as in production) the selector
+    stays: Tekton copies it to the affinity assistant, which binds the workspace's volume to that node, the
+    node the `gvisor` RuntimeClass schedules the agent stage on. Dropped there, the assistant and the volume
+    went to another node and the agent stage's pod was never scheduled. A cluster without runner nodes
+    (one kind node, AKS's pool) gets neither the selector nor the toleration.
+    """
+    if kubectl_shared("get", "nodes", "-l", "role=runners", "-o", "name", check=False).strip():
+        return
+    template.pop("nodeSelector", None)
+    template.pop("tolerations", None)
+
+
 def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     from tranibor_adapters.executor.tekton import TektonExecutor
     from tranibor_core.domain import StageJobSpec
@@ -92,9 +107,7 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     gate = EgressGate(deadline_s=60) if EGRESS_GATE else None
     executor = TektonExecutor(SimpleNamespace(), storage="1Gi", egress_gate=gate)  # type: ignore[arg-type]
     run = executor._pipeline_run(spec, f"run-{run_id}")
-    template = run["spec"]["taskRunTemplate"]["podTemplate"]
-    template.pop("nodeSelector", None)
-    template.pop("tolerations", None)
+    _place_on_runner_nodes(run["spec"]["taskRunTemplate"]["podTemplate"])
     [stage] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if t["name"] == "agent-stage"]
     *gated, step = stage["taskSpec"]["steps"]
     assert [s["name"] for s in gated] == ([GATE_CONTAINER] if EGRESS_GATE else []), "the gate goes first"

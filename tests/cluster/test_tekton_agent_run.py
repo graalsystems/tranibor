@@ -33,7 +33,7 @@ from typing import Any
 import pytest
 
 from .conftest import kubectl_shared
-from .test_tekton_isolation import IMAGE, PYTHON, RUNTIME_CLASS, _tekton_installed
+from .test_tekton_isolation import IMAGE, PYTHON, RUNTIME_CLASS, _place_on_runner_nodes, _tekton_installed
 
 pytestmark = pytest.mark.cluster
 
@@ -58,9 +58,7 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
         runtime_class=RUNTIME_CLASS or None,
     )
     run = TektonExecutor(SimpleNamespace(), storage="1Gi")._pipeline_run(spec, f"run-{run_id}")  # type: ignore[arg-type]
-    template = run["spec"]["taskRunTemplate"]["podTemplate"]
-    template.pop("nodeSelector", None)
-    template.pop("tolerations", None)
+    _place_on_runner_nodes(run["spec"]["taskRunTemplate"]["podTemplate"])
     [stage] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if t["name"] == AGENT_STAGE]
     step = next(s for s in stage["taskSpec"]["steps"] if s["name"] == "run")
     # The step's own arguments (`run --write-result-url … --write-status …`) go to the runner's CLI; only the
