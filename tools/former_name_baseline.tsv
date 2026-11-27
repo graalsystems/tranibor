@@ -1475,6 +1475,7 @@
 420	tools/load/results/2026-11-26-single-node-0.30.0.json
 420	tools/load/results/2026-11-26-single-node-inbox.json
 420	tools/load/results/2026-11-26-single-node-main.json
+420	tools/load/results/2026-11-27-single-node-worker-pool.json
 2	tools/load/single_node_load.py
 2	tools/local_install_check.py
 1	tools/package_charts.py
