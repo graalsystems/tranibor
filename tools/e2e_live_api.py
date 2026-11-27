@@ -47,6 +47,8 @@ def main(argv: list[str]) -> None:
     os.environ.setdefault("TRANIBOR_BOOTSTRAP_ORG", "northwind")
     os.environ.setdefault("TRANIBOR_BOOTSTRAP_ORG_NAME", "Northwind")
     os.environ.setdefault("TRANIBOR_BOOTSTRAP_ADMINS", "admin@northwind.dev")
+    # A demonstration history may be imported (ADR 0216): `imported-history.live.spec.ts` reads it in the console.
+    os.environ.setdefault("TRANIBOR_DEMO_HISTORY_IMPORT", "1")
 
     import tranibor_adapters
     import uvicorn
