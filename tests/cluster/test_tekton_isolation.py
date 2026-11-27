@@ -12,7 +12,13 @@ runner's step. What only Tekton's controller can say, run here:
   sidecars at `$(workspaces.source.path)`) and shares the exchange directory both ways;
 - that it finds the run token, which the runner's step holds from the run's Secret, in no `/proc` entry
   it can read;
-- that the PipelineRun ends when the step ends: Tekton stops the sidecar.
+- that the PipelineRun ends when the step ends: Tekton stops the sidecar;
+- that the agent stage's pod carries `k8s_job`'s run-pod labels (Tekton gives it the embedded Task's
+  `metadata.labels`), so a run-pod NetworkPolicy selects it, and that the egress gate (S80-07f) is its first
+  step and ends before the runner's step starts (#2278). The gate runs on a cluster whose CNI enforces
+  NetworkPolicies only, said by `TRANIBOR_TEKTON_EGRESS_GATE=1` (kind's default `kindnet` does not: the
+  gate would exit 115 at its deadline). The namespace then gets a NetworkPolicy refusing every egress of the
+  pods the run-pod label selects, and the gate passes only if that policy holds the pod.
 
 The PipelineRun is the executor's own (`TektonExecutor._pipeline_run`); only the runner step's command is
 replaced by the probe's runner side (`tests/live/aca_two_containers.py`, the same probe as on Container
@@ -35,6 +41,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+from tranibor_core.egress_gate import GATE_CONTAINER
 from tranibor_core.publishing import PUBLISHING
 
 from .conftest import kubectl_shared
@@ -44,6 +51,8 @@ pytestmark = pytest.mark.cluster
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 IMAGE = os.environ.get("TRANIBOR_TEKTON_RUNNER_IMAGE", PUBLISHING.image_name("runner") + ":0.29.4")
 PYTHON = "/app/.venv/bin/python"
+#: The egress gate in the agent stage (#2278): on a cluster whose CNI enforces NetworkPolicies only.
+EGRESS_GATE = os.environ.get("TRANIBOR_TEKTON_EGRESS_GATE", "") == "1"
 #: The RuntimeClass of the run's pod (`gvisor` for the second run of S87-06); empty: the cluster's default.
 RUNTIME_CLASS = os.environ.get("TRANIBOR_TEKTON_RUNTIME_CLASS", "")
 
@@ -66,6 +75,7 @@ def _tekton_installed() -> None:
 def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     from tranibor_adapters.executor.tekton import TektonExecutor
     from tranibor_core.domain import StageJobSpec
+    from tranibor_core.egress_gate import EgressGate
 
     probe = _probe()
     spec = StageJobSpec(
@@ -79,12 +89,15 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
         timeout_minutes=10,
         runtime_class=RUNTIME_CLASS or None,
     )
-    run = TektonExecutor(SimpleNamespace(), storage="1Gi")._pipeline_run(spec, f"run-{run_id}")  # type: ignore[arg-type]
+    gate = EgressGate(deadline_s=60) if EGRESS_GATE else None
+    executor = TektonExecutor(SimpleNamespace(), storage="1Gi", egress_gate=gate)  # type: ignore[arg-type]
+    run = executor._pipeline_run(spec, f"run-{run_id}")
     template = run["spec"]["taskRunTemplate"]["podTemplate"]
     template.pop("nodeSelector", None)
     template.pop("tolerations", None)
     [stage] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if t["name"] == "agent-stage"]
-    [step] = stage["taskSpec"]["steps"]
+    *gated, step = stage["taskSpec"]["steps"]
+    assert [s["name"] for s in gated] == ([GATE_CONTAINER] if EGRESS_GATE else []), "the gate goes first"
     # The runner writes the Task's two results (`--write-result-url`, `--write-status`); the probe in its
     # place does too, or the PipelineRun fails on results it declares and nobody wrote.
     step["command"] = [
@@ -107,6 +120,22 @@ def _pipeline_run(namespace: str, run_id: str) -> dict[str, Any]:
     return run
 
 
+def _run_pod_deny_all(namespace: str) -> dict[str, Any]:
+    """A run-pod policy of the platform's kind (#2278): every egress refused to the pods it selects by the
+    run-pod label, as `docs/deployment.md` tells a platform to select them. The probe needs none: the
+    runner's step reaches the agent's launcher on the pod's loopback."""
+    return {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {"name": "s87-run-pod-deny-egress", "namespace": namespace},
+        "spec": {
+            "podSelector": {"matchLabels": {"tranibor/sandbox": "true"}},
+            "policyTypes": ["Egress"],
+            "egress": [],
+        },
+    }
+
+
 @pytest.fixture(scope="module")
 def outcome() -> dict[str, Any]:
     _tekton_installed()
@@ -123,6 +152,8 @@ def outcome() -> dict[str, Any]:
             "stringData": {"token": token},
         }
         kubectl_shared("apply", "-f", "-", input_text=json.dumps(secret))
+        if EGRESS_GATE:
+            kubectl_shared("apply", "-f", "-", input_text=json.dumps(_run_pod_deny_all(namespace)))
         kubectl_shared("apply", "-f", "-", input_text=json.dumps(_pipeline_run(namespace, run_id)))
         deadline, condition = time.monotonic() + 600, dict[str, Any]()
         while time.monotonic() < deadline:
@@ -160,8 +191,24 @@ def outcome() -> dict[str, Any]:
             f"\nTekton feature flags: {flags}\nruntimeClass: {pod['spec'].get('runtimeClassName')}"
             f"\ncondition: {condition}\nrunner's report: {lines}"
         )
+        # The steps' own start and end, as Tekton's entrypoint records them: every step's container starts
+        # with the pod and waits for the step before it, so the pod's container statuses do not say when a
+        # step began.
+        task_runs = json.loads(
+            kubectl_shared(
+                "-n",
+                namespace,
+                "get",
+                "taskruns",
+                "-l",
+                f"tekton.dev/pipelineRun=run-{run_id},tekton.dev/pipelineTask=agent-stage",
+                "-o",
+                "json",
+            )
+        )["items"]
         return {
             "condition": condition,
+            "steps": {s["name"]: s for t in task_runs for s in t.get("status", {}).get("steps") or []},
             "report": json.loads(lines[-1].removeprefix("S87-07 ")) if lines else {},
             "pod": pod,
         }
@@ -205,3 +252,25 @@ def test_the_workspace_and_the_exchange_are_shared_both_ways(outcome: dict[str, 
     report = outcome["report"]
     assert report["agent"]["read_from_runner"] == "written by the runner's container", report
     assert report["agent_exit"] == 0, "the agent's side ran in the Task's workspace"
+
+
+@pytest.mark.capability("tekton", "separate_agent")
+def test_the_agent_stages_pod_carries_the_run_pod_labels(outcome: dict[str, Any]) -> None:
+    """#2278: the labels the run-pod NetworkPolicies select, as on `k8s_job`'s run pods."""
+    from tranibor_adapters.executor.k8s_job import RUNNER_POD_LABELS
+
+    labels = outcome["pod"]["metadata"]["labels"]
+    assert {key: labels.get(key) for key in RUNNER_POD_LABELS} == RUNNER_POD_LABELS
+
+
+@pytest.mark.capability("tekton", "separate_agent")
+def test_the_egress_gate_ends_before_the_runners_step_starts(outcome: dict[str, Any]) -> None:
+    """#2278: the gate saw the run-pod policy refuse a direct connection out, then the runner's step began."""
+    if not EGRESS_GATE:
+        pytest.skip("TRANIBOR_TEKTON_EGRESS_GATE=1 names a cluster whose CNI enforces NetworkPolicies")
+    steps = outcome["steps"]
+    assert list(steps)[:2] == [GATE_CONTAINER, "run"], list(steps)
+    gate = steps[GATE_CONTAINER].get("terminated") or {}
+    runner = steps["run"].get("terminated") or {}
+    assert gate.get("exitCode") == 0, gate
+    assert gate["finishedAt"] <= runner["startedAt"], (gate, runner)

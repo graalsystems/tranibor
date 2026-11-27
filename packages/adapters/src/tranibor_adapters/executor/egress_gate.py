@@ -5,7 +5,8 @@ The gate (`tranibor_core.egress_gate`) is the FIRST init container of a pod that
 code: before a hosted agent's sidecar (ADR 0080) and before the agent's own container (ADR 0146),
 which start before the runner. Init containers run in order and a native sidecar starts only once the
 init containers before it have completed, so nothing of the agent's runs until the gate has seen the
-pod's egress policy in force. A gate that fails fails the pod: `restartPolicy: Never`.
+pod's egress policy in force. A gate that fails fails the pod: `restartPolicy: Never`. In a Tekton
+agent stage, which can declare no init container, it is the Task's first step (`add_to_task`, #2278).
 
 Its image is the runner's: no image to ship or pull. It writes what it measured to a small volume the
 runner container mounts read-only, and the runner journals it (`egress.gate`).
@@ -65,7 +66,29 @@ def add_to_pod(pod_spec: dict[str, Any], image: str, gate: EgressGate, runner: s
     """Puts the gate FIRST among the pod's init containers, and its report where the runner reads it."""
     pod_spec["initContainers"] = [init_container(image, gate), *pod_spec.get("initContainers", [])]
     pod_spec.setdefault("volumes", []).append(volume())
-    container = next(c for c in pod_spec["containers"] if c["name"] == runner)
+    _tell_runner(next(c for c in pod_spec["containers"] if c["name"] == runner))
+
+
+def task_step(image: str, gate: EgressGate) -> dict[str, Any]:
+    """The gate as a Tekton step (#2278): the init container, its resources under Tekton's name."""
+    step = init_container(image, gate)
+    step["computeResources"] = step.pop("resources")
+    return step
+
+
+def add_to_task(task_spec: dict[str, Any], image: str, gate: EgressGate, runner: str = "run") -> None:
+    """`add_to_pod` for a Tekton Task (#2278): the gate is the Task's FIRST step, its report where the
+    runner's step reads it.
+
+    A step, not an init container: Tekton's `podTemplate` has no `initContainers` (nor `labels`), and a
+    Task declares none. Tekton runs a Task's steps one after the other, each waiting for the one before
+    to end with 0: a gate that fails fails the TaskRun, and the runner's step never starts."""
+    task_spec["steps"] = [task_step(image, gate), *task_spec.get("steps", [])]
+    task_spec.setdefault("volumes", []).append(volume())
+    _tell_runner(next(s for s in task_spec["steps"] if s["name"] == runner))
+
+
+def _tell_runner(container: dict[str, Any]) -> None:
     container.setdefault("volumeMounts", []).append(runner_mount())
     container.setdefault("env", []).extend(with_legacy_entries([runner_env()]))
 

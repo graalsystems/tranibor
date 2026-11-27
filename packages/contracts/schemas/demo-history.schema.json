@@ -167,7 +167,21 @@
         "runs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/run" } },
         "decisions": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/decision" } },
         "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } },
-        "pending": { "$ref": "#/$defs/pending", "description": "What the work item waits for now, if a person must decide: at most one." }
+        "pending": { "$ref": "#/$defs/pending", "description": "What the work item waits for now, if a person must decide: at most one." },
+        "actions": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/action" }, "description": "The governed actions its transitions proposed (ADR 0035), at most one per transition." }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["transition", "at"],
+      "additionalProperties": false,
+      "description": "The governed action a transition of the workflow proposes, proposed for the work item by the product's own service (title, parameters and approvers rendered from its fields). `pending`: it waits for its approvers; deciding it records the decision and plays nothing. `succeeded`: approved by `decided_by`, its effects recorded as imported, never played.",
+      "properties": {
+        "transition": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The id of a transition of the project's workflow that declares an `action`." },
+        "status": { "type": "string", "enum": ["pending", "succeeded"], "default": "pending" },
+        "at": { "type": "string", "format": "date-time", "description": "When it was proposed; not before the work item was created." },
+        "decided_by": { "type": "string", "maxLength": 200, "description": "Who approved it: a member of the organisation. Required when `succeeded`, absent when `pending`." },
+        "decided_at": { "type": "string", "format": "date-time", "description": "When it was approved, after `at`. Required when `succeeded`, absent when `pending`." }
       }
     }
   }

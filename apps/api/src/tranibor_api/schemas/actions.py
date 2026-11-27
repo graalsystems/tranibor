@@ -111,6 +111,8 @@ class ActionDto(Dto):
     project_slug: str | None = None
     created_at: datetime | None = None
     finished_at: datetime | None = None
+    #: Proposed by a demonstration history import (ADR 0216, point 14): deciding it plays nothing.
+    imported: bool = False
     #: the effects log, key by key
     journal: list[ActionEffectDto] = Field(default_factory=list)
     #: what a person recorded once the action was in doubt (S65-26): the same as on its effect

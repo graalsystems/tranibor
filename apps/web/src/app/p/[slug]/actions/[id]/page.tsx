@@ -5,24 +5,39 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { use } from "react";
 import { DecisionDAction } from "@/components/actions/decision";
+import { ImportedBadge } from "@/components/imported-badge";
 import { InDoubt } from "@/components/actions/in-doubt";
-import { SettleInDoubt, Settled, settlementOf } from "@/components/actions/settle";
+import {
+  SettleInDoubt,
+  Settled,
+  settlementOf,
+} from "@/components/actions/settle";
 import { Status, propose } from "@/components/actions/status";
 import { Card, Empty, ErrorNote, Heading } from "@/components/ui";
 import { api } from "@/lib/api";
 import { relative, shortDate } from "@/lib/format";
 
 /** A governed action: what it will do, who decided on it, and the log of its effects key by key. */
-export default function ActionPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default function ActionPage({
+  params,
+}: {
+  params: Promise<{ slug: string; id: string }>;
+}) {
   const { slug, id } = use(params);
-  const action = useQuery({ queryKey: ["action", slug, id], queryFn: () => api.projectAction(slug, id) });
+  const action = useQuery({
+    queryKey: ["action", slug, id],
+    queryFn: () => api.projectAction(slug, id),
+  });
   if (action.error) return <ErrorNote>{String(action.error)}</ErrorNote>;
   if (!action.data) return <Empty>Reading the action…</Empty>;
   const a = action.data;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline gap-3">
-        <Link href={`/p/${slug}/actions`} className="text-sm text-ink-muted hover:underline">
+        <Link
+          href={`/p/${slug}/actions`}
+          className="text-sm text-ink-muted hover:underline"
+        >
           Actions
         </Link>
         <span aria-hidden className="text-ink-muted">
@@ -32,9 +47,17 @@ export default function ActionPage({ params }: { params: Promise<{ slug: string;
           {a.title}
         </Heading>
         <Status statut={a.status} />
+        <ImportedBadge imported={a.imported} />
       </div>
+      {a.imported ? (
+        <p className="text-sm text-ink-muted" data-testid="imported-action">
+          Proposed by a demonstration history: deciding it records the decision
+          and plays nothing.
+        </p>
+      ) : null}
       <p className="text-sm text-ink-muted">
-        <span data-verbatim>{a.kind}</span> · proposed by {propose(a.proposed_by)}
+        <span data-verbatim>{a.kind}</span> · proposed by{" "}
+        {propose(a.proposed_by)}
         {a.created_at ? ` · ${relative(a.created_at)}` : ""}
         {a.justification ? ` — ${a.justification}` : ""}
       </p>
@@ -59,7 +82,10 @@ export default function ActionPage({ params }: { params: Promise<{ slug: string;
                 {d.at ? ` · ${shortDate(String(d.at))}` : ""}
                 {d.reason ? ` — ${String(d.reason)}` : ""}
                 {typeof d.auth_age_seconds === "number" ? (
-                  <span className="text-xs text-ink-muted"> (signed in {Math.round(d.auth_age_seconds / 60)} min before)</span>
+                  <span className="text-xs text-ink-muted">
+                    {" "}
+                    (signed in {Math.round(d.auth_age_seconds / 60)} min before)
+                  </span>
                 ) : null}
               </li>
             ))}
@@ -69,21 +95,40 @@ export default function ActionPage({ params }: { params: Promise<{ slug: string;
       <Card title="Effects">
         <ol className="space-y-2 text-sm">
           {(a.effects ?? []).map((spec, position) => {
-            const recorded = (a.journal ?? []).find((e) => e.position === position);
+            const recorded = (a.journal ?? []).find(
+              (e) => e.position === position,
+            );
             return (
-              <li key={position} className="border-t border-line pt-2" data-testid={`effect-${position}`}>
+              <li
+                key={position}
+                className="border-t border-line pt-2"
+                data-testid={`effect-${position}`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <code>{String(spec.effect)}</code>
-                  {recorded ? <Status statut={recorded.status} /> : <span className="text-xs text-ink-muted">Not started</span>}
-                  {recorded && <span className="text-xs text-ink-muted">Key {recorded.key} · {recorded.attempts} attempt(s)</span>}
+                  {recorded ? (
+                    <Status statut={recorded.status} />
+                  ) : (
+                    <span className="text-xs text-ink-muted">Not started</span>
+                  )}
+                  {recorded && (
+                    <span className="text-xs text-ink-muted">
+                      Key {recorded.key} · {recorded.attempts} attempt(s)
+                    </span>
+                  )}
                 </div>
                 <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-ink-muted">
                   {JSON.stringify(spec.with ?? {}, null, 1)}
                 </pre>
                 {spec.compensate ? (
-                  <p className="text-xs text-ink-muted">Undone by {String((spec.compensate as { effect?: string }).effect)}</p>
+                  <p className="text-xs text-ink-muted">
+                    Undone by{" "}
+                    {String((spec.compensate as { effect?: string }).effect)}
+                  </p>
                 ) : null}
-                {recorded?.error && <p className="text-xs text-danger">{recorded.error}</p>}
+                {recorded?.error && (
+                  <p className="text-xs text-danger">{recorded.error}</p>
+                )}
               </li>
             );
           })}

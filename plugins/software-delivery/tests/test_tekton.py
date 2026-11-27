@@ -137,7 +137,10 @@ async def test_cancel_stops_the_pipelinerun_then_deletes_the_secret() -> None:
     assert wire.body(0) == {"spec": {"status": "Cancelled"}}
 
 
-async def test_the_logs_come_from_the_step_run_container_of_each_pod() -> None:
+async def test_the_logs_come_from_each_task_s_own_step_container() -> None:
+    """The clone's pod is read from the catalogue's step, the agent stage's from `step-run` (#2279).
+
+    This wire answers the same pod to both selectors: what matters is what each request asks."""
     wire = Wire(
         {
             ("GET", f"{CORE_API}/namespaces/{NS}/pods"): (200, {"items": [{"metadata": {"name": "p1"}}]}),
@@ -148,9 +151,13 @@ async def test_the_logs_come_from_the_step_run_container_of_each_pod() -> None:
         line
         async for line in TektonExecutor(k8s(wire)).logs(ExecRef(kind="tekton", name="run-1", namespace=NS))
     ]
-    assert lines == ["line 1", "line 2"]
-    assert wire.requests[0].url.params["labelSelector"] == "tekton.dev/pipelineRun=run-1"
-    assert wire.requests[1].url.params["container"] == "step-run"
+    assert lines == ["line 1", "line 2", "line 1", "line 2"]
+    selectors = [r.url.params.get("labelSelector") for r in wire.requests]
+    containers = [r.url.params.get("container") for r in wire.requests]
+    assert selectors[0] == "tekton.dev/pipelineRun=run-1,tekton.dev/pipelineTask=clone"
+    assert containers[1] == "step-clone"
+    assert selectors[2] == "tekton.dev/pipelineRun=run-1,tekton.dev/pipelineTask=agent-stage"
+    assert containers[3] == "step-run"
 
 
 async def test_ci_aggregates_the_pipelineruns_of_a_sha() -> None:

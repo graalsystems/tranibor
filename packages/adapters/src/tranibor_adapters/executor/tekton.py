@@ -16,6 +16,9 @@ spec is inline as it signs one by reference.
 Under `container` (ADR 0146) the agent stage's Task gets the agent's own container as a sidecar
 (`separate_agent.tekton_sidecar`, the container `k8s_job` starts, holding nothing of the run's), and
 the runner's step is told where its launcher listens, on the pod's loopback.
+
+The agent stage's pod carries `k8s_job`'s run-pod labels, which the run-pod NetworkPolicies select, and the
+egress gate (S80-07f) as its first step (#2278).
 """
 
 from __future__ import annotations
@@ -41,9 +44,10 @@ from tranibor_core.domain import (
     StageJobSpec,
     utcnow,
 )
+from tranibor_core.egress_gate import EgressGate
 
 from ..errors import ConfigurationError, UpstreamError
-from . import separate_agent
+from . import egress_gate, separate_agent
 from .isolation import refuse_unless_separate
 
 TEKTON_API = "/apis/tekton.dev/v1"
@@ -180,6 +184,7 @@ class TektonExecutor:
         memory_limit: str = "6Gi",
         runner_requests: dict[str, str] | None = None,
         runner_limits: dict[str, str] | None = None,
+        egress_gate: EgressGate | None = None,
     ) -> None:
         self.client = client or KubernetesClient()
         #: `tranibor-runner` where the namespace has it, else the former one (ADR 0226, R9b).
@@ -193,6 +198,9 @@ class TektonExecutor:
         #: `runner.ownResources`, as `k8s_job`'s runner container takes them.
         self.runner_requests = dict(runner_requests or separate_agent.RUNNER_REQUESTS)
         self.runner_limits = dict(runner_limits or separate_agent.RUNNER_LIMITS)
+        #: The egress gate (S80-07f, #2278): the agent stage's first step, which lets the runner's step, and
+        #: so nothing of the agent's, start until a direct connection out is refused. `None`: no gate.
+        self.egress_gate = egress_gate
 
     def _name(self, run_id: str) -> str:
         return f"run-{run_id}"[:63].lower()
@@ -376,7 +384,7 @@ class TektonExecutor:
         if cloned:
             tasks.append(
                 {
-                    "name": "clone",
+                    "name": CLONE_TASK,
                     "taskRef": {"name": "git-clone"},
                     "workspaces": [{"name": "output", "workspace": "source"}],
                     "params": [
@@ -389,7 +397,7 @@ class TektonExecutor:
         tasks.append(
             {
                 "name": AGENT_STAGE,
-                **({"runAfter": ["clone"]} if cloned else {}),
+                **({"runAfter": [CLONE_TASK]} if cloned else {}),
                 "taskSpec": self._agent_stage(spec, name),
                 "workspaces": [{"name": "source", "workspace": "source"}],
             }
@@ -441,7 +449,16 @@ class TektonExecutor:
                 "seccompProfile": {"type": "RuntimeDefault"},
             },
         }
+        # The labels `k8s_job`'s run pods carry, which the run-pod NetworkPolicies select (#2278). On the
+        # embedded Task's `metadata`: Tekton's `podTemplate` takes no labels, and the PipelineRun's own
+        # labels would put the clone's pod (the catalogue's `git-clone`, which reaches the git host and runs
+        # nothing of the agent's) under the run-pod policy too. Tekton gives a TaskRun the PipelineRun's
+        # labels then the embedded Task's `metadata.labels`, and the pod its TaskRun's labels.
+        # Imported here: `k8s_job` imports this module.
+        from .k8s_job import RUNNER_POD_LABELS
+
         task: dict[str, Any] = {
+            "metadata": {"labels": dict(RUNNER_POD_LABELS)},
             "workspaces": [{"name": "source"}],
             "results": [{"name": "result-url"}, {"name": "status"}],
             "steps": [step],
@@ -456,6 +473,10 @@ class TektonExecutor:
                 runner_requests=self.runner_requests,
                 runner_limits=self.runner_limits,
             )
+        if self.egress_gate is not None:
+            # Last, so that it lands FIRST among the steps: the runner's step, which alone asks the agent's
+            # launcher to run anything, starts once the gate has seen the pod's egress policy in force.
+            egress_gate.add_to_task(task, spec.runner_image, self.egress_gate)
         return task
 
     async def status(self, ref: ExecRef) -> ExecStatus:
@@ -500,20 +521,30 @@ class TektonExecutor:
             return StageResult.model_validate(response.json())
 
     async def logs(self, ref: ExecRef) -> AsyncIterator[str]:
-        pods = await self.client.request(
-            "GET",
-            f"{CORE_API}/namespaces/{ref.namespace}/pods",
-            params={"labelSelector": f"tekton.dev/pipelineRun={ref.name}"},
-        )
-        for pod in (pods or {}).get("items", []):
-            name = pod["metadata"]["name"]
-            text = await self.client.request(
+        """The run's log: the clone's, then the agent stage's runner step (#2279).
+
+        Each task's pod is found by its `tekton.dev/pipelineTask` label, and read from its own step
+        containers. Asking the clone's pod for the runner's `step-run` was refused (the catalogue's
+        `git-clone` has no such step), and the clone's log was never shown. The agent stage's pod is
+        read from `step-run` alone: the agent's sidecar under `container` (ADR 0146) is never what the
+        platform archives as the run's log, as `k8s_job` reads its `runner` container alone.
+        """
+        for task in (CLONE_TASK, AGENT_STAGE):
+            pods = await self.client.request(
                 "GET",
-                f"{CORE_API}/namespaces/{ref.namespace}/pods/{name}/log",
-                params={"container": "step-run"},
+                f"{CORE_API}/namespaces/{ref.namespace}/pods",
+                params={"labelSelector": f"tekton.dev/pipelineRun={ref.name},tekton.dev/pipelineTask={task}"},
             )
-            for line in str(text or "").splitlines():
-                yield line
+            for pod in (pods or {}).get("items", []):
+                name = pod["metadata"]["name"]
+                for container in _step_containers(task, pod):
+                    text = await self.client.request(
+                        "GET",
+                        f"{CORE_API}/namespaces/{ref.namespace}/pods/{name}/log",
+                        params={"container": container},
+                    )
+                    for line in str(text or "").splitlines():
+                        yield line
 
     async def cancel(self, ref: ExecRef) -> None:
         """A clean cancellation: Tekton stops the Tasks, then the secret is cleaned up."""
@@ -553,6 +584,27 @@ REMOTE_TOKEN_FIELD = "remote-token"  # noqa: S105 - a Secret key name, not a sec
 
 #: The agent stage's task in the inline Pipeline.
 AGENT_STAGE = "agent-stage"
+#: The clone's task in the inline Pipeline, when the project has a repository: the catalogue's `git-clone`.
+CLONE_TASK = "clone"
+#: The container Tekton runs a step named `run` in (`step-<name>`): the runner's, in the agent stage.
+RUNNER_STEP_CONTAINER = "step-run"
+#: The catalogue's `git-clone` Task has one step, `clone`, in every version of the catalogue.
+CLONE_STEP_CONTAINER = "step-clone"
+
+
+def _step_containers(task: str, pod: dict[str, Any]) -> list[str]:
+    """The containers of a task's pod whose log is the run's log.
+
+    The agent stage is ours: its runner's step alone. The clone is the namespace's `git-clone` Task, by
+    reference: its own steps, as the pod lists them (Tekton names a step's container `step-<name>`), and
+    the catalogue's `step-clone` when the pod does not list them."""
+    if task == AGENT_STAGE:
+        return [RUNNER_STEP_CONTAINER]
+    containers = ((pod.get("spec") or {}).get("containers")) or []
+    steps = [str(c["name"]) for c in containers if str(c.get("name", "")).startswith("step-")]
+    return steps or [CLONE_STEP_CONTAINER]
+
+
 #: Where Tekton mounts the Task's workspace, in the runner's step and the agent's sidecar alike, and the
 #: variable that tells the runner its working tree there.
 WORKSPACE_PATH = "$(workspaces.source.path)"
