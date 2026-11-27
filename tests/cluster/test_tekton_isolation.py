@@ -174,6 +174,11 @@ def test_the_pipeline_run_ends_when_the_runners_step_ends(outcome: dict[str, Any
     assert outcome["condition"].get("status") == "True", outcome["condition"]
 
 
+def test_the_run_pod_runs_under_the_runtime_class_asked(outcome: dict[str, Any]) -> None:
+    """`gvisor` in the CI's `hosted-cluster` job: the executor names it on the PipelineRun's pod template."""
+    assert outcome["pod"]["spec"].get("runtimeClassName") == (RUNTIME_CLASS or None)
+
+
 @pytest.mark.capability("tekton", "separate_agent")
 def test_the_agent_runs_in_its_own_sidecar_as_another_user(outcome: dict[str, Any]) -> None:
     report = outcome["report"]
