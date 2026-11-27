@@ -50,7 +50,7 @@ from tranibor_core.production import (
 )
 
 from ..errors import ConfigurationError
-from ..plugin_servers import TOKEN_ENV
+from ..plugin_servers import INSTANCE_ENV, TOKEN_ENV
 
 #: The domain the in-process servers answer on: a name no resolver serves, so a mistake never leaves the
 #: process. The first label is the server's object name.
@@ -203,6 +203,8 @@ class InProcessPluginServers:
         """`object_name` running with `declared_env` (the declaration's `fake.env`), the file's `fake_env`
         and `token`; a replay with the same environment is a no-op, a changed one restarts it."""
         env = {**declared_env, **entry.fake_env, TOKEN_ENV: token}
+        if INSTANCE_ENV in declared_env:  # the platform's, set last like the token
+            env[INSTANCE_ENV] = declared_env[INSTANCE_ENV]
         loop = asyncio.get_running_loop()
         async with self._lock:
             current = self._running.get(object_name)

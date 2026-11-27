@@ -153,6 +153,18 @@ async def test_a_plugin_server_is_run_in_process_and_answers_through_the_broker(
     assert again.json()["result"]["structuredContent"]["notes"] == [], "nothing reached the server"
 
 
+async def test_the_in_process_server_is_told_its_instance_name(
+    client: AsyncClient, admin: str, demo: FakeKubernetesApi
+) -> None:
+    from tranibor_adapters.plugin_servers import INSTANCE_ENV
+    from tranibor_api.config import get_settings
+    from tranibor_api.services.plugin_servers import in_process_servers
+
+    assert (await _install(client)).status_code == 200
+    running = in_process_servers(get_settings())._running
+    assert [r.env[INSTANCE_ENV] for r in running.values()] == ["demo-itsm"]
+
+
 async def test_the_server_is_started_again_when_the_process_forgot_it(
     client: AsyncClient, admin: str, project: dict[str, Any], demo: FakeKubernetesApi
 ) -> None:

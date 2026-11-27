@@ -17,6 +17,12 @@ approval, ADR 0050), each of its servers becomes:
   platform generated for it, sealed in the organisation's store (ADR 0058) under the connector's
   `_server_token` field and presented on every broker call (`TRANIBOR_SERVER_TOKEN` in the pod).
 
+**Named instances (ADR 0224 §3).** That connector is the server's *default instance*. An administrator may
+add others (`POST …/servers/{server}/instances`), each its own organisation connector with its own
+configuration, sealed secrets, `_server_token`, operations and objects (`object_name(org_id, instance)`);
+the default keeps the server's name, so what was installed before keeps its names. An upgrade re-applies
+every instance, an uninstall removes them all, and only a named instance can be deleted alone.
+
 The server's `config_schema` and `secret_fields` are the connector's configuration: an administrator
 types them with the connector routes (secrets sealed); every change reconciles the objects, and the
 digest of the Secret on the pod template rolls the Deployment. Until the configuration satisfies its
@@ -52,6 +58,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_adapters import ConnectorTypeSpec
 from tranibor_adapters.oci import RegistryError, parse_ref, under_prefix
 from tranibor_adapters.plugin_servers import (
+    INSTANCE_ENV,
     TOKEN_ENV,
     PluginServerClient,
     PluginServerRuntime,
@@ -178,15 +185,17 @@ def runtime(settings: Settings | None = None) -> PluginServerRuntime | None:
 # -- names -------------------------------------------------------------------------------------------------
 
 
-def object_name(org_id: str, server: str) -> str:
-    """One name per organisation and server in the shared namespace, a DNS label."""
-    return f"{server[:54]}-{hashlib.sha256(org_id.encode()).hexdigest()[:8]}"
+def object_name(org_id: str, instance: str) -> str:
+    """One name per organisation and instance in the shared namespace, a DNS label. The default instance
+    of a server is named after the server, so what was installed before named instances (ADR 0224 §3)
+    keeps its objects; a named instance is named by its connector, unique among the organisation's."""
+    return f"{instance[:54]}-{hashlib.sha256(org_id.encode()).hexdigest()[:8]}"
 
 
-def fake_object_name(org_id: str, server: str) -> str:
-    """The name of a server's eval instance (#1372), a DNS label beside `object_name`'s. Its digest is not
-    `object_name`'s, so a server named `<other>-fake` of the same organisation never holds the name."""
-    return f"{server[:49]}-fake-{hashlib.sha256(f'{org_id}:fake'.encode()).hexdigest()[:8]}"
+def fake_object_name(org_id: str, instance: str) -> str:
+    """The name of an instance's eval instance (#1372), a DNS label beside `object_name`'s. Its digest is
+    not `object_name`'s, so an instance named `<other>-fake` of the same organisation never holds the name."""
+    return f"{instance[:49]}-fake-{hashlib.sha256(f'{org_id}:fake'.encode()).hexdigest()[:8]}"
 
 
 def service_url(settings: Settings, name: str, port: int, path: str) -> str:
@@ -202,13 +211,23 @@ def _env_names(doc: dict[str, Any]) -> dict[str, str]:
     return configuration_variables(doc)
 
 
-def declaration(plugin: Plugin, doc: dict[str, Any], org_id: str, settings: Settings) -> dict[str, Any]:
-    """What the connector keeps of a server: the floor the broker reads, and what runs it."""
+def declaration(
+    plugin: Plugin, doc: dict[str, Any], org_id: str, settings: Settings, instance: str | None = None
+) -> dict[str, Any]:
+    """What the connector keeps of a server: the floor the broker reads, and what runs it.
+    `instance`: the name of the connector it declares (ADR 0224 §3); the server's own by default."""
+    return declare(plugin.name, plugin.version, doc, org_id, settings, instance)
+
+
+def declare(
+    plugin: str, version: str, doc: dict[str, Any], org_id: str, settings: Settings, instance: str | None
+) -> dict[str, Any]:
     paths = {"mcp": "/mcp", "health": "/healthz", **(doc.get("paths") or {})}
-    name = object_name(org_id, str(doc["name"]))
+    instance = instance or str(doc["name"])
+    name = object_name(org_id, instance)
     return {
-        "plugin": plugin.name,
-        "version": plugin.version,
+        "plugin": plugin,
+        "version": version,
         "server": doc["name"],
         "image": doc["image"],
         "port": int(doc["port"]),
@@ -227,7 +246,7 @@ def declaration(plugin: Plugin, doc: dict[str, Any], org_id: str, settings: Sett
             else {
                 "url": service_url(settings, name, int(doc["port"]), paths["mcp"]),
                 # How it runs on its fake for the live eval matrix (#1372), and where that instance answers.
-                **_fake_declaration(doc, org_id, settings, paths["mcp"]),
+                **_fake_declaration(doc, instance, org_id, settings, paths["mcp"]),
             }
         ),
     }
@@ -246,11 +265,13 @@ def _in_process_declaration(doc: dict[str, Any], name: str, path: str) -> dict[s
     }
 
 
-def _fake_declaration(doc: dict[str, Any], org_id: str, settings: Settings, path: str) -> dict[str, Any]:
+def _fake_declaration(
+    doc: dict[str, Any], instance: str, org_id: str, settings: Settings, path: str
+) -> dict[str, Any]:
     fake = doc.get("fake")
     if not isinstance(fake, dict):
         return {}
-    name = fake_object_name(org_id, str(doc["name"]))
+    name = fake_object_name(org_id, instance)
     return {
         "fake": {"env": dict(fake.get("env") or {}), "scenes": list(fake.get("scenes") or ["default"])},
         "fake_object": name,
@@ -369,7 +390,10 @@ async def check(
                 )
         found = await _connector(session, org_id, name)
         owners = {plugin.name, *([replacing] if replacing else [])}
-        if found is not None and (found.plugin_server or {}).get("plugin") not in owners:
+        declared = (found.plugin_server or {}) if found is not None else {}
+        if found is not None and (
+            declared.get("plugin") not in owners or (declared.get("server") or name) != name
+        ):
             raise conflict(
                 f"the organisation already has a connector `{name}`: the server `{name}` of `{plugin.name}` "
                 "would take its name (an agent's tools are `<server>__<operation>`). "
@@ -438,49 +462,141 @@ async def _sync_operations(session: AsyncSession, instance: OrgConnector) -> Non
     await session.flush()
 
 
+def instance_of(row: OrgConnector) -> str | None:
+    """The server a plugin's connector is an instance of (ADR 0224 §3): the declaration's `server`; a
+    connector of a server's own name is its default instance. `None` for any other connector."""
+    declared = row.plugin_server
+    if declared is None:
+        return None
+    return str(declared.get("server") or row.name)
+
+
+def is_default(row: OrgConnector) -> bool:
+    """The instance named after its server: the one the install creates and only an uninstall removes."""
+    return instance_of(row) == row.name
+
+
 async def provision(
     session: AsyncSession, org_id: str, plugin: Plugin, principal: Principal, settings: Settings
 ) -> list[str]:
-    """Each server of `plugin` as a connector of the organisation, running: created, or brought to the
-    plugin's new declaration on an upgrade; a server the plugin no longer brings is removed. Replayed,
-    the same rows and objects. Returns the servers' names."""
-    for gone in await connectors_of(session, org_id, plugin.name):
-        if gone.name not in plugin.servers:
+    """Each server of `plugin` as connectors of the organisation, running: the default instance created,
+    or every instance (the default and the named ones, ADR 0224 §3) brought to the plugin's new
+    declaration on an upgrade; a server the plugin no longer brings is removed with its instances.
+    Replayed, the same rows and objects. Returns the servers' names."""
+    existing = await connectors_of(session, org_id, plugin.name)
+    for gone in existing:
+        if instance_of(gone) not in plugin.servers:
             await _remove(session, gone, principal, settings)
     for name, doc in sorted(plugin.servers.items()):
-        decl = declaration(plugin, doc, org_id, settings)
-        instance = await _connector(session, org_id, name)
-        if instance is None:
-            store = require_store({SERVER_TOKEN_FIELD: "-"})
-            prefix = f"connector/{name}"
-            instance = OrgConnector(
-                org_id=org_id,
-                name=name,
-                kind=KIND,
-                type=TYPE,
-                config={},
-                secret_refs={SERVER_TOKEN_FIELD: store_ref(f"{prefix}/{SERVER_TOKEN_FIELD}")},
-                created_by=f"plugin:{plugin.name}",
-                catalogue_entry=f"plugin:{plugin.name}/{name}@{plugin.version}"[:128],
-                status=UNCONFIGURED,
-                plugin_server=decl,
+        await provision_instance(session, org_id, plugin.name, plugin.version, doc, name, principal, settings)
+        for named in sorted(c.name for c in existing if instance_of(c) == name and c.name != name):
+            await provision_instance(
+                session, org_id, plugin.name, plugin.version, doc, named, principal, settings
             )
-            session.add(instance)
-            await session.flush()
-            await put_values(
-                session, store, org_id, prefix, {SERVER_TOKEN_FIELD: secrets.token_urlsafe(32)}, None
-            )
-            await record(
-                session, principal, "org.connector.create", org_id=org_id, target_type="org_connector",
-                target_id=instance.id, name=name, type=TYPE, plugin=plugin.name,
-            )  # fmt: skip
-        else:
-            await _drop_fake(instance, decl, settings)
-            instance.plugin_server = decl
-            instance.catalogue_entry = f"plugin:{plugin.name}/{name}@{plugin.version}"[:128]
-        await _sync_operations(session, instance)
-        await reconcile(session, instance, settings)
     return sorted(plugin.servers)
+
+
+async def provision_instance(
+    session: AsyncSession,
+    org_id: str,
+    plugin: str,
+    version: str,
+    doc: dict[str, Any],
+    name: str,
+    principal: Principal,
+    settings: Settings,
+) -> OrgConnector:
+    """One instance of a server (its connector `name`): created if the organisation has none of that name
+    (it starts `unconfigured`), else brought to the declaration. Idempotent."""
+    decl = declare(plugin, version, doc, org_id, settings, name)
+    instance = await _connector(session, org_id, name)
+    if instance is None:
+        store = require_store({SERVER_TOKEN_FIELD: "-"})
+        prefix = f"connector/{name}"
+        instance = OrgConnector(
+            org_id=org_id,
+            name=name,
+            kind=KIND,
+            type=TYPE,
+            config={},
+            secret_refs={SERVER_TOKEN_FIELD: store_ref(f"{prefix}/{SERVER_TOKEN_FIELD}")},
+            created_by=f"plugin:{plugin}",
+            catalogue_entry=f"plugin:{plugin}/{doc['name']}@{version}"[:128],
+            status=UNCONFIGURED,
+            plugin_server=decl,
+        )
+        session.add(instance)
+        await session.flush()
+        await put_values(
+            session, store, org_id, prefix, {SERVER_TOKEN_FIELD: secrets.token_urlsafe(32)}, None
+        )
+        await record(
+            session, principal, "org.connector.create", org_id=org_id, target_type="org_connector",
+            target_id=instance.id, name=name, type=TYPE, plugin=plugin,
+        )  # fmt: skip
+    else:
+        await _drop_fake(instance, decl, settings)
+        instance.plugin_server = decl
+        instance.catalogue_entry = f"plugin:{plugin}/{doc['name']}@{version}"[:128]
+    await _sync_operations(session, instance)
+    await reconcile(session, instance, settings)
+    return instance
+
+
+#: A named instance: a connector name (the connector routes' own pattern is two characters at least).
+INSTANCE_NAME = re.compile(r"^[a-z][a-z0-9-]{1,47}$")
+
+#: What the console shows of an instance, derived from the connector's status (ADR 0224 §5).
+STATES = ("unconfigured", "starting", "ready", "failing")
+
+
+def state_of(row: OrgConnector) -> str:
+    """`unconfigured` until the configuration satisfies the schema; `starting` once deployed and not yet
+    answering a check; `ready` after a check that reached the server; `failing` after one that did not."""
+    if row.status == CHECKED:
+        return "ready"
+    if row.status == ERROR:
+        return "failing"
+    return "starting" if row.status == DEPLOYED else "unconfigured"
+
+
+async def instances_of(session: AsyncSession, org_id: str, plugin: str, server: str) -> list[OrgConnector]:
+    """The connectors that are instances of `plugin`'s `server`, the default first."""
+    found = [c for c in await connectors_of(session, org_id, plugin) if instance_of(c) == server]
+    return sorted(found, key=lambda c: (c.name != server, c.name))
+
+
+async def add_instance(
+    session: AsyncSession,
+    org_id: str,
+    plugin: str,
+    version: str,
+    doc: dict[str, Any],
+    name: str,
+    principal: Principal,
+    settings: Settings,
+) -> OrgConnector:
+    """A named instance of an installed plugin's server (ADR 0224 §3): its own connector, `unconfigured`,
+    with its own token, operations and objects. A name the organisation's connectors hold is a 409."""
+    server = str(doc["name"])
+    if (await _connector(session, org_id, name)) is not None:
+        raise conflict(f"the organisation already has a connector `{name}`")
+    if (await _connector(session, org_id, server)) is None:
+        raise conflict(f"the server `{server}` of `{plugin}` has no default instance: it cannot be added to")
+    return await provision_instance(session, org_id, plugin, version, doc, name, principal, settings)
+
+
+async def remove_instance(
+    session: AsyncSession, instance: OrgConnector, principal: Principal, settings: Settings
+) -> None:
+    """A named instance: its objects, its connector, its operations and sealed values. The default
+    instance goes only with the plugin (409)."""
+    if is_default(instance):
+        raise conflict(
+            f"`{instance.name}` is the default instance of the server `{instance_of(instance)}` of "
+            f"`{(instance.plugin_server or {}).get('plugin')}`: uninstall the plugin to remove it"
+        )
+    await _remove(session, instance, principal, settings)
 
 
 async def _drop_fake(instance: OrgConnector, decl: dict[str, Any], settings: Settings) -> None:
@@ -615,7 +731,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     if server.get("in_process"):
         # No Deployment: the application starts now, so that a package that cannot be imported fails the
         # install. Its fake needs no configuration, which is not read (ADR 0218).
-        await _start_in_process(server, token, settings)
+        await _start_in_process(server, token, settings, instance.name)
         instance.status, instance.last_error = DEPLOYED, None
         await session.flush()
         return instance.status
@@ -623,6 +739,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     names = _env_names(server)
     env = {names[f]: _env_value(v) for f, v in resolved.items() if f in names and v is not None}
     env[TOKEN_ENV] = token
+    env[INSTANCE_ENV] = instance.name
     problems = configuration_problems(
         server, {k: v for k, v in resolved.items() if k in names}, partial=False
     )
@@ -645,6 +762,7 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
                 wire.label("plugin"): str(server["plugin"]),
                 wire.label("server"): str(server["server"]),
                 wire.label("org"): instance.org_id,
+                **({} if is_default(instance) else {wire.label("instance"): instance.name}),
             }
         ),
         replicas=0 if problems else 1,
@@ -666,12 +784,15 @@ async def reconcile(session: AsyncSession, instance: OrgConnector, settings: Set
     return instance.status
 
 
-def fake_deployment(server: dict[str, Any], org_id: str, token: str, settings: Settings) -> ServerDeployment:
+def fake_deployment(
+    server: dict[str, Any], org_id: str, token: str, settings: Settings, instance: str | None = None
+) -> ServerDeployment:
     """A server's eval instance (#1372): its image with its fake's variables and the platform's token,
     nothing of the configuration, no egress, one replica."""
     fake = server.get("fake") or {}
     env = {str(k): str(v) for k, v in (fake.get("env") or {}).items()}
     env[TOKEN_ENV] = token
+    env[INSTANCE_ENV] = instance or str(server["server"])
     return ServerDeployment(
         name=str(server["fake_object"]),
         namespace=settings.plugin_servers_namespace,
@@ -711,7 +832,9 @@ async def _reconcile_fake(
     if not server.get("fake_object"):
         return
     if eval_fake_scenes_allowed():
-        await _apply(found.apply(fake_deployment(server, instance.org_id, token, settings)), instance)
+        await _apply(
+            found.apply(fake_deployment(server, instance.org_id, token, settings, instance.name)), instance
+        )
     else:
         await _apply(found.delete(str(server["fake_object"])), instance)
 
@@ -761,11 +884,13 @@ async def server_endpoint(session: AsyncSession, instance: OrgConnector) -> tupl
     token = str(resolved[SERVER_TOKEN_FIELD])
     if server.get("in_process"):
         # Started again after a restart of the process, which forgot it (a replay with the same token: no-op).
-        await _start_in_process(server, token, get_settings())
+        await _start_in_process(server, token, get_settings(), instance.name)
     return url, token
 
 
-async def _start_in_process(server: dict[str, Any], token: str, settings: Settings) -> None:
+async def _start_in_process(
+    server: dict[str, Any], token: str, settings: Settings, instance: str | None = None
+) -> None:
     from tranibor_adapters.errors import ConfigurationError
 
     servers = in_process_servers(settings)
@@ -776,7 +901,8 @@ async def _start_in_process(server: dict[str, Any], token: str, settings: Settin
             "TRANIBOR_DEMO_PLUGIN_SERVERS file"
         )
     try:
-        await servers.ensure(str(server["object"]), entry, server["fake"]["env"], token)
+        env = {**server["fake"]["env"], INSTANCE_ENV: instance or str(server["server"])}
+        await servers.ensure(str(server["object"]), entry, env, token)
     except ConfigurationError as exc:
         raise unprocessable(str(exc)) from exc
 
@@ -854,9 +980,13 @@ async def connector_client(
 __all__ = [
     "CHECKED",
     "DEPLOYED",
+    "INSTANCE_ENV",
+    "INSTANCE_NAME",
     "RUNNING",
     "SERVER_TOKEN_FIELD",
+    "STATES",
     "UNCONFIGURED",
+    "add_instance",
     "bound_fake",
     "check",
     "check_egress",
@@ -871,14 +1001,19 @@ __all__ = [
     "fake_tracker_server",
     "floor_policy",
     "in_process_servers",
+    "instance_of",
+    "instances_of",
+    "is_default",
     "object_name",
     "plugin_client",
     "provision",
     "reconcile",
     "refuse_fake_binding",
+    "remove_instance",
     "runtime",
     "server_endpoint",
     "spec_of_connector",
+    "state_of",
     "stop_in_process_servers",
     "transport",
     "use_plugin_runtime",
