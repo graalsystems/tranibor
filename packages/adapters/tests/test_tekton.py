@@ -12,13 +12,14 @@ from typing import Any
 import pytest
 import yaml
 from tranibor_adapters.errors import UpstreamError
-from tranibor_adapters.executor import separate_agent
-from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
+from tranibor_adapters.executor import egress_gate, separate_agent
+from tranibor_adapters.executor.k8s_job import RUNNER_POD_LABELS, KubernetesJobExecutor
 from tranibor_adapters.executor.tekton import TEKTON_API, TektonExecutor
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
 from tranibor_contracts import ExecutorKind
 from tranibor_core.agent_isolation import AGENT_ISOLATION_ENV, SEPARATE_AGENT
 from tranibor_core.domain import ExecRef, StageJobSpec
+from tranibor_core.egress_gate import GATE_CONTAINER, REPORT_ENV, EgressGate
 
 RUNNER = "registry.example/tranibor-runner:1.0"
 
@@ -229,3 +230,73 @@ async def test_logs_of_a_run_without_a_repository_are_the_runners() -> None:
     executor = TektonExecutor(client=api)  # type: ignore[arg-type]
     ref = ExecRef(kind=ExecutorKind.TEKTON, name="run-r-1", namespace="proj-demo-runners", run_id="r-1")
     assert [line async for line in executor.logs(ref)] == ["runner done"]
+
+
+def _tekton_pod_labels(run: dict[str, Any], task: str) -> dict[str, str]:
+    """The labels Tekton gives a pipeline task's pod (#2278): the PipelineRun's labels, then its own, then
+    the embedded Task's `metadata.labels` for a key not set yet (`combineTaskRunAndTaskSpecLabels`); the pod
+    gets its TaskRun's (`pod.makeLabels`)."""
+    labels: dict[str, str] = {
+        **run["metadata"]["labels"],
+        "tekton.dev/pipelineRun": run["metadata"]["name"],
+        "tekton.dev/pipelineTask": task,
+    }
+    [pipeline_task] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if t["name"] == task]
+    for key, value in (pipeline_task.get("taskSpec", {}).get("metadata", {}).get("labels") or {}).items():
+        labels.setdefault(key, value)
+    return {**labels, "app.kubernetes.io/managed-by": "tekton-pipelines"}
+
+
+@pytest.mark.parametrize("isolation", ["process", "container"])
+def test_the_agent_stages_pod_carries_the_labels_of_k8s_jobs_run_pod(isolation: str) -> None:
+    """The run-pod NetworkPolicies select `k8s_job`'s run pods by these labels (#2278, #2082)."""
+    spec = _spec(agent_isolation=isolation)
+    job = KubernetesJobExecutor(client=object())._job(spec, "run-r-1")  # type: ignore[arg-type]
+    job_pod: dict[str, str] = job["spec"]["template"]["metadata"]["labels"]
+    executor = TektonExecutor(client=object())  # type: ignore[arg-type]
+    run = executor._pipeline_run(spec, "run-r-1")
+    # A project with a repository: the clone task first.
+    run["spec"]["pipelineSpec"] = executor._pipeline_spec(spec, "run-r-1", cloned=True)
+    assert _stage(run)["metadata"]["labels"] == RUNNER_POD_LABELS
+    stage_pod = _tekton_pod_labels(run, "agent-stage")
+    assert {k: stage_pod.get(k) for k in job_pod} == job_pod
+    # The clone's pod runs the catalogue's `git-clone`, nothing of the agent's, and reaches the git host:
+    # it stays outside the run-pod policy.
+    assert not RUNNER_POD_LABELS.keys() & _tekton_pod_labels(run, "clone").keys()
+
+
+@pytest.mark.parametrize("isolation", ["process", "container"])
+def test_the_egress_gate_is_the_agent_stages_first_step(isolation: str) -> None:
+    """The gate (S80-07f) holds the runner's step, which alone asks the agent's launcher to run anything,
+    until the pod's egress policy is in force (#2278). The same container as `k8s_job`'s init container."""
+    gate = EgressGate(target="10.9.9.9:443", deadline_s=12)
+    spec = _spec(agent_isolation=isolation)
+    run = TektonExecutor(client=object(), egress_gate=gate)._pipeline_run(spec, "run-r-1")  # type: ignore[arg-type]
+    task = _stage(run)
+    first, runner = task["steps"]
+    assert first["name"] == GATE_CONTAINER and runner["name"] == "run"
+    job = KubernetesJobExecutor(client=object(), egress_gate=gate)._job(spec, "run-r-1")  # type: ignore[arg-type]
+    init = job["spec"]["template"]["spec"]["initContainers"][0]
+    assert {k: v for k, v in first.items() if k != "computeResources"} == {
+        k: v for k, v in init.items() if k != "resources"
+    }
+    assert first["computeResources"] == init["resources"] and "resources" not in first
+    assert egress_gate.runner_mount() in runner["volumeMounts"]
+    assert {"name": REPORT_ENV, "value": "/egress-gate/report.json"} in runner["env"]
+    assert egress_gate.volume() in task["volumes"]
+
+
+def test_without_a_gate_the_agent_stage_has_the_runners_step_alone() -> None:
+    task = _stage(_run())
+    assert [s["name"] for s in task["steps"]] == ["run"] and "volumes" not in task
+
+
+def test_the_deployment_turns_the_gate_on_for_tekton(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tranibor_adapters.registry import _REGISTRY
+
+    config = {"kubernetes": {"base_url": "https://k8s.example", "token": "t", "verify": False}}
+    monkeypatch.delenv("TRANIBOR_RUNNER_EGRESS_GATE", raising=False)
+    assert _REGISTRY[("runtime", "tekton")](config).egress_gate is None
+    monkeypatch.setenv("TRANIBOR_RUNNER_EGRESS_GATE", "true")
+    monkeypatch.setenv("TRANIBOR_RUNNER_EGRESS_GATE_DEADLINE", "20")
+    assert _REGISTRY[("runtime", "tekton")](config).egress_gate == EgressGate(deadline_s=20)

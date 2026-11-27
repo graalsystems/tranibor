@@ -16,6 +16,9 @@ spec is inline as it signs one by reference.
 Under `container` (ADR 0146) the agent stage's Task gets the agent's own container as a sidecar
 (`separate_agent.tekton_sidecar`, the container `k8s_job` starts, holding nothing of the run's), and
 the runner's step is told where its launcher listens, on the pod's loopback.
+
+The agent stage's pod carries `k8s_job`'s run-pod labels, which the run-pod NetworkPolicies select, and the
+egress gate (S80-07f) as its first step (#2278).
 """
 
 from __future__ import annotations
@@ -41,9 +44,10 @@ from tranibor_core.domain import (
     StageJobSpec,
     utcnow,
 )
+from tranibor_core.egress_gate import EgressGate
 
 from ..errors import ConfigurationError, UpstreamError
-from . import separate_agent
+from . import egress_gate, separate_agent
 from .isolation import refuse_unless_separate
 
 TEKTON_API = "/apis/tekton.dev/v1"
@@ -180,6 +184,7 @@ class TektonExecutor:
         memory_limit: str = "6Gi",
         runner_requests: dict[str, str] | None = None,
         runner_limits: dict[str, str] | None = None,
+        egress_gate: EgressGate | None = None,
     ) -> None:
         self.client = client or KubernetesClient()
         #: `tranibor-runner` where the namespace has it, else the former one (ADR 0226, R9b).
@@ -193,6 +198,9 @@ class TektonExecutor:
         #: `runner.ownResources`, as `k8s_job`'s runner container takes them.
         self.runner_requests = dict(runner_requests or separate_agent.RUNNER_REQUESTS)
         self.runner_limits = dict(runner_limits or separate_agent.RUNNER_LIMITS)
+        #: The egress gate (S80-07f, #2278): the agent stage's first step, which lets the runner's step, and
+        #: so nothing of the agent's, start until a direct connection out is refused. `None`: no gate.
+        self.egress_gate = egress_gate
 
     def _name(self, run_id: str) -> str:
         return f"run-{run_id}"[:63].lower()
@@ -441,7 +449,16 @@ class TektonExecutor:
                 "seccompProfile": {"type": "RuntimeDefault"},
             },
         }
+        # The labels `k8s_job`'s run pods carry, which the run-pod NetworkPolicies select (#2278). On the
+        # embedded Task's `metadata`: Tekton's `podTemplate` takes no labels, and the PipelineRun's own
+        # labels would put the clone's pod (the catalogue's `git-clone`, which reaches the git host and runs
+        # nothing of the agent's) under the run-pod policy too. Tekton gives a TaskRun the PipelineRun's
+        # labels then the embedded Task's `metadata.labels`, and the pod its TaskRun's labels.
+        # Imported here: `k8s_job` imports this module.
+        from .k8s_job import RUNNER_POD_LABELS
+
         task: dict[str, Any] = {
+            "metadata": {"labels": dict(RUNNER_POD_LABELS)},
             "workspaces": [{"name": "source"}],
             "results": [{"name": "result-url"}, {"name": "status"}],
             "steps": [step],
@@ -456,6 +473,10 @@ class TektonExecutor:
                 runner_requests=self.runner_requests,
                 runner_limits=self.runner_limits,
             )
+        if self.egress_gate is not None:
+            # Last, so that it lands FIRST among the steps: the runner's step, which alone asks the agent's
+            # launcher to run anything, starts once the gate has seen the pod's egress policy in force.
+            egress_gate.add_to_task(task, spec.runner_image, self.egress_gate)
         return task
 
     async def status(self, ref: ExecRef) -> ExecStatus:
