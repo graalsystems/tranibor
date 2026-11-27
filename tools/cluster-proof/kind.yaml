@@ -1,0 +1,13 @@
+# The kind cluster of the install proof (S87-09, tools/cluster-proof/cluster.sh): one node, as the
+# all-in-one profile assumes, without kindnet, which accepts a NetworkPolicy and lets the traffic
+# through. cluster.sh installs Calico, which enforces them, and ingress-nginx, which selects the node
+# by the label below. No host port: the proof talks to the cluster through kubectl only.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16
+nodes:
+  - role: control-plane
+    labels:
+      ingress-ready: "true"

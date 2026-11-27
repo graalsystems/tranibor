@@ -5,21 +5,28 @@
 #   PROOF_CONTEXT=<kube context> tools/cluster-proof/proof.sh [extra values files...]
 #
 #   the cluster preflight (when the CLI has it) -> the chart with values/all-in-one.yaml, then the
-#   provider profile and the files given -> an agent pod reaches what a run uses and not the database
-#   or Temporal -> the egress gate holds an agent pod's first packet -> the agent-isolation probe of
-#   S65-04 in its two shapes (a pod, and the Job `k8s_job` renders), under the deployment's RuntimeClass
-#   -> one work item carried to `approved` -> the evidence collected -> the release and its namespace
-#   removed, whatever the outcome (PROOF_KEEP=1 keeps them).
+#   provider profile and the files given -> an agent pod reaches what a run uses and not the database,
+#   Temporal or the object store -> the site's object store, written, read back and emptied by the API
+#   with its own settings -> the egress gate holds an agent pod's first packet -> the agent-isolation
+#   probe of S65-04 in its two shapes (a pod, and the Job `k8s_job` renders), under the deployment's
+#   RuntimeClass -> one work item carried to `approved` -> the evidence collected -> the release and its
+#   namespace removed, whatever the outcome (PROOF_KEEP=1 keeps them) -> the evidence archived.
 #
 # Needs: kubectl, helm, uv (for the pytest probe), a context whose user may create a namespace.
-# Creating and destroying the cluster is not this script's job: a provider's module does that
-# (docs/support/clusters.yaml records each run). The agent of the work item is simulated (the demo
-# project's `fake` runtime), as in the single-node proof: the proof is about the installation, not a
-# model.
+# Creating and destroying the cluster is not this script's job: tools/cluster-proof/cluster.sh does it for
+# kind and k3d (what a managed cluster gives: a CNI that enforces NetworkPolicy, a default IngressClass,
+# DNS for the site's names; the `cluster-proof` CI job), a cloud is created by hand until a provider's
+# module exists (docs/support/clusters.yaml records each run). On one node of 4 vCPU, give
+# tools/cluster-proof/small-node.yaml as an extra file (the profile is sized for 8). The agent of the
+# work item is simulated (the demo project's `fake` runtime), as in the single-node proof: the proof is
+# about the installation, not a model.
 #
 #   PROOF_PROFILE    a provider profile under charts/tranibor/values/ (e.g. `aks`), optional
 #   PROOF_DOMAIN     the site's domain (default: <ingress IP>.nip.io is the caller's job; required)
-#   PROOF_EVIDENCE   where the evidence lands (default: a new temporary directory)
+#   PROOF_EVIDENCE   where the evidence lands (default: a new temporary directory); it is kept, and
+#                    archived beside itself as <PROOF_EVIDENCE>.tar.gz, whatever the outcome
+#   PROOF_IMAGE_TAG  `global.imageTag`: the platform's images of this commit, already on the nodes
+#                    (tools/cluster-proof/cluster.sh loads them on kind and k3d)
 # Exit 0 only if every step held.
 set -euo pipefail
 
@@ -38,15 +45,31 @@ step() { printf '\n== [%4ss] %s\n' "$(($(date +%s) - STARTED))" "$*" | tee -a "$
 k() { kubectl --context "$PROOF_CONTEXT" -n "$NAMESPACE" "$@"; }
 record() { tee -a "$EVIDENCE/steps.log"; }
 
+# Whatever the outcome: what the namespace holds is written down, the release and its namespace are
+# removed (unless PROOF_KEEP), and the evidence is kept and archived. Nothing here may stop the rest.
 cleanup() {
-  local status=$?
-  k get pods -o wide >"$EVIDENCE/pods.txt" 2>&1 || true
-  k get events --sort-by=.lastTimestamp >"$EVIDENCE/events.txt" 2>&1 || true
-  if [ $status -ne 0 ]; then echo "PROOF FAILED (exit $status) — evidence in $EVIDENCE" | record; fi
-  if [ -z "${PROOF_KEEP:-}" ]; then
-    helm --kube-context "$PROOF_CONTEXT" uninstall "$RELEASE" -n "$NAMESPACE" --wait --timeout 10m >/dev/null 2>&1 || true
-    kubectl --context "$PROOF_CONTEXT" delete namespace "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
+  local status=$? pod
+  set +e
+  k get pods -o wide >"$EVIDENCE/pods.txt" 2>&1
+  k get events --sort-by=.lastTimestamp >"$EVIDENCE/events.txt" 2>&1
+  if [ $status -ne 0 ]; then
+    echo "PROOF FAILED (exit $status) — evidence in $EVIDENCE" | record
+    # On failure, what each pod said: the step that failed is read from here, the cluster being gone.
+    mkdir -p "$EVIDENCE/logs"
+    k describe pods >"$EVIDENCE/pods-describe.txt" 2>&1
+    for pod in $(k get pods -o name 2>/dev/null); do
+      k logs "$pod" --all-containers --prefix --tail=500 >"$EVIDENCE/logs/${pod#pod/}.log" 2>&1
+    done
   fi
+  if [ -z "${PROOF_KEEP:-}" ]; then
+    helm --kube-context "$PROOF_CONTEXT" uninstall "$RELEASE" -n "$NAMESPACE" --wait --timeout 10m >/dev/null 2>&1
+    echo "uninstalled $RELEASE (helm exit $?)" | record
+    kubectl --context "$PROOF_CONTEXT" delete namespace "$NAMESPACE" --wait=false >/dev/null 2>&1
+    echo "namespace $NAMESPACE deleted (kubectl exit $?)" | record
+  fi
+  tar -czf "$EVIDENCE.tar.gz" -C "$(dirname "$EVIDENCE")" "$(basename "$EVIDENCE")" &&
+    echo "evidence archived: $EVIDENCE.tar.gz"
+  exit $status
 }
 trap cleanup EXIT
 
@@ -67,6 +90,7 @@ profile=()
 [ -n "${PROOF_PROFILE:-}" ] && profile=(-f "$ROOT/charts/tranibor/values/$PROOF_PROFILE.yaml")
 extra=()
 for file in "$@"; do extra+=(-f "$file"); done
+[ -z "${PROOF_IMAGE_TAG:-}" ] || extra+=(--set "global.imageTag=$PROOF_IMAGE_TAG")
 helm --kube-context "$PROOF_CONTEXT" install "$RELEASE" "$ROOT/charts/tranibor" -n "$NAMESPACE" --create-namespace \
   -f "$ROOT/charts/tranibor/values/all-in-one.yaml" "${profile[@]}" \
   --set global.domain="$PROOF_DOMAIN" \
@@ -103,16 +127,47 @@ probe() {
   case "$phase" in Succeeded) echo open ;; Failed) echo closed ;; *) echo "undecided ($phase)" ;; esac
 }
 
-step "an agent pod reaches what a run uses, and not the database or Temporal"
+step "an agent pod reaches what a run uses, and not the database, Temporal or the object store"
 failed=0
 for target in tranibor-api:8000:open tranibor-litellm:4000:open tranibor-ecphoria:8432:open \
-  tranibor-egress:3128:open tranibor-postgresql:5432:closed tranibor-temporal:7233:closed; do
+  tranibor-egress:3128:open tranibor-postgresql:5432:closed tranibor-temporal:7233:closed \
+  tranibor-objectstore:9000:closed; do
   IFS=: read -r host port want <<<"$target"
   got=$(probe "$host" "$port")
   echo "  agent pod -> $host:$port: $got (expected $want)" | record
   [ "$got" = "$want" ] || failed=1
 done
 [ $failed -eq 0 ]
+
+# The site's object store, as the API uses it (ADR 0049): its own settings and credentials, through the
+# platform's own adapter. Checked, written, read back identical, deleted, and then absent.
+OBJECT_STORE='
+import asyncio, sys
+from tranibor_adapters.storage import ObjectNotFoundError
+from tranibor_api.config import get_settings
+from tranibor_api.object_store import object_store
+async def main(key, body):
+    store = object_store()
+    await store.check()
+    where = await store.put(key, body, "text/plain")
+    if await store.get(key) != body:
+        sys.exit(f"{where}: read back different bytes")
+    await store.delete(key)
+    try:
+        await store.get(key)
+    except ObjectNotFoundError:
+        pass
+    else:
+        sys.exit(f"{where}: still there after its deletion")
+    settings = get_settings()
+    endpoint = settings.object_store_endpoint or "the provider default"
+    print(f"{settings.object_store_kind} at {endpoint}: {where} written, read back identical"
+          f" ({len(body)} bytes), deleted")
+asyncio.run(main(sys.argv[1], sys.argv[2].encode()))
+'
+step "the site's object store: written, read back and deleted by the API"
+k exec deploy/tranibor-api -- python -c "$OBJECT_STORE" "proof/$(date +%s).txt" "written by the install proof" |
+  sed 's/^/  /' | record
 
 AGENT_JOB='
 import json, os, sys

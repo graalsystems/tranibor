@@ -41,6 +41,7 @@ jobs:
       hosted-gvisor: ${{ steps.filter.outputs.hosted-gvisor }}
       hosted-foundry: ${{ steps.filter.outputs.hosted-foundry }}
       hosted-cluster: ${{ steps.filter.outputs.hosted-cluster }}
+      cluster-proof: ${{ steps.filter.outputs.cluster-proof }}
       hosted-images: ${{ steps.filter.outputs.hosted-images }}
       llm-guard: ${{ steps.filter.outputs.llm-guard }}
       decisions-live: ${{ steps.filter.outputs.decisions-live }}
@@ -168,6 +169,21 @@ jobs:
               - 'Makefile'
               - '.github/workflows/ci.yml'
               - 'pyproject.toml'
+              - 'uv.lock'
+            # The install proof on a throwaway kind and k3d cluster (S87-09): the script, the cluster it
+            # makes, the chart and the images it installs, and what its steps run.
+            cluster-proof:
+              - 'tools/cluster-proof/**'
+              - 'tools/single-node/work_item.py'
+              - 'charts/**'
+              - 'docker/**'
+              - 'packages/cli/src/tranibor_cli/cluster_check.py'
+              - 'packages/adapters/src/tranibor_adapters/executor/k8s_job.py'
+              - 'packages/adapters/src/tranibor_adapters/storage/**'
+              - 'packages/core/src/tranibor_core/egress_gate.py'
+              - 'apps/api/src/tranibor_api/object_store.py'
+              - 'tests/cluster/test_agent_isolation.py'
+              - '.github/workflows/ci.yml'
               - 'uv.lock'
             # An agent written for Foundry, run unchanged (S41-19): its example, the suite, the
             # loopback model that serves the Foundry project and the managed identity, and the
@@ -853,6 +869,104 @@ jobs:
           ! grep -qi skipped pytest.out
           grep -c passed pytest.out
 
+  cluster-proof:
+    # The install proof (S87-09, ADR 0227 §3) on a throwaway cluster of each kind: kind with Calico, k3d
+    # with k3s's own policy engine. `tools/cluster-proof/cluster.sh` makes the cluster what a managed one
+    # gives (a CNI that enforces NetworkPolicy, a default IngressClass, DNS for the site's names) and loads
+    # the images of this commit; `tools/cluster-proof/proof.sh` runs the preflight, installs the chart
+    # (values/all-in-one.yaml), probes an agent pod's reach, the object store, the egress gate's first
+    # packets and the agent's own container, carries one work item to `approved`, then removes the
+    # release whatever the outcome. The evidence is uploaded whatever the outcome; the cluster is deleted.
+    # The profile is sized for one node of 8 vCPU; on the runner's 4, tools/cluster-proof/small-node.yaml
+    # lowers the platform's CPU requests (only them) so that an agent pod is scheduled beside it.
+    needs: changes
+    if: needs.changes.outputs.cluster-proof == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster: [kind, k3d]
+    env:
+      PROOF_DOMAIN: tranibor.proof.test
+      PROOF_IMAGE_TAG: proof
+      PROOF_LOAD_IMAGES: >-
+        ghcr.io/graalsystems/tranibor-api:proof
+        ghcr.io/graalsystems/tranibor-orchestrator:proof
+        ghcr.io/graalsystems/tranibor-web:proof
+      # Each node image pinned to its index digest: kind v0.30.0's default node, and k3d 5.9.0's (as the
+      # single-node proof pins it).
+      KIND_NODE_IMAGE: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+      K3D_VERSION: v5.9.0
+      K3D_SHA256: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0
+      K3S_NODE_IMAGE: rancher/k3s:v1.35.5-k3s1@sha256:2074403abe1bded11ef3dde09d457e13be8e0b64c218b1c4f8269b4565cfbc65
+      # The kubelet's default hard eviction (15 % of the image disk) is close to what a runner has left
+      # once the images are in (k3d; kind turns disk eviction off itself).
+      PROOF_EVICTION: "5%"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: room on the runner's disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/share/swift
+          docker image prune -af >/dev/null
+          # A node in a container watches many files; the runner's defaults are those of a desktop.
+          sudo sysctl -w fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=512
+          df -h /
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with: { version: v3.22.0 }
+      - uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        if: matrix.cluster == 'kind'
+        with: { install_only: true }
+      - name: k3d ${{ env.K3D_VERSION }}, checked against its checksum
+        if: matrix.cluster == 'k3d'
+        run: |
+          curl -sfLo "$RUNNER_TEMP/k3d" "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
+          echo "$K3D_SHA256  $RUNNER_TEMP/k3d" | sha256sum -c -
+          sudo install -m 0755 "$RUNNER_TEMP/k3d" /usr/local/bin/k3d
+      - name: the images of this commit (api, worker, web)
+        run: |
+          docker build -f docker/api.Dockerfile --target api --build-arg REVISION="$GITHUB_SHA" \
+            -t ghcr.io/graalsystems/tranibor-api:proof .
+          docker build -f docker/api.Dockerfile --target worker --build-arg REVISION="$GITHUB_SHA" \
+            -t ghcr.io/graalsystems/tranibor-orchestrator:proof .
+          docker build -f docker/web.Dockerfile -t ghcr.io/graalsystems/tranibor-web:proof .
+          docker builder prune -af >/dev/null
+          df -h /
+      - name: a ${{ matrix.cluster }} cluster, with what a managed cluster gives
+        env:
+          CLUSTER: ${{ matrix.cluster }}
+        run: |
+          if [ "$CLUSTER" = kind ]; then export PROOF_NODE_IMAGE="$KIND_NODE_IMAGE"; else export PROOF_NODE_IMAGE="$K3S_NODE_IMAGE"; fi
+          context=$(tools/cluster-proof/cluster.sh up "$CLUSTER" proof "$PROOF_DOMAIN")
+          echo "PROOF_CONTEXT=$context" >>"$GITHUB_ENV"
+      - name: the proof
+        # The profile is sized for 8 vCPU; small-node.yaml lowers only the platform's CPU requests, so that
+        # one agent pod (1 CPU) is scheduled beside it on the runner's 4.
+        run: |
+          PROOF_EVIDENCE="$RUNNER_TEMP/evidence-${{ matrix.cluster }}" \
+            tools/cluster-proof/proof.sh tools/cluster-proof/small-node.yaml
+      # The evidence, whatever the outcome: the steps, the install, the probes, and on a failure what each
+      # pod said. A throwaway site: no key of it outlives the cluster.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: cluster-proof-${{ matrix.cluster }}
+          path: ${{ runner.temp }}/evidence-${{ matrix.cluster }}.tar.gz
+          if-no-files-found: warn
+          retention-days: 14
+      - name: delete the cluster
+        if: always()
+        env:
+          CLUSTER: ${{ matrix.cluster }}
+        run: tools/cluster-proof/cluster.sh down "$CLUSTER" proof || true
+
   hosted-foundry:
     # The Foundry variant of the triager (Agent Framework's `FoundryChatClient`, azure-identity's
     # `DefaultAzureCredential`, Foundry's `ResponsesHostServer`), unchanged, through the eight checks
@@ -1169,7 +1283,7 @@ jobs:
     # 2026-10-05, the hosted runners stopped acquiring jobs, `python` came back
     # `abandoned`, and a PR's gate was green without a single Python test having run. Whatever
     # GitHub invents tomorrow will close the gate too: we enumerate what passes, not what breaks.
-    needs: [changes, python, python-postgres, core-without-plugins, contracts, web, vscode, charts, conformance-backends, images, local-install, hosted-build, hosted-cosign, hosted-admission, hosted-gvisor, hosted-cluster, hosted-foundry, hosted-images, hosted-docker, llm-guard, decisions-live, skill-scanner, web-live, cli-binary, secrets, dco, english]
+    needs: [changes, python, python-postgres, core-without-plugins, contracts, web, vscode, charts, conformance-backends, images, local-install, hosted-build, hosted-cosign, hosted-admission, hosted-gvisor, hosted-cluster, cluster-proof, hosted-foundry, hosted-images, hosted-docker, llm-guard, decisions-live, skill-scanner, web-live, cli-binary, secrets, dco, english]
     if: always()
     runs-on: ubuntu-latest
     steps:

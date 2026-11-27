@@ -1,0 +1,40 @@
+# The install proof on ONE node of 4 vCPU (S87-09): a kind or k3d cluster on a CI runner or a laptop.
+# NOT a profile: layered by tools/cluster-proof/proof.sh after values/all-in-one.yaml, for the proof only.
+#
+# values/all-in-one.yaml is sized for one node of 8 vCPU (docs/deployment.md, "All in one"). Its pods
+# request about 2.5 CPU; with what kind or k3s run themselves (about 1.1 CPU with Calico and
+# ingress-nginx), a 4 vCPU node has no room left for an agent pod, which requests 1 CPU: the proof's
+# first agent Job stayed Pending ("Insufficient cpu", measured on kind, 2026-11-27). Only the CPU
+# REQUESTS of the platform's own pods are lowered here, to about 1.1 CPU, so that the scheduler admits
+# one agent pod beside them. The limits, the memory, the replicas, the policies and the agent pods'
+# own requests are the profile's, unchanged: what the proof judges is the installation, not its sizing.
+tranibor-api:
+  resources:
+    requests: { cpu: 100m, memory: 768Mi }
+tranibor-web:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+tranibor-orchestrator:
+  queues:
+    - { name: orchestrator, replicas: 1, resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } } }
+    - { name: executor, replicas: 1, resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } } }
+    - { name: tracker, replicas: 1, resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+    - { name: memory, replicas: 1, resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+tranibor-postgresql:
+  resources:
+    requests: { cpu: 200m, memory: 2Gi }
+tranibor-temporal:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+tranibor-litellm:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+tranibor-ecphoria:
+  resources:
+    requests: { cpu: 50m, memory: 512Mi }
+tranibor-objectstore:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+tranibor-keycloak:
+  resources:
+    requests: { cpu: 100m, memory: 768Mi }

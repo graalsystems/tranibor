@@ -267,9 +267,11 @@ call them by design (the model, the memory's MCP), with a per-run key.
 {{- end }}
 {{- /* The embedded Keycloak keeps its realm in this PostgreSQL (database `keycloak`, ADR 0208): without
        this entry it never gets a connection where policies are enforced ("Failed to obtain JDBC
-       connection", found on AKS with Cilium, S87-13). */}}
+       connection", found on AKS with Cilium, S87-13). The entry is the label its pods carry (ADR 0226 R7):
+       the first fix named the chart's new prefix, which no pod carries, and Keycloak again never got
+       a connection (found on kind with Calico, S87-09). */}}
 {{- if and (.Values.global.oidc).embedded (not ((index .Values "tranibor-keycloak" | default dict).database | default dict).host) }}
-{{- $pgClients = append $pgClients "tranibor-keycloak" }}
+{{- $pgClients = append $pgClients "choregos-keycloak" }}
 {{- end }}
 {{- $stores = append $stores (dict "pod" "choregos-postgresql" "port" 5432 "clients" $pgClients) }}
 {{- end }}

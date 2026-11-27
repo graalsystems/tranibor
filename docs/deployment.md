@@ -94,6 +94,21 @@ this page when it differs from the record, and any page that calls a provider su
 
 <!-- support-matrix:end -->
 
+**The install proof.** `tools/cluster-proof/proof.sh`, given a kube context and the site's domain, runs the
+preflight above, installs the chart (`values/all-in-one.yaml`, then a provider profile and the files you
+give), checks from a pod with an agent's labels that the API, the gateway, the memory and the egress proxy
+open and PostgreSQL, Temporal and the object store do not, writes, reads back and deletes an object through
+the API's own object store settings, checks that an agent pod's first packet out is refused (the egress
+gate), runs the agent-isolation probe under the deployment's RuntimeClass, and carries one work item to
+`approved` (its agent simulated). Whatever the outcome it removes the release and its namespace
+(`PROOF_KEEP=1` keeps them), keeps the evidence (and, on a failure, every pod's description and logs), and
+archives it as `<PROOF_EVIDENCE>.tar.gz`. `tools/cluster-proof/cluster.sh up kind|k3d <name> <domain>` makes
+a throwaway local cluster what a managed one gives (Calico on kind, k3s's own engine on k3d; a default
+IngressClass; the site's names resolving from the pods to the ingress controller) and loads the images
+of a commit (`PROOF_LOAD_IMAGES`, with `PROOF_IMAGE_TAG`). The profile is sized for 8 vCPU: on a 4 vCPU
+node, add `tools/cluster-proof/small-node.yaml`, which lowers only the platform's CPU requests so that an
+agent pod is scheduled beside it. The `cluster-proof` CI job runs both, on kind and on k3d.
+
 ## Install
 
 ```bash
