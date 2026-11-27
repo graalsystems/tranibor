@@ -14,7 +14,13 @@ The daemon of a personal outpost starts the runner for a run it claimed with
 - the runner's one client to the platform (`platform_client`) scrubs every URL and body it sends by the
   token's exact value and by the subscription shapes (`Scrubber`), and the run journals how many it took out
   (`subscription.token_redacted`), never what;
-- a push whose commits hold the value or a shape is refused before `git push` (`Scrubber.held_in`).
+- so does the MCP listener the agent's servers are reached through (`loopback/mcp.py`), for every URL, body
+  and header of the agent's it forwards;
+- a push whose commits hold the value or a shape is refused before `git push` (`Scrubber.held_in`), merges
+  read against their first parent, the whole difference read too, and the objects as they are, not their
+  replacements (`Workspace.patch_since`);
+- a deliverable of `.choregos/outputs/` that holds either is not uploaded (`OUTPUT_REFUSED_REASON`): sent
+  scrubbed, it would no longer be the file the agent made, nor match the digest the platform checks.
 
 What the exact value cannot catch (a copy split, encoded or compressed) is recorded in ADR 0227, not
 prevented. A gateway run meets none of this: its client sends what it is given, as before.
@@ -69,6 +75,12 @@ OFF_RUNNER_REASON = "subscription_off_runner"
 PUSH_REFUSED_REASON = "subscription_credential_in_diff"
 #: The reason of a result whose commits the runner could not read before pushing them: refused all the same.
 PUSH_UNREAD_REASON = "subscription_push_unread"
+#: The reason a deliverable of `.choregos/outputs/` is not uploaded, and its `done` result fails: it holds the
+#: token or a shape.
+OUTPUT_REFUSED_REASON = "subscription_credential_in_output"
+#: The journal's event for such a deliverable: its file, the reason, whether the exact value was there and the
+#: shapes' labels, never a value.
+OUTPUT_REFUSED_EVENT = "outputs.refused"
 #: The shortest value scrubbed by its exact value. A token is far longer; replacing a short value everywhere
 #: would only wreck what the runner sends, and hide nothing.
 MIN_EXACT_VALUE = 16
@@ -111,6 +123,10 @@ class Scrubber:
     def held_in(self, text: str) -> tuple[bool, list[str]]:
         """Whether `text` holds the exact value, and the labels of the shapes it holds."""
         return any(form in text for form in self.forms), shapes_in(text)
+
+    def held_in_data(self, data: bytes) -> tuple[bool, list[str]]:
+        """`held_in` over bytes, read the way `data` reads them: whatever `data` would change, this finds."""
+        return self.held_in(data.decode("utf-8", "surrogateescape"))
 
     def text(self, text: str) -> str:
         """`text` without the value nor any subscription token; what it took out is counted."""

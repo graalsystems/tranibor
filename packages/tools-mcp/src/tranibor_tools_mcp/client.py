@@ -53,8 +53,9 @@ class Relayed:
 Rewrite = Callable[[httpx.Request], Awaitable[httpx.Request]]
 
 
-class _RewritingClient(httpx.AsyncClient):
-    """An `httpx.AsyncClient` that hands every request to `rewrite` before it sends it.
+class RewritingClient(httpx.AsyncClient):
+    """An `httpx.AsyncClient` that hands every request to `rewrite` before it sends it: `InternalClient`'s,
+    and the runner's MCP listener's to the servers it forwards to (ADR 0227 §6).
 
     Every verb of httpx (`request`, `get`, `post`, `put`, `stream`) ends in `send`, and `send` comes before
     the choice of a transport. Not a transport itself on purpose: httpx takes the proxies of the environment
@@ -91,7 +92,7 @@ class InternalClient:
         self._client = (
             httpx.AsyncClient(timeout=timeout, headers=headers, transport=transport)
             if rewrite is None
-            else _RewritingClient(rewrite, timeout=timeout, headers=headers, transport=transport)
+            else RewritingClient(rewrite, timeout=timeout, headers=headers, transport=transport)
         )
         self._event_lock = asyncio.Lock()
 

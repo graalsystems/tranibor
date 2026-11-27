@@ -93,6 +93,8 @@ from .skills import InvalidSkill, place_skills
 from .subscription import (
     GATEWAY_VARIABLES,
     OFF_RUNNER_REASON,
+    OUTPUT_REFUSED_EVENT,
+    OUTPUT_REFUSED_REASON,
     PUSH_REFUSED_REASON,
     PUSH_UNREAD_REASON,
     REDACTED_EVENT,
@@ -923,8 +925,9 @@ class Runner:
 
     async def _subscription_in_the_push(self, workspace: Workspace, since: str) -> dict[str, Any] | None:
         """Why a subscription run's push is refused (ADR 0227 §6): its commits since `since` (messages and
-        patches) hold the token's exact value or a subscription shape, or could not be read. The answer names
-        the shapes, never a value; `None`: nothing found, or a gateway run, whose push is not read."""
+        patches, a merge's against its first parent) or the whole difference since `since` hold the token's
+        exact value or a subscription shape, or could not be read. The answer names the shapes, never a
+        value; `None`: nothing found, or a gateway run, whose push is not read."""
         scrubber = self._scrubber()
         if scrubber is None:
             return None
@@ -935,6 +938,26 @@ class Runner:
         if not (exact or shapes):
             return None
         return {"ok": False, "refused": PUSH_REFUSED_REASON, "exact_value": exact, "shapes": shapes}
+
+    def _subscription_in_output(self, filename: str, data: bytes) -> dict[str, Any] | None:
+        """Why a subscription run's deliverable is not uploaded (ADR 0227 §6): its bytes, or its name, which
+        the upload's URL carries, hold the token's exact value or a subscription shape. The answer names the
+        file and the shapes, never a value; `None`: nothing found, or a gateway run, whose deliverables are
+        not read."""
+        scrubber = self._scrubber()
+        if scrubber is None:
+            return None
+        exact, shapes = scrubber.held_in_data(data)
+        named, named_shapes = scrubber.held_in(filename)
+        shapes += [label for label in named_shapes if label not in shapes]
+        if not (exact or named or shapes):
+            return None
+        return {
+            "file": filename,
+            "reason": OUTPUT_REFUSED_REASON,
+            "exact_value": exact or named,
+            "shapes": shapes,
+        }
 
     async def _refuse_unisolated(self, journal: EventJournal) -> RunOutcome | None:
         """ADR 0222: in staging and prod the agent does not start beside the runner's credentials unless the
@@ -1025,6 +1048,7 @@ class Runner:
             guards,
             transport=self.mcp_transport,
             verbatim=True,
+            scrubber=self._scrubber(),
         )
         connect = ConnectProxy(stage_input, journal.record, upstream=upstream_proxy(os.environ))
         try:
@@ -1348,7 +1372,9 @@ class Runner:
             transport=self.model_transport,
             hints=self._context_hints(stage_input, workspace.path, foreign=True),
         )
-        mcp = McpProxy(stage_input, journal.record, guards, transport=self.mcp_transport)
+        mcp = McpProxy(
+            stage_input, journal.record, guards, transport=self.mcp_transport, scrubber=self._scrubber()
+        )
         # After `authenticate_proxy_env`: the pod's egress proxy with the run's credentials, which
         # the tunnels carry and the container never sees.
         connect = ConnectProxy(stage_input, journal.record, upstream=upstream_proxy(os.environ))
@@ -1529,13 +1555,36 @@ class Runner:
     ) -> None:
         """Stores the deliverables of `.choregos/outputs/` (S31-05, ADR 0049) and lists them in
         `artifacts.files` — what the runner stored, never what the agent claims. A declared file that
-        was not stored fails a `done` step: the platform does not take the deck on the agent's word."""
-        stored, problems = await store_outputs(client, workspace.path, stage_input)
+        was not stored fails a `done` step: the platform does not take the deck on the agent's word.
+
+        A subscription run's file that holds its person's token or a shape is not uploaded at all (ADR 0227
+        §6): scrubbed on its way, it would reach the platform altered, and the digest the platform checks
+        would refuse it with a reason that says nothing of the token. It is journaled `outputs.refused`, and
+        a `done` step fails with `subscription_credential_in_output`."""
+        withheld: list[dict[str, Any]] = []
+
+        def screen(filename: str, data: bytes) -> str | None:
+            refusal = self._subscription_in_output(filename, data)
+            if refusal is None:
+                return None
+            withheld.append(refusal)
+            return OUTPUT_REFUSED_REASON
+
+        stored, problems = await store_outputs(client, workspace.path, stage_input, screen=screen)
         result.artifacts.files = stored
+        for refusal in withheld:
+            await journal.record(OUTPUT_REFUSED_EVENT, refusal)
         if stored or problems:
             await journal.record("outputs.stored", {"stored": sorted(stored), "refused": problems[:20]})
         missing = [name for name in expected_files(stage_input) if name not in stored]
-        if missing and result.status is StageStatus.DONE:
+        if withheld and result.status is StageStatus.DONE:
+            result.status = StageStatus.FAILED
+            result.reason = OUTPUT_REFUSED_REASON
+            files = ", ".join(str(refusal["file"]) for refusal in withheld)
+            result.summary = (
+                f"{result.summary} — not delivered, they hold a model subscription credential: {files}"
+            )[:4000]
+        elif missing and result.status is StageStatus.DONE:
             result.status = StageStatus.FAILED
             result.reason = "missing_outputs"
             result.summary = f"{result.summary} — declared files not delivered: {', '.join(missing)}"[:4000]

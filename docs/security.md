@@ -1154,18 +1154,28 @@ personal outpost's daemon started with `TRANIBOR_RUN_CREDENTIAL=subscription`, t
   `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `GEMINI_API_KEY` and `GOOGLE_GEMINI_BASE_URL`,
   even when the runner's own environment has them: an API key would silently outrank the subscription. A gateway
   key the step may carry is handed to nothing.
-- **Scrubbed by exact value.** The runner's one client to the platform (events, result, outputs, the tool
-  server's calls and the tool bridge, questions, scope changes, the ticket, knowledge, the git and egress
-  tokens) takes the token's exact value (as it is, and as JSON and a URL write it) and every subscription shape
-  out of each URL and body before it is sent, whichever transport or proxy carries it. The run journals
-  `subscription.token_redacted` with a count, never a value.
-- **Never pushed.** A push whose commits (messages and patches) hold the value or a shape is refused before
-  `git push`: the work stays in the runner's local commits and the result fails with
+- **Scrubbed by exact value.** The runner's one client to the platform (events, result, the tool server's calls
+  and the tool bridge, questions, scope changes, the ticket, knowledge, the git and egress tokens) takes the
+  token's exact value (as it is, and as JSON and a URL write it) and every subscription shape out of each URL
+  and body before it is sent, whichever transport or proxy carries it. So does the runner's MCP listener
+  (`loopback/mcp.py`), which forwards the agent's calls to the servers the step names, the project's memory
+  server among them, when the agent is in its own container or is a hosted one: every forwarded URL and body,
+  and the headers the agent chose (its session id). The run journals `subscription.token_redacted` with a
+  count, never a value.
+- **Never uploaded.** A deliverable of `.choregos/outputs/` that holds the value or a shape, in its bytes or its
+  name, is not sent: scrubbed, it would reach the platform altered, and the digest the platform checks would
+  refuse it for a reason that says nothing of the token. The run journals `outputs.refused` (the file, the
+  shapes, whether the exact value was there) and a `done` result fails with `subscription_credential_in_output`.
+- **Never pushed.** A push is refused before `git push` when its commits (messages and patches, a merge read
+  against its first parent, so that what only a merge's resolution added is read too) or the whole difference
+  since the run began hold the value or a shape. Both are read from the objects as they are: `git push` ignores
+  replace refs, and so does this read. The work stays in the runner's local commits and the result fails with
   `subscription_credential_in_diff`.
 
 Not covered: a copy of the token that is split, encoded or compressed passes both the exact value and the
 shapes; the runner's local transcript, on the person's own machine, is not scrubbed; a tool server run as a
-sidecar, or an MCP server the step names, is reached by clients of their own, not the runner's.
+sidecar, or an MCP server the agent reaches itself (its process is the runner's child, and the server needs no
+credential the runner holds back), is reached by clients of their own, not the runner's.
 
 ## Temporal: TLS and encrypted payloads ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 

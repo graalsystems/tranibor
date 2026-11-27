@@ -6,12 +6,17 @@ container's JSON-RPC messages to the server with the server's credentials, which
 container. A server the step was not granted is not served. Every `tools/call` is judged by the run's
 guard rails, as an ACP permission request is, and journaled; a refusal answers the container with a
 tool error and never reaches the server.
+
+For a run on its person's own subscription (ADR 0227 §6), what the agent sends a server leaves without its
+person's token: the run's `Scrubber` takes the token's exact value and the subscription shapes out of every
+forwarded URL and body (a `RewritingClient`, as the runner's client to the platform does) and out of the
+headers the agent chose. Its targets include platform services (the project's memory server).
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from starlette.applications import Starlette
@@ -20,10 +25,14 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from tranibor_contracts import StageInput
 from tranibor_core.egress import EgressRefusedError, host_port_of
+from tranibor_tools_mcp.client import RewritingClient
 
 from ..egress import step_policy
 from ..guardrails import GuardRails
 from . import Record
+
+if TYPE_CHECKING:
+    from ..subscription import Scrubber
 
 _FORWARDED = ("content-type", "accept", "mcp-session-id", "mcp-protocol-version", "last-event-id")
 _RETURNED = ("content-type", "mcp-session-id")
@@ -38,16 +47,27 @@ class McpProxy:
         *,
         transport: Any = None,
         verbatim: bool = False,
+        scrubber: Scrubber | None = None,
     ) -> None:
         """`verbatim=True`: the agent of an ACP step (ADR 0146 §7, S65-04f). The server's headers go out
         exactly as the step declared them, as the agent would have sent them itself. The listener still
-        judges every `tools/call`: that is what a `curl` from the agent's shell cannot go around."""
+        judges every `tools/call`: that is what a `curl` from the agent's shell cannot go around.
+
+        `scrubber`: a run on its person's subscription (ADR 0227 §6), in either mode. Every request to a
+        server goes through it before it leaves, and the headers the agent chose too; the server's own
+        credentials are the runner's, added after."""
         self.verbatim = verbatim
         self.stage_input = stage_input
         self.record = record
         self.guards = guards
         self.policy = step_policy(stage_input)
-        self.http = httpx.AsyncClient(transport=transport, timeout=httpx.Timeout(300, connect=10))
+        self.scrubber = scrubber
+        timeout = httpx.Timeout(300, connect=10)
+        self.http = (
+            httpx.AsyncClient(transport=transport, timeout=timeout)
+            if scrubber is None
+            else RewritingClient(scrubber.request, transport=transport, timeout=timeout)
+        )
         self.calls = 0
 
     def app(self) -> Starlette:
@@ -93,6 +113,8 @@ class McpProxy:
             if refused is not None:
                 return refused
         headers = {name: request.headers[name] for name in _FORWARDED if name in request.headers}
+        if self.scrubber is not None:
+            headers = {name: self.scrubber.text(value) for name, value in headers.items()}
         headers.update(dict(ref.env) if self.verbatim else _credential(ref.env))  # held by the runner only
         try:
             answer = await self.http.request(request.method, ref.url, headers=headers, content=content)

@@ -629,12 +629,22 @@ class Workspace:
             await self.git("rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", *specs)
 
     async def patch_since(self, ref: str) -> CommandResult:
-        """Every commit since `ref` as a push would carry it: its author, committer and message, then its
-        patch, binary files as text. What a subscription run's push is read for before it leaves (ADR 0227
-        §6); no textconv nor external diff driver runs (`git` neutralises the repository's own)."""
-        return await self.git(
+        """Everything a push of the commits since `ref` would carry, as text: each commit's author,
+        committer, message and patch, then the whole difference between `ref` and `HEAD`, binary files as
+        text. What a subscription run's push is read for before it leaves (ADR 0227 §6); no textconv nor
+        external diff driver runs (`git` neutralises the repository's own).
+
+        A merge commit is shown against its first parent (`--diff-merges=first-parent`): plain `log
+        --patch` prints no diff for a merge, so what only a merge's resolution added (an "evil merge")
+        went unread. The whole difference is read as well, whatever shape the history takes. Both read the
+        objects as they are (`--no-replace-objects`): `git push` ignores replace refs, so a `refs/replace/`
+        entry would otherwise show this read an innocent commit and the remote the real one. Either
+        command failing fails the read, and the push is then refused as unread."""
+        log = await self.git(
+            "--no-replace-objects",
             "log",
             "--patch",
+            "--diff-merges=first-parent",
             "--text",
             "--no-color",
             "--no-ext-diff",
@@ -642,6 +652,21 @@ class Workspace:
             "--format=commit %H%nauthor %an <%ae>%ncommitter %cn <%ce>%n%n%B",
             f"{ref}..HEAD",
         )
+        if not log.ok:
+            return log
+        whole = await self.git(
+            "--no-replace-objects",
+            "diff",
+            "--text",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            ref,
+            "HEAD",
+        )
+        if not whole.ok:
+            return whole
+        return CommandResult(0, f"{log.stdout}\n{whole.stdout}", "")
 
     async def commits_since(self, base: str) -> list[str]:
         result = await self.git("log", "--format=%s", f"{base}..HEAD")

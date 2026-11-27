@@ -14,6 +14,7 @@ connector. The folder is excluded from git: deliverables are artifacts, not comm
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -80,10 +81,18 @@ def collect(workspace: Path, stage_input: StageInput) -> tuple[list[tuple[str, s
     return kept, refused
 
 
+#: What `store_outputs` asks of each file before it hands it on: the reason it must not leave, or `None`.
+Screen = Callable[[str, bytes], str | None]
+
+
 async def store_outputs(
-    client: Any, workspace: Path, stage_input: StageInput
+    client: Any, workspace: Path, stage_input: StageInput, *, screen: Screen | None = None
 ) -> tuple[dict[str, ArtifactFile], list[str]]:
-    """Hands every deliverable to the internal API; returns what it stored and what failed."""
+    """Hands every deliverable to the internal API; returns what it stored and what failed.
+
+    `screen(file name, bytes)`, when given, may name a reason a file must not leave: it is then not sent
+    at all, and the reason is among the failures (a subscription run's file that holds its person's token,
+    ADR 0227 §6: sent scrubbed, it would no longer be the file the agent made, nor match its digest)."""
     kept, problems = collect(workspace, stage_input)
     stored: dict[str, ArtifactFile] = {}
     for name, type_, path in kept:
@@ -91,6 +100,9 @@ async def store_outputs(
             data = safe_files.read_bytes(workspace, path.relative_to(workspace))
         except OSError as exc:
             problems.append(f"{path.name}: {str(exc)[:200]}")
+            continue
+        if screen is not None and (reason := screen(path.name, data)) is not None:
+            problems.append(f"{path.name}: {reason}")
             continue
         digest = artifact_digest(data)
         try:
