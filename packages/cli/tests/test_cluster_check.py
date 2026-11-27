@@ -426,6 +426,65 @@ def test_the_values_files_are_read_as_helm_merges_them(tmp_path: Path) -> None:
     }
 
 
+OPENSHIFT_DNS = {
+    "namespace": "openshift-dns",
+    "podLabels": {"dns.operator.openshift.io/daemonset-dns": "default"},
+    "cidrs": ["169.254.20.10/32"],
+    "ports": [{"port": 5353, "protocol": "UDP"}, {"port": 5353, "protocol": "TCP"}],
+}
+
+
+def test_the_probe_policy_opens_the_resolver_the_values_name(tmp_path: Path) -> None:
+    """The fenced probe resolves names through the resolver `networkPolicies.dns` names, as the chart's
+    runner pods do (#2277): not `kube-system` on 53 whatever the cluster."""
+    values = tmp_path / "openshift.yaml"
+    values.write_text(yaml.safe_dump({"networkPolicies": {"dns": OPENSHIFT_DNS}}), encoding="utf-8")
+    found = cluster_check.settings_from_values([values])
+    rule = cluster_check._runner_policy(found["dns"])["spec"]["egress"]
+    assert rule == [
+        {
+            "to": [
+                {
+                    "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "openshift-dns"}},
+                    "podSelector": {"matchLabels": {"dns.operator.openshift.io/daemonset-dns": "default"}},
+                },
+                {"ipBlock": {"cidr": "169.254.20.10/32"}},
+            ],
+            "ports": [{"protocol": "UDP", "port": 5353}, {"protocol": "TCP", "port": 5353}],
+        }
+    ]
+
+
+def test_without_the_setting_the_probe_policy_is_the_one_it_always_was() -> None:
+    assert cluster_check._runner_policy(Settings().dns)["spec"]["egress"] == [
+        {
+            "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}],
+            "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
+        }
+    ]
+
+
+async def test_the_probe_run_gives_the_cluster_the_settings_resolver() -> None:
+    from tranibor_core.dns_policy import DnsPolicy
+
+    cluster = FakeCluster()
+    await run(cluster, dns=DnsPolicy.model_validate(OPENSHIFT_DNS))
+    policy = next(body for kind, body in cluster.created if body.get("kind") == "NetworkPolicy")
+    peers = policy["spec"]["egress"][0]["to"]
+    assert peers[0]["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] == "openshift-dns"
+
+
+def test_a_resolver_setting_that_opens_nothing_is_refused(tmp_path: Path) -> None:
+    import typer
+
+    values = tmp_path / "v.yaml"
+    values.write_text(
+        yaml.safe_dump({"networkPolicies": {"dns": {"namespace": "", "cidrs": []}}}), encoding="utf-8"
+    )
+    with pytest.raises(typer.BadParameter, match=r"networkPolicies\.dns"):
+        cluster_check.settings_from_values([values])
+
+
 def test_an_embedded_object_store_is_not_probed(tmp_path: Path) -> None:
     values = tmp_path / "v.yaml"
     values.write_text(yaml.safe_dump({"global": {"objectStore": {"endpoint": "x", "embedded": True}}}))

@@ -50,8 +50,8 @@ off, no endpoint) says `not applicable` and why. The command exits 1 when any ch
 reach the API server.
 
 The last three checks need pods, so the command creates one namespace of its own
-(`tranibor-preflight-…`), a NetworkPolicy that mirrors `tranibor-runner-egress` (DNS to `kube-system`,
-nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
+(`tranibor-preflight-…`), a NetworkPolicy that mirrors `tranibor-runner-egress` (DNS to the resolver `networkPolicies.dns`
+names in the values files given with `-f`, `kube-system` by default; nothing else), and three small pods admitted under the `restricted` Pod Security level: a server, a probe
 under no policy (the baseline: without it, "denied" could mean "down"), and a probe with the runner pods'
 labels, which runs the egress gate's own loop (three failed attempts in a row, one-second connection
 timeouts, 0.25 s apart) against the gate's target, then against the server. The namespace is deleted at the
