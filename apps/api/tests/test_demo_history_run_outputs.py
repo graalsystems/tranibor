@@ -63,7 +63,8 @@ async def test_an_imported_run_carries_its_outputs_evidence_and_gate_verdicts(
     assert not [e for e in verify if e["type"] == "gate.outcome"], "a run without gates has no verdict"
 
     again = await client.post(URL.format(id=project["id"]), json=_with_outputs())
-    assert again.status_code == 200 and again.json()["created"]["runs"] == 0, "the same document writes nothing"
+    assert again.status_code == 200, again.text
+    assert again.json()["created"]["runs"] == 0, "the same document writes nothing"
     events = (await client.get(f"/api/v1/runs/{runs['implement']['id']}/events")).json()["items"]
     assert len([e for e in events if e["type"] == "gate.outcome"]) == 2
 
