@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from .test_demo_history_import import DOCUMENT, URL, demo  # noqa: F401 - `demo` is a fixture
+from .kits.demo_history import DOCUMENT, URL, demo_history_opted_in  # noqa: F401 - the fixture `demo`
 
 pytestmark = pytest.mark.usefixtures("demo")
 
