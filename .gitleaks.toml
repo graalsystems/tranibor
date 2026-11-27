@@ -54,4 +54,14 @@ regexes = [
   # (2026-11-25).
   '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
   '''d3Jvbmcta2V5''',
+  # The owner sign-in test (apps/web/tests/owner-sign-in.test.tsx, branch ccr-1c818e13-bjmncf) uses a ticket
+  # shaped like a JWT whose parts decode to {"alg":"EdDSA"}, {"aud":"choregos-owner"} and "signature": no key
+  # signed it. The CI scans every branch (`fetch-depth: 0`), so it turned the `secrets` job red on main and on
+  # every open pull request (2026-11-27). This value only.
+  '''eyJhbGciOiJFZERTQSJ9\.eyJhdWQiOiJjaG9yZWdvcy1vd25lciJ9\.c2lnbmF0dXJl''',
+  # Same branch: a test that proves a provider key never reaches the outpost door uses the made-up
+  # `sk-proj-` + the alphabet and digits; and the SNI relay types a parameter `key: Ed25519PrivateKey`,
+  # a type annotation the `generic-api-key` rule reads as a value. These two values only.
+  '''sk-proj-abcdefghijklmnopqrstuvwxyz0123456789''',
+  '''key: Ed25519PrivateKey\b''',
 ]
