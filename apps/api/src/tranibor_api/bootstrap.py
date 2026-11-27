@@ -12,7 +12,10 @@ come back at the next restart.
 
 A personal installation holds one person (ADR 0228): there the variable names one address at most, and
 an address that would be a second person is refused by the database, which this module says in its own
-words (`personal_installation.py`).
+words (`personal_installation.py`). The database refuses it because the `installation` row says
+`personal`, so the bootstrap records the posture itself before its first membership, in the same
+transaction: `choregos-admin orgs bootstrap` runs it on a database the API may never have started, and
+two runs naming two persons would otherwise both find no record and write both.
 """
 
 from __future__ import annotations
@@ -26,7 +29,12 @@ from .db.models import Membership, Organization, User
 from .db.org_aliases import organisation_by_slug_or_alias
 from .db.session import session_scope
 from .logging import get_logger
-from .personal_installation import bootstrap_refusal, is_sole_member_refusal, refuse_what_the_settings_forbid
+from .personal_installation import (
+    bootstrap_refusal,
+    is_sole_member_refusal,
+    record_the_first_start,
+    refuse_what_the_settings_forbid,
+)
 
 logger = get_logger("choregos.bootstrap")
 
@@ -53,6 +61,9 @@ async def bootstrap_installation(settings: Settings) -> dict[str, list[str]]:
 async def _bootstrap(settings: Settings) -> dict[str, list[str]]:
     created: dict[str, list[str]] = {ORGANISATIONS: [], ADMINISTRATORS: []}
     async with session_scope(orgs="*") as session:
+        # The posture first: the record governs the memberships written below (ADR 0228 §2), whether the
+        # API's start-up recorded it already or this is the first write to the database.
+        await record_the_first_start(session, settings)
         # By slug OR by former slug: once the organisation has been renamed, the deployment's value
         # still names the old one, and a restart must not create a second organisation (ADR 0090).
         org = await organisation_by_slug_or_alias(session, settings.bootstrap_org)

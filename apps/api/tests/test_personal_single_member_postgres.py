@@ -199,6 +199,121 @@ async def test_two_persons_writing_at_once_are_put_in_a_line(pg_app: Any, orgs: 
     assert await _fetch("SELECT user_id FROM memberships") == [("u-one",)]
 
 
+async def test_a_machine_account_holding_a_membership_does_not_become_a_second_person(
+    owner: AsyncClient,
+) -> None:
+    """`users.is_service` turned false makes a machine account a person: with a membership, beside the one
+    person's, the trigger on `users` refuses it, from a session bounded to another organisation too."""
+    import asyncpg
+
+    await _record("personal")
+    await _as_the_application(_person("u-mach", machine=True), _membership("m-mach", "u-mach", "b"))
+    await _as_the_application(_person("u-idle", machine=True))
+    for scope in ("b", "*"):
+        with pytest.raises(asyncpg.CheckViolationError, match="choregos_sole_member") as refused:
+            await _as_the_application("UPDATE users SET is_service = false WHERE id = 'u-mach'", scope=scope)
+        assert "may not become a person" in str(refused.value)
+    # Without a membership it is no member, and its other columns change as before.
+    await _as_the_application(
+        "UPDATE users SET is_service = false WHERE id = 'u-idle'",
+        "UPDATE users SET display_name = 'ci', is_service = true WHERE id = 'u-mach'",
+        scope="b",
+    )
+    assert await _fetch(
+        "SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id WHERE NOT u.is_service"
+    ) == [(OWNER,)]
+
+
+async def test_outside_the_personal_posture_a_machine_account_becomes_a_person(owner: AsyncClient) -> None:
+    await _record("organisation")
+    await _as_the_application(_person("u-mach", machine=True), _membership("m-mach", "u-mach", "b"))
+    await _as_the_application("UPDATE users SET is_service = false WHERE id = 'u-mach'", scope="b")
+    assert await _fetch("SELECT is_service FROM users WHERE id = 'u-mach'") == [(False,)]
+
+
+@pytest.mark.parametrize("first", ["membership", "flip"])
+async def test_a_membership_and_a_flip_written_at_once_are_put_in_a_line(
+    owner: AsyncClient, first: str
+) -> None:
+    """A membership given to a machine account and that account turned into a person, at the same time:
+    each alone passes (the account is no person yet, or holds no membership yet). Both triggers lock the
+    installation's row before they read, so the second waits for the first, then reads it and refuses. Both
+    writers are in the platform's scope: from a session bounded to `b`, the account is not visible (row-level
+    security on `users`) until its membership there is committed, and the flip would change no row."""
+    import asyncpg
+
+    await _record("personal")
+    await _as_the_application(_person("u-mach", machine=True))
+    statements = {
+        "membership": _membership("m-mach", "u-mach", "b"),
+        "flip": "UPDATE users SET is_service = false WHERE id = 'u-mach'",
+    }
+    second = "flip" if first == "membership" else "membership"
+    leading = await asyncpg.connect(_dsn(_app_url(PG_URL)))
+    trailing = await asyncpg.connect(_dsn(_app_url(PG_URL)))
+    try:
+        one = leading.transaction()
+        await one.start()
+        await leading.execute("SELECT set_config('app.current_orgs', '*', true)")
+        assert await leading.execute(statements[first]) in {"INSERT 0 1", "UPDATE 1"}
+
+        async def the_other() -> None:
+            async with trailing.transaction():
+                await trailing.execute("SELECT set_config('app.current_orgs', '*', true)")
+                await trailing.execute(statements[second])
+
+        waiting = asyncio.create_task(the_other())
+        await asyncio.sleep(0.3)
+        assert not waiting.done(), f"the {second} did not wait for the {first}"
+        await one.commit()
+        with pytest.raises(asyncpg.CheckViolationError, match="choregos_sole_member"):
+            await asyncio.wait_for(waiting, timeout=10)
+    finally:
+        await leading.close()
+        await trailing.close()
+    assert await _fetch(
+        "SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id WHERE NOT u.is_service"
+    ) == [(OWNER,)]
+
+
+@pytest.fixture
+def cli(monkeypatch: pytest.MonkeyPatch, pg_app: Any) -> Iterator[Any]:
+    """`choregos-admin orgs bootstrap` in the personal posture: `bootstrap_installation(get_settings())`, on
+    a database the API never started (the application is built, its start-up never run)."""
+    from tranibor_api.bootstrap import bootstrap_installation
+    from tranibor_api.config import get_settings, reset_settings_cache
+
+    async def bootstrap(organisation: str, address: str) -> Any:
+        monkeypatch.setenv("TRANIBOR_ENV", "personal")
+        monkeypatch.setenv("TRANIBOR_FAKES", "0")
+        monkeypatch.setenv("TRANIBOR_DEV_LOGIN_ENABLED", "false")
+        monkeypatch.setenv("TRANIBOR_TEMPORAL_ALLOW_CLEAR_PAYLOADS", "true")
+        monkeypatch.setenv("TRANIBOR_BOOTSTRAP_ORG", organisation)
+        monkeypatch.setenv("TRANIBOR_BOOTSTRAP_ADMINS", address)
+        reset_settings_cache()
+        return await bootstrap_installation(get_settings())
+
+    yield bootstrap
+    reset_settings_cache()
+
+
+async def test_two_cli_bootstraps_bring_one_person_to_a_database_never_started(cli: Any) -> None:
+    """Each run names one address, as the posture allows, but not the same one. The first records the
+    posture before its membership; the second is then refused by the trigger, and leaves nothing behind."""
+    from tranibor_api.bootstrap import ADMINISTRATORS
+    from tranibor_api.personal_installation import InstallationRefusedError
+
+    assert await _fetch("SELECT count(*) FROM installation") == [(0,)], "never started"
+    assert (await cli("me", "one@x.test"))[ADMINISTRATORS] == ["one@x.test"]
+    assert await _fetch("SELECT posture, environment FROM installation") == [("personal", "personal")]
+    with pytest.raises(InstallationRefusedError, match="one person"):
+        await cli("another", "two@x.test")
+    assert await _fetch("SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id") == [
+        ("one@x.test",)
+    ]
+    assert await _fetch("SELECT slug FROM organizations ORDER BY slug") == [("me",)]
+
+
 async def test_the_posture_row_is_written_once(pg_app: Any) -> None:
     import asyncpg
 

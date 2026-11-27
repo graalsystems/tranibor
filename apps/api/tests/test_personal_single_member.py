@@ -137,6 +137,25 @@ async def test_the_bootstrap_cannot_bring_a_second_person(client: AsyncClient, a
     assert await _people_with_a_membership() == [ADMIN]
 
 
+async def test_the_bootstrap_records_the_posture_on_a_database_never_started(app: Any, org: str) -> None:
+    """`choregos-admin orgs bootstrap` runs the bootstrap without the API's start-up: it records the posture
+    itself, before its first membership, so the record governs that membership as every later one. Two
+    runs naming two persons on a database the API never started are proven on PostgreSQL, in the posture
+    (`test_personal_single_member_postgres.py`)."""
+    from tranibor_api.bootstrap import ADMINISTRATORS, bootstrap_installation
+    from tranibor_api.config import get_settings
+    from tranibor_api.db.models import Installation
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope(orgs="*") as session:
+        assert (await session.execute(select(Installation))).scalars().all() == [], "never started"
+    settings = get_settings().model_copy(update={"bootstrap_org": "first-space", "bootstrap_admins": ADMIN})
+    assert (await bootstrap_installation(settings))[ADMINISTRATORS] == [ADMIN]
+    async with session_scope(orgs="*") as session:
+        rows = (await session.execute(select(Installation))).scalars().all()
+    assert [(row.posture, row.environment) for row in rows] == [("organisation", "test")]
+
+
 async def test_two_bootstrap_addresses_are_refused_in_the_personal_posture() -> None:
     from tranibor_api.bootstrap import bootstrap_installation
     from tranibor_api.config import get_settings
@@ -189,6 +208,82 @@ async def test_the_database_refuses_a_raw_insert_and_an_update_to_a_second_perso
             await session.execute(text(insert), {"id": "m-one-bis", "user": "u-one", "org": org_id})
             await session.execute(text("UPDATE memberships SET user_id = 'u-two' WHERE id = 'm-one-bis'"))
     assert await _people_with_a_membership() == ["one@x.test"]
+
+
+async def _users_and_memberships(*users: tuple[str, bool, bool]) -> None:
+    """Users (`id`, `is_service`, holds a membership), written raw in the platform's scope."""
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope(orgs="*") as session:
+        org_id = (await session.execute(text("SELECT id FROM organizations"))).scalar_one()
+        for user_id, machine, member in users:
+            await session.execute(
+                text(
+                    "INSERT INTO users (id, email, display_name, is_service, groups, created_at, updated_at) "
+                    "VALUES (:id, :email, '', :machine, '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {"id": user_id, "email": f"{user_id}@x.test", "machine": machine},
+            )
+            if member:
+                await session.execute(
+                    text(
+                        "INSERT INTO memberships (id, user_id, org_id, role, source, created_at, updated_at) "
+                        "VALUES (:id, :user, :org, 'contributor', 'manual', "
+                        "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                    ),
+                    {"id": f"m-{user_id}", "user": user_id, "org": org_id},
+                )
+
+
+async def _becomes_a_person(user_id: str) -> None:
+    from tranibor_api.db.session import session_scope
+
+    async with session_scope(orgs="*") as session:
+        await session.execute(text("UPDATE users SET is_service = false WHERE id = :id"), {"id": user_id})
+
+
+async def test_a_machine_account_holding_a_membership_does_not_become_a_second_person(
+    app: Any, org: str
+) -> None:
+    """A machine account is accepted as a member because it is not a person (ADR 0131): turning it into
+    one afterwards would be a second person, and the database refuses the write as it refuses the
+    membership."""
+    from tranibor_api.db.session import session_scope
+    from tranibor_api.personal_installation import SOLE_MEMBER_MARK
+
+    await _record("personal")
+    await _users_and_memberships(
+        ("u-one", False, True), ("u-mach", True, True), ("u-idle", True, False), ("u-left", False, False)
+    )
+    with pytest.raises(IntegrityError, match=SOLE_MEMBER_MARK):
+        await _becomes_a_person("u-mach")
+    assert await _people_with_a_membership() == ["u-one@x.test"]
+    # A machine account without a membership may become a person: it is no member.
+    await _becomes_a_person("u-idle")
+    # The one person's own row, a machine account's other columns, and a machine account kept one, pass.
+    async with session_scope(orgs="*") as session:
+        await session.execute(
+            text("UPDATE users SET is_service = false, display_name = 'me' WHERE id = 'u-one'")
+        )
+        await session.execute(
+            text("UPDATE users SET display_name = 'ci', is_service = true WHERE id = 'u-mach'")
+        )
+    # Once the one person holds no membership, the machine account may become that one person.
+    async with session_scope(orgs="*") as session:
+        await session.execute(text("DELETE FROM memberships WHERE user_id = 'u-one'"))
+    await _becomes_a_person("u-mach")
+    assert await _people_with_a_membership() == ["u-mach@x.test"]
+
+
+@pytest.mark.parametrize("posture", [None, "organisation"])
+async def test_outside_the_personal_posture_a_machine_account_becomes_a_person_as_before(
+    app: Any, org: str, posture: str | None
+) -> None:
+    if posture:
+        await _record(posture)
+    await _users_and_memberships(("u-one", False, True), ("u-mach", True, True))
+    await _becomes_a_person("u-mach")
+    assert await _people_with_a_membership() == ["u-mach@x.test", "u-one@x.test"]
 
 
 async def test_the_posture_is_written_once(app: Any) -> None:
@@ -301,7 +396,7 @@ def _triggers(url: str) -> dict[str, str]:
         with engine.connect() as connection:
             rows = connection.exec_driver_sql(
                 "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' "
-                "AND tbl_name IN ('memberships', 'installation')"
+                "AND tbl_name IN ('memberships', 'installation', 'users')"
             ).fetchall()
     finally:
         engine.dispose()
@@ -332,5 +427,7 @@ def test_the_migrations_lay_on_sqlite_the_triggers_the_suite_runs_on(
         "memberships_sole_member_update",
         "installation_written_once_update",
         "installation_written_once_delete",
+        "users_sole_member_flip",
     }
     assert laid == _triggers(f"sqlite:///{tmp_path}/test.db")
+    assert "UPDATE OF is_service ON users" in laid["users_sole_member_flip"]

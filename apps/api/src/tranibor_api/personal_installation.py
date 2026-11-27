@@ -11,13 +11,18 @@ the installation itself, and its posture.
   whatever writes it: the members routes (`routers/admin.py`), a sign-in (`routers/auth.py`), a project or
   an organisation created (`routers/projects.py`), `bootstrap.py`, an extension or a raw `INSERT`
   (`choregos_sole_member()` on PostgreSQL, its SQLite twin in `db/models/installation.py`). A machine
-  account (`users.is_service`, ADR 0131) is not a person and is accepted. The API answers such a refusal
-  with a 409 whose `code` is `one_person` and whose detail names the record (`install_error_handlers`).
+  account (`users.is_service`, ADR 0131) is not a person and is accepted; it does not become one while it
+  holds a membership and another person holds one (`choregos_sole_member_flip()` on `users`). The API
+  answers such a refusal with a 409 whose `code` is `one_person` and whose detail names the record
+  (`install_error_handlers`).
 - **The start-up check** (`check_the_installation`, from `main.lifespan`, before the bootstrap) refuses to
   serve when `TRANIBOR_ENV` and the recorded posture differ, either way; when more than one person holds a
   membership in the personal posture; when `TRANIBOR_BOOTSTRAP_ADMINS` names more than one address there;
   and on SQLite in that posture, a development database that no migration follows. A first start that
   is refused records nothing.
+- **The bootstrap records too** (`record_the_first_start`): `choregos-admin orgs bootstrap` runs it
+  without the API's start-up, so it records the posture before its first membership, in the same
+  transaction. A database the API never started is governed by the record from its first member on.
 
 Outside the personal posture nothing changes: the row says `organisation`, the trigger lets every
 membership through, and the start-up only records it.
@@ -129,6 +134,24 @@ def _refuse_more_than_one(persons: list[str], *, first_start: bool) -> None:
     )
 
 
+async def record_the_first_start(session: AsyncSession, settings: Settings) -> str:
+    """Record the posture `TRANIBOR_ENV` names unless one is recorded, and return the recorded one.
+
+    What writes first records: the API's start-up, or the bootstrap run by `choregos-admin orgs bootstrap`
+    on a database the API never started, before its first membership, which the record then governs. A
+    first personal record is refused, and nothing recorded, when more than one person holds a membership
+    already. The session must be in the platform's scope (`orgs="*"`)."""
+    recorded = await recorded_posture(session)
+    if recorded is not None:
+        return recorded
+    wanted = posture_of(settings.env)
+    if wanted == PERSONAL:
+        _refuse_more_than_one(await persons_holding_a_membership(session), first_start=True)
+    recorded = await record_posture(session, wanted, environment=settings.env)
+    logger.info("installation.posture_recorded", posture=recorded, environment=settings.env)
+    return recorded
+
+
 async def check_the_installation(settings: Settings) -> str:
     """The start-up check: record the posture at the first start, then refuse what ADR 0228 refuses.
 
@@ -137,12 +160,7 @@ async def check_the_installation(settings: Settings) -> str:
     refuse_what_the_settings_forbid(settings)
     wanted = posture_of(settings.env)
     async with session_scope(orgs="*") as session:
-        recorded = await recorded_posture(session)
-        if recorded is None:
-            if wanted == PERSONAL:
-                _refuse_more_than_one(await persons_holding_a_membership(session), first_start=True)
-            recorded = await record_posture(session, wanted, environment=settings.env)
-            logger.info("installation.posture_recorded", posture=recorded, environment=settings.env)
+        recorded = await record_the_first_start(session, settings)
         if recorded != wanted:
             other = "personal" if recorded == PERSONAL else "dev, staging or prod"
             raise InstallationRefusedError(
@@ -203,6 +221,7 @@ __all__ = [
     "persons_holding_a_membership",
     "posture_of",
     "record_posture",
+    "record_the_first_start",
     "recorded_posture",
     "refuse_what_the_settings_forbid",
 ]

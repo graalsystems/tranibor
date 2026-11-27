@@ -2143,10 +2143,13 @@ alias with `DELETE /api/v1/orgs/<slug>/aliases/<alias>`.
 Before the bootstrap, the API writes the database's one `installation` row: `personal` when
 `TRANIBOR_ENV=personal`, `organisation` for every other environment, and nothing changes it afterwards. A
 database recorded `personal` is never served under another `TRANIBOR_ENV`, nor the reverse: the API refuses
-to start, and says which. In the personal posture the installation holds one person: the database refuses a
+to start, and says which. `choregos-admin orgs bootstrap`, run on a database the API never started, records
+the row itself from its own `TRANIBOR_ENV` before it writes a membership: run it with the installation's
+`TRANIBOR_ENV`. In the personal posture the installation holds one person: the database refuses a
 membership for a second one, whatever writes it (a route answers 409 with the code `one_person`), a machine
-account excepted; the API also refuses to start when more than one person holds a membership, when
-`TRANIBOR_BOOTSTRAP_ADMINS` names more than one address, and on SQLite
+account excepted, and refuses to turn a machine account that holds a membership into a second person
+(`users.is_service` set to false); the API also refuses to start when more than one person holds a
+membership, when `TRANIBOR_BOOTSTRAP_ADMINS` names more than one address, and on SQLite
 (`apps/api/src/tranibor_api/personal_installation.py`). Outside the personal posture the row is only recorded.
 
 The CLI and CI authenticate with API tokens, which a person issues for themselves once
