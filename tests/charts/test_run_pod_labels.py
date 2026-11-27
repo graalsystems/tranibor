@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 import yaml
 from tranibor_adapters.executor.k8s_job import RUNNER_POD_LABELS, KubernetesJobExecutor
+from tranibor_adapters.executor.tekton import AGENT_STAGE, TektonExecutor
 from tranibor_core.domain import StageJobSpec
 
 from .conftest import OPERATOR_API
@@ -127,6 +128,52 @@ async def test_every_chart_policy_selects_both_pod_shapes_or_neither(
         if _selects(selector := policy["spec"].get("podSelector"), sandbox_pod) != _selects(selector, job_pod)
     ]
     assert not apart, f"policies that hold one executor's agent pods and not the other's: {apart}"
+
+
+@pytest.fixture
+def tekton_agent_pod() -> dict[str, str]:
+    """The labels of the agent stage's pod of the PipelineRun the `tekton` executor asks for (#2278).
+
+    As Tekton gives them: the PipelineRun's, then its own, then the embedded Task's `metadata.labels`
+    for a key not set yet (`combineTaskRunAndTaskSpecLabels`); the pod gets its TaskRun's."""
+    spec = StageJobSpec(
+        run_id="r-1",
+        project_slug="demo",
+        namespace="tranibor",
+        runner_image="harbor.example/tranibor/tranibor-runner:0.1.0",
+        api_url="http://tranibor-api:8000",
+        run_token="token",
+    )
+    run = TektonExecutor(client=object())._pipeline_run(spec, "run-r-1")  # type: ignore[arg-type]
+    [stage] = [t for t in run["spec"]["pipelineSpec"]["tasks"] if t["name"] == AGENT_STAGE]
+    labels: dict[str, str] = {
+        **run["metadata"]["labels"],
+        "tekton.dev/pipelineRun": "run-r-1",
+        "tekton.dev/pipelineTask": AGENT_STAGE,
+    }
+    for key, value in stage["taskSpec"].get("metadata", {}).get("labels", {}).items():
+        labels.setdefault(key, value)
+    return {
+        **labels,
+        "tekton.dev/taskRun": "run-r-1-agent-stage",
+        "app.kubernetes.io/managed-by": "tekton-pipelines",
+    }
+
+
+async def test_every_chart_policy_selects_a_tekton_agent_pod_as_a_job_s_pod(
+    rendered: list[dict[str, Any]], job_pod: dict[str, str], tekton_agent_pod: dict[str, str]
+) -> None:
+    """#2278: the agent stage's pod of a PipelineRun is held by the policies that hold a Job's pod."""
+    apart = [
+        policy["metadata"]["name"]
+        for policy in rendered
+        if policy["kind"] == "NetworkPolicy"
+        and _selects(selector := policy["spec"].get("podSelector"), job_pod)
+        != _selects(selector, tekton_agent_pod)
+    ]
+    assert not apart, f"policies that hold a Job's agent pod and not a PipelineRun's: {apart}"
+    for selector in PLATFORM_RUN_POD_SELECTORS:
+        assert _selects(selector, tekton_agent_pod), f"a tekton agent pod is outside {selector}"
 
 
 @pytest.mark.parametrize("selector", PLATFORM_RUN_POD_SELECTORS, ids=["tranibor", "choregos"])

@@ -966,12 +966,16 @@ until the real run gets a 409: it cannot read a run's token (the assignment is s
 pod's key), but it can deny the run its sandbox.
 
 Every pod an agent runs in carries the same labels, whichever executor started it (the warm pool's
-template and `k8s_job`'s Jobs): `app.kubernetes.io/name: choregos-runner`, `app.kubernetes.io/component:
-runner`, and `tranibor/sandbox: "true"` with, until 0.32.0, its former `choregos/sandbox: "true"`. A
+template, `k8s_job`'s Jobs and the agent stage of `tekton`'s PipelineRuns): `app.kubernetes.io/name:
+choregos-runner`, `app.kubernetes.io/component: runner`, and `tranibor/sandbox: "true"` with, until 0.32.0, its former `choregos/sandbox: "true"`. A
 platform that holds agent pods with a policy of its own (a Cilium refusal of everything but the API, the
 model gateway, the egress proxy and the memory, say) selects `tranibor/sandbox: "true"` (a policy written
 before 0.30.0 selects the former key, which still matches) and holds both. Up to 0.27.17 a `k8s_job` pod lacked that label and was outside
-such a policy (finding #2082); `tests/charts/test_run_pod_labels.py` fails when the two sets part again.
+such a policy (finding #2082), and up to 0.30.0 a `tekton` agent stage's pod lacked all three (finding #2278);
+`tests/charts/test_run_pod_labels.py` fails when the sets part again. On Tekton the labels are the agent
+stage's embedded Task's `metadata.labels`, which Tekton gives its TaskRun and pod (a `podTemplate` takes no
+labels); the clone's pod (the catalogue's `git-clone`, which runs nothing of the agent's and reaches the git
+host) does not carry them.
 
 How a run goes ([ADR 0053](adr/0053-agent-sandbox-as-built.md)): the executor writes the run's
 token into a Secret owned by the run's `SandboxClaim`; the controller binds a warm sandbox to
@@ -2201,7 +2205,11 @@ instant, before the runner.
 
 **What it does.** Every pod that runs agent code gets, as its FIRST init container, `egress-gate`: the
 `k8s_job` pod (before the ADR 0146 agent container and a hosted agent's sidecar) and the `agent_sandbox`
-template (before the ADR 0146 agent container). It runs from the runner's image (`python -m tranibor_core.egress_gate`), tries a
+template (before the ADR 0146 agent container). On `tekton` it is the agent stage's FIRST step,
+`egress-gate` (finding #2278): a Tekton `podTemplate` takes no init containers, and Tekton runs a Task's
+steps in order, so the runner's step starts only once the gate exited 0. The agent's sidecar under
+`container` starts with the pod, before the gate ends, as Tekton starts sidecars before the first step: it
+holds only the launcher, which runs nothing of the agent's until the runner's step asks it. It runs from the runner's image (`python -m tranibor_core.egress_gate`), tries a
 direct TCP connection to `target` again and again, and exits 0 once three attempts in a row did not
 connect (refused, reset, unreachable or timed out: a REJECT rule answers like a closed port, a DROP rule
 like a dead host). An attempt that connects starts the count again. Still open after

@@ -592,6 +592,8 @@ def _register_runtimes() -> None:
             memory_limit=os.environ.get("TRANIBOR_RUNNER_MEMORY_LIMIT", "") or "6Gi",
             runner_requests=_own_resources(os.environ.get("TRANIBOR_RUNNER_OWN_RESOURCES", ""), "requests"),
             runner_limits=_own_resources(os.environ.get("TRANIBOR_RUNNER_OWN_RESOURCES", ""), "limits"),
+            # The egress gate (S80-07f, #2278), the chart's `runner.egressGate`, as `k8s_job` gets it.
+            egress_gate=gate_from_env(os.environ),
         )
     )
     register("runtime", "k8s_job")(

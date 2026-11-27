@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -133,10 +134,13 @@ async def test_a_work_item_carried_on_a_real_instance(
 
     item = await tracker.fetch_item(key)
     assert item.state == "In Progress"
-    notes = [c for c in item.comments if RUN in c.body or "[choregos-status:" in c.body]
+    # From servicenow 0.2.22 the plugin tags its notes `[tranibor:…]` and `[tranibor-status:…]`; an earlier
+    # server wrote `[choregos:…]` and `[choregos-status:…]` (ADR 0226). Either is the same note.
+    tags = ("[tranibor-status:", "[choregos-status:")
+    notes = [c for c in item.comments if RUN in c.body or any(tag in c.body for tag in tags)]
     assert len(notes) == 2, [c.body for c in item.comments]  # one status, one comment: neither written twice
     # The status marker is Tranibor's `<!-- choregos:status -->` reduced to the profile's alphabet.
-    comment_marker = first.removeprefix("[choregos:").removesuffix("]")
+    comment_marker = re.sub(r"^\[(?:tranibor|choregos):|\]$", "", first)
     assert {c.marker for c in notes} == {"choregos:status", comment_marker}
     assert all(recent(c.ts) for c in notes)
 

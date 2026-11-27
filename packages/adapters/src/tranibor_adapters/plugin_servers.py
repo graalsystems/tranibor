@@ -57,6 +57,9 @@ CILIUM_API = "/apis/cilium.io/v2"
 #: The variable the server reads its bearer token from; it refuses `/mcp` without it (docs/plugins.md).
 #: The Secret also carries it under its former name until ADR 0176's R4 window closes (`_secret`).
 TOKEN_ENV = "TRANIBOR_SERVER_TOKEN"  # noqa: S105 - a variable name, not a secret
+#: The instance a pod is (ADR 0224 §3): the connector's name; the default instance reads the server's name.
+#: Reserved like the token: no configuration reaches the server under a `TRANIBOR_*` name.
+INSTANCE_ENV = "TRANIBOR_INSTANCE_NAME"
 CONFIG_DIGEST = "choregos.dev/config-digest"
 APP_NAME = "choregos-plugin-server"
 #: The `app.kubernetes.io/name` of every pod that calls a plugin server (`PluginServerClient`): the API
@@ -413,6 +416,7 @@ class PluginServerClient(McpClient):
 __all__ = [
     "CALLERS",
     "CONFIG_DIGEST",
+    "INSTANCE_ENV",
     "PRIVATE_RANGES",
     "TOKEN_ENV",
     "PluginServerClient",

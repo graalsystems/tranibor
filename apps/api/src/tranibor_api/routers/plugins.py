@@ -14,13 +14,13 @@ serves the content that was checked.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, Path, Response, status
 from fastapi.responses import JSONResponse
 from tranibor_core.plugins import Plugin, PluginError
 
-from ..db.models import OrgPluginApproval
+from ..db.models import OrgConnector, OrgPlugin, OrgPluginApproval
 from ..decision_session import PLUGIN_INSTALLS, require_person_session
 from ..deps import Config, Db, Me
 from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
@@ -33,12 +33,16 @@ from ..schemas.plugins import (
     PluginInstallPending,
     PluginKept,
     PluginList,
+    PluginServerInstance,
+    PluginServerInstanceCreate,
+    PluginServerInstanceList,
     PluginUninstallResult,
     PluginUpgrade,
     PluginUpgradeResult,
 )
 from ..services import plugin_approvals as approvals
 from ..services import plugin_installer as installer
+from ..services import plugin_servers
 from ..services.catalogue_rights import CatalogueAction, decide
 from ..services.plugin_sources import assess_plugin
 from ..services.plugin_supply import (
@@ -51,6 +55,8 @@ from ..services.plugin_supply import (
 router = APIRouter(tags=["agents"])
 
 Name = Annotated[str, Path(pattern=PLUGIN_NAME)]
+ServerName = Annotated[str, Path(pattern=PLUGIN_NAME)]
+InstanceName = Annotated[str, Path(pattern=r"^[a-z][a-z0-9-]{1,47}$")]
 ApprovalId = Annotated[str, Path(min_length=1, max_length=64)]
 SUPPLY_ERRORS = (PluginNotFoundError, PluginVersionUnsupportedError, PluginError, SourceError)
 PENDING = {
@@ -189,6 +195,93 @@ async def uninstall_plugin(
         removed=PluginKept.model_validate(outcome["removed"]),
         kept=PluginKept.model_validate(outcome["kept"]),
     )
+
+
+# ───────────────────────────── the instances of a server (ADR 0224 §3) ─────────────────────────────
+
+
+def _instance_dto(row: OrgConnector) -> PluginServerInstance:
+    return PluginServerInstance(
+        name=row.name,
+        server=str(plugin_servers.instance_of(row)),
+        default=plugin_servers.is_default(row),
+        state=plugin_servers.state_of(row),
+        status=row.status,
+        last_error=row.last_error,
+    )
+
+
+async def _server_doc(session: Db, org_id: str, plugin: str, server: str) -> tuple[OrgPlugin, dict[str, Any]]:
+    row = await installer.installed_one(session, org_id, plugin)
+    doc = (row.details.get("servers") or {}).get(server)
+    if not isinstance(doc, dict):
+        raise not_found("Server", f"{plugin}/{server}")
+    return row, doc
+
+
+@router.get(
+    "/orgs/{org}/plugins/{name}/servers/{server}/instances",
+    response_model=PluginServerInstanceList,
+    operation_id="listPluginServerInstances",
+)
+async def list_server_instances(
+    org: str, name: Name, server: ServerName, session: Db, principal: Me
+) -> PluginServerInstanceList:
+    _may_see(principal, org)
+    org_id = await installer.org_id_of(session, org)
+    await _server_doc(session, org_id, name, server)
+    found = await plugin_servers.instances_of(session, org_id, name, server)
+    return PluginServerInstanceList(items=[_instance_dto(r) for r in found])
+
+
+@router.post(
+    "/orgs/{org}/plugins/{name}/servers/{server}/instances",
+    response_model=PluginServerInstance,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createPluginServerInstance",
+)
+async def create_server_instance(
+    org: str,
+    name: Name,
+    server: ServerName,
+    body: PluginServerInstanceCreate,
+    session: Db,
+    principal: Me,
+    settings: Config,
+) -> PluginServerInstance:
+    _may_install(principal, org)
+    org_id = await installer.org_id_of(session, org)
+    row, doc = await _server_doc(session, org_id, name, server)
+    created = await plugin_servers.add_instance(
+        session, org_id, row.name, row.version, doc, body.name, principal, settings
+    )
+    return _instance_dto(created)
+
+
+@router.delete(
+    "/orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deletePluginServerInstance",
+)
+async def delete_server_instance(
+    org: str,
+    name: Name,
+    server: ServerName,
+    instance: InstanceName,
+    session: Db,
+    principal: Me,
+    settings: Config,
+) -> Response:
+    _may_install(principal, org)
+    org_id = await installer.org_id_of(session, org)
+    await _server_doc(session, org_id, name, server)
+    found = [
+        r for r in await plugin_servers.instances_of(session, org_id, name, server) if r.name == instance
+    ]
+    if not found:
+        raise not_found("Instance", f"{name}/{server}/{instance}")
+    await plugin_servers.remove_instance(session, found[0], principal, settings)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ───────────────────────────── the second approval (ADR 0050) ─────────────────────────────

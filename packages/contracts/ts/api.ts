@@ -4300,6 +4300,28 @@ export type PluginUninstallResult = {
   kept: PluginKept;
 };
 
+export type PluginServerInstanceCreate = {
+  /** the instance's connector name, unique among the organisation's connectors; its tools are `<name>__<operation>` */
+  name: string;
+};
+
+export type PluginServerInstance = {
+  /** the instance's connector name, whose routes configure it */
+  name: string;
+  /** the server of the plugin this is an instance of */
+  server: string;
+  /** the instance named after the server, created by the install; only an uninstall removes it */
+  default: boolean;
+  state: "unconfigured" | "starting" | "ready" | "failing";
+  /** the connector's own status the state is derived from */
+  status: string;
+  last_error: string | null;
+};
+
+export type PluginServerInstanceList = {
+  items: Array<PluginServerInstance>;
+};
+
 export type PluginUpgrade = {
   /** an exact version or a range; absent, the newest admissible */
   version?: string;
@@ -6946,6 +6968,7 @@ export interface Operations {
   createOrgGroup: { method: "POST"; path: "/orgs/{org}/groups"; body: OrgGroupCreate; response: OrgGroup };
   createOutpost: { method: "POST"; path: "/orgs/{org}/outposts"; body: OutpostCreate; response: Outpost };
   createOutpostEnrolment: { method: "POST"; path: "/orgs/{org}/outposts/{slug}/enrolments"; body: OutpostEnrolmentCreate; response: OutpostEnrolmentCreated };
+  createPluginServerInstance: { method: "POST"; path: "/orgs/{org}/plugins/{name}/servers/{server}/instances"; body: PluginServerInstanceCreate; response: PluginServerInstance };
   createProject: { method: "POST"; path: "/orgs/{org}/projects"; body: ProjectCreate; response: Project };
   createProjectKnowledgeBase: { method: "POST"; path: "/projects/{id}/knowledge"; body: ProjectKnowledgeBaseCreate; response: KnowledgeBase };
   createProjectMemory: { method: "POST"; path: "/projects/{id}/memories"; body: ProjectMemoryCreate; response: MemoryStore };
@@ -6979,6 +7002,7 @@ export interface Operations {
   deleteOrgSaml: { method: "DELETE"; path: "/orgs/{org}/saml"; body: never; response: void };
   deleteOutboundProxy: { method: "DELETE"; path: "/orgs/{org}/outbound-proxy"; body: never; response: void };
   deleteOutpost: { method: "DELETE"; path: "/orgs/{org}/outposts/{slug}"; body: never; response: void };
+  deletePluginServerInstance: { method: "DELETE"; path: "/orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}"; body: never; response: void };
   deleteProject: { method: "DELETE"; path: "/projects/{id}"; body: never; response: void };
   deleteTeamsDelivery: { method: "DELETE"; path: "/orgs/{org}/assistants/{slug}/delivery/teams"; body: never; response: void };
   deleteTrackerIdentity: { method: "DELETE"; path: "/orgs/{org}/members/{user_id}/tracker-identities/{tracker}"; body: never; response: void };
@@ -7268,6 +7292,7 @@ export interface Operations {
   listPlatformModels: { method: "GET"; path: "/platform/models"; body: never; response: GatewayModelPage };
   listPluginApprovals: { method: "GET"; path: "/orgs/{org}/plugin-approvals"; body: never; response: PluginApprovalList };
   listPluginAssistants: { method: "GET"; path: "/orgs/{org}/plugins/{name}/assistants"; body: never; response: PluginAssistantList };
+  listPluginServerInstances: { method: "GET"; path: "/orgs/{org}/plugins/{name}/servers/{server}/instances"; body: never; response: PluginServerInstanceList };
   listPluginSources: { method: "GET"; path: "/orgs/{org}/plugin-sources"; body: never; response: PluginSources };
   listPlugins: { method: "GET"; path: "/orgs/{org}/plugins"; body: never; response: PluginList };
   listProcedures: { method: "GET"; path: "/procedures"; body: never; response: Array<ProcedureSummary> };

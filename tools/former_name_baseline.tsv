@@ -698,7 +698,6 @@
 1	examples/agents/plain/src/choregos_agent_examples/__init__.py
 1	examples/agents/pydantic-ai/pyproject.toml
 1	examples/agents/pydantic-ai/src/pydantic_ai_triager/__init__.py
-2	examples/demo-plugin-servers/servicenow.yaml
 1	examples/hosted/README.md
 2	examples/hosted/agent-framework-foundry/main.py
 2	examples/hosted/claude-agent-sdk-node/package-lock.json
@@ -759,7 +758,7 @@
 1	packages/adapters/src/tranibor_adapters/fakes/batch.py
 1	packages/adapters/src/tranibor_adapters/fakes/forge_accounts.py
 2	packages/adapters/src/tranibor_adapters/fakes/github_app.py
-3	packages/adapters/src/tranibor_adapters/fakes/in_process_plugin_servers.py
+1	packages/adapters/src/tranibor_adapters/fakes/in_process_plugin_servers.py
 1	packages/adapters/src/tranibor_adapters/fakes/oauth_provider.py
 5	packages/adapters/src/tranibor_adapters/fakes/plugin_tracker.py
 1	packages/adapters/src/tranibor_adapters/fakes/scenes.py
@@ -1404,7 +1403,7 @@
 1	tests/fixtures/plugins/investment-assistant/plugin.yaml
 1	tests/fixtures/plugins/investment-assistant/workflows/morning-brief.yaml
 1	tests/fixtures/plugins/investment-assistant/workflows/threshold-alert.yaml
-2	tests/fixtures/plugins/servicenow/evals/matrix/itsm-triage-similar-incidents.yaml
+1	tests/fixtures/plugins/servicenow/evals/matrix/itsm-triage-similar-incidents.yaml
 1	tests/fixtures/plugins/servicenow/plugin.yaml
 2	tests/fixtures/plugins/servicenow/servers/servicenow.yaml
 1	tests/fixtures/repos/node-toy/README.md
@@ -1434,7 +1433,7 @@
 2	tests/live/test_keycloak_exchange_live.py
 4	tests/live/test_llm_guard_live.py
 5	tests/live/test_otel_collector_live.py
-11	tests/live/test_servicenow_live.py
+13	tests/live/test_servicenow_live.py
 1	tests/live/test_vault_transit_temporal_keys_live.py
 5	tests/packaging/conftest.py
 10	tests/packaging/test_console_scripts.py

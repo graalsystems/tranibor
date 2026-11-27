@@ -97,3 +97,24 @@ class PluginUninstallResult(Dto):
     version: str
     removed: PluginKept
     kept: PluginKept
+
+
+class PluginServerInstanceCreate(Dto):
+    """`POST /orgs/{org}/plugins/{name}/servers/{server}/instances` (ADR 0224 §3)."""
+
+    name: str = Field(pattern=r"^[a-z][a-z0-9-]{1,47}$")
+
+
+class PluginServerInstance(Dto):
+    """One instance of a plugin's server: an organisation connector, and its state for the console."""
+
+    name: str
+    server: str
+    default: bool
+    state: Literal["unconfigured", "starting", "ready", "failing"]
+    status: str
+    last_error: str | None
+
+
+class PluginServerInstanceList(Dto):
+    items: list[PluginServerInstance]
