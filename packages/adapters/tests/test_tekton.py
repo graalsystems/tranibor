@@ -11,12 +11,14 @@ from typing import Any
 
 import pytest
 import yaml
+from tranibor_adapters.errors import UpstreamError
 from tranibor_adapters.executor import separate_agent
 from tranibor_adapters.executor.k8s_job import KubernetesJobExecutor
 from tranibor_adapters.executor.tekton import TEKTON_API, TektonExecutor
 from tranibor_adapters.fakes.kubernetes import FakeKubernetesApi
+from tranibor_contracts import ExecutorKind
 from tranibor_core.agent_isolation import AGENT_ISOLATION_ENV, SEPARATE_AGENT
-from tranibor_core.domain import StageJobSpec
+from tranibor_core.domain import ExecRef, StageJobSpec
 
 RUNNER = "registry.example/tranibor-runner:1.0"
 
@@ -163,3 +165,67 @@ def test_no_pipeline_is_named_in_the_configuration(isolation: str) -> None:
     """The `pipeline` knob is gone with the Pipeline it named: nothing but the run's spec says what runs."""
     run = _run(agent_isolation=isolation)
     assert "tranibor-agent" not in yaml.safe_dump(run["spec"]["pipelineSpec"])
+
+
+class _PodLogsApi:
+    """The API server's pods of one PipelineRun and their logs, per container (#2279).
+
+    A label selector is matched as the API server matches it (every `key=value`), and a log asked of a
+    container the pod does not have is refused with a 400, as the API server refuses it."""
+
+    def __init__(self, pods: list[dict[str, Any]], logs: dict[tuple[str, str], str]) -> None:
+        self.pods = pods
+        self.logs = logs
+
+    async def request(self, method: str, path: str, **kwargs: Any) -> Any:
+        assert method == "GET"
+        params = kwargs.get("params") or {}
+        if path.endswith("/pods"):
+            wanted = dict(term.split("=", 1) for term in params["labelSelector"].split(","))
+            return {"items": [p for p in self.pods if wanted.items() <= p["metadata"]["labels"].items()]}
+        pod, container = path.split("/pods/", 1)[1].removesuffix("/log"), params["container"]
+        if (pod, container) not in self.logs:
+            raise UpstreamError(
+                "kubernetes", f"container {container} is not valid for pod {pod}", status_code=400
+            )
+        return self.logs[(pod, container)]
+
+
+def _task_pod(name: str, task: str, containers: list[str]) -> dict[str, Any]:
+    return {
+        "metadata": {
+            "name": name,
+            "labels": {"tekton.dev/pipelineRun": "run-r-1", "tekton.dev/pipelineTask": task},
+        },
+        "spec": {"containers": [{"name": c} for c in containers]},
+    }
+
+
+async def test_logs_read_each_tasks_own_step_container() -> None:
+    """The clone's pod is read from the catalogue's `step-clone`, the agent stage's from `step-run` alone."""
+    api = _PodLogsApi(
+        # The agent stage's pod listed first, as the API may list it: the log keeps the pipeline's order.
+        pods=[
+            _task_pod("run-r-1-agent-stage-pod", "agent-stage", ["step-run", "sidecar-agent"]),
+            _task_pod("run-r-1-clone-pod", "clone", ["prepare", "step-clone"]),
+            {"metadata": {"name": "other-run-pod", "labels": {"tekton.dev/pipelineRun": "run-r-2"}}},
+        ],
+        logs={
+            ("run-r-1-clone-pod", "step-clone"): "cloned main\n",
+            ("run-r-1-agent-stage-pod", "step-run"): "runner started\nrunner done\n",
+            ("run-r-1-agent-stage-pod", "sidecar-agent"): "the agent's own output\n",
+        },
+    )
+    executor = TektonExecutor(client=api)  # type: ignore[arg-type]
+    ref = ExecRef(kind=ExecutorKind.TEKTON, name="run-r-1", namespace="proj-demo-runners", run_id="r-1")
+    assert [line async for line in executor.logs(ref)] == ["cloned main", "runner started", "runner done"]
+
+
+async def test_logs_of_a_run_without_a_repository_are_the_runners() -> None:
+    api = _PodLogsApi(
+        pods=[_task_pod("run-r-1-agent-stage-pod", "agent-stage", ["step-run"])],
+        logs={("run-r-1-agent-stage-pod", "step-run"): "runner done\n"},
+    )
+    executor = TektonExecutor(client=api)  # type: ignore[arg-type]
+    ref = ExecRef(kind=ExecutorKind.TEKTON, name="run-r-1", namespace="proj-demo-runners", run_id="r-1")
+    assert [line async for line in executor.logs(ref)] == ["runner done"]
