@@ -205,6 +205,9 @@ class Action(Base, PkMixin, TimestampMixin):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     temporal_wf_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Proposed by a demonstration history import (ADR 0216, point 14): deciding it records the decision and
+    #: plays nothing, and the relay never starts it.
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class ActionEffect(Base, PkMixin, TimestampMixin):

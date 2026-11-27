@@ -35,8 +35,22 @@ async def test_the_history_is_written_and_every_row_says_it_is_imported(
 
     assert answer.status_code == 200, answer.text
     body = answer.json()
-    assert body["created"] == {"work_items": 2, "runs": 2, "decisions": 1, "findings": 1, "pending": 0}
-    assert body["unchanged"] == {"work_items": 0, "runs": 0, "decisions": 0, "findings": 0, "pending": 0}
+    assert body["created"] == {
+        "work_items": 2,
+        "runs": 2,
+        "decisions": 1,
+        "findings": 1,
+        "pending": 0,
+        "actions": 0,
+    }
+    assert body["unchanged"] == {
+        "work_items": 0,
+        "runs": 0,
+        "decisions": 0,
+        "findings": 0,
+        "pending": 0,
+        "actions": 0,
+    }
     # 112000 fresh input at 3, 300000 cached at 0.3, 18500 output at 15, then the declared 0.25.
     assert body["cost_usd"] == pytest.approx(0.7035 + 0.25)
 
@@ -106,6 +120,7 @@ async def test_importing_the_same_document_again_changes_nothing(
         "decisions": 0,
         "findings": 0,
         "pending": 0,
+        "actions": 0,
     }
     assert again.json()["unchanged"] == {
         "work_items": 2,
@@ -113,6 +128,7 @@ async def test_importing_the_same_document_again_changes_nothing(
         "decisions": 1,
         "findings": 1,
         "pending": 0,
+        "actions": 0,
     }
     assert again.json()["cost_usd"] == 0.0
     assert [await _count(model) for model in models] == before

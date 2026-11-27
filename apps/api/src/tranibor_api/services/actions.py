@@ -483,6 +483,11 @@ async def decide(
         by=principal.email,
         status=new_status,
     )
+    if action.imported:
+        # Proposed by a demonstration history import (ADR 0216, point 14): no workflow runs its work item and
+        # nothing it would write outside the platform is played. The decision is recorded, audited, and that
+        # is all: no `ActionWorkflow`, no signal to an interpreter that does not exist.
+        return action
     if new_status == ActionStatus.APPROVED.value:
         start_once_committed(session, action)
     elif new_status == ActionStatus.REJECTED.value:

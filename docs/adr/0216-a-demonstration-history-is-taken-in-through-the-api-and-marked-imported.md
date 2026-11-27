@@ -1,6 +1,6 @@
 # 0216 — A demonstration history is taken in through the API, and marked imported
 
-- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (points 12 and 13)
+- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (points 12 to 14)
 - **Concerns**: `apps/api` (`routers/demo_history.py`, `services/demo_history.py`, `rbac.py`, `services/budgets.py`,
   `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`, `metrics.py`,
   `services/projects.py`), `apps/web`
@@ -106,6 +106,19 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     does for a live step, so the run page's guarantees panel reads it. Rows go with the run (a removal's
     cascade). A run without them keeps the digest it had before they existed: a document imported then is
     still the same document now. Proven by `apps/api/tests/test_demo_history_run_outputs.py`.
+14. **A work item's governed actions** (2026-11-27, a `contract-change` and a migration): a work item of the
+    document may name the transitions whose governed actions (ADR 0035) were proposed, each `pending` or
+    `succeeded` (`DemoAction {transition, status, at, decided_by, decided_at}`). The import proposes each
+    with the product's own service (`propose_for_transition`: title, parameters and approvers rendered
+    from the work item's fields, the project's policy read) and marks it `imported` (`actions.imported`).
+    A `pending` one waits for its approvers, in the project's actions and the organisation's inbox; a
+    policy that approves it on proposal is a 422 (it never waits: declare it `succeeded`). **Deciding an
+    imported action records the decision, audited, and plays nothing**: `actions.decide` starts no
+    `ActionWorkflow` and signals no interpreter for it, and the actions' relay never starts one, so nothing
+    it would write outside the platform is ever sent. A `succeeded` one carries the approver the document
+    names and an effects' log whose every entry says `{"imported": true, "played": false}`. The removal
+    deletes them. The console shows the **Imported** badge on them (the actions list, the action's page,
+    the inbox). Proven by `apps/api/tests/test_demo_history_actions.py` and `apps/web/tests/inbox-view.test.tsx`.
 
 ## Not done
 
@@ -113,5 +126,4 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
   as any live one: that is a person's choice, not the import's.
 - No version of the document beyond `v1`; a run's tool calls, artifacts (files) and transcripts are not
   importable (its outputs, evidence and gates are, point 13).
-- A governed action waiting for approval, and a release train (the `software-delivery` plugin's), are not
-  importable.
+- A release train (the `software-delivery` plugin's) is not importable; a governed action is (point 14).
