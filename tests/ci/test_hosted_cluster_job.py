@@ -64,10 +64,11 @@ def test_the_gate_waits_for_the_job_and_the_filter_covers_what_it_proves() -> No
     assert "github.ref == 'refs/heads/main'" in _job()["if"]
 
 
-def test_the_job_runs_tektons_agent_stage_under_gvisor() -> None:
+def test_the_job_runs_tektons_agent_stage_with_its_egress_gate() -> None:
     """S87-06: Tekton Pipelines, the release the proof names and checked against its checksum, installed
-    after gVisor, then the isolation probe and one agent run, both under the `gvisor` RuntimeClass, with
-    the runner image this job builds; a skip fails the job."""
+    after gVisor, then the isolation probe and one agent run with the egress gate (Calico enforces the
+    policies, #2278) and the runner image this job builds; a skip fails the job. Under runc: under gVisor
+    the steps cannot load Tekton's entrypoint (#2361)."""
     steps = _job()["steps"]
     runs = _runs()
     [install] = [i for i, s in enumerate(steps) if "v1.6.0/release.yaml" in str(s.get("run"))]
@@ -79,7 +80,8 @@ def test_the_job_runs_tektons_agent_stage_under_gvisor() -> None:
     assert tekton > install
     run = steps[tekton]["run"]
     assert "tests/cluster/test_tekton_agent_run.py" in run
-    assert "TRANIBOR_TEKTON_RUNTIME_CLASS=gvisor" in run
+    assert "TRANIBOR_TEKTON_EGRESS_GATE=1" in run
+    assert "TRANIBOR_TEKTON_RUNTIME_CLASS" not in run, "gVisor fails Tekton's steps (#2361)"
     assert 'TRANIBOR_TEKTON_RUNNER_IMAGE="$TRANIBOR_HOSTED_RUNNER_IMAGE"' in run
     assert "TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context)" in run
     assert "use-context kind-" in runs, "the current context is the 1.34 cluster again"

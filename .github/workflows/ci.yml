@@ -166,7 +166,7 @@ jobs:
               - 'packages/runner/src/tranibor_runner/hosted.py'
               - 'packages/runner/src/tranibor_runner/hosted_workspace.py'
               - 'examples/hosted/reference/**'
-              # Tekton's agent stage under gVisor (S87-06): the executor, the agent's sidecar, the launcher.
+              # Tekton's agent stage on a cluster (S87-06): the executor, the agent's sidecar, the launcher.
               - 'packages/adapters/src/tranibor_adapters/executor/tekton.py'
               - 'packages/adapters/src/tranibor_adapters/executor/separate_agent.py'
               - 'packages/runner/src/tranibor_runner/launcher.py'
@@ -823,8 +823,9 @@ jobs:
     # answering a turn through the real runner image, a sidecar of another user changing the files
     # the runner copied (`fsGroup`), and the pod under the `gvisor` RuntimeClass (runsc in the kind
     # node, `make cluster-gvisor`). The unit tests prove the Job's JSON; this proves a kubelet runs it.
-    # And Tekton's agent stage under the same RuntimeClass (S87-06): the executor's own PipelineRun with
-    # Tekton Pipelines v1.6.0, the isolation probe, then one agent run through the runner's own command.
+    # And Tekton's agent stage (S87-06): the executor's own PipelineRun with Tekton Pipelines v1.6.0, the
+    # isolation probe, then one agent run through the runner's own command, under runc: under gVisor its
+    # steps cannot load Tekton's entrypoint (#2361).
     needs: changes
     if: needs.changes.outputs.hosted-cluster == 'true' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -876,11 +877,11 @@ jobs:
           # A skip proves nothing: a context, an image or the RuntimeClass went missing, and the job says so.
           ! grep -qi skipped pytest.out
           grep -c passed pytest.out
-          # Tekton's agent stage under gVisor (S87-06): the isolation probe, then one agent run. `-s` prints
-          # the run's journal, whose text may say "skipped": pytest's own skip lines and summary are read.
-          # Calico enforces NetworkPolicies, so the egress gate runs as the stage's first step (#2278).
-          TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context) TRANIBOR_TEKTON_RUNTIME_CLASS=gvisor \
-            TRANIBOR_TEKTON_EGRESS_GATE=1 \
+          # Tekton's agent stage (S87-06): the isolation probe, then one agent run, under runc (under gVisor
+          # its steps cannot load Tekton's entrypoint, #2361). `-s` prints the run's journal, whose text may
+          # say "skipped": pytest's own skip lines and summary are read. Calico enforces NetworkPolicies, so
+          # the egress gate runs as the stage's first step (#2278).
+          TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context) TRANIBOR_TEKTON_EGRESS_GATE=1 \
             TRANIBOR_TEKTON_RUNNER_IMAGE="$TRANIBOR_HOSTED_RUNNER_IMAGE" uv run pytest \
             tests/cluster/test_tekton_isolation.py tests/cluster/test_tekton_agent_run.py -m cluster -rs -s | tee tekton.out
           ! grep -qE '^SKIPPED|[0-9]+ skipped' tekton.out
