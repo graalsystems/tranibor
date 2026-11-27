@@ -8,7 +8,7 @@ servers:
     server: servicenow
     # Put on sys.path; omit it when the package is installed in the API's environment.
     path: ../tranibor-agents/plugins/servicenow/server/src
-    app: choregos_servicenow.app:build_app
-    settings: choregos_servicenow.config:Settings.from_env
+    app: tranibor_servicenow.app:build_app
+    settings: tranibor_servicenow.config:Settings.from_env
     # Beyond the plugin's own `fake.env` (SERVICENOW_FAKE=1): a seed of your own, if the server reads one.
     # fake_env: {SERVICENOW_FAKE_SEED: ./my-seed.json}

@@ -15,8 +15,8 @@ The file says where each server's package is and how to build its ASGI applicati
       - plugin: servicenow
         server: servicenow
         path: /work/tranibor-agents/plugins/servicenow/server/src   # put on sys.path (omit: installed)
-        app: choregos_servicenow.app:build_app                       # module:callable, called with settings
-        settings: choregos_servicenow.config:Settings.from_env       # module:callable(env) -> settings
+        app: tranibor_servicenow.app:build_app                       # module:callable, called with settings
+        settings: tranibor_servicenow.config:Settings.from_env       # module:callable(env) -> settings
         fake_env: {SERVICENOW_FAKE_SEED: /work/seed.json}            # beyond the plugin's `fake.env`
 
 `app(settings(env))` builds the application (`app(env)` when `settings` is absent) with `env` made of the
