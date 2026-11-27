@@ -376,7 +376,7 @@ class TektonExecutor:
         if cloned:
             tasks.append(
                 {
-                    "name": "clone",
+                    "name": CLONE_TASK,
                     "taskRef": {"name": "git-clone"},
                     "workspaces": [{"name": "output", "workspace": "source"}],
                     "params": [
@@ -389,7 +389,7 @@ class TektonExecutor:
         tasks.append(
             {
                 "name": AGENT_STAGE,
-                **({"runAfter": ["clone"]} if cloned else {}),
+                **({"runAfter": [CLONE_TASK]} if cloned else {}),
                 "taskSpec": self._agent_stage(spec, name),
                 "workspaces": [{"name": "source", "workspace": "source"}],
             }
@@ -500,20 +500,30 @@ class TektonExecutor:
             return StageResult.model_validate(response.json())
 
     async def logs(self, ref: ExecRef) -> AsyncIterator[str]:
-        pods = await self.client.request(
-            "GET",
-            f"{CORE_API}/namespaces/{ref.namespace}/pods",
-            params={"labelSelector": f"tekton.dev/pipelineRun={ref.name}"},
-        )
-        for pod in (pods or {}).get("items", []):
-            name = pod["metadata"]["name"]
-            text = await self.client.request(
+        """The run's log: the clone's, then the agent stage's runner step (#2279).
+
+        Each task's pod is found by its `tekton.dev/pipelineTask` label, and read from its own step
+        containers. Asking the clone's pod for the runner's `step-run` was refused (the catalogue's
+        `git-clone` has no such step), and the clone's log was never shown. The agent stage's pod is
+        read from `step-run` alone: the agent's sidecar under `container` (ADR 0146) is never what the
+        platform archives as the run's log, as `k8s_job` reads its `runner` container alone.
+        """
+        for task in (CLONE_TASK, AGENT_STAGE):
+            pods = await self.client.request(
                 "GET",
-                f"{CORE_API}/namespaces/{ref.namespace}/pods/{name}/log",
-                params={"container": "step-run"},
+                f"{CORE_API}/namespaces/{ref.namespace}/pods",
+                params={"labelSelector": f"tekton.dev/pipelineRun={ref.name},tekton.dev/pipelineTask={task}"},
             )
-            for line in str(text or "").splitlines():
-                yield line
+            for pod in (pods or {}).get("items", []):
+                name = pod["metadata"]["name"]
+                for container in _step_containers(task, pod):
+                    text = await self.client.request(
+                        "GET",
+                        f"{CORE_API}/namespaces/{ref.namespace}/pods/{name}/log",
+                        params={"container": container},
+                    )
+                    for line in str(text or "").splitlines():
+                        yield line
 
     async def cancel(self, ref: ExecRef) -> None:
         """A clean cancellation: Tekton stops the Tasks, then the secret is cleaned up."""
@@ -553,6 +563,27 @@ REMOTE_TOKEN_FIELD = "remote-token"  # noqa: S105 - a Secret key name, not a sec
 
 #: The agent stage's task in the inline Pipeline.
 AGENT_STAGE = "agent-stage"
+#: The clone's task in the inline Pipeline, when the project has a repository: the catalogue's `git-clone`.
+CLONE_TASK = "clone"
+#: The container Tekton runs a step named `run` in (`step-<name>`): the runner's, in the agent stage.
+RUNNER_STEP_CONTAINER = "step-run"
+#: The catalogue's `git-clone` Task has one step, `clone`, in every version of the catalogue.
+CLONE_STEP_CONTAINER = "step-clone"
+
+
+def _step_containers(task: str, pod: dict[str, Any]) -> list[str]:
+    """The containers of a task's pod whose log is the run's log.
+
+    The agent stage is ours: its runner's step alone. The clone is the namespace's `git-clone` Task, by
+    reference: its own steps, as the pod lists them (Tekton names a step's container `step-<name>`), and
+    the catalogue's `step-clone` when the pod does not list them."""
+    if task == AGENT_STAGE:
+        return [RUNNER_STEP_CONTAINER]
+    containers = ((pod.get("spec") or {}).get("containers")) or []
+    steps = [str(c["name"]) for c in containers if str(c.get("name", "")).startswith("step-")]
+    return steps or [CLONE_STEP_CONTAINER]
+
+
 #: Where Tekton mounts the Task's workspace, in the runner's step and the agent's sidecar alike, and the
 #: variable that tells the runner its working tree there.
 WORKSPACE_PATH = "$(workspaces.source.path)"
