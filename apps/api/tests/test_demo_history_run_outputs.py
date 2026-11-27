@@ -72,7 +72,8 @@ async def test_outputs_that_are_not_a_stage_result_s_are_refused_and_nothing_is_
     client: AsyncClient, project: dict[str, Any]
 ) -> None:
     document = _with_outputs()
-    document["work_items"][0]["runs"][0]["evidence"] = {"tests_run": "many"}
+    # A fact is a simple value the `evidence_facts` gate can check, never an object.
+    document["work_items"][0]["runs"][0]["evidence"] = {"facts": {"clauses": {"cited": 1}}}
 
     answer = await client.post(URL.format(id=project["id"]), json=document)
 
