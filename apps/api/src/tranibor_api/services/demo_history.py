@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import (
@@ -43,6 +44,7 @@ from tranibor_contracts import (
     EventType,
     HumanDecision,
     HumanRequestKind,
+    StageResult,
     Workflow,
 )
 from tranibor_core import WorkflowEngine
@@ -59,6 +61,7 @@ from ..db.models import (
     Membership,
     Project,
     Run,
+    RunEvent,
     User,
     WorkItem,
 )
@@ -118,6 +121,12 @@ def digest_of(item: DemoWorkItem, workflow: str, prices: dict[str, DemoPrice]) -
     """What an import of this work item stands for: its content, the workflow and the prices of its models."""
     used = {run.model: prices[run.model].model_dump() for run in item.runs if run.model in prices}
     dumped = item.model_dump(mode="json")
+    for run in dumped.get("runs", []):
+        # A run without outputs, evidence or gates keeps the digest it had before they existed (ADR 0216,
+        # point 13): a document imported then is still the same document now, not a 409.
+        for name, empty in (("outputs", {}), ("evidence", None), ("gates", [])):
+            if run.get(name) == empty:
+                run.pop(name, None)
     if dumped.get("pending") is None:
         # A work item without a waiting request keeps the digest it had before `pending` existed: a document
         # imported then is still the same document now, not a 409.
@@ -278,6 +287,14 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
                 fields=dict(item.fields),
             ),
         )
+        for run in item.runs:
+            try:
+                _result_of(run)
+            except ValidationError as error:
+                raise unprocessable(
+                    f"run `{run.id}` of `{item.id}`: its outputs or evidence are not a stage result's: "
+                    f"{error.errors()[0]['msg']} at {'.'.join(str(p) for p in error.errors()[0]['loc'])}"
+                ) from error
         costs = {run.id: cost_of(run, document.prices) for run in item.runs}
         existing = (
             await session.execute(
@@ -306,12 +323,18 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
 
 
 def _result_of(run: DemoRun) -> dict[str, Any]:
+    """The run's stage result, as a live step's: its summary, and what the document says it returned
+    and proved. Judged by the stage result's contract, so the console reads it as it reads a live one."""
     outcome = "done" if run.status == "succeeded" else "failed"
     summary = run.summary or f"{run.stage} {run.status.replace('_', ' ')}"
     result: dict[str, Any] = {"schema": STAGE_RESULT_SCHEMA, "status": outcome, "summary": summary}
     if outcome == "failed":
         result["reason"] = run.status
-    return result
+    if run.outputs:
+        result["outputs"] = run.outputs
+    if run.evidence is not None:
+        result["evidence"] = run.evidence
+    return StageResult.model_validate(result).model_dump(mode="json", by_alias=True, exclude_none=True)
 
 
 async def _write_runs(
@@ -387,6 +410,25 @@ async def _write_runs(
     # The runs first: a ledger line's foreign key must find its run (the ledger maps no relationship).
     await session.flush()
     session.add_all(ledger)
+    # The gates' verdicts, in the run's journal as a live step writes them; they go with the run.
+    for run in planned.item.runs:
+        ended = _utc(run.started_at) + timedelta(seconds=run.duration_s or 0.0)
+        run_id = derived_id(project.id, "run", planned.item.id, run.id)
+        session.add_all(
+            RunEvent(
+                run_id=run_id,
+                seq=seq,
+                type="gate.outcome",
+                payload={
+                    "name": gate.name,
+                    "passed": gate.passed,
+                    "pending": False,
+                    "detail": gate.detail or "",
+                },
+                ts=ended,
+            )
+            for seq, gate in enumerate(run.gates, start=1)
+        )
     cost_usd = round(totals["cost_usd"], 6)
     return cost_usd, {
         **totals,

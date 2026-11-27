@@ -48,6 +48,14 @@ class DemoTokens(Strict):
         return self
 
 
+class DemoGate(Strict):
+    """A gate's verdict on the run, as the live step's journal records it (`gate.outcome`)."""
+
+    name: str = Field(min_length=1, max_length=64)
+    passed: bool
+    detail: str | None = Field(default=None, max_length=2000)
+
+
 class DemoRun(Strict):
     id: ExternalId
     stage: str = Field(min_length=1, max_length=32)
@@ -60,6 +68,12 @@ class DemoRun(Strict):
     tokens: DemoTokens | None = None
     cost_usd: float | None = Field(default=None, ge=0)
     summary: str | None = Field(default=None, max_length=2000)
+    #: What the step returned (`StageResult.outputs`): its declared outputs, a report, cited sources.
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    #: What the step proved (`StageResult.evidence`): facts, tests run.
+    evidence: dict[str, Any] | None = None
+    #: The verdicts of the step's gates, in order.
+    gates: list[DemoGate] = Field(default_factory=list, max_length=50)
 
 
 class DemoDecision(Strict):

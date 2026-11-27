@@ -29,7 +29,10 @@
           "duration_s": 3480,
           "model": "anthropic/claude-sonnet-5",
           "tokens": { "input": 412000, "output": 18500, "cached": 300000 },
-          "summary": "Credit notes are subtracted before the VAT is computed; 3 tests added."
+          "summary": "Credit notes are subtracted before the VAT is computed; 3 tests added.",
+          "outputs": { "allowed_paths": ["src/invoices/**"] },
+          "evidence": { "tests_passed": true, "tests_run": 214 },
+          "gates": [{ "name": "output_schema", "passed": true }, { "name": "tests_green", "passed": true }]
         }
       ],
       "decisions": [
