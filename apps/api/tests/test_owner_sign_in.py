@@ -343,8 +343,8 @@ async def test_the_methods_follow_the_door(client: AsyncClient, personal: bytes)
     for body in (loopback, relay):
         Draft202012Validator(schema).validate(body)
     assert loopback == {"posture": "personal", "door": "loopback", "methods": ["owner"]}
-    # Pairing a phone (S87-13) and passkeys (S87-14) are named once they are served.
-    assert relay == {"posture": "personal", "door": "relay", "methods": []}
+    # A phone paired from the computer (S87-13); passkeys (S87-14) are named once they are served.
+    assert relay == {"posture": "personal", "door": "relay", "methods": ["device_pairing"]}
 
 
 async def _saml_provider_of(org: str) -> None:

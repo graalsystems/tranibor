@@ -39,6 +39,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       endSession: vi.fn().mockResolvedValue(undefined),
       endOtherSessions: vi.fn().mockResolvedValue({ ended: 1 }),
       policyCeiling: vi.fn().mockResolvedValue({}),
+      authMethods: vi.fn().mockResolvedValue({ posture: "organisation", door: null, methods: ["identity_provider"] }),
     },
   };
 });
@@ -210,6 +211,28 @@ describe("my account, your sessions (ADR 0130)", () => {
     listSessions([SESSIONS[1]!]);
     wrap();
     expect(await within(sessionsCard()).findByText(/signed in before sessions were listed/)).toBeTruthy();
+  });
+});
+
+describe("my account, on a personal installation (ADR 0228 §4)", () => {
+  it("leads to pairing a phone on the computer, and nowhere else", async () => {
+    vi.mocked(api.edition).mockResolvedValue({ edition: "community", features: [] } as never);
+    vi.mocked(api.authMethods).mockResolvedValue({ posture: "personal", door: "loopback", methods: ["owner"] });
+    wrap();
+    const link = await screen.findByRole("link", { name: "Pair a phone" });
+    expect(link.getAttribute("href")).toBe("/account/devices");
+  });
+
+  it.each([
+    { posture: "personal", door: "relay", methods: ["device_pairing"] },
+    { posture: "organisation", door: null, methods: ["identity_provider"] },
+  ] as const)("offers no pairing through the relay or to an organisation: %o", async (methods) => {
+    vi.mocked(api.edition).mockResolvedValue({ edition: "community", features: [] } as never);
+    vi.mocked(api.authMethods).mockResolvedValue({ ...methods, methods: [...methods.methods] });
+    wrap();
+    await waitFor(() => expect(api.authMethods).toHaveBeenCalled());
+    await screen.findByRole("heading", { name: "Roles" });
+    expect(screen.queryByRole("link", { name: "Pair a phone" })).toBeNull();
   });
 });
 

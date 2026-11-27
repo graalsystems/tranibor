@@ -26,10 +26,16 @@ def authentication_age(principal: Any, now: float | None = None) -> int | None:
 
 
 def require_fresh_authentication(
-    principal: Any, minutes: int, now: float | None = None, *, gesture: str = "this decision"
+    principal: Any,
+    minutes: int,
+    now: float | None = None,
+    *,
+    gesture: str = "this decision",
+    reauth: str = REAUTH,
 ) -> int:
     """Returns the age of the authentication; 401 `step_up_required` beyond `minutes`. `gesture` names
-    what asks for it, as the problem's sentence says it ("approving an instance", S65-24)."""
+    what asks for it, as the problem's sentence says it ("approving an instance", S65-24). `reauth` is the way
+    to sign in again the answer names: the identity provider's, unless the door has another (ADR 0228 §4)."""
     age = authentication_age(principal, now)
     if age is None or age > minutes * 60:
         since = "an unknown time" if age is None else f"{age // 60} min"
@@ -37,6 +43,6 @@ def require_fresh_authentication(
             401,
             "Authentication too old",
             f"{gesture} needs an authentication less than {minutes} min old; yours is {since} old",
-            errors=[{"error": "step_up_required", "reauth": REAUTH}],
+            errors=[{"error": "step_up_required", "reauth": reauth}],
         )
     return age

@@ -260,6 +260,20 @@ class OwnerTicketExchangeDto(Dto):
     ticket: str = Field(min_length=1, max_length=4096)
 
 
+class DevicePairingDto(Dto):
+    """A one-time link that pairs a phone (ADR 0228 §4): `DevicePairing`. Its code is shown this once."""
+
+    #: `https://<relay host>/pair#<code>`: the code is in the fragment, which no server receives or logs.
+    url: str
+    expires_at: datetime
+
+
+class DevicePairingExchangeDto(Dto):
+    """The code a pairing link carried in its fragment, as the phone's `/pair` page read it."""
+
+    code: str = Field(min_length=1, max_length=256)
+
+
 class DeviceTokenRequestDto(Dto):
     grant_type: Literal["urn:ietf:params:oauth:grant-type:device_code"]
     device_code: str = Field(max_length=256)

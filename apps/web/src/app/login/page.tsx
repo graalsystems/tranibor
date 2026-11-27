@@ -15,7 +15,8 @@ import type { AuthMethods } from "@/lib/types";
  * sign-in by e-mail, never in production, the API refuses it by itself.
  *
  * A personal installation (ADR 0228 §4) has no identity provider: the page asks `/auth/methods` first, and on
- * the computer's own address (the loopback door) it shows the owner's way in, `choregos local open`, instead.
+ * the computer's own address (the loopback door) it shows the owner's way in, `choregos local open`, instead;
+ * through the relay, it says how to pair the phone from the computer.
  */
 export default function LoginPage() {
   return (
@@ -140,6 +141,14 @@ function PersonalSignIn({ methods }: { methods: AuthMethods }) {
             this installation&apos;s owner key and opens the console.
           </p>
           <p className="text-xs text-ink-muted">The link it opens is valid for one minute, once.</p>
+        </div>
+      ) : methods.door === "relay" && methods.methods.includes("device_pairing") ? (
+        <div className="space-y-2 text-sm">
+          <p>
+            Pair this phone from your computer: open the console there, go to My account › Devices, show a pairing
+            code and scan it with this phone&apos;s camera.
+          </p>
+          <p className="text-xs text-ink-muted">The code is valid for five minutes, once.</p>
         </div>
       ) : methods.door === "relay" ? (
         <p className="text-sm">

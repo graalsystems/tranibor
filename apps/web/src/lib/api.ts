@@ -114,6 +114,7 @@ import type {
   ApiTokenCreate,
   ApiTokenCreated,
   AuthMethods,
+  DevicePairing,
   DeviceRequest,
   EndedSessions,
   Artifact,
@@ -390,11 +391,15 @@ export async function problemOf(response: Response): Promise<Problem> {
 }
 
 /**
- * The pages a person reaches signed out: the sign-in page, and the page the owner key signs in on (`/auth/owner`,
- * ADR 0228 §4), which must not be sent to `/login` before it has posted its ticket.
+ * The pages a person reaches signed out: the sign-in page, the page the owner key signs in on (`/auth/owner`,
+ * ADR 0228 §4), and the page a phone's pairing link opens (`/pair`), neither of which may be sent to `/login`
+ * before it has posted what its fragment carries.
  */
 export function isSignInPage(pathname: string): boolean {
-  return pathname.startsWith("/login") || pathname === "/auth/owner" || pathname.startsWith("/auth/owner/");
+  return (
+    pathname.startsWith("/login") ||
+    ["/auth/owner", "/pair"].some((page) => pathname === page || pathname.startsWith(`${page}/`))
+  );
 }
 
 /** On a 401 outside the sign-in pages: go there, keeping where one comes from. A framed page (`/embed/`) never
@@ -625,6 +630,39 @@ export const api = {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ticket }),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new ApiError(response.status, await problemOf(response));
+  },
+  /**
+   * A one-time link that pairs a phone, created by the owner on the computer's loopback door (ADR 0228 §4): its
+   * `url` carries the code in its fragment, to show as a QR code. A refusal is the caller's to show: a 401
+   * `step_up_required` here asks for a new owner ticket (`choregos local open`), not the identity provider's
+   * re-authentication, which a personal installation does not have.
+   */
+  createMyDevicePairing: async (): Promise<DevicePairing> => {
+    if (IS_MOCK) {
+      return { url: "https://demo.relay.example/pair#demo", expires_at: new Date(Date.now() + 300_000).toISOString() };
+    }
+    const response = await fetch(`${API_BASE}/me/device-pairings`, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new ApiError(response.status, await problemOf(response));
+    return (await response.json()) as DevicePairing;
+  },
+  /**
+   * Exchanges the code a pairing link carried in its fragment for a session of this phone, on the relay door
+   * (ADR 0228 §4). A 401 is a stale or used link, the caller's to show: it does not send the page to `/login`.
+   */
+  exchangeDevicePairing: async (code: string): Promise<void> => {
+    if (IS_MOCK) return;
+    const response = await fetch(`${API_BASE}/auth/device/session`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
       cache: "no-store",
     });
     if (!response.ok) throw new ApiError(response.status, await problemOf(response));

@@ -16,6 +16,16 @@ What each guard is for:
   session, never approves a sign-in;
 - a request that names an organisation is approved only by someone that organisation's identity provider
   may have signed in: a member of it, and, when the account is bound to a tenant provider, that same tenant's.
+
+A personal installation pairs a phone the other way round (ADR 0228 §4): the computer creates the device
+authorization, already approved, and the phone exchanges it. `POST /me/device-pairings` is the owner's, on
+the loopback door, with a console session whose authentication is less than 10 minutes old: a row of kind
+`browser` (never `cli`, `editor` or `runner`, and never started by a surface), valid 5 minutes, whose device
+code is shown once in the fragment of `https://<relay host>/pair#<code>`, as a QR code.
+`POST /auth/device/session`, on the relay door only, exchanges it once for a browser session with the relay
+door's cookie: the same conditional update as a surface's poll decides who consumes it. The device flow's own
+routes never see a pairing: the poll and the approval page refuse a row of that kind, so a pairing is never
+turned into a surface's bearer.
 """
 
 from __future__ import annotations
@@ -24,8 +34,9 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -33,20 +44,27 @@ from tranibor_core import utcnow
 
 from ..audit import record
 from ..browser_sessions import open_surface_session, surface_credential
+from ..config import Settings, get_settings
 from ..db.models import DeviceAuthorization, Membership, Organization, User
 from ..db.org_aliases import current_slug
 from ..db.session import in_platform_scope
-from ..deps import Config, Db, Me
+from ..deps import Config, Db, Me, PlatformDb
+from ..doors import RELAY, door_of, set_session_cookie
 from ..errors import ApiError, conflict, forbidden, not_found, unauthorized
+from ..freshness import require_fresh_authentication
+from ..owner_sign_in import OWNER_REAUTH, on_the_loopback_door, the_owner
 from ..schemas.identity import (
     DeviceAuthorizationDto,
     DeviceAuthorizationRequestDto,
     DeviceDecisionDto,
+    DevicePairingDto,
+    DevicePairingExchangeDto,
     DeviceRequestDto,
     DeviceTokenDto,
     DeviceTokenRequestDto,
 )
 from ..tenant_host import org_base_url, request_base_url
+from .auth import open_signed_session
 
 router = APIRouter(tags=["session"])
 
@@ -56,6 +74,18 @@ CODE_LENGTH = 8
 #: RFC 8628 §3.5: each `slow_down` adds five seconds to the interval.
 SLOW_DOWN_STEP_S = 5
 GRANT = "urn:ietf:params:oauth:grant-type:device_code"
+
+#: A phone's pairing (ADR 0228 §4): its own kind of device authorization, created by the computer only.
+PAIRING_KIND = "browser"
+#: How long a pairing link lives, and how recent the sign-in that creates one must be.
+PAIRING_TTL = timedelta(minutes=5)
+PAIRING_FRESHNESS_MINUTES = 10
+#: The channel of the session a pairing opens, as `GET /me/sessions` lists it.
+PAIRING_CHANNEL = "pairing"
+#: What of the phone's `User-Agent` names it under My account (`device_authorizations.client_name`'s width).
+CLIENT_NAME_CHARS = 80
+#: The one answer to a pairing code that opens nothing: unknown, already exchanged or expired.
+PAIRING_REFUSED = "this pairing link is not valid: show a new one on the computer"
 
 
 def _hash(value: str) -> str:
@@ -159,10 +189,15 @@ async def _poll(
 ) -> Response | DeviceTokenDto:
     row = (
         await session.execute(
-            select(DeviceAuthorization).where(DeviceAuthorization.device_hash == _hash(body.device_code))
+            select(DeviceAuthorization).where(
+                DeviceAuthorization.device_hash == _hash(body.device_code),
+                DeviceAuthorization.client_kind != PAIRING_KIND,
+            )
         )
     ).scalar_one_or_none()
-    if row is None:
+    if (
+        row is None
+    ):  # a pairing's code included: it is exchanged on the relay door only, for a browser session
         return _error("invalid_grant", "unknown device code")
     now = utcnow()
     if row.status == "consumed" or _aware(row.expires_at) <= now:
@@ -228,7 +263,9 @@ async def _pending(session: Db, user_code: str) -> DeviceAuthorization:
     row = (
         await session.execute(
             select(DeviceAuthorization).where(
-                DeviceAuthorization.user_code_hash == _hash(normalise(user_code))
+                DeviceAuthorization.user_code_hash == _hash(normalise(user_code)),
+                # A pairing has no code to approve: the computer created it approved.
+                DeviceAuthorization.client_kind != PAIRING_KIND,
             )
         )
     ).scalar_one_or_none()
@@ -311,3 +348,156 @@ async def decide_device_request(
         )
         await session.flush()  # while the scope still sees the row (see `poll_device_token`)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ───────────────────────── a phone paired from the computer (ADR 0228 §4) ─────────────────────────
+
+
+def relay_base(settings: Settings) -> str | None:
+    """`https://<relay host>`: the installation's public URL when it is https with a host, else `None`.
+
+    A personal installation's public URL is the relay's hostname once `choregos local relay enable` has given
+    it one (ADR 0230 §6); before that it is the loopback console's, which a phone cannot open.
+    """
+    parts = urlsplit(settings.public_url.strip())
+    if parts.scheme.lower() != "https" or not parts.hostname:
+        return None
+    return f"https://{parts.netloc}"
+
+
+def on_the_relay_door(request: Request) -> None:
+    """The exchange exists on the relay door of a personal installation only: elsewhere, 404 as for an unknown
+    route, before the body is read."""
+    if door_of(request, get_settings()) != RELAY:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+@router.post(
+    "/me/device-pairings",
+    response_model=DevicePairingDto,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createMyDevicePairing",
+    dependencies=[Depends(on_the_loopback_door)],
+)
+async def create_my_device_pairing(
+    response: Response, session: Db, principal: Me, settings: Config
+) -> DevicePairingDto:
+    """A one-time link that pairs a phone, made on the computer: a device authorization already approved."""
+    if principal.credential != "cookie" or principal.kind != "user":
+        raise unauthorized(
+            "a phone is paired from the console on this computer, with your own session: not with an API "
+            "token or a developer surface's session"
+        )
+    async with in_platform_scope(session):
+        owner = await the_owner(session)
+        if owner is None or owner.id != principal.user_id:
+            raise forbidden("only the installation's person pairs a phone with it")
+        base = relay_base(settings)
+        if base is None:
+            raise conflict(
+                "this installation is reachable through no relay yet, so a phone could not open the link: "
+                "run `choregos local relay enable` on this computer, then create the pairing again"
+            )
+        require_fresh_authentication(
+            principal, PAIRING_FRESHNESS_MINUTES, gesture="creating a pairing", reauth=OWNER_REAUTH
+        )
+        authenticated_at = principal.authenticated_at
+        if authenticated_at is None:  # pragma: no cover - the freshness check refuses a session without one
+            raise unauthorized()
+        device_code = secrets.token_urlsafe(32)
+        row = DeviceAuthorization(
+            device_hash=_hash(device_code),
+            # No code to type: the column is unique and required, so it holds the digest of a value nobody
+            # keeps, which no approval page can name.
+            user_code_hash=_hash(f"pairing:{secrets.token_urlsafe(32)}"),
+            client_kind=PAIRING_KIND,
+            status="approved",
+            user_id=owner.id,
+            auth_time=datetime.fromtimestamp(authenticated_at, tz=UTC),
+            expires_at=utcnow() + PAIRING_TTL,
+            interval_s=settings.device_poll_interval_s,
+        )
+        session.add(row)
+        await session.flush()
+        await record(
+            session,
+            principal,
+            "device.pairing.create",
+            org_id=None,
+            target_type="device_authorization",
+            target_id=row.id,
+            kind=PAIRING_KIND,
+        )
+        await session.flush()  # while the scope still sees the row (see `poll_device_token`)
+    response.headers["Cache-Control"] = "no-store"
+    return DevicePairingDto(url=f"{base}/pair#{device_code}", expires_at=row.expires_at)
+
+
+@router.post(
+    "/auth/device/session",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="exchangeDevicePairing",
+    dependencies=[Depends(on_the_relay_door)],
+)
+async def exchange_device_pairing(
+    body: DevicePairingExchangeDto, request: Request, session: PlatformDb, settings: Config
+) -> Response:
+    """The phone's half: the code its link carried, exchanged once for a browser session on the relay door."""
+    now = utcnow()
+    row = (
+        await session.execute(
+            select(DeviceAuthorization).where(
+                DeviceAuthorization.device_hash == _hash(body.code),
+                DeviceAuthorization.client_kind == PAIRING_KIND,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None or row.user_id is None:
+        raise unauthorized(PAIRING_REFUSED)
+    client_name = request.headers.get("user-agent", "").strip()[:CLIENT_NAME_CHARS] or None
+    # One conditional update decides who consumes the code: of two phones holding it, one wins.
+    won = await session.execute(
+        update(DeviceAuthorization)
+        .where(
+            DeviceAuthorization.id == row.id,
+            DeviceAuthorization.status == "approved",
+            DeviceAuthorization.expires_at > now,
+        )
+        .values(status="consumed", client_name=client_name, last_polled_at=now)
+        # Decided by the database alone: the loaded row is not re-evaluated in Python.
+        .execution_options(synchronize_session=False)
+    )
+    if not getattr(won, "rowcount", 0):
+        raise unauthorized(PAIRING_REFUSED)
+    owner = await the_owner(session)
+    if owner is None or owner.id != row.user_id:
+        raise unauthorized(PAIRING_REFUSED)
+    # Never fresher than the sign-in that created the pairing, as a surface session is bound to its approval.
+    auth_time = _aware(row.auth_time) if row.auth_time is not None else None
+    opened, cookie = await open_signed_session(
+        session,
+        owner,
+        settings,
+        canal=PAIRING_CHANNEL,
+        auth_time=int(auth_time.timestamp()) if auth_time is not None else None,
+        request=request,
+    )
+    opened.kind = PAIRING_KIND
+    opened.client_name = client_name
+    opened.auth_time = auth_time
+    await record(
+        session,
+        None,
+        "device.paired",
+        org_id=None,
+        target_type="session",
+        target_id=opened.id,
+        user_id=owner.id,
+        client_name=client_name,
+        ip=opened.ip,
+        pairing=row.id,
+    )
+    await session.flush()
+    answer = Response(status_code=status.HTTP_204_NO_CONTENT, headers={"Cache-Control": "no-store"})
+    set_session_cookie(answer, request, settings, cookie, max_age=settings.session_max_age_s)
+    return answer

@@ -80,7 +80,10 @@ const CHUNKS = join(process.cwd(), ".next", "static", "chunks");
 // S67-27; no new dependency.
 // 2026-11-21 (ADR 0206, the paged lists): 2650 -> 2675 kB. Every list of the console reads a page and offers
 // "More" (infinite queries, server filters on the pickers): main measures 2656 kB (CI of eb7f34dd), 6 kB over.
-const TOTAL_MAX_KB = Number(process.env.BUNDLE_TOTAL_MAX_KB ?? 2675);
+// 2026-11-27 (S87-13): 2675 -> 2700 kB. Pairing a phone (My account › Devices with its QR code, drawn by a small
+// encoder of our own instead of a library, and the phone's `/pair` page) takes the S87 branch from 2672 to
+// 2687 kB; no new dependency.
+const TOTAL_MAX_KB = Number(process.env.BUNDLE_TOTAL_MAX_KB ?? 2700);
 const CHUNK_MAX_KB = Number(process.env.BUNDLE_CHUNK_MAX_KB ?? 600);
 
 function* files(dir) {

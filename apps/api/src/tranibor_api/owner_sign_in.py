@@ -53,6 +53,9 @@ SETTING = "TRANIBOR_OWNER_PUBLIC_KEY_FILE"
 #: The one answer to a ticket that opens nothing, whatever the reason: replayed, expired, too long,
 #: for another audience or signed by another key.
 REFUSED = "this sign-in link is not valid: run `choregos local open` again"
+#: How the owner signs in again on the loopback door when a gesture asks for a fresh authentication: a new
+#: owner ticket, never the identity provider's re-authentication, which a personal installation does not have.
+OWNER_REAUTH = "choregos local open"
 
 
 def owner_key_configured(settings: Settings) -> bool:

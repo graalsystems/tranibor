@@ -11,9 +11,7 @@ PREFIX = "/api/v1"
 # Contract-first (ADR 0001): operations the contract declares before the API serves them. Each entry
 # names the story that implements it; an entry the API does serve must be removed from here.
 CONTRACT_ONLY: dict[str, str] = {
-    # S87-08 (ADR 0228 §4): a personal installation's sign-in, by door.
-    "createMyDevicePairing": "S87-13",
-    "exchangeDevicePairing": "S87-13",
+    # S87-08 (ADR 0228 §4): a personal installation's sign-in, by door (S87-13 served the phone's pairing).
     "listMyPasskeys": "S87-14",
     "registerMyPasskey": "S87-14",
     "startMyPasskeyRegistration": "S87-14",
@@ -24,8 +22,6 @@ CONTRACT_ONLY: dict[str, str] = {
     "postAgentSessionTurnDeltas": "S87-37",
 }
 CONTRACT_ONLY_PATHS: set[str] = {
-    "/me/device-pairings",
-    "/auth/device/session",
     "/me/passkeys",
     "/me/passkeys/options",
     "/me/passkeys/{id}",

@@ -43,11 +43,12 @@ from tranibor_core.production import is_personal
 from ..audit import record
 from ..browser_sessions import end_session, open_session
 from ..config import Settings, get_settings
-from ..db.models import ApiToken, Membership, Organization, User
+from ..db.models import ApiToken, Membership, Organization, User, UserSession
 from ..db.org_aliases import current_slugs, organisation_by_slug_or_alias
 from ..deps import Config, Db, Me, Pagination, PlatformDb, resolve_project
 from ..doors import (
     LOOPBACK,
+    RELAY,
     clear_session_cookie,
     door_claims,
     door_of,
@@ -1107,6 +1108,23 @@ async def signed_session(
     request: Request | None,
 ) -> str:
     """The audit trace, the recorded session and the signed cookie of a sign-in, whatever its protocol."""
+    _, cookie = await open_signed_session(
+        session, user, settings, canal=canal, auth_time=auth_time, request=request
+    )
+    return cookie
+
+
+async def open_signed_session(
+    session: Any,
+    user: User,
+    settings: Settings,
+    *,
+    canal: str,
+    auth_time: int | None,
+    request: Request | None,
+) -> tuple[UserSession, str]:
+    """`signed_session`, with the recorded session it opened: for a sign-in that describes it further (a
+    paired phone's name and the authentication time it inherits, ADR 0228 §4)."""
     # a sign-in precedes the organisation resolution: a platform event
     await record(session, None, "auth.login", org_id=None, target_type="user", target_id=user.id, canal=canal)
     # `iat`: the authentication time. It is what a door demanding a RECENT authentication reads
@@ -1131,7 +1149,7 @@ async def signed_session(
         session_claims["auth_time"] = auth_time
     # The door that issues it, on a personal installation (ADR 0228 §5): the cookie is read on that door only.
     session_claims |= door_claims(request, settings)
-    return sign_session(session_claims, settings)
+    return recorded, sign_session(session_claims, settings)
 
 
 async def terminer_la_connexion(  # noqa: PLR0913 - one sign-in, fact by fact, keyword-only
@@ -1204,13 +1222,17 @@ async def auth_methods(request: Request, settings: Config) -> AuthMethodsDto:
     """How a person signs in on the door this request came through: what the sign-in page reads first.
 
     An organisation's installation signs in through its identity provider, and has no doors. A personal one
-    names the methods its door serves: the owner key on the loopback door; on the relay door, pairing a phone
-    (S87-13) and passkeys (S87-14) once they are served, and nothing before.
+    names the methods its door serves: the owner key on the loopback door; on the relay door, a phone paired
+    from the computer (`exchangeDevicePairing`), and passkeys once S87-14 serves them.
     """
     if not is_personal(settings.env):
         return AuthMethodsDto(posture="organisation", door=None, methods=["identity_provider"])
     door = door_of(request, settings)
-    methods: list[SignInMethod] = ["owner"] if door == LOOPBACK and owner_key_configured(settings) else []
+    methods: list[SignInMethod] = []
+    if door == LOOPBACK and owner_key_configured(settings):
+        methods.append("owner")
+    elif door == RELAY:
+        methods.append("device_pairing")
     return AuthMethodsDto(posture="personal", door=door, methods=methods)
 
 

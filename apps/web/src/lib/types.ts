@@ -17,6 +17,7 @@ export type {
   ApiTokenCreated,
   AuthMethods,
   BrowserSession,
+  DevicePairing,
   DeviceRequest,
   EndedSessions,
   ArtifactRef,

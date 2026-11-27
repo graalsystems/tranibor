@@ -160,6 +160,12 @@ describe("the sign-in page of a personal installation", () => {
     expect(screen.queryByLabelText("Work e-mail")).toBeNull();
   });
 
+  it("tells a phone through the relay to pair from the computer", async () => {
+    show({ posture: "personal", door: "relay", methods: ["device_pairing"] });
+    expect(await screen.findByText(/Pair this phone from your computer/)).toBeTruthy();
+    expect(screen.queryByLabelText("Work e-mail")).toBeNull();
+  });
+
   it("says an installation without an owner key needs one", async () => {
     show({ posture: "personal", door: "loopback", methods: [] });
     expect(await screen.findByText(/no owner key yet/)).toBeTruthy();

@@ -18,6 +18,7 @@ const CHANNELS: Record<string, string> = {
   device: "a code approved in the console",
   saml: "SAML single sign-on",
   renewed: "renewed when the other sessions ended",
+  pairing: "a pairing code shown on the computer",
 };
 
 /**

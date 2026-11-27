@@ -13,7 +13,7 @@ import { ROLE_LABELS } from "@/components/members";
 import { PageHeader } from "@/components/page-header";
 import { ThemePicker } from "@/components/theme-picker";
 import { Card } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, IS_MOCK } from "@/lib/api";
 import { relative, shortDate } from "@/lib/format";
 import { isMultiOrg, membershipGroups } from "@/lib/memberships";
 import { useSession } from "@/lib/session";
@@ -38,6 +38,15 @@ const SECTIONS = [
 export default function AccountPage() {
   const { me, org } = useSession();
   const edition = useQuery({ queryKey: ["edition"], queryFn: () => api.edition(), staleTime: Infinity, retry: false });
+  // On a personal installation's computer (its loopback door), a phone is paired from here (ADR 0228 §4).
+  const methods = useQuery({
+    queryKey: ["auth-methods"],
+    queryFn: () => api.authMethods(),
+    staleTime: Infinity,
+    retry: false,
+    enabled: !IS_MOCK,
+  });
+  const pairsPhones = methods.data?.posture === "personal" && methods.data.door === "loopback";
   const groups = membershipGroups(me?.memberships ?? [], { multiOrg: isMultiOrg(edition.data), currentOrg: org });
   const name = me ? personName(me) : "";
   const fullName = [me?.given_name, me?.family_name].filter(Boolean).join(" ");
@@ -119,6 +128,15 @@ export default function AccountPage() {
           </Card>
 
           <SessionsCard className="scroll-mt-6" />
+
+          {pairsPhones && (
+            <p className="text-sm" data-testid="pair-a-phone">
+              <Link href="/account/devices">Pair a phone</Link>{" "}
+              <span className="text-ink-muted">
+                with this installation: it then reaches it through the relay, signed in as you.
+              </span>
+            </p>
+          )}
 
           <AccessTokensCard className="scroll-mt-6" />
 
