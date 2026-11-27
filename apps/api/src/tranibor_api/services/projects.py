@@ -87,11 +87,16 @@ async def project_stats(session: AsyncSession, project: Project) -> ProjectStats
 
 
 async def first_pass_merge_rate(session: AsyncSession, project_id: str) -> float | None:
-    """Share of the closed work items whose implementation took a single attempt."""
+    """Share of the closed work items whose implementation took a single attempt. An imported work item
+    (ADR 0216) is not one: nothing measured its attempts."""
     items = (
         (
             await session.execute(
-                select(WorkItem.id).where(WorkItem.project_id == project_id, WorkItem.closed_at.is_not(None))
+                select(WorkItem.id).where(
+                    WorkItem.project_id == project_id,
+                    WorkItem.closed_at.is_not(None),
+                    WorkItem.imported.is_(False),
+                )
             )
         )
         .scalars()
