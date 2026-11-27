@@ -1,11 +1,11 @@
-"""A demonstration history declares its governed actions; deciding an imported one plays nothing (ADR 0216, 14).
+"""A history declares its governed actions; deciding an imported one plays nothing (ADR 0216, point 14).
 
 `seed_local.py` proposed WC-7's action straight into the database: an instance prepared through the API had
 no action waiting for an analyst. The document now names the transitions whose actions were proposed; the
 import proposes each with the product's own service, as a live transition does, and marks it imported. A
 pending one waits in the project's actions; approving it records the decision and starts nothing: no
-`ActionWorkflow`, no relay, no write to the directory. A succeeded one carries its approver and an effects' log
-that says it was never played.
+`ActionWorkflow`, no relay, no write to the directory. A succeeded one carries its approver and an effects'
+log that says it was never played.
 """
 
 from __future__ import annotations
@@ -140,10 +140,15 @@ async def test_the_actions_are_proposed_as_a_transition_proposes_them_and_marked
     waiting = actions["The accounts of lea@acme.test"]
     assert (waiting["status"], waiting["imported"], waiting["decisions"]) == ("pending_approval", True, [])
     assert waiting["params"] == {"upn": "lea@acme.test"}, "rendered from the work item's fields"
-    done = (await client.get(f"/api/v1/projects/{onboarding}/actions/{actions['The accounts of max@acme.test']['id']}")).json()  # noqa: E501
+    done = (
+        await client.get(
+            f"/api/v1/projects/{onboarding}/actions/{actions['The accounts of max@acme.test']['id']}"
+        )
+    ).json()
     assert (done["status"], done["imported"]) == ("succeeded", True)
     assert [d["by"] for d in done["decisions"]] == ["admin@northwind.dev"]
-    assert [(e["status"], e["result"]) for e in done["journal"]] == [("done", {"imported": True, "played": False})]
+    journal = [(e["status"], e["result"]) for e in done["journal"]]
+    assert journal == [("done", {"imported": True, "played": False})]
 
     again = await client.post(URL.format(id=onboarding), json=DOCUMENT)
     assert again.status_code == 200 and again.json()["unchanged"]["actions"] == 2, again.text
@@ -167,7 +172,9 @@ async def test_approving_an_imported_action_records_the_decision_and_plays_nothi
 
     assert decided.status_code == 200, decided.text
     assert decided.json()["status"] == "approved" and decided.json()["imported"] is True
-    assert (dict(fake.started), list(fake.signals)) == before, "an imported action's approval started something"  # type: ignore[attr-defined]  # noqa: E501
+    assert (dict(fake.started), list(fake.signals)) == before, (
+        "an imported action's approval started something"
+    )  # type: ignore[attr-defined]
     assert await start_approved_actions(grace=timedelta(0)) == [], "the relay started an imported action"
     assert (dict(fake.started), list(fake.signals)) == before  # type: ignore[attr-defined]
     assert not getattr(directory, "users", {}), "a user was written in the directory"
@@ -184,9 +191,17 @@ def _with(change: Any) -> dict[str, Any]:
     [
         (lambda d: d["work_items"][0]["actions"][0].update(transition="t-close"), "t-close"),
         (lambda d: d["work_items"][0]["actions"].append(dict(d["work_items"][0]["actions"][0])), "twice"),
-        (lambda d: d["work_items"][1]["actions"][0].update(status="pending", decided_by=None, decided_at=None), "terminal"),  # noqa: E501
-        (lambda d: d["work_items"][1]["actions"][0].update(decided_by="nobody@elsewhere.test"), "nobody@elsewhere.test"),  # noqa: E501
-        (lambda d: d["work_items"][0]["actions"][0].update(at="2026-11-01T00:00:00Z"), "before the work item"),
+        (
+            lambda d: d["work_items"][1]["actions"][0].update(
+                status="pending", decided_by=None, decided_at=None
+            ),
+            "terminal",
+        ),
+        (
+            lambda d: d["work_items"][1]["actions"][0].update(decided_by="nobody@elsewhere.test"),
+            "nobody@elsewhere.test",
+        ),
+        (lambda d: d["work_items"][0]["actions"][0].update(at="2026-11-01T00:00:00Z"), "before the work"),
         (lambda d: d["work_items"][1]["actions"][0].pop("decided_by"), "decided_by"),
     ],
     ids=["no-action", "twice", "terminal", "stranger", "too-early", "undecided"],
