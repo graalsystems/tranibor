@@ -81,7 +81,9 @@ const HISTORY = {
 
 type Item = { id: string; tracker_key: string; imported: boolean };
 
-async function imported(page: Page): Promise<{ project: string; shipped: Item; waiting: Item; run: string }> {
+async function imported(
+  page: Page,
+): Promise<{ project: string; shipped: Item; waiting: Item; run: string }> {
   const created = await page.request.post(ORG, {
     data: {
       slug: SLUG,
@@ -89,28 +91,53 @@ async function imported(page: Page): Promise<{ project: string; shipped: Item; w
       config: {
         slug: SLUG,
         org: "northwind",
-        delivery: { repo: { url: "https://github.com/northwind/billing-api.git", default_branch: "main" } },
+        delivery: {
+          repo: {
+            url: "https://github.com/northwind/billing-api.git",
+            default_branch: "main",
+          },
+        },
       },
     },
   });
   expect(created.status(), await created.text()).toBe(201);
   const project = (await created.json()).id as string;
-  const published = await page.request.put(`/api/v1/projects/${project}/workflows/invoices`, {
-    data: { yaml: INVOICES },
-  });
+  const published = await page.request.put(
+    `/api/v1/projects/${project}/workflows/invoices`,
+    {
+      data: { yaml: INVOICES },
+    },
+  );
   expect([200, 201], await published.text()).toContain(published.status());
-  const answer = await page.request.post(`/api/v1/projects/${project}/demo-history`, { data: HISTORY });
+  const answer = await page.request.post(
+    `/api/v1/projects/${project}/demo-history`,
+    { data: HISTORY },
+  );
   expect(answer.status(), await answer.text()).toBe(200);
 
-  const items: Item[] = (await (await page.request.get(`/api/v1/projects/${project}/work-items`)).json()).items;
-  const byKey = Object.fromEntries(items.map((item) => [item.tracker_key, item]));
-  const shipped = byKey["demo:inv-142"];
-  const waiting = byKey["demo:inv-150"];
-  const runs = (await (await page.request.get(`/api/v1/work-items/${shipped.id}/runs`)).json()).items;
+  const items: Item[] = (
+    await (
+      await page.request.get(`/api/v1/projects/${project}/work-items`)
+    ).json()
+  ).items;
+  const byKey = (key: string): Item => {
+    const found = items.find((item) => item.tracker_key === key);
+    expect(found, `${key} imported`).toBeDefined();
+    return found as Item;
+  };
+  const shipped = byKey("demo:inv-142");
+  const waiting = byKey("demo:inv-150");
+  const runs = (
+    await (
+      await page.request.get(`/api/v1/work-items/${shipped.id}/runs`)
+    ).json()
+  ).items;
   return { project, shipped, waiting, run: runs[0].id as string };
 }
 
-test("an imported history is marked imported on every page that shows it", async ({ page }) => {
+test("an imported history is marked imported on every page that shows it", async ({
+  page,
+}) => {
   await page.goto("/api/v1/auth/login?as=admin@northwind.dev");
   const { shipped, waiting, run } = await imported(page);
   const badge = page.getByTestId("imported-badge");
@@ -121,7 +148,11 @@ test("an imported history is marked imported on every page that shows it", async
   await expect(badge.first()).toHaveText("Imported");
 
   await page.goto(`/p/${SLUG}/items/${shipped.id}`);
-  await expect(page.getByText("Credit notes are not deducted from the invoice total").first()).toBeVisible();
+  await expect(
+    page
+      .getByText("Credit notes are not deducted from the invoice total")
+      .first(),
+  ).toBeVisible();
   // The work item's own badge, and its run's in the list of runs.
   await expect.poll(async () => badge.count()).toBeGreaterThanOrEqual(2);
 
@@ -129,12 +160,16 @@ test("an imported history is marked imported on every page that shows it", async
   await expect(badge.first()).toBeVisible();
 
   await page.goto(`/p/${SLUG}/findings`);
-  await expect(page.getByText("The invoice download link does not expire")).toBeVisible();
+  await expect(
+    page.getByText("The invoice download link does not expire"),
+  ).toBeVisible();
   await expect(badge.first()).toBeVisible();
 
   await page.goto("/inbox");
   const request = page.getByTestId(`waiting-${waiting.id}`);
   await expect(request).toBeVisible();
   await expect(request.getByTestId("imported-badge")).toBeVisible();
-  await expect(page.getByTestId(`imported-decision-${waiting.id}`)).toBeVisible();
+  await expect(
+    page.getByTestId(`imported-decision-${waiting.id}`),
+  ).toBeVisible();
 });
