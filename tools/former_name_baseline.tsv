@@ -9,7 +9,7 @@
 7	.github/workflows/release.yml
 4	.github/workflows/single-node-proof.yml
 3	.gitignore
-5	.gitleaks.toml
+6	.gitleaks.toml
 1	AGENTS.md
 30	Makefile
 1	NOTICE
