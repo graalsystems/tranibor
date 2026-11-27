@@ -197,6 +197,8 @@ class DemoHistoryCounts(Dto):
     findings: int = 0
     #: Requests that still wait for a person: the inbox lists them.
     pending: int = 0
+    #: Governed actions the work items' transitions proposed, pending or done (ADR 0216, point 14).
+    actions: int = 0
 
 
 class DemoHistoryImport(Dto):
@@ -217,3 +219,5 @@ class DemoHistoryRemoval(Dto):
     cost_lines: int = 0
     #: The declared cost of the removed cost lines, in USD.
     cost_usd: float = 0.0
+    #: Governed actions an import proposed, with their effects' log (ADR 0216, point 14).
+    actions: int = 0

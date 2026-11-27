@@ -37,6 +37,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tranibor_contracts import (
     STAGE_RESULT_SCHEMA,
+    ActionStatus,
     DemoHistory,
     DemoPrice,
     DemoRun,
@@ -53,6 +54,8 @@ from tranibor_core.finding_types import refusal as finding_type_refusal
 from ..audit import record
 from ..config import get_settings
 from ..db.models import (
+    Action,
+    ActionEffect,
     Agent,
     CostLedger,
     Event,
@@ -127,6 +130,9 @@ def digest_of(item: DemoWorkItem, workflow: str, prices: dict[str, DemoPrice]) -
         for name, empty in (("outputs", {}), ("evidence", None), ("gates", [])):
             if run.get(name) == empty:
                 run.pop(name, None)
+    if not dumped.get("actions"):
+        # Nor does one without governed actions (ADR 0216, point 14).
+        dumped.pop("actions", None)
     if dumped.get("pending") is None:
         # A work item without a waiting request keeps the digest it had before `pending` existed: a document
         # imported then is still the same document now, not a 409.
@@ -160,6 +166,7 @@ def _counts(item: DemoWorkItem) -> dict[str, int]:
         "decisions": len(item.decisions),
         "findings": len(item.findings),
         "pending": 1 if item.pending is not None else 0,
+        "actions": len(item.actions),
     }
 
 
@@ -234,6 +241,29 @@ def _check_pending(item: DemoWorkItem, engine: WorkflowEngine, state: str) -> No
         raise unprocessable(f"`pending` of `{item.id}` is asked before the work item was created")
 
 
+def _check_actions(item: DemoWorkItem, workflow: Workflow, engine: WorkflowEngine, state: str) -> None:
+    """Each action names a transition of the workflow that declares one, once; a pending one waits on a work
+    item that can still wait; none is proposed before the work item existed."""
+    declared = {t.id: t for t in workflow.transitions if t.id and t.action is not None}
+    seen: set[str] = set()
+    for action in item.actions:
+        where = f"action `{action.transition}` of `{item.id}`"
+        if action.transition not in declared:
+            raise unprocessable(
+                f"{where}: the workflow has no transition `{action.transition}` with an `action`"
+            )
+        if action.transition in seen:
+            raise unprocessable(f"{where} is declared twice: a transition proposes its action once")
+        seen.add(action.transition)
+        if _utc(action.at) < _utc(item.created_at):
+            raise unprocessable(f"{where} is proposed before the work item was created")
+        if action.status == "pending" and engine.is_terminal(state):
+            raise unprocessable(
+                f"{where}: the work item is in `{state}`, a terminal state, and an ended work item "
+                "waits for no one"
+            )
+
+
 async def _plan(session: AsyncSession, project: Project, document: DemoHistory) -> _Plan:
     """Everything that can be refused, refused before the first row is written."""
     _refuse_duplicates(document)
@@ -252,6 +282,7 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
     agents: set[str] = set()
     for item in document.work_items:
         people |= {p for p in [item.created_by, *(d.by for d in item.decisions)] if p}
+        people |= {a.decided_by for a in item.actions if a.decided_by}
         for entry in item.history:
             if entry.by:
                 (people if "@" in entry.by else agents).add(entry.by)
@@ -266,6 +297,7 @@ async def _plan(session: AsyncSession, project: Project, document: DemoHistory) 
     for item in document.work_items:
         state, history = _states_of(item, engine, states)
         _check_pending(item, engine, state)
+        _check_actions(item, workflow, engine, state)
         for finding in item.findings:
             if finding.run is not None and finding.run not in {r.id for r in item.runs}:
                 raise unprocessable(
@@ -580,6 +612,71 @@ async def _write_item(
     _write_pending(session, project, planned, item)
     _write_findings(session, project, planned, item)
     await session.flush()
+    await _write_actions(session, project, plan, planned, item)
+
+
+async def _write_actions(
+    session: AsyncSession, project: Project, plan: _Plan, planned: _Planned, item: WorkItem
+) -> None:
+    """Each declared action, proposed by the product's service as a live transition proposes it (its title,
+    parameters and approvers rendered from the work item's fields), then marked imported. A pending one waits
+    for its approvers; deciding it plays nothing (`actions.decide`). A succeeded one is approved by the person
+    the document names, and its effects are logged as imported, never played."""
+    from .actions import propose_for_transition
+
+    transitions = {t.id: t for t in plan.workflow.transitions if t.id and t.action is not None}
+    for declared in planned.item.actions:
+        transition = transitions[declared.transition]
+        assert transition.action is not None  # checked by `_check_actions`
+        action = await propose_for_transition(
+            session,
+            project,
+            item,
+            transition.action.model_dump(by_alias=True, exclude_none=True),
+            transition=declared.transition,
+            attempt=1,
+            workflow_id=f"demo-{item.id}",
+        )
+        proposed = _utc(declared.at)
+        action.imported = True
+        action.created_at = proposed
+        action.temporal_wf_id = None
+        if declared.status == "pending":
+            if action.status != ActionStatus.PENDING_APPROVAL.value:
+                raise unprocessable(
+                    f"action `{declared.transition}` of `{planned.item.id}`: the project's policy "
+                    "approves it as soon as it is proposed, so it never waits: declare it `succeeded`"
+                )
+            continue
+        assert declared.decided_by is not None and declared.decided_at is not None
+        decided = _utc(declared.decided_at)
+        action.decisions = [
+            {
+                "by": declared.decided_by,
+                "decision": "approve",
+                "reason": None,
+                "at": decided.isoformat(),
+                "auth_age_seconds": None,
+            }
+        ]
+        action.status = ActionStatus.SUCCEEDED.value
+        action.finished_at = decided
+        action.result = {"effects": len(action.effects), "imported": True}
+        for position, effect in enumerate(action.effects):
+            session.add(
+                ActionEffect(
+                    org_id=project.org_id,
+                    action_id=action.id,
+                    position=position,
+                    key=f"{action.id}:{position}",
+                    effect=str(effect.get("effect")),
+                    params=dict(effect.get("with") or {}),
+                    status="done",
+                    attempts=0,
+                    result={"imported": True, "played": False},
+                    finished_at=decided,
+                )
+            )
 
 
 async def import_history(
@@ -587,7 +684,7 @@ async def import_history(
 ) -> DemoHistoryImport:
     """Checks the whole document, then writes what the project does not hold yet; audits the import."""
     plan = await _plan(session, project, document)
-    created = {"work_items": 0, "runs": 0, "decisions": 0, "findings": 0, "pending": 0}
+    created = {"work_items": 0, "runs": 0, "decisions": 0, "findings": 0, "pending": 0, "actions": 0}
     unchanged = dict(created)
     cost_usd = 0.0
     for planned in plan.items:
@@ -639,6 +736,7 @@ async def remove_history(session: AsyncSession, principal: Principal, project: P
             )
         ).scalar_one()
     )
+    actions_where = (Action.project_id == project.id, Action.imported.is_(True))
     removed = DemoHistoryRemoval(
         work_items=await _count(session, WorkItem, WorkItem.id.in_(items)),
         runs=await _count(session, Run, Run.project_id == project.id, Run.imported.is_(True)),
@@ -646,7 +744,10 @@ async def remove_history(session: AsyncSession, principal: Principal, project: P
         findings=await _count(session, Finding, Finding.project_id == project.id, Finding.imported.is_(True)),
         cost_lines=await _count(session, CostLedger, *cost_where),
         cost_usd=round(cost_usd, 6),
+        actions=await _count(session, Action, *actions_where),
     )
+    # An action's effects' log goes with it (`CASCADE`); its key to the work item is `SET NULL`, hence first.
+    await session.execute(delete(Action).where(*actions_where))
     await session.execute(delete(CostLedger).where(*cost_where))
     await session.execute(delete(Finding).where(Finding.project_id == project.id, Finding.imported.is_(True)))
     await session.execute(delete(Run).where(Run.project_id == project.id, Run.imported.is_(True)))

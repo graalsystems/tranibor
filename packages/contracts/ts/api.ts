@@ -1141,6 +1141,8 @@ export type Action = {
   project_slug?: string | null;
   created_at?: string | null;
   finished_at?: string | null;
+  /** Proposed by a demonstration history import (ADR 0216, point 14): deciding it records the decision and plays nothing; its effects, when it is `succeeded`, were never played. */
+  imported?: boolean;
   journal?: Array<ActionEffect>;
   /** what a person recorded once the action was in doubt (`settleAction`): the same record as on the effect it concerns. Null for an action that was never settled */
   settlement?: ActionSettlement | null;
@@ -6840,6 +6842,8 @@ export type DemoHistoryCounts = {
   findings: number;
   /** Requests that wait for a person (`pending`). */
   pending: number;
+  /** Governed actions its transitions proposed (`actions`), pending or done. */
+  actions?: number;
 };
 
 /** What removing a project's imported demonstration history deleted (ADR 0216); all zero when nothing was imported. */
@@ -6852,6 +6856,8 @@ export type DemoHistoryRemoval = {
   cost_lines: number;
   /** The declared cost of the removed cost lines, in USD. */
   cost_usd?: number;
+  /** Governed actions an import proposed (`imported`), with their effects' log. */
+  actions?: number;
 };
 
 export type InboundEvent = S.InboundEvent;

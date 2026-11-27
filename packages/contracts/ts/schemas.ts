@@ -428,6 +428,21 @@ export type DemoHistoryWorkItem = {
   findings?: Array<DemoHistoryFinding>;
   /** What the work item waits for now, if a person must decide: at most one. */
   pending?: DemoHistoryPending;
+  /** The governed actions its transitions proposed (ADR 0035), at most one per transition. */
+  actions?: Array<DemoHistoryAction>;
+};
+
+/** The governed action a transition of the workflow proposes, proposed for the work item by the product's own service (title, parameters and approvers rendered from its fields). `pending`: it waits for its approvers; deciding it records the decision and plays nothing. `succeeded`: approved by `decided_by`, its effects recorded as imported, never played. */
+export type DemoHistoryAction = {
+  /** The id of a transition of the project's workflow that declares an `action`. */
+  transition: string;
+  status?: "pending" | "succeeded";
+  /** When it was proposed; not before the work item was created. */
+  at: string;
+  /** Who approved it: a member of the organisation. Required when `succeeded`, absent when `pending`. */
+  decided_by?: string;
+  /** When it was approved, after `at`. Required when `succeeded`, absent when `pending`. */
+  decided_at?: string;
 };
 
 /** A declared history for a demonstration (ADR 0216): the work items of an existing project, the states they went through, the runs and costs of their agents, the decisions people took and the findings raised. `POST /projects/{id}/demo-history` takes it in on an instance that opted in; every row it writes is marked as imported and counts in no budget. Each object carries an `id` of its own: re-importing the same document changes nothing, and an id that already holds other content is refused. */

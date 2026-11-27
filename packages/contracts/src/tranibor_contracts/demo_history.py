@@ -108,6 +108,31 @@ class DemoPending(Strict):
         return self
 
 
+class DemoAction(Strict):
+    """The governed action a transition of the workflow proposes (ADR 0035), proposed for the work item by the
+    product's own service: its title, parameters and approvers rendered from the work item's fields.
+
+    `pending`: it waits for its approvers; deciding it records the decision and plays nothing, since no
+    workflow runs an imported work item. `succeeded`: it was approved by `decided_by` and its effects are
+    recorded as imported, never played."""
+
+    transition: str = Field(min_length=1, max_length=64)
+    status: Literal["pending", "succeeded"] = "pending"
+    at: datetime
+    decided_by: str | None = Field(default=None, max_length=200)
+    decided_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _decided_when_succeeded(self) -> DemoAction:
+        if self.status == "succeeded" and (self.decided_by is None or self.decided_at is None):
+            raise ValueError("a `succeeded` action names `decided_by` and `decided_at`")
+        if self.status == "pending" and (self.decided_by is not None or self.decided_at is not None):
+            raise ValueError("a `pending` action is not decided yet: no `decided_by` nor `decided_at`")
+        if self.decided_at is not None and self.decided_at < self.at:
+            raise ValueError("`decided_at` comes after `at`")
+        return self
+
+
 class DemoFinding(Strict):
     id: ExternalId
     title: str = Field(min_length=3, max_length=200)
@@ -140,6 +165,8 @@ class DemoWorkItem(Strict):
     findings: list[DemoFinding] = Field(default_factory=list, max_length=100)
     #: What the work item waits for now, if a person must decide: at most one, as a live ticket.
     pending: DemoPending | None = None
+    #: The governed actions its transitions proposed (ADR 0035), at most one per transition.
+    actions: list[DemoAction] = Field(default_factory=list, max_length=10)
 
 
 class DemoHistory(Strict):
