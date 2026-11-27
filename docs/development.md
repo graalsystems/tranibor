@@ -84,6 +84,11 @@ work_items:
         model: anthropic/claude-sonnet-5
         tokens: { input: 412000, output: 18500, cached: 300000 }
         summary: Credit notes are subtracted before the VAT is computed.
+        outputs: { allowed_paths: ["src/invoices/**"] }   # what the step returned, judged as a stage result
+        evidence: { tests_passed: true, tests_run: 214 }
+        gates:                                           # in the run's journal, as a live step's verdicts
+          - { name: output_schema, passed: true }
+          - { name: tests_green, passed: true }
     decisions:
       - { id: spec-ok, kind: approval, summary: "Approve the specification?", at: 2026-11-02T10:25:00Z, by: admin@northwind.dev }
   - id: inv-150
