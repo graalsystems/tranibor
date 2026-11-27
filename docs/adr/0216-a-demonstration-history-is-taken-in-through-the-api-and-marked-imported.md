@@ -1,8 +1,9 @@
 # 0216 — A demonstration history is taken in through the API, and marked imported
 
-- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11)
+- **Status**: accepted, 2026-11-24; amended 2026-11-25 (points 7 to 11) and 2026-11-27 (point 12)
 - **Concerns**: `apps/api` (`routers/demo_history.py`, `services/demo_history.py`, `rbac.py`, `services/budgets.py`,
-  `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`), `apps/web`
+  `routers/costs.py`, `routers/workitems.py`, `routers/agents/metrics.py`, `services/agents.py`, `metrics.py`,
+  `services/projects.py`), `apps/web`
   (`components/imported-badge.tsx`), `packages/contracts` (`demo-history.schema.json`, `DemoHistory`,
   `openapi.yaml`), `packages/core` (`production.py`), `packages/cli` (`tranibor demo import`, `tranibor demo
   remove`); follows
@@ -86,12 +87,20 @@ The risk is the opposite one: a cost nobody measured, in the ledger that budgets
     read. The DORA measures read deployments and releases, which an import never writes: nothing to exclude.
     The minimal option was chosen over a label in the response: a demonstration that showed an agent's lived
     metrics made of declared numbers would teach the wrong thing, and the history is still listed, marked.
+12. **Out of the Prometheus gauges, and said in the CSV export** (2026-11-27): `metrics.refresh` counts no
+    imported run (run counts by status, runs in flight, the start delay, permission denials, empty context
+    packs), no imported cost line (cost by project, stage and model; today's cost) and no imported work item
+    (lead time); the first-pass rate (`first_pass_merge_rate`, a gauge and the project card's
+    `first_pass_acceptance_rate`) leaves imported work items out. The cost reports' CSV export keeps the
+    ledger's sum in `cout_usd` and adds a ninth column, `imported_usd`, what an import put in that line, as
+    the JSON report already did (the eight columns before it keep their position; the declared currency's
+    column stays last). Member spend reads the lines that name a person (`user_id`), which an import
+    never writes: nothing to exclude. Proven by `apps/api/tests/test_imported_history_out_of_metrics.py`.
 
 ## Not done
 
-- The Prometheus gauges (`metrics.py`: run counts, cost by project, today's cost, lead time) and the other
-  readers of the ledger (exports, member spend) still count imported rows; the cost reports show them apart
-  (`imported_usd`).
+- The project card's month cost (`ProjectStats.cost_month_eur`) still sums imported cost lines, as the cost
+  reports' totals do (which show them apart, `imported_usd`); the card has no such field.
 - A finding imported as `pending` can still be turned into a live work item ("Create the ticket"), which runs
   as any live one: that is a person's choice, not the import's.
 - No version of the document beyond `v1`; a run's tool calls, artifacts and transcripts are not importable.

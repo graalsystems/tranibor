@@ -248,6 +248,9 @@ async def refresh() -> Snapshot:
 
     now = utcnow()
     fresh = Snapshot()
+    # A demonstration history's rows were never measured (ADR 0216): no gauge counts them.
+    measured_run = Run.imported.is_(False)
+    measured_cost = CostLedger.imported.is_(False)
     async with session_scope(orgs="*") as session:
         everything = list((await session.execute(select(Project))).scalars())
         # A personal space is one person's (ADR 0134): never a label of its own, which would name a
@@ -256,15 +259,19 @@ async def refresh() -> Snapshot:
         projects = {p.id: p for p in everything if not is_personal(p)}
 
         active = await session.execute(
-            select(func.count()).select_from(Run).where(Run.status.in_(["queued", "running"]))
+            select(func.count()).select_from(Run).where(Run.status.in_(["queued", "running"]), measured_run)
         )
         fresh.runs_active = float(active.scalar_one())
-        by_status = await session.execute(select(Run.status, func.count()).group_by(Run.status))
+        by_status = await session.execute(
+            select(Run.status, func.count()).where(measured_run).group_by(Run.status)
+        )
         fresh.runs_total = {str(st): float(n) for st, n in by_status.all()}
 
         since = now - timedelta(days=30)
         started = await session.execute(
-            select(Run.created_at, Run.started_at).where(Run.started_at.is_not(None), Run.created_at >= since)
+            select(Run.created_at, Run.started_at).where(
+                Run.started_at.is_not(None), Run.created_at >= since, measured_run
+            )
         )
         durations = [max(0.0, (_aware(s) - _aware(c)).total_seconds()) for c, s in started.all() if s and c]
         fresh.run_start = _buckets(durations, START_SECONDS)
@@ -273,7 +280,8 @@ async def refresh() -> Snapshot:
             select(
                 CostLedger.project_id, CostLedger.stage_role, CostLedger.model, func.sum(CostLedger.cost_usd)
             )
-            .where(CostLedger.project_id.is_not(None))  # an organisation-level line has no project label
+            # An organisation-level line has no project label.
+            .where(CostLedger.project_id.is_not(None), measured_cost)
             .group_by(CostLedger.project_id, CostLedger.stage_role, CostLedger.model)
         )
         fresh.cost = {
@@ -283,7 +291,7 @@ async def refresh() -> Snapshot:
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today = await session.execute(
             select(CostLedger.project_id, func.sum(CostLedger.cost_usd))
-            .where(CostLedger.ts >= midnight, CostLedger.project_id.is_not(None))
+            .where(CostLedger.ts >= midnight, CostLedger.project_id.is_not(None), measured_cost)
             .group_by(CostLedger.project_id)
         )
         fresh.daily_cost = {slug.get(str(pid), "?"): float(total or 0.0) for pid, total in today.all()}
@@ -298,7 +306,9 @@ async def refresh() -> Snapshot:
 
         closed = await session.execute(
             select(WorkItem.created_at, WorkItem.closed_at).where(
-                WorkItem.closed_at.is_not(None), WorkItem.closed_at >= now - timedelta(days=90)
+                WorkItem.closed_at.is_not(None),
+                WorkItem.closed_at >= now - timedelta(days=90),
+                WorkItem.imported.is_(False),
             )
         )
         fresh.lead_time = _buckets(
@@ -313,6 +323,7 @@ async def refresh() -> Snapshot:
             .where(
                 RunEvent.type == "session/request_permission",
                 RunEvent.payload["allowed"].as_boolean().is_(False),
+                measured_run,
             )
             .group_by(Run.project_id)
         )
@@ -324,7 +335,9 @@ async def refresh() -> Snapshot:
         fresh.memory_pending = float(pending.scalar_one())
 
         empty: Counter[str] = Counter()
-        packs = await session.execute(select(Run.project_id, Run.context_pack).where(Run.created_at >= since))
+        packs = await session.execute(
+            select(Run.project_id, Run.context_pack).where(Run.created_at >= since, measured_run)
+        )
         for pid, pack in packs.all():
             if pack is not None and not (pack.get("facts") or pack.get("items") or pack.get("snippets")):
                 empty[slug.get(str(pid), "?")] += 1

@@ -388,6 +388,9 @@ def _csv_response(report: CostReport, filename: str) -> Response:
             "tokens_caches",
             "runs",
             "tokens_cache_write",
+            # What a demonstration history import put in the line (ADR 0216): in `cout_usd`, never measured.
+            # After the columns that were there, before the optional converted one, which stays last.
+            "imported_usd",
             *([f"cost_{report.currency.lower()}"] if report.fx.declared else []),
         ]
     )
@@ -402,6 +405,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
                 row.tokens_cached,
                 row.runs,
                 row.tokens_cache_write,
+                f"{row.imported_usd:.6f}",
                 *([f"{row.cost_display:.6f}"] if report.fx.declared else []),
             ]
         )
@@ -417,6 +421,7 @@ def _csv_response(report: CostReport, filename: str) -> Response:
             total.tokens_cached,
             "",  # a total has no runs cell: the write column keeps its position
             total.tokens_cache_write,
+            f"{total.imported_usd:.6f}",
             *([f"{total.cost_display:.6f}"] if report.fx.declared else []),
         ]
     )
