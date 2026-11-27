@@ -12,6 +12,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -250,8 +251,10 @@ def _say(session_id: str, notes: list[str]) -> None:
 
 def _exit_at_start(script: dict[str, Any]) -> None:
     """`exit_at_start`: opencode 1.18.31 on a read-only config root (#1986) said why on stderr and
-    exited before reading anything."""
+    exited before reading anything. `exit_stderr`: lines it writes there first."""
     if "exit_at_start" in script:
+        for line in script.get("exit_stderr", []):
+            sys.stderr.write(line + "\n")
         sys.stderr.write("Error: FileSystem.writeFile failed: read-only file system\n")
         sys.stderr.flush()
         raise SystemExit(int(script["exit_at_start"]))
@@ -268,8 +271,21 @@ def _new_session(message_id: Any, script: dict[str, Any]) -> None:
     send({"jsonrpc": "2.0", "id": message_id, "result": {"sessionId": "sess-fake-1"}})
 
 
+def _from_environment(value: Any) -> Any:
+    """The scenario with every `{env:NAME}` replaced by that variable of the agent's own environment
+    (empty when unset): what an agent that read a credential it was given would then say or write
+    (ADR 0227, the subscription canary)."""
+    if isinstance(value, str):
+        return re.sub(r"\{env:([A-Za-z_][A-Za-z0-9_]*)\}", lambda m: os.environ.get(m.group(1), ""), value)
+    if isinstance(value, list):
+        return [_from_environment(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _from_environment(item) for key, item in value.items()}
+    return value
+
+
 def main() -> int:
-    script: dict[str, Any] = json.loads(os.environ.get("FAKE_AGENT_SCRIPT", "{}"))
+    script: dict[str, Any] = _from_environment(json.loads(os.environ.get("FAKE_AGENT_SCRIPT", "{}")))
     workspace = Path(os.environ.get("TRANIBOR_WORKSPACE_PATH", ".")).resolve()
     outgoing_id = 1000
     prompts_seen = 0

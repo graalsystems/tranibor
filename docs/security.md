@@ -1139,6 +1139,34 @@ what the person who runs an outpost is told is in [Running an outpost](outpost-o
   one process, and on a test cluster where the outpost chart's NetworkPolicy drops a connection
   opened from the platform's namespace towards the outpost's.
 
+## A person's subscription on their own runner ([ADR 0227](adr/0227-a-person-s-own-subscription-is-used-only-by-the-vendor-cli-on-that-person-s-runner.md))
+
+A person's Claude subscription is used only by the vendor's CLI on that person's own runner; the platform
+never holds it. The platform refuses its shapes wherever they would reach it
+(`packages/core/src/tranibor_core/subscription_credentials.py`, `apps/api/src/tranibor_api/subscription_ingress.py`).
+The runner keeps it on its side (`packages/runner/src/tranibor_runner/subscription.py`), for a run its
+personal outpost's daemon started with `TRANIBOR_RUN_CREDENTIAL=subscription`, the provider in
+`TRANIBOR_RUN_PROVIDER` and the token in the runner's environment (`CLAUDE_CODE_OAUTH_TOKEN`):
+
+- **Only at an outpost.** Without `TRANIBOR_RUN_PLACE=outpost:<id>` the run stops before anything of it starts,
+  with exit code 75 (`SUBSCRIPTION_OFF_RUNNER`) and `run.failed` at the phase `credential`.
+- **No gateway.** The agent gets no model listener, and none of `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+  `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `GEMINI_API_KEY` and `GOOGLE_GEMINI_BASE_URL`,
+  even when the runner's own environment has them: an API key would silently outrank the subscription. A gateway
+  key the step may carry is handed to nothing.
+- **Scrubbed by exact value.** The runner's one client to the platform (events, result, outputs, the tool
+  server's calls and the tool bridge, questions, scope changes, the ticket, knowledge, the git and egress
+  tokens) takes the token's exact value (as it is, and as JSON and a URL write it) and every subscription shape
+  out of each URL and body before it is sent, whichever transport or proxy carries it. The run journals
+  `subscription.token_redacted` with a count, never a value.
+- **Never pushed.** A push whose commits (messages and patches) hold the value or a shape is refused before
+  `git push`: the work stays in the runner's local commits and the result fails with
+  `subscription_credential_in_diff`.
+
+Not covered: a copy of the token that is split, encoded or compressed passes both the exact value and the
+shapes; the runner's local transcript, on the person's own machine, is not scrubbed; a tool server run as a
+sidecar, or an MCP server the step names, is reached by clients of their own, not the runner's.
+
 ## Temporal: TLS and encrypted payloads ([ADR 0183](adr/0183-temporal-over-tls-payloads-encrypted.md))
 
 Temporal's histories hold what the workflows carry: ticket text, agents' results, people's decisions, on an

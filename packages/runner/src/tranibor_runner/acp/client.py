@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -153,6 +153,7 @@ class AcpClient:
         scripts_dir: str = "",
         write_guard: WriteGuard | None = None,
         launcher: Launcher | None = None,
+        unset: Collection[str] = (),
     ) -> None:
         self.command = command
         #: Set when the agent runs in its own container (ADR 0146): it is started there, by the
@@ -167,7 +168,10 @@ class AcpClient:
         self.scripts_dir = scripts_dir
         # The runner's environment without the run's credentials (ADR 0115): under `k8s_job`, ACA,
         # local Docker and Tekton, the run token is in the runner's environment, never the agent's.
-        self.env = {**agent_base_environment(), **(env or {})}
+        # `unset` names what the agent never gets, wherever it comes from: a subscription run's gateway
+        # variables (ADR 0227 §5).
+        merged = {**agent_base_environment(), **(env or {})}
+        self.env = {name: value for name, value in merged.items() if name not in unset}
         self.on_update = on_update
         self.on_permission = on_permission
         self.read_timeout = read_timeout

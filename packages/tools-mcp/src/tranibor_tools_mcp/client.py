@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
@@ -48,8 +49,31 @@ class Relayed:
         )
 
 
+#: What a caller may make of every request before it leaves (the runner's subscription scrub, ADR 0227 §6).
+Rewrite = Callable[[httpx.Request], Awaitable[httpx.Request]]
+
+
+class _RewritingClient(httpx.AsyncClient):
+    """An `httpx.AsyncClient` that hands every request to `rewrite` before it sends it.
+
+    Every verb of httpx (`request`, `get`, `post`, `put`, `stream`) ends in `send`, and `send` comes before
+    the choice of a transport. Not a transport itself on purpose: httpx takes the proxies of the environment
+    only for a client without a transport of its own, and the runner may reach its platform through one (a
+    person's machine behind a proxy); a rewrite here keeps them, whichever transport carries the request."""
+
+    def __init__(self, rewrite: Rewrite, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._rewrite = rewrite
+
+    async def send(self, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+        return await super().send(await self._rewrite(request), **kwargs)
+
+
 class InternalClient:
-    """Calls to the API's `/internal`, authenticated with the run token."""
+    """Calls to the API's `/internal`, authenticated with the run token.
+
+    `rewrite`, when given, sees every request before it leaves, whatever method made it: the runner of a
+    subscription run scrubs its person's token out of each URL and body there (ADR 0227 §6)."""
 
     def __init__(
         self,
@@ -59,11 +83,15 @@ class InternalClient:
         *,
         timeout: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        rewrite: Rewrite | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.run_id = run_id
-        self._client = httpx.AsyncClient(
-            timeout=timeout, headers={"Authorization": f"Bearer {token}"}, transport=transport
+        headers = {"Authorization": f"Bearer {token}"}
+        self._client = (
+            httpx.AsyncClient(timeout=timeout, headers=headers, transport=transport)
+            if rewrite is None
+            else _RewritingClient(rewrite, timeout=timeout, headers=headers, transport=transport)
         )
         self._event_lock = asyncio.Lock()
 

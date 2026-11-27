@@ -14,17 +14,28 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from tranibor_contracts import McpServerRef, StageInput
+from tranibor_contracts.enums import RunCredential
 from tranibor_core.hosted import LOOPBACK_HOST, LOOPBACK_KEY, loopback_url
 
 from ..egress import PROXY_VARIABLES
 
 
-def agent_view(stage_input: StageInput, ports: tuple[int, int, int], *, model: bool = True) -> StageInput:
+def agent_view(
+    stage_input: StageInput,
+    ports: tuple[int, int, int],
+    *,
+    model: bool = True,
+    credential: RunCredential = RunCredential.GATEWAY,
+) -> StageInput:
     """`stage_input` as the agent may see it. `model=False`: the backend cannot speak to the model
-    listener, so its model is left as it is (and the run's key with it)."""
+    listener, so its model is left as it is (and the run's key with it). A run on its person's subscription
+    (ADR 0227 §5) has no model listener and no gateway: its model is left as it is, and a gateway key the step
+    may carry is not handed on."""
     model_port, mcp_port, _ = ports
     update: dict[str, object] = {}
-    if model and stage_input.gateway_key:
+    if credential is RunCredential.SUBSCRIPTION:
+        update["gateway_key"] = None
+    elif model and stage_input.gateway_key:
         update["model"] = stage_input.model.model_copy(update={"base_url": loopback_url(model_port)})
         update["gateway_key"] = LOOPBACK_KEY
     servers = {

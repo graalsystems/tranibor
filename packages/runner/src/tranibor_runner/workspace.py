@@ -628,6 +628,21 @@ class Workspace:
         else:  # no commit yet (a project without a repository): nothing tracked to go back to
             await self.git("rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", *specs)
 
+    async def patch_since(self, ref: str) -> CommandResult:
+        """Every commit since `ref` as a push would carry it: its author, committer and message, then its
+        patch, binary files as text. What a subscription run's push is read for before it leaves (ADR 0227
+        §6); no textconv nor external diff driver runs (`git` neutralises the repository's own)."""
+        return await self.git(
+            "log",
+            "--patch",
+            "--text",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--format=commit %H%nauthor %an <%ae>%ncommitter %cn <%ce>%n%n%B",
+            f"{ref}..HEAD",
+        )
+
     async def commits_since(self, base: str) -> list[str]:
         result = await self.git("log", "--format=%s", f"{base}..HEAD")
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]

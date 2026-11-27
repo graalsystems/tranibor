@@ -9,8 +9,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from tranibor_contracts.enums import RunCredential, SubscriptionProvider
 from tranibor_core.publishing import PUBLISHING
 
 #: The prefix of the run's own variables: `TRANIBOR_RUN_TOKEN`, `TRANIBOR_RUN_REMOTE_TOKEN` and
@@ -61,6 +62,17 @@ class RunnerSettings(BaseSettings):
     #: The access token for the run's remote agent (ADR 0062), from the run's Secret, never from the
     #: StageInput: the orchestrator exchanged the credential's refresh token for it, short-lived.
     remote_token: str = Field(default="", validation_alias="TRANIBOR_RUN_REMOTE_TOKEN")
+    #: Where the run executes, as the daemon of a personal outpost says it when it starts the runner for a run
+    #: it claimed (ADR 0226, ADR 0227 §2): `outpost:<id>`. No other executor sets it.
+    run_place: str = Field(default="", validation_alias="TRANIBOR_RUN_PLACE")
+    #: Where the run's model credential comes from (ADR 0227 §1): `gateway`, every run but one, or
+    #: `subscription`, its person's own, which the runner refuses anywhere but at an outpost (`run_place`) and
+    #: whose token never reaches the platform (`tranibor_runner.subscription`).
+    run_credential: RunCredential = Field(
+        default=RunCredential.GATEWAY, validation_alias="TRANIBOR_RUN_CREDENTIAL"
+    )
+    #: The vendor of a subscription run: which variable of the runner's environment holds its token.
+    run_provider: SubscriptionProvider | None = Field(default=None, validation_alias="TRANIBOR_RUN_PROVIDER")
     #: How often a remote task that does not stream is asked for its state.
     remote_poll_seconds: float = Field(default=5.0, gt=0, validation_alias="TRANIBOR_REMOTE_POLL_SECONDS")
     workspace: Path = Path("/workspace")
@@ -102,6 +114,15 @@ class RunnerSettings(BaseSettings):
     egress_gate_report: Path | None = Field(default=None, validation_alias="TRANIBOR_EGRESS_GATE_REPORT")
     #: The headroom the runner starts when a run asks for compression (ADR 0055).
     headroom_command: str = "headroom"
+
+    @field_validator("run_credential", "run_provider", mode="before")
+    @classmethod
+    def _unset_when_empty(cls, value: object, info: ValidationInfo) -> object:
+        """An empty variable is an unset one: a gateway run, no provider. Any other unknown value is refused,
+        never read as `gateway`."""
+        if isinstance(value, str) and not value.strip():
+            return RunCredential.GATEWAY if info.field_name == "run_credential" else None
+        return value
 
 
 @lru_cache(maxsize=1)

@@ -33,6 +33,7 @@ from tranibor_contracts import (
     is_inert_binary_path,
 )
 from tranibor_contracts.delivery import ResultDelivery, branch_of, commits_of, repository_of, without_commands
+from tranibor_contracts.enums import RunCredential
 from tranibor_contracts.env import with_legacy
 from tranibor_core import telemetry
 from tranibor_core.agent_isolation import (
@@ -89,6 +90,17 @@ from .remote import (
 from .result import complete_result, fallback_result, load_result, repair_prompt, write_result
 from .scope import check_scope
 from .skills import InvalidSkill, place_skills
+from .subscription import (
+    GATEWAY_VARIABLES,
+    OFF_RUNNER_REASON,
+    PUSH_REFUSED_REASON,
+    PUSH_UNREAD_REASON,
+    REDACTED_EVENT,
+    Scrubber,
+    at_an_outpost,
+    platform_client,
+    token_values,
+)
 from .workspace import Workspace, agent_git_env, agent_home, git_dir_for, inline_outputs, workspace_env
 
 if TYPE_CHECKING:
@@ -139,8 +151,16 @@ class EventJournal:
     #: False once the agent has put a link where the local copy is written: that copy stops, the batches to
     #: the API (the record that counts) go on.
     local_copy: bool = True
+    #: How many copies of a subscription run's token the client took out since it was last asked
+    #: (`Scrubber.take`, ADR 0227 §6); `None` for a gateway run.
+    redactions: Callable[[], int] | None = None
 
     async def record(self, type_: str, payload: dict[str, Any]) -> None:
+        self._append(type_, payload)
+        if len(self.buffer) >= self.batch_size or _no_wait(type_, payload):
+            await self.flush()
+
+    def _append(self, type_: str, payload: dict[str, Any]) -> None:
         self.seq += 1
         event = {"seq": self.seq, "type": type_, "payload": payload}
         self.buffer.append(event)
@@ -162,17 +182,27 @@ class EventJournal:
                         "payload": {"path": str(exc.path), "error": str(exc)[:300]},
                     }
                 )
-        if len(self.buffer) >= self.batch_size or _no_wait(type_, payload):
-            await self.flush()
 
     async def flush(self) -> None:
         # The batch leaves the buffer before the post: an event recorded while it is on its way (the
         # tool bridge records from its own requests, ADR 0122) waits for the next batch, instead of
         # being cleared with this one unsent.
         batch, self.buffer = self.buffer, []
-        if not batch or self.client is None:
+        if batch and self.client is not None:
+            # A lost journal must never make a run fail: the result takes precedence.
+            with contextlib.suppress(Exception):
+                await self.client.post_events(batch)
+        await self._journal_redactions()
+
+    async def _journal_redactions(self) -> None:
+        """`subscription.token_redacted` (ADR 0227 §6): how many copies of its person's token the runner's
+        client took out of what it sent since the last time, posted at once, and in the local copy too (a
+        resumed run numbers on from it). A count only: its own post holds nothing to scrub, so it never calls
+        for another."""
+        if self.redactions is None or self.client is None or not (count := self.redactions()):
             return
-        # A lost journal must never make a run fail: the result takes precedence.
+        self._append(REDACTED_EVENT, {"count": count})
+        batch, self.buffer = self.buffer, []
         with contextlib.suppress(Exception):
             await self.client.post_events(batch)
 
@@ -281,13 +311,26 @@ class Runner:
         self.compressor: compression.Compressor | None = None
         #: The platform's tool server, when the run serves it itself (no sidecar).
         self.tools: Any = None
+        #: What keeps a subscription run's token off the platform (ADR 0227 §6), made once from its provider's
+        #: variable (`_scrubber`); `None` for a gateway run.
+        self.scrubber: Scrubber | None = None
+
+    @property
+    def subscription(self) -> bool:
+        """Whether the run is on its person's own subscription (ADR 0227 §1), as the daemon that started the
+        runner says (`TRANIBOR_RUN_CREDENTIAL`)."""
+        return self.settings.run_credential is RunCredential.SUBSCRIPTION
+
+    def _scrubber(self) -> Scrubber | None:
+        """The run's scrub, from the token its provider's variable holds; `None` for a gateway run."""
+        if self.subscription and self.scrubber is None:
+            self.scrubber = Scrubber(token_values(self.settings.run_provider))
+        return self.scrubber
 
     async def run(self) -> RunOutcome:
         # The API is reached directly (`NO_PROXY` names it, `runner_environment`): the client may exist
-        # before the proxy variables carry any credential.
-        client = self.client or InternalClient(
-            self.settings.api_url, self.settings.run_id, self.settings.run_token
-        )
+        # before the proxy variables carry any credential. A subscription run's scrubs everything it sends.
+        client = self.client or platform_client(self.settings, self._scrubber())
         owns_client = self.client is None
         try:
             # ADR 0070: before anything makes a network call — git, pip, the agent — the egress
@@ -322,11 +365,17 @@ class Runner:
             self.settings.git_user_email,
             git_dir=git_dir_for(self.settings.workspace, self.settings.git_dir_root),
         )
+        scrubber = self._scrubber()
+        if scrubber is not None:
+            # Placed for its person's subscription (ADR 0227 §3): a gateway key the step may carry is used by
+            # nothing of this run, not the agent's environment, not a listener, not the probe.
+            stage_input = stage_input.model_copy(update={"gateway_key": None})
         journal = EventJournal(
             client,
             workspace.path / ".choregos" / "transcript.jsonl",
             self.settings.event_batch_size,
             seq=_events_already_journaled(workspace.path / ".choregos" / "transcript.jsonl"),
+            redactions=None if scrubber is None else scrubber.take,
         )
         # The run's compression proxy (ADR 0055) and its tool server die with the run, whatever way
         # the run ends: a server left behind by an early exit holds its port (#474).
@@ -344,8 +393,10 @@ class Runner:
                 work_item=stage_input.work_item.key,
                 stage=stage_input.transition.role,
             ) as span:
-                outcome = await self._isolate(journal) or await self._execute(
-                    stage_input, client, workspace, journal
+                outcome = (
+                    await self._refuse_off_an_outpost(journal)
+                    or await self._isolate(journal)
+                    or await self._execute(stage_input, client, workspace, journal)
                 )
                 status = outcome.result.status if outcome.result else None
                 telemetry.record_outcome(
@@ -434,11 +485,7 @@ class Runner:
         env.update(agent_git_env({**agent_base_environment(), **env}, workspace.path))
         await self._register_context_parts(journal, stage_input, workspace.path, plan, written)
 
-        # Asked once, after a turn that ended in an error naming no refusal (S65-35): an agent that
-        # drops the provider's error (opencode, #1742) no longer hides a budget refusal.
-        probe = GatewayProbe(
-            stage_input.model, stage_input.gateway_key, journal.record, transport=self.model_transport
-        )
+        probe = self._gateway_probe(stage_input, journal)
         command, refusal = await self._confine(plan, env, workspace, journal)
         refusal = refusal or await self._serve_agent(stage_input, journal, guards, probe)
         if refusal is not None:
@@ -471,6 +518,7 @@ class Runner:
                     on_update=on_update,
                     on_permission=on_permission,
                     write_guard=file_system_guard(guards),
+                    unset=self._agent_unset(),
                     # Enforced, not only prompted (S27-07): past max_turns tool calls, or one call
                     # repeated `loop_threshold` times in a row, the session is cancelled.
                     guard=TurnGuard(
@@ -567,7 +615,12 @@ class Runner:
                     result_repairs=repairs,
                 )
                 stop = _stop(
-                    agent, refused, agent_result, load.error, workspace.result_path(), gateway=probe.failure
+                    agent,
+                    refused,
+                    agent_result,
+                    load.error,
+                    workspace.result_path(),
+                    gateway=None if probe is None else probe.failure,
                 )
                 if stop is not None:
                     code, reason, detail = stop
@@ -830,6 +883,59 @@ class Runner:
         if self.settings.egress_gate_report is not None:
             await journal.record(EGRESS_GATE_EVENT, egress_gate_report(self.settings.egress_gate_report))
 
+    def _gateway_probe(self, stage_input: StageInput, journal: EventJournal) -> GatewayProbe | None:
+        """Asked once, after a turn that ended in an error naming no refusal (S65-35): an agent that drops the
+        provider's error (opencode, #1742) no longer hides a budget refusal. A subscription run has no gateway
+        to ask (ADR 0227 §3)."""
+        if self.subscription:
+            return None
+        return GatewayProbe(
+            stage_input.model, stage_input.gateway_key, journal.record, transport=self.model_transport
+        )
+
+    def _agent_unset(self) -> frozenset[str]:
+        """What the agent never gets: for a subscription run, the gateway's variables (ADR 0227 §5), which
+        would choose another credential than the one the run was placed for. Nothing for a gateway run."""
+        return GATEWAY_VARIABLES if self.subscription else frozenset()
+
+    async def _refuse_off_an_outpost(self, journal: EventJournal) -> RunOutcome | None:
+        """ADR 0227 §2: a subscription is used at one place, its person's own outpost, whose daemon starts
+        the runner with `TRANIBOR_RUN_PLACE=outpost:<id>` for a run it claimed. Started by anything else (a
+        platform executor, a hand-made start, a stale template), the run stops before anything of it starts:
+        the orchestrator refuses first (`start_run`), the runner repeats it on its own."""
+        if not self.subscription or at_an_outpost(self.settings.run_place):
+            return None
+        detail = (
+            "a run on its person's own subscription runs only at that person's outpost "
+            f"(TRANIBOR_RUN_PLACE=outpost:<id>), not here ({self.settings.run_place or 'no place'})"
+        )
+        await journal.record(
+            "run.failed",
+            {
+                "phase": "credential",
+                "reason": OFF_RUNNER_REASON,
+                "place": self.settings.run_place or None,
+                "error": detail,
+            },
+        )
+        await journal.flush()
+        return RunOutcome(Exit.SUBSCRIPTION_OFF_RUNNER, detail=detail)
+
+    async def _subscription_in_the_push(self, workspace: Workspace, since: str) -> dict[str, Any] | None:
+        """Why a subscription run's push is refused (ADR 0227 §6): its commits since `since` (messages and
+        patches) hold the token's exact value or a subscription shape, or could not be read. The answer names
+        the shapes, never a value; `None`: nothing found, or a gateway run, whose push is not read."""
+        scrubber = self._scrubber()
+        if scrubber is None:
+            return None
+        patch = await workspace.patch_since(since)
+        if not patch.ok:
+            return {"ok": False, "refused": PUSH_UNREAD_REASON, "error": patch.output[-300:]}
+        exact, shapes = scrubber.held_in(patch.stdout)
+        if not (exact or shapes):
+            return None
+        return {"ok": False, "refused": PUSH_REFUSED_REASON, "exact_value": exact, "shapes": shapes}
+
     async def _refuse_unisolated(self, journal: EventJournal) -> RunOutcome | None:
         """ADR 0222: in staging and prod the agent does not start beside the runner's credentials unless the
         operator named the opt-out. The orchestrator refuses first; this is for a runner started by anything
@@ -895,17 +1001,23 @@ class Runner:
         stage_input: StageInput,
         journal: EventJournal,
         guards: GuardRails,
-        probe: GatewayProbe,
+        probe: GatewayProbe | None,
     ) -> RunOutcome | None:
         """The loopback listeners of an ACP step whose agent is in a container (ADR 0146 §7, S65-04f): the
         model with the run's key, the MCP servers with their headers, and the CONNECT proxy with the pod's
         egress credentials — each held here, none in the agent's container. The model listener counts no
-        turn (`max_turns` is the turn guard's) and the gateway keeps enforcing the run's budget. Stopped
-        with the run by `agent_listeners`. `None`: they are serving (or the agent is the runner's child)."""
+        turn (`max_turns` is the turn guard's) and the gateway keeps enforcing the run's budget. A run on its
+        person's subscription gets no model listener: its vendor CLI reaches its provider itself, through the
+        CONNECT tunnel, which no platform component terminates (ADR 0227 §5). Stopped with the run by
+        `agent_listeners`. `None`: they are serving (or the agent is the runner's child)."""
         if self.launcher is None:
             return None
-        model = ModelProxy(
-            stage_input, journal.record, transport=self.model_transport, count_turns=False, measure=False
+        model = (
+            None
+            if self.subscription
+            else ModelProxy(
+                stage_input, journal.record, transport=self.model_transport, count_turns=False, measure=False
+            )
         )
         mcp = McpProxy(
             stage_input,
@@ -924,7 +1036,9 @@ class Runner:
             await journal.flush()
             return RunOutcome(Exit.AGENT_UNREACHABLE, detail=str(exc))
         self.agent_connect = connect
-        probe.known = lambda: model.budget_refusal
+        if model is not None and probe is not None:
+            listener = model
+            probe.known = lambda: listener.budget_refusal
         return None
 
     async def _withhold_unenforceable(self, stage_input: StageInput, journal: Any) -> StageInput:
@@ -949,7 +1063,12 @@ class Runner:
         agent_input = stage_input
         if self.launcher is not None:
             self.agent_proxy_env = proxy_environment(agent_base_environment(), self.loopback_ports)
-            agent_input = agent_view(stage_input, self.loopback_ports, model=backend.loopback_model)
+            agent_input = agent_view(
+                stage_input,
+                self.loopback_ports,
+                model=backend.loopback_model,
+                credential=self.settings.run_credential,
+            )
         plan = backend.launch_plan(agent_input, workspace.path)
         env = {
             **plan.env,
@@ -994,7 +1113,8 @@ class Runner:
         held to, journaled. With `enforce` and a kernel that cannot, the agent does not start."""
         mode = self.settings.confinement
         # What `AcpClient` will start the agent with: never the run's credentials (ADR 0115).
-        agent_env = {**agent_base_environment(), **env}
+        unset = self._agent_unset()
+        agent_env = {k: v for k, v in {**agent_base_environment(), **env}.items() if k not in unset}
         endpoints = [
             self.settings.api_url,
             self.settings.tools_url,
@@ -1608,12 +1728,23 @@ class Runner:
         # disappears; the next step then found the repository unchanged and concluded that
         # nothing had been done.
         if (sha or commits) and repository and not self.settings.dry_run:
-            push = await workspace.push(repository.work_branch, token=self.git_token)
-            await journal.record("git.push", {"ok": push.ok, "output": push.output[-500:]})
-            if not push.ok:
-                # A failed push is the costliest silent ending: the result says
-                # "done", and the next step finds nothing.
-                result.summary = f"{result.summary} (push refused: {push.output[-200:]})"
+            if (refusal := await self._subscription_in_the_push(workspace, start_ref or base)) is not None:
+                # The work stays in the local commits: what would leave holds its person's token, or could
+                # not be read. The result fails, saying so, rather than say "done" with nothing pushed.
+                await journal.record("git.push", refusal)
+                result.status = StageStatus.FAILED
+                result.reason = str(refusal["refused"])
+                result.summary = (
+                    f"{result.summary} (push refused: the commits hold a model subscription credential, "
+                    "or could not be read; nothing was pushed)"
+                )[:4000]
+            else:
+                push = await workspace.push(repository.work_branch, token=self.git_token)
+                await journal.record("git.push", {"ok": push.ok, "output": push.output[-500:]})
+                if not push.ok:
+                    # A failed push is the costliest silent ending: the result says
+                    # "done", and the next step finds nothing.
+                    result.summary = f"{result.summary} (push refused: {push.output[-200:]})"
 
         result.artifacts.context_pack_url = stage_input.context_pack_url
         # The whole result goes into the journal BEFORE it is posted (#410): the journal is what
@@ -1638,7 +1769,9 @@ class Runner:
             await client.post_result(result)
         except Exception as exc:  # the orchestrator reads the result from the journal instead
             await journal.record("result.post_failed", {"error": str(exc)[:300]})
-            await journal.flush()
+        # Sends what is left: the failure above, and what the result's own post had scrubbed (ADR 0227 §6).
+        # Nothing at all for a gateway run whose result was posted.
+        await journal.flush()
         return result
 
 

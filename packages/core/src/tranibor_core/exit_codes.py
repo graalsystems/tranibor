@@ -28,6 +28,9 @@ class Exit(IntEnum):
     KNOWLEDGE_INVALID = 51
     #: The gateway refused the run's key: its budget is spent (S27-01). The result is posted.
     BUDGET_EXCEEDED = 70
+    #: A run on its person's own subscription reached a runner its person's outpost did not start
+    #: (`TRANIBOR_RUN_PLACE` is not `outpost:<id>`): refused before anything of it starts (ADR 0227 §2).
+    SUBSCRIPTION_OFF_RUNNER = 75
     #: The context reduction the run requires did not start, and the policy says `fail` (ADR 0055).
     CONTEXT_UNAVAILABLE = 80
     #: The kernel cannot confine the agent and the deployment says `enforce` (ADR 0094).
@@ -57,6 +60,7 @@ class Exit(IntEnum):
             Exit.INPUTS_INVALID: "an input artifact does not match its digest",
             Exit.KNOWLEDGE_INVALID: "knowledge base missing, or its digest does not match",
             Exit.BUDGET_EXCEEDED: "the gateway refused the run's key: its budget is spent",
+            Exit.SUBSCRIPTION_OFF_RUNNER: "a subscription run runs only at its person's own outpost",
             Exit.CONTEXT_UNAVAILABLE: "the context reduction the policy requires did not start",
             Exit.CONFINEMENT_UNAVAILABLE: "confinement required, the kernel cannot confine the agent",
             Exit.AGENT_ISOLATION_UNAVAILABLE: "the agent's own container is required and has no launcher",

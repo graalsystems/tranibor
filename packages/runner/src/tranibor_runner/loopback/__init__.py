@@ -16,11 +16,13 @@ Record = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
 class Loopback:
-    """The three listeners, started together and stopped together."""
+    """The three listeners, started together and stopped together. `model=None`: no model listener, for a run
+    on its person's subscription, whose vendor CLI reaches its provider itself, through the CONNECT tunnel
+    (ADR 0227 §5)."""
 
     def __init__(
         self,
-        model: Any,
+        model: Any | None,
         mcp: Any,
         connect: Any,
         *,
@@ -36,7 +38,10 @@ class Loopback:
     async def __aenter__(self) -> Loopback:
         import uvicorn
 
-        for app, port in ((self.model.app(), self.ports[0]), (self.mcp.app(), self.ports[1])):
+        listeners = [(self.mcp.app(), self.ports[1])]
+        if self.model is not None:
+            listeners.insert(0, (self.model.app(), self.ports[0]))
+        for app, port in listeners:
             server = uvicorn.Server(
                 uvicorn.Config(
                     app, host=self.host, port=port, log_level="warning", lifespan="off", access_log=False
@@ -50,7 +55,8 @@ class Loopback:
         while not all(server.started for server in self._servers):
             if any(task.done() for task in self._tasks):
                 await self.__aexit__(None, None, None)
-                raise OSError(f"a loopback listener could not start on {self.host}:{self.ports[:2]}")
+                ports = [port for _, port in listeners]
+                raise OSError(f"a loopback listener could not start on {self.host}:{ports}")
             await asyncio.sleep(0.01)
         return self
 
@@ -65,5 +71,6 @@ class Loopback:
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(self._tunnels.wait_closed(), 5)
         await self.connect.flush()
-        await self.model.aclose()
+        if self.model is not None:
+            await self.model.aclose()
         await self.mcp.aclose()
