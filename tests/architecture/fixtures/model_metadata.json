@@ -14506,6 +14506,20 @@
     "type": "String(length=200)"
    },
    {
+    "default": null,
+    "name": "owner_user_id",
+    "nullable": true,
+    "server_default": null,
+    "type": "String(length=36)"
+   },
+   {
+    "default": null,
+    "name": "paused_by",
+    "nullable": true,
+    "server_default": null,
+    "type": "String(length=16)"
+   },
+   {
     "default": "<function uuid7>",
     "name": "id",
     "nullable": false,
@@ -14538,6 +14552,17 @@
     "CASCADE",
     null,
     "fk_outposts_org_id_organizations"
+   ],
+   [
+    [
+     "owner_user_id"
+    ],
+    [
+     "users.id"
+    ],
+    "CASCADE",
+    null,
+    "fk_outposts_owner_user_id_users"
    ]
   ],
   "indexes": [
@@ -14547,6 +14572,21 @@
      "outposts.org_id"
     ],
     false
+   ],
+   [
+    "ix_outposts_owner_user_id",
+    [
+     "outposts.owner_user_id"
+    ],
+    false
+   ],
+   [
+    "uq_outposts_personal_owner",
+    [
+     "outposts.org_id",
+     "outposts.owner_user_id"
+    ],
+    true
    ]
   ],
   "primary_key": [

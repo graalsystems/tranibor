@@ -1003,6 +1003,14 @@ answered for the first check that fails, in the contract's order (`apps/api/src/
   organisation and never works under the all-organisations scope. The outposts' tables are under forced
   row-level security that also requires the session to name the outpost: whatever is not this outpost's
   answers 404, never 403 (`apps/api/tests/test_outpost_rendezvous_postgres.py`).
+- *Another person's runner.* A person's runner is an outpost one person owns
+  ([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md) §1-2). Its instances, enrolment
+  tokens and calls are under a second, restrictive policy: they exist for its owner's sessions, for the
+  door (a session that names the outpost and no person) and under the platform scope, and for no other
+  person, its organisation's administrators included (`apps/api/tests/test_personal_outposts_postgres.py`).
+  Only its owner enrols and approves its machines (`/me/runners`); every administrator route that reaches
+  its instances, tokens or calls answers 403 `personal_outpost`, since an administrator's machine enrolled
+  there would receive that person's runs (`apps/api/tests/test_personal_outposts.py`).
 
 **What is at rest.** A call's row holds references and digests. Its arguments wait for their claim
 sealed under the deployment's key wrapper (`TRANIBOR_SECRETS_KEKS`, ADR 0103), with the private half of

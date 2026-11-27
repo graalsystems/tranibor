@@ -208,6 +208,32 @@ and what it can refuse; the walk-through is the procedure
 The commands and the buttons are in [Usage](usage.md#4-write-the-policy); what a revocation changes
 at the door is in [Security](security.md#the-outposts-door).
 
+## A person's own runner
+
+A person's runner is an outpost of the organisation that one person owns
+([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md) §1-2): one per person and
+organisation, each of their machines an instance, announcing `runs` and nothing else, so no connector
+routes to it. It is served while `TRANIBOR_PERSONAL_RUNNERS` is on: by default in a personal installation
+only ([Deployment](deployment.md#outposts-adrs-0147-0149)).
+
+- **Its owner, and no one else, enrols and approves.** The first enrolment token a person asks for
+  (`POST /api/v1/me/runners/{org}/enrolments`) creates their runner, named `personal-` and twelve
+  hexadecimal characters; no organisation's outpost may take such a name. Each machine enrols with the
+  door's signed `enrol` verb, as any instance does, and stays pending until its owner approves it against
+  the fingerprint its daemon printed (`POST /api/v1/me/runners/instances/{instance}/approval`), in a
+  session with a recent sign-in: an API token does not approve. `GET /api/v1/me/runners` lists the
+  caller's runners and nobody else's.
+- **The administrator sees the outpost and nothing of it.** It is listed among the organisation's
+  outposts, and an administrator may pause, revoke and delete it. Every route that reaches its instances,
+  its enrolment tokens or its calls refuses it (403 `personal_outpost`); on PostgreSQL its rows are hidden
+  from every person but its owner, the administrator included, so its counts read zero to them.
+- **A pause is lifted by the side that made it.** The owner pauses and resumes their runner from
+  `/me/runners`; an administrator's pause is lifted by an administrator only, and takes over the owner's.
+  Either side may revoke it, which is final.
+
+The runs lane itself (what a runner announces, the offers it claims) is not served yet: the door still
+refuses an instance that announces `runs`, and a runner's modes, providers and waiting runs read empty.
+
 ## Rotating the door's key
 
 An outpost makes only the calls signed by a key its policy file pins, and no message of the platform

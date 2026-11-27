@@ -5,6 +5,11 @@ Every row is an organisation's, under forced row-level security. The three table
 outpost (`outpost_instances`, `outpost_enrolments`, `outpost_calls`) also require the session to name
 that outpost (`app.current_outpost`, ADR 0148 §6): a session that names none sees none of their rows.
 Nothing of an outpost's side is stored: no address, no credential, no private key (ADR 0147 §7).
+
+An outpost may be one person's (`owner_user_id`, ADR 0226 §1): their personal runner, one per person and
+organisation. Its row stays the organisation's; its own rows are under a third, RESTRICTIVE policy that
+shows them to their owner, to the door and under the platform scope, and to no other person
+(`20261127_1200_s87_15_personal_outposts`).
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,10 +39,25 @@ class Outpost(Base, PkMixin, TimestampMixin):
     """A place a person enrolled, of one organisation, that only dials out (ADR 0147 §1).
 
     `status` is an `OutpostStatus`. `epoch` is moved by every revocation, of the outpost or of one of
-    its instances: an answer is taken only under the epoch its call was claimed in (ADR 0147 §5)."""
+    its instances: an answer is taken only under the epoch its call was claimed in (ADR 0147 §5).
+
+    With an `owner_user_id` it is that person's runner (ADR 0226 §1): enrolled and approved by its owner
+    only, through `/me/runners`, and refused by every administrator route that reaches its instances, its
+    enrolment tokens or its calls (ADR 0226 §2)."""
 
     __tablename__ = "outposts"
-    __table_args__ = (UniqueConstraint("org_id", "slug", name="uq_outposts_org_slug"),)
+    __table_args__ = (
+        UniqueConstraint("org_id", "slug", name="uq_outposts_org_slug"),
+        # One personal runner per person and organisation, as one personal space (ADR 0226 §1).
+        Index(
+            "uq_outposts_personal_owner",
+            "org_id",
+            "owner_user_id",
+            unique=True,
+            postgresql_where=text("owner_user_id IS NOT NULL"),
+            sqlite_where=text("owner_user_id IS NOT NULL"),
+        ),
+    )
 
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
     #: The name connectors route by and the journal shows (`outpost:<slug>/<alias>`).
@@ -47,6 +68,13 @@ class Outpost(Base, PkMixin, TimestampMixin):
     capabilities: Mapped[list[str]] = mapped_column(Json, default=list)
     epoch: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: The person whose runner it is (ADR 0226 §1); none for an organisation's outpost.
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    #: Who paused it, which is the side that lifts the pause (ADR 0226 §2): `administrator` or `owner`.
+    #: Null while it is not paused.
+    paused_by: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class OutpostInstance(Base, TimestampMixin):

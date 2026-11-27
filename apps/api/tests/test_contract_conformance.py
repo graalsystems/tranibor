@@ -20,13 +20,6 @@ CONTRACT_ONLY: dict[str, str] = {
     "deleteMyPasskey": "S87-14",
     "startPasskeySignIn": "S87-14",
     "signInWithPasskey": "S87-14",
-    # S87-08 (ADR 0226 §2): a person's own runner, enrolled and approved by its owner only.
-    "listMyRunners": "S87-15",
-    "createMyRunnerEnrolment": "S87-15",
-    "approveMyRunnerInstance": "S87-15",
-    "pauseMyRunner": "S87-15",
-    "resumeMyRunner": "S87-15",
-    "revokeMyRunner": "S87-15",
     # S87-08 (ADR 0226 §11): a runner-placed turn's answer, streamed from its deltas.
     "postAgentSessionTurnDeltas": "S87-37",
 }
@@ -38,12 +31,6 @@ CONTRACT_ONLY_PATHS: set[str] = {
     "/me/passkeys/{id}",
     "/auth/passkey/options",
     "/auth/passkey",
-    "/me/runners",
-    "/me/runners/{org}/enrolments",
-    "/me/runners/instances/{instance}/approval",
-    "/me/runners/{org}/pause",
-    "/me/runners/{org}/resume",
-    "/me/runners/{org}/revocation",
     "/internal/agent-sessions/{id}/turns/{turn_id}/deltas",
 }
 VERBS = {"get", "post", "put", "patch", "delete"}

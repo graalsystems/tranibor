@@ -192,3 +192,58 @@ class OutpostCallRecord(Dto):
 class OutpostCallPage(Dto):
     items: list[OutpostCallRecord]
     meta: PageMeta
+
+
+# ───────────────────────── a person's own runner (ADR 0226 §1-2) ─────────────────────────
+
+
+class PersonalRunnerInstanceDto(Dto):
+    """One of the owner's machines: only public data, and what it announced."""
+
+    id: str
+    status: OutpostInstanceStatus
+    #: What the daemon printed at enrolment and its owner compares before approving.
+    fingerprint: str
+    daemon_version: str
+    protocol: int
+    #: How it said it runs a run, in its last poll of door protocol 2 (ADR 0226 §10).
+    modes: list[Literal["docker", "native"]]
+    #: The providers whose sign-in it holds, as its last poll announced them: names only (ADR 0227 §4).
+    providers: list[str]
+    #: How many runs it said it takes at once.
+    capacity: Annotated[int, Field(ge=0)]
+    #: The offers it claimed and has not reported ended.
+    runs_running: Annotated[int, Field(ge=0)]
+    facts: dict[str, str]
+    enrolled_at: datetime
+    #: How recent its owner's sign-in must be to approve it, in minutes.
+    approval_step_up_minutes: int
+    approved_at: datetime | None
+    last_seen_at: datetime | None
+    #: Active, and it polled within the poll window.
+    online: bool
+
+
+class PersonalRunnerDto(Dto):
+    """A person's own outpost, as its owner sees it: one per person and organisation."""
+
+    #: The organisation's slug.
+    org: str
+    #: The outpost's slug, as the organisation's administrators see it among its outposts.
+    slug: str
+    #: The person whose runs it runs, by address.
+    owner: str
+    status: OutpostStatus
+    #: For a paused runner, the side that paused it, which is the side that lifts the pause.
+    paused_by: Literal["owner", "administrator"] | None
+    online: bool
+    last_seen_at: datetime | None
+    #: Pending ones first.
+    instances: list[PersonalRunnerInstanceDto]
+    #: The runs offered to it that no instance has claimed yet.
+    runs_waiting: Annotated[int, Field(ge=0)]
+    created_at: datetime
+
+
+class PersonalRunnerList(Dto):
+    items: list[PersonalRunnerDto]

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Outposts: the platform's records of them and what moves those records (ADRs 0147, 0148).
 
-Two callers. The management routes (`routers/outposts.py`) act for a person who holds
-`outpost:manage`. The outposts' door (`outposts/`) acts for an instance: `admit_enrolment` and `enrol`
-are what it calls before it knows who is speaking, and `scope_to_outpost` is how a request that names
-an instance gets its scope.
+Three callers. The management routes (`routers/outposts.py`) act for a person who holds
+`outpost:manage`. The routes of a person's own runner (`routers/me_runners.py`, ADR 0226 §2) act for
+its owner, on an outpost that person owns (`owner_user_id`), which the management routes reach only on
+the outpost itself (`refuse_personal`). The outposts' door (`outposts/`) acts for an instance:
+`admit_enrolment` and `enrol` are what it calls before it knows who is speaking, and
+`scope_to_outpost` is how a request that names an instance gets its scope.
 
 Row-level security (ADR 0148 §6). `outposts` is the organisation's registry: its administrator lists
 it under the organisation's scope alone, and a session that names an outpost sees that one row only.
@@ -25,9 +27,10 @@ import hmac
 import json
 import secrets
 from collections.abc import Iterable
+from contextlib import AbstractAsyncContextManager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -60,8 +63,14 @@ from ..db.models import (
     OutpostInstance,
     Project,
 )
-from ..db.session import ALL_ORGS, in_outpost_scope, limit_to_organisations, name_the_outpost
-from ..errors import ApiError, conflict, forbidden, not_found
+from ..db.session import (
+    ALL_ORGS,
+    in_outpost_scope,
+    in_platform_scope,
+    limit_to_organisations,
+    name_the_outpost,
+)
+from ..errors import ApiError, conflict, forbidden, not_found, unprocessable
 from ..freshness import require_fresh_authentication
 from ..keyset import keyset_page
 from ..rbac import Permission, Principal, outpost_principal
@@ -106,6 +115,16 @@ APPROVAL_REQUIRES_SESSION: Final = "approval_requires_session"
 #: The audit event the door raises when a second poll arrives under a key that already has one
 #: waiting (ADR 0148 §7): what a stolen key looks like. `/metrics` counts them.
 POLL_CONFLICT: Final = "outpost.poll_conflict"
+#: The code of the 403 an administrator route answers on a person's own runner (ADR 0226 §2).
+PERSONAL_OUTPOST: Final = "personal_outpost"
+#: The code of the 403 its owner meets when they try to lift a pause an administrator made.
+PAUSED_BY_ADMINISTRATOR: Final = "paused_by_administrator"
+#: The slugs of personal runners (`personal_runners.runner_slug`); an organisation's outpost may not take
+#: one, which would leave its person without a runner.
+PERSONAL_PREFIX: Final = "personal-"
+#: The two sides that pause an outpost, each the side that lifts its own pause (ADR 0226 §2).
+ADMINISTRATOR: Final = "administrator"
+OWNER: Final = "owner"
 
 _ACTIVE, _PAUSED, _REVOKED = (
     OutpostStatus.ACTIVE.value,
@@ -165,6 +184,52 @@ def _disabled() -> ApiError:
         "outposts_disabled",
         "outposts are switched off on this deployment (`TRANIBOR_OUTPOSTS`): its operator turns them on",
     )
+
+
+def is_personal(outpost: Outpost) -> bool:
+    """A person's own runner (ADR 0226 §1), as opposed to an organisation's outpost."""
+    return outpost.owner_user_id is not None
+
+
+def personal_outpost_refusal(outpost: Outpost, gesture: str | None = None) -> ApiError:
+    """The 403 `personal_outpost` an administrator route answers on a person's runner. It names the
+    outpost and never the person."""
+    detail = gesture or (
+        "its owner enrols and approves its machines through /me/runners, and no administrator reaches its "
+        "instances, its enrolment tokens or its calls"
+    )
+    return ApiError(
+        403,
+        "Forbidden",
+        f"`{outpost.slug}` is a person's own runner: {detail} (ADR 0226 §2)",
+        extra={"code": PERSONAL_OUTPOST, "outpost": outpost.slug},
+    )
+
+
+def refuse_personal(outpost: Outpost) -> None:
+    """What every administrator route that reaches an outpost's instances, enrolment tokens or calls asks
+    first (ADR 0226 §2): an administrator who could enrol a machine of theirs into a person's runner, or
+    approve one, would receive that person's runs."""
+    if is_personal(outpost):
+        raise personal_outpost_refusal(outpost)
+
+
+def require_enrolments() -> list[str]:
+    """What issuing an enrolment token needs of the deployment, refused before anything is written:
+    outposts on, and a door key to pin. The door's keys."""
+    settings = get_settings()
+    if not settings.outposts:
+        raise _disabled()
+    door_keys = settings.outposts_door_keys
+    if not door_keys:
+        # An outpost makes only calls signed by a key its policy file pins (ADR 0148 §13): with no key
+        # to pin, an instance enrolled now could never be handed anything.
+        raise refusal(
+            "door_key_missing",
+            "the outposts' door has no signing key on this deployment "
+            "(`TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY`): there is no key to pin, so no instance is enrolled",
+        )
+    return door_keys
 
 
 # ───────────────────────── ids that carry their outpost ─────────────────────────
@@ -501,6 +566,11 @@ async def create_outpost(
 ) -> Outpost:
     if not get_settings().outposts:
         raise _disabled()
+    if body.slug.startswith(PERSONAL_PREFIX):
+        # A person's runner's (ADR 0226 §1): taken first, it would leave that person without one.
+        raise unprocessable(
+            f"`{body.slug}` is reserved: an outpost's slug may not start with `{PERSONAL_PREFIX}`"
+        )
     exists = refusal(
         "outpost_exists", f"`{body.slug}` is already an outpost of {organisation.slug}", body.slug
     )
@@ -529,26 +599,61 @@ async def create_outpost(
     return outpost
 
 
-async def pause_outpost(session: AsyncSession, outpost: Outpost) -> bool:
-    """Whether it changed anything: pausing a paused outpost does not."""
+def paused_by(outpost: Outpost) -> Literal["owner", "administrator"] | None:
+    """The side that paused a paused outpost, which is the side that lifts the pause (ADR 0226 §2); `None`
+    when it is not paused. A pause recorded before the side was (no `paused_by`) is an administrator's:
+    only they paused outposts then."""
+    if outpost.status != _PAUSED:
+        return None
+    return OWNER if outpost.paused_by == OWNER else ADMINISTRATOR
+
+
+def side_of(outpost: Outpost, side: str) -> dict[str, str]:
+    """What the audit entry of a pause or a resume says of the side that made it: only a person's runner
+    has two sides (ADR 0226 §2), and an organisation's outpost's entries stay as they were."""
+    return {"side": side} if is_personal(outpost) else {}
+
+
+async def pause_outpost(session: AsyncSession, outpost: Outpost, side: str = ADMINISTRATOR) -> bool:
+    """Whether it changed anything: pausing a paused outpost does not, except that an administrator's
+    pause takes over its owner's, which the owner then cannot lift (ADR 0226 §2)."""
     await _locked(session, outpost)
     if outpost.status == _REVOKED:
         raise refusal("outpost_revoked", f"`{outpost.slug}` is revoked: that is final", outpost.slug)
     if outpost.status == _PAUSED:
-        return False
+        if side != ADMINISTRATOR or paused_by(outpost) == ADMINISTRATOR:
+            return False
+        outpost.paused_by = ADMINISTRATOR
+        await session.flush()
+        return True
     outpost.status = _PAUSED
+    outpost.paused_by = side
     await session.flush()
     return True
 
 
-async def resume_outpost(session: AsyncSession, outpost: Outpost) -> bool:
-    """Whether it changed anything: resuming an outpost that is not paused does not."""
+async def resume_outpost(session: AsyncSession, outpost: Outpost, side: str = ADMINISTRATOR) -> bool:
+    """Whether it changed anything: resuming an outpost that is not paused does not. A pause is lifted
+    by the side that made it (ADR 0226 §2): 403 for the other."""
     await _locked(session, outpost)
     if outpost.status == _REVOKED:
         raise refusal("outpost_revoked", f"`{outpost.slug}` is revoked: that is final", outpost.slug)
     if outpost.status != _PAUSED:
         return False
+    if paused_by(outpost) != side:
+        if side == ADMINISTRATOR:
+            raise personal_outpost_refusal(
+                outpost, "its owner paused it, and only they lift that pause, through /me/runners"
+            )
+        raise ApiError(
+            403,
+            "Forbidden",
+            "an administrator of the organisation paused this runner: only an administrator lifts that "
+            "pause (ADR 0226 §2)",
+            extra={"code": PAUSED_BY_ADMINISTRATOR},
+        )
     outpost.status = _ACTIVE
+    outpost.paused_by = None
     await session.flush()
     return True
 
@@ -559,7 +664,13 @@ async def revoke_outpost(session: AsyncSession, outpost: Outpost, principal: Pri
     await _locked(session, outpost)
     if outpost.status == _REVOKED:
         return False
-    async with in_outpost_scope(session, outpost.id):
+    # A person's runner's instances are hidden from every other person (ADR 0226 §1), its administrator
+    # included, and its revocation must still reach each of them: the write is made under the platform
+    # scope, and reads nothing back.
+    personal: AbstractAsyncContextManager[None] = (
+        in_platform_scope(session) if is_personal(outpost) else nullcontext()
+    )
+    async with in_outpost_scope(session, outpost.id), personal:
         await session.execute(
             update(OutpostInstance)
             .where(OutpostInstance.outpost_id == outpost.id, OutpostInstance.status != _REVOKED)
@@ -567,6 +678,7 @@ async def revoke_outpost(session: AsyncSession, outpost: Outpost, principal: Pri
             .execution_options(synchronize_session=False)
         )
     outpost.status = _REVOKED
+    outpost.paused_by = None
     await _move_epoch(session, outpost)
     return True
 
@@ -599,17 +711,7 @@ async def create_enrolment(
     here and never again (ADR 0147 §4). It comes with what the operator writes in the outpost's
     policy file before the daemon starts: the door's origin and the door's keys to pin."""
     settings = get_settings()
-    if not settings.outposts:
-        raise _disabled()
-    door_keys = settings.outposts_door_keys
-    if not door_keys:
-        # An outpost makes only calls signed by a key its policy file pins (ADR 0148 §13): with no key
-        # to pin, an instance enrolled now could never be handed anything.
-        raise refusal(
-            "door_key_missing",
-            "the outposts' door has no signing key on this deployment "
-            "(`TRANIBOR_OUTPOSTS_DOOR_SIGNING_KEY`): there is no key to pin, so no instance is enrolled",
-        )
+    door_keys = require_enrolments()
     if outpost.status == _REVOKED:
         raise refusal("outpost_revoked", f"`{outpost.slug}` is revoked: that is final", outpost.slug)
     token, digest = _new_token(outpost)
@@ -1024,8 +1126,13 @@ def clear_call_arguments(call: OutpostCall) -> None:
 
 
 __all__ = [
+    "ADMINISTRATOR",
     "APPROVAL_STEP_UP_MINUTES",
     "ENROLMENT_TOKEN_PREFIX",
+    "OWNER",
+    "PAUSED_BY_ADMINISTRATOR",
+    "PERSONAL_OUTPOST",
+    "PERSONAL_PREFIX",
     "POLL_CONFLICT",
     "POLL_WINDOW_S",
     "Enrolled",
@@ -1041,6 +1148,7 @@ __all__ = [
     "create_outpost",
     "delete_outpost",
     "enrol",
+    "is_personal",
     "list_calls",
     "list_instances",
     "list_outposts",
@@ -1049,8 +1157,12 @@ __all__ = [
     "outpost_id_of_instance",
     "outpost_id_of_token",
     "pause_outpost",
+    "paused_by",
+    "personal_outpost_refusal",
     "presence",
     "refusal",
+    "refuse_personal",
+    "require_enrolments",
     "require_manage",
     "require_person",
     "resume_outpost",
@@ -1058,6 +1170,7 @@ __all__ = [
     "revoke_outpost",
     "scope_to_outpost",
     "seal_call_arguments",
+    "side_of",
     "token_digest",
     "view",
 ]

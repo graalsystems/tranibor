@@ -7,6 +7,13 @@ door an outpost dials (`/outposts/v1`, ADR 0148), and nothing here connects to a
 platform stores no address of one. Creating an outpost or an enrolment token is refused while the
 deployment keeps outposts switched off (`TRANIBOR_OUTPOSTS`); everything else still answers, so that
 what exists can be read, revoked and removed.
+
+A person's own runner is an outpost of the organisation too (ADR 0226 §1), and its owner manages it
+through `/me/runners` (`routers/me_runners.py`). Here, the routes on the outpost itself accept it (list,
+get, pause, resume an administrator's pause, revoke, delete); every route that reaches its instances, its
+enrolment tokens or its calls refuses it, 403 `personal_outpost` (`service.refuse_personal`, ADR 0226 §2):
+an administrator who could enrol a machine of theirs into it, or approve one, would receive that person's
+runs. `apps/api/tests/test_personal_outposts.py` classifies every route of this router.
 """
 
 from __future__ import annotations
@@ -121,7 +128,7 @@ async def pause_outpost(org: str, slug: Slug, session: Db, principal: Me) -> Out
     """Nothing more is handed to it; what its instances hold may finish (ADR 0148 §10)."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
-    if await service.pause_outpost(session, outpost):
+    if await service.pause_outpost(session, outpost, service.ADMINISTRATOR):
         await record(
             session,
             principal,
@@ -130,15 +137,18 @@ async def pause_outpost(org: str, slug: Slug, session: Db, principal: Me) -> Out
             target_type="outpost",
             target_id=outpost.id,
             outpost=slug,
+            **service.side_of(outpost, service.ADMINISTRATOR),
         )
     return await service.view(session, outpost)
 
 
 @router.post("/orgs/{org}/outposts/{slug}/resume", response_model=OutpostDto, operation_id="resumeOutpost")
 async def resume_outpost(org: str, slug: Slug, session: Db, principal: Me) -> OutpostDto:
+    """Lifts an administrator's pause; a person's runner its owner paused is theirs to resume (403
+    `personal_outpost`, ADR 0226 §2)."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
-    if await service.resume_outpost(session, outpost):
+    if await service.resume_outpost(session, outpost, service.ADMINISTRATOR):
         await record(
             session,
             principal,
@@ -147,6 +157,7 @@ async def resume_outpost(org: str, slug: Slug, session: Db, principal: Me) -> Ou
             target_type="outpost",
             target_id=outpost.id,
             outpost=slug,
+            **service.side_of(outpost, service.ADMINISTRATOR),
         )
     return await service.view(session, outpost)
 
@@ -182,6 +193,7 @@ async def create_outpost_enrolment(
     """An enrolment token for one instance, shown once, with the door's origin and keys to pin."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     created = await service.create_enrolment(session, outpost, body or OutpostEnrolmentCreate(), principal)
     # Who issued a token, for which outpost, until when: never the token.
     await record(
@@ -206,6 +218,7 @@ async def list_outpost_enrolments(org: str, slug: Slug, session: Db, principal: 
     """The tokens that can still enrol an instance, newest first: never a token."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     return OutpostEnrolmentList(items=await service.list_enrolments(session, outpost))
 
 
@@ -220,6 +233,7 @@ async def cancel_outpost_enrolment(
     """Cancels a token that enrolled nothing: it enrols no instance from then on (S65-24)."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     await service.cancel_enrolment(session, outpost, enrolment_id)
     await record(
         session,
@@ -241,6 +255,7 @@ async def cancel_outpost_enrolment(
 async def list_outpost_instances(org: str, slug: Slug, session: Db, principal: Me) -> OutpostInstanceList:
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     return OutpostInstanceList(items=await service.list_instances(session, outpost))
 
 
@@ -256,6 +271,7 @@ async def approve_outpost_instance(
     that carries a recent authentication: a token cannot approve (ADR 0147 §4)."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     approved = await service.approve_instance(session, outpost, instance_id, body.fingerprint, principal)
     await record(
         session,
@@ -282,6 +298,7 @@ async def revoke_outpost_instance(
     """Revokes one instance and moves the outpost's epoch (ADR 0147 §5). Final."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     revoked, changed = await service.revoke_instance(session, outpost, instance_id, principal)
     if changed:
         await record(
@@ -313,5 +330,6 @@ async def list_outpost_calls(
     arguments and no result."""
     organisation = await _managed(session, principal, org)
     outpost = await service.outpost_by_slug(session, organisation, slug)
+    service.refuse_personal(outpost)
     window, meta = await service.list_calls(session, outpost, state, page)
     return OutpostCallPage(items=await service.call_records(session, window), meta=meta)

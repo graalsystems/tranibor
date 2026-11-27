@@ -1237,6 +1237,7 @@ guide for whoever runs an outpost in their own network is [Running an outpost](o
 | `TRANIBOR_OUTPOSTS_CALLS_IN_FLIGHT_PER_ORGANISATION` | `512` | the same bound over all the outposts of one organisation |
 | `TRANIBOR_OUTPOSTS_CALLS_PER_MINUTE_PER_OUTPOST` | `600` | the most calls one outpost is handed in a minute: the calls placed in the last sixty seconds, counted from their rows where the next one is admitted, so every replica reads the same number. One more is refused before anything is written, and the caller is told to come back (a tool error `outpost_not_admitted`, 429) |
 | `TRANIBOR_OUTPOSTS_CALLS_PER_MINUTE_PER_ORGANISATION` | `2400` | the same bound over all the outposts of one organisation |
+| `TRANIBOR_PERSONAL_RUNNERS` | unset | whether a person may enrol their own machines as their personal runner, through `/api/v1/me/runners` ([ADR 0226](adr/0226-a-person-s-own-machine-runs-that-person-s-runs.md) §2; [Outposts](outposts.md#a-persons-own-runner)). Unset, it follows the posture: on in a personal installation (`TRANIBOR_ENV=personal`), off everywhere else; `on` or `off` overrides it. Off, every route of `/me/runners` answers 404. An enrolment token still needs `TRANIBOR_OUTPOSTS` on and the door's signing key |
 
 **With the chart.** `global.outposts` renders these settings, the door's route and, if you ask for it,
 the door's own Deployment. Nothing of it is rendered while `global.outposts.enabled` is false, which

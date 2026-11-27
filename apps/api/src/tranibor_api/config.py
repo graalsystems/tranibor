@@ -507,6 +507,12 @@ class Settings(BaseSettings):
     #: moment it is placed, whatever becomes of it.
     outposts_calls_per_minute_per_outpost: int = Field(default=600, ge=1)
     outposts_calls_per_minute_per_organisation: int = Field(default=2400, ge=1)
+    #: `TRANIBOR_PERSONAL_RUNNERS` (ADR 0226 §2): whether a person may enrol their own machines as their
+    #: personal runner through `/me/runners`, which answers 404 when it is off. Unset, it follows the
+    #: posture: on in a personal installation (`TRANIBOR_ENV=personal`, ADR 0228), off everywhere else; an
+    #: operator may set it either way. Read it through `personal_runners_on`. An enrolment token still
+    #: needs outposts on (`TRANIBOR_OUTPOSTS`).
+    personal_runners: bool | None = None
 
     # Webhooks
     github_webhook_secret: str = ""
@@ -623,6 +629,12 @@ class Settings(BaseSettings):
         """
         https = any(u.strip().lower().startswith("https://") for u in (self.public_url, self.api_url))
         return (is_production(self.env) and not is_personal(self.env)) or https
+
+    @property
+    def personal_runners_on(self) -> bool:
+        """Whether `/me/runners` is served: `TRANIBOR_PERSONAL_RUNNERS` when it is set, otherwise the
+        personal posture's (ADR 0226 §2, ADR 0228)."""
+        return is_personal(self.env) if self.personal_runners is None else self.personal_runners
 
     @property
     def deployed(self) -> bool:
