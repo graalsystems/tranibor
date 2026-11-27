@@ -74,6 +74,7 @@ jobs:
             charts:
               - 'charts/**'
               - 'infra/**'
+              - 'tests/charts/test_provider_profiles.py'
             contracts:
               - 'packages/contracts/**'
             docker:
@@ -454,6 +455,16 @@ jobs:
           curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
           tar xf kubeconform.tar.gz
           ./kubeconform -strict -ignore-missing-schemas -summary /tmp/prod.yaml /tmp/outpost.yaml
+      # The provider profiles (S87-10): the `python` job has no kubeconform and skips that test; here it
+      # runs, and a skip is a failure.
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with: { enable-cache: true }
+      - name: provider profiles (render, kubeconform, runtime class)
+        run: |
+          uv sync --frozen
+          PATH="$PWD:$PATH" uv run pytest tests/charts/test_provider_profiles.py -rs | tee pytest.out
+          test "${PIPESTATUS[0]}" -eq 0
+          ! grep -qi skipped pytest.out
       - name: helm unittest
         run: |
           # Pinned version: the plugin tracks Helm closely — `platformHooks` in its

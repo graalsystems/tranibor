@@ -84,6 +84,11 @@ work_items:
         model: anthropic/claude-sonnet-5
         tokens: { input: 412000, output: 18500, cached: 300000 }
         summary: Credit notes are subtracted before the VAT is computed.
+        outputs: { allowed_paths: ["src/invoices/**"] }   # what the step returned, judged as a stage result
+        evidence: { tests_passed: true, tests_run: 214 }
+        gates:                                           # in the run's journal, as a live step's verdicts
+          - { name: output_schema, passed: true }
+          - { name: tests_green, passed: true }
     decisions:
       - { id: spec-ok, kind: approval, summary: "Approve the specification?", at: 2026-11-02T10:25:00Z, by: admin@northwind.dev }
   - id: inv-150
@@ -92,6 +97,8 @@ work_items:
     history: [{ state: inbox, at: 2026-11-05T09:00:00Z }, { state: in_progress, at: 2026-11-05T09:30:00Z }]
     pending:                         # still waits for a person: the inbox lists it (not on an ended work item)
       { id: spec-review, kind: approval, summary: "Approve the localised reminders?", requested_at: 2026-11-05T09:40:00Z }
+    actions:                         # a transition's governed action, proposed by the product; deciding it plays nothing
+      - { transition: t-notify-customers, at: 2026-11-05T09:45:00Z }   # `pending`; `succeeded` names decided_by/_at
 ```
 
 The contract is `packages/contracts/schemas/demo-history.schema.json`. The whole document is checked before

@@ -32,8 +32,10 @@ from urllib.parse import urlsplit
 import httpx
 import typer
 import yaml
+from pydantic import ValidationError
 from rich.console import Console
 from tranibor_contracts import wire
+from tranibor_core.dns_policy import UPSTREAM, DnsPolicy, network_policy_rule
 from tranibor_core.egress_gate import (
     DEFAULT_CLOSED_STREAK,
     DEFAULT_DEADLINE_S,
@@ -119,6 +121,8 @@ class Settings:
     gate_target: str = DEFAULT_TARGET
     gate_deadline_s: float = DEFAULT_DEADLINE_S
     probe_image: str = PROBE_IMAGE
+    #: `networkPolicies.dns`: the resolver the probe's policy opens, as the chart's policies do (#2277).
+    dns: DnsPolicy = UPSTREAM
     read_only: bool = False
     pod_timeout_s: float = 180.0
 
@@ -177,6 +181,13 @@ def settings_from_values(files: Sequence[Path]) -> dict[str, Any]:
             found["gate_target"] = str(gate["target"])
         if gate.get("deadlineSeconds") is not None:
             found["gate_deadline_s"] = float(gate["deadlineSeconds"])
+    dns = _dig(merged, "networkPolicies", "dns")
+    if isinstance(dns, Mapping):
+        # The keys a file leaves out keep the chart's defaults, which are `DnsPolicy`'s.
+        try:
+            found["dns"] = DnsPolicy.model_validate(dict(dns))
+        except ValidationError as wrong:
+            raise typer.BadParameter(f"networkPolicies.dns: {wrong.errors()[0]['msg']}") from wrong
     return found
 
 
@@ -536,7 +547,11 @@ def _pod(
 
 #: The chart's `tranibor-runner-egress` once the default deny holds: DNS to `kube-system`, and in this
 #: namespace nothing else (the API, the gateway and the egress proxy it also opens are not here).
-def _runner_policy() -> dict[str, Any]:
+def _runner_policy(dns: DnsPolicy) -> dict[str, Any]:
+    """`tranibor-runner-egress` as the chart renders it: the resolver `networkPolicies.dns` names, nothing
+    else. Before #2277's follow-up it opened `kube-system` on 53 whatever the setting: on OpenShift
+    (`openshift-dns`, 5353) the fenced probe could not resolve the server's name, and the check failed
+    for a reason that was not the one it reports."""
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",
@@ -546,14 +561,7 @@ def _runner_policy() -> dict[str, Any]:
                 "matchLabels": {"app.kubernetes.io/name": RUNNER_POD_LABELS["app.kubernetes.io/name"]}
             },
             "policyTypes": ["Egress"],
-            "egress": [
-                {
-                    "to": [
-                        {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}
-                    ],
-                    "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
-                }
-            ],
+            "egress": [network_policy_rule(dns, tcp=True)],
         },
     }
 
@@ -642,7 +650,8 @@ async def network_checks(api: KubeApi, settings: Settings, *, sleep: Sleep = asy
     try:
         try:
             await api.create(
-                f"/apis/networking.k8s.io/v1/namespaces/{namespace}/networkpolicies", _runner_policy()
+                f"/apis/networking.k8s.io/v1/namespaces/{namespace}/networkpolicies",
+                _runner_policy(settings.dns),
             )
         except KubeApiError as exc:
             refused = Result(

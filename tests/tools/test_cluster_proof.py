@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 import yaml
+from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PROOF = ROOT / "tools" / "cluster-proof" / "proof.sh"
@@ -36,7 +37,7 @@ KUBECTL = (
     _PRELUDE
     + """case "$args" in
   *" version -o json"*) echo '{"serverVersion": {"gitVersion": "v1.34.0"}}' ;;
-  *"get deploy tranibor-api -o jsonpath"*) echo ghcr.io/graalsystems/tranibor-api:proof ;;
+  *"get deploy tranibor-api -o jsonpath"*) echo API_IMAGE ;;
   *"get deploy,statefulset -o name"*) echo deployment.apps/tranibor-api ;;
   *"get pod probe-"*)
     case "$args" in *postgresql* | *temporal* | *objectstore*) echo Failed ;; *) echo Succeeded ;; esac ;;
@@ -51,7 +52,7 @@ KUBECTL = (
 esac
 exit 0
 """
-)
+).replace("API_IMAGE", f"{PUBLISHING.image_name('api')}:proof")
 
 HELM = _PRELUDE + 'case "$args" in *" install tranibor "*) echo "STATUS: deployed" ;; esac\nexit 0\n'
 

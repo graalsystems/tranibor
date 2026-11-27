@@ -81,7 +81,20 @@
         "model": { "type": "string", "maxLength": 200 },
         "tokens": { "$ref": "#/$defs/tokens" },
         "cost_usd": { "type": "number", "minimum": 0, "description": "The cost as declared; absent: the tokens at the price of `model` in `prices`." },
-        "summary": { "type": "string", "maxLength": 2000, "description": "The run's result summary." }
+        "summary": { "type": "string", "maxLength": 2000, "description": "The run's result summary." },
+        "outputs": { "type": "object", "description": "What the step returned (`StageResult.outputs`): its declared outputs, a report, cited sources. Judged by the stage result's contract." },
+        "evidence": { "type": "object", "description": "What the step proved (`StageResult.evidence`): facts, tests run. Judged by the stage result's contract." },
+        "gates": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/gate" }, "description": "The verdicts of the step's gates, in order, written as the live step's journal writes them (`gate.outcome`)." }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "required": ["name", "passed"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "passed": { "type": "boolean" },
+        "detail": { "type": "string", "maxLength": 2000 }
       }
     },
     "decision": {
@@ -154,7 +167,21 @@
         "runs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/run" } },
         "decisions": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/decision" } },
         "findings": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/finding" } },
-        "pending": { "$ref": "#/$defs/pending", "description": "What the work item waits for now, if a person must decide: at most one." }
+        "pending": { "$ref": "#/$defs/pending", "description": "What the work item waits for now, if a person must decide: at most one." },
+        "actions": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/action" }, "description": "The governed actions its transitions proposed (ADR 0035), at most one per transition." }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["transition", "at"],
+      "additionalProperties": false,
+      "description": "The governed action a transition of the workflow proposes, proposed for the work item by the product's own service (title, parameters and approvers rendered from its fields). `pending`: it waits for its approvers; deciding it records the decision and plays nothing. `succeeded`: approved by `decided_by`, its effects recorded as imported, never played.",
+      "properties": {
+        "transition": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The id of a transition of the project's workflow that declares an `action`." },
+        "status": { "type": "string", "enum": ["pending", "succeeded"], "default": "pending" },
+        "at": { "type": "string", "format": "date-time", "description": "When it was proposed; not before the work item was created." },
+        "decided_by": { "type": "string", "maxLength": 200, "description": "Who approved it: a member of the organisation. Required when `succeeded`, absent when `pending`." },
+        "decided_at": { "type": "string", "format": "date-time", "description": "When it was approved, after `at`. Required when `succeeded`, absent when `pending`." }
       }
     }
   }

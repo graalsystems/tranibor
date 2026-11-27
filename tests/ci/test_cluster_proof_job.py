@@ -11,6 +11,7 @@ import pathlib
 from typing import Any
 
 import yaml
+from tranibor_core.publishing import PUBLISHING
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CI = ROOT / ".github" / "workflows" / "ci.yml"
@@ -40,7 +41,7 @@ def test_the_proof_runs_on_kind_and_on_k3d_with_the_images_of_this_commit() -> N
         assert target in build, target
     assert job["env"]["PROOF_IMAGE_TAG"] == "proof"
     assert set(job["env"]["PROOF_LOAD_IMAGES"].split()) == {
-        f"ghcr.io/graalsystems/tranibor-{name}:proof" for name in ("api", "orchestrator", "web")
+        f"{PUBLISHING.image_name(name)}:proof" for name in ("api", "orchestrator", "web")
     }
     # What it pulls is pinned: both node images by digest, k3d by checksum.
     assert "@sha256:" in job["env"]["KIND_NODE_IMAGE"]
