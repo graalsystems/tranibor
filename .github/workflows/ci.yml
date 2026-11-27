@@ -866,12 +866,12 @@ jobs:
           ! grep -qi skipped pytest.out
           grep -c passed pytest.out
           # Tekton's agent stage under gVisor (S87-06): the isolation probe, then one agent run. `-s` prints
-          # the run's journal, whose text may say "skipped": the summary line is the one read.
+          # the run's journal, whose text may say "skipped": pytest's own skip lines and summary are read.
           TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context) TRANIBOR_TEKTON_RUNTIME_CLASS=gvisor \
             TRANIBOR_TEKTON_RUNNER_IMAGE="$TRANIBOR_HOSTED_RUNNER_IMAGE" uv run pytest \
             tests/cluster/test_tekton_isolation.py tests/cluster/test_tekton_agent_run.py -m cluster -rs -s | tee tekton.out
-          ! grep -qE '^=+ .*[0-9]+ skipped' tekton.out
-          grep -E '^=+ [0-9]+ passed' tekton.out
+          ! grep -qE '^SKIPPED|[0-9]+ skipped' tekton.out
+          grep -E '^[0-9]+ passed' tekton.out
 
   hosted-foundry:
     # The Foundry variant of the triager (Agent Framework's `FoundryChatClient`, azure-identity's

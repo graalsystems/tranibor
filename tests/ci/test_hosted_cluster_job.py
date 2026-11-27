@@ -83,6 +83,6 @@ def test_the_job_runs_tektons_agent_stage_under_gvisor() -> None:
     assert 'TRANIBOR_TEKTON_RUNNER_IMAGE="$TRANIBOR_HOSTED_RUNNER_IMAGE"' in run
     assert "TRANIBOR_CLUSTER_CONTEXT=$(kubectl config current-context)" in run
     assert "use-context kind-" in runs, "the current context is the 1.34 cluster again"
-    assert "! grep -qE '^=+ .*[0-9]+ skipped' tekton.out" in run, "a skip fails the job"
+    assert "! grep -qE '^SKIPPED|[0-9]+ skipped' tekton.out" in run, "a skip fails the job"
     filters = yaml.safe_load(_workflow()["jobs"]["changes"]["steps"][1]["with"]["filters"])["hosted-cluster"]
     assert "packages/adapters/src/tranibor_adapters/executor/tekton.py" in filters
