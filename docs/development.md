@@ -84,6 +84,11 @@ work_items:
         model: anthropic/claude-sonnet-5
         tokens: { input: 412000, output: 18500, cached: 300000 }
         summary: Credit notes are subtracted before the VAT is computed.
+        outputs: { allowed_paths: ["src/invoices/**"] }   # what the step returned, judged as a stage result
+        evidence: { tests_passed: true, tests_run: 214 }
+        gates:                                           # in the run's journal, as a live step's verdicts
+          - { name: output_schema, passed: true }
+          - { name: tests_green, passed: true }
     decisions:
       - { id: spec-ok, kind: approval, summary: "Approve the specification?", at: 2026-11-02T10:25:00Z, by: admin@northwind.dev }
   - id: inv-150
@@ -103,8 +108,8 @@ row and writes nothing; an id that already holds other content is a 409.
 What it writes is **marked as imported demonstration data**, never as measured: `imported` on the work
 items, runs, findings and cost lines (visible in the API), `imported_usd` in every cost report, and no
 budget, no agent metric (runs, success rate, cost, the agent's daily and monthly spend) and no Prometheus
-gauge (runs, start delay, cost, today's cost, lead time, first-pass rate) counts an imported line, and the
-cost CSV export has an `imported_usd` column; the DORA measures read deployments and releases, which an import never writes. The console
+gauge (runs, start delay, cost, today's cost, lead time, first-pass rate) and no project card's month cost
+counts an imported line, and the cost CSV export has an `imported_usd` column; the DORA measures read deployments and releases, which an import never writes. The console
 shows an **Imported** badge on every imported work item, run, finding and inbox request. Each import is
 audited as `demo_history.import`. Imported work items are not run by any workflow (no interpreter): they
 are history, their key is `demo:<id>`, and they take no action (`pause`, `mark_agent_ready`... answer 409,

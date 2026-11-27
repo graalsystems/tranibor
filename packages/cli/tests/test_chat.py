@@ -2420,6 +2420,34 @@ async def test_the_amounts_follow_the_organisations_currency(platform: Platform)
         assert "€1.11 today" in text and "$" not in text.split("today")[0].splitlines()[-1]
 
 
+@pytest.mark.parametrize("late", ["tree highlight", "option highlight", "a read that lands", "resize"])
+async def test_a_message_handled_after_the_screens_are_gone_does_nothing(
+    platform: Platform, late: str
+) -> None:
+    """#2306: a `NodeHighlighted` / `OptionHighlighted` still queued as `run_test` leaves its context is
+    handled once the screen stack is empty; refreshing the bindings then raised `ScreenStackError`. The
+    teardown is reproduced without a race: the message is built while the app runs and handled after it
+    exited, as a late one is. A read that lands (`redraw`) and a resize, handled as late, raised too."""
+    from textual import events
+    from textual.geometry import Size
+    from textual.widgets import OptionList, Tree
+    from textual.widgets.option_list import Option
+
+    app = make_app()
+    async with app.run_test(size=(160, 40)) as pilot:
+        await ready(pilot)
+        tree_moved = Tree.NodeHighlighted(app.query_one(Tree).root)
+        option_moved = OptionList.OptionHighlighted(app.query_one("#decisions", OptionList), Option("x"), 0)
+        handlers: dict[str, Callable[[], None]] = {
+            "tree highlight": lambda: app.selection_moved(tree_moved),
+            "option highlight": lambda: app.selection_moved(option_moved),
+            "a read that lands": app.redraw,
+            "resize": lambda: app.on_resize(events.Resize(Size(80, 24), Size(80, 24))),
+        }
+    assert not app.screen_stack  # the state the late message lands in
+    handlers[late]()  # raised (`ScreenStackError`, or `NoMatches` for the redraw) before the guard
+
+
 async def test_an_unreadable_currency_keeps_each_amounts_own_symbol(platform: Platform) -> None:
     platform.currency(None)
     async with make_app(conversation=CID).run_test(size=(160, 40)) as pilot:

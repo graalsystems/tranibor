@@ -326,6 +326,8 @@ def test_a_work_item_without_a_pending_request_keeps_the_digest_it_had_before() 
     item = document.work_items[0]
     before = item.model_dump(mode="json")
     before.pop("pending")
+    for run in before["runs"]:  # nor did its runs carry outputs, evidence or gates (ADR 0216, point 13)
+        del run["outputs"], run["evidence"], run["gates"]
     expected = hashlib.sha256(
         json.dumps({"item": before, "workflow": "w", "prices": {}}, sort_keys=True, default=str).encode()
     ).hexdigest()
