@@ -306,7 +306,7 @@ async def test_every_import_is_audited(client: AsyncClient, project: dict[str, A
 
 
 WARRANTY = """
-apiVersion: choregos/v1
+apiVersion: tranibor/v1
 kind: Workflow
 metadata:
   name: warranty-claims
@@ -328,7 +328,7 @@ transitions:
 
 def _claim(finding_type: str, severity: str) -> dict[str, Any]:
     return {
-        "schema": "choregos/DemoHistory/v1",
+        "schema": "tranibor/DemoHistory/v1",
         "workflow": "warranty-claims",
         "work_items": [
             {
