@@ -1,0 +1,33 @@
+# AKS profile (S87-10, ADR 0227): what differs on Azure Kubernetes Service, and nothing else.
+# Layer it after the base profile and before the site's own file:
+#
+#   helm install tranibor charts/tranibor -n tranibor --create-namespace \
+#     -f charts/tranibor/values/all-in-one.yaml -f charts/tranibor/values/aks.yaml -f my-site.yaml
+#
+# What it relies on, on the cluster side (`az aks create`):
+#   - Azure Linux nodes with pod sandboxing: `--os-sku AzureLinux --workload-runtime KataVmIsolation`
+#     on a VM size with nested virtualisation (D*s_v3 and later). It gives the RuntimeClass
+#     `kata-vm-isolation` (GA): each agent pod runs in its own lightweight VM, with its own kernel.
+#   - A NetworkPolicy engine: `--network-dataplane cilium` (Azure CNI powered by Cilium). Without one,
+#     the egress gate holds every agent pod forever, by design.
+#   - An ingress controller: the application routing add-on (`az aks approuting enable`), whose
+#     IngressClass is `webapprouting.kubernetes.azure.com`.
+#   - The default StorageClass (`managed-csi`, Azure Disk, ReadWriteOnce): nothing to set.
+# Proved by tools/cluster-proof/proof.sh on AKS 1.35 (docs/support/clusters.yaml).
+global:
+  runner:
+    # Every agent pod (the runner and the agent's own container) in a Kata VM. Landlock still applies
+    # inside the VM's kernel, unlike under gVisor (ADR 0094).
+    runtimeClass: kata-vm-isolation
+
+tranibor-api:
+  ingress:
+    className: webapprouting.kubernetes.azure.com
+
+tranibor-web:
+  ingress:
+    className: webapprouting.kubernetes.azure.com
+
+tranibor-keycloak:
+  ingress:
+    className: webapprouting.kubernetes.azure.com
