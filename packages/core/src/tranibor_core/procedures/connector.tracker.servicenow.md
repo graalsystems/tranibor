@@ -1,0 +1,174 @@
+---
+id: connector.tracker.servicenow
+title: Use ServiceNow as the board
+applies_to: {connector: tracker/servicenow}
+audience: project_owner
+version: 1
+reviewed: 2026-11-28
+vendor_docs:
+  - {title: "Table API", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/integrate/inbound-rest/concept/c_TableAPI.html"}
+  - {title: "Configure OAuth client credentials grant (inbound)", url: "https://www.servicenow.com/docs/bundle/zurich-platform-security/page/administer/security/task/client-credentials.html"}
+  - {title: "Business rules", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/script/business-rules/concept/c_BusinessRules.html"}
+  - {title: "RESTMessageV2 API", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/app-store/dev_portal/API_reference/RESTMessageV2/concept/c_RESTMessageV2API.html"}
+egress: ["<instance>.service-now.com"]
+values: ["webhook_url:servicenow"]
+fields:
+  instance_url: "https://<instance>.service-now.com, without a trailing slash"
+  auth: "`oauth` (the default) for an OAuth client of the instance; `basic` for the integration user's password"
+  client_id: "`oauth` only: the Client ID of the OAuth inbound integration"
+  client_secret: "`oauth` only: its Client Secret, typed once"
+  username: "`basic` only: the integration user's user ID"
+  password: "`basic` only: its password, typed once"
+  assignment_groups: "the names (or sys_ids) of the groups whose open items Tranibor takes on"
+  tables: "optional: `incident`, `sc_req_item`, `change_request`, or a subset; empty: all three"
+  webhook_secret: "a random string of at least 32 characters, the same as the Business Rule's property"
+---
+
+## Before you start
+
+- A ServiceNow instance you administer. A free Personal Developer Instance is enough to try it.
+- The assignment groups whose queue Tranibor should take on (for instance `Service Desk`).
+- A random secret of at least 32 characters for the webhook, kept in your secret store: you type it in
+  Tranibor and in a ServiceNow system property.
+- Nothing to install: this tracker is part of Tranibor and calls the instance itself, wherever Tranibor
+  runs (Docker Compose, a laptop, Kubernetes). The `servicenow` plugin is a different thing: an agent, its
+  skills and its governed ITSM tools (knowledge articles, configuration items, a reply the caller reads).
+  A project picks this tracker or the plugin's, not both.
+- This path was built against a simulated instance and the plugin server's own records of a live one; it
+  has not been run against a live instance from this repository yet.
+
+## At ServiceNow
+
+1. **The integration user.** System Security, Users, **New**: user ID `tranibor.integration`, check **Web
+   service access only** and **Internal Integration User**. Give it the role **`itil`**, and, if Tranibor
+   follows change requests, **`sn_change_read`** (the Change Management API). Never `admin`.
+2. **The two read rights `itil` lacks.** The states are read from `sys_choice` and the work notes from
+   `sys_journal_field`, which an `itil` user cannot read on a default instance. Elevate to
+   `security_admin`, find the **read** ACL that decides each table today (`sys_choice`,
+   `sys_journal_field`) and add the role to it, or create one more read ACL **under that same name** for
+   the role. Never create a field ACL or a wildcard one under a name that has none: it would become the one
+   that decides for every role. Without these rights Tranibor still works, on ServiceNow's out-of-box state
+   names and on the record's own journal fields, but a renamed state is then unknown.
+3. **The OAuth client** (auth `oauth`). On Washington DC and later, set the system property
+   `glide.oauth.inbound.client.credential.grant_type.enabled` to `true`. System OAuth, Application
+   Registry, **New**, **OAuth - Client credentials grant** (an OAuth API endpoint for external clients on
+   older releases): name it `Tranibor`, set **OAuth Application User** to `tranibor.integration`, so every
+   call runs with that user's roles and nothing more. Copy the **Client ID** and **Client Secret**. Without
+   the client credentials grant, use auth `basic` with the integration user's password; from the release
+   that enforces `SNCRestrictBasicAuth`, basic authentication of the API also needs the role
+   `snc_basic_auth_api_access`.
+4. **The webhook properties.** System Properties, **New**, twice, both with **Read roles** and **Write
+   roles** set to `admin`: `tranibor.webhook_url`, type string: `{{webhook_url:servicenow}}`; and
+   `tranibor.webhook_secret`, type string: the webhook secret.
+5. **The Business Rule.** System Definition, Business Rules, **New**: name `Tranibor - notify`, table
+   **Incident [incident]**, check **Advanced**. When: **after**, on **Insert** and **Update**. Filter
+   conditions: **Assignment group** *is one of* the groups you chose. Condition (so that Tranibor's own
+   work notes are not posted back): `current.operation() == 'insert' || gs.getUserName() != 'tranibor.integration'`.
+   Script:
+
+   ```javascript
+   (function executeRule(current, previous /*null when async*/) {
+       var url = gs.getProperty('tranibor.webhook_url');
+       var secret = gs.getProperty('tranibor.webhook_secret');
+       if (!url || !secret) {
+           gs.warn('Tranibor: tranibor.webhook_url or tranibor.webhook_secret is not set');
+           return;
+       }
+       var operation = current.operation();
+       if (operation == 'update' && current.comments.changes()) {
+           operation = 'comment';
+       }
+       var request = new sn_ws.RESTMessageV2();
+       request.setEndpoint(url);
+       request.setHttpMethod('post');
+       request.setRequestHeader('Content-Type', 'application/json');
+       request.setRequestHeader('X-Tranibor-Secret', secret);
+       request.setHttpTimeout(10000);
+       request.setRequestBody(JSON.stringify({
+           table: current.getTableName(),
+           sys_id: current.getUniqueValue(),
+           number: current.getValue('number'),
+           sys_mod_count: parseInt(current.getValue('sys_mod_count'), 10),
+           operation: operation,
+           state: current.getValue('state'),
+           instance: gs.getProperty('instance_name')
+       }));
+       request.executeAsync();
+   })(current, previous);
+   ```
+
+   The payload names the record and nothing else: Tranibor re-reads it before acting. The same rule on
+   **Requested Item [sc_req_item]** or **Change Request [change_request]** makes those work items too.
+6. Without the Business Rule, Tranibor polls the groups' queue every minute instead: the open items of
+   those groups, the most recently updated first, at most 200 a poll.
+
+## Permissions
+
+What the integration user needs, and nothing more: `itil` (read and write incidents, request items and
+changes, their work notes and states, create an incident), the read rights of step 2 on `sys_choice` and
+`sys_journal_field`, and `sn_change_read` for change requests.
+
+**What Tranibor writes, and as whom.** The workflow's bookkeeping goes through this connector, through the
+Table API, under the integration user (or the OAuth client's application user):
+
+- every text is a **work note**, internal: the status note (one new note each time its text changes; a
+  journal cannot be edited), the questions to a person, the close-out. Never a customer-visible comment:
+  a reply the caller reads stays the `servicenow` plugin's tool, which a person approves;
+- the **state**, by its label (`In Progress`), matched without case against the table's states; a state
+  that closes the item is refused there, since closing is the workflow's close step: an incident is
+  **Resolved** with the close code `Solution provided`, a request item **Closed Complete**, a change
+  **Closed** with the close code `successful`;
+- a change request's state moves only through the Change Management API, to a state its change model
+  reaches from where it stands: nothing walks it past its approvals;
+- the fields `impact`, `urgency`, `category`, `subcategory`, `assignment_group`, `assigned_to` and
+  `cmdb_ci` when a step asks for them. **Never `priority`**: ServiceNow computes it from impact and urgency.
+  The cost, size, risk and run Tranibor writes in other boards have no field here: the status note carries
+  them;
+- a request typed on Tranibor's board files an **incident**, carrying `correlation_id = tranibor:<key>`, so
+  a replay finds it instead of filing another. If the user cannot write `correlation_id`, ServiceNow files
+  the record without it and Tranibor logs `servicenow.correlation_id_not_kept`: give the role that right.
+
+## In Tranibor
+
+1. Project settings, Connectors, **Tracker**, type **ServiceNow**.
+2. `instance_url`: `https://<instance>.service-now.com`. `auth`: `oauth` (the default) or `basic`.
+3. `client_id` and `client_secret` from step 3 (or `username` and `password` for `basic`): the secret in the
+   password field, sealed, shown once.
+4. `assignment_groups`: the groups the Business Rule filters on. `tables`: only if the project should follow
+   fewer than incidents, request items and changes.
+5. `webhook_secret`: the same secret as the `tranibor.webhook_secret` property. A delivery that carries it
+   reaches only the projects of this connector; one that carries the platform's shared webhook secret
+   (`TRANIBOR_GENERIC_WEBHOOK_SECRET`) reaches any ServiceNow project, told apart by the instance it names,
+   then by the project that already holds the item.
+6. Set a start rule: a ServiceNow item carries no `agent-ready` label. Project settings, **Triggers**, for
+   example `[{"item_type": "incident", "states": ["New"]}]`: each new incident of the groups becomes a work
+   item, and the ones already in progress do not.
+
+## Test it
+
+1. Press **Test** on the connector: it reads the first table and its states with the credential, which proves
+   the credential, the role and the read on `sys_choice` at once.
+2. In ServiceNow, create an incident assigned to one of the groups. Within a minute it appears on the
+   project's board.
+3. System Logs, **Outbound HTTP Requests**: the Business Rule's POST answered `202`.
+
+## When it fails
+
+- `401` from the instance: wrong client ID or secret, the client credentials grant is not enabled, or the
+  OAuth Application User is empty; with `basic`, the password, **Web service access only**, or the missing
+  `snc_basic_auth_api_access`.
+- `403` on the test: the user cannot read the table or `sys_choice` (step 2).
+- `ServiceNow did not apply <field>`: ServiceNow answered 200 to a write and kept the old value, which it
+  does for a field the role cannot write and for a value the field refuses.
+- `"X" is not a state of incident (states: …)`: the workflow names a state the table does not have; the error
+  lists the ones it has. `"X" closes …`: the workflow names a closing state; let its close step close it.
+- `"X" is not reachable from "Y" on this change's model`: a change moves only along its model's transitions,
+  and closes only from Review, once its approvals are given on the instance.
+- `the Change Management API answered no next state`: give the integration user `sn_change_read`.
+- The webhook answers `401 invalid shared secret`: the `X-Tranibor-Secret` sent differs from `webhook_secret`,
+  or a property is empty (the system log shows `Tranibor: … is not set`).
+- The webhook answers `202` and nothing starts: no start rule matches the item, or two projects hold the
+  instance and the delivery names none (send `instance`, or give each connector its own `webhook_secret`).
+- The outbound request answered `-1` (`UnknownHostException`): Tranibor's API name does not resolve from the
+  instance's data centre; the poll (step 6) is then the only path.
+- A timeout: the egress allowlist must open the instance's host.
