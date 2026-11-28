@@ -282,6 +282,42 @@ export function pluginsApi(method: string, path: string, body: unknown, connecto
   if (method === "GET" && /^\/orgs\/[^/]+\/plugins$/.test(path)) return { items: structuredClone(installedPlugins) };
   if (method === "GET" && /^\/orgs\/[^/]+\/plugin-sources$/.test(path)) return { sources: structuredClone(pluginSources) };
   if (method === "GET" && /^\/orgs\/[^/]+\/plugin-approvals$/.test(path)) return { items: structuredClone(pluginApprovals) };
+  // No catalogue plugin of the demo ships a profile yet (S86-05): the list is empty.
+  if (method === "GET" && /^\/orgs\/[^/]+\/plugin-profiles$/.test(path)) return { items: [] };
+  const instances = /^\/orgs\/[^/]+\/plugins\/([^/]+)\/servers\/([^/]+)\/instances(?:\/([^/]+))?$/.exec(path);
+  if (instances) {
+    const [plugin, server, instance] = [1, 2, 3].map((i) => (instances[i] ? decodeURIComponent(instances[i]!) : undefined));
+    const mine = () => connectors.filter((c) => c.server?.plugin === plugin && c.server?.server === server);
+    const view = (c: OrgConnector) => ({
+      name: c.name,
+      server: server!,
+      default: c.name === server,
+      state: "unconfigured" as const,
+      status: c.status,
+      last_error: null,
+    });
+    if (method === "GET" && !instance) {
+      return { items: mine().sort((a, b) => Number(b.name === server) - Number(a.name === server) || a.name.localeCompare(b.name)).map(view) };
+    }
+    if (method === "POST" && !instance) {
+      mustAdmin();
+      const name = (body as { name: string }).name;
+      const first = mine().find((c) => c.name === server);
+      if (!first) throw new ApiError(409, { title: "Conflict", detail: `the server \`${server}\` of \`${plugin}\` has no default instance` });
+      if (connectors.some((c) => c.name === name)) throw new ApiError(409, { title: "Conflict", detail: `the organisation already has a connector \`${name}\`` });
+      const made: OrgConnector = { ...structuredClone(first), name, secret_refs: { _server_token: `store:connector/${name}/_server_token` } };
+      connectors.push(made);
+      return view(made);
+    }
+    if (method === "DELETE" && instance) {
+      mustAdmin();
+      if (instance === server) throw new ApiError(409, { title: "Conflict", detail: `\`${instance}\` is the default instance: uninstall the plugin to remove it` });
+      const at = connectors.findIndex((c) => c.name === instance && c.server?.server === server);
+      if (at < 0) throw new ApiError(404, { title: "Not Found", detail: "no such instance" });
+      connectors.splice(at, 1);
+      return null; // undefined would mean "route not handled"
+    }
+  }
   if (method === "POST" && /^\/orgs\/[^/]+\/plugins\/install$/.test(path)) {
     mustAdmin();
     const ask = body as PluginInstall;
