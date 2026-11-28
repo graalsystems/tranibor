@@ -67,6 +67,11 @@ exactly like Jira, from the tracker connector's form.
   comment, a resolution or a change request filed by an agent. They are governed tools an agent calls under
   approval, and stay the plugin's.
 
+**In the console.** ServiceNow is a tracker of the new-project page and of the project's settings, like Jira. The
+new-project page asks the chosen external tracker's settings and secrets (the settings' own connector form, for
+that type) and writes them with the project; it saved an empty configuration before, which every external
+tracker's check refuses.
+
 ## Consequences
 
 - ServiceNow works wherever the core works; the tracker's writes are platform calls through the connector,
