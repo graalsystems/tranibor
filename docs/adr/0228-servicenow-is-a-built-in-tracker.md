@@ -1,6 +1,6 @@
 # 0228 — ServiceNow is a built-in tracker of the core, beside the plugin
 
-- **Status**: proposed, 2026-11-28 (asked by the product owner on 2026-11-28: "ServiceNow must be
+- **Status**: accepted, 2026-11-28 (asked by the product owner on 2026-11-28: "ServiceNow must be
   manageable in the app like Jira")
 - **Concerns**: [ADR 0093](0093-an-agent-ships-as-a-plugin.md) (ServiceNow shipped as a plugin),
   [ADR 0096](0096-a-plugin-s-code-runs-as-an-mcp-server-the-platform-runs.md) (a plugin's server runs on

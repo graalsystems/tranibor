@@ -37,7 +37,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 TARGET = ROOT / "docs" / "procedures"
 DOCS_CONTEXT = core.Context(api_url="<api_url>", public_url="<public_url>", org="<org>")
 MOCK_CONTEXT = core.Context(
-    api_url="https://choregos.example.com", public_url="https://choregos.example.com", org="acme"
+    api_url="https://tranibor.example.com", public_url="https://tranibor.example.com", org="acme"
 )
 
 AUDIENCE = {

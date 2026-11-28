@@ -70,10 +70,10 @@ describe("the setup procedure panel (S39-23b)", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
     view(<ProcedurePanel target="connector:tracker/jira" />);
     const box = await screen.findByTestId("procedure-value-webhook_url:jira");
-    expect(box).toHaveTextContent("https://choregos.example.com/api/v1/webhooks/jira");
+    expect(box).toHaveTextContent("https://tranibor.example.com/api/v1/webhooks/jira");
     expect(box).toHaveTextContent("Webhook URL for jira");
     fireEvent.click(within(box).getByRole("button", { name: /Copy/ }));
-    await waitFor(() => expect(write).toHaveBeenCalledWith("https://choregos.example.com/api/v1/webhooks/jira"));
+    await waitFor(() => expect(write).toHaveBeenCalledWith("https://tranibor.example.com/api/v1/webhooks/jira"));
     await within(box).findByRole("button", { name: /Copy/ }).then((b) => expect(b).toHaveTextContent("Copied"));
   });
 
