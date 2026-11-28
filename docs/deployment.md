@@ -113,7 +113,7 @@ agent pod is scheduled beside it. The `cluster-proof` CI job runs both, on kind 
 
 ```bash
 helm upgrade --install tranibor oci://ghcr.io/graalsystems/charts/tranibor \
-  --version 0.30.0 --namespace tranibor --create-namespace \
+  --version 0.30.1 --namespace tranibor --create-namespace \
   -f my-values.yaml
 ```
 
@@ -2329,7 +2329,7 @@ and Ecphoria the chart already carried, the two pieces a bare cluster lacked:
 | The egress proxy and NetworkPolicies | **On**, with the egress gate; the object store and Keycloak are walled like the PostgreSQL (the store admits only the API, the backup and its bucket Job; a runner reaches neither) |
 
 ```bash
-helm install tranibor oci://ghcr.io/graalsystems/charts/tranibor --version 0.30.0 \
+helm install tranibor oci://ghcr.io/graalsystems/charts/tranibor --version 0.30.1 \
   -n tranibor --create-namespace \
   -f values/all-in-one.yaml -f my-site.yaml     # all-in-one.yaml is in charts/tranibor/values/ of the chart
 ```
@@ -2849,7 +2849,7 @@ being killed by its liveness probe (#2139) can return to the defaults.
 
 ```bash
 curl -s https://<api-host>/edition
-{"edition":"community","features":[],"version":"0.30.0","publisher":null,"edition_version":null}
+{"edition":"community","features":[],"version":"0.30.1","publisher":null,"edition_version":null}
 ```
 
 `version` is the core's. `publisher` and `edition_version` are announced by the edition's plugin:
