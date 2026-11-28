@@ -4,21 +4,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PluginsPage from "@/app/library/plugins/page";
 import { ApiError } from "@/lib/api";
 import { isPending, shortDigest, trustLabel } from "@/lib/plugins";
-import type { InstalledPlugin, MeDto, OrgConnector, PluginApproval, PluginSource } from "@/lib/types";
+import type { InstalledPlugin, MeDto, PluginApproval, PluginProfile, PluginServerInstance, PluginSource } from "@/lib/types";
 import { proceduresApi } from "@/mocks/procedures";
-import { pageOf } from "./page";
 
 /**
  * S43-08: Catalogue → Plugins. Install answers 201 or 202 (a second administrator), the approval the API
  * refuses to the one who asked shows its error, upgrade and uninstall say what they did (the kept list),
  * a server says its connector's state with a link to configure it, and a member reads without a gesture.
  */
-const { api, session } = vi.hoisted(() => ({
+const { api, session, push } = vi.hoisted(() => ({
   api: {
     plugins: vi.fn(),
     pluginSources: vi.fn(),
     pluginApprovals: vi.fn(),
-    orgConnectors: vi.fn(),
+    pluginProfiles: vi.fn(),
+    pluginServerInstances: vi.fn(),
+    createPluginServerInstance: vi.fn(),
+    deletePluginServerInstance: vi.fn(),
     installPlugin: vi.fn(),
     upgradePlugin: vi.fn(),
     uninstallPlugin: vi.fn(),
@@ -26,9 +28,10 @@ const { api, session } = vi.hoisted(() => ({
     getProcedure: vi.fn(),
   },
   session: { me: null as MeDto | null },
+  push: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/library/plugins", useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/library/plugins", useRouter: () => ({ push }) }));
 vi.mock("@/lib/session", () => ({ useSession: () => ({ org: "acme", me: session.me }) }));
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -131,7 +134,25 @@ const WAITING: PluginApproval = {
   decided_at: null,
 };
 
-const CONNECTOR = { name: "servicenow", kind: "mcp", type: "mcp", status: "unconfigured" } as OrgConnector;
+const instance = (name: string, extra: Partial<PluginServerInstance> = {}): PluginServerInstance => ({
+  name,
+  server: "servicenow",
+  default: name === "servicenow",
+  state: "unconfigured",
+  status: "unconfigured",
+  last_error: null,
+  ...extra,
+});
+const DEFAULT_INSTANCE = instance("servicenow");
+const PROFILE: PluginProfile = {
+  name: "itsm",
+  plugin: "servicenow",
+  profile: "servicenow/itsm@1",
+  version: 1,
+  description: "tickets, whatever the product",
+  tools: [{ name: "list_tickets", access: "read", description: null }],
+  implementations: [{ plugin: "servicenow", server: "servicenow", instances: [DEFAULT_INSTANCE] }],
+};
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
@@ -139,7 +160,9 @@ beforeEach(() => {
   api.plugins.mockResolvedValue({ items: [SERVICENOW, TRIAGE] });
   api.pluginSources.mockResolvedValue({ sources: SOURCES });
   api.pluginApprovals.mockResolvedValue({ items: [WAITING] });
-  api.orgConnectors.mockResolvedValue(pageOf([CONNECTOR]));
+  api.pluginProfiles.mockResolvedValue({ items: [PROFILE] });
+  api.pluginServerInstances.mockResolvedValue({ items: [DEFAULT_INSTANCE] });
+  push.mockReset();
   api.getProcedure.mockImplementation(async (id: string) => proceduresApi("GET", `/procedures/${id}`));
 });
 
@@ -174,8 +197,10 @@ describe("Catalogue → Plugins", () => {
     expect(within(card).getByTestId("contents-templates")).toHaveTextContent("plugin:servicenow/incident-flow");
     expect(within(card).getByTestId("contents-procedures")).toHaveTextContent("connector.mcp.servicenow");
     const server = await within(card).findByTestId("server-servicenow");
-    await waitFor(() => expect(server).toHaveTextContent("unconfigured"));
-    expect(within(server).getByRole("link", { name: "Configure" })).toHaveAttribute("href", "/admin/connectors?connector=servicenow");
+    const line = await within(server).findByTestId("instance-servicenow");
+    expect(line).toHaveTextContent("unconfigured");
+    expect(line).toHaveTextContent("Default");
+    expect(within(line).getByRole("link", { name: "Configure" })).toHaveAttribute("href", "/admin/connectors?connector=servicenow");
 
     expect(screen.getByTestId("trust-northwind")).toHaveTextContent("keyless");
     expect(screen.getByTestId("source-partner")).toHaveTextContent("did not answer");
@@ -312,5 +337,87 @@ describe("an installed plugin's procedures (S84-06, ADR 0215)", () => {
     await waitFor(() => expect(api.getProcedure).toHaveBeenCalled());
     expect(line).toHaveTextContent("connector.mcp.servicenow");
     expect(within(line).queryByRole("button")).toBeNull();
+  });
+});
+
+describe("profiles, servers and instances (S86-05, ADR 0224)", () => {
+  const ARCHIVE = instance("servicenow-archive", { state: "failing", status: "error", last_error: "connection refused" });
+  const READY = instance("servicenow-eu", { state: "ready", status: "ok" });
+
+  it("shows a plugin's profiles and what each server implements, with every instance and its state", async () => {
+    api.pluginServerInstances.mockResolvedValue({ items: [DEFAULT_INSTANCE, READY, ARCHIVE] });
+    page();
+    const card = await screen.findByTestId("installed-servicenow");
+    const profile = within(card).getByTestId("profile-servicenow/itsm@1");
+    expect(within(profile).getByRole("link", { name: "servicenow/itsm@1" })).toHaveAttribute(
+      "href",
+      "/library/plugins/profile?name=servicenow%2Fitsm%401",
+    );
+    const server = await within(card).findByTestId("server-servicenow");
+    expect(within(server).getByTestId("implements-servicenow")).toHaveTextContent("servicenow/itsm@1");
+    expect(await within(server).findByTestId("instance-servicenow-eu")).toHaveTextContent("ready");
+    expect(within(server).getByTestId("instance-servicenow-archive")).toHaveTextContent("failing");
+    expect(within(server).getByTestId("instance-servicenow-archive")).toHaveTextContent("connection refused");
+    expect(within(server).getByTestId("instance-servicenow")).toHaveTextContent("unconfigured");
+    expect(api.pluginServerInstances).toHaveBeenCalledWith("acme", "servicenow", "servicenow");
+  });
+
+  it("deletes a named instance after a confirmation, and offers no delete on the default one", async () => {
+    api.pluginServerInstances.mockResolvedValue({ items: [DEFAULT_INSTANCE, READY] });
+    api.deletePluginServerInstance.mockResolvedValue(undefined);
+    page();
+    const server = await within(await screen.findByTestId("installed-servicenow")).findByTestId("server-servicenow");
+    const named = await within(server).findByTestId("instance-servicenow-eu");
+    expect(within(within(server).getByTestId("instance-servicenow")).queryByRole("button", { name: "Delete" })).toBeNull();
+    fireEvent.click(within(named).getByRole("button", { name: "Delete" }));
+    expect(api.deletePluginServerInstance).not.toHaveBeenCalled(); // asked first
+    fireEvent.click(within(screen.getByTestId("confirmation")).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(api.deletePluginServerInstance).toHaveBeenCalledWith("acme", "servicenow", "servicenow", "servicenow-eu"),
+    );
+  });
+
+  it("adds an instance by its name, then lands on that instance's connector page", async () => {
+    api.createPluginServerInstance.mockResolvedValue(instance("servicenow-eu"));
+    page();
+    const server = await within(await screen.findByTestId("installed-servicenow")).findByTestId("server-servicenow");
+    fireEvent.click(await within(server).findByRole("button", { name: "Add instance" }));
+    const add = within(server).getByRole("button", { name: "Add and configure" });
+    expect(add).toBeDisabled(); // no name yet
+    const field = within(server).getByLabelText(/Name of the new instance/);
+    fireEvent.change(field, { target: { value: "Bad Name" } });
+    expect(add).toBeDisabled();
+    expect(server).toHaveTextContent("This name is not valid.");
+    fireEvent.change(field, { target: { value: "servicenow" } });
+    expect(add).toBeDisabled(); // the default instance already has it
+    expect(server).toHaveTextContent("This instance already exists.");
+    fireEvent.change(field, { target: { value: "servicenow-eu" } });
+    fireEvent.click(add);
+    await waitFor(() =>
+      expect(api.createPluginServerInstance).toHaveBeenCalledWith("acme", "servicenow", "servicenow", { name: "servicenow-eu" }),
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/connectors?connector=servicenow-eu"));
+  });
+
+  it("says why the API refused a name and stays on the page", async () => {
+    api.createPluginServerInstance.mockRejectedValue(new ApiError(409, { title: "the organisation already has a connector `crm`" }));
+    page();
+    const server = await within(await screen.findByTestId("installed-servicenow")).findByTestId("server-servicenow");
+    fireEvent.click(await within(server).findByRole("button", { name: "Add instance" }));
+    fireEvent.change(within(server).getByLabelText(/Name of the new instance/), { target: { value: "crm" } });
+    fireEvent.click(within(server).getByRole("button", { name: "Add and configure" }));
+    expect(await within(server).findByText(/already has a connector/)).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("a member reads the instances but has neither Add instance nor Delete", async () => {
+    session.me = MEMBER;
+    api.pluginServerInstances.mockResolvedValue({ items: [DEFAULT_INSTANCE, READY] });
+    page();
+    const server = await within(await screen.findByTestId("installed-servicenow")).findByTestId("server-servicenow");
+    await within(server).findByTestId("instance-servicenow-eu");
+    expect(within(server).getByRole("button", { name: "Add instance" })).toBeDisabled();
+    expect(within(server).getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(within(server).getAllByRole("link", { name: "View its connector" })).toHaveLength(2);
   });
 });

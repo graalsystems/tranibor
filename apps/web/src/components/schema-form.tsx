@@ -33,6 +33,10 @@ export type JsonSchema = {
   "x-upload"?: string;
   "x-accept"?: string[];
   "x-max-bytes"?: number;
+  /** One line under the field (S86-05): what to put there, in a word the person who fills it knows. */
+  "x-help"?: string;
+  /** A documentation link under the field: an `https:` URL, or `{ href, label }`; any other scheme is not drawn. */
+  "x-link"?: string | { href: string; label?: string };
   /** A local reference (`#/$defs/name`, `#/definitions/name`): resolved against the form's root schema. */
   $ref?: string;
   $defs?: Record<string, JsonSchema>;
@@ -42,6 +46,14 @@ export type JsonSchema = {
   anyOf?: JsonSchema[];
   const?: unknown;
 };
+
+/** The documentation link a field's `x-link` names, only when it is a plain `https:` URL (a schema is a plugin's). */
+export function docLink(raw: JsonSchema["x-link"]): { href: string; label: string } | undefined {
+  const href = typeof raw === "string" ? raw : raw?.href;
+  if (typeof href !== "string" || !/^https:\/\/[^\s"'<>]+$/.test(href)) return undefined;
+  const label = typeof raw === "object" && typeof raw.label === "string" && raw.label.trim() !== "" ? raw.label : "Documentation";
+  return { href, label };
+}
 
 /** A schema as the form draws it: references resolved, `oneOf`/`anyOf` of simple things collapsed. */
 type Drawn = JsonSchema & {
@@ -221,7 +233,12 @@ function Field({
 }) {
   const propriete = drawn(raw, root);
   const libelle = propriete.title ?? name.replaceAll("_", " ");
-  const aide = propriete.description ? `${id}-aide` : undefined;
+  const help = typeof propriete["x-help"] === "string" && propriete["x-help"].trim() !== "" ? propriete["x-help"] : undefined;
+  const link = docLink(propriete["x-link"]);
+  const aide =
+    [propriete.description ? `${id}-aide` : "", help ? `${id}-help` : "", link ? `${id}-link` : ""]
+      .filter(Boolean)
+      .join(" ") || undefined;
   const label = (
     <label htmlFor={id} className="text-xs text-ink-muted">
       {libelle}
@@ -229,10 +246,30 @@ function Field({
       {requis && <span className="sr-only"> (required)</span>}
     </label>
   );
-  const indication = propriete.description && (
-    <p id={aide} className="text-xs text-ink-muted">
-      {propriete.description}
-    </p>
+  const indication = (
+    <>
+      {propriete.description && (
+        <p id={`${id}-aide`} className="text-xs text-ink-muted">
+          {propriete.description}
+        </p>
+      )}
+      {help && (
+        <p id={`${id}-help`} className="text-xs text-ink-muted" data-testid={`${id}-help`}>
+          {help}
+        </p>
+      )}
+      {link && (
+        <a
+          id={`${id}-link`}
+          href={link.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs underline"
+        >
+          {link.label}
+        </a>
+      )}
+    </>
   );
 
   if (propriete.type === "boolean") {

@@ -125,10 +125,6 @@ NO_CLIENT_YET: dict[str, str] = {
     "is API-only in the core; the enterprise edition's platform route has no console screen either",
     "/orgs/{org}/saml": "the organisation's SAML provider (ADR 0170, D5) is API-only in the core; the "
     "enterprise edition's console section writes it today",
-    "/orgs/{org}/plugins/{name}/servers/{server}/instances": "named instances of a plugin's server "
-    "(S86-03, ADR 0224 §3); the console's Add instance screen is S86-05, which removes this entry",
-    "/orgs/{org}/plugins/{name}/servers/{server}/instances/{instance}": "deletes one named instance "
-    "(S86-03); the console's delete action is S86-05, which removes this entry",
 }
 
 #: Paths the CLI calls and the console must not: an operator's command, not a screen.

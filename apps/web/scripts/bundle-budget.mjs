@@ -80,7 +80,10 @@ const CHUNKS = join(process.cwd(), ".next", "static", "chunks");
 // S67-27; no new dependency.
 // 2026-11-21 (ADR 0206, the paged lists): 2650 -> 2675 kB. Every list of the console reads a page and offers
 // "More" (infinite queries, server filters on the pickers): main measures 2656 kB (CI of eb7f34dd), 6 kB over.
-const TOTAL_MAX_KB = Number(process.env.BUNDLE_TOTAL_MAX_KB ?? 2675);
+// 2026-11-27 (S86-05): 2675 -> 2700 kB. The plugin console (profiles, a server's named instances with their add and
+// delete forms, the profile page, and the help and link a schema field can carry) measures 2682 kB in CI, 7 kB over;
+// no new dependency.
+const TOTAL_MAX_KB = Number(process.env.BUNDLE_TOTAL_MAX_KB ?? 2700);
 const CHUNK_MAX_KB = Number(process.env.BUNDLE_CHUNK_MAX_KB ?? 600);
 
 function* files(dir) {
