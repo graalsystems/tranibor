@@ -17,6 +17,7 @@ const TRACKERS = [
   { value: "github", label: "GitHub Issues / Projects" },
   { value: "jira", label: "Jira" },
   { value: "gitlab", label: "GitLab" },
+  { value: "servicenow", label: "ServiceNow" },
 ];
 
 /**
