@@ -468,7 +468,7 @@
 2	apps/web/src/mocks/joiners-leavers.json
 1	apps/web/src/mocks/paging.ts
 1	apps/web/src/mocks/plugins.ts
-145	apps/web/src/mocks/procedures.json
+87	apps/web/src/mocks/procedures.json
 4	apps/web/src/mocks/procedures.ts
 1	apps/web/src/mocks/theme-sample.ts
 148	apps/web/src/styles/theme.css
@@ -504,7 +504,7 @@
 2	apps/web/tests/mcp-gateway.test.tsx
 1	apps/web/tests/organisation-theme.test.tsx
 3	apps/web/tests/plugins-page.test.tsx
-3	apps/web/tests/procedure-panel.test.tsx
+1	apps/web/tests/procedure-panel.test.tsx
 3	apps/web/tests/project-settings.test.tsx
 2	apps/web/tests/proxy.test.ts
 2	apps/web/tests/remembered-org.test.ts
@@ -1445,7 +1445,6 @@
 3	tests/packaging/test_outpost_image.py
 1	tests/packaging/test_python_toy_brings_its_test_runner.py
 3	tests/packaging/test_workspace_python_is_not_the_runner.py
-1	tests/procedures/test_export_docs.py
 2	tests/test_runner_git_dir_in_tests.py
 1	tests/testkit/src/tranibor_testkit/api.py
 1	tests/testkit/src/tranibor_testkit/delivery/shipped_workflows.py
@@ -1479,7 +1478,6 @@
 2	tools/local_install_check.py
 1	tools/package_charts.py
 1	tools/plugins/update_lock.py
-2	tools/procedures/export_docs.py
 9	tools/rename_env_vars.py
 27	tools/rename_python_packages.py
 3	tools/rename_tenant_names.py

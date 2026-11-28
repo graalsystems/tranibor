@@ -63,7 +63,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "ChatGPT connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nChatGPT calls from the vendor's cloud and signs in with OAuth, so it needs a public HTTPS address and OAuth enabled on the door."
+        "markdown": "ChatGPT connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nChatGPT calls from the vendor's cloud and signs in with OAuth, so it needs a public HTTPS address and OAuth enabled on the door."
       },
       {
         "key": "at",
@@ -92,7 +92,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -118,7 +118,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "claude.ai connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nclaude.ai calls from the vendor's cloud and signs in with OAuth: it cannot be handed a token, so it needs a public HTTPS address and OAuth enabled on the door."
+        "markdown": "claude.ai connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nclaude.ai calls from the vendor's cloud and signs in with OAuth: it cannot be handed a token, so it needs a public HTTPS address and OAuth enabled on the door."
       },
       {
         "key": "at",
@@ -147,7 +147,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -173,7 +173,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "Claude Code connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nClaude Code runs on your machine: it reaches a platform behind your VPN."
+        "markdown": "Claude Code connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nClaude Code runs on your machine: it reaches a platform behind your VPN."
       },
       {
         "key": "at",
@@ -202,7 +202,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -228,7 +228,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "Claude Desktop connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nClaude Desktop's own connectors call from Anthropic's network; for a platform inside your network use the local bridge on the page."
+        "markdown": "Claude Desktop connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nClaude Desktop's own connectors call from Anthropic's network; for a platform inside your network use the local bridge on the page."
       },
       {
         "key": "at",
@@ -257,7 +257,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -283,7 +283,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "The CLI is for you and your scripts, not for an AI client: it calls the REST API at `https://choregos.example.com`, with\n**your** rights. It is listed with the door's clients because it is installed the same way, but it does\nnot go through the MCP door."
+        "markdown": "The CLI is for you and your scripts, not for an AI client: it calls the REST API at `https://tranibor.example.com`, with\n**your** rights. It is listed with the door's clients because it is installed the same way, but it does\nnot go through the MCP door."
       },
       {
         "key": "at",
@@ -298,7 +298,7 @@
       {
         "key": "in_choregos",
         "title": "In Tranibor",
-        "markdown": "Mint a token (Integrations, or `tranibor-admin tokens create` for the very first one), then\n`tranibor login --api-url https://choregos.example.com --token <token> --org <org>`."
+        "markdown": "Mint a token (Integrations, or `tranibor-admin tokens create` for the very first one), then\n`tranibor login --api-url https://tranibor.example.com --token <token> --org <org>`."
       },
       {
         "key": "test",
@@ -312,7 +312,7 @@
       }
     ],
     "values": {
-      "api_url": "https://choregos.example.com"
+      "api_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -333,7 +333,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "Cursor connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nCursor runs on your machine."
+        "markdown": "Cursor connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nCursor runs on your machine."
       },
       {
         "key": "at",
@@ -362,7 +362,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -388,7 +388,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "another MCP client connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nAny client that speaks the Model Context Protocol over Streamable HTTP will do."
+        "markdown": "another MCP client connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nAny client that speaks the Model Context Protocol over Streamable HTTP will do."
       },
       {
         "key": "at",
@@ -417,7 +417,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -443,7 +443,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "The REST API at `https://choregos.example.com` is for your own programs; its OpenAPI document describes every route. It is\nlisted with the door's clients because it is set up the same way, but it does not go through the MCP door."
+        "markdown": "The REST API at `https://tranibor.example.com` is for your own programs; its OpenAPI document describes every route. It is\nlisted with the door's clients because it is set up the same way, but it does not go through the MCP door."
       },
       {
         "key": "at",
@@ -463,7 +463,7 @@
       {
         "key": "test",
         "title": "Test it",
-        "markdown": "`curl -H \"Authorization: Bearer <token>\" https://choregos.example.com/api/v1/me` should answer who you are."
+        "markdown": "`curl -H \"Authorization: Bearer <token>\" https://tranibor.example.com/api/v1/me` should answer who you are."
       },
       {
         "key": "fails",
@@ -472,7 +472,7 @@
       }
     ],
     "values": {
-      "api_url": "https://choregos.example.com"
+      "api_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -493,7 +493,7 @@
       {
         "key": "before",
         "title": "Before you start",
-        "markdown": "VS Code connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://choregos.example.com/mcp`.\n\nVS Code runs on your machine."
+        "markdown": "VS Code connects **to** Tranibor through the MCP door, with **your** rights and never more. It lists your\nprojects, reads workflows and work items, and tells you what waits for a decision. It never decides: a\ndecision needs you, signed in again, in the console. The door is `https://tranibor.example.com/mcp`.\n\nVS Code runs on your machine."
       },
       {
         "key": "at",
@@ -522,7 +522,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [],
     "fields": {},
@@ -558,7 +558,7 @@
       {
         "key": "permissions",
         "title": "Permissions",
-        "markdown": "- The credential decides what the agent may do. Prefer a dedicated account holding only the access the\n  agent needs.\n- OAuth redirect (callback) address to register, when the vendor needs one: `https://choregos.example.com/api/v1/remote-credentials/oauth/callback`.\n- The refresh token is sealed in the platform's secret store and never shown again; reconnecting replaces\n  it."
+        "markdown": "- The credential decides what the agent may do. Prefer a dedicated account holding only the access the\n  agent needs.\n- OAuth redirect (callback) address to register, when the vendor needs one: `https://tranibor.example.com/api/v1/remote-credentials/oauth/callback`.\n- The refresh token is sealed in the platform's secret store and never shown again; reconnecting replaces\n  it."
       },
       {
         "key": "in_choregos",
@@ -577,7 +577,7 @@
       }
     ],
     "values": {
-      "oauth_callback:remote": "https://choregos.example.com/api/v1/remote-credentials/oauth/callback"
+      "oauth_callback:remote": "https://tranibor.example.com/api/v1/remote-credentials/oauth/callback"
     },
     "egress": [
       "the agent card's host",
@@ -618,7 +618,7 @@
       {
         "key": "permissions",
         "title": "Permissions",
-        "markdown": "- OAuth 2.0 authorization code with PKCE and dynamic client registration, nothing else: no API token.\n  Scopes: `read:me`, `offline_access`, `full_access:chat:rovo`.\n- The callback address Tranibor registers is `https://choregos.example.com/api/v1/remote-credentials/oauth/callback`.\n- The agent can do whatever the dedicated account can do in Jira and Confluence."
+        "markdown": "- OAuth 2.0 authorization code with PKCE and dynamic client registration, nothing else: no API token.\n  Scopes: `read:me`, `offline_access`, `full_access:chat:rovo`.\n- The callback address Tranibor registers is `https://tranibor.example.com/api/v1/remote-credentials/oauth/callback`.\n- The agent can do whatever the dedicated account can do in Jira and Confluence."
       },
       {
         "key": "in_choregos",
@@ -637,7 +637,7 @@
       }
     ],
     "values": {
-      "oauth_callback:remote": "https://choregos.example.com/api/v1/remote-credentials/oauth/callback"
+      "oauth_callback:remote": "https://tranibor.example.com/api/v1/remote-credentials/oauth/callback"
     },
     "egress": [
       "a2a.atlassian.com",
@@ -726,7 +726,7 @@
       {
         "key": "at",
         "title": "At Argo CD",
-        "markdown": "1. Create a local account or use a project role for the platform, and generate an **API token** for it\n   (`argocd account generate-token --account <name>`). Give it read access to the applications only.\n2. Send application health events to `https://choregos.example.com/api/v1/webhooks/argocd` with the header `X-Tranibor-Secret` set to\n   the shared secret (an Argo CD Notifications webhook service does this).\n3. Name applications by one pattern. The connector looks for `{app}-{env}` (for example `billing-prod`)\n   unless `app_pattern` says otherwise."
+        "markdown": "1. Create a local account or use a project role for the platform, and generate an **API token** for it\n   (`argocd account generate-token --account <name>`). Give it read access to the applications only.\n2. Send application health events to `https://tranibor.example.com/api/v1/webhooks/argocd` with the header `X-Tranibor-Secret` set to\n   the shared secret (an Argo CD Notifications webhook service does this).\n3. Name applications by one pattern. The connector looks for `{app}-{env}` (for example `billing-prod`)\n   unless `app_pattern` says otherwise."
       },
       {
         "key": "permissions",
@@ -750,7 +750,7 @@
       }
     ],
     "values": {
-      "webhook_url:argocd": "https://choregos.example.com/api/v1/webhooks/argocd"
+      "webhook_url:argocd": "https://tranibor.example.com/api/v1/webhooks/argocd"
     },
     "egress": [],
     "fields": {
@@ -866,7 +866,7 @@
       }
     ],
     "values": {
-      "webhook_url:azure-devops": "https://choregos.example.com/api/v1/webhooks/azure-devops"
+      "webhook_url:azure-devops": "https://tranibor.example.com/api/v1/webhooks/azure-devops"
     },
     "egress": [
       "dev.azure.com, or your Azure DevOps Server host",
@@ -923,7 +923,7 @@
       {
         "key": "at",
         "title": "At GitHub",
-        "markdown": "1. In the App's settings, grant **Actions: Read and write** (to dispatch, rerun and read), and subscribe to\n   **Workflow run**. An App created from the console after this version already has both; an App created\n   earlier must be updated, and its installations must accept the new permission.\n2. The webhook is the App's own: `https://choregos.example.com/api/v1/webhooks/github`. No second webhook."
+        "markdown": "1. In the App's settings, grant **Actions: Read and write** (to dispatch, rerun and read), and subscribe to\n   **Workflow run**. An App created from the console after this version already has both; an App created\n   earlier must be updated, and its installations must accept the new permission.\n2. The webhook is the App's own: `https://tranibor.example.com/api/v1/webhooks/github`. No second webhook."
       },
       {
         "key": "permissions",
@@ -947,7 +947,7 @@
       }
     ],
     "values": {
-      "webhook_url:github": "https://choregos.example.com/api/v1/webhooks/github"
+      "webhook_url:github": "https://tranibor.example.com/api/v1/webhooks/github"
     },
     "egress": [
       "api.github.com"
@@ -997,7 +997,7 @@
       {
         "key": "at",
         "title": "At GitLab",
-        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Developer**, scope **api**, and an\n   expiry. Copy the token when it is shown.\n2. Project, Settings, **Webhooks**, **Add new webhook**: URL `https://choregos.example.com/api/v1/webhooks/gitlab`, **Secret token**\n   the platform's shared webhook secret, and the trigger **Pipeline events**. If the project already has\n   this webhook for its tracker, tick **Pipeline events** on it instead of adding a second one."
+        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Developer**, scope **api**, and an\n   expiry. Copy the token when it is shown.\n2. Project, Settings, **Webhooks**, **Add new webhook**: URL `https://tranibor.example.com/api/v1/webhooks/gitlab`, **Secret token**\n   the platform's shared webhook secret, and the trigger **Pipeline events**. If the project already has\n   this webhook for its tracker, tick **Pipeline events** on it instead of adding a second one."
       },
       {
         "key": "permissions",
@@ -1021,7 +1021,7 @@
       }
     ],
     "values": {
-      "webhook_url:gitlab": "https://choregos.example.com/api/v1/webhooks/gitlab"
+      "webhook_url:gitlab": "https://tranibor.example.com/api/v1/webhooks/gitlab"
     },
     "egress": [
       "gitlab.com"
@@ -1066,7 +1066,7 @@
       {
         "key": "at",
         "title": "At Jenkins",
-        "markdown": "1. Create a user for the platform, then **Configure, API Token, Add new Token**. Copy it when it is shown.\n2. Optional, to be told when a build starts and ends instead of polling: install the **Notification plugin** and\n   add the endpoint `https://choregos.example.com/api/v1/webhooks/jenkins?token=<the shared webhook secret>` (format JSON, protocol HTTP,\n   events Job Started and Job Completed). A pipeline can instead post `{\"job\", \"build_number\", \"result\",\n   \"sha\", \"branch\", \"project\", \"work_item\"}` to that URL with the `X-Tranibor-Secret` header.\n3. Name the commit in the build so the platform can find a commit's build: a pipeline that checks out a\n   revision records it (the SCM revision is read), or pass the commit as a build parameter."
+        "markdown": "1. Create a user for the platform, then **Configure, API Token, Add new Token**. Copy it when it is shown.\n2. Optional, to be told when a build starts and ends instead of polling: install the **Notification plugin** and\n   add the endpoint `https://tranibor.example.com/api/v1/webhooks/jenkins?token=<the shared webhook secret>` (format JSON, protocol HTTP,\n   events Job Started and Job Completed). A pipeline can instead post `{\"job\", \"build_number\", \"result\",\n   \"sha\", \"branch\", \"project\", \"work_item\"}` to that URL with the `X-Tranibor-Secret` header.\n3. Name the commit in the build so the platform can find a commit's build: a pipeline that checks out a\n   revision records it (the SCM revision is read), or pass the commit as a build parameter."
       },
       {
         "key": "permissions",
@@ -1090,7 +1090,7 @@
       }
     ],
     "values": {
-      "webhook_url:jenkins": "https://choregos.example.com/api/v1/webhooks/jenkins"
+      "webhook_url:jenkins": "https://tranibor.example.com/api/v1/webhooks/jenkins"
     },
     "egress": [],
     "fields": {
@@ -1142,7 +1142,7 @@
       {
         "key": "at",
         "title": "At the cluster",
-        "markdown": "1. Label each `PipelineRun` the platform should follow with `tranibor/sha=<commit>`; the connector\n   finds a commit's runs through that label (a run labelled `choregos/sha` is still found until 0.32.0). Runs that carry `tranibor/project`, `tranibor/work-item`\n   and `tranibor/run-id` (or the former `choregos/*` labels) are also mapped back to their work item.\n2. Point Tekton's CloudEvents sink at the platform:\n   `https://choregos.example.com/api/v1/webhooks/tekton?token=<the shared webhook secret>`. Tekton's sink is configured by URL and\n   cannot add a header, which is why the secret travels in the query string. The parameter is\n   `token`: the former spelling was removed in 0.24.0, so a sink URL set up with it is refused (401)."
+        "markdown": "1. Label each `PipelineRun` the platform should follow with `tranibor/sha=<commit>`; the connector\n   finds a commit's runs through that label (a run labelled `choregos/sha` is still found until 0.32.0). Runs that carry `tranibor/project`, `tranibor/work-item`\n   and `tranibor/run-id` (or the former `choregos/*` labels) are also mapped back to their work item.\n2. Point Tekton's CloudEvents sink at the platform:\n   `https://tranibor.example.com/api/v1/webhooks/tekton?token=<the shared webhook secret>`. Tekton's sink is configured by URL and\n   cannot add a header, which is why the secret travels in the query string. The parameter is\n   `token`: the former spelling was removed in 0.24.0, so a sink URL set up with it is refused (401)."
       },
       {
         "key": "permissions",
@@ -1166,7 +1166,7 @@
       }
     ],
     "values": {
-      "webhook_url:tekton": "https://choregos.example.com/api/v1/webhooks/tekton"
+      "webhook_url:tekton": "https://tranibor.example.com/api/v1/webhooks/tekton"
     },
     "egress": [],
     "fields": {
@@ -1530,7 +1530,7 @@
       {
         "key": "at",
         "title": "At Forgejo",
-        "markdown": "1. **Site administration**, **Integrations**, **Applications** (or the organisation's **Settings**,\n   **Applications**), **Create a new OAuth2 application**.\n2. **Redirect URIs**: `https://choregos.example.com/api/v1/auth/linked-accounts/callback`. Keep **Confidential client** ticked.\n3. **Create application**, copy the **Client ID** and the **Client secret** (shown once)."
+        "markdown": "1. **Site administration**, **Integrations**, **Applications** (or the organisation's **Settings**,\n   **Applications**), **Create a new OAuth2 application**.\n2. **Redirect URIs**: `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`. Keep **Confidential client** ticked.\n3. **Create application**, copy the **Client ID** and the **Client secret** (shown once)."
       },
       {
         "key": "permissions",
@@ -1550,11 +1550,11 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- Forgejo says the redirect URI is not registered: it differs from `https://choregos.example.com/api/v1/auth/linked-accounts/callback`.\n- `link_error=forge_refused` after consenting: wrong Client secret, or the application was regenerated.\n- `link_error=instance_unusable`: the connector's `base_url` is not https, or its secret cannot be read.\n- `link_error=taken`: that Forgejo account is already linked to another member of the organisation.\n- A timeout: open the instance's host in the egress allowlist."
+        "markdown": "- Forgejo says the redirect URI is not registered: it differs from `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`.\n- `link_error=forge_refused` after consenting: wrong Client secret, or the application was regenerated.\n- `link_error=instance_unusable`: the connector's `base_url` is not https, or its secret cannot be read.\n- `link_error=taken`: that Forgejo account is already linked to another member of the organisation.\n- A timeout: open the instance's host in the egress allowlist."
       }
     ],
     "values": {
-      "oauth_callback:linked-accounts": "https://choregos.example.com/api/v1/auth/linked-accounts/callback"
+      "oauth_callback:linked-accounts": "https://tranibor.example.com/api/v1/auth/linked-accounts/callback"
     },
     "egress": [],
     "fields": {
@@ -1593,7 +1593,7 @@
       {
         "key": "at",
         "title": "At GitHub",
-        "markdown": "1. Your organisation's settings, **Developer settings**, **OAuth Apps**, **New OAuth App**.\n2. **Homepage URL**: `https://choregos.example.com`. **Authorization callback URL**: `https://choregos.example.com/api/v1/auth/linked-accounts/callback`.\n3. **Register application**, copy the **Client ID**, then **Generate a new client secret** and copy it:\n   it is shown once.\n\nA GitHub App's client id and secret work too (its user authorization uses the same endpoints and the\nsame callback URL). Give that App no repository or organisation permission: the platform only reads\n`/user` with it. Do not reuse the App the platform uses for repositories."
+        "markdown": "1. Your organisation's settings, **Developer settings**, **OAuth Apps**, **New OAuth App**.\n2. **Homepage URL**: `https://tranibor.example.com`. **Authorization callback URL**: `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`.\n3. **Register application**, copy the **Client ID**, then **Generate a new client secret** and copy it:\n   it is shown once.\n\nA GitHub App's client id and secret work too (its user authorization uses the same endpoints and the\nsame callback URL). Give that App no repository or organisation permission: the platform only reads\n`/user` with it. Do not reuse the App the platform uses for repositories."
       },
       {
         "key": "permissions",
@@ -1613,11 +1613,11 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- `link_error=forge_refused` and GitHub showed \"The redirect_uri is not associated with this\n  application\": the callback URL at GitHub differs from `https://choregos.example.com/api/v1/auth/linked-accounts/callback`.\n- `link_error=forge_refused` right after consenting: the client secret is wrong or was regenerated.\n- `link_error=instance_unusable`: the connector's secret cannot be read; type it again.\n- `link_error=taken`: that GitHub account is already linked to another member of the organisation; an\n  administrator removes the other link first.\n- A timeout, or `egress_refused` in the logs: open `github.com` and `api.github.com` in the egress\n  allowlist."
+        "markdown": "- `link_error=forge_refused` and GitHub showed \"The redirect_uri is not associated with this\n  application\": the callback URL at GitHub differs from `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`.\n- `link_error=forge_refused` right after consenting: the client secret is wrong or was regenerated.\n- `link_error=instance_unusable`: the connector's secret cannot be read; type it again.\n- `link_error=taken`: that GitHub account is already linked to another member of the organisation; an\n  administrator removes the other link first.\n- A timeout, or `egress_refused` in the logs: open `github.com` and `api.github.com` in the egress\n  allowlist."
       }
     ],
     "values": {
-      "oauth_callback:linked-accounts": "https://choregos.example.com/api/v1/auth/linked-accounts/callback"
+      "oauth_callback:linked-accounts": "https://tranibor.example.com/api/v1/auth/linked-accounts/callback"
     },
     "egress": [
       "github.com",
@@ -1667,7 +1667,7 @@
       {
         "key": "at",
         "title": "At GitLab",
-        "markdown": "1. The group's **Settings**, **Applications** (or, on a self-managed instance, **Admin**, **Applications**),\n   **Add new application**.\n2. **Redirect URI**: `https://choregos.example.com/api/v1/auth/linked-accounts/callback`. Keep **Confidential** ticked.\n3. **Scopes**: tick `read_user` only. **Save application**, copy the **Application ID** and the **Secret**."
+        "markdown": "1. The group's **Settings**, **Applications** (or, on a self-managed instance, **Admin**, **Applications**),\n   **Add new application**.\n2. **Redirect URI**: `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`. Keep **Confidential** ticked.\n3. **Scopes**: tick `read_user` only. **Save application**, copy the **Application ID** and the **Secret**."
       },
       {
         "key": "permissions",
@@ -1687,11 +1687,11 @@
       {
         "key": "fails",
         "title": "When it fails",
-        "markdown": "- GitLab says \"The redirect URI included is not valid\": the Redirect URI differs from\n  `https://choregos.example.com/api/v1/auth/linked-accounts/callback`.\n- GitLab says \"The requested scope is invalid\": `read_user` is not ticked on the application.\n- `link_error=forge_refused` after consenting: wrong Secret, or the application was renewed.\n- `link_error=taken`: that GitLab account is already linked to another member of the organisation.\n- A timeout: open the instance's host in the egress allowlist."
+        "markdown": "- GitLab says \"The redirect URI included is not valid\": the Redirect URI differs from\n  `https://tranibor.example.com/api/v1/auth/linked-accounts/callback`.\n- GitLab says \"The requested scope is invalid\": `read_user` is not ticked on the application.\n- `link_error=forge_refused` after consenting: wrong Secret, or the application was renewed.\n- `link_error=taken`: that GitLab account is already linked to another member of the organisation.\n- A timeout: open the instance's host in the egress allowlist."
       }
     ],
     "values": {
-      "oauth_callback:linked-accounts": "https://choregos.example.com/api/v1/auth/linked-accounts/callback"
+      "oauth_callback:linked-accounts": "https://tranibor.example.com/api/v1/auth/linked-accounts/callback"
     },
     "egress": [
       "gitlab.com"
@@ -2575,7 +2575,7 @@
       {
         "key": "in_choregos",
         "title": "In Tranibor",
-        "markdown": "1. Project settings, Connectors, **Notify**, type **Slack** (or an organisation connector).\n2. `channel`: for example `#choregos`.\n3. `public_url`: this platform's console address, `https://choregos.example.com`. Messages carry a button that opens\n   the item here.\n4. Paste **one** of `webhook_url` or `bot_token` in its password field (sealed, shown once)."
+        "markdown": "1. Project settings, Connectors, **Notify**, type **Slack** (or an organisation connector).\n2. `channel`: for example `#choregos`.\n3. `public_url`: this platform's console address, `https://tranibor.example.com`. Messages carry a button that opens\n   the item here.\n4. Paste **one** of `webhook_url` or `bot_token` in its password field (sealed, shown once)."
       },
       {
         "key": "test",
@@ -2589,7 +2589,7 @@
       }
     ],
     "values": {
-      "public_url": "https://choregos.example.com"
+      "public_url": "https://tranibor.example.com"
     },
     "egress": [
       "slack.com",
@@ -2996,7 +2996,7 @@
       }
     ],
     "values": {
-      "webhook_url:azure-devops": "https://choregos.example.com/api/v1/webhooks/azure-devops"
+      "webhook_url:azure-devops": "https://tranibor.example.com/api/v1/webhooks/azure-devops"
     },
     "egress": [
       "dev.azure.com, or your Azure DevOps Server host",
@@ -3057,7 +3057,7 @@
       {
         "key": "at",
         "title": "At GitHub",
-        "markdown": "1. Create the App from the console (*Administration, GitHub App*), which sets the **Webhook URL**\n   `https://choregos.example.com/api/v1/webhooks/github` itself, or by hand with that URL; or reuse the platform's.\n2. **Install** it on the repository: the repository field's **Install on GitHub** button opens GitHub's\n   install page and brings you back. The installation is discovered by the platform: there\n   is no number to copy.\n3. For `merge_queue`, enable a **merge queue** in the repository's branch protection (Settings, Branches).\n   Without one, set `merge_queue` to false."
+        "markdown": "1. Create the App from the console (*Administration, GitHub App*), which sets the **Webhook URL**\n   `https://tranibor.example.com/api/v1/webhooks/github` itself, or by hand with that URL; or reuse the platform's.\n2. **Install** it on the repository: the repository field's **Install on GitHub** button opens GitHub's\n   install page and brings you back. The installation is discovered by the platform: there\n   is no number to copy.\n3. For `merge_queue`, enable a **merge queue** in the repository's branch protection (Settings, Branches).\n   Without one, set `merge_queue` to false."
       },
       {
         "key": "permissions",
@@ -3081,7 +3081,7 @@
       }
     ],
     "values": {
-      "webhook_url:github": "https://choregos.example.com/api/v1/webhooks/github"
+      "webhook_url:github": "https://tranibor.example.com/api/v1/webhooks/github"
     },
     "egress": [
       "api.github.com"
@@ -3130,7 +3130,7 @@
       {
         "key": "at",
         "title": "At GitLab",
-        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Maintainer**, scope **api**, and an\n   expiry. Copy the token when it is shown. This is the connector's own token: it stays on the platform.\n2. Optional, for merge request events: Project, Settings, **Webhooks**, **Add new webhook**: URL\n   `https://choregos.example.com/api/v1/webhooks/gitlab`, **Secret token** the platform's shared webhook secret, and the trigger\n   **Merge request events**. If the project already has this webhook for its tracker, tick **Merge request\n   events** on it instead of adding a second one."
+        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Maintainer**, scope **api**, and an\n   expiry. Copy the token when it is shown. This is the connector's own token: it stays on the platform.\n2. Optional, for merge request events: Project, Settings, **Webhooks**, **Add new webhook**: URL\n   `https://tranibor.example.com/api/v1/webhooks/gitlab`, **Secret token** the platform's shared webhook secret, and the trigger\n   **Merge request events**. If the project already has this webhook for its tracker, tick **Merge request\n   events** on it instead of adding a second one."
       },
       {
         "key": "permissions",
@@ -3154,7 +3154,7 @@
       }
     ],
     "values": {
-      "webhook_url:gitlab": "https://choregos.example.com/api/v1/webhooks/gitlab"
+      "webhook_url:gitlab": "https://tranibor.example.com/api/v1/webhooks/gitlab"
     },
     "egress": [
       "gitlab.com"
@@ -3279,7 +3279,7 @@
       }
     ],
     "values": {
-      "webhook_url:azure-boards": "https://choregos.example.com/api/v1/webhooks/azure-boards"
+      "webhook_url:azure-boards": "https://tranibor.example.com/api/v1/webhooks/azure-boards"
     },
     "egress": [
       "dev.azure.com, or your Azure DevOps Server host",
@@ -3338,7 +3338,7 @@
       {
         "key": "at",
         "title": "At GitHub",
-        "markdown": "Skip steps 1 to 3 when the App was created from the console: the manifest set them.\n\n1. Organization settings, Developer settings, **GitHub Apps**, **New GitHub App**.\n2. **Webhook URL**: `https://choregos.example.com/api/v1/webhooks/github`. **Webhook secret**: a random string, the same one the\n   platform holds as `github-webhook-secret`. GitHub signs each delivery with it and the platform\n   refuses an unsigned one.\n3. Set the permissions and events below, then create the App and generate a **private key**.\n4. **Install** the App on the repositories Tranibor works in, from the console: the repository field's\n   **Install on GitHub** button opens GitHub's install page and brings you back. The installation is\n   discovered by the platform: there is no number to copy. The App's **Setup URL** is the\n   platform's `/api/v1/github/setup`."
+        "markdown": "Skip steps 1 to 3 when the App was created from the console: the manifest set them.\n\n1. Organization settings, Developer settings, **GitHub Apps**, **New GitHub App**.\n2. **Webhook URL**: `https://tranibor.example.com/api/v1/webhooks/github`. **Webhook secret**: a random string, the same one the\n   platform holds as `github-webhook-secret`. GitHub signs each delivery with it and the platform\n   refuses an unsigned one.\n3. Set the permissions and events below, then create the App and generate a **private key**.\n4. **Install** the App on the repositories Tranibor works in, from the console: the repository field's\n   **Install on GitHub** button opens GitHub's install page and brings you back. The installation is\n   discovered by the platform: there is no number to copy. The App's **Setup URL** is the\n   platform's `/api/v1/github/setup`."
       },
       {
         "key": "permissions",
@@ -3362,7 +3362,7 @@
       }
     ],
     "values": {
-      "webhook_url:github": "https://choregos.example.com/api/v1/webhooks/github"
+      "webhook_url:github": "https://tranibor.example.com/api/v1/webhooks/github"
     },
     "egress": [
       "api.github.com"
@@ -3412,7 +3412,7 @@
       {
         "key": "at",
         "title": "At GitLab",
-        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Developer**, scope **api**, and an\n   expiry. Copy the token when it is shown.\n2. Project, Settings, **Webhooks**, **Add new webhook**: URL `https://choregos.example.com/api/v1/webhooks/gitlab`, **Secret token**\n   the platform's shared webhook secret, and triggers **Issues events**, **Comments** and **Merge request\n   events**."
+        "markdown": "1. Project, Settings, **Access tokens**, **Add new token**: role **Developer**, scope **api**, and an\n   expiry. Copy the token when it is shown.\n2. Project, Settings, **Webhooks**, **Add new webhook**: URL `https://tranibor.example.com/api/v1/webhooks/gitlab`, **Secret token**\n   the platform's shared webhook secret, and triggers **Issues events**, **Comments** and **Merge request\n   events**."
       },
       {
         "key": "permissions",
@@ -3436,7 +3436,7 @@
       }
     ],
     "values": {
-      "webhook_url:gitlab": "https://choregos.example.com/api/v1/webhooks/gitlab"
+      "webhook_url:gitlab": "https://tranibor.example.com/api/v1/webhooks/gitlab"
     },
     "egress": [
       "gitlab.com"
@@ -3526,7 +3526,7 @@
       {
         "key": "at",
         "title": "At Atlassian",
-        "markdown": "1. **The token.**\n   - A **service account** (recommended): `admin.atlassian.com`, **Directory**, **Service accounts**,\n     the account, **Create credentials**, **API token**. Tick exactly two scopes, both from the\n     **classic** list: `read:jira-work` and `write:jira-work`. Nothing else, and no granular scope.\n     Pick the longest expiry offered and **note the date**: the token stops working then.\n   - A regular dedicated account: signed in as it, `id.atlassian.com`, Security, **API tokens**,\n     **Create API token** (a classic token, without scopes).\n\n   Copy the token when it is shown: it is shown once.\n2. **The project.** Jira project, **Project settings**, **People** (or **Access**): add the account\n   with a role that holds the permissions below. **A token's scopes give no right on a project by\n   themselves**: without this step every call answers `404` or `403`.\n3. **Webhook.** The endpoint is `https://choregos.example.com/api/v1/webhooks/jira` and it requires the header `X-Tranibor-Secret`.\n   Jira's own System, **WebHooks** screen lets you set a URL; check there whether it can add a header.\n   If it cannot, use a **Jira Automation** rule: trigger on issue created, issue updated and comment\n   added in the project, action **Send web request** to that URL with a custom header\n   `X-Tranibor-Secret`. This path has not been exercised against a live site from this repository."
+        "markdown": "1. **The token.**\n   - A **service account** (recommended): `admin.atlassian.com`, **Directory**, **Service accounts**,\n     the account, **Create credentials**, **API token**. Tick exactly two scopes, both from the\n     **classic** list: `read:jira-work` and `write:jira-work`. Nothing else, and no granular scope.\n     Pick the longest expiry offered and **note the date**: the token stops working then.\n   - A regular dedicated account: signed in as it, `id.atlassian.com`, Security, **API tokens**,\n     **Create API token** (a classic token, without scopes).\n\n   Copy the token when it is shown: it is shown once.\n2. **The project.** Jira project, **Project settings**, **People** (or **Access**): add the account\n   with a role that holds the permissions below. **A token's scopes give no right on a project by\n   themselves**: without this step every call answers `404` or `403`.\n3. **Webhook.** The endpoint is `https://tranibor.example.com/api/v1/webhooks/jira` and it requires the header `X-Tranibor-Secret`.\n   Jira's own System, **WebHooks** screen lets you set a URL; check there whether it can add a header.\n   If it cannot, use a **Jira Automation** rule: trigger on issue created, issue updated and comment\n   added in the project, action **Send web request** to that URL with a custom header\n   `X-Tranibor-Secret`. This path has not been exercised against a live site from this repository."
       },
       {
         "key": "permissions",
@@ -3550,7 +3550,7 @@
       }
     ],
     "values": {
-      "webhook_url:jira": "https://choregos.example.com/api/v1/webhooks/jira"
+      "webhook_url:jira": "https://tranibor.example.com/api/v1/webhooks/jira"
     },
     "egress": [
       "<site>.atlassian.net",
@@ -3636,6 +3636,85 @@
       {
         "title": "Writing a plugin: the tracker profile",
         "url": "https://github.com/graalsystems/tranibor/blob/main/docs/plugins.md"
+      }
+    ],
+    "origin": "shipped"
+  },
+  {
+    "id": "connector.tracker.servicenow",
+    "title": "Use ServiceNow as the board",
+    "version": 1,
+    "audience": "project_owner",
+    "applies_to": {
+      "connector": "tracker/servicenow"
+    },
+    "link": null,
+    "reviewed": "2026-11-28",
+    "sections": [
+      {
+        "key": "before",
+        "title": "Before you start",
+        "markdown": "- A ServiceNow instance you administer. A free Personal Developer Instance is enough to try it.\n- The assignment groups whose queue Tranibor should take on (for instance `Service Desk`).\n- A random secret of at least 32 characters for the webhook, kept in your secret store: you type it in\n  Tranibor and in a ServiceNow system property.\n- Nothing to install: this tracker is part of Tranibor and calls the instance itself, wherever Tranibor\n  runs (Docker Compose, a laptop, Kubernetes). The `servicenow` plugin is a different thing: an agent, its\n  skills and its governed ITSM tools (knowledge articles, configuration items, a reply the caller reads).\n  A project picks this tracker or the plugin's, not both.\n- This path was built against a simulated instance and the plugin server's own records of a live one; it\n  has not been run against a live instance from this repository yet."
+      },
+      {
+        "key": "at",
+        "title": "At ServiceNow",
+        "markdown": "1. **The integration user.** System Security, Users, **New**: user ID `tranibor.integration`, check **Web\n   service access only** and **Internal Integration User**. Give it the role **`itil`**, and, if Tranibor\n   follows change requests, **`sn_change_read`** (the Change Management API). Never `admin`.\n2. **The two read rights `itil` lacks.** The states are read from `sys_choice` and the work notes from\n   `sys_journal_field`, which an `itil` user cannot read on a default instance. Elevate to\n   `security_admin`, find the **read** ACL that decides each table today (`sys_choice`,\n   `sys_journal_field`) and add the role to it, or create one more read ACL **under that same name** for\n   the role. Never create a field ACL or a wildcard one under a name that has none: it would become the one\n   that decides for every role. Without these rights Tranibor still works, on ServiceNow's out-of-box state\n   names and on the record's own journal fields, but a renamed state is then unknown.\n3. **The OAuth client** (auth `oauth`). On Washington DC and later, set the system property\n   `glide.oauth.inbound.client.credential.grant_type.enabled` to `true`. System OAuth, Application\n   Registry, **New**, **OAuth - Client credentials grant** (an OAuth API endpoint for external clients on\n   older releases): name it `Tranibor`, set **OAuth Application User** to `tranibor.integration`, so every\n   call runs with that user's roles and nothing more. Copy the **Client ID** and **Client Secret**. Without\n   the client credentials grant, use auth `basic` with the integration user's password; from the release\n   that enforces `SNCRestrictBasicAuth`, basic authentication of the API also needs the role\n   `snc_basic_auth_api_access`.\n4. **The webhook properties.** System Properties, **New**, twice, both with **Read roles** and **Write\n   roles** set to `admin`: `tranibor.webhook_url`, type string: `https://tranibor.example.com/api/v1/webhooks/servicenow`; and\n   `tranibor.webhook_secret`, type string: the webhook secret.\n5. **The Business Rule.** System Definition, Business Rules, **New**: name `Tranibor - notify`, table\n   **Incident [incident]**, check **Advanced**. When: **after**, on **Insert** and **Update**. Filter\n   conditions: **Assignment group** *is one of* the groups you chose. Condition (so that Tranibor's own\n   work notes are not posted back): `current.operation() == 'insert' || gs.getUserName() != 'tranibor.integration'`.\n   Script:\n\n   ```javascript\n   (function executeRule(current, previous /*null when async*/) {\n       var url = gs.getProperty('tranibor.webhook_url');\n       var secret = gs.getProperty('tranibor.webhook_secret');\n       if (!url || !secret) {\n           gs.warn('Tranibor: tranibor.webhook_url or tranibor.webhook_secret is not set');\n           return;\n       }\n       var operation = current.operation();\n       if (operation == 'update' && current.comments.changes()) {\n           operation = 'comment';\n       }\n       var request = new sn_ws.RESTMessageV2();\n       request.setEndpoint(url);\n       request.setHttpMethod('post');\n       request.setRequestHeader('Content-Type', 'application/json');\n       request.setRequestHeader('X-Tranibor-Secret', secret);\n       request.setHttpTimeout(10000);\n       request.setRequestBody(JSON.stringify({\n           table: current.getTableName(),\n           sys_id: current.getUniqueValue(),\n           number: current.getValue('number'),\n           sys_mod_count: parseInt(current.getValue('sys_mod_count'), 10),\n           operation: operation,\n           state: current.getValue('state'),\n           instance: gs.getProperty('instance_name')\n       }));\n       request.executeAsync();\n   })(current, previous);\n   ```\n\n   The payload names the record and nothing else: Tranibor re-reads it before acting. The same rule on\n   **Requested Item [sc_req_item]** or **Change Request [change_request]** makes those work items too.\n6. Without the Business Rule, Tranibor polls the groups' queue every minute instead: the open items of\n   those groups, the most recently updated first, at most 200 a poll."
+      },
+      {
+        "key": "permissions",
+        "title": "Permissions",
+        "markdown": "What the integration user needs, and nothing more: `itil` (read and write incidents, request items and\nchanges, their work notes and states, create an incident), the read rights of step 2 on `sys_choice` and\n`sys_journal_field`, and `sn_change_read` for change requests.\n\n**What Tranibor writes, and as whom.** The workflow's bookkeeping goes through this connector, through the\nTable API, under the integration user (or the OAuth client's application user):\n\n- every text is a **work note**, internal: the status note (one new note each time its text changes; a\n  journal cannot be edited), the questions to a person, the close-out. Never a customer-visible comment:\n  a reply the caller reads stays the `servicenow` plugin's tool, which a person approves;\n- the **state**, by its label (`In Progress`), matched without case against the table's states; a state\n  that closes the item is refused there, since closing is the workflow's close step: an incident is\n  **Resolved** with the close code `Solution provided`, a request item **Closed Complete**, a change\n  **Closed** with the close code `successful`;\n- a change request's state moves only through the Change Management API, to a state its change model\n  reaches from where it stands: nothing walks it past its approvals;\n- the fields `impact`, `urgency`, `category`, `subcategory`, `assignment_group`, `assigned_to` and\n  `cmdb_ci` when a step asks for them. **Never `priority`**: ServiceNow computes it from impact and urgency.\n  The cost, size, risk and run Tranibor writes in other boards have no field here: the status note carries\n  them;\n- a request typed on Tranibor's board files an **incident**, carrying `correlation_id = tranibor:<key>`, so\n  a replay finds it instead of filing another. If the user cannot write `correlation_id`, ServiceNow files\n  the record without it and Tranibor logs `servicenow.correlation_id_not_kept`: give the role that right."
+      },
+      {
+        "key": "in_choregos",
+        "title": "In Tranibor",
+        "markdown": "1. Project settings, Connectors, **Tracker**, type **ServiceNow**.\n2. `instance_url`: `https://<instance>.service-now.com`. `auth`: `oauth` (the default) or `basic`.\n3. `client_id` and `client_secret` from step 3 (or `username` and `password` for `basic`): the secret in the\n   password field, sealed, shown once.\n4. `assignment_groups`: the groups the Business Rule filters on. `tables`: only if the project should follow\n   fewer than incidents, request items and changes.\n5. `webhook_secret`: the same secret as the `tranibor.webhook_secret` property. A delivery that carries it\n   reaches only the projects of this connector; one that carries the platform's shared webhook secret\n   (`TRANIBOR_GENERIC_WEBHOOK_SECRET`) reaches any ServiceNow project, told apart by the instance it names,\n   then by the project that already holds the item.\n6. Set a start rule: a ServiceNow item carries no `agent-ready` label. Project settings, **Triggers**, for\n   example `[{\"item_type\": \"incident\", \"states\": [\"New\"]}]`: each new incident of the groups becomes a work\n   item, and the ones already in progress do not."
+      },
+      {
+        "key": "test",
+        "title": "Test it",
+        "markdown": "1. Press **Test** on the connector: it reads the first table and its states with the credential, which proves\n   the credential, the role and the read on `sys_choice` at once.\n2. In ServiceNow, create an incident assigned to one of the groups. Within a minute it appears on the\n   project's board.\n3. System Logs, **Outbound HTTP Requests**: the Business Rule's POST answered `202`."
+      },
+      {
+        "key": "fails",
+        "title": "When it fails",
+        "markdown": "- `401` from the instance: wrong client ID or secret, the client credentials grant is not enabled, or the\n  OAuth Application User is empty; with `basic`, the password, **Web service access only**, or the missing\n  `snc_basic_auth_api_access`.\n- `403` on the test: the user cannot read the table or `sys_choice` (step 2).\n- `ServiceNow did not apply <field>`: ServiceNow answered 200 to a write and kept the old value, which it\n  does for a field the role cannot write and for a value the field refuses.\n- `\"X\" is not a state of incident (states: …)`: the workflow names a state the table does not have; the error\n  lists the ones it has. `\"X\" closes …`: the workflow names a closing state; let its close step close it.\n- `\"X\" is not reachable from \"Y\" on this change's model`: a change moves only along its model's transitions,\n  and closes only from Review, once its approvals are given on the instance.\n- `the Change Management API answered no next state`: give the integration user `sn_change_read`.\n- The webhook answers `401 invalid shared secret`: the `X-Tranibor-Secret` sent differs from `webhook_secret`,\n  or a property is empty (the system log shows `Tranibor: … is not set`).\n- The webhook answers `202` and nothing starts: no start rule matches the item, or two projects hold the\n  instance and the delivery names none (send `instance`, or give each connector its own `webhook_secret`).\n- The outbound request answered `-1` (`UnknownHostException`): Tranibor's API name does not resolve from the\n  instance's data centre; the poll (step 6) is then the only path.\n- A timeout: the egress allowlist must open the instance's host."
+      }
+    ],
+    "values": {
+      "webhook_url:servicenow": "https://tranibor.example.com/api/v1/webhooks/servicenow"
+    },
+    "egress": [
+      "<instance>.service-now.com"
+    ],
+    "fields": {
+      "instance_url": "https://<instance>.service-now.com, without a trailing slash",
+      "auth": "`oauth` (the default) for an OAuth client of the instance; `basic` for the integration user's password",
+      "client_id": "`oauth` only: the Client ID of the OAuth inbound integration",
+      "client_secret": "`oauth` only: its Client Secret, typed once",
+      "username": "`basic` only: the integration user's user ID",
+      "password": "`basic` only: its password, typed once",
+      "assignment_groups": "the names (or sys_ids) of the groups whose open items Tranibor takes on",
+      "tables": "optional: `incident`, `sc_req_item`, `change_request`, or a subset; empty: all three",
+      "webhook_secret": "a random string of at least 32 characters, the same as the Business Rule's property"
+    },
+    "vendor_docs": [
+      {
+        "title": "Table API",
+        "url": "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/integrate/inbound-rest/concept/c_TableAPI.html"
+      },
+      {
+        "title": "Configure OAuth client credentials grant (inbound)",
+        "url": "https://www.servicenow.com/docs/bundle/zurich-platform-security/page/administer/security/task/client-credentials.html"
+      },
+      {
+        "title": "Business rules",
+        "url": "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/script/business-rules/concept/c_BusinessRules.html"
+      },
+      {
+        "title": "RESTMessageV2 API",
+        "url": "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/app-store/dev_portal/API_reference/RESTMessageV2/concept/c_RESTMessageV2API.html"
       }
     ],
     "origin": "shipped"

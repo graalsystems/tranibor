@@ -14,6 +14,7 @@ const TRACKER_NAMES: Record<string, string> = {
   github: "GitHub",
   "github-issues": "GitHub Issues",
   "gitlab-issues": "GitLab Issues",
+  servicenow: "ServiceNow",
   plugin: "a plugin tracker",
   internal: "the internal tracker",
 };
@@ -39,6 +40,11 @@ export function trackerAccount(type: string, config?: Record<string, unknown>): 
       return "the Tranibor GitHub App";
     case "gitlab-issues":
       return "the account that owns the connector's GitLab token";
+    case "servicenow":
+      // An integration user (`basic`), or an OAuth client (`oauth`, the default): never a secret (ADR 0228).
+      return config?.auth === "basic"
+        ? (text(config, "username") ?? "the connector's ServiceNow integration user")
+        : (text(config, "client_id") ?? "the connector's ServiceNow OAuth client");
     case "plugin": {
       const plugin = text(config, "plugin");
       const server = text(config, "server");

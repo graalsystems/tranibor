@@ -39,6 +39,19 @@ def _atlassian_egress(config: dict[str, Any]) -> list[tuple[str, int]]:
     return hosts
 
 
+def _check_servicenow(cfg: dict[str, Any]) -> None:
+    """The instance, the credential that fits it, the queue polled and the tables served (ADR 0228)."""
+    from .tracker.servicenow_api import check_servicenow
+
+    check_servicenow(cfg)
+
+
+def _servicenow_egress(cfg: dict[str, Any]) -> list[tuple[str, int]]:
+    from .tracker.servicenow_api import servicenow_egress
+
+    return servicenow_egress(cfg)
+
+
 def _firecrawl_egress(config: dict[str, Any]) -> list[tuple[str, int]]:
     """The self-hosted instance's host and port, and nothing else (S40-01k): the organisation's network
     ceiling is checked against what the connector really calls. No `base_url`: no host, and the
@@ -485,6 +498,43 @@ _SHIPPED_SPECS: dict[tuple[str, str], ConnectorTypeSpec] = {
         ("pat", "client_secret", "webhook_secret"),
         egress=_azure_boards_egress,
         check_config=_check_azure_boards,
+    ),
+    ("tracker", "servicenow"): ConnectorTypeSpec(
+        "ServiceNow",
+        ("tracker",),
+        _object_schema(
+            {
+                "instance_url": {
+                    "type": "string",
+                    "description": "the instance's address: https://<name>.service-now.com",
+                },
+                "auth": {
+                    "type": "string",
+                    "enum": ["oauth", "basic"],
+                    "default": "oauth",
+                    "description": "`oauth`: an OAuth client of the instance (client credentials); "
+                    "`basic`: a dedicated integration user",
+                },
+                "client_id": {"type": "string", "description": "`oauth` only: the OAuth client's id"},
+                "username": {"type": "string", "description": "`basic` only: the integration user's user ID"},
+                "assignment_groups": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "the assignment groups whose open items Tranibor takes on "
+                    "(names or sys_ids)",
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["incident", "sc_req_item", "change_request"]},
+                    "description": "optional: the tables polled and listened to; empty: incidents, request "
+                    "items and changes",
+                },
+            },
+            ("instance_url", "assignment_groups"),
+        ),
+        ("password", "client_secret", "webhook_secret"),
+        egress=_servicenow_egress,
+        check_config=_check_servicenow,
     ),
     ("tracker", "plugin"): ConnectorTypeSpec(
         "a plugin's server (tracker profile, S43-07)",

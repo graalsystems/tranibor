@@ -84,7 +84,7 @@ def test_the_mock_data_has_the_apis_shape(tmp_path: pathlib.Path, name: str) -> 
     data = json.loads(target.read_text(encoding="utf-8"))
     assert len(data) == len(core.load().procedures)
     jira = next(p for p in data if p["id"] == "connector.tracker.jira")
-    assert jira["values"] == {"webhook_url:jira": "https://choregos.example.com/api/v1/webhooks/jira"}
+    assert jira["values"] == {"webhook_url:jira": "https://tranibor.example.com/api/v1/webhooks/jira"}
     assert {"id", "title", "version", "audience", "applies_to", "link", "reviewed", "sections"} <= set(jira)
 
 

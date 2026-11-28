@@ -109,6 +109,21 @@ def _azure_boards_tracker(cfg: dict[str, Any]) -> Any:
     )
 
 
+def _servicenow_tracker(cfg: dict[str, Any]) -> Any:
+    """ServiceNow (ADR 0228): an OAuth client or a basic integration user, the secrets from the vault,
+    never from the repository."""
+    from .tracker.servicenow import ServiceNowTracker
+    from .tracker.servicenow_api import check_servicenow, servicenow_client
+
+    check_servicenow(cfg)
+    return ServiceNowTracker(
+        servicenow_client(cfg),
+        assignment_groups=list(cfg.get("assignment_groups") or []),
+        tables=cfg.get("tables") or None,
+        webhook_secret=str(cfg.get("webhook_secret") or ""),
+    )
+
+
 def _github_client(config: dict[str, Any]) -> Any:
     """Builds the GitHub client from the connector's configuration or the deployment's App.
 
@@ -551,6 +566,7 @@ def _register_forges() -> None:
     register("tracker", "internal", _SHIPPED_SPECS[("tracker", "internal")])(lambda cfg: InternalTracker())
     register("tracker", "jira", _SHIPPED_SPECS[("tracker", "jira")])(_jira_tracker)
     register("tracker", "azure-boards", _SHIPPED_SPECS[("tracker", "azure-boards")])(_azure_boards_tracker)
+    register("tracker", "servicenow", _SHIPPED_SPECS[("tracker", "servicenow")])(_servicenow_tracker)
     register("tracker", "plugin", _SHIPPED_SPECS[("tracker", "plugin")])(_plugin_tracker)
     register("tracker", "gitlab-issues", _SHIPPED_SPECS[("tracker", "gitlab-issues")])(
         lambda cfg: GitLabTracker(

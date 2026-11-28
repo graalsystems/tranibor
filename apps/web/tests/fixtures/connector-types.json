@@ -200,6 +200,10 @@
   "type": "plugin"
  },
  {
+  "kind": "tracker",
+  "type": "servicenow"
+ },
+ {
   "kind": "web_search",
   "type": "brave"
  },

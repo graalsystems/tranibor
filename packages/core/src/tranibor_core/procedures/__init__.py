@@ -66,6 +66,7 @@ WEBHOOK_SOURCES = (
     "jira",
     "azure-boards",
     "azure-devops",
+    "servicenow",
     "gitlab",
     "argocd",
     "tekton",

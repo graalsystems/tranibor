@@ -1379,6 +1379,13 @@ migration role distinct from the API's own (each its own story).
   time; with no secret configured every delivery is refused. The Azure Boards credentials (a personal access
   token, or an Entra service principal's client secret) are sealed connector secrets, and an Entra token is
   held in memory only, until a minute before it expires ([ADR 0209](adr/0209-the-azure-devops-family-boards-first-then-repos-and-pipelines.md)).
+  A ServiceNow Business Rule carries a secret in `X-Tranibor-Secret`, compared in constant time with the
+  `webhook_secret` of each ServiceNow tracker connector (sealed, resolved with its organisation: a match
+  routes only to that connector's projects) or with the platform's shared secret; no match, `401`. The
+  delivery names a record and nothing else is trusted: the record is re-read through the connector. The
+  ServiceNow credentials (an OAuth client's secret, or the integration user's password) are sealed connector
+  secrets, an OAuth token is held in memory only, until a minute before it expires, and every read names its
+  fields, so a column added to the instance never leaks by default ([ADR 0228](adr/0228-servicenow-is-a-built-in-tracker.md)).
 - Rotations: [`runbooks/secret-rotation.md`](runbooks/secret-rotation.md).
 
 ## Supply chain

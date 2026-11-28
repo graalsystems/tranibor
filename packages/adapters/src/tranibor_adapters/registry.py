@@ -307,6 +307,8 @@ def account_of(kind: str, type_name: str, config: dict[str, Any] | None) -> str 
     # A Microsoft Entra service principal (the Azure DevOps types, the core's and an extension's alike).
     if cfg.get("auth") == "entra":
         return str(cfg.get("client_id") or "") or None
+    if type_name == "servicenow":  # an integration user, or an OAuth client (an identifier, RFC 6749 §2.2)
+        return str(cfg.get("username" if cfg.get("auth") == "basic" else "client_id") or "") or None
     if kind == "mcp" and cfg.get("auth_scheme") == "basic":
         return str(cfg.get("username") or "") or None
     if kind == "mcp" and cfg.get("auth_scheme") == "oauth_client_credentials":

@@ -3576,16 +3576,17 @@ long after signing in — and the journal, key by key.
 ## 5. Let a ticket run
 
 Label a ticket `agent-ready` in your tracker (or create it in Tranibor with
-`tracker: internal`). The platform starts one workflow per ticket, with a deterministic id —
+`tracker: internal`). A tracker without labels (ServiceNow) starts its items by a project's start rule
+instead, such as `item_type: incident` with `states: [New]`. The platform starts one workflow per ticket, with a deterministic id —
 so a webhook delivered twice starts nothing twice. If a webhook is lost, a reconciliation
 pass every 60 seconds catches up.
 
 You can also file a work item yourself. On a project's board, **New work item** opens a drawer: the workflow, the inputs that workflow declares, a title, a description, a size and an optional budget (which only tightens the workflow's). MCP does the same with `create_work_item`. With
-an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards or GitLab it creates
-the issue there first (Azure Boards: a work item, tagged), labelled `source:tranibor` and never `agent-ready`, and records the work
+an internal tracker (or none) the platform mints the key. With GitHub, Jira, Azure Boards, ServiceNow or GitLab it creates
+the issue there first (Azure Boards: a work item, tagged; ServiceNow: an incident, once per text, by its `correlation_id`, and without labels), labelled `source:tranibor` and never `agent-ready`, and records the work
 item under the issue's key, with its creation inputs, workflow and budget (ADR 0059). The tracker's
 credentials need the right to create issues (GitHub App: *Issues: read and write*; Jira: create
-issue on the project; Azure Boards: *Create work items* on the project; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
+issue on the project; Azure Boards: *Create work items* on the project; ServiceNow: `itil`, which creates incidents; GitLab: `api` scope). If the tracker refuses, you get a 502 and nothing is created.
 
 A `/tranibor approve`, `reject`, `answer` or `scope` comment on a routed ticket does nothing to the
 workflow: a decision stays in the console, after a fresh sign-in. Tranibor replies on the ticket with a
@@ -3596,7 +3597,7 @@ verified by its HMAC (`TRANIBOR_GITHUB_WEBHOOK_SECRET` is set), by a github.com 
 of the project's organisation. The command runs with that member's own rights (a developer or
 above), is audited as `workitem.pause`, `workitem.resume` or `workitem.stop` on the channel `tracker`,
 and Tranibor confirms on the ticket. A login is never matched, so a renamed account inherits nothing.
-Jira, Azure Boards and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
+Jira, Azure Boards, ServiceNow and GitLab comments, and any delivery that carries only the shared secret, are never honoured: a
 display name or a username is not a stable identity. Anyone else gets the console link, with a note on
 how to link their account. A reply that cannot be posted never fails the webhook.
 

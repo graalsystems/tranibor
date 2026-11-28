@@ -14,6 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     api: {
       ...reel.api,
       templates: vi.fn().mockResolvedValue([]),
+      connectorTypes: vi.fn().mockResolvedValue([]),
       createProject: vi.fn().mockResolvedValue({ id: "p1", slug: "people-ops" }),
       putConnector: vi
         .fn()
@@ -156,5 +157,52 @@ describe("the project creation wizard (S23-06)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     expect(screen.getByText("Main language")).toBeInTheDocument();
+  });
+});
+
+describe("an external tracker is set up in the wizard, its secrets included (ADR 0228)", () => {
+  it("waits for ServiceNow's settings, then writes them and the sealed secret with the project", async () => {
+    vi.mocked(api.connectorTypes).mockResolvedValue([
+      {
+        kind: "tracker",
+        type: "servicenow",
+        display: "ServiceNow",
+        config_schema: {
+          type: "object",
+          required: ["instance_url"],
+          properties: { instance_url: { type: "string", title: "Instance URL" } },
+        },
+        secret_fields: ["password"],
+      },
+    ] as never);
+    ouvrir();
+    fireEvent.click(screen.getByLabelText(/no code repository/));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Identifier (slug)"), { target: { value: "service-desk" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Tracker (where tickets come from)"), { target: { value: "servicenow" } });
+
+    const next = await screen.findByRole("button", { name: "Next" });
+    await screen.findByTestId("tracker-settings");
+    expect(next).toBeDisabled();
+    expect(next).toHaveAccessibleDescription("Fill in the tracker's settings and save them to go on");
+    fireEvent.change(screen.getByLabelText(/Instance URL/), { target: { value: "https://acme.service-now.com" } });
+    fireEvent.change(screen.getByLabelText("password value"), { target: { value: "s3cret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByTestId("tracker-settings-kept")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(api.putConnector).toHaveBeenLastCalledWith(
+        "p1",
+        "tracker",
+        expect.objectContaining({
+          type: "servicenow",
+          config: { instance_url: "https://acme.service-now.com" },
+          secret_values: { password: "s3cret" },
+        }),
+      ),
+    );
   });
 });

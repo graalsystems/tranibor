@@ -46,6 +46,8 @@ describe("the icon of a connector (S40-03b)", () => {
   it("a type without a mark takes the icon of its kind, an unknown kind a plug", () => {
     expect(connectorIconOf("notify", "slack").kind).toBe("lucide");
     expect(connectorIconOf("tracker", "plugin").kind).toBe("lucide");
+    // ServiceNow has no mark vendored here: the tracker's icon (ADR 0228).
+    expect(connectorIconOf("tracker", "servicenow")).toEqual(connectorIconOf("tracker", "anything"));
     expect(connectorIconOf("gateway", "litellm")).toEqual(connectorIconOf("gateway", "anything"));
     expect(connectorIconOf("brand-new-kind", "x").kind).toBe("lucide");
     expect(connectorIconOf("documents", "web")).not.toEqual(connectorIconOf("documents", "anything"));

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ConnectorForm, type ConnectorBody } from "@/components/project-settings/connector-form";
 import { Button, Card, ErrorNote, Heading, Input, Select, StepNumber } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -17,6 +18,7 @@ const TRACKERS = [
   { value: "github", label: "GitHub Issues / Projects" },
   { value: "jira", label: "Jira" },
   { value: "gitlab", label: "GitLab" },
+  { value: "servicenow", label: "ServiceNow" },
 ];
 
 /**
@@ -33,6 +35,10 @@ export default function NewProjectPage() {
   const templates = useQuery({ queryKey: ["templates"], queryFn: () => api.templates() });
   // Without a template, the project may start from a catalogue workflow (ADR 0111 §7).
   const catalogue = useQuery({ queryKey: ["workflow-catalogue", org], queryFn: () => api.workflowCatalogue(org) });
+  // The tracker's types, so that an external tracker's settings and secrets are typed here (ADR 0228): saved
+  // with an empty configuration, a Jira, GitLab or ServiceNow tracker was refused and the project left half made.
+  const connectorTypes = useQuery({ queryKey: ["connector-types"], queryFn: () => api.connectorTypes() });
+  const [trackerBody, setTrackerBody] = useState<ConnectorBody | null>(null);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,6 +74,8 @@ export default function NewProjectPage() {
   const automatique = form.sansDepot ? "core/default-request" : "core/default-simple";
   const offerts = (catalogue.data ?? []).filter((e) => !form.sansDepot || !needsWorkspace(e));
   const choisi = withTemplate ? undefined : offerts.find((e) => `${e.source}/${e.name}` === form.workflow);
+  const trackerType = (connectorTypes.data ?? []).find((t) => t.kind === "tracker" && t.type === form.tracker);
+  const trackerToSet = form.tracker !== "internal" && trackerType !== undefined;
 
   async function create() {
     setBusy(true);
@@ -98,7 +106,7 @@ export default function NewProjectPage() {
         setFait({ projet: project, tracker: false });
       }
       if (!fait.tracker) {
-        await api.putConnector(project.id, "tracker", { type: form.tracker, config: {} });
+        await api.putConnector(project.id, "tracker", trackerBody ?? { type: form.tracker, config: {} });
         setFait({ projet: project, tracker: true });
       }
       if (choisi && form.workflow !== automatique && !fait.workflow) {
@@ -130,7 +138,9 @@ export default function NewProjectPage() {
           ? form.repo
             ? "The repository is not valid yet"
             : "A repository is needed — or choose a business process in the first step"
-          : null;
+          : step === 2 && trackerToSet && trackerBody === null
+            ? "Fill in the tracker's settings and save them to go on"
+            : null;
 
   const recapitulatif: [string, string][] = [
     ["Organisation", org],
@@ -295,7 +305,10 @@ export default function NewProjectPage() {
               <span>Tracker (where tickets come from)</span>
               <Select
                 value={form.tracker}
-                onChange={(event) => set("tracker", event.target.value)}
+                onChange={(event) => {
+                  set("tracker", event.target.value);
+                  setTrackerBody(null);
+                }}
                 className="w-full"
               >
                 {TRACKERS.map((tracker) => (
@@ -305,6 +318,22 @@ export default function NewProjectPage() {
                 ))}
               </Select>
             </label>
+            {trackerToSet && trackerType && (
+              <div data-testid="tracker-settings">
+                <ConnectorForm
+                  key={form.tracker}
+                  types={[trackerType]}
+                  onSave={async (body) => setTrackerBody(body)}
+                  onSecret={async () => undefined}
+                  onClearSecret={async () => undefined}
+                />
+                {trackerBody && (
+                  <p className="mt-1 text-xs text-ink-muted" data-testid="tracker-settings-kept">
+                    Settings kept: they are written with the project, its secrets sealed, never shown again.
+                  </p>
+                )}
+              </div>
+            )}
             {!form.sansDepot && (
               <Field
                 label="GitOps repository (environments)"
@@ -320,7 +349,8 @@ export default function NewProjectPage() {
               placeholder="#people-ops"
             />
             <p className="text-xs text-ink-muted">
-              Secrets are not typed here: they come from External Secrets, referenced by the connector.
+              An external tracker&apos;s secrets are typed once above and sealed; the other connectors&apos; are set in the
+              project settings.
               {form.sansDepot
                 ? "Other connectors (a document store, an HR or ticketing system, notifications) are added in the project settings."
                 : "The other connectors (SCM, CI, CD, gateway) are set in the project settings."}

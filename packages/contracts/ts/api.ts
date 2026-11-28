@@ -7466,6 +7466,11 @@ export interface Operations {
   searchRunKnowledge: { method: "POST"; path: "/internal/runs/{id}/knowledge/search"; body: KnowledgeSearchRequest; response: KnowledgeSearchResult };
   searchRunMemory: { method: "POST"; path: "/internal/runs/{id}/memory/search"; body: RunMemorySearch; response: Array<RunMemoryHit> };
   sendMyConversationMessage: { method: "POST"; path: "/me/conversations/{conversation_id}/messages"; body: ConversationMessageCreate; response: AgentResponse };
+  servicenowWebhook: { method: "POST"; path: "/webhooks/servicenow"; body: {
+  [key: string]: unknown;
+} | Array<{
+  [key: string]: unknown;
+}>; response: WebhookAck };
   setAgentReleasePolicy: { method: "PUT"; path: "/orgs/{org}/agents/{slug}/release-policy"; body: AgentReleasePolicy; response: Agent };
   setConnectorSecret: { method: "PUT"; path: "/projects/{id}/connectors/{kind}/secrets/{field}"; body: SecretValue; response: Connector };
   setOrgConnectorSecret: { method: "PUT"; path: "/orgs/{org}/connectors/{name}/secrets/{field}"; body: SecretValue; response: OrgConnector };

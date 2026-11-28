@@ -652,6 +652,43 @@ the permissions, is the procedure `connector.tracker.azure-boards` (`docs/proced
   documentation; **no live Azure DevOps organisation or Server has run it yet**. Comments use the 7.1
   *preview* endpoint, which is the only one. Repos and Pipelines are not part of this connector (S13-08).
 
+## ServiceNow, as the board (ADR 0228)
+
+Tranibor reads and writes a ServiceNow instance's incidents, request items and changes the way it does a
+Jira project: connector **Tracker**, type **ServiceNow** (`servicenow`), chosen and configured in a project
+like Jira and Azure Boards. The setup, with the roles and the Business Rule, is the procedure
+`connector.tracker.servicenow` (`docs/procedures/`). It runs wherever Tranibor runs (Docker Compose, a
+laptop, Kubernetes): the platform calls the instance itself. The `servicenow` plugin is a different thing
+(an agent, its skills, its templates and its governed ITSM tools, through a server that runs on Kubernetes,
+ADR 0093 and 0096); a project picks this tracker or the plugin's `tracker/plugin`, not both.
+
+- **Where.** `instance_url`, `https://<instance>.service-now.com`, through the Table API, and the Change
+  Management API for change requests.
+- **Credential.** `auth: oauth` (the default), an OAuth client of the instance with the client credentials
+  grant (`client_id`, sealed `client_secret`, its application user the integration user); or `auth: basic`,
+  a dedicated integration user (`username`, sealed `password`). The user holds `itil`, the read of
+  `sys_choice` and `sys_journal_field`, and `sn_change_read` for changes.
+- **What it does.** An item's key is its number (`INC…`, `RITM…`, `CHG…`). The poll takes on the open items of
+  the `assignment_groups` (names or sys_ids), newest first, at most 200, within the optional `tables`; a
+  start rule (`item_type: incident`, `states: [New]`) decides which of them start, since a ServiceNow item has
+  no label. The workflow's state is written by its label, matched without case against the table's states;
+  a closing state is refused there, and the workflow's close step resolves an incident with its close code
+  (a request item closes complete, a change closes through its model). A change request moves only through
+  the Change Management API, to a state its model reaches. Every text is a **work note**, never a
+  customer-visible comment; the status note is a new note each time its text changes (a journal cannot be
+  edited); a link is a work note naming the other item; `priority` is never written. A request filed from
+  the board is an incident, idempotent by `correlation_id = tranibor:<key>`.
+- **Inbound.** A Business Rule on the table posts `{table, sys_id, number, sys_mod_count, operation, state,
+  instance}` to `<api_url>/api/v1/webhooks/servicenow` with `X-Tranibor-Secret`: the connector's
+  `webhook_secret` (the delivery then reaches that connector's projects only) or the platform's
+  `TRANIBOR_GENERIC_WEBHOOK_SECRET` (any ServiceNow project, told apart by `instance`, then by the project that
+  already holds the item; an ambiguity routes nothing). Each record is de-duplicated on
+  `sys_id:sys_mod_count` and re-read through the connector before anything acts on it.
+- **Limits, said plainly.** Built against a scripted instance and the plugin server's records of a live one
+  (Australia release); **this core adapter has not run against a live instance yet**. Knowledge articles,
+  configuration items, similar incidents and a reply the caller reads are not part of it: they stay the
+  plugin's governed tools.
+
 ## Your organisation's MCP gateway (ADR 0105)
 
 Some MCP servers cannot be called directly: they need hosting, or OAuth, or their credential must

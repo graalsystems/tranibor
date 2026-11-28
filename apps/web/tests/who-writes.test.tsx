@@ -38,6 +38,10 @@ describe("who writes, and with which account (S42-06g, ADR 0107)", () => {
     expect(screen.getByTestId("writes-as")).toHaveTextContent("the account that owns the connector's GitLab token");
     rerender(<WritesAs type="github-issues" config={{ repo: "acme/app" }} />);
     expect(screen.getByTestId("writes-as")).toHaveTextContent("the Tranibor GitHub App");
+    rerender(<WritesAs type="servicenow" config={{ client_id: "tranibor-oauth" }} />);
+    expect(screen.getByTestId("writes-as")).toHaveTextContent("Tranibor writes as tranibor-oauth");
+    rerender(<WritesAs type="servicenow" config={{ auth: "basic", username: "tranibor.integration" }} />);
+    expect(screen.getByTestId("writes-as")).toHaveTextContent("Tranibor writes as tranibor.integration");
     rerender(<WritesAs type="internal" />);
     expect(container).toBeEmptyDOMElement();
   });

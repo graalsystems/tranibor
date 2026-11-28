@@ -499,6 +499,75 @@
     ],
     "config_schema": {
       "properties": {
+        "assignment_groups": {
+          "description": "the assignment groups whose open items Tranibor takes on (names or sys_ids)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "default": "oauth",
+          "description": "`oauth`: an OAuth client of the instance (client credentials); `basic`: a dedicated integration user",
+          "enum": [
+            "oauth",
+            "basic"
+          ],
+          "type": "string"
+        },
+        "client_id": {
+          "description": "`oauth` only: the OAuth client's id",
+          "type": "string"
+        },
+        "instance_url": {
+          "description": "the instance's address: https://<name>.service-now.com",
+          "type": "string"
+        },
+        "tables": {
+          "description": "optional: the tables polled and listened to; empty: incidents, request items and changes",
+          "items": {
+            "enum": [
+              "incident",
+              "sc_req_item",
+              "change_request"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "username": {
+          "description": "`basic` only: the integration user's user ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instance_url",
+        "assignment_groups"
+      ],
+      "type": "object"
+    },
+    "deprecated": false,
+    "dev_only": false,
+    "display": "ServiceNow",
+    "has_check_config": true,
+    "has_egress": true,
+    "has_factory": true,
+    "kind": "tracker",
+    "operations": [],
+    "pooled_fields": [],
+    "secret_fields": [
+      "password",
+      "client_secret",
+      "webhook_secret"
+    ],
+    "type": "servicenow"
+  },
+  {
+    "capabilities": [
+      "tracker"
+    ],
+    "config_schema": {
+      "properties": {
         "plugin": {
           "description": "the installed plugin",
           "type": "string"
