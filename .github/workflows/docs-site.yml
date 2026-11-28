@@ -1,7 +1,7 @@
 name: Documentation site
 
-# The public documentation's source is `docs/site/`. It is published on graal.systems, beside the other
-# products of graal, never from here (ADR 0228, superseding the GitHub Pages publication of ADR 0185):
+# The public documentation's source is `docs/site/`. It is published on graal.systems, beside the
+# publisher's other products, never from here (ADR 0228, superseding the GitHub Pages publication of ADR 0185):
 # the site's repository imports `docs/site/` at each release tag, with the connector pages, by its own
 # robot. This workflow only proves the pages build: a pull request that touches them, and a push to
 # main, build them with Docusaurus (`website/`), the generated connector pages included (ADR 0215).
