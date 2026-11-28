@@ -1,8 +1,10 @@
 # The public user documentation: how to write it
 
 This folder is the source of the public documentation of Tranibor, published at
-<https://graalsystems.github.io/tranibor/>. This page is for the people who write it. It is not
-published: the build of the site (`website/`, ADR 0185) leaves every `README.md` out.
+<https://graal.systems/en/docs/agentic-platform/>, beside the other products of graal (ADR 0228): the
+site's repository imports this folder at each release tag, with the connector pages. A change made here
+is published with the next release. This page is for the people who write it. It is not published: the
+build (`website/`, ADR 0185, which only proves the pages build here) leaves every `README.md` out.
 
 The reference pages one level up (`docs/*.md`) stay what they are: complete, precise, written for
 people who run and extend the platform. The pages here are for people who **use** it: a team lead, a
@@ -12,7 +14,7 @@ needs the full detail, link to the reference page.
 ## Where a page goes
 
 The slugs are fixed by the S62 contract. Do not move or rename a page: the console and the API link to
-these addresses (`TRANIBOR_DOCS_URL`, by default `https://graalsystems.github.io/tranibor`).
+these addresses (`TRANIBOR_DOCS_URL`, by default `https://graal.systems/en/docs/agentic-platform`).
 
 | Folder | Section | Order |
 | :-- | :-- | :-- |

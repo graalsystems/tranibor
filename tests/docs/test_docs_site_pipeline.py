@@ -29,11 +29,12 @@ def test_the_site_is_served_where_the_publishing_identity_says() -> None:
     assert "graalsystems" not in config and "northwind" not in config.lower()
 
 
-def test_the_documentation_is_not_hosted_by_a_third_party() -> None:
-    host = urlparse(IDENTITY["documentation"]).hostname or ""
-    owner = IDENTITY["owner"]
-    assert host == f"{owner}.github.io", f"{host} is not the GitHub Pages of {owner}"
-    assert urlparse(IDENTITY["documentation"]).path == "/" + IDENTITY["source_repository"].rsplit("/", 1)[1]
+def test_the_documentation_is_published_on_graal_systems_beside_the_other_products() -> None:
+    """ADR 0228: one documentation for every product of graal, on its site; never a second copy here."""
+    url = urlparse(IDENTITY["documentation"])
+    assert url.scheme == "https" and url.hostname == "graal.systems"
+    assert url.path == "/en/docs/agentic-platform", "the site serves this product's pages there"
+    assert not url.path.endswith("/")
 
 
 def test_the_site_reads_the_pages_of_this_repository() -> None:
@@ -44,22 +45,25 @@ def test_the_site_reads_the_pages_of_this_repository() -> None:
     assert "graalsystems" not in script
 
 
-def test_the_workflow_builds_on_pull_requests_and_publishes_from_main_only() -> None:
+def test_the_workflow_only_builds_and_publishes_nothing() -> None:
+    """ADR 0228: the pages are proved here and published by graal.systems; no Pages deploy, no
+    Pages permission, no schedule that would only have republished them."""
     text = WORKFLOW.read_text("utf-8")
-    assert "pull_request:" in text and "branches: [main]" in text
-    # Not on a release: the `github-pages` environment deploys from main only, so a tag's deploy fails
-    # (v0.29.4), and a release the release workflow publishes starts no workflow (ADR 0185, amended).
     triggers = text.split("\npermissions:", 1)[0]
-    assert "\n  release:" not in triggers and "github.event.release" not in text
-    assert "actions/deploy-pages@" in text and "id-token: write" in text
-    # The publishing job never runs for a pull request.
-    assert re.search(r"deploy:\n\s+if: github\.event_name != 'pull_request'", text)
+    assert "pull_request:" in triggers and "branches: [main]" in triggers
+    assert "\n  release:" not in triggers and "\n  schedule:" not in triggers
+    publishing_steps = ("deploy-pages", "upload-pages-artifact", "configure-pages", "pages: write")
+    assert "id-token" not in text
+    for publishing in publishing_steps:
+        assert publishing not in text, f"the workflow still publishes: {publishing}"
+    assert "\n  deploy:" not in text and "github-pages" not in text
+    assert re.search(r"\npermissions:\n  contents: read\n", text)
 
 
 def _steps() -> list[str]:
     """The build job's steps, each as its text, in order."""
     text = WORKFLOW.read_text("utf-8")
-    build = text.split("\n  build:\n", 1)[1].split("\n  deploy:\n", 1)[0]
+    build = text.split("\n  build:\n", 1)[1]
     return [chunk for chunk in re.split(r"\n(?=      - )", build) if chunk.lstrip().startswith("- ")]
 
 
@@ -86,8 +90,3 @@ def test_the_plugins_are_read_from_their_public_repository_without_credentials()
     plugins = urlparse(PUBLISHING.plugin_repository).path.strip("/")
     assert f"repository: {plugins}" in checkout and "ref: main" in checkout
     assert "persist-credentials: false" in checkout
-
-
-def test_a_published_plugin_procedure_reaches_the_site_without_a_commit_here() -> None:
-    text = WORKFLOW.read_text("utf-8")
-    assert re.search(r"\n  schedule:\n    - cron: ", text), "a daily build picks up the plugins' procedures"

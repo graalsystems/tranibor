@@ -4,7 +4,7 @@
   "registry": "ghcr.io/graalsystems",
   "image_prefix": "tranibor",
   "source_repository": "https://github.com/graalsystems/tranibor",
-  "documentation": "https://graalsystems.github.io/tranibor",
+  "documentation": "https://graal.systems/en/docs/agentic-platform",
   "security_contact": "security@graal.systems",
   "commit_email": "tranibor-bot@graal.systems",
   "plugin_repository": "https://github.com/graalsystems/tranibor-agents",

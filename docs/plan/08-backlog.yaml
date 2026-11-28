@@ -6437,6 +6437,17 @@ stories:
       - "docs-site.yml has no release trigger; it publishes on a push to main that touches the pages and on its daily run, with links at the built commit"
       - "tests/docs/test_docs_site_pipeline.py refuses a release trigger"
     notes: "v0.29.4, published by hand, built the site and failed to deploy it: the github-pages environment deploys from main only. A release published by the release workflow (GITHUB_TOKEN) starts no workflow."
+  - id: S84-09
+    title: "docs(site): the documentation is published on graal.systems only, no GitHub Pages (ADR 0228)"
+    stream: S84
+    sprint: 1
+    priority: 5
+    size: S
+    depends_on: [S84-08]
+    acceptance:
+      - "the publishing identity's documentation is https://graal.systems/en/docs/agentic-platform, and every reader of it follows (console, API, MCP door, editor extension)"
+      - "docs-site.yml builds the pages on a pull request and on main, and publishes nothing: no Pages step, permission, environment or schedule"
+    notes: "Decided by the product owner on 2026-11-27: one documentation for every product of graal, on its site; graal.systems imports docs/site/ at each release tag."
   - id: S4-11
     title: "fix(adapters): the distillation batch runs on LiteLLM's open path, no enterprise licence (ADR 0190)"
     stream: S4

@@ -79,3 +79,9 @@ lists the installed plugins' procedures beside the platform's. Three gaps:
   included), which the export now writes as code.
 - The candidates are checked by the console's tests against the mock API, not against a deployment
   with a plugin installed.
+
+## Amendment — 2026-11-27: published on graal.systems (ADR 0228)
+
+The pages of §3 are still generated at build time, but the build that publishes them is graal.systems',
+at the release tag, not this repository's: §4's daily run and its publication are gone, `docs-site.yml`
+only proves that the pages build.
