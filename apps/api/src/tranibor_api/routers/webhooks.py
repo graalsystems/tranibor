@@ -800,6 +800,155 @@ def _azure_boards_tracker_of(session: Any) -> TrackerOf:
     return read
 
 
+# ───────────────────────────── ServiceNow (ADR 0228) ─────────────────────────────
+
+
+@router.post(
+    "/servicenow",
+    response_model=WebhookAck,
+    status_code=status.HTTP_202_ACCEPTED,
+    operation_id="servicenowWebhook",
+)
+async def servicenow_webhook(request: Request, session: PlatformDb) -> WebhookAck:
+    """What the Business Rule of a project's ServiceNow tracker posts (`connector.tracker.servicenow`).
+
+    ServiceNow signs nothing: the delivery carries a shared secret in `X-Tranibor-Secret`, compared in
+    constant time with the `webhook_secret` of each ServiceNow tracker connector (that connector's projects
+    are then the only candidates), or with the platform's shared secret (every ServiceNow project is). Each
+    record is de-duplicated on `sys_id:sys_mod_count`, routed to its project, then RE-READ through the
+    project's connector: nothing of the payload but the record's number is trusted."""
+    from tranibor_adapters.tracker.servicenow_events import (
+        ServiceNowEventError,
+        parse_servicenow_event,
+        secret_of,
+    )
+
+    body = await request.body()
+    provided = secret_of(request.headers)
+    connectors = await _servicenow_connectors(session)
+    if verify_shared_secret(get_settings().generic_webhook_secret, provided):
+        verified = connectors
+    else:
+        verified = [held for held in connectors if await _holds_secret(session, held, provided)]
+        if not verified:
+            raise unauthorized("invalid shared secret")
+    try:
+        events = parse_servicenow_event(body)
+    except ServiceNowEventError as exc:
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Bad request", str(exc)) from exc
+    delivered = duplicates = 0
+    for event in events:
+        if await already_seen(session, "servicenow", event.delivery_id, str(event.type), body):
+            duplicates += 1
+            continue
+        project = await _servicenow_project_for(session, verified, event)
+        if project is None:
+            logger.info("servicenow.webhook.unrouted", work_item=event.work_item_key)
+            continue
+        reread, block = await _servicenow_reread(session, project, event)
+        delivered += await dispatch(session, [reread], project_of=project, tracker_of=_known(block))
+    return WebhookAck(accepted=True, events=delivered, duplicate=bool(events) and duplicates == len(events))
+
+
+async def _servicenow_connectors(session: Any) -> list[tuple[Connector, Project]]:
+    rows = await session.execute(
+        select(Connector, Project)
+        .join(Project, Project.id == Connector.project_id)
+        .where(Connector.kind == "tracker", Connector.type == "servicenow", Project.status != "archived")
+        .order_by(Project.slug)
+    )
+    return [(connector, project) for connector, project in rows.all()]
+
+
+async def _holds_secret(session: Any, held: tuple[Connector, Project], provided: str) -> bool:
+    """Whether the connector's own `webhook_secret` (sealed, resolved with its organisation) is `provided`."""
+    from tranibor_adapters.tracker.servicenow_events import verify_servicenow_delivery
+
+    from ..secret_store import resolved_configuration
+
+    connector, project = held
+    if not provided or "webhook_secret" not in (connector.secret_refs or {}):
+        return False
+    try:
+        config = await resolved_configuration(
+            session, project.org_id, "tracker", "servicenow", connector.config, connector.secret_refs
+        )
+    except Exception as failed:  # an unreadable secret verifies nothing; the next connector may
+        logger.warning("servicenow.webhook.secret_unread", project=project.slug, error=str(failed)[:300])
+        return False
+    secret = config.get("webhook_secret")
+    return isinstance(secret, str) and verify_servicenow_delivery({"x-tranibor-secret": provided}, secret)
+
+
+async def _servicenow_project_for(
+    session: Any, verified: list[tuple[Connector, Project]], event: InboundEvent
+) -> Project | None:
+    """The project a record is for, among the verified connectors': those serving the record's table, then
+    those on the instance the delivery names (`instance`, when the Business Rule sends it), then the one
+    project left, else the one that already holds the record. An ambiguity routes nothing."""
+    from urllib.parse import urlsplit
+
+    table = str(event.payload.get("table") or "")
+    matches = [m for m in verified if table in ((m[0].config or {}).get("tables") or [table])]
+    instance = str(event.payload.get("instance") or "").casefold()
+    if instance:
+
+        def on_instance(match: tuple[Connector, Project]) -> bool:
+            host = (
+                urlsplit(str((match[0].config or {}).get("instance_url") or "")).hostname or ""
+            ).casefold()
+            return host == instance or host.startswith(instance + ".")
+
+        matches = [m for m in matches if on_instance(m)]
+    projects = {project.id: project for _connector, project in matches}
+    if len(projects) <= 1:
+        return next(iter(projects.values()), None)
+    holders = (
+        await session.execute(
+            select(WorkItem.project_id).where(
+                WorkItem.project_id.in_(list(projects)), WorkItem.tracker_key == event.work_item_key
+            )
+        )
+    ).scalars()
+    owners = set(holders)
+    if len(owners) == 1:
+        return projects[owners.pop()]
+    logger.warning("servicenow event matches several projects, not routed", work_item=event.work_item_key)
+    return None
+
+
+async def _servicenow_reread(
+    session: Any, project: Project, event: InboundEvent
+) -> tuple[InboundEvent, dict[str, Any] | None]:
+    """The event with what the instance says of the record now, read through the project's connector.
+    Best effort: a record that cannot be read is routed with its table and stored state only."""
+    from tranibor_core.domain import TRACKER_FIELD
+
+    from ..services.tickets import project_tracker
+
+    key = str(event.work_item_key)
+    payload: dict[str, Any] = {**event.payload, "state": event.payload.get("state_value")}
+    block: dict[str, Any] | None = None
+    try:
+        row, adapter = await project_tracker(session, project)
+        if row is not None and row.type == "servicenow" and adapter is not None:
+            item = await adapter.fetch_item(key)
+            payload.update(
+                title=item.title,
+                body=item.body,
+                url=item.url,
+                labels=list(item.labels),
+                item_type=item.item_type,
+                state=item.state,
+                reporter=item.author,
+            )
+            found = item.fields.get(TRACKER_FIELD)
+            block = dict(found) if isinstance(found, dict) else None
+    except Exception as failed:  # the delivery is still routed; the block waits for the next one
+        logger.warning("servicenow.webhook.tracker_unread", key=key, error=str(failed)[:300])
+    return event.model_copy(update={"project_slug": project.slug, "payload": payload}), block
+
+
 # ───────────────────────────── Azure DevOps Repos and Pipelines (S13-08) ─────────────────────────────
 
 

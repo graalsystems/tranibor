@@ -6384,6 +6384,18 @@ paths:
         - { name: Authorization, in: header, required: false, schema: { type: string }, description: "`Basic` whose password is the shared webhook secret" }
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
       responses: { "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } } }
+  /webhooks/servicenow:
+    post:
+      tags: [webhooks]
+      security: []
+      operationId: servicenowWebhook
+      parameters:
+        - { name: X-Tranibor-Secret, in: header, required: false, schema: { type: string }, description: "The connector's `webhook_secret`, or the platform's shared webhook secret. Required." }
+      requestBody: { required: true, content: { application/json: { schema: { oneOf: [ { type: object, additionalProperties: true }, { type: array, items: { type: object, additionalProperties: true } } ] } } } }
+      responses:
+        "202": { description: Accepted, content: { application/json: { schema: { $ref: "#/components/schemas/WebhookAck" } } } }
+        "400": { description: The body is not what the Business Rule posts }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /webhooks/gitlab:
     post:
       tags: [webhooks]
